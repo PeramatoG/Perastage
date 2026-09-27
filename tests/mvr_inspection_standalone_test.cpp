@@ -60,6 +60,25 @@ bool HasCode(const MvrInspectionResult &result, const std::string &code) {
   return false;
 }
 
+// Counts top-level diagnostics with one stable code.
+std::size_t CountCode(const MvrInspectionResult &result,
+                      const std::string &code) {
+  return static_cast<std::size_t>(std::count_if(
+      result.inspection.diagnostics.begin(),
+      result.inspection.diagnostics.end(),
+      [&](const Diagnostic &diagnostic) { return diagnostic.code == code; }));
+}
+
+// Reports whether a validation layer contains one stable diagnostic code.
+bool ValidationHasCode(const MvrInspectionResult &result,
+                       const std::string &code) {
+  for (const ValidationResult &validation : result.validation)
+    for (const Diagnostic &diagnostic : validation.diagnostics)
+      if (diagnostic.code == code)
+        return true;
+  return false;
+}
+
 // Reports whether any inspection or validation finding has a classification.
 bool HasClassification(const MvrInspectionResult &result,
                        DiagnosticClassification classification) {
@@ -169,6 +188,9 @@ void AssertStableResultEqual(const MvrInspectionResult &left,
   assert(a.supports == b.supports);
   assert(a.sceneObjects == b.sceneObjects);
   assert(a.groupObjects == b.groupObjects);
+  assert(a.focusPoints == b.focusPoints);
+  assert(a.videoScreens == b.videoScreens);
+  assert(a.projectors == b.projectors);
   assert(a.positions == b.positions);
   assert(a.symdefs == b.symdefs);
   assert(a.foreignUserData == b.foreignUserData);
@@ -305,13 +327,123 @@ void TestValidationLayers() {
       BuildArchive({{"GeneralSceneDescription.xml", version15Fixture}}));
   assert(version15.snapshot && version15.snapshot->versionMinor == 5);
   assert(Validation(version15, ValidationLayer::Schema).status ==
-         ValidationStatus::Valid);
+         ValidationStatus::Unavailable);
+  assert(ValidationHasCode(version15, "mvr.schema.unavailable_for_version"));
   assert(
       Validation(version15, ValidationLayer::SemanticInteroperability).status ==
       ValidationStatus::Valid);
   assert(!HasCode(version15, "mvr.semantic.missing_provider"));
   assert(!HasCode(version15, "mvr.semantic.fixture_missing_child_list"));
   assert(!HasCode(version15, "mvr.semantic.fixture_type_id_not_allowed"));
+}
+
+// Verifies MVR 1.5 validation and neutral standard-node retention together.
+void TestVersion15NeutralSceneFacts() {
+  const std::string layerUuid = "10000000-0000-4000-8000-000000000015";
+  const std::string groupUuid = "20000000-0000-4000-8000-000000000015";
+  const std::string screenUuid = "30000000-0000-4000-8000-000000000015";
+  const std::string xml =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"5\">"
+      "<UserData><Data provider=\"Example\" ver=\"1\"><Owned><Value>"
+      "provider data</Value></Owned></Data></UserData><Scene><AUXData>"
+      "<Position uuid=\"90000000-0000-4000-8000-000000000001\" "
+      "name=\"Position\"/><Symdef "
+      "uuid=\"90000000-0000-4000-8000-000000000002\" "
+      "name=\"Symbol\"><Geometry3D fileName=\"models/symdef.3ds\"/>"
+      "</Symdef><Class uuid=\"90000000-0000-4000-8000-000000000003\" "
+      "name=\"Class\"/></AUXData><Layers><Layer uuid=\"" +
+      layerUuid +
+      "\" name=\"Layer\"><ChildList>"
+      "<Truss uuid=\"40000000-0000-4000-8000-000000000015\" name=\"Truss\">"
+      "<Geometries><Geometry3D fileName=\"models/truss.3ds\"/></Geometries>"
+      "</Truss><FocusPoint uuid=\"50000000-0000-4000-8000-000000000015\" "
+      "name=\"Focus\"><Geometries><Geometry3D fileName=\"models/focus.3ds\"/>"
+      "</Geometries></FocusPoint><Projector "
+      "uuid=\"60000000-0000-4000-8000-000000000015\" name=\"Projector\">"
+      "<Geometries><Geometry3D fileName=\"models/projector.3ds\"/></Geometries>"
+      "<GDTFSpec>projector.gdtf</GDTFSpec><Projections><Projection>"
+      "<Source type=\"File\">media/projector.mov</Source></Projection>"
+      "</Projections></Projector><Support "
+      "uuid=\"70000000-0000-4000-8000-000000000015\" name=\"Complete\">"
+      "<ChainLength>1.0</ChainLength><Geometries/></Support><Support "
+      "uuid=\"70000000-0000-4000-8000-000000000016\" name=\"Missing\">"
+      "<Geometries/></Support><GroupObject uuid=\"" +
+      groupUuid + "\" name=\"Group\"><ChildList><VideoScreen uuid=\"" +
+      screenUuid +
+      "\" name=\"Screen\"><Geometries><Geometry3D "
+      "fileName=\"models/screen.3ds\"/></Geometries><GDTFSpec>screen.gdtf"
+      "</GDTFSpec><FixtureID>Screen 1</FixtureID><UnitNumber>1</UnitNumber>"
+      "<FixtureTypeId>15</FixtureTypeId><Sources><Source "
+      "linkedGeometry=\"Display\" type=\"File\">"
+      "media/screen.mov</Source></Sources></VideoScreen></ChildList>"
+      "</GroupObject></ChildList></Layer></Layers></Scene>"
+      "</GeneralSceneDescription>";
+  const std::vector<std::pair<std::string, std::string>> entries = {
+      {"GeneralSceneDescription.xml", xml},
+      {"models/symdef.3ds", "symdef"},
+      {"models/truss.3ds", "truss"},
+      {"models/focus.3ds", "focus"},
+      {"models/projector.3ds", "projector"},
+      {"models/screen.3ds", "screen"},
+      {"projector.gdtf", "projector"},
+      {"screen.gdtf", "screen"},
+      {"media/projector.mov", "projector media"},
+      {"media/screen.mov", "screen media"}};
+  const std::vector<std::uint8_t> bytes = BuildArchive(entries);
+  const MvrInspectionResult owned = InspectMvrBytes(bytes);
+  assert(owned.Success() && owned.snapshot);
+  assert(Validation(owned, ValidationLayer::Schema).status ==
+         ValidationStatus::Unavailable);
+  assert(Validation(owned, ValidationLayer::Schema).schema);
+  assert(Validation(owned, ValidationLayer::Schema).schema->formatVersion ==
+         "1.5");
+  assert(Validation(owned, ValidationLayer::Schema).schema->schemaVersion ==
+         "not_published");
+  assert(Validation(owned, ValidationLayer::Schema).schema->sourceRevision ==
+         "addcca1bf9ba6c63552d63802015c098a4fc1d8d");
+  assert(ValidationHasCode(owned, "mvr.schema.unavailable_for_version"));
+  assert(!ValidationHasCode(owned, "schema.document.invalid"));
+  assert(HasCode(owned, "mvr.semantic.support_missing_chain_length"));
+  assert(CountCode(owned, "mvr.semantic.support_missing_chain_length") == 1);
+  assert(Validation(owned, ValidationLayer::SemanticInteroperability).status ==
+         ValidationStatus::Invalid);
+  assert(!HasCode(owned, "mvr.semantic.missing_provider"));
+  assert(!HasCode(owned, "mvr.semantic.fixture_missing_child_list"));
+  assert(owned.snapshot->foreignUserData.size() == 1);
+  assert(owned.snapshot->foreignUserData.front().xml.find("<Owned>") !=
+         std::string::npos);
+  assert(owned.snapshot->focusPoints.size() == 1);
+  assert(owned.snapshot->videoScreens.size() == 1);
+  assert(owned.snapshot->projectors.size() == 1);
+  assert(owned.snapshot->videoScreens.front().parentGroupUuid == groupUuid);
+  assert(owned.snapshot->groupObjects.front().childUuids ==
+         std::vector<std::string>{screenUuid});
+  assert(std::find(owned.snapshot->layers.front().childUuids.begin(),
+                   owned.snapshot->layers.front().childUuids.end(),
+                   screenUuid) ==
+         owned.snapshot->layers.front().childUuids.end());
+  const auto hasReference = [&](const char *kind, const char *path) {
+    return std::find(owned.snapshot->referencedResources.begin(),
+                     owned.snapshot->referencedResources.end(),
+                     MvrResourceReference{kind, path}) !=
+           owned.snapshot->referencedResources.end();
+  };
+  assert(hasReference("geometry", "models/focus.3ds"));
+  assert(hasReference("geometry", "models/screen.3ds"));
+  assert(hasReference("gdtf", "projector.gdtf"));
+  assert(hasReference("media", "media/projector.mov"));
+  assert(hasReference("media", "media/screen.mov"));
+
+  const fs::path path =
+      fs::temp_directory_path() / "perastage-mvr-15-neutral.mvr";
+  std::string error;
+  assert(tests::archive::WriteStoredZipWithRawNames(path, entries, error));
+  assert(error.empty());
+  const MvrInspectionResult filesystem = InspectMvr(path);
+  const MvrInspectionResult ownedWithPath =
+      InspectMvrBytes(bytes, Request{path});
+  AssertStableResultEqual(filesystem, ownedWithPath);
+  fs::remove(path);
 }
 
 // Verifies deterministic failure and immutability for malformed MVR containers.
@@ -686,6 +818,7 @@ void TestNonMvrPackageKind() {
 // Runs the standalone MVR inspection contract without application or GUI code.
 int main() {
   TestValidationLayers();
+  TestVersion15NeutralSceneFacts();
   TestMalformedOwnedInputMatrix();
   TestStandaloneInspectionParity();
   TestUnnamedAuthoredLayer();

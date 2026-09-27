@@ -95,7 +95,29 @@ void TestMvrReport() {
                                {},
                                embeddedGdtf,
                                {}});
-  snapshot.nodeCounts = {{"layers", 1}, {"fixtures", 1}};
+  snapshot.focusPoints.push_back(
+      {"focus_point", "focus-1", "Focus", "layer-1", "Main", {}, {}, {}});
+  snapshot.videoScreens.push_back({"video_screen",
+                                   "screen-1",
+                                   "Screen",
+                                   "layer-1",
+                                   "Main",
+                                   "group-1",
+                                   "models/screen.glb",
+                                   {}});
+  snapshot.projectors.push_back({"projector",
+                                 "projector-1",
+                                 "Projector",
+                                 "layer-1",
+                                 "Main",
+                                 {},
+                                 "projector.gdtf",
+                                 {}});
+  snapshot.nodeCounts = {{"layers", 1},
+                         {"fixtures", 1},
+                         {"focus_points", 1},
+                         {"video_screens", 1},
+                         {"projectors", 1}};
 
   const std::vector<ResourceDescriptor> resources = {
       Resource(PackageKind::Mvr)};
@@ -127,6 +149,11 @@ void TestMvrReport() {
   assert(serialized.at("provider") == provider);
   assert(serialized.at("root_xml") == "<GeneralSceneDescription/>");
   assert(serialized.at("fixtures").at(0).at("name") == fixtureName);
+  assert(serialized.at("focus_points").at(0).at("kind") == "focus_point");
+  assert(serialized.at("video_screens").at(0).at("parent_group_uuid") ==
+         "group-1");
+  assert(serialized.at("projectors").at(0).at("resource_reference") ==
+         "projector.gdtf");
   assert(serialized.at("node_counts").at(1).at("count") == 1);
   assert(serialized.at("embedded_gdtfs").at(0) == embeddedGdtf);
   assert(serialized.at("referenced_resources").at(0).at("archive_path") ==

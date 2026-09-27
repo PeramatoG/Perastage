@@ -78,6 +78,13 @@ stay distinct. Thus a parseable schema-invalid file has `success: true`,
 `has_findings: true`, an aggregate `worst_severity` of `error`, and exit code
 `1`. An unreadable file has `success: false` and exit code `3`.
 
+MVR validation is version-aware. MVR 1.6 uses the pinned official 1.6 XSD and
+the separate parser-level 1.6 semantic rules. No authoritative MVR 1.5 XSD is
+available in the pinned upstream schema history, so an MVR 1.5 report truthfully
+marks the schema layer `unavailable` and identifies the pinned specification
+revision used for parser-level 1.5 semantic checks; it is not tested against
+the incompatible structural expectations of the 1.6 XSD.
+
 When the CLI is publicly released, a published machine-facing CLI/schema
 contract will not silently remove, rename, type-change, or semantically
 reinterpret existing behavior. Additive JSON fields remain permitted under the
@@ -110,6 +117,8 @@ presentation text.
   package, resources, validation, and GDTF document or MVR snapshot facts over
   the minimal base result serialization. The base `SerializeResultToJson(Result)`
   contract remains unchanged.
+  MVR snapshots add deterministic `focus_points`, `video_screens`, and
+  `projectors` collections alongside the existing scene-node collections.
 
 Both presentation modes consume the same single in-memory result returned by
 `InspectGdtf` or `InspectMvr`. Resource metadata comes from the neutral resource

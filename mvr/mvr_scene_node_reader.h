@@ -20,6 +20,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace tinyxml2 {
@@ -72,6 +73,17 @@ struct SceneReadGdtfConflict {
   std::string modeName;
   int footprint = 0;
   bool hasDictionaryEntry = false;
+};
+
+// Retains source facts for standard nodes not represented by editable models.
+struct MvrNeutralSceneNode {
+  std::string kind;
+  std::string uuid;
+  std::string name;
+  std::string layerUuid;
+  std::string layerName;
+  std::string parentGroupUuid;
+  std::vector<std::pair<std::string, std::string>> resourceReferences;
 };
 
 struct SceneReadDictionaryEntry {
@@ -131,6 +143,10 @@ struct MvrSceneReadServices {
   std::function<void(const std::string &, const std::string &)>
       recordDirectLayerChildUuid;
   std::function<void(bool, bool)> recordFixtureStandardFacts;
+  std::function<void(const std::string &, bool)> recordSupportStandardFacts;
+  std::function<void(MvrNeutralSceneNode)> recordNeutralSceneNode;
+  std::function<void(const std::string &, const std::string &)>
+      recordGroupChildUuid;
   std::function<std::string(const std::string &)> ensurePosition;
   std::function<void(tinyxml2::XMLElement *, std::vector<SymdefGeometry> &,
                      std::string &, Matrix &)>

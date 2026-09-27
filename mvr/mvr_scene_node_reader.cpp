@@ -17,6 +17,7 @@
  */
 #include "mvr_scene_node_reader.h"
 #include "mvr_scene_node_reader_detail.h"
+#include "mvr_scene_node_reader_neutral.h"
 
 #include "filesystem_path_utils.h"
 #include "fixture_visual_color.h"
@@ -1230,7 +1231,8 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
           const std::string nodeName = name;
           if (nodeName == "Fixture" || nodeName == "Truss" ||
               nodeName == "Support" || nodeName == "SceneObject" ||
-              nodeName == "GroupObject") {
+              nodeName == "GroupObject" || nodeName == "FocusPoint" ||
+              nodeName == "VideoScreen" || nodeName == "Projector") {
             ++count;
           }
           if (tinyxml2::XMLElement *inner =
@@ -1301,6 +1303,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
           scene.groupObjects[parentGroupUuid].children.push_back(
               {MvrNodeType::Fixture, finalUuid});
         }
+        services.recordGroupChildUuid(parentGroupUuid, finalUuid);
       } else if (nodeName == "Truss") {
         const std::string finalUuid =
             parseTruss(child, layerName, nodeTransform, local, parentGroupUuid);
@@ -1310,7 +1313,11 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
           scene.groupObjects[parentGroupUuid].children.push_back(
               {MvrNodeType::Truss, finalUuid});
         }
+        services.recordGroupChildUuid(parentGroupUuid, finalUuid);
       } else if (nodeName == "Support") {
+        services.recordSupportStandardFacts(
+            child->Attribute("uuid") ? child->Attribute("uuid") : "",
+            child->FirstChildElement("ChainLength") != nullptr);
         const std::string finalUuid = parseSupport(
             child, layerName, nodeTransform, local, parentGroupUuid);
         recordLayerOwnership(finalUuid);
@@ -1319,6 +1326,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
           scene.groupObjects[parentGroupUuid].children.push_back(
               {MvrNodeType::Support, finalUuid});
         }
+        services.recordGroupChildUuid(parentGroupUuid, finalUuid);
       } else if (nodeName == "SceneObject") {
         const std::string finalUuid = parseSceneObj(
             child, layerName, nodeTransform, local, parentGroupUuid);
@@ -1328,6 +1336,17 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
           scene.groupObjects[parentGroupUuid].children.push_back(
               {MvrNodeType::SceneObject, finalUuid});
         }
+        services.recordGroupChildUuid(parentGroupUuid, finalUuid);
+      } else if (nodeName == "FocusPoint" || nodeName == "VideoScreen" ||
+                 nodeName == "Projector") {
+        MvrNeutralSceneNode neutral =
+            scene_reader_detail::BuildNeutralSceneNode(
+                child, nodeName, layerUuid, layerName, parentGroupUuid);
+        const std::string nodeUuid = neutral.uuid;
+        recordLayerOwnership(nodeUuid);
+        services.recordNeutralSceneNode(std::move(neutral));
+        services.recordGroupChildUuid(parentGroupUuid, nodeUuid);
+        reportNodeProgress(nodeName.c_str());
       } else if (nodeName == "GroupObject") {
         GroupObject group;
         group.uuid =
@@ -1345,6 +1364,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
           scene.groupObjects[parentGroupUuid].children.push_back(
               {MvrNodeType::GroupObject, group.uuid});
         }
+        services.recordGroupChildUuid(parentGroupUuid, group.uuid);
         ++preservedGroupObjectCount;
         if (tinyxml2::XMLElement *inner = child->FirstChildElement("ChildList"))
           parseChildList(inner, layerName, layerUuid, nodeTransform, group.uuid,

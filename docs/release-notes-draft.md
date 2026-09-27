@@ -23,7 +23,10 @@ Changes since **v1.6.0**.
 - Corrected Inspector and development CLI handling of large XML package
   resources, aligned complete-report validation outcomes with CLI exit codes,
   and removed duplicate human-facing diagnostic rows without discarding
-  structured validation provenance.
+  structured validation provenance. MVR 1.5 inspection now avoids misleading
+  MVR 1.6 schema errors while retaining provable 1.5 standards findings, and
+  read-only scene snapshots now include focus points, video screens, and
+  projectors with their deterministic packaged-resource references.
 
 - Restored fixture-category fallback diagnostics during normal MVR imports.
 
