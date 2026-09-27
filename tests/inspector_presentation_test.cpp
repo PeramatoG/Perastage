@@ -1,10 +1,18 @@
 #include "inspection/inspector_presentation.h"
 
+#include "filesystem_path_utils.h"
+
 #include <cassert>
 #include <filesystem>
 #include <string>
 
 namespace {
+
+// Converts a UTF-8 code-unit sequence without using the execution code page.
+std::string Utf8String(const std::u8string &value) {
+  return std::string(reinterpret_cast<const char *>(value.data()),
+                     value.size());
+}
 
 // Builds one file resource descriptor for presentation mapping checks.
 perastage::inspection::ResourceDescriptor
@@ -17,20 +25,21 @@ Resource(perastage::inspection::ResourceKind kind) {
 
 // Verifies every structured location component and Unicode path is retained.
 void CheckDiagnosticLocation() {
+  const std::string unicodePath =
+      Utf8String(u8"/shows/\u7167\u660E/escena.mvr");
   perastage::inspection::Diagnostic diagnostic;
   perastage::inspection::DiagnosticLocation location;
-  location.sourcePath = std::filesystem::path(
-      reinterpret_cast<const char8_t *>(u8"/shows/照明/escena.mvr"));
+  location.sourcePath = PathUtils::PathFromUtf8(unicodePath);
   location.packageEntry = "nested/fixture.gdtf";
   location.xmlPath = "/GeneralSceneDescription/Scene/Layers";
   location.line = 42;
   location.column = 9;
   diagnostic.location = location;
 
-  assert(gui::inspection::DiagnosticLocationText(diagnostic) ==
-         "source_path=/shows/照明/escena.mvr; "
-         "package_entry=nested/fixture.gdtf; "
-         "xml_path=/GeneralSceneDescription/Scene/Layers; line=42; column=9");
+  const std::string expected =
+      "source_path=" + unicodePath + "; package_entry=nested/fixture.gdtf; " +
+      "xml_path=/GeneralSceneDescription/Scene/Layers; line=42; column=9";
+  assert(gui::inspection::DiagnosticLocationText(diagnostic) == expected);
 }
 
 // Verifies Core GDTF read states remain distinct at presentation time.

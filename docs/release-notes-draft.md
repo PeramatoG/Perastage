@@ -11,7 +11,8 @@ Changes since **v1.6.0**.
   exact retained XML, search and copy tools, and layout persistence that never
   changes the active project. Resource classifications now use bounded Core
   inspection, while Unicode paths and complete structured diagnostic locations
-  are preserved across supported platforms.
+  are preserved across supported platforms. The Inspector remains grouped with
+  the other workspace switches in the Layout Views toolbar.
 
 ## Compatibility, stability, and performance
 

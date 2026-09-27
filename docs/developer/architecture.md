@@ -216,13 +216,16 @@ foundation. Viewer and App sources are not dependencies of this target.
 INS-110 adds `perastage_gdtf_read` as the single production owner of
 `gdtf_archive_reader.cpp`, `gdtf_description_reader.cpp`, and
 `gdtf/editor/gdtf_document.cpp`. The application and the focused
-`perastage_inspection_gdtf` target independently consume that implementation;
-the inspection service is not linked into the application until a real
-frontend consumes it. The read target keeps tinyxml2 and wxWidgets base/archive
-facilities private, using `wx::base` with config packages and base-only flags
-from the already-selected `wx-config` on Linux and macOS. Its public headers
-expose only standard C++ and immutable GDTF read models. The application's
-existing aggregate wx GUI dependency list remains unchanged.
+Inspection Core targets independently consume that implementation. The CLI and
+wxWidgets Inspector are separate frontends over those services, and the normal
+GUI application links only the focused GDTF, MVR, and resource inspection
+targets required by the Inspector. GUI code owns presentation and layout only;
+parsing, package access, validation, and mutation remain in their Core owners,
+while CLI serialization and formatting remain CLI-owned. The read target keeps
+tinyxml2 and wxWidgets base/archive facilities private, using `wx::base` with
+config packages and base-only flags from the already-selected `wx-config` on
+Linux and macOS. Its public headers expose only standard C++ and immutable GDTF
+read models.
 
 `perastage_inspection_gdtf` composes INS-100 package inventory with
 `LoadGdtfDocument`. The existing archive snapshot exposes the selected raw
