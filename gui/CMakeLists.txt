@@ -61,6 +61,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfsearchdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_share_message_formatter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_share_download_workflow.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_presentation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_workspace_panel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hang_position_dialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/highlight_status_bar.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hoist_load_limit_utils.cpp
@@ -159,4 +161,10 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow/controllers
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow/ids
+)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    perastage_inspection_gdtf
+    perastage_inspection_mvr
+    perastage_inspection_resource
 )

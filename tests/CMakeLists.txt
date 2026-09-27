@@ -182,6 +182,16 @@ set_perastage_test_labels(ResourceInspection
                           LAYER standard-strict
                           DOMAINS architecture core zip gdtf mvr security)
 
+add_executable(inspector_presentation_test
+               inspector_presentation_test.cpp
+               ../gui/inspection/inspector_presentation.cpp
+               ../core/filesystem_path_utils.cpp)
+target_include_directories(inspector_presentation_test PRIVATE ../gui ../core)
+add_test(NAME InspectorPresentation COMMAND inspector_presentation_test)
+set_perastage_test_labels(InspectorPresentation
+                          LAYER standard-strict
+                          DOMAINS architecture gui inspection gdtf mvr)
+
 add_executable(mvr_inspection_standalone_test
                mvr_inspection_standalone_test.cpp)
 target_include_directories(mvr_inspection_standalone_test PRIVATE ../core)
@@ -272,6 +282,7 @@ if(BASH_EXECUTABLE)
     add_repository_policy_test(CoreMvrCoverageReport ${Python3_EXECUTABLE} LABELS standard-strict architecture core inspection ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_core_mvr_coverage_report.py)
     add_bash_policy_test(DocsPerastageTreeModules ${CMAKE_CURRENT_SOURCE_DIR}/check_perastage_tree_modules.sh)
     add_bash_policy_test(GuiNoConfigManagerGet ${CMAKE_CURRENT_SOURCE_DIR}/check_no_configmanager_get_in_gui.sh)
+    add_bash_policy_test(GuiInspectorBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_gui_inspector_boundary.sh LABELS standard-strict architecture gui inspection)
     add_bash_policy_test(LayoutViewerSelectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_selection_boundary.sh LABELS standard-strict architecture gui)
     add_bash_policy_test(MvrSceneNodeReaderBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_scene_node_reader_boundary.sh)
     add_bash_policy_test(MvrImportResourceResolverBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_import_resource_resolver_boundary.sh)

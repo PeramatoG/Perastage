@@ -6,6 +6,14 @@ Changes since **v1.6.0**.
 
 ## New features and workflow improvements
 
+- Added a native, read-only MVR / GDTF Inspector workspace alongside the 3D,
+  2D, and Layout Mode views, with package browsing, structured diagnostics,
+  exact retained XML, search and copy tools, and layout persistence that never
+  changes the active project. Resource classifications now use bounded Core
+  inspection, while Unicode paths and complete structured diagnostic locations
+  are preserved across supported platforms. The Inspector remains grouped with
+  the other workspace switches in the Layout Views toolbar.
+
 ## Compatibility, stability, and performance
 
 - Strengthened read-only Inspector reliability with complete deterministic parity, malformed-container, Unicode resource, diagnostic-separation, and non-mutation characterization, and made Inspector coverage explicitly visible in the informational Core/MVR report.

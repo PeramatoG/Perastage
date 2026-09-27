@@ -36,6 +36,7 @@ const std::vector<LayoutViewPreset> kLayoutViewPresets = {
             "2DRenderOptions",
             "LayoutPanel",
             "LayoutViewer",
+            "InspectorWorkspace",
         },
     },
     {
@@ -53,6 +54,7 @@ const std::vector<LayoutViewPreset> kLayoutViewPresets = {
             "3DViewport",
             "LayoutPanel",
             "LayoutViewer",
+            "InspectorWorkspace",
         },
     },
     {
@@ -70,13 +72,32 @@ const std::vector<LayoutViewPreset> kLayoutViewPresets = {
             "LayerPanel",
             "SummaryPanel",
             "RiggingPanel",
+            "InspectorWorkspace",
+        },
+    },
+    {
+        "inspector_view",
+        {
+            "InspectorWorkspace",
+            "Console",
+        },
+        {
+            "3DViewport",
+            "2DViewport",
+            "2DRenderOptions",
+            "DataNotebook",
+            "LayerPanel",
+            "SummaryPanel",
+            "RiggingPanel",
+            "LayoutPanel",
+            "LayoutViewer",
         },
     },
 };
 } // namespace
 
-const LayoutViewPreset *LayoutViewPresetRegistry::GetPreset(
-    const std::string &name) {
+const LayoutViewPreset *
+LayoutViewPresetRegistry::GetPreset(const std::string &name) {
   auto it = std::find_if(
       kLayoutViewPresets.begin(), kLayoutViewPresets.end(),
       [&name](const LayoutViewPreset &preset) { return preset.name == name; });

@@ -14,6 +14,7 @@ required_tools=(
   ID_View_Layout_Default
   ID_View_Layout_2D
   ID_View_Layout_Mode
+  ID_View_Layout_Inspector
 )
 
 for tool_id in "${required_tools[@]}"; do
@@ -35,7 +36,7 @@ body = text[start:end]
 sections = [
     ("fileToolBar", "editToolBar", 7),
     ("editToolBar", "layoutViewsToolBar", 5),
-    ("layoutViewsToolBar", "toolsToolBar", 14),
+    ("layoutViewsToolBar", "toolsToolBar", 15),
     ("toolsToolBar", "layoutToolBar", 5),
     ("layoutToolBar", "UpdateToolBarAvailability();", 5),
 ]
@@ -50,6 +51,22 @@ for toolbar, next_marker, expected in sections:
         raise SystemExit(
             f"{toolbar} tool count changed: expected {expected}, found {actual}"
         )
+
+layout_start = body.index("layoutViewsToolBar =")
+layout_end = body.index("toolsToolBar", layout_start)
+layout_section = body[layout_start:layout_end]
+switch_ids = [
+    "ID_View_Layout_Default",
+    "ID_View_Layout_2D",
+    "ID_View_Layout_Mode",
+    "ID_View_Layout_Inspector",
+]
+switch_positions = [layout_section.index(tool_id) for tool_id in switch_ids]
+first_separator = layout_section.index("layoutViewsToolBar->AddSeparator()")
+if switch_positions != sorted(switch_positions) or switch_positions[-1] >= first_separator:
+    raise SystemExit(
+        "Layout View switching tools must remain grouped before viewport tools"
+    )
 PY
 
 availability_body="$({ sed -n '/void MainWindow::UpdateToolBarAvailability()/,/^}/p' "$window_source"; })"

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-18 11:53+0000\n"
+"POT-Creation-Date: 2026-09-27 03:09+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -57,7 +57,9 @@ msgid "License"
 msgstr "许可证"
 
 #: gui/about_dialog.cpp:152
-msgid "This software is licensed under the GNU General Public License version 3 or later."
+msgid ""
+"This software is licensed under the GNU General Public License version 3 or "
+"later."
 msgstr "本软件采用 GNU 通用公共许可证第 3 版或更高版本授权。"
 
 #: gui/about_dialog.cpp:153
@@ -75,11 +77,11 @@ msgid ""
 msgstr ""
 "Perastage 基于开源技术构建。完整的依赖项和许可证信息可在项目仓库中查看。"
 
-#: gui/about_dialog.cpp:166 gui/mainwindow_menu_builders.cpp:132
+#: gui/about_dialog.cpp:166 gui/mainwindow_menu_builders.cpp:133
 msgid "About Perastage"
 msgstr "关于 Perastage"
 
-#: gui/addfixturedialog.cpp:24 gui/mainwindow_menu.cpp:324
+#: gui/addfixturedialog.cpp:24 gui/mainwindow_menu.cpp:325
 msgid "Add Fixture"
 msgstr "添加灯具"
 
@@ -130,7 +132,7 @@ msgstr "DMX 域："
 msgid "Channel:"
 msgstr "通道："
 
-#: gui/addsceneobjectdialog.cpp:11 gui/mainwindow_menu.cpp:331
+#: gui/addsceneobjectdialog.cpp:11 gui/mainwindow_menu.cpp:332
 msgid "Add Scene Object"
 msgstr "添加场景对象"
 
@@ -143,7 +145,7 @@ msgstr "数量："
 msgid "Insertion point %s"
 msgstr "插入点 %s"
 
-#: gui/addtrussdialog.cpp:71 gui/mainwindow_menu.cpp:327
+#: gui/addtrussdialog.cpp:71 gui/mainwindow_menu.cpp:328
 msgid "Add Truss"
 msgstr "添加桁架"
 
@@ -192,8 +194,8 @@ msgstr ""
 "选择是保留现有文件还是使用新导出的文件。"
 
 #: gui/dictionary_export_conflict_dialog.cpp:29
-#: gui/dictionaryeditdialog.cpp:516 gui/dictionaryeditdialog.cpp:571
-#: gui/mainwindow_menu.cpp:192
+#: gui/dictionaryeditdialog.cpp:515 gui/dictionaryeditdialog.cpp:571
+#: gui/mainwindow_menu.cpp:190
 msgid "File"
 msgstr "文件"
 
@@ -232,6 +234,7 @@ msgid "Path: -"
 msgstr "小路： -"
 
 #: gui/dictionary_selection_controls.cpp:39
+#: gui/inspection/inspector_workspace_panel.cpp:204
 msgid "Open..."
 msgstr "打开"
 
@@ -264,7 +267,7 @@ msgstr "字典："
 msgid "Path: "
 msgstr "小路："
 
-#: gui/dictionaryeditdialog.cpp:245
+#: gui/dictionaryeditdialog.cpp:244
 #, c-format
 msgid ""
 "Found file references in the loaded dictionary.\n"
@@ -279,7 +282,7 @@ msgstr ""
 "找到文件的条目：%zu\n"
 "缺少文件的条目：%zu"
 
-#: gui/dictionaryeditdialog.cpp:251
+#: gui/dictionaryeditdialog.cpp:250
 msgid ""
 "\n"
 "Missing files:"
@@ -287,7 +290,7 @@ msgstr ""
 "\n"
 "缺少文件："
 
-#: gui/dictionaryeditdialog.cpp:257
+#: gui/dictionaryeditdialog.cpp:256
 msgid ""
 "\n"
 "\n"
@@ -297,20 +300,20 @@ msgstr ""
 "\n"
 "您只想导出参考文献吗？"
 
-#: gui/dictionaryeditdialog.cpp:261
+#: gui/dictionaryeditdialog.cpp:260
 msgid "Export references only"
 msgstr "仅导出参考"
 
-#: gui/dictionaryeditdialog.cpp:261 gui/dictionaryeditdialog.cpp:294
+#: gui/dictionaryeditdialog.cpp:260 gui/dictionaryeditdialog.cpp:293
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
 #: gui/dictionaryeditdialog.cpp:941 gui/gdtfsearchdialog.cpp:151
 #: gui/layout2dviewdialog.cpp:75 gui/layouttextdialog.cpp:149
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
-#: gui/scene_object_primitive_dialogs.cpp:139 mvr/mvrimporter.cpp:1811
+#: gui/scene_object_primitive_dialogs.cpp:139 mvr/mvrimporter.cpp:757
 msgid "Cancel"
 msgstr "取消"
 
-#: gui/dictionaryeditdialog.cpp:272
+#: gui/dictionaryeditdialog.cpp:271
 #, c-format
 msgid ""
 "Some imported file references could not be resolved before applying:\n"
@@ -325,7 +328,7 @@ msgstr ""
 "找到的条目：%zu\n"
 "缺失的条目：%zu"
 
-#: gui/dictionaryeditdialog.cpp:277
+#: gui/dictionaryeditdialog.cpp:276
 msgid ""
 "\n"
 "\n"
@@ -335,7 +338,7 @@ msgstr ""
 "\n"
 "缺少示例："
 
-#: gui/dictionaryeditdialog.cpp:281
+#: gui/dictionaryeditdialog.cpp:280
 msgid ""
 "\n"
 "\n"
@@ -345,15 +348,15 @@ msgstr ""
 "\n"
 "仍然继续导入吗？"
 
-#: gui/dictionaryeditdialog.cpp:292
+#: gui/dictionaryeditdialog.cpp:291
 msgid "Rename (stable: <basename>_<hash>.<ext>)"
 msgstr "重命名（稳定：<basename>_<hash>.<ext>）"
 
-#: gui/dictionaryeditdialog.cpp:293
+#: gui/dictionaryeditdialog.cpp:292
 msgid "Overwrite existing file"
 msgstr "覆盖现有文件"
 
-#: gui/dictionaryeditdialog.cpp:299
+#: gui/dictionaryeditdialog.cpp:298
 #, c-format
 msgid ""
 "The destination file already exists with different content.\n"
@@ -370,11 +373,11 @@ msgstr ""
 "\n"
 "选择冲突策略："
 
-#: gui/dictionaryeditdialog.cpp:303
+#: gui/dictionaryeditdialog.cpp:302
 msgid "File conflict"
 msgstr "文件冲突"
 
-#: gui/dictionaryeditdialog.cpp:396
+#: gui/dictionaryeditdialog.cpp:395
 #, c-format
 msgid ""
 "Added: %zu\n"
@@ -387,40 +390,40 @@ msgstr ""
 "跳过：%zu\n"
 "丢失文件：%zu\n"
 
-#: gui/dictionaryeditdialog.cpp:400
+#: gui/dictionaryeditdialog.cpp:399
 msgid "Missing file examples:"
 msgstr "缺少文件示例："
 
-#: gui/dictionaryeditdialog.cpp:405
+#: gui/dictionaryeditdialog.cpp:404
 #, c-format
 msgid "Errors: %zu"
 msgstr "错误：%zu"
 
-#: gui/dictionaryeditdialog.cpp:416 gui/dictionaryeditdialog.cpp:427
+#: gui/dictionaryeditdialog.cpp:415 gui/dictionaryeditdialog.cpp:426
 msgid "AddMissing: insert only missing keys"
 msgstr "AddMissing：仅插入缺失的键"
 
-#: gui/dictionaryeditdialog.cpp:418 gui/dictionaryeditdialog.cpp:428
+#: gui/dictionaryeditdialog.cpp:417 gui/dictionaryeditdialog.cpp:427
 msgid "AddAndOverwrite: insert new keys and overwrite matches"
 msgstr "AddAndOverwrite：插入新键并覆盖匹配项"
 
-#: gui/dictionaryeditdialog.cpp:420 gui/dictionaryeditdialog.cpp:429
+#: gui/dictionaryeditdialog.cpp:419 gui/dictionaryeditdialog.cpp:428
 msgid "ReplaceAll: discard current dictionary and use imported one"
 msgstr "ReplaceAll：放弃当前字典并使用导入的字典"
 
-#: gui/dictionaryeditdialog.cpp:422
+#: gui/dictionaryeditdialog.cpp:421
 msgid "Unknown policy"
 msgstr "政策未知"
 
-#: gui/dictionaryeditdialog.cpp:430
+#: gui/dictionaryeditdialog.cpp:429
 msgid "Select import policy"
 msgstr "选择进口政策"
 
-#: gui/dictionaryeditdialog.cpp:431
+#: gui/dictionaryeditdialog.cpp:430
 msgid "Dictionary import"
 msgstr "词典导入"
 
-#: gui/dictionaryeditdialog.cpp:447
+#: gui/dictionaryeditdialog.cpp:446
 msgid ""
 "This will replace all current entries in the fixtures dictionary.\n"
 "This action is destructive.\n"
@@ -432,7 +435,7 @@ msgstr ""
 "\n"
 "继续吗？"
 
-#: gui/dictionaryeditdialog.cpp:449
+#: gui/dictionaryeditdialog.cpp:448
 msgid ""
 "This will replace all current entries in the trusses dictionary.\n"
 "This action is destructive.\n"
@@ -444,48 +447,48 @@ msgstr ""
 "\n"
 "继续吗？"
 
-#: gui/dictionaryeditdialog.cpp:451
+#: gui/dictionaryeditdialog.cpp:450
 msgid "Confirm replace all"
 msgstr "确认全部替换"
 
-#: gui/dictionaryeditdialog.cpp:458
+#: gui/dictionaryeditdialog.cpp:457
 msgid "Dictionary duplicated successfully."
 msgstr "字典复制成功。"
 
-#: gui/dictionaryeditdialog.cpp:476
+#: gui/dictionaryeditdialog.cpp:475
 msgid "Could not duplicate the dictionary."
 msgstr "无法复制字典。"
 
-#: gui/dictionaryeditdialog.cpp:514 gui/dictionaryeditdialog.cpp:569
-#: gui/fixturetable/fixture_table_columns.cpp:12 gui/hoisttablepanel.cpp:487
-#: gui/sceneobjecttablepanel.cpp:259 gui/trusstablepanel.cpp:302
+#: gui/dictionaryeditdialog.cpp:513 gui/dictionaryeditdialog.cpp:569
+#: gui/fixturetable/fixture_table_columns.cpp:12 gui/hoisttablepanel.cpp:460
+#: gui/sceneobjecttablepanel.cpp:263 gui/trusstablepanel.cpp:300
 msgid "Name"
 msgstr "名称"
 
-#: gui/dictionaryeditdialog.cpp:518
+#: gui/dictionaryeditdialog.cpp:517
 #: gui/fixturetable/fixture_table_columns.cpp:15
 #: gui/gdtf/gdtf_modes_panel.cpp:201
 #: gui/rider_fixture_resolution_dialog.cpp:111
 msgid "Mode"
 msgstr "模式"
 
-#: gui/dictionaryeditdialog.cpp:520 gui/dictionaryeditdialog.cpp:2236
-#: gui/fixturetable/fixture_table_columns.cpp:21 gui/fixturetablepanel.cpp:853
+#: gui/dictionaryeditdialog.cpp:519 gui/dictionaryeditdialog.cpp:2236
+#: gui/fixturetable/fixture_table_columns.cpp:21 gui/fixturetablepanel.cpp:851
 msgid "Category"
 msgstr "类别"
 
-#: gui/dictionaryeditdialog.cpp:525
+#: gui/dictionaryeditdialog.cpp:524
 #: gui/fixturetable/fixture_table_columns.cpp:21
 msgid "Type Color"
 msgstr "类型颜色"
 
-#: gui/dictionaryeditdialog.cpp:599 gui/mainwindow_layout.cpp:321
-#: gui/mainwindow_menu_builders.cpp:78 gui/mainwindow_print.cpp:633
+#: gui/dictionaryeditdialog.cpp:599 gui/mainwindow_layout.cpp:329
+#: gui/mainwindow_menu_builders.cpp:79 gui/mainwindow_print.cpp:633
 #: gui/riggingpanel.cpp:185 gui/summarypanel.cpp:137
 msgid "Fixtures"
 msgstr "灯具"
 
-#: gui/dictionaryeditdialog.cpp:600 gui/mainwindow_layout.cpp:326
+#: gui/dictionaryeditdialog.cpp:600 gui/mainwindow_layout.cpp:334
 #: gui/mainwindow_print.cpp:636 gui/riggingpanel.cpp:188
 #: gui/summarypanel.cpp:170
 msgid "Trusses"
@@ -515,7 +518,7 @@ msgstr "导出 MVR..."
 
 #: gui/dictionaryeditdialog.cpp:610 gui/layout2dviewdialog.cpp:74
 #: gui/mvr_export_result_dialog.cpp:97
-#: gui/scene_object_primitive_dialogs.cpp:138 mvr/mvrimporter.cpp:1813
+#: gui/scene_object_primitive_dialogs.cpp:138 mvr/mvrimporter.cpp:759
 msgid "OK"
 msgstr "确定"
 
@@ -536,7 +539,7 @@ msgstr "%s 字典页面有未保存的表编辑。在 %s 之前保存它们？"
 msgid "Unsaved dictionary edits"
 msgstr "未保存的词典编辑"
 
-#: gui/dictionaryeditdialog.cpp:874 gui/mainwindow_menu.cpp:173
+#: gui/dictionaryeditdialog.cpp:874 gui/mainwindow_menu.cpp:171
 msgid "Save"
 msgstr "保存"
 
@@ -819,19 +822,19 @@ msgstr ""
 "\n"
 
 #: gui/dictionaryeditdialog.cpp:1521 gui/dictionaryeditdialog.cpp:2276
-#: gui/fixtureeditdialog.cpp:863 gui/fixturetablepanel.cpp:527
+#: gui/fixtureeditdialog.cpp:863 gui/fixturetablepanel.cpp:525
 #: gui/mainwindow_fixture_replace.cpp:222 gui/mainwindow_menu.cpp:1148
 #: gui/mainwindow_menu.cpp:1171
 msgid "Select GDTF file"
 msgstr "选择 GDTF 文件"
 
 #: gui/dictionaryeditdialog.cpp:1537 gui/dictionaryeditdialog.cpp:2220
-#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:695
+#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:693
 msgid "Select DMX mode"
 msgstr "选择 DMX 模式"
 
 #: gui/dictionaryeditdialog.cpp:1537 gui/dictionaryeditdialog.cpp:2220
-#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:695
+#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:693
 msgid "DMX Mode"
 msgstr "DMX 模式"
 
@@ -1092,7 +1095,7 @@ msgstr ""
 "桁架字典恢复为默认值.\n"
 "\n"
 
-#: gui/dictionaryeditdialog.cpp:2236 gui/fixturetablepanel.cpp:853
+#: gui/dictionaryeditdialog.cpp:2236 gui/fixturetablepanel.cpp:851
 msgid "Select category"
 msgstr "选择类别"
 
@@ -1205,21 +1208,22 @@ msgstr "GDTF 更新"
 msgid "Fixture ID"
 msgstr "灯具 ID"
 
-#: gui/fixturetable/fixture_table_columns.cpp:13 gui/hoisttablepanel.cpp:488
-#: gui/summarypanel.cpp:260 gui/summarypanel.cpp:269 mvr/mvrimporter.cpp:336
+#: gui/fixturetable/fixture_table_columns.cpp:13 gui/hoisttablepanel.cpp:461
+#: gui/inspection/inspector_workspace_panel.cpp:217 gui/summarypanel.cpp:260
+#: gui/summarypanel.cpp:269 mvr/mvrimporter.cpp:328
 msgid "Type"
 msgstr "类型"
 
-#: gui/fixturetable/fixture_table_columns.cpp:13 gui/fixturetablepanel.cpp:744
-#: gui/hoisttablepanel.cpp:492 gui/hoisttablepanel.cpp:811
-#: gui/layerpanel.cpp:85 gui/sceneobjecttablepanel.cpp:260
-#: gui/sceneobjecttablepanel.cpp:428 gui/trusstablepanel.cpp:302
-#: gui/trusstablepanel.cpp:535
+#: gui/fixturetable/fixture_table_columns.cpp:13 gui/fixturetablepanel.cpp:742
+#: gui/hoisttablepanel.cpp:465 gui/hoisttablepanel.cpp:784
+#: gui/layerpanel.cpp:85 gui/sceneobjecttablepanel.cpp:264
+#: gui/sceneobjecttablepanel.cpp:432 gui/trusstablepanel.cpp:300
+#: gui/trusstablepanel.cpp:533
 msgid "Layer"
 msgstr "图层"
 
-#: gui/fixturetable/fixture_table_columns.cpp:14 gui/hoisttablepanel.cpp:493
-#: gui/trusstablepanel.cpp:302
+#: gui/fixturetable/fixture_table_columns.cpp:14 gui/hoisttablepanel.cpp:466
+#: gui/trusstablepanel.cpp:300
 msgid "Hang Pos"
 msgstr "吊挂位置"
 
@@ -1239,42 +1243,42 @@ msgstr "通道数"
 msgid "Model file"
 msgstr "模型文件"
 
-#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:283
-#: gui/fixturetablepanel.cpp:316 gui/hoisttablepanel.cpp:494
-#: gui/hoisttablepanel.cpp:527 gui/sceneobjecttablepanel.cpp:262
-#: gui/sceneobjecttablepanel.cpp:287 gui/trusstablepanel.cpp:303
-#: gui/trusstablepanel.cpp:336
+#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:280
+#: gui/fixturetablepanel.cpp:314 gui/hoisttablepanel.cpp:467
+#: gui/hoisttablepanel.cpp:500 gui/sceneobjecttablepanel.cpp:266
+#: gui/sceneobjecttablepanel.cpp:291 gui/trusstablepanel.cpp:301
+#: gui/trusstablepanel.cpp:334
 msgid "Pos X"
 msgstr "位置 X"
 
-#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:286
-#: gui/fixturetablepanel.cpp:319 gui/hoisttablepanel.cpp:495
-#: gui/hoisttablepanel.cpp:528 gui/sceneobjecttablepanel.cpp:263
-#: gui/sceneobjecttablepanel.cpp:288 gui/trusstablepanel.cpp:303
-#: gui/trusstablepanel.cpp:337
+#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:283
+#: gui/fixturetablepanel.cpp:317 gui/hoisttablepanel.cpp:468
+#: gui/hoisttablepanel.cpp:501 gui/sceneobjecttablepanel.cpp:267
+#: gui/sceneobjecttablepanel.cpp:292 gui/trusstablepanel.cpp:301
+#: gui/trusstablepanel.cpp:335
 msgid "Pos Y"
 msgstr "位置 Y"
 
-#: gui/fixturetable/fixture_table_columns.cpp:18 gui/fixturetablepanel.cpp:289
-#: gui/fixturetablepanel.cpp:322 gui/hoisttablepanel.cpp:496
-#: gui/hoisttablepanel.cpp:529 gui/sceneobjecttablepanel.cpp:264
-#: gui/sceneobjecttablepanel.cpp:289 gui/trusstablepanel.cpp:303
-#: gui/trusstablepanel.cpp:338
+#: gui/fixturetable/fixture_table_columns.cpp:18 gui/fixturetablepanel.cpp:286
+#: gui/fixturetablepanel.cpp:320 gui/hoisttablepanel.cpp:469
+#: gui/hoisttablepanel.cpp:502 gui/sceneobjecttablepanel.cpp:268
+#: gui/sceneobjecttablepanel.cpp:293 gui/trusstablepanel.cpp:301
+#: gui/trusstablepanel.cpp:336
 msgid "Pos Z"
 msgstr "位置 Z"
 
-#: gui/fixturetable/fixture_table_columns.cpp:18 gui/hoisttablepanel.cpp:497
-#: gui/sceneobjecttablepanel.cpp:265
+#: gui/fixturetable/fixture_table_columns.cpp:18 gui/hoisttablepanel.cpp:470
+#: gui/sceneobjecttablepanel.cpp:269
 msgid "Roll (X)"
 msgstr "横滚 (X)"
 
-#: gui/fixturetable/fixture_table_columns.cpp:19 gui/hoisttablepanel.cpp:498
-#: gui/sceneobjecttablepanel.cpp:266
+#: gui/fixturetable/fixture_table_columns.cpp:19 gui/hoisttablepanel.cpp:471
+#: gui/sceneobjecttablepanel.cpp:270
 msgid "Pitch (Y)"
 msgstr "俯仰 (Y)"
 
-#: gui/fixturetable/fixture_table_columns.cpp:19 gui/hoisttablepanel.cpp:499
-#: gui/sceneobjecttablepanel.cpp:267
+#: gui/fixturetable/fixture_table_columns.cpp:19 gui/hoisttablepanel.cpp:472
+#: gui/sceneobjecttablepanel.cpp:271
 msgid "Yaw (Z)"
 msgstr "偏航 (Z)"
 
@@ -1291,39 +1295,39 @@ msgstr "重量 (kg)"
 msgid "Color Filter"
 msgstr "滤色片"
 
-#: gui/fixturetablepanel.cpp:292 gui/fixturetablepanel.cpp:325
-#: gui/hoisttablepanel.cpp:502 gui/hoisttablepanel.cpp:533
-#: gui/trusstablepanel.cpp:306 gui/trusstablepanel.cpp:342
+#: gui/fixturetablepanel.cpp:289 gui/fixturetablepanel.cpp:323
+#: gui/hoisttablepanel.cpp:475 gui/hoisttablepanel.cpp:506
+#: gui/trusstablepanel.cpp:304 gui/trusstablepanel.cpp:340
 #: tests/localization_catalog_integration_test.cpp:213
 #: tests/localization_catalog_integration_test.cpp:216
 msgid "Weight"
 msgstr "重量"
 
-#: gui/fixturetablepanel.cpp:744 gui/hoisttablepanel.cpp:811
-#: gui/sceneobjecttablepanel.cpp:428 gui/trusstablepanel.cpp:535
+#: gui/fixturetablepanel.cpp:742 gui/hoisttablepanel.cpp:784
+#: gui/sceneobjecttablepanel.cpp:432 gui/trusstablepanel.cpp:533
 msgid "Select layer"
 msgstr "选择图层"
 
-#: gui/fixturetablepanel.cpp:986 gui/hoisttablepanel.cpp:873
-#: gui/sceneobjecttablepanel.cpp:494 gui/trusstablepanel.cpp:677
+#: gui/fixturetablepanel.cpp:984 gui/hoisttablepanel.cpp:846
+#: gui/sceneobjecttablepanel.cpp:498 gui/trusstablepanel.cpp:675
 msgid "Edit value:"
 msgstr "编辑值："
 
-#: gui/fixturetablepanel.cpp:1037 gui/fixturetablepanel.cpp:1042
-#: gui/hoisttablepanel.cpp:921 gui/hoisttablepanel.cpp:926
-#: gui/sceneobjecttablepanel.cpp:540 gui/sceneobjecttablepanel.cpp:545
-#: gui/trusstablepanel.cpp:723 gui/trusstablepanel.cpp:728
+#: gui/fixturetablepanel.cpp:1035 gui/fixturetablepanel.cpp:1040
+#: gui/hoisttablepanel.cpp:894 gui/hoisttablepanel.cpp:899
+#: gui/sceneobjecttablepanel.cpp:544 gui/sceneobjecttablepanel.cpp:549
+#: gui/trusstablepanel.cpp:721 gui/trusstablepanel.cpp:726
 msgid "Invalid numeric value"
 msgstr "无效的数值"
 
-#: gui/fixturetablepanel.cpp:1037 gui/fixturetablepanel.cpp:1042
-#: gui/fixturetablepanel.cpp:1049 gui/fixturetablepanel.cpp:1055
-#: gui/fixturetablepanel.cpp:1063 gui/fixturetablepanel.cpp:1069
-#: gui/fixturetablepanel.cpp:1105 gui/fixturetablepanel.cpp:1112
+#: gui/fixturetablepanel.cpp:1035 gui/fixturetablepanel.cpp:1040
+#: gui/fixturetablepanel.cpp:1047 gui/fixturetablepanel.cpp:1053
+#: gui/fixturetablepanel.cpp:1061 gui/fixturetablepanel.cpp:1067
+#: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
 #: gui/gdtf_share_download_workflow.cpp:441
-#: gui/gdtf_share_download_workflow.cpp:445 gui/hoisttablepanel.cpp:921
-#: gui/hoisttablepanel.cpp:926 gui/hoisttablepanel.cpp:932
-#: gui/hoisttablepanel.cpp:939
+#: gui/gdtf_share_download_workflow.cpp:445 gui/hoisttablepanel.cpp:894
+#: gui/hoisttablepanel.cpp:899 gui/hoisttablepanel.cpp:905
+#: gui/hoisttablepanel.cpp:912
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:280
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:504
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:647
@@ -1337,23 +1341,23 @@ msgstr "无效的数值"
 #: gui/ridertextdialog.cpp:218 gui/ridertextdialog.cpp:224
 #: gui/ridertextdialog.cpp:233 gui/ridertextdialog.cpp:245
 #: gui/ridertextdialog.cpp:319 gui/ridertextdialog.cpp:334
-#: gui/ridertextdialog.cpp:346 gui/sceneobjecttablepanel.cpp:540
-#: gui/sceneobjecttablepanel.cpp:545 gui/sceneobjecttablepanel.cpp:551
-#: gui/sceneobjecttablepanel.cpp:558 gui/trusstablepanel.cpp:723
-#: gui/trusstablepanel.cpp:728 gui/trusstablepanel.cpp:734
-#: gui/trusstablepanel.cpp:741
+#: gui/ridertextdialog.cpp:346 gui/sceneobjecttablepanel.cpp:544
+#: gui/sceneobjecttablepanel.cpp:549 gui/sceneobjecttablepanel.cpp:555
+#: gui/sceneobjecttablepanel.cpp:562 gui/trusstablepanel.cpp:721
+#: gui/trusstablepanel.cpp:726 gui/trusstablepanel.cpp:732
+#: gui/trusstablepanel.cpp:739
 msgid "Error"
 msgstr "错误"
 
-#: gui/fixturetablepanel.cpp:1049 gui/fixturetablepanel.cpp:1063
-#: gui/fixturetablepanel.cpp:1105 gui/fixturetablepanel.cpp:1112
-#: gui/hoisttablepanel.cpp:932 gui/hoisttablepanel.cpp:939
-#: gui/sceneobjecttablepanel.cpp:551 gui/sceneobjecttablepanel.cpp:558
-#: gui/trusstablepanel.cpp:734 gui/trusstablepanel.cpp:741
+#: gui/fixturetablepanel.cpp:1047 gui/fixturetablepanel.cpp:1061
+#: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
+#: gui/hoisttablepanel.cpp:905 gui/hoisttablepanel.cpp:912
+#: gui/sceneobjecttablepanel.cpp:555 gui/sceneobjecttablepanel.cpp:562
+#: gui/trusstablepanel.cpp:732 gui/trusstablepanel.cpp:739
 msgid "Invalid value"
 msgstr "无效值"
 
-#: gui/fixturetablepanel.cpp:1055 gui/fixturetablepanel.cpp:1069
+#: gui/fixturetablepanel.cpp:1053 gui/fixturetablepanel.cpp:1067
 msgid "Channel out of range (1-512)"
 msgstr "通道超出范围（1-512）"
 
@@ -1444,7 +1448,7 @@ msgstr ""
 #: gui/preferences/gdtf_credentials_panel.cpp:95
 #: gui/preferences/gdtf_credentials_panel.cpp:100
 #: gui/rider_fixture_resolution_workflow.cpp:87
-#: gui/rider_fixture_resolution_workflow.cpp:253 mvr/mvrimporter.cpp:1721
+#: gui/rider_fixture_resolution_workflow.cpp:253 mvr/mvrimporter.cpp:667
 msgid "GDTF Share credentials"
 msgstr "GDTF Share 凭据"
 
@@ -1502,7 +1506,7 @@ msgid "GDTF downloaded successfully. Do you want to add it to the project now?"
 msgstr "GDTF 下载成功。您现在想将其添加到项目中吗？"
 
 #: gui/gdtf_share_download_workflow.cpp:434
-#: gui/mvr_export_result_dialog.cpp:158 mvr/mvrimporter.cpp:2332
+#: gui/mvr_export_result_dialog.cpp:158 mvr/mvrimporter.cpp:1282
 msgid "Success"
 msgstr "成功"
 
@@ -1599,6 +1603,7 @@ msgid "Search:"
 msgstr "搜索 GDTF"
 
 #: gui/gdtfsearchdialog.cpp:100
+#: gui/inspection/inspector_workspace_panel.cpp:359
 #: tests/localization_catalog_integration_test.cpp:205
 msgid "Manufacturer:"
 msgstr "制造商："
@@ -1619,7 +1624,7 @@ msgstr "下一页 >"
 msgid "Page 1/1"
 msgstr "第 1/1 页"
 
-#: gui/gdtfsearchdialog.cpp:126 gui/trusstablepanel.cpp:305
+#: gui/gdtfsearchdialog.cpp:126 gui/trusstablepanel.cpp:303
 msgid "Manufacturer"
 msgstr "制造商"
 
@@ -1767,61 +1772,261 @@ msgstr "提升机负载警告"
 msgid "Use automatic value"
 msgstr "使用自动值"
 
-#: gui/hoisttablepanel.cpp:486
+#: gui/hoisttablepanel.cpp:459
 #: tests/localization_catalog_integration_test.cpp:187
 msgid "Hoist ID"
 msgstr "电动葫芦 ID"
 
-#: gui/hoisttablepanel.cpp:489 gui/hoisttablepanel.cpp:727
-#: gui/hoisttablepanel.cpp:738
+#: gui/hoisttablepanel.cpp:462 gui/hoisttablepanel.cpp:700
+#: gui/hoisttablepanel.cpp:711
 msgid "Function"
 msgstr "功能"
 
-#: gui/hoisttablepanel.cpp:490
+#: gui/hoisttablepanel.cpp:463
 msgid "Motor"
 msgstr "电机"
 
-#: gui/hoisttablepanel.cpp:491 gui/hoisttablepanel.cpp:767
-#: gui/hoisttablepanel.cpp:791
+#: gui/hoisttablepanel.cpp:464 gui/hoisttablepanel.cpp:740
+#: gui/hoisttablepanel.cpp:764
 msgid "Dummy Preset"
 msgstr "虚拟预设"
 
-#: gui/hoisttablepanel.cpp:500 gui/hoisttablepanel.cpp:531
+#: gui/hoisttablepanel.cpp:473 gui/hoisttablepanel.cpp:504
 #: tests/localization_catalog_integration_test.cpp:189
 msgid "Chain Length"
 msgstr "链条长度"
 
-#: gui/hoisttablepanel.cpp:501 gui/hoisttablepanel.cpp:532
+#: gui/hoisttablepanel.cpp:474 gui/hoisttablepanel.cpp:505
 #: tests/localization_catalog_integration_test.cpp:225
 #: tests/localization_catalog_integration_test.cpp:228
 msgid "Capacity"
 msgstr "额定载荷"
 
-#: gui/hoisttablepanel.cpp:503 gui/hoisttablepanel.cpp:534
-#: gui/trusstablepanel.cpp:306
+#: gui/hoisttablepanel.cpp:476 gui/hoisttablepanel.cpp:507
+#: gui/trusstablepanel.cpp:304
 msgid "Load"
 msgstr "负载"
 
-#: gui/hoisttablepanel.cpp:725
+#: gui/hoisttablepanel.cpp:698
 msgid "Other..."
 msgstr "其他..."
 
-#: gui/hoisttablepanel.cpp:727
+#: gui/hoisttablepanel.cpp:700
 msgid "Select function"
 msgstr "选择功能"
 
-#: gui/hoisttablepanel.cpp:738
+#: gui/hoisttablepanel.cpp:711
 msgid "Enter function"
 msgstr "输入功能"
 
-#: gui/hoisttablepanel.cpp:767
+#: gui/hoisttablepanel.cpp:740
 msgid "Select dummy preset"
 msgstr "选择虚拟预设"
 
-#: gui/hoisttablepanel.cpp:790
+#: gui/hoisttablepanel.cpp:763
 msgid ""
 "Dummy preset can only be assigned when there is no linked motor fixture."
 msgstr "仅当未关联电机灯具时，才能分配虚拟预设。"
+
+#: gui/inspection/inspector_workspace_panel.cpp:94
+msgid "Canonical"
+msgstr "规范"
+
+#: gui/inspection/inspector_workspace_panel.cpp:96
+msgid "Compatibility accepted"
+msgstr "已接受兼容模式"
+
+#: gui/inspection/inspector_workspace_panel.cpp:98
+#: gui/inspection/inspector_workspace_panel.cpp:100
+#: gui/inspection/inspector_workspace_panel.cpp:376
+msgid "Unusable"
+msgstr "不可用"
+
+#: gui/inspection/inspector_workspace_panel.cpp:171
+msgid "File:"
+msgstr "文件："
+
+#: gui/inspection/inspector_workspace_panel.cpp:175
+msgid "Diagnostics:"
+msgstr "诊断："
+
+#: gui/inspection/inspector_workspace_panel.cpp:179
+msgid "Validation layers:"
+msgstr "验证层："
+
+#: gui/inspection/inspector_workspace_panel.cpp:205
+msgid "No file selected"
+msgstr "未选择文件"
+
+#: gui/inspection/inspector_workspace_panel.cpp:212
+msgid "Package"
+msgstr "包"
+
+#: gui/inspection/inspector_workspace_panel.cpp:216
+msgid "Path"
+msgstr "路径"
+
+#: gui/inspection/inspector_workspace_panel.cpp:218
+msgid "Resource kind"
+msgstr "资源类型"
+
+#: gui/inspection/inspector_workspace_panel.cpp:219
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:180
+#: viewer2d/viewer2drenderpanel.cpp:380 viewer2d/viewer2drenderpanel.cpp:387
+#: viewer2d/viewer2drenderpanel.cpp:394
+msgid "Size"
+msgstr "尺寸"
+
+#: gui/inspection/inspector_workspace_panel.cpp:220
+msgid "Availability"
+msgstr "可用性"
+
+#: gui/inspection/inspector_workspace_panel.cpp:221
+msgid "Copy path"
+msgstr "复制路径"
+
+#: gui/inspection/inspector_workspace_panel.cpp:230
+msgid "Find previous"
+msgstr "查找上一个"
+
+#: gui/inspection/inspector_workspace_panel.cpp:231
+msgid "Find next"
+msgstr "查找下一个"
+
+#: gui/inspection/inspector_workspace_panel.cpp:232
+msgid "Copy all"
+msgstr "全部复制"
+
+#: gui/inspection/inspector_workspace_panel.cpp:233
+msgid "Find:"
+msgstr "查找："
+
+#: gui/inspection/inspector_workspace_panel.cpp:248
+#: gui/mainwindow_layout.cpp:422 gui/mainwindow_menu_builders.cpp:85
+#: gui/summarypanel.cpp:112
+msgid "Summary"
+msgstr "摘要"
+
+#: gui/inspection/inspector_workspace_panel.cpp:253
+msgid "Severity"
+msgstr "严重性"
+
+#: gui/inspection/inspector_workspace_panel.cpp:254
+msgid "Domain"
+msgstr "领域"
+
+#: gui/inspection/inspector_workspace_panel.cpp:255
+msgid "Classification"
+msgstr "分类"
+
+#: gui/inspection/inspector_workspace_panel.cpp:256
+msgid "Code"
+msgstr "代码"
+
+#: gui/inspection/inspector_workspace_panel.cpp:257
+msgid "Message"
+msgstr "消息"
+
+#: gui/inspection/inspector_workspace_panel.cpp:258
+msgid "Location"
+msgstr "位置"
+
+#: gui/inspection/inspector_workspace_panel.cpp:260
+msgid "Copy diagnostic"
+msgstr "复制诊断信息"
+
+#: gui/inspection/inspector_workspace_panel.cpp:264
+msgid "Diagnostics"
+msgstr "诊断"
+
+#: gui/inspection/inspector_workspace_panel.cpp:293
+msgid "Open MVR or GDTF file"
+msgstr "打开 MVR 或 GDTF 文件"
+
+#: gui/inspection/inspector_workspace_panel.cpp:294
+msgid ""
+"MVR and GDTF files (*.mvr;*.gdtf)|*.mvr;*.gdtf|MVR files (*.mvr)|*.mvr|GDTF "
+"files (*.gdtf)|*.gdtf"
+msgstr ""
+"MVR 和 GDTF 文件 (*.mvr;*.gdtf)|*.mvr;*.gdtf|MVR 文件 (*.mvr)|*.mvr|GDTF 文"
+"件 (*.gdtf)|*.gdtf"
+
+#: gui/inspection/inspector_workspace_panel.cpp:309
+msgid "Only MVR and GDTF files can be inspected."
+msgstr "只能检查 MVR 和 GDTF 文件。"
+
+#: gui/inspection/inspector_workspace_panel.cpp:310
+#: gui/inspection/inspector_workspace_panel.cpp:325
+#: gui/inspection/inspector_workspace_panel.cpp:481
+#: gui/inspection/inspector_workspace_panel.cpp:498
+#: gui/inspection/inspector_workspace_panel.cpp:505
+#: gui/mainwindow_layout.cpp:452 gui/mainwindow_menu.cpp:237
+#: gui/mainwindow_menu_builders.cpp:71
+msgid "MVR / GDTF Inspector"
+msgstr "MVR / GDTF 检查器"
+
+#: gui/inspection/inspector_workspace_panel.cpp:324
+msgid "The file could not be inspected because of an unexpected error."
+msgstr "由于发生意外错误，无法检查该文件。"
+
+#: gui/inspection/inspector_workspace_panel.cpp:343
+#: gui/inspection/inspector_workspace_panel.cpp:374
+msgid "Format:"
+msgstr "格式："
+
+#: gui/inspection/inspector_workspace_panel.cpp:344
+#: gui/inspection/inspector_workspace_panel.cpp:375
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:146
+msgid "Status:"
+msgstr "状态"
+
+#: gui/inspection/inspector_workspace_panel.cpp:351
+#: gui/inspection/inspector_workspace_panel.cpp:383
+msgid "Package entries:"
+msgstr "包条目："
+
+#: gui/inspection/inspector_workspace_panel.cpp:353
+#: gui/inspection/inspector_workspace_panel.cpp:385
+msgid "Resources:"
+msgstr "资源："
+
+#: gui/inspection/inspector_workspace_panel.cpp:357
+msgid "Fixture type:"
+msgstr "灯具类型："
+
+#: gui/inspection/inspector_workspace_panel.cpp:361
+msgid "DMX modes:"
+msgstr "DMX 模式："
+
+#: gui/inspection/inspector_workspace_panel.cpp:376
+msgid "Readable"
+msgstr "可读取"
+
+#: gui/inspection/inspector_workspace_panel.cpp:388
+msgid "MVR version:"
+msgstr "MVR 版本："
+
+#: gui/inspection/inspector_workspace_panel.cpp:390
+msgid "Provider:"
+msgstr "提供者："
+
+#: gui/inspection/inspector_workspace_panel.cpp:391
+msgid "Provider version:"
+msgstr "提供者版本："
+
+#: gui/inspection/inspector_workspace_panel.cpp:419
+msgid "Available"
+msgstr "可用"
+
+#: gui/inspection/inspector_workspace_panel.cpp:419
+msgid "Unsafe path"
+msgstr "不安全路径"
+
+#: gui/inspection/inspector_workspace_panel.cpp:480
+#: gui/inspection/inspector_workspace_panel.cpp:497
+#: gui/inspection/inspector_workspace_panel.cpp:504
+msgid "The clipboard could not be opened."
+msgstr "无法打开剪贴板。"
 
 #: gui/layerpanel.cpp:84 gui/layerpanel.cpp:100 gui/summarypanel.cpp:256
 #: gui/summarypanel.cpp:316 tests/localization_catalog_integration_test.cpp:191
@@ -1900,7 +2105,7 @@ msgstr "向上移动"
 msgid "Move Down"
 msgstr "下移"
 
-#: gui/layoutpanel.cpp:35 gui/mainwindow_menu.cpp:369
+#: gui/layoutpanel.cpp:35 gui/mainwindow_menu.cpp:370
 #: gui/mainwindow_print.cpp:209
 msgid "Layout"
 msgstr "布局"
@@ -2066,7 +2271,7 @@ msgid "Choose how Perastage should import the selected MVR file."
 msgstr "选择 Perastage 导入所选 MVR 文件的方式。"
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:151
-#: gui/mainwindow_menu.cpp:179
+#: gui/mainwindow_menu.cpp:177
 msgid "Import MVR"
 msgstr "导入 MVR"
 
@@ -2164,73 +2369,73 @@ msgstr "不支持的启动文件。请使用 %s 或 .mvr 文件。"
 msgid "Unsupported file"
 msgstr "不支持的文件"
 
-#: gui/mainwindow.cpp:597 gui/mainwindow_menu_builders.cpp:79
+#: gui/mainwindow.cpp:598 gui/mainwindow_menu_builders.cpp:80
 msgid "3D Viewport"
 msgstr "3D 视口"
 
-#: gui/mainwindow.cpp:640 gui/mainwindow_menu_builders.cpp:80
+#: gui/mainwindow.cpp:641 gui/mainwindow_menu_builders.cpp:81
 msgid "2D Viewport"
 msgstr "2D 视口"
 
-#: gui/mainwindow.cpp:656 gui/mainwindow_menu_builders.cpp:81
+#: gui/mainwindow.cpp:657 gui/mainwindow_menu_builders.cpp:82
 msgid "2D Render Options"
 msgstr "2D 渲染选项"
 
-#: gui/mainwindow.cpp:773
+#: gui/mainwindow.cpp:774
 #, c-format
 msgid "Do you want to save changes before %s?"
 msgstr "是否要在%s之前保存更改？"
 
-#: gui/mainwindow.cpp:847
+#: gui/mainwindow.cpp:848
 #, c-format
 msgid "Please wait until the startup project loading finishes before %s."
 msgstr "请等待启动项目加载完成后再%s。"
 
-#: gui/mainwindow.cpp:849
+#: gui/mainwindow.cpp:850
 msgid "Perastage is still loading"
 msgstr "Perastage 仍在加载"
 
-#: gui/mainwindow.cpp:878
+#: gui/mainwindow.cpp:879
 msgid "Project loading"
 msgstr "正在加载项目"
 
-#: gui/mainwindow.cpp:904 gui/mainwindow.cpp:1115
+#: gui/mainwindow.cpp:905 gui/mainwindow.cpp:1116
 msgid "Loading project file..."
 msgstr "正在加载项目文件..."
 
-#: gui/mainwindow.cpp:957
+#: gui/mainwindow.cpp:958
 msgid "Building scene..."
 msgstr "正在构建场景..."
 
-#: gui/mainwindow.cpp:965
+#: gui/mainwindow.cpp:966
 msgid "Applying saved layout..."
 msgstr "正在应用已保存的布局..."
 
-#: gui/mainwindow.cpp:993
+#: gui/mainwindow.cpp:994
 msgid "Reloading fixture/truss/support tables..."
 msgstr "正在重新加载灯具/桁架/支撑表格..."
 
-#: gui/mainwindow.cpp:1019
+#: gui/mainwindow.cpp:1020
 msgid "Updating 3D viewport..."
 msgstr "正在更新 3D 视口..."
 
-#: gui/mainwindow.cpp:1033
+#: gui/mainwindow.cpp:1034
 msgid "Updating 2D viewport..."
 msgstr "正在更新 2D 视口..."
 
-#: gui/mainwindow.cpp:1051 gui/mainwindow.cpp:1731
+#: gui/mainwindow.cpp:1052 gui/mainwindow.cpp:1731
 msgid "Refreshing panels..."
 msgstr "正在刷新面板..."
 
-#: gui/mainwindow.cpp:1053
+#: gui/mainwindow.cpp:1054
 msgid "Refreshing rigging..."
 msgstr "正在刷新吊挂数据..."
 
-#: gui/mainwindow.cpp:1061
+#: gui/mainwindow.cpp:1062
 msgid "Updating window title..."
 msgstr "正在更新窗口标题..."
 
-#: gui/mainwindow.cpp:1066
+#: gui/mainwindow.cpp:1067
 msgid "Finalizing project load..."
 msgstr "正在完成项目加载..."
 
@@ -2316,7 +2521,7 @@ msgstr "在选择端点之前激活 2D 或 3D 场景视口。"
 msgid "Choose two points on the truss line, or press Esc to cancel."
 msgstr "选择桁架线上的两个点，或按 Esc 键取消。"
 
-#: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:457
+#: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:481
 #: gui/mainwindow_startup_splash.cpp:63
 #: gui/services/fixture_symbol_preparation_service.cpp:462
 msgid "Ready"
@@ -2575,392 +2780,391 @@ msgstr "选择表格"
 msgid "Export CSV"
 msgstr "导出 CSV..."
 
-#: gui/mainwindow_layout.cpp:331 gui/mainwindow_print.cpp:639
+#: gui/mainwindow_layout.cpp:339 gui/mainwindow_print.cpp:639
 #: gui/riggingpanel.cpp:191 gui/summarypanel.cpp:180
 msgid "Hoists"
 msgstr "电动葫芦"
 
-#: gui/mainwindow_layout.cpp:336 gui/mainwindow_print.cpp:642
+#: gui/mainwindow_layout.cpp:344 gui/mainwindow_print.cpp:642
 #: gui/summarypanel.cpp:197
 msgid "Objects"
 msgstr "对象"
 
-#: gui/mainwindow_layout.cpp:344
+#: gui/mainwindow_layout.cpp:352
 msgid "Data Views"
 msgstr "布局视图"
 
-#: gui/mainwindow_layout.cpp:358 gui/mainwindow_menu_builders.cpp:77
+#: gui/mainwindow_layout.cpp:366 gui/mainwindow_menu_builders.cpp:78
 msgid "Console"
 msgstr "控制台"
 
-#: gui/mainwindow_layout.cpp:371 gui/mainwindow_menu_builders.cpp:82
+#: gui/mainwindow_layout.cpp:379 gui/mainwindow_menu_builders.cpp:83
 msgid "Layers"
 msgstr "图层"
 
-#: gui/mainwindow_layout.cpp:385 gui/mainwindow_menu_builders.cpp:83
+#: gui/mainwindow_layout.cpp:393 gui/mainwindow_menu_builders.cpp:84
 msgid "Layouts"
 msgstr "布局"
 
-#: gui/mainwindow_layout.cpp:399
+#: gui/mainwindow_layout.cpp:407
 msgid "Layout Viewer"
 msgstr "布局视图"
 
-#: gui/mainwindow_layout.cpp:414 gui/mainwindow_menu_builders.cpp:84
-#: gui/summarypanel.cpp:112
-msgid "Summary"
-msgstr "摘要"
-
-#: gui/mainwindow_layout.cpp:428 gui/mainwindow_menu_builders.cpp:85
+#: gui/mainwindow_layout.cpp:436 gui/mainwindow_menu_builders.cpp:86
 msgid "Rigging"
 msgstr "吊挂"
 
-#: gui/mainwindow_layout.cpp:458
+#: gui/mainwindow_layout.cpp:482
 msgid "X: -- m  Y: -- m  Z: -- m"
 msgstr "X: -- 米 Y: -- 米 Z: -- 米"
 
-#: gui/mainwindow_layout.cpp:460
+#: gui/mainwindow_layout.cpp:484
 #, c-format
 msgid "Version %s"
 msgstr "版本 %s"
 
-#: gui/mainwindow_layout.cpp:1088
+#: gui/mainwindow_layout.cpp:1136
 msgid "Layout view update skipped: target view not found."
 msgstr "布局视图更新已跳过：未找到目标视图。"
 
-#: gui/mainwindow_layout.cpp:1118
+#: gui/mainwindow_layout.cpp:1166
 msgid "Layout view update failed."
 msgstr "布局视图更新失败。"
 
-#: gui/mainwindow_menu.cpp:167
+#: gui/mainwindow_menu.cpp:165
 msgid "New"
 msgstr "新建"
 
-#: gui/mainwindow_menu.cpp:169
+#: gui/mainwindow_menu.cpp:167
 msgid "Create a new project"
 msgstr "创建新项目"
 
-#: gui/mainwindow_menu.cpp:170
+#: gui/mainwindow_menu.cpp:168
 msgid "Open"
 msgstr "打开"
 
-#: gui/mainwindow_menu.cpp:172
+#: gui/mainwindow_menu.cpp:170
 msgid "Open an existing project"
 msgstr "打开现有项目"
 
-#: gui/mainwindow_menu.cpp:175
+#: gui/mainwindow_menu.cpp:173
 msgid "Save the current project"
 msgstr "保存当前项目"
 
-#: gui/mainwindow_menu.cpp:176
+#: gui/mainwindow_menu.cpp:174
 msgid "Save As"
 msgstr "另存为"
 
-#: gui/mainwindow_menu.cpp:178
+#: gui/mainwindow_menu.cpp:176
 msgid "Save the current project with a new name"
 msgstr "以新名称保存当前项目"
 
-#: gui/mainwindow_menu.cpp:181
+#: gui/mainwindow_menu.cpp:179
 msgid "Import an MVR file"
 msgstr "导入 MVR 文件"
 
-#: gui/mainwindow_menu.cpp:182
+#: gui/mainwindow_menu.cpp:180
 msgid "Export MVR"
 msgstr "导出 MVR"
 
-#: gui/mainwindow_menu.cpp:184
+#: gui/mainwindow_menu.cpp:182
 msgid "Export the project to MVR"
 msgstr "将项目导出为 MVR"
 
-#: gui/mainwindow_menu.cpp:185 gui/mainwindow_print.cpp:214
+#: gui/mainwindow_menu.cpp:183 gui/mainwindow_print.cpp:214
 msgid "Print"
 msgstr "打印"
 
-#: gui/mainwindow_menu.cpp:187
+#: gui/mainwindow_menu.cpp:185
 msgid "Choose what to print"
 msgstr "选择要打印的内容"
 
-#: gui/mainwindow_menu.cpp:200
+#: gui/mainwindow_menu.cpp:198
 msgid "Undo"
 msgstr "撤销"
 
-#: gui/mainwindow_menu.cpp:202
+#: gui/mainwindow_menu.cpp:200
 msgid "Undo last action"
 msgstr "撤销上一步操作"
 
-#: gui/mainwindow_menu.cpp:203
+#: gui/mainwindow_menu.cpp:201
 msgid "Redo"
 msgstr "重做"
 
-#: gui/mainwindow_menu.cpp:205
+#: gui/mainwindow_menu.cpp:203
 msgid "Redo last undone action"
 msgstr "重做上次撤销的操作"
 
-#: gui/mainwindow_menu.cpp:207
+#: gui/mainwindow_menu.cpp:205
 msgid "Cut"
 msgstr "数量"
 
-#: gui/mainwindow_menu.cpp:209
+#: gui/mainwindow_menu.cpp:207
 msgid "Cut selected scene elements"
 msgstr "剪切选定的场景元素"
 
-#: gui/mainwindow_menu.cpp:210
+#: gui/mainwindow_menu.cpp:208
 msgid "Copy"
 msgstr "复制"
 
-#: gui/mainwindow_menu.cpp:212
+#: gui/mainwindow_menu.cpp:210
 msgid "Copy selected scene elements"
 msgstr "复制选定的场景元素"
 
-#: gui/mainwindow_menu.cpp:213
+#: gui/mainwindow_menu.cpp:211
 msgid "Paste"
 msgstr "粘贴"
 
-#: gui/mainwindow_menu.cpp:215
+#: gui/mainwindow_menu.cpp:213
 msgid "Paste copied scene elements"
 msgstr "粘贴复制的场景元素"
 
-#: gui/mainwindow_menu.cpp:219
+#: gui/mainwindow_menu.cpp:217
 msgid "Edit"
 msgstr "编辑"
 
-#: gui/mainwindow_menu.cpp:227 gui/mainwindow_menu_builders.cpp:68
+#: gui/mainwindow_menu.cpp:225 gui/mainwindow_menu_builders.cpp:68
 msgid "3D Layout View"
 msgstr "3D 布局视图"
 
-#: gui/mainwindow_menu.cpp:229
+#: gui/mainwindow_menu.cpp:227
 msgid "Switch to 3D Layout View"
 msgstr "切换到 3D 布局视图"
 
-#: gui/mainwindow_menu.cpp:231 gui/mainwindow_menu_builders.cpp:69
+#: gui/mainwindow_menu.cpp:229 gui/mainwindow_menu_builders.cpp:69
 msgid "2D Layout View"
 msgstr "2D 布局视图"
 
-#: gui/mainwindow_menu.cpp:233
+#: gui/mainwindow_menu.cpp:231
 msgid "Switch to 2D Layout View"
 msgstr "切换到 2D 布局视图"
 
-#: gui/mainwindow_menu.cpp:235
+#: gui/mainwindow_menu.cpp:233
 msgid "Layout Mode"
 msgstr "布局模式"
 
-#: gui/mainwindow_menu.cpp:237
+#: gui/mainwindow_menu.cpp:235
 msgid "Switch to Layout Mode View"
 msgstr "切换到布局模式视图"
 
-#: gui/mainwindow_menu.cpp:240
+#: gui/mainwindow_menu.cpp:238
+msgid "Switch to MVR / GDTF Inspector"
+msgstr "切换到 MVR / GDTF 检查器"
+
+#: gui/mainwindow_menu.cpp:241
 msgid "Top View"
 msgstr "顶视图"
 
-#: gui/mainwindow_menu.cpp:242
+#: gui/mainwindow_menu.cpp:243
 msgid "Apply top view to active viewport"
 msgstr "将顶视图应用到活动视口"
 
-#: gui/mainwindow_menu.cpp:244
+#: gui/mainwindow_menu.cpp:245
 msgid "Front View"
 msgstr "前视图"
 
-#: gui/mainwindow_menu.cpp:246
+#: gui/mainwindow_menu.cpp:247
 msgid "Apply front view to active viewport"
 msgstr "将前视图应用到活动视口"
 
-#: gui/mainwindow_menu.cpp:248
+#: gui/mainwindow_menu.cpp:249
 msgid "Side View"
 msgstr "侧视图"
 
-#: gui/mainwindow_menu.cpp:250
+#: gui/mainwindow_menu.cpp:251
 msgid "Apply side view to active viewport"
 msgstr "将侧视图应用到活动视口"
 
-#: gui/mainwindow_menu.cpp:253
+#: gui/mainwindow_menu.cpp:254
 msgid "Select Tool"
 msgstr "选择工具"
 
-#: gui/mainwindow_menu.cpp:255
+#: gui/mainwindow_menu.cpp:256
 msgid "Switch to standard selection mode"
 msgstr "切换到标准选择模式"
 
-#: gui/mainwindow_menu.cpp:257
+#: gui/mainwindow_menu.cpp:258
 msgid "Measure Tool"
 msgstr "测量工具"
 
-#: gui/mainwindow_menu.cpp:259
+#: gui/mainwindow_menu.cpp:260
 msgid "Toggle center-to-center measure tool"
 msgstr "切换中心到中心测量工具"
 
-#: gui/mainwindow_menu.cpp:261
+#: gui/mainwindow_menu.cpp:262
 msgid "Gap Measure Tool"
 msgstr "测量工具"
 
-#: gui/mainwindow_menu.cpp:263
+#: gui/mainwindow_menu.cpp:264
 msgid "Toggle edge-to-edge gap measure tool"
 msgstr "切换中心到中心测量工具"
 
-#: gui/mainwindow_menu.cpp:265
+#: gui/mainwindow_menu.cpp:266
 msgid "Axis Lock"
 msgstr "轴向锁定"
 
-#: gui/mainwindow_menu.cpp:266
+#: gui/mainwindow_menu.cpp:267
 msgid "Toggle axis-constrained selection movement"
 msgstr "切换受轴约束的选择移动"
 
-#: gui/mainwindow_menu.cpp:269
+#: gui/mainwindow_menu.cpp:270
 msgid "Drag Move"
 msgstr "拖动移动"
 
-#: gui/mainwindow_menu.cpp:270
+#: gui/mainwindow_menu.cpp:271
 msgid "Toggle left-click selection dragging"
 msgstr "切换鼠标左键拖动选择"
 
-#: gui/mainwindow_menu.cpp:273
+#: gui/mainwindow_menu.cpp:274
 msgid "Local Axes"
 msgstr "本地轴"
 
-#: gui/mainwindow_menu.cpp:275
+#: gui/mainwindow_menu.cpp:276
 msgid "Use local axes for viewport transforms"
 msgstr "视口变换使用本地轴"
 
-#: gui/mainwindow_menu.cpp:278
+#: gui/mainwindow_menu.cpp:279
 msgid "Magnet"
 msgstr "磁吸"
 
-#: gui/mainwindow_menu.cpp:279
+#: gui/mainwindow_menu.cpp:280
 msgid "Toggle Magnet snapping while dragging"
 msgstr "切换拖动时的磁吸对齐"
 
-#: gui/mainwindow_menu.cpp:283
+#: gui/mainwindow_menu.cpp:284
 msgid "Cross-table Actions"
 msgstr "跨表操作"
 
-#: gui/mainwindow_menu.cpp:285
+#: gui/mainwindow_menu.cpp:286
 msgid "Toggle viewport actions across all tables"
 msgstr "2D 视口不可用。"
 
-#: gui/mainwindow_menu.cpp:316 gui/mainwindow_menu_builders.cpp:86
+#: gui/mainwindow_menu.cpp:317 gui/mainwindow_menu_builders.cpp:87
 msgid "Layout Views"
 msgstr "布局视图"
 
-#: gui/mainwindow_menu.cpp:326
+#: gui/mainwindow_menu.cpp:327
 msgid "Insert a new fixture"
 msgstr "插入新灯具"
 
-#: gui/mainwindow_menu.cpp:329
+#: gui/mainwindow_menu.cpp:330
 msgid "Insert a new truss"
 msgstr "插入新桁架"
 
-#: gui/mainwindow_menu.cpp:332
+#: gui/mainwindow_menu.cpp:333
 msgid "Insert a new scene object"
 msgstr "插入新场景对象"
 
-#: gui/mainwindow_menu.cpp:334 gui/mainwindow_menu.cpp:336
-#: mvr/mvrimporter.cpp:340
+#: gui/mainwindow_menu.cpp:335 gui/mainwindow_menu.cpp:337
+#: mvr/mvrimporter.cpp:332
 msgid "Download GDTF"
 msgstr "下载 GDTF"
 
-#: gui/mainwindow_menu.cpp:337 gui/mainwindow_menu.cpp:339
+#: gui/mainwindow_menu.cpp:338 gui/mainwindow_menu.cpp:340
 #: gui/ridertextdialog.cpp:77
 msgid "Create from text"
 msgstr "从文本创建"
 
-#: gui/mainwindow_menu.cpp:343
+#: gui/mainwindow_menu.cpp:344
 msgid "Tools"
 msgstr "工具"
 
-#: gui/mainwindow_menu.cpp:352
+#: gui/mainwindow_menu.cpp:353
 msgid "Add 2D View"
 msgstr "添加 2D 视图"
 
-#: gui/mainwindow_menu.cpp:353
+#: gui/mainwindow_menu.cpp:354
 msgid "Add 2D View to Layout"
 msgstr "向布局添加 2D 视图"
 
-#: gui/mainwindow_menu.cpp:354
+#: gui/mainwindow_menu.cpp:355
 msgid "Add Legend"
 msgstr "添加图例"
 
-#: gui/mainwindow_menu.cpp:356
+#: gui/mainwindow_menu.cpp:357
 msgid "Add fixture legend to layout"
 msgstr "向布局添加灯具图例"
 
-#: gui/mainwindow_menu.cpp:358
+#: gui/mainwindow_menu.cpp:359
 msgid "Add Event Table"
 msgstr "添加事件表"
 
-#: gui/mainwindow_menu.cpp:359
+#: gui/mainwindow_menu.cpp:360
 msgid "Add event table to layout"
 msgstr "向布局添加事件表"
 
-#: gui/mainwindow_menu.cpp:360
+#: gui/mainwindow_menu.cpp:361
 msgid "Add Text"
 msgstr "添加文本"
 
-#: gui/mainwindow_menu.cpp:362
+#: gui/mainwindow_menu.cpp:363
 msgid "Add text box to layout"
 msgstr "向布局添加文本框"
 
-#: gui/mainwindow_menu.cpp:363
+#: gui/mainwindow_menu.cpp:364
 msgid "Add Image"
 msgstr "添加图像"
 
-#: gui/mainwindow_menu.cpp:365
+#: gui/mainwindow_menu.cpp:366
 msgid "Add image to layout"
 msgstr "向布局添加图像"
 
-#: gui/mainwindow_menu.cpp:383 gui/mainwindow_menu.cpp:386
+#: gui/mainwindow_menu.cpp:384 gui/mainwindow_menu.cpp:387
 msgid "creating a new project"
 msgstr "创建新项目"
 
-#: gui/mainwindow_menu.cpp:386
+#: gui/mainwindow_menu.cpp:387
 msgid "New Project"
 msgstr "新建项目"
 
-#: gui/mainwindow_menu.cpp:416
+#: gui/mainwindow_menu.cpp:417
 msgid "Could not resolve writable user library path."
 msgstr "无法解析可写用户库路径。"
 
-#: gui/mainwindow_menu.cpp:417 gui/mainwindow_menu.cpp:429
-#: gui/mainwindow_menu_builders.cpp:96
+#: gui/mainwindow_menu.cpp:418 gui/mainwindow_menu.cpp:430
+#: gui/mainwindow_menu_builders.cpp:97
 msgid "Open user library folder"
 msgstr "打开用户库文件夹"
 
-#: gui/mainwindow_menu.cpp:428
+#: gui/mainwindow_menu.cpp:429
 msgid "Could not open the user library folder."
 msgstr "打开用户库文件夹"
 
-#: gui/mainwindow_menu.cpp:463
+#: gui/mainwindow_menu.cpp:464
 msgid "No hoists available for weight distribution."
 msgstr "没有可用于重量分配的起重机。"
 
-#: gui/mainwindow_menu.cpp:464 gui/mainwindow_menu.cpp:475
-#: gui/mainwindow_menu.cpp:496
+#: gui/mainwindow_menu.cpp:465 gui/mainwindow_menu.cpp:476
+#: gui/mainwindow_menu.cpp:497
 msgid "Distribute hoist weights"
 msgstr "分配电动葫芦负载..."
 
-#: gui/mainwindow_menu.cpp:469
+#: gui/mainwindow_menu.cpp:470
 msgid "All positions"
 msgstr "所有位置"
 
-#: gui/mainwindow_menu.cpp:474
+#: gui/mainwindow_menu.cpp:475
 msgid "Select hang position(s) to distribute hoist weights."
 msgstr "选择悬挂位置以分配提升重量。"
 
-#: gui/mainwindow_menu.cpp:495
+#: gui/mainwindow_menu.cpp:496
 msgid "No hoists found for the selected position."
 msgstr "设置所选对象的 X 坐标。"
 
-#: gui/mainwindow_menu.cpp:610
+#: gui/mainwindow_menu.cpp:611
 msgid "Please select fixtures to convert first."
 msgstr "请先选择要转换的灯具。"
 
-#: gui/mainwindow_menu.cpp:610 gui/mainwindow_menu.cpp:623
-#: gui/mainwindow_menu.cpp:652 gui/mainwindow_menu_builders.cpp:107
+#: gui/mainwindow_menu.cpp:611 gui/mainwindow_menu.cpp:624
+#: gui/mainwindow_menu.cpp:653 gui/mainwindow_menu_builders.cpp:108
 msgid "Convert to Hoist"
 msgstr "转换为电动葫芦"
 
-#: gui/mainwindow_menu.cpp:622
+#: gui/mainwindow_menu.cpp:623
 msgid "The selected fixtures cannot be converted."
 msgstr "选定的灯具无法转换。"
 
-#: gui/mainwindow_menu.cpp:651
+#: gui/mainwindow_menu.cpp:652
 #, c-format
 msgid "Converted %zu fixture(s) to hoists."
 msgstr "将 %zu 固定装置转换为吊机。"
@@ -2970,7 +3174,7 @@ msgid "Please select a scene object to convert first."
 msgstr "请先选择要转换的场景对象。"
 
 #: gui/mainwindow_menu.cpp:662 gui/mainwindow_menu.cpp:672
-#: gui/mainwindow_menu.cpp:697 gui/mainwindow_menu_builders.cpp:109
+#: gui/mainwindow_menu.cpp:697 gui/mainwindow_menu_builders.cpp:110
 msgid "Convert Scene Objects to Truss"
 msgstr "导出场景对象..."
 
@@ -3225,91 +3429,91 @@ msgstr "首选项..."
 msgid "Layout Mode View"
 msgstr "布局模式视图"
 
-#: gui/mainwindow_menu_builders.cpp:93
+#: gui/mainwindow_menu_builders.cpp:94
 msgid "Download GDTF fixture..."
 msgstr "下载 GDTF 灯具..."
 
-#: gui/mainwindow_menu_builders.cpp:94
+#: gui/mainwindow_menu_builders.cpp:95
 msgid "Edit dictionaries..."
 msgstr "编辑词典..."
 
-#: gui/mainwindow_menu_builders.cpp:97
+#: gui/mainwindow_menu_builders.cpp:98
 msgid "Create from text..."
 msgstr "从文本创建..."
 
-#: gui/mainwindow_menu_builders.cpp:99
+#: gui/mainwindow_menu_builders.cpp:100
 msgid "Distribute hoist weights..."
 msgstr "分配电动葫芦负载..."
 
-#: gui/mainwindow_menu_builders.cpp:101
+#: gui/mainwindow_menu_builders.cpp:102
 msgid "Distribute fixtures...\tAlt+D"
 msgstr "分配电动葫芦负载..."
 
-#: gui/mainwindow_menu_builders.cpp:102
+#: gui/mainwindow_menu_builders.cpp:103
 msgid "Export Fixture..."
 msgstr "导出灯具..."
 
-#: gui/mainwindow_menu_builders.cpp:103
+#: gui/mainwindow_menu_builders.cpp:104
 msgid "Export Truss..."
 msgstr "导出桁架..."
 
-#: gui/mainwindow_menu_builders.cpp:104
+#: gui/mainwindow_menu_builders.cpp:105
 msgid "Export Scene Object..."
 msgstr "导出场景对象..."
 
-#: gui/mainwindow_menu_builders.cpp:105
+#: gui/mainwindow_menu_builders.cpp:106
 msgid "Auto patch"
 msgstr "自动配接"
 
-#: gui/mainwindow_menu_builders.cpp:106
+#: gui/mainwindow_menu_builders.cpp:107
 msgid "Auto color"
 msgstr "自动着色"
 
-#: gui/mainwindow_menu_builders.cpp:112
+#: gui/mainwindow_menu_builders.cpp:113
 msgid "Generate Fixture Symbols..."
 msgstr "生成灯具符号..."
 
-#: gui/mainwindow_menu_builders.cpp:116
+#: gui/mainwindow_menu_builders.cpp:117
 msgid "Auto-assign categories to selected fixtures..."
 msgstr "自动为所选灯具分配类别..."
 
-#: gui/mainwindow_menu_builders.cpp:124
+#: gui/mainwindow_menu_builders.cpp:125
 msgid "Help\tF1"
 msgstr "帮助\tF1"
 
-#: gui/mainwindow_menu_builders.cpp:125
+#: gui/mainwindow_menu_builders.cpp:126
 msgid "Online Documentation"
 msgstr "在线文档"
 
-#: gui/mainwindow_menu_builders.cpp:126
+#: gui/mainwindow_menu_builders.cpp:127
 msgid "Check for Updates..."
 msgstr "检查更新..."
 
-#: gui/mainwindow_menu_builders.cpp:128
+#: gui/mainwindow_menu_builders.cpp:129
 msgid "Open Logs Folder"
 msgstr "打开日志文件夹"
 
-#: gui/mainwindow_menu_builders.cpp:130
+#: gui/mainwindow_menu_builders.cpp:131
 msgid "Export Diagnostic Report..."
 msgstr "导出诊断报告..."
 
-#: gui/mainwindow_menu_builders.cpp:141
+#: gui/mainwindow_menu_builders.cpp:142
 msgid "&File"
 msgstr "文件(&F)"
 
-#: gui/mainwindow_menu_builders.cpp:142
+#: gui/mainwindow_menu_builders.cpp:143
 msgid "&Edit"
 msgstr "编辑(&E)"
 
-#: gui/mainwindow_menu_builders.cpp:143
+#: gui/mainwindow_menu_builders.cpp:144
 msgid "&View"
 msgstr "视图(&V)"
 
-#: gui/mainwindow_menu_builders.cpp:144
+#: gui/mainwindow_menu_builders.cpp:145
 msgid "&Tools"
 msgstr "工具(&T)"
 
-#: gui/mainwindow_menu_builders.cpp:145
+#: gui/mainwindow_menu_builders.cpp:146
 msgid "&Help"
 msgstr "帮助(&H)"
 
@@ -3600,10 +3804,6 @@ msgstr "已停止"
 msgid "Auto / All suitable interfaces"
 msgstr "自动/所有合适的接口"
 
-#: gui/mvrxchange/mvr_xchange_dialog.cpp:146
-msgid "Status:"
-msgstr "状态"
-
 #: gui/mvrxchange/mvr_xchange_dialog.cpp:152
 msgid "Station name:"
 msgstr "输入新图层名称："
@@ -3660,12 +3860,6 @@ msgstr "公布的 MVR 文件"
 #: gui/mvrxchange/mvr_xchange_dialog.cpp:179
 msgid "MVR file"
 msgstr "模型文件"
-
-#: gui/mvrxchange/mvr_xchange_dialog.cpp:180
-#: viewer2d/viewer2drenderpanel.cpp:380 viewer2d/viewer2drenderpanel.cpp:387
-#: viewer2d/viewer2drenderpanel.cpp:394
-msgid "Size"
-msgstr "尺寸"
 
 #: gui/mvrxchange/mvr_xchange_dialog.cpp:181
 msgid "File UUID"
@@ -3730,7 +3924,7 @@ msgid ""
 "Share credentials."
 msgstr "仅保存了用户名。请输入密码以更新保存的 GDTF Share 凭据。"
 
-#: gui/preferences/gdtf_credentials_panel.cpp:94 mvr/mvrimporter.cpp:1718
+#: gui/preferences/gdtf_credentials_panel.cpp:94 mvr/mvrimporter.cpp:657
 msgid ""
 "The username was saved, but secure password storage is unavailable. The "
 "password must be entered again after restart."
@@ -4053,7 +4247,7 @@ msgstr "正在显示缓存的 GDTF 目录。"
 msgid "Create"
 msgstr "创建"
 
-#: gui/rider_fixture_resolution_dialog.cpp:103 mvr/mvrimporter.cpp:1789
+#: gui/rider_fixture_resolution_dialog.cpp:103 mvr/mvrimporter.cpp:735
 msgid "Fixture type"
 msgstr "灯具类型"
 
@@ -4065,15 +4259,15 @@ msgstr "数量"
 msgid "Positions"
 msgstr "位置"
 
-#: gui/rider_fixture_resolution_dialog.cpp:109 mvr/mvrimporter.cpp:1791
+#: gui/rider_fixture_resolution_dialog.cpp:109 mvr/mvrimporter.cpp:737
 msgid "Selected GDTF"
 msgstr "所选 GDTF"
 
-#: gui/rider_fixture_resolution_dialog.cpp:113 mvr/mvrimporter.cpp:1793
+#: gui/rider_fixture_resolution_dialog.cpp:113 mvr/mvrimporter.cpp:739
 msgid "Status"
 msgstr "状态"
 
-#: gui/rider_fixture_resolution_dialog.cpp:115 mvr/mvrimporter.cpp:1797
+#: gui/rider_fixture_resolution_dialog.cpp:115 mvr/mvrimporter.cpp:743
 msgid "Details"
 msgstr "详细信息"
 
@@ -4368,8 +4562,8 @@ msgid "Rotation Z (deg):"
 msgstr "旋转 Z（度）："
 
 #: gui/scene_object_primitive_dialogs.cpp:298
-#: gui/scene_object_primitive_dialogs.cpp:584 gui/trusstablepanel.cpp:306
-#: gui/trusstablepanel.cpp:339
+#: gui/scene_object_primitive_dialogs.cpp:584 gui/trusstablepanel.cpp:304
+#: gui/trusstablepanel.cpp:337
 #: tests/localization_catalog_integration_test.cpp:219
 #: tests/localization_catalog_integration_test.cpp:222
 msgid "Length"
@@ -4377,14 +4571,14 @@ msgstr "长度"
 
 #: gui/scene_object_primitive_dialogs.cpp:299
 #: gui/scene_object_primitive_dialogs.cpp:424
-#: gui/scene_object_primitive_dialogs.cpp:543 gui/trusstablepanel.cpp:306
-#: gui/trusstablepanel.cpp:341
+#: gui/scene_object_primitive_dialogs.cpp:543 gui/trusstablepanel.cpp:304
+#: gui/trusstablepanel.cpp:339
 msgid "Height"
 msgstr "高度"
 
 #: gui/scene_object_primitive_dialogs.cpp:300
-#: gui/scene_object_primitive_dialogs.cpp:542 gui/trusstablepanel.cpp:306
-#: gui/trusstablepanel.cpp:340
+#: gui/scene_object_primitive_dialogs.cpp:542 gui/trusstablepanel.cpp:304
+#: gui/trusstablepanel.cpp:338
 msgid "Width"
 msgstr "宽度"
 
@@ -4428,11 +4622,11 @@ msgstr "编辑立方体"
 msgid "Edit Cylinder"
 msgstr "编辑圆柱体"
 
-#: gui/sceneobjecttablepanel.cpp:261 gui/trusstablepanel.cpp:302
+#: gui/sceneobjecttablepanel.cpp:265 gui/trusstablepanel.cpp:300
 msgid "Model File"
 msgstr "模型文件"
 
-#: gui/sceneobjecttablepanel.cpp:456
+#: gui/sceneobjecttablepanel.cpp:460
 msgid "Select Object Model"
 msgstr "选择对象模型"
 
@@ -4547,11 +4741,11 @@ msgstr "编辑这些字段会创建或更新桁架 GDTF。仅 MVR 字段保留�
 msgid "Truss GDTF"
 msgstr "桁架 GDTF"
 
-#: gui/trusstablepanel.cpp:305
+#: gui/trusstablepanel.cpp:303
 msgid "Model"
 msgstr "型号"
 
-#: gui/trusstablepanel.cpp:561
+#: gui/trusstablepanel.cpp:559
 msgid "Select Truss Model"
 msgstr "选择桁架模型"
 
@@ -4633,164 +4827,164 @@ msgstr "Symbol 视图导出成功。"
 msgid "Apply Views to Fixture"
 msgstr "将视图应用到夹具"
 
-#: mvr/mvrimporter.cpp:326
+#: mvr/mvrimporter.cpp:318
 msgid "Resolve GDTF source conflicts"
 msgstr "解决 GDTF 来源冲突"
 
-#: mvr/mvrimporter.cpp:329
+#: mvr/mvrimporter.cpp:321
 msgid "Choose which source to keep for each fixture type."
 msgstr "为每种灯具类型选择要保留的来源。"
 
-#: mvr/mvrimporter.cpp:337
+#: mvr/mvrimporter.cpp:329
 msgid "MVR"
 msgstr "MVR"
 
-#: mvr/mvrimporter.cpp:338
+#: mvr/mvrimporter.cpp:330
 msgid "App"
 msgstr "应用"
 
-#: mvr/mvrimporter.cpp:352 mvr/mvrimporter.cpp:353 mvr/mvrimporter.cpp:355
+#: mvr/mvrimporter.cpp:344 mvr/mvrimporter.cpp:345 mvr/mvrimporter.cpp:347
 msgid "Select all"
 msgstr "全选"
 
-#: mvr/mvrimporter.cpp:1719
+#: mvr/mvrimporter.cpp:661
 #, c-format
 msgid ""
 "GDTF Share credentials were authenticated for this operation, but were not "
 "saved (%s)."
 msgstr "GDTF Share 凭据已用于本次操作的身份验证，但未保存（%s）。"
 
-#: mvr/mvrimporter.cpp:1732
+#: mvr/mvrimporter.cpp:678
 msgid "GDTF download queue"
 msgstr "GDTF 下载队列"
 
-#: mvr/mvrimporter.cpp:1766
+#: mvr/mvrimporter.cpp:712
 msgid "Selected fixture types for download"
 msgstr "选定的待下载灯具类型"
 
-#: mvr/mvrimporter.cpp:1773
+#: mvr/mvrimporter.cpp:719
 msgid "Preparing download queue..."
 msgstr "正在准备下载队列..."
 
-#: mvr/mvrimporter.cpp:1795
+#: mvr/mvrimporter.cpp:741
 msgid "Progress"
 msgstr "进度"
 
-#: mvr/mvrimporter.cpp:1802
+#: mvr/mvrimporter.cpp:748
 msgid "0 processed  |  0 downloaded  |  0 fallback"
 msgstr "已处理 0 个  |  已下载 0 个  |  回退 0 个"
 
-#: mvr/mvrimporter.cpp:1842
+#: mvr/mvrimporter.cpp:788
 msgid "Cancel requested. Finishing current transfer..."
 msgstr "已请求取消。正在完成当前传输..."
 
-#: mvr/mvrimporter.cpp:1898
+#: mvr/mvrimporter.cpp:844
 #, c-format
 msgid "%d/%zu processed  |  %d downloaded  |  %d fallback  |  %d canceled"
 msgstr "已处理 %d/%zu 个  |  已下载 %d 个  |  回退 %d 个  |  已取消 %d 个"
 
-#: mvr/mvrimporter.cpp:1959
+#: mvr/mvrimporter.cpp:905
 msgid "Fallback to App"
 msgstr "回退到应用库"
 
-#: mvr/mvrimporter.cpp:1963
+#: mvr/mvrimporter.cpp:909
 msgid "Fallback to MVR"
 msgstr "回退到 MVR"
 
-#: mvr/mvrimporter.cpp:1964
+#: mvr/mvrimporter.cpp:910
 msgid "Fallback to dummy"
 msgstr "回退到应用库"
 
-#: mvr/mvrimporter.cpp:2021
+#: mvr/mvrimporter.cpp:967
 msgid "Pending"
 msgstr "等待中"
 
-#: mvr/mvrimporter.cpp:2024
+#: mvr/mvrimporter.cpp:970
 msgid "Waiting to match catalog entry"
 msgstr "正在等待匹配目录条目"
 
-#: mvr/mvrimporter.cpp:2034
+#: mvr/mvrimporter.cpp:980
 msgid "Loading GDTF catalog..."
 msgstr "正在加载 GDTF 目录..."
 
-#: mvr/mvrimporter.cpp:2137
+#: mvr/mvrimporter.cpp:1085
 #, c-format
 msgid "Selected fixture types for download (catalog entries: %zu)"
 msgstr "选定的待下载灯具类型（目录条目：%zu）"
 
-#: mvr/mvrimporter.cpp:2140
+#: mvr/mvrimporter.cpp:1090
 msgid "Downloading selected fixtures..."
 msgstr "正在下载所选灯具..."
 
-#: mvr/mvrimporter.cpp:2191
+#: mvr/mvrimporter.cpp:1141
 msgid "No catalog match found"
 msgstr "未找到匹配的目录条目"
 
-#: mvr/mvrimporter.cpp:2239 mvr/mvrimporter.cpp:2298
+#: mvr/mvrimporter.cpp:1189 mvr/mvrimporter.cpp:1247
 msgid "Downloading"
 msgstr "正在下载"
 
-#: mvr/mvrimporter.cpp:2240 mvr/mvrimporter.cpp:2300
+#: mvr/mvrimporter.cpp:1190 mvr/mvrimporter.cpp:1249
 msgid "Fetching fixture package"
 msgstr "正在获取灯具包"
 
-#: mvr/mvrimporter.cpp:2319
+#: mvr/mvrimporter.cpp:1268
 msgid "Downloaded and assigned"
 msgstr "已下载并分配"
 
-#: mvr/mvrimporter.cpp:2322
+#: mvr/mvrimporter.cpp:1271
 #, c-format
 msgid " (Mode: %s)"
 msgstr "（模式：%s）"
 
-#: mvr/mvrimporter.cpp:2342 mvr/mvrimporter.cpp:2367
+#: mvr/mvrimporter.cpp:1292 mvr/mvrimporter.cpp:1317
 msgid "Canceled"
 msgstr "已取消"
 
-#: mvr/mvrimporter.cpp:2346
+#: mvr/mvrimporter.cpp:1296
 msgid "Canceled by user"
 msgstr "用户已取消"
 
-#: mvr/mvrimporter.cpp:2359
+#: mvr/mvrimporter.cpp:1309
 msgid "Download failed"
 msgstr "下载失败"
 
-#: mvr/mvrimporter.cpp:2368
+#: mvr/mvrimporter.cpp:1318
 msgid "Canceled before download start"
 msgstr "在开始下载前已取消"
 
-#: mvr/mvrimporter.cpp:2373
+#: mvr/mvrimporter.cpp:1323
 msgid "Queue canceled. Keeping downloaded fixtures."
 msgstr "队列已取消。保留已下载的灯具。"
 
-#: mvr/mvrimporter.cpp:2375
+#: mvr/mvrimporter.cpp:1325
 msgid "Queue finished."
 msgstr "队列已完成。"
 
-#: mvr/mvrimporter.cpp:2379
+#: mvr/mvrimporter.cpp:1330
 msgid "Catalog fetch/parsing failed."
 msgstr "目录获取/解析失败。"
 
-#: mvr/mvrimporter.cpp:2381
+#: mvr/mvrimporter.cpp:1332
 #, c-format
 msgid "Selected fixture types for download (catalog load failed: %s)"
 msgstr "选定的待下载灯具类型（目录加载失败：%s）"
 
-#: mvr/mvrimporter.cpp:2386
+#: mvr/mvrimporter.cpp:1337
 msgid "Failed to load catalog list"
 msgstr "无法加载目录列表"
 
-#: mvr/mvrimporter.cpp:2391
+#: mvr/mvrimporter.cpp:1342
 #, c-format
 msgid "Catalog load failed. %s. Keeping available fallbacks."
 msgstr "目录加载失败。%s。保留 MVR 原始文件。"
 
-#: mvr/mvrimporter.cpp:2397
+#: mvr/mvrimporter.cpp:1348
 #, c-format
 msgid "%s - queue finished"
 msgstr "%s - 队列已完成"
 
-#: mvr/mvrimporter.cpp:2404
+#: mvr/mvrimporter.cpp:1355
 msgid "GDTF Share login"
 msgstr "登录 GDTF Share"
 
@@ -4798,23 +4992,23 @@ msgstr "登录 GDTF Share"
 msgid "Spanish"
 msgstr "西班牙语"
 
-#: viewer2d/viewer2dpanel.cpp:3575
+#: viewer2d/viewer2dpanel.cpp:3579
 msgid "Gap measure: "
 msgstr "测量工具"
 
-#: viewer2d/viewer2dpanel.cpp:3576
+#: viewer2d/viewer2dpanel.cpp:3580
 msgid "Measure: "
 msgstr "测量工具"
 
-#: viewer2d/viewer2dpanel.cpp:3648 viewer3d/viewer3dpanel.cpp:2244
+#: viewer2d/viewer2dpanel.cpp:3652 viewer3d/viewer3dpanel.cpp:2252
 msgid "Convert to Truss"
 msgstr "转换为电动葫芦"
 
-#: viewer2d/viewer2dpanel.cpp:3734 viewer3d/viewer3dpanel.cpp:2261
+#: viewer2d/viewer2dpanel.cpp:3738 viewer3d/viewer3dpanel.cpp:2269
 msgid "No position"
 msgstr "位置"
 
-#: viewer2d/viewer2dpanel.cpp:3745 viewer3d/viewer3dpanel.cpp:2272
+#: viewer2d/viewer2dpanel.cpp:3749 viewer3d/viewer3dpanel.cpp:2280
 msgid "Select by position"
 msgstr "选择"
 
@@ -4955,13 +5149,19 @@ msgstr "保存 PNG 图像失败。"
 msgid "Measure: %s"
 msgstr "测量：%s"
 
-#: viewer3d/viewer3dpanel.cpp:2275
+#: viewer3d/viewer3dpanel.cpp:2283
 msgid "Render style"
 msgstr "渲染模式"
 
-#: viewer3d/viewer3dpanel.cpp:2277
+#: viewer3d/viewer3dpanel.cpp:2285
 msgid "Export image..."
 msgstr "导出灯具..."
+
+#~ msgid "XML"
+#~ msgstr "XML"
+
+#~ msgid "MVR / GDTF Inspector..."
+#~ msgstr "MVR / GDTF 检查器..."
 
 #, c-format
 #~ msgid ""
