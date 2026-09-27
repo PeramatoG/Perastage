@@ -165,7 +165,7 @@ std::string FormatGdtfSummary(
     const std::vector<inspection::ResourceDescriptor> &resources) {
   std::ostringstream out;
   out << "Format: GDTF\n";
-  out << "Status: "
+  out << "Read status: "
       << (result.status == inspection::GdtfReadStatus::Canonical ? "canonical"
           : result.status == inspection::GdtfReadStatus::CompatibilityAccepted
               ? "compatibility-accepted"

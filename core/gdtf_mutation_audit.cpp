@@ -1,4 +1,5 @@
 #include "gdtf_mutation_audit.h"
+#include "gdtf_fixture_type_vocabulary.h"
 
 #include <array>
 #include <charconv>
@@ -50,25 +51,15 @@ tinyxml2::XMLElement *InsertFixtureTypeChildInOrder(
     tinyxml2::XMLElement *fixtureType, tinyxml2::XMLDocument &doc,
     const char *name) {
   tinyxml2::XMLElement *node = doc.NewElement(name);
-  static constexpr const char *kOrder[] = {
-      "AttributeDefinitions", "Wheels", "PhysicalDescriptions", "Models",
-      "Geometries", "DMXModes", "Revisions", "FTPresets", "Protocols"};
-
-  int targetIndex = -1;
-  for (int i = 0; i < static_cast<int>(sizeof(kOrder) / sizeof(kOrder[0])); ++i) {
-    if (std::string(name) == kOrder[i]) {
-      targetIndex = i;
-      break;
-    }
-  }
+  const int targetIndex = gdtf::FixtureTypeChildOrderIndex(name);
 
   if (targetIndex >= 0) {
     tinyxml2::XMLElement *previousElement = nullptr;
     for (tinyxml2::XMLElement *child = fixtureType->FirstChildElement(); child;
          child = child->NextSiblingElement()) {
       for (int i = targetIndex + 1;
-           i < static_cast<int>(sizeof(kOrder) / sizeof(kOrder[0])); ++i) {
-        if (std::string(child->Name()) == kOrder[i]) {
+           i < static_cast<int>(gdtf::kFixtureTypeChildOrder.size()); ++i) {
+        if (std::string(child->Name()) == gdtf::kFixtureTypeChildOrder[i]) {
           tinyxml2::XMLNode *inserted =
               previousElement ? fixtureType->InsertAfterChild(previousElement, node)
                               : fixtureType->InsertFirstChild(node);

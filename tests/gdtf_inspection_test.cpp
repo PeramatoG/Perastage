@@ -345,6 +345,46 @@ void TestValidationLayers(const fs::path &directory) {
   assert(!HasClassification(compatible, DiagnosticClassification::Standards));
 }
 
+// Verifies real-world-shaped legacy input stays readable, invalid, and unchanged.
+void TestLegacyPerastageEditorInspection(const fs::path &directory) {
+  const fs::path path = directory / "legacy-perastage-editor.gdtf";
+  const std::string xml =
+      "<GDTF DataVersion=\"1.2\"><FixtureType Name=\"Legacy Fixture\" "
+      "Manufacturer=\"Perastage\" Description=\"Synthetic production shape\" "
+      "FixtureTypeID=\"12345678-1234-4234-9234-123456789abc\" "
+      "Thumbnail=\"thumb\" Editor=\"Perastage\"><AttributeDefinitions>"
+      "<FeatureGroups/><Attributes/></AttributeDefinitions><Wheels/>"
+      "<PhysicalDescriptions/><Models/><Geometries><Geometry Name=\"Root\"/>"
+      "</Geometries><DMXModes><DMXMode Name=\"Mode A\" Geometry=\"Root\">"
+      "<DMXChannels/></DMXMode><DMXMode Name=\"Mode B\" Geometry=\"Root\">"
+      "<DMXChannels/></DMXMode></DMXModes><Revisions/><FTPresets/><Protocols/>"
+      "</FixtureType></GDTF>";
+  WriteArchive(path, {{"description.xml", xml},
+                      {"models/gltf/body.glb", "synthetic-model"},
+                      {"wheels/open.png", "synthetic-wheel"},
+                      {"thumb.png", "synthetic-thumbnail"}});
+  const std::vector<unsigned char> bytes = ReadBytes(path);
+  const GdtfInspectionResult fromFile = perastage::inspection::InspectGdtf(path);
+  const GdtfInspectionResult fromBytes = perastage::inspection::InspectGdtf(
+      bytes, perastage::inspection::Request{path});
+  assert(fromFile.Success() && fromFile.status == GdtfReadStatus::Canonical);
+  assert(Validation(fromFile, ValidationLayer::XmlWellFormedness).status == ValidationStatus::Valid);
+  assert(Validation(fromFile, ValidationLayer::Schema).status == ValidationStatus::Invalid);
+  assert(std::any_of(Validation(fromFile, ValidationLayer::Schema).diagnostics.begin(),
+                     Validation(fromFile, ValidationLayer::Schema).diagnostics.end(),
+                     [](const Diagnostic &diagnostic) {
+                       return diagnostic.message.find("Editor") != std::string::npos;
+                     }));
+  assert(!HasDiagnostic(fromFile, "gdtf.description.unknown_element",
+                        DiagnosticClassification::General));
+  assert(fromFile.document->Description().dmxModeNames.size() == 2);
+  assert(fromFile.packageInventory->entries.size() == 4);
+  AssertStableResultEqual(fromFile, fromBytes);
+  assert(fromFile.document->SourceFilePresent());
+  assert(!fromBytes.document->SourceFilePresent());
+  assert(ReadBytes(path) == bytes);
+}
+
 // Verifies canonical inspection, source preservation, and direct-reader parity.
 void TestCanonicalAndParity(const fs::path &directory) {
   const fs::path path = directory / "canonical.gdtf";
@@ -606,6 +646,7 @@ int main() {
   TestMixedDiagnosticClassifications(directory);
   TestMalformedOwnedInputMatrix();
   TestValidationLayers(directory);
+  TestLegacyPerastageEditorInspection(directory);
   TestCompatibilityDescription(directory);
   TestMalformedXml(directory);
   TestSemanticDiagnostics(directory);

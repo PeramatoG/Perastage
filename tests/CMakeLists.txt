@@ -837,7 +837,9 @@ add_executable(gdtf_canonicalizer_test
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp)
 target_include_directories(gdtf_canonicalizer_test PRIVATE ../core ../third_party)
-target_link_libraries(gdtf_canonicalizer_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+target_link_libraries(gdtf_canonicalizer_test PRIVATE
+                      perastage_inspection_validation ${wxWidgets_LIBRARIES}
+                      tinyxml2::tinyxml2)
 add_test(NAME GdtfCanonicalizerExportRules COMMAND gdtf_canonicalizer_test)
 
 

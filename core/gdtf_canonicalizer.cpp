@@ -2,6 +2,7 @@
 #include "gdtf_canonicalizer.h"
 
 #include "gdtf_mutation_audit.h"
+#include "gdtf_fixture_type_vocabulary.h"
 
 #include <algorithm>
 #include <array>
@@ -23,10 +24,6 @@ namespace {
 
 constexpr const char *kCanonicalizationRevisionText =
     "Canonicalized GDTF structure for Perastage export";
-constexpr std::array<const char *, 9> kFixtureTypeChildOrder = {
-    "AttributeDefinitions", "Wheels", "PhysicalDescriptions", "Models",
-    "Geometries", "DMXModes", "Revisions", "FTPresets", "Protocols"};
-
 struct ZipEntryData {
   std::string name;
   std::string bytes;
@@ -171,17 +168,12 @@ std::string BuildStableFixtureTypeId(const tinyxml2::XMLElement *fixtureType,
 
 // Returns true when a FixtureType child name is standard.
 bool IsStandardFixtureTypeChild(const char *name) {
-  return std::find(kFixtureTypeChildOrder.begin(), kFixtureTypeChildOrder.end(),
-                   std::string(name ? name : "")) != kFixtureTypeChildOrder.end();
+  return gdtf::IsStandardFixtureTypeChild(name ? name : "");
 }
 
 // Returns the official order index for a FixtureType child.
 int OrderIndex(const char *name) {
-  for (size_t i = 0; i < kFixtureTypeChildOrder.size(); ++i) {
-    if (std::string(name ? name : "") == kFixtureTypeChildOrder[i])
-      return static_cast<int>(i);
-  }
-  return -1;
+  return gdtf::FixtureTypeChildOrderIndex(name ? name : "");
 }
 
 // Serializes XML to a string for change detection.
@@ -191,17 +183,21 @@ std::string PrintDocument(tinyxml2::XMLDocument &doc) {
   return printer.CStr();
 }
 
-// Removes non-standard FixtureType children and reports the mutation.
-bool RemoveUnknownFixtureTypeChildren(tinyxml2::XMLElement *fixtureType) {
+// Removes only known Perastage-owned legacy metadata and reports the mutation.
+bool RemoveKnownLegacyPerastageMetadata(tinyxml2::XMLElement *fixtureType) {
   bool changed = false;
-  for (tinyxml2::XMLNode *node = fixtureType->FirstChild(); node;) {
-    tinyxml2::XMLNode *next = node->NextSibling();
-    tinyxml2::XMLElement *element = node->ToElement();
-    if (element && !IsStandardFixtureTypeChild(element->Name())) {
-      fixtureType->DeleteChild(node);
+  if (const char *editor = fixtureType->Attribute("Editor");
+      editor && gdtf::IsLegacyPerastageEditorValue(editor)) {
+    fixtureType->DeleteAttribute("Editor");
+    changed = true;
+  }
+  for (tinyxml2::XMLElement *element = fixtureType->FirstChildElement(); element;) {
+    tinyxml2::XMLElement *next = element->NextSiblingElement();
+    if (std::string(element->Name()) == "PerastageMutationAudit") {
+      fixtureType->DeleteChild(element);
       changed = true;
     }
-    node = next;
+    element = next;
   }
   return changed;
 }
@@ -214,15 +210,18 @@ bool ReorderFixtureTypeChildren(tinyxml2::XMLElement *fixtureType) {
   for (tinyxml2::XMLElement *child = fixtureType->FirstChildElement(); child;
        child = child->NextSiblingElement()) {
     const int index = OrderIndex(child->Name());
+    if (index < 0)
+      return false;
     if (index < lastIndex)
       changed = true;
     lastIndex = std::max(lastIndex, index);
   }
   if (!changed)
     return false;
-  for (const char *name : kFixtureTypeChildOrder) {
-    for (tinyxml2::XMLElement *child = fixtureType->FirstChildElement(name); child;
-         child = child->NextSiblingElement(name))
+  for (const std::string_view name : gdtf::kFixtureTypeChildOrder) {
+    const std::string childName(name);
+    for (tinyxml2::XMLElement *child = fixtureType->FirstChildElement(childName.c_str()); child;
+         child = child->NextSiblingElement(childName.c_str()))
       ordered.push_back(child);
   }
   tinyxml2::XMLDocument *doc = fixtureType->GetDocument();
@@ -278,6 +277,12 @@ Result ValidateDocumentStructure(const tinyxml2::XMLDocument &doc,
         AddError(result, options, "FixtureType children are not in official GDTF order");
       last = std::max(last, index);
     }
+    for (const tinyxml2::XMLAttribute *attribute = fixtureType->FirstAttribute();
+         attribute; attribute = attribute->Next()) {
+      if (!gdtf::IsStandardFixtureTypeAttribute(attribute->Name()))
+        AddError(result, options, std::string("unknown FixtureType attribute: ") +
+                                      attribute->Name());
+    }
     if (!fixtureType->FirstChildElement("AttributeDefinitions"))
       AddError(result, options, "missing required FixtureType/AttributeDefinitions section");
     if (!fixtureType->FirstChildElement("Geometries"))
@@ -327,7 +332,7 @@ Result CanonicalizeDescription(tinyxml2::XMLDocument &doc, const Options &option
     result.changed = true;
   }
 
-  result.changed = RemoveUnknownFixtureTypeChildren(fixtureType) || result.changed;
+  result.changed = RemoveKnownLegacyPerastageMetadata(fixtureType) || result.changed;
   result.changed = ReorderFixtureTypeChildren(fixtureType) || result.changed;
 
   const std::string afterStructure = PrintDocument(doc);

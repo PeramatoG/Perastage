@@ -20,6 +20,13 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
+- Corrected GDTF inspection so the standard `FTPresets` section is no longer
+  reported as unknown, while canonical publication now removes the known
+  legacy Perastage `Editor` marker, records the cleanup as a standard revision,
+  and continues to report the unmodified source's standards error. The
+  development CLI now labels semantic read status explicitly so it cannot be
+  mistaken for schema-validation status.
+
 - Corrected Inspector and development CLI handling of large XML package
   resources, aligned complete-report validation outcomes with CLI exit codes,
   and removed duplicate human-facing diagnostic rows without discarding

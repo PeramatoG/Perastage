@@ -284,6 +284,21 @@ static void TestDescriptionFailures() {
          gdtf::DescriptionDiagnosticCode::MissingFixtureType);
 }
 
+// Verifies all standard FixtureType sections are recognized without hiding extensions.
+static void TestFixtureTypeChildVocabulary() {
+  const std::string standardSections =
+      "<AttributeDefinitions/><Wheels/><PhysicalDescriptions/><Models/>"
+      "<Geometries/><DMXModes><DMXMode Name=\"Mode\"/></DMXModes>"
+      "<Revisions/><FTPresets/><Protocols/>";
+  const auto standard = gdtf::ReadGdtfDescription(GdtfXml(standardSections));
+  assert(!HasDescriptionDiagnostic(
+      standard, gdtf::DescriptionDiagnosticCode::UnknownElement));
+  const auto extended = gdtf::ReadGdtfDescription(
+      GdtfXml(standardSections + "<ThirdPartyExtension/>"));
+  assert(HasDescriptionDiagnostic(
+      extended, gdtf::DescriptionDiagnosticCode::UnknownElement));
+}
+
 // Verifies explicit and WiringObject fallback power parsing.
 static void TestPowerParsing() {
   auto readPower = [](const std::string &content) {
@@ -649,6 +664,7 @@ int main() {
 
   TestArchiveLookup(dir);
   TestDescriptionFailures();
+  TestFixtureTypeChildVocabulary();
   TestPowerParsing();
   TestOrderedDocumentData();
   TestGoboWheelCollections();

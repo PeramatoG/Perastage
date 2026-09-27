@@ -65,6 +65,9 @@ prose, and layout may change and must not be parsed by automation. Help and
 version output formatting is likewise presentation-only unless a token is
 explicitly added to this section as stable. Exact XML output is a retained
 source payload for inspection, not a versioned Perastage data schema.
+The human GDTF summary labels its semantic result as `Read status`; this is
+independent from the separately displayed XML and schema validation statuses.
+The JSON member remains `status` with its existing values and schema version.
 
 For complete GDTF and MVR reports, `success` means that the read operation
 produced the format-specific structured `document` or `snapshot`; it does not

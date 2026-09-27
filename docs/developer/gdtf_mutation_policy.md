@@ -9,9 +9,22 @@ Perastage is permissive when importing GDTF/MVR data and strict when exporting i
 
 The GDTF 1.2 XSD used to verify this policy is `mvrdevelopment/tools:gdtf.xsd` from the public GDTF/MVR tools repository, advertised there as the GDTF 1.2 XSD Schema; the fetched artifact size was 53,467 bytes with SHA-256 `13a044d297f19d0437965657fb21d02f7b2b02541aabeba5f11e5000074ac2f2`. That schema defines `FixtureType` as an ordered sequence where `AttributeDefinitions`, `Geometries`, and `DMXModes` have `minOccurs="1"`; `Wheels`, `PhysicalDescriptions`, `Models`, `Revisions`, `FTPresets`, and `Protocols` have `minOccurs="0"`; and `Name`, `Manufacturer`, `Description`, and `FixtureTypeID` are required attributes. This is stricter than the prose sentence that one or more sections may be empty or missing, so Perastage treats non-canonical input permissively but keeps generated strict fixtures and publication output aligned to the verified XSD.
 
-The canonicalizer enforces the official GDTF `FixtureType` child order (`AttributeDefinitions`, `Wheels`, `PhysicalDescriptions`, `Models`, `Geometries`, `DMXModes`, `Revisions`, `FTPresets`, `Protocols`), removes non-standard `FixtureType` children such as legacy `PerastageMutationAudit`, preserves valid standard sections and resources, validates required root/fixture structure, and repairs Perastage-owned placeholder `FixtureTypeID` values with deterministic stable IDs when safe.
+The reader, mutation-audit helper, and canonicalizer share one Core-owned definition of the official GDTF `FixtureType` child order (`AttributeDefinitions`, `Wheels`, `PhysicalDescriptions`, `Models`, `Geometries`, `DMXModes`, `Revisions`, `FTPresets`, `Protocols`). The canonicalizer removes the known Perastage-owned legacy `PerastageMutationAudit` child and a legacy `Editor` attribute only when its value is `Perastage` or starts with `Perastage `. It preserves valid standard sections and resources, validates required root/fixture structure, and repairs Perastage-owned placeholder `FixtureTypeID` values with deterministic stable IDs when safe. Unknown third-party children and attributes are not guessed away: strict publication rejects them while leaving the parsed document content intact for an explicit caller decision.
 
 Any canonicalization mutation is recorded with a standard GDTF `Revision` only. Perastage-specific GDTF metadata must not use custom XML nodes; legacy `PerastageMutationAudit` is read-only compatibility metadata and is never written on export. Perastage-specific MVR metadata remains restricted to root-level `GeneralSceneDescription/UserData/Data[@provider="Perastage"]`; object-level MVR `UserData` is not exported for Fixture, SceneObject, Support, Truss, or GroupObject.
+
+### Tolerant FixtureType metadata reads
+
+The inspection reader remains deliberately narrower than a full GDTF document model. Its attribute fallbacks are classified as follows:
+
+| Read field | Accepted names | Classification and publication policy |
+|---|---|---|
+| Identity and display | `Name`, `Manufacturer`, `ShortName`, `LongName`, `Description`, `FixtureTypeID`, `Thumbnail` | Standard GDTF 1.2. |
+| Creation date | `CreateDate`, `CreationDate`, `DateCreated` | Generic tolerant-reader compatibility. None is a GDTF 1.2 `FixtureType` attribute, ownership is not safely attributable to Perastage, and canonical publication therefore preserves and rejects it rather than deleting it. |
+| Fixture-level revision fallback | `Revision`, `DataVersion`, `Version` | Generic tolerant-reader compatibility for historical metadata displays. None is a GDTF 1.2 `FixtureType` attribute; publication preserves and rejects it. The standard version is `GDTF/@DataVersion`, and standard change history is represented by `FixtureType/Revisions/Revision`. |
+| Legacy editor evidence | `Editor="Perastage"` or a value beginning with `Perastage ` | Known Perastage legacy compatibility. Raw inspection keeps the official XSD error and never rewrites the source; canonical publication removes only this owned marker and records the mutation with a standard `Revision`. Other `Editor` values are preserved and rejected. |
+
+At the GDTF root, the reader's `Version` fallback for standard `DataVersion` is generic tolerant-reader compatibility. Within a standard `Revision`, `Comment`/`Version` as fallbacks for `Text` and `TimeStamp` as a fallback for `Date` are likewise generic tolerant-reader compatibility. These aliases remain read-only conveniences and are not classified as standard or silently normalized. No currently accepted alias was identified as a safe obsolete fallback whose removal would improve compatibility.
 
 ## 1) Inventory of GDTF write points in Perastage
 

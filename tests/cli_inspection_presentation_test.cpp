@@ -148,7 +148,7 @@ bool CheckFormatters() {
   description.wheels.push_back({"Color", {}});
   gdtf.document.emplace(std::move(archive), std::move(description));
   const std::string gdtfSummary = cli::FormatGdtfSummary(gdtf, {resource});
-  passed &= Expect(gdtfSummary.find("Format: GDTF\nStatus: canonical\n") == 0,
+  passed &= Expect(gdtfSummary.find("Format: GDTF\nRead status: canonical\n") == 0,
                    "GDTF summary golden prefix");
   passed &= Expect(
       gdtfSummary.find("Manufacturer: Perastage\nFixture type: Fixture\n") !=

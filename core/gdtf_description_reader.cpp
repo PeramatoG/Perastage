@@ -1,4 +1,5 @@
 #include "gdtf_description_reader.h"
+#include "gdtf_fixture_type_vocabulary.h"
 
 #include <algorithm>
 #include <cctype>
@@ -397,11 +398,11 @@ GdtfDescriptionSnapshot ReadGdtfDescription(
   }
 
   RecordUnknownChildren(snapshot, root, {"FixtureType"}, "/GDTF");
-  RecordUnknownChildren(snapshot, fixtureType,
-                        {"Revisions", "AttributeDefinitions", "Wheels",
-                         "PhysicalDescriptions", "Models", "Geometries",
-                         "DMXModes", "Protocols"},
-                        "/GDTF/FixtureType");
+  RecordUnknownChildren(
+      snapshot, fixtureType,
+      std::set<std::string>(kFixtureTypeChildOrder.begin(),
+                            kFixtureTypeChildOrder.end()),
+      "/GDTF/FixtureType");
   return snapshot;
 }
 
