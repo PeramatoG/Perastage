@@ -44,9 +44,24 @@ inline bool IsStandardFixtureTypeAttribute(std::string_view name) {
                    name) != kFixtureTypeAttributes.end();
 }
 
-// Recognizes the legacy Perastage-owned Editor marker without matching vendors.
+// Recognizes conservative legacy Perastage Editor values using ASCII case folding.
 inline bool IsLegacyPerastageEditorValue(std::string_view value) {
-  return value == "Perastage" || value.rfind("Perastage ", 0) == 0;
+  constexpr std::string_view prefix = "perastage";
+  if (value.size() < prefix.size())
+    return false;
+  for (std::size_t index = 0; index < prefix.size(); ++index) {
+    const char character = value[index];
+    const char folded = character >= 'A' && character <= 'Z'
+                            ? static_cast<char>(character - 'A' + 'a')
+                            : character;
+    if (folded != prefix[index])
+      return false;
+  }
+  if (value.size() == prefix.size())
+    return true;
+  const char separator = value[prefix.size()];
+  return separator == ' ' || separator == '\t' || separator == '\r' ||
+         separator == '\n' || separator == '-' || separator == '/';
 }
 
 } // namespace gdtf

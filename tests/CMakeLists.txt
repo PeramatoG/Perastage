@@ -2995,6 +2995,17 @@ foreach(PERASTAGE_TEST_TARGET IN LISTS PERASTAGE_TEST_TARGETS)
                               perastage_test_required_fixture_svg)
     endif()
     if(PERASTAGE_TEST_SOURCES AND
+       "../core/gdtfdictionary.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
+        if(NOT "../core/fixture_gdtf_derivative_publication.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
+            target_sources(${PERASTAGE_TEST_TARGET} PRIVATE
+                           ../core/fixture_gdtf_derivative_publication.cpp)
+        endif()
+        if(NOT "../core/gdtf_canonicalizer.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
+            target_sources(${PERASTAGE_TEST_TARGET} PRIVATE
+                           ../core/gdtf_canonicalizer.cpp)
+        endif()
+    endif()
+    if(PERASTAGE_TEST_SOURCES AND
        "../core/fixture_gdtf_derivative_contract.cpp" IN_LIST PERASTAGE_TEST_SOURCES AND
        NOT "../core/symbols/PerastageSvgSymbol.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
         target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE
@@ -3314,12 +3325,16 @@ add_test(NAME ProjectFixtureGdtfConsolidator
 add_executable(fixture_gdtf_derivative_contract_test
                fixture_gdtf_derivative_contract_test.cpp
                support/gdtf_test_fixture_builder.cpp
+               build_info_stub.cpp
                ../core/fixture_gdtf_derivative_contract.cpp
-               ../core/fixture_gdtf_derivative_publication.cpp)
+               ../core/fixture_gdtf_derivative_publication.cpp
+               ../core/gdtf_canonicalizer.cpp
+               ../core/gdtf_mutation_audit.cpp)
 target_include_directories(fixture_gdtf_derivative_contract_test PRIVATE
                            ../core support)
 target_link_libraries(fixture_gdtf_derivative_contract_test PRIVATE
                       perastage_test_required_fixture_svg
+                      perastage_inspection_validation
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME FixtureGdtfDerivativeContract
          COMMAND fixture_gdtf_derivative_contract_test)

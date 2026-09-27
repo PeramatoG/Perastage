@@ -31,6 +31,7 @@
 #include "gdtfdictionary.h"
 #include "gdtf_mutation_audit.h"
 #include "gdtf_canonicalizer.h"
+#include "gdtf_fixture_type_vocabulary.h"
 #include "symbols/fixture_symbol_availability.h"
 #include "symbols/fixture_symbol_resource_revision.h"
 #include "symbols/PerastageSvgSymbol.h"
@@ -75,13 +76,6 @@ std::string ToLowerCopy(std::string value) {
   std::transform(value.begin(), value.end(), value.begin(),
                  [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
   return value;
-}
-
-bool IsPerastageEditorValue(const char *editorValue) {
-  if (!editorValue)
-    return false;
-  const std::string editor = editorValue;
-  return editor == "Perastage" || editor.rfind("Perastage ", 0) == 0;
 }
 
 // Resolves the FixtureType element from a parsed GDTF description document.
@@ -889,7 +883,8 @@ bool InspectFixtureSymbolState(const Fixture &fixture,
   const bool revisionModifiedByPerastage =
       HasPerastageRevisionModifiedBy(fixtureType);
   const bool editorIsPerastage =
-      IsPerastageEditorValue(fixtureType->Attribute("Editor"));
+      fixtureType->Attribute("Editor") &&
+      gdtf::IsLegacyPerastageEditorValue(fixtureType->Attribute("Editor"));
   const auto compatibility = GdtfMutationAudit::InspectCompatibility(fixtureType);
   result.warningMessage = compatibility.warning;
   result.editorIsPerastage =

@@ -8,6 +8,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <sstream>
 #include <string>
 
@@ -29,6 +30,28 @@ std::string ReadFile(const std::filesystem::path &path) {
   std::ostringstream buffer;
   buffer << in.rdbuf();
   return buffer.str();
+}
+
+// Reads description.xml from a GDTF archive.
+std::string ReadDescriptionXml(const std::filesystem::path &path) {
+  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(path));
+  wxZipInputStream zip(input);
+  std::unique_ptr<wxZipEntry> entry;
+  while ((entry.reset(zip.GetNextEntry())), entry) {
+    if (entry->GetName() != "description.xml")
+      continue;
+    std::ostringstream bytes;
+    char buffer[4096];
+    while (true) {
+      zip.Read(buffer, sizeof(buffer));
+      const std::size_t count = zip.LastRead();
+      if (count == 0)
+        break;
+      bytes.write(buffer, static_cast<std::streamsize>(count));
+    }
+    return bytes.str();
+  }
+  return {};
 }
 
 void WriteFile(const std::filesystem::path &path, const std::string &content) {
@@ -144,6 +167,42 @@ int main() {
          "GLP@JDC1.gdtf");
   assert(!GdtfDictionary::IsPerastageNamedGdtfFile(
       externalMapping.entry.path));
+
+  const std::filesystem::path legacyDerivativeSource =
+      isolatedRoot / "downloads" / "LegacyFixture.gdtf";
+  tests::gdtf::BuildMinimalValidFixture()
+      .WithFixtureIdentity("LegacyFixture", "Acme",
+                           tests::gdtf::FixtureBuilder::kMinimalFixtureTypeId)
+      .WithModelResource("main")
+      .WithPerastageGeneratedSymbols()
+      .WithEditor("perastage/1.5")
+      .WriteArchive(legacyDerivativeSource);
+  const std::string legacySourceBytes = ReadFile(legacyDerivativeSource);
+  const auto legacyDerivative =
+      GdtfDictionary::CreateOrUpdatePerastageLibraryDerivative(
+          "Legacy Fixture", legacyDerivativeSource.string(), "Default");
+  assert(legacyDerivative.has_value());
+  assert(ReadFile(legacyDerivativeSource) == legacySourceBytes);
+  const std::string derivativeXml = ReadDescriptionXml(legacyDerivative->path);
+  assert(derivativeXml.find("Editor=") == std::string::npos);
+  assert(derivativeXml.find("PerastageMutationAudit") == std::string::npos);
+
+  const std::filesystem::path unknownDerivativeSource =
+      isolatedRoot / "downloads" / "UnknownFixture.gdtf";
+  tests::gdtf::BuildMinimalValidFixture()
+      .WithFixtureIdentity("UnknownFixture", "Acme",
+                           tests::gdtf::FixtureBuilder::kMinimalFixtureTypeId)
+      .WithModelResource("main")
+      .WithPerastageGeneratedSymbols()
+      .WithFixtureTypeExtensionAttribute("VendorData", "keep")
+      .WriteArchive(unknownDerivativeSource);
+  const std::string unknownSourceBytes = ReadFile(unknownDerivativeSource);
+  assert(!GdtfDictionary::CreateOrUpdatePerastageLibraryDerivative(
+              "Unknown Fixture", unknownDerivativeSource.string(), "Default")
+              .has_value());
+  assert(ReadFile(unknownDerivativeSource) == unknownSourceBytes);
+  assert(!std::filesystem::exists(fixturesDir /
+                                  "Acme@UnknownFixture@Perastage.gdtf"));
 
   assert(GdtfDictionary::Save(*loadedOpt));
 

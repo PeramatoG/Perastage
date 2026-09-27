@@ -1,14 +1,80 @@
 #include "fixture_gdtf_derivative_contract.h"
 #include "fixture_gdtf_derivative_publication.h"
+#include "inspection/xml_schema_validation.h"
 
 #include "gdtf_test_fixture_builder.h"
 
 #include <cassert>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
+#include <memory>
 #include <string>
 
+#include <tinyxml2.h>
+#include <wx/wfstream.h>
+#include <wx/zipstrm.h>
+
 namespace fs = std::filesystem;
+
+// Reads an entire file for source-preservation assertions.
+std::string ReadFileBytes(const fs::path &path) {
+  std::ifstream input(path, std::ios::binary);
+  return {std::istreambuf_iterator<char>(input),
+          std::istreambuf_iterator<char>()};
+}
+
+// Reads description.xml from a synthetic GDTF archive.
+std::string ReadDescriptionXml(const fs::path &path) {
+  wxFileInputStream input(path.string());
+  wxZipInputStream zip(input);
+  std::unique_ptr<wxZipEntry> entry;
+  while ((entry.reset(zip.GetNextEntry())), entry) {
+    if (entry->GetName() != "description.xml")
+      continue;
+    std::string bytes;
+    char buffer[4096];
+    while (true) {
+      zip.Read(buffer, sizeof(buffer));
+      const std::size_t count = zip.LastRead();
+      if (count == 0)
+        break;
+      bytes.append(buffer, count);
+    }
+    return bytes;
+  }
+  return {};
+}
+
+// Reports whether a GDTF archive retains a requested resource entry.
+bool ArchiveContainsEntry(const fs::path &path, const std::string &entryName) {
+  wxFileInputStream input(path.string());
+  wxZipInputStream zip(input);
+  std::unique_ptr<wxZipEntry> entry;
+  while ((entry.reset(zip.GetNextEntry())), entry) {
+    if (entry->GetName().ToStdString() == entryName)
+      return true;
+  }
+  return false;
+}
+
+// Counts canonicalization revisions in one description payload.
+int CountCanonicalizationRevisions(const std::string &xml) {
+  tinyxml2::XMLDocument document;
+  assert(document.Parse(xml.c_str(), xml.size()) == tinyxml2::XML_SUCCESS);
+  const auto *fixtureType =
+      document.FirstChildElement("GDTF")->FirstChildElement("FixtureType");
+  const auto *revisions = fixtureType->FirstChildElement("Revisions");
+  int count = 0;
+  for (const auto *revision =
+           revisions ? revisions->FirstChildElement("Revision") : nullptr;
+       revision; revision = revision->NextSiblingElement("Revision")) {
+    const char *text = revision->Attribute("Text");
+    count += text && std::string(text) ==
+                         "Canonicalized GDTF structure for Perastage export";
+  }
+  return count;
+}
 
 // Verifies canonical derivatives require all four stored fixture-symbol views.
 int main() {
@@ -86,6 +152,54 @@ int main() {
   assert(fixture_gdtf::PublishPreparedDerivative(successfulPreparation, error));
   assert(!fs::exists(successfulPreparation.workingPath));
   assert(fixture_gdtf::ValidatePublishedDerivative(published.string(), error));
+
+  const fs::path legacySource = root / "LegacySource.gdtf";
+  const fs::path canonicalDestination = root / "Legacy@Perastage.gdtf";
+  tests::gdtf::BuildMinimalValidFixture()
+      .WithModelResource("main")
+      .WithPerastageGeneratedSymbols()
+      .WithEditor("PERASTAGE 1.5")
+      .WithArchiveEntry("wheels/open.png", "wheel-resource")
+      .WriteArchive(legacySource);
+  const std::string originalLegacyBytes = ReadFileBytes(legacySource);
+  assert(!fixture_gdtf::PublishCanonicalGdtfCopy(legacySource, legacySource,
+                                                  error));
+  assert(ReadFileBytes(legacySource) == originalLegacyBytes);
+  assert(fixture_gdtf::PublishCanonicalGdtfCopy(
+      legacySource, canonicalDestination, error));
+  assert(ReadFileBytes(legacySource) == originalLegacyBytes);
+  assert(legacySource != canonicalDestination);
+  assert(ReadFileBytes(canonicalDestination) != originalLegacyBytes);
+  std::string canonicalXml = ReadDescriptionXml(canonicalDestination);
+  assert(canonicalXml.find("Editor=") == std::string::npos);
+  assert(canonicalXml.find("PerastageMutationAudit") == std::string::npos);
+  assert(canonicalXml.find("<FTPresets") != std::string::npos);
+  assert(canonicalXml.find("<Protocols") != std::string::npos);
+  assert(ArchiveContainsEntry(canonicalDestination, "wheels/open.png"));
+  assert(CountCanonicalizationRevisions(canonicalXml) == 1);
+  const auto schemaValidation = perastage::inspection::ValidateXmlAgainstSchema(
+      canonicalXml, perastage::inspection::Gdtf12Schema());
+  assert(schemaValidation.schema.status ==
+         perastage::inspection::ValidationStatus::Valid);
+  assert(fixture_gdtf::PublishCanonicalGdtfCopy(
+      canonicalDestination, root / "Repeated@Perastage.gdtf", error));
+  assert(CountCanonicalizationRevisions(
+             ReadDescriptionXml(root / "Repeated@Perastage.gdtf")) == 1);
+
+  const fs::path unknownSource = root / "UnknownSource.gdtf";
+  const fs::path refusedDestination = root / "Unknown@Perastage.gdtf";
+  tests::gdtf::BuildMinimalValidFixture()
+      .WithModelResource("main")
+      .WithPerastageGeneratedSymbols()
+      .WithFixtureTypeExtensionAttribute("VendorData", "keep")
+      .WriteArchive(unknownSource);
+  const std::string originalUnknownBytes = ReadFileBytes(unknownSource);
+  std::ofstream(refusedDestination, std::ios::binary) << "previous-destination";
+  assert(!fixture_gdtf::PublishCanonicalGdtfCopy(
+      unknownSource, refusedDestination, error));
+  assert(!error.empty());
+  assert(ReadFileBytes(unknownSource) == originalUnknownBytes);
+  assert(ReadFileBytes(refusedDestination) == "previous-destination");
   fs::remove_all(root);
   return 0;
 }

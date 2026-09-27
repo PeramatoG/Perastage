@@ -1,5 +1,6 @@
 #include "wx_path_utils.h"
 #include "gdtf_canonicalizer.h"
+#include "gdtf_fixture_type_vocabulary.h"
 #include "inspection/xml_schema_validation.h"
 
 #include <cassert>
@@ -104,6 +105,14 @@ bool ArchiveContainsEntry(const std::filesystem::path &path,
 
 // Verifies that legacy FixtureType structure is canonicalized for export.
 int main() {
+  assert(gdtf::IsLegacyPerastageEditorValue("Perastage"));
+  assert(gdtf::IsLegacyPerastageEditorValue("PERASTAGE 1.6.85"));
+  assert(gdtf::IsLegacyPerastageEditorValue("perastage-cli/1.6"));
+  assert(gdtf::IsLegacyPerastageEditorValue("Perastage-1.5"));
+  assert(!gdtf::IsLegacyPerastageEditorValue("PerastageVendor"));
+  assert(!gdtf::IsLegacyPerastageEditorValue("Vendor Perastage"));
+  assert(!gdtf::IsLegacyPerastageEditorValue("Perastaging"));
+
   {
     tinyxml2::XMLDocument doc;
     ParseInto(doc, MinimalGdtf(

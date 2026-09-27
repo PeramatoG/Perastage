@@ -1,6 +1,7 @@
 #include "fixture_gdtf_derivative_publication.h"
 
 #include "fixture_gdtf_derivative_contract.h"
+#include "gdtf_canonicalizer.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -21,7 +22,89 @@ std::string NormalizeReference(std::string reference) {
   return reference;
 }
 
+// Returns a collision-resistant private sibling path for canonicalization.
+std::filesystem::path BuildCanonicalWorkingPath(
+    const std::filesystem::path &publishedPath) {
+  static std::atomic<unsigned long long> nextWorkingId{0};
+  std::filesystem::path workingPath = publishedPath;
+  workingPath += ".canonical-working." +
+                 std::to_string(nextWorkingId.fetch_add(1));
+  return workingPath;
+}
+
+// Replaces a published archive atomically with a completed private archive.
+bool ReplacePublishedArchive(const std::filesystem::path &workingPath,
+                             const std::filesystem::path &publishedPath,
+                             std::string &errorMessage) {
+  std::error_code ec;
+#ifdef _WIN32
+  const BOOL moved = MoveFileExW(workingPath.wstring().c_str(),
+                                 publishedPath.wstring().c_str(),
+                                 MOVEFILE_REPLACE_EXISTING |
+                                     MOVEFILE_WRITE_THROUGH);
+  if (!moved)
+    ec = std::error_code(static_cast<int>(GetLastError()),
+                         std::system_category());
+#else
+  std::filesystem::rename(workingPath, publishedPath, ec);
+#endif
+  if (!ec) {
+    errorMessage.clear();
+    return true;
+  }
+  std::filesystem::remove(workingPath, ec);
+  errorMessage = "Could not atomically publish the canonical fixture GDTF.";
+  return false;
+}
+
 } // namespace
+
+// Canonicalizes a source archive through a private copy and atomically publishes it.
+bool PublishCanonicalGdtfCopy(const std::filesystem::path &sourcePath,
+                              const std::filesystem::path &publishedPath,
+                              std::string &errorMessage) {
+  namespace fs = std::filesystem;
+  if (sourcePath.empty() || publishedPath.empty()) {
+    errorMessage = "A source and destination are required for GDTF publication.";
+    return false;
+  }
+  std::error_code ec;
+  if (!fs::is_regular_file(sourcePath, ec) || ec) {
+    errorMessage = "The GDTF publication source does not exist or is not a file.";
+    return false;
+  }
+  std::error_code sourcePathError;
+  const fs::path absoluteSource =
+      fs::absolute(sourcePath, sourcePathError).lexically_normal();
+  std::error_code destinationPathError;
+  const fs::path absoluteDestination =
+      fs::absolute(publishedPath, destinationPathError).lexically_normal();
+  if ((fs::exists(publishedPath, ec) && !ec &&
+       fs::equivalent(sourcePath, publishedPath, ec)) ||
+      (!sourcePathError && !destinationPathError &&
+       absoluteSource == absoluteDestination)) {
+    errorMessage = "Canonical publication requires a destination copy distinct from the source.";
+    return false;
+  }
+  ec.clear();
+  if (!publishedPath.parent_path().empty())
+    fs::create_directories(publishedPath.parent_path(), ec);
+  if (ec) {
+    errorMessage = "Could not create the canonical GDTF destination directory.";
+    return false;
+  }
+  const fs::path workingPath = BuildCanonicalWorkingPath(publishedPath);
+  const GdtfCanonicalizer::Result canonical =
+      GdtfCanonicalizer::CanonicalizeArchive(sourcePath, workingPath);
+  if (!canonical.success) {
+    fs::remove(workingPath, ec);
+    errorMessage = canonical.errors.empty()
+                       ? "GDTF canonicalization failed."
+                       : canonical.errors.front();
+    return false;
+  }
+  return ReplacePublishedArchive(workingPath, publishedPath, errorMessage);
+}
 
 // Prepares a private working copy and its eventual project publication target.
 bool PrepareProjectDerivative(const std::filesystem::path &sourcePath,
@@ -82,24 +165,23 @@ bool PublishPreparedDerivative(const PreparedDerivative &prepared,
     DiscardPreparedDerivative(prepared);
     return false;
   }
-  std::error_code ec;
-#ifdef _WIN32
-  const BOOL moved = MoveFileExW(prepared.workingPath.wstring().c_str(),
-                                 prepared.publishedPath.wstring().c_str(),
-                                 MOVEFILE_REPLACE_EXISTING |
-                                     MOVEFILE_WRITE_THROUGH);
-  if (!moved)
-    ec = std::error_code(static_cast<int>(GetLastError()),
-                         std::system_category());
-#else
-  fs::rename(prepared.workingPath, prepared.publishedPath, ec);
-#endif
-  if (!ec) {
-    errorMessage.clear();
-    return true;
+  const fs::path canonicalWorkingPath =
+      BuildCanonicalWorkingPath(prepared.publishedPath);
+  const GdtfCanonicalizer::Result canonical =
+      GdtfCanonicalizer::CanonicalizeArchive(prepared.workingPath,
+                                             canonicalWorkingPath);
+  fs::remove(prepared.workingPath);
+  if (!canonical.success) {
+    fs::remove(canonicalWorkingPath);
+    errorMessage = canonical.errors.empty()
+                       ? "Fixture derivative canonicalization failed."
+                       : canonical.errors.front();
+    return false;
   }
+  if (ReplacePublishedArchive(canonicalWorkingPath, prepared.publishedPath,
+                              errorMessage))
+    return true;
   DiscardPreparedDerivative(prepared);
-  errorMessage = "Could not atomically publish the validated fixture derivative.";
   return false;
 }
 

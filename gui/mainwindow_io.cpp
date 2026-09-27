@@ -49,6 +49,7 @@
 #include "exportobjectdialog.h"
 #include "exporttrussdialog.h"
 #include "fixture.h"
+#include "fixture_gdtf_derivative_publication.h"
 #include "fixture_label_overrides.h"
 #include "fixturetablepanel.h"
 #include "gdtf_mutation_audit.h"
@@ -818,22 +819,13 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
       return;
   }
 
-  std::error_code copyError;
-  const bool targetIsEffectiveSource =
-      fs::exists(target, copyError) &&
-      fs::equivalent(target, effectiveSrc, copyError);
-  if (!targetIsEffectiveSource) {
-    fs::create_directories(target.parent_path(), copyError);
-    copyError.clear();
-    fs::copy_file(effectiveSrc, target, fs::copy_options::overwrite_existing,
-                  copyError);
-    if (copyError) {
-      wxMessageBox(
-          wxString::Format(_("Failed to write file: %s"),
-                           wxString::FromUTF8(copyError.message())),
-          _("Error"), wxOK | wxICON_ERROR);
-      return;
-    }
+  std::string publicationError;
+  if (!fixture_gdtf::PublishCanonicalGdtfCopy(effectiveSrc, target,
+                                               publicationError)) {
+    wxMessageBox(wxString::Format(_("Failed to write file: %s"),
+                                  wxString::FromUTF8(publicationError)),
+                 _("Error"), wxOK | wxICON_ERROR);
+    return;
   }
 
   wxMessageBox(_("Fixture exported successfully."), _("Export Fixture"),

@@ -17,6 +17,7 @@
  */
 #include "gdtfdictionary.h"
 #include "fixture_gdtf_derivative_contract.h"
+#include "fixture_gdtf_derivative_publication.h"
 #include "active_dictionary_storage.h"
 #include "configmanager.h"
 #include "dictionary_json_contract.h"
@@ -27,6 +28,7 @@
 #include "projectutils.h"
 #include "startup_file_access_gate.h"
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <filesystem>
 #include <fstream>
@@ -1118,9 +1120,24 @@ std::optional<Entry> CreateOrUpdatePerastageLibraryDerivative(
       IsPerastageNamedGdtfFilePath(src)
           ? src.filename()
           : fs::path(BuildPerastageCanonicalGdtfFileName(src.string()));
+  static std::atomic<unsigned long long> nextCanonicalCopyId{0};
+  fs::path canonicalSource = file.parent_path() / destinationName;
+  canonicalSource += ".publication-working." +
+                     std::to_string(nextCanonicalCopyId.fetch_add(1));
+  std::string canonicalizationError;
+  if (!fixture_gdtf::PublishCanonicalGdtfCopy(
+          src, canonicalSource, canonicalizationError)) {
+    Logger::Instance().Log(
+        Logger::Level::Warn,
+        "Refused to publish non-canonical Perastage fixture derivative '" +
+            src.filename().string() + "': " + canonicalizationError);
+    return std::nullopt;
+  }
   const auto copyResult = ActiveDictionaryStorage::CopyAssetIntoDictionaryStorage(
       {ActiveDictionaryStorage::DictionaryKind::Fixtures, file, GetUserDictFile(),
-       src, destinationName, FileImportUtils::ConflictPolicy::Overwrite});
+       canonicalSource, destinationName, FileImportUtils::ConflictPolicy::Overwrite});
+  std::error_code cleanupError;
+  fs::remove(canonicalSource, cleanupError);
   if (!copyResult.success)
     return std::nullopt;
 

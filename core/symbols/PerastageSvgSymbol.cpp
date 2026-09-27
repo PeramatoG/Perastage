@@ -1,5 +1,6 @@
 #include "symbols/PerastageSvgSymbol.h"
 #include "gdtf_mutation_audit.h"
+#include "gdtf_fixture_type_vocabulary.h"
 #include "startup_file_access_gate.h"
 
 #include <algorithm>
@@ -766,7 +767,7 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
       HasPerastageRevisionModifiedBy(fixtureType);
   const char *editor = fixtureType->Attribute("Editor");
   const bool editorIsPerastageLegacy =
-      editor && StartsWithNoCase(editor, "Perastage");
+      editor && gdtf::IsLegacyPerastageEditorValue(editor);
   const auto compatibility = GdtfMutationAudit::InspectCompatibility(fixtureType);
   if (!compatibility.warning.empty()) {
     wxLogWarning("GDTF symbol compatibility warning for '%s': %s",
