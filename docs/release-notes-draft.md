@@ -41,6 +41,8 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Documented and regression-tested the development CLI automation contract for versioned JSON, exit codes, stream routing, Unicode paths, and structured diagnostic locations, while explicitly keeping human-readable presentation outside the machine-compatibility promise. The CLI remains unshipped.
+
 - Added a headless `inspect` command to the development CLI for GDTF and MVR summaries, package and resource inventories, diagnostics, exact retained XML, and structured JSON, with deterministic exit codes, Unicode-safe native Windows paths, complete structured GDTF document facts, clean data/process stream separation, and layered Core serialization boundaries that keep neutral results independent from full format reports, and explicit cross-platform UTF-8 report verification. The CLI remains unshipped.
 
 - Added a dedicated headless command-line executable for development and cross-platform automation, with stable help and version output, deterministic usage errors, and strengthened automated separation from GUI startup, application state, localization, and packaging; it is not included in shipped packages yet.

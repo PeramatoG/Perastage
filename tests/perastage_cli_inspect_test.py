@@ -43,6 +43,30 @@ def require(condition: bool, message: str) -> None:
         raise AssertionError(message)
 
 
+def require_automation_contract(report: object, expected_format: str) -> dict[str, object]:
+    """Check the stable minimum while allowing additive report members."""
+    require(isinstance(report, dict), "JSON report object")
+    required = {
+        "schema_version", "request", "success", "worst_severity", "diagnostics",
+        "format", "status", "package", "resources", "validation",
+    }
+    require(required <= report.keys(), "minimum top-level automation fields")
+    require(report["schema_version"] == 1
+            and type(report["schema_version"]) is int, "schema version contract")
+    require(report["format"] == expected_format, "format token")
+    require(type(report["success"]) is bool, "success value type")
+    require(report["worst_severity"] is None
+            or report["worst_severity"] in {"information", "warning", "error", "fatal"},
+            "worst-severity token")
+    require(isinstance(report["request"], dict)
+            and isinstance(report["request"].get("source_path"), str),
+            "request source-path contract")
+    require(isinstance(report["diagnostics"], list)
+            and isinstance(report["resources"], list)
+            and isinstance(report["validation"], list), "stable collection types")
+    return report
+
+
 def main() -> int:
     """Verify summaries, views, JSON, failures, compatibility, and Unicode paths."""
     executable = Path(sys.argv[1]).resolve()
@@ -83,27 +107,45 @@ def main() -> int:
         result = run(executable, "inspect", str(mvr), "--view", "xml")
         require(result[0] == 0 and result[1] == MVR_XML, "exact XML output")
         result = run(executable, "inspect", str(gdtf), "--json")
-        report = json.loads(result[1])
-        require(result[0] == 0 and report["format"] == "GDTF" and report["document"]["root_xml"] == GDTF_XML,
+        report = require_automation_contract(json.loads(result[1]), "GDTF")
+        require(result[0] == 0 and not result[2]
+                and isinstance(report.get("document"), dict)
+                and report["document"]["root_xml"] == GDTF_XML,
                 "complete GDTF JSON")
         result = run(executable, "inspect", str(compatibility), "--json")
-        require(result[0] == 1 and json.loads(result[1])["status"] == "compatibility_accepted",
+        compatibility_report = require_automation_contract(json.loads(result[1]), "GDTF")
+        require(result[0] == 1 and not result[2]
+                and compatibility_report["status"] == "compatibility_accepted",
                 "compatibility warning")
         result = run(executable, "inspect", str(unsafe_mvr), "--json")
-        unsafe_report = json.loads(result[1])
+        unsafe_report = require_automation_contract(json.loads(result[1]), "MVR")
         require(result[0] == 1 and not result[2], "unsafe-entry stderr cleanliness")
-        require(any(item["code"] == "package.unsafe_entry_path"
-                    for item in unsafe_report["diagnostics"]),
-                "unsafe-entry structured diagnostic")
+        unsafe_diagnostic = next((item for item in unsafe_report["diagnostics"]
+                                  if item["code"] == "package.unsafe_entry_path"), None)
+        require(unsafe_diagnostic is not None
+                and unsafe_diagnostic["severity"] == "error"
+                and unsafe_diagnostic["domain"] == "package"
+                and unsafe_diagnostic["classification"] == "general",
+                "unsafe-entry stable diagnostic tokens")
+        location = unsafe_diagnostic.get("location", {})
+        require(Path(location.get("source_path", "")).name == unsafe_mvr.name
+                and location.get("package_entry") == "../unsafe-resource.txt",
+                "unsafe-entry structured diagnostic location")
         result = run(executable, "inspect", str(malformed), "--json")
-        require(result[0] == 3 and json.loads(result[1])["success"] is False and not result[2],
+        malformed_report = require_automation_contract(json.loads(result[1]), "MVR")
+        require(result[0] == 3 and malformed_report["success"] is False and not result[2],
                 "structured malformed source")
         result = run(executable, "inspect", str(unsupported))
         require(result[0] == 4 and not result[1] and "unsupported input type" in result[2],
                 "unsupported input routing")
+        result = run(executable, "inspect")
+        require(result[0] == 2 and not result[1]
+                and "exactly one input file" in result[2], "usage failure routing")
         result = run(executable, "inspect", str(unicode_mvr), "--json")
-        unicode_source_path = json.loads(result[1])["request"]["source_path"]
-        require(result[0] == 0 and Path(unicode_source_path).name == unicode_name
+        unicode_report = require_automation_contract(json.loads(result[1]), "MVR")
+        unicode_source_path = unicode_report["request"]["source_path"]
+        require(result[0] == 0 and not result[2]
+                and Path(unicode_source_path).name == unicode_name
                 and "�" not in unicode_source_path and "Ã" not in unicode_source_path,
                 "Unicode filesystem path")
     return 0
