@@ -103,10 +103,13 @@ for bounded raw classic-ZIP directory mechanics. Core also owns
 `perastage_gdtf_read`, the shared production implementation of the archive,
 description, and immutable document readers, and `perastage_inspection_gdtf`,
 which composes them with package inventory and the neutral inspection contract.
-The application and inspection service independently consume the shared reader;
-the inspection service is not linked into the application before a production
-frontend needs it. The reader's private wx dependency is base/archive-only,
-while the application's existing GUI component set is unchanged.
+The application and inspection service independently consume the shared reader.
+The normal application now links the focused GDTF, MVR, and resource inspection
+targets for the production wxWidgets Inspector under `gui/inspection/`; the
+headless CLI remains a separate frontend over the same Core services. Shared
+production readers retain single ownership, and GUI code owns presentation and
+layout only rather than parsing, validation, archive access, or mutation. The
+reader's private wx dependency remains base/archive-only.
 `tests/` is added conditionally when
 testing is enabled. No recursive project-source discovery is used.
 

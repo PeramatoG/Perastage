@@ -182,6 +182,16 @@ set_perastage_test_labels(ResourceInspection
                           LAYER standard-strict
                           DOMAINS architecture core zip gdtf mvr security)
 
+add_executable(inspector_presentation_test
+               inspector_presentation_test.cpp
+               ../gui/inspection/inspector_presentation.cpp
+               ../core/filesystem_path_utils.cpp)
+target_include_directories(inspector_presentation_test PRIVATE ../gui ../core)
+add_test(NAME InspectorPresentation COMMAND inspector_presentation_test)
+set_perastage_test_labels(InspectorPresentation
+                          LAYER standard-strict
+                          DOMAINS architecture gui inspection gdtf mvr)
+
 add_executable(mvr_inspection_standalone_test
                mvr_inspection_standalone_test.cpp)
 target_include_directories(mvr_inspection_standalone_test PRIVATE ../core)

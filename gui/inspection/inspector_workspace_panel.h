@@ -2,6 +2,7 @@
 
 #include "inspection/gdtf_inspection.h"
 #include "inspection/mvr_inspection.h"
+#include "inspection/resource_inspection.h"
 
 #include <filesystem>
 #include <optional>
@@ -11,16 +12,12 @@
 
 class IGuiPreferencesService;
 class wxButton;
-class wxAuiToolBar;
-class wxBitmap;
 class wxListCtrl;
 class wxNotebook;
 class wxStaticText;
 class wxTextCtrl;
 
 namespace gui::inspection {
-
-void AddInspectorWorkspaceTool(wxAuiToolBar *toolbar, const wxBitmap &icon);
 
 // Presents read-only MVR and GDTF inspection results in native controls.
 class InspectorWorkspacePanel final : public wxPanel {
@@ -40,7 +37,7 @@ private:
   void ShowGdtf(const perastage::inspection::GdtfInspectionResult &result);
   void ShowMvr(const perastage::inspection::MvrInspectionResult &result);
   void PopulatePackage(
-      const std::optional<perastage::inspection::PackageInventory> &inventory);
+      const std::vector<perastage::inspection::ResourceDescriptor> &resources);
   void PopulateDiagnostics(
       const perastage::inspection::Result &inspection,
       const std::vector<perastage::inspection::ValidationResult> &validation);

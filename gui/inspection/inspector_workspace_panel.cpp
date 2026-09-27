@@ -2,17 +2,16 @@
 
 #include "diagnostics/DiagnosticLogger.h"
 #include "guiconfigservices.h"
+#include "inspection/inspector_presentation.h"
 #include "inspection/resource_inspection.h"
-#include "mainwindow/ids/mainwindow_command_ids.h"
+#include "wx_path_utils.h"
 
 #include <algorithm>
 #include <array>
 #include <cctype>
 #include <charconv>
-#include <sstream>
 #include <string>
 
-#include <wx/aui/auibar.h>
 #include <wx/button.h>
 #include <wx/clipbrd.h>
 #include <wx/dataobj.h>
@@ -37,9 +36,7 @@ wxString FromUtf8(const std::string &value) {
 
 // Converts a native path to a display string without changing its spelling.
 wxString PathText(const std::filesystem::path &path) {
-  const auto value = path.u8string();
-  return wxString::FromUTF8(reinterpret_cast<const char *>(value.data()),
-                            value.size());
+  return WxPathUtils::WxStringFromFilesystemPath(path);
 }
 
 // Returns the stable technical spelling of a diagnostic severity.
@@ -89,24 +86,18 @@ const char *ClassificationName(
   return "unknown";
 }
 
-// Returns the stable technical spelling of a resource kind.
-const char *ResourceKindName(perastage::inspection::ResourceKind kind) {
-  using perastage::inspection::ResourceKind;
-  switch (kind) {
-  case ResourceKind::XmlText:
-    return "XML text";
-  case ResourceKind::Text:
-    return "text";
-  case ResourceKind::Image:
-    return "image";
-  case ResourceKind::Model:
-    return "model";
-  case ResourceKind::NestedGdtf:
-    return "nested GDTF";
-  case ResourceKind::Binary:
-    return "binary";
+// Localizes the existing Core GDTF read state at the GUI boundary.
+wxString LocalizedGdtfReadStatus(perastage::inspection::GdtfReadStatus status) {
+  using perastage::inspection::GdtfReadStatus;
+  switch (status) {
+  case GdtfReadStatus::Canonical:
+    return _("Canonical");
+  case GdtfReadStatus::CompatibilityAccepted:
+    return _("Compatibility accepted");
+  case GdtfReadStatus::Unusable:
+    return _("Unusable");
   }
-  return "unknown";
+  return _("Unusable");
 }
 
 // Returns the stable technical spelling of a validation layer.
@@ -138,25 +129,6 @@ ValidationStatusName(perastage::inspection::ValidationStatus status) {
     return "invalid";
   }
   return "unknown";
-}
-
-// Formats an optional structured diagnostic location deterministically.
-std::string LocationText(const perastage::inspection::Diagnostic &diagnostic) {
-  if (!diagnostic.location)
-    return {};
-  const auto &location = *diagnostic.location;
-  std::ostringstream text;
-  if (location.packageEntry)
-    text << *location.packageEntry;
-  else if (location.xmlPath)
-    text << *location.xmlPath;
-  else if (location.sourcePath)
-    text << location.sourcePath->filename().string();
-  if (location.line)
-    text << ':' << *location.line;
-  if (location.column)
-    text << ':' << *location.column;
-  return text.str();
 }
 
 // Copies one value through the native clipboard when it can be opened.
@@ -213,12 +185,6 @@ void AppendCommonSummary(
 }
 
 } // namespace
-
-// Adds the Inspector workspace action to the canonical Layout Views toolbar.
-void AddInspectorWorkspaceTool(wxAuiToolBar *toolbar, const wxBitmap &icon) {
-  toolbar->AddTool(ID_View_Layout_Inspector, _("MVR / GDTF Inspector"), icon,
-                   _("Switch to MVR / GDTF Inspector"));
-}
 
 // Constructs the Inspector workspace and restores presentation-only state.
 InspectorWorkspacePanel::InspectorWorkspacePanel(
@@ -329,7 +295,7 @@ void InspectorWorkspacePanel::ChooseFile() {
                          "files (*.mvr)|*.mvr|GDTF files (*.gdtf)|*.gdtf"),
                        wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (chooser.ShowModal() == wxID_OK)
-    OpenFile(std::filesystem::path(chooser.GetPath().ToStdWstring()));
+    OpenFile(WxPathUtils::FilesystemPathFromWxString(chooser.GetPath()));
 }
 
 // Dispatches a supported file to the established read-only Inspection Core.
@@ -375,17 +341,16 @@ void InspectorWorkspacePanel::ShowGdtf(
     const perastage::inspection::GdtfInspectionResult &result) {
   wxString text;
   text << _("Format:") << " GDTF\n"
-       << _("Status:") << ' '
-       << (result.Success() ? _("Readable") : _("Unusable")) << '\n';
+       << _("Status:") << ' ' << LocalizedGdtfReadStatus(result.status) << '\n';
   AppendCommonSummary(text, result.inspection, result.validation);
+  std::vector<perastage::inspection::ResourceDescriptor> resources;
+  if (result.packageInventory)
+    resources = perastage::inspection::DescribePackageResources(
+        result.inspection.request.sourcePath, *result.packageInventory);
   if (result.packageInventory)
     text << _("Package entries:") << ' '
          << result.packageInventory->entries.size() << "\n"
-         << _("Resources:") << ' '
-         << perastage::inspection::DescribePackageResources(
-                *result.packageInventory)
-                .size()
-         << '\n';
+         << _("Resources:") << ' ' << resources.size() << '\n';
   if (result.document) {
     const auto &description = result.document->Description();
     text << "DataVersion: " << FromUtf8(description.dataVersion) << "\n"
@@ -397,7 +362,7 @@ void InspectorWorkspacePanel::ShowGdtf(
     SetXml(result.document->Archive().descriptionXml);
   }
   summary_->SetValue(text);
-  PopulatePackage(result.packageInventory);
+  PopulatePackage(resources);
   PopulateDiagnostics(result.inspection, result.validation);
 }
 
@@ -410,14 +375,14 @@ void InspectorWorkspacePanel::ShowMvr(
        << _("Status:") << ' '
        << (result.Success() ? _("Readable") : _("Unusable")) << '\n';
   AppendCommonSummary(text, result.inspection, result.validation);
+  std::vector<perastage::inspection::ResourceDescriptor> resources;
+  if (result.packageInventory)
+    resources = perastage::inspection::DescribePackageResources(
+        result.inspection.request.sourcePath, *result.packageInventory);
   if (result.packageInventory)
     text << _("Package entries:") << ' '
          << result.packageInventory->entries.size() << "\n"
-         << _("Resources:") << ' '
-         << perastage::inspection::DescribePackageResources(
-                *result.packageInventory)
-                .size()
-         << '\n';
+         << _("Resources:") << ' ' << resources.size() << '\n';
   if (result.snapshot) {
     const auto &snapshot = *result.snapshot;
     text << _("MVR version:") << ' ' << snapshot.versionMajor << '.'
@@ -430,18 +395,14 @@ void InspectorWorkspacePanel::ShowMvr(
     SetXml(snapshot.sceneDescriptionXml);
   }
   summary_->SetValue(text);
-  PopulatePackage(result.packageInventory);
+  PopulatePackage(resources);
   PopulateDiagnostics(result.inspection, result.validation);
 }
 
 // Populates generic package rows solely from inventory and resource
 // descriptors.
 void InspectorWorkspacePanel::PopulatePackage(
-    const std::optional<perastage::inspection::PackageInventory> &inventory) {
-  if (!inventory)
-    return;
-  const auto resources =
-      perastage::inspection::DescribePackageResources(*inventory);
+    const std::vector<perastage::inspection::ResourceDescriptor> &resources) {
   for (std::size_t index = 0; index < resources.size(); ++index) {
     const auto &resource = resources[index];
     const long row = package_->InsertItem(package_->GetItemCount(),
@@ -451,7 +412,7 @@ void InspectorWorkspacePanel::PopulatePackage(
                               perastage::inspection::PackageEntryType::Directory
                           ? "directory"
                           : "file");
-    package_->SetItem(row, 2, ResourceKindName(resource.kind));
+    package_->SetItem(row, 2, ResourceKindLabel(resource));
     package_->SetItem(row, 3,
                       resource.sizeKnown ? std::to_string(resource.size) : "");
     package_->SetItem(row, 4,
@@ -480,7 +441,7 @@ void InspectorWorkspacePanel::PopulateDiagnostics(
                           ClassificationName(diagnostic.classification));
     diagnostics_->SetItem(row, 3, FromUtf8(diagnostic.code));
     diagnostics_->SetItem(row, 4, FromUtf8(diagnostic.message));
-    diagnostics_->SetItem(row, 5, FromUtf8(LocationText(diagnostic)));
+    diagnostics_->SetItem(row, 5, FromUtf8(DiagnosticLocationText(diagnostic)));
     diagnostics_->SetItemData(row, static_cast<long>(index));
   }
 }
@@ -529,7 +490,7 @@ void InspectorWorkspacePanel::CopySelectedDiagnostic() {
   const auto &diagnostic = diagnosticRows_.at(diagnostics_->GetItemData(row));
   std::string value = std::string(SeverityName(diagnostic.severity)) + " [" +
                       diagnostic.code + "] " + diagnostic.message;
-  const auto location = LocationText(diagnostic);
+  const auto location = DiagnosticLocationText(diagnostic);
   if (!location.empty())
     value += " (" + location + ')';
   if (!CopyText(FromUtf8(value)))

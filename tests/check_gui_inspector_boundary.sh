@@ -18,7 +18,11 @@ rg -q 'class InspectorWorkspacePanel final : public wxPanel' \
 rg -Fq '.Name("InspectorWorkspace")' "$layout"
 rg -q '"inspector_view"' "$presets"
 
-if rg -n 'wxDialog|cli/|inspect_command|inspection_report_json|ConfigManager|ReadGdtfArchive|tinyxml|wxZip' "$repo_root/gui/inspection"; then
+forbidden='wxDialog|cli/|inspect_command|inspection_report_json|ConfigManager|'
+forbidden+='mvrimporter|mvrexporter|MvrScene|gdtf_(document_)?mutation|gdtf.*writer|'
+forbidden+='GdtfShare|gdtf_share|network|credential|Viewer[23]D|TablePanel|'
+forbidden+='MainWindow::Instance|tinyxml|wxZip|ReadGdtfArchive'
+if rg -ni "$forbidden" "$repo_root/gui/inspection"; then
   echo "Inspector GUI must consume only structured Core inspection APIs" >&2
   exit 1
 fi
