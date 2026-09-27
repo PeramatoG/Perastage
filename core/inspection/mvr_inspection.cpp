@@ -76,6 +76,17 @@ std::vector<std::string> GroupChildUuids(const GroupObject &group) {
   return children;
 }
 
+// Returns direct authored child UUIDs in deterministic order.
+std::vector<std::string> DirectChildUuids(const mvr::MvrReadContext &context,
+                                          const std::string &parentUuid) {
+  const auto found = context.directChildUuidsByParentUuid.find(parentUuid);
+  if (found == context.directChildUuidsByParentUuid.end())
+    return {};
+  std::vector<std::string> children = found->second;
+  std::sort(children.begin(), children.end());
+  return children;
+}
+
 // Returns the authored layer UUID retained for one parsed node.
 std::string LayerUuidFor(const mvr::MvrReadContext &context,
                          const std::string &nodeUuid) {
@@ -181,7 +192,7 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
             LayerNameFor(readContext, node.uuid, node.layer),
             node.parentGroupUuid,
             reference,
-            {}};
+            DirectChildUuids(readContext, node.uuid)};
       });
   snapshot.trusses = SortedDescriptors(scene.trusses, [&](const Truss &node) {
     const std::string reference =
@@ -194,7 +205,7 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
         LayerNameFor(readContext, node.uuid, node.layer),
         node.parentGroupUuid,
         reference,
-        {}};
+        DirectChildUuids(readContext, node.uuid)};
   });
   snapshot.supports =
       SortedDescriptors(scene.supports, [&](const Support &node) {
@@ -208,7 +219,7 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
             LayerNameFor(readContext, node.uuid, node.layer),
             node.parentGroupUuid,
             reference,
-            {}};
+            DirectChildUuids(readContext, node.uuid)};
       });
   snapshot.sceneObjects =
       SortedDescriptors(scene.sceneObjects, [&](const SceneObject &node) {
@@ -220,18 +231,14 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
             LayerNameFor(readContext, node.uuid, node.layer),
             node.parentGroupUuid,
             node.GetPrimaryModel(),
-            {}};
+            DirectChildUuids(readContext, node.uuid)};
       });
   snapshot.groupObjects =
       SortedDescriptors(scene.groupObjects, [&](const GroupObject &node) {
-        std::vector<std::string> children;
-        const auto found =
-            readContext.directChildUuidsByParentUuid.find(node.uuid);
-        if (found != readContext.directChildUuidsByParentUuid.end())
-          children = found->second;
-        else
+        std::vector<std::string> children =
+            DirectChildUuids(readContext, node.uuid);
+        if (children.empty())
           children = GroupChildUuids(node);
-        std::sort(children.begin(), children.end());
         return MvrSceneNodeDescriptor{
             "group_object",
             node.uuid,
@@ -246,11 +253,8 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
     const std::string reference = node.resourceReferences.empty()
                                       ? std::string{}
                                       : node.resourceReferences.front().second;
-    std::vector<std::string> children;
-    const auto found = readContext.directChildUuidsByParentUuid.find(node.uuid);
-    if (found != readContext.directChildUuidsByParentUuid.end())
-      children = found->second;
-    std::sort(children.begin(), children.end());
+    std::vector<std::string> children =
+        DirectChildUuids(readContext, node.uuid);
     MvrSceneNodeDescriptor descriptor{node.kind == "FocusPoint" ? "focus_point"
                                       : node.kind == "VideoScreen"
                                           ? "video_screen"

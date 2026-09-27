@@ -483,6 +483,7 @@ void TestVersion16NeutralChildHierarchy() {
   const std::string focusUuid = "45000000-0000-4000-8000-000000000016";
   const std::string projectorUuid = "50000000-0000-4000-8000-000000000016";
   const std::string objectUuid = "60000000-0000-4000-8000-000000000016";
+  const std::string objectFocusUuid = "65000000-0000-4000-8000-000000000016";
   const std::string xml =
       "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
       "provider=\"Perastage\" providerVersion=\"1.7\"><Scene><Layers>"
@@ -507,7 +508,11 @@ void TestVersion16NeutralChildHierarchy() {
       "<ChildList><SceneObject uuid=\"" +
       objectUuid +
       "\" name=\"Child Object\"><Geometries><Geometry3D "
-      "fileName=\"models/child-object.3ds\"/></Geometries></SceneObject>"
+      "fileName=\"models/child-object.3ds\"/></Geometries><ChildList>"
+      "<FocusPoint uuid=\"" +
+      objectFocusUuid +
+      "\" name=\"Object Focus\"><Geometries/></FocusPoint></ChildList>"
+      "</SceneObject>"
       "</ChildList><FixtureID>Projector 1</FixtureID></Projector></ChildList>"
       "</GroupObject></ChildList></Layer></Layers></Scene>"
       "</GeneralSceneDescription>";
@@ -528,8 +533,19 @@ void TestVersion16NeutralChildHierarchy() {
          (std::vector<std::string>{screenUuid, projectorUuid}));
   assert(owned.snapshot->videoScreens.front().childUuids ==
          std::vector<std::string>{fixtureUuid});
+  assert(owned.snapshot->fixtures.front().childUuids ==
+         std::vector<std::string>{focusUuid});
   assert(owned.snapshot->projectors.front().childUuids ==
          std::vector<std::string>{objectUuid});
+  assert(owned.snapshot->sceneObjects.front().childUuids ==
+         std::vector<std::string>{objectFocusUuid});
+  const auto focus = std::find_if(owned.snapshot->focusPoints.begin(),
+                                  owned.snapshot->focusPoints.end(),
+                                  [&](const MvrSceneNodeDescriptor &node) {
+                                    return node.uuid == focusUuid;
+                                  });
+  assert(focus != owned.snapshot->focusPoints.end());
+  assert(focus->childUuids.empty());
   assert(owned.snapshot->videoScreens.front().resourceReference ==
          "models/screen.3ds");
   assert(owned.snapshot->fixtures.front().resourceReference ==

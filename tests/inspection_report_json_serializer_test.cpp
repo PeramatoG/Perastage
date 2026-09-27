@@ -94,7 +94,7 @@ void TestMvrReport() {
                                "Main",
                                {},
                                embeddedGdtf,
-                               {}});
+                               {"focus-child"}});
   snapshot.focusPoints.push_back(
       {"focus_point", "focus-1", "Focus", "layer-1", "Main", {}, {}, {}});
   snapshot.videoScreens.push_back({"video_screen",
@@ -149,6 +149,8 @@ void TestMvrReport() {
   assert(serialized.at("provider") == provider);
   assert(serialized.at("root_xml") == "<GeneralSceneDescription/>");
   assert(serialized.at("fixtures").at(0).at("name") == fixtureName);
+  assert(serialized.at("fixtures").at(0).at("child_uuids") ==
+         nlohmann::json({"focus-child"}));
   assert(serialized.at("focus_points").at(0).at("kind") == "focus_point");
   assert(serialized.at("video_screens").at(0).at("parent_group_uuid") ==
          "group-1");
