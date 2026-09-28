@@ -11,6 +11,11 @@ struct PreparedDerivative {
   std::string publishedReference;
 };
 
+// Canonicalizes a source archive through a private copy and atomically publishes it.
+bool PublishCanonicalGdtfCopy(const std::filesystem::path &sourcePath,
+                              const std::filesystem::path &publishedPath,
+                              std::string &errorMessage);
+
 // Prepares a private working copy and its eventual project publication target.
 bool PrepareProjectDerivative(const std::filesystem::path &sourcePath,
                               const std::filesystem::path &projectBasePath,

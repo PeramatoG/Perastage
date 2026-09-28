@@ -18,6 +18,9 @@ public:
   FixtureBuilder &WithModelResource(std::string fileBase);
   FixtureBuilder &WithModelDimensionsMeters(float length, float width, float height);
   FixtureBuilder &WithFixtureCategorySignals();
+  FixtureBuilder &WithEditor(std::string value);
+  FixtureBuilder &WithFixtureTypeExtensionAttribute(std::string name,
+                                                    std::string value);
   FixtureBuilder &WithPerastageGeneratedSymbols();
   FixtureBuilder &WithArchiveEntry(std::string path, std::string bytes);
   std::string BuildDescriptionXml() const;
@@ -34,6 +37,8 @@ private:
   float modelHeightMeters = 0.1f;
   bool categorySignals = false;
   bool perastageGeneratedSymbols = false;
+  std::string editor;
+  std::pair<std::string, std::string> extensionAttribute;
   std::vector<std::pair<std::string, std::string>> archiveEntries;
 };
 FixtureBuilder BuildMinimalValidFixture();

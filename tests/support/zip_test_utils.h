@@ -2,6 +2,7 @@
 
 #include "wx_path_utils.h"
 
+#include <algorithm>
 #include <cassert>
 #include <filesystem>
 #include <memory>
@@ -51,6 +52,22 @@ inline std::vector<Entry> ReadEntries(const std::filesystem::path &archivePath) 
     entries.push_back(std::move(result));
   }
   return entries;
+}
+
+// Finds one canonical logical ZIP entry and optionally returns its payload bytes.
+inline bool ReadEntry(const std::filesystem::path &archivePath,
+                      const std::string &entryName,
+                      std::string *payload = nullptr) {
+  const std::vector<Entry> entries = ReadEntries(archivePath);
+  const auto found = std::find_if(entries.begin(), entries.end(),
+                                  [&](const Entry &entry) {
+                                    return entry.name == entryName;
+                                  });
+  if (found == entries.end())
+    return false;
+  if (payload)
+    *payload = found->payload;
+  return true;
 }
 
 } // namespace tests::zip

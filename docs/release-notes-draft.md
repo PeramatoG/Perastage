@@ -20,6 +20,18 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
+- Corrected GDTF inspection so the standard `FTPresets` section is no longer
+  reported as unknown, while canonical publication now removes the known
+  legacy Perastage `Editor` marker, records the cleanup as a standard revision,
+  and continues to report the unmodified source's standards error. Explicit
+  fixture exports and Perastage-owned project and library derivatives now use
+  the same failure-safe canonical publication policy without modifying external
+  sources or discarding unknown vendor metadata, preserve same-file export
+  behavior, and repair known placeholder fixture identities to the same stable
+  identifier on every supported platform only in published copies. The
+  development CLI now labels semantic read status explicitly so it cannot be
+  mistaken for schema-validation status.
+
 - Corrected Inspector and development CLI handling of large XML package
   resources, aligned complete-report validation outcomes with CLI exit codes,
   and removed duplicate human-facing diagnostic rows without discarding

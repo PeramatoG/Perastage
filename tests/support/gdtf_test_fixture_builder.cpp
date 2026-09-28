@@ -158,6 +158,19 @@ FixtureBuilder &FixtureBuilder::WithFixtureCategorySignals() {
   return *this;
 }
 
+// Adds a legacy Editor attribute for compatibility and publication tests.
+FixtureBuilder &FixtureBuilder::WithEditor(std::string value) {
+  editor = std::move(value);
+  return *this;
+}
+
+// Adds one synthetic third-party FixtureType attribute for strictness tests.
+FixtureBuilder &FixtureBuilder::WithFixtureTypeExtensionAttribute(
+    std::string name, std::string value) {
+  extensionAttribute = {std::move(name), std::move(value)};
+  return *this;
+}
+
 // Adds the complete audited Perastage fixture-symbol resource set.
 FixtureBuilder &FixtureBuilder::WithPerastageGeneratedSymbols() {
   perastageGeneratedSymbols = true;
@@ -189,8 +202,13 @@ std::string FixtureBuilder::BuildDescriptionXml() const {
          "  <FixtureType Name=\"" + fixtureName + "\" ShortName=\"" + fixtureName +
          "\" Manufacturer=\"" + manufacturer +
          "\" Description=\"Minimal canonical GDTF 1.2 fixture for tests\" FixtureTypeID=\"" +
-         fixtureTypeId + category +
-         "\">\n"
+         fixtureTypeId + "\"" + category +
+         (editor.empty() ? std::string{} : " Editor=\"" + editor + "\"") +
+         (extensionAttribute.first.empty()
+              ? std::string{}
+              : " " + extensionAttribute.first + "=\"" +
+                    extensionAttribute.second + "\"") +
+         ">\n"
          + (perastageGeneratedSymbols
                 ? "    <PerastageMutationAudit SchemaVersion=\"1\"/>\n"
                 : "") +
@@ -206,6 +224,8 @@ std::string FixtureBuilder::BuildDescriptionXml() const {
          "    <DMXModes><DMXMode Name=\"" +
          modeName + "\" Geometry=\"" + modeGeometry +
          "\"><DMXChannels><DMXChannel Offset=\"1\" Geometry=\"Root\"><LogicalChannel Attribute=\"Dimmer\"><ChannelFunction Name=\"Dimmer\" Attribute=\"Dimmer\" Default=\"0/1\" DMXFrom=\"0/1\"/></LogicalChannel></DMXChannel></DMXChannels></DMXMode></DMXModes>\n"
+         "    <FTPresets/>\n"
+         "    <Protocols/>\n"
          "  </FixtureType>\n"
          "</GDTF>\n";
 }

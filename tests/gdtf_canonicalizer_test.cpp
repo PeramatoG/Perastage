@@ -1,10 +1,14 @@
 #include "wx_path_utils.h"
 #include "gdtf_canonicalizer.h"
+#include "gdtf_fixture_type_vocabulary.h"
+#include "support/zip_test_utils.h"
+#include "inspection/xml_schema_validation.h"
 
 #include <cassert>
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <tinyxml2.h>
@@ -53,6 +57,13 @@ std::string MinimalGdtf(const std::string &fixtureTypeInner) {
          fixtureTypeInner + "</FixtureType></GDTF>";
 }
 
+// Serializes a TinyXML document for schema validation assertions.
+std::string Serialize(tinyxml2::XMLDocument &doc) {
+  tinyxml2::XMLPrinter printer;
+  doc.Print(&printer);
+  return printer.CStr();
+}
+
 // Writes a test GDTF archive with description.xml in a nested root folder.
 void WriteNestedDescriptionArchive(const std::filesystem::path &path) {
   wxFileOutputStream output(WxPathUtils::WxStringFromFilesystemPath(path));
@@ -65,27 +76,36 @@ void WriteNestedDescriptionArchive(const std::filesystem::path &path) {
       "<AttributeDefinitions/><Models/><PhysicalDescriptions/><Geometries/><DMXModes/>");
   zip.Write(description.c_str(), description.size());
   assert(zip.CloseEntry());
+  for (const auto &[name, contents] :
+       std::vector<std::pair<std::string, std::string>>{
+           {"models/gltf/body.glb", "model"}, {"wheels/open.png", "wheel"}}) {
+    auto *resource = new wxZipEntry(name);
+    resource->SetMethod(wxZIP_METHOD_DEFLATE);
+    assert(zip.PutNextEntry(resource));
+    zip.Write(contents.data(), contents.size());
+    assert(zip.CloseEntry());
+  }
   assert(zip.Close());
 }
 
 // Returns whether a ZIP archive contains an entry with the requested name.
 bool ArchiveContainsEntry(const std::filesystem::path &path,
                           const std::string &entryName) {
-  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(path));
-  assert(input.IsOk());
-  wxZipInputStream zip(input);
-  std::unique_ptr<wxZipEntry> entry;
-  while ((entry.reset(zip.GetNextEntry())), entry) {
-    if (entry->GetName().ToStdString() == entryName)
-      return true;
-  }
-  return false;
+  return tests::zip::ReadEntry(path, entryName);
 }
 
 } // namespace
 
 // Verifies that legacy FixtureType structure is canonicalized for export.
 int main() {
+  assert(gdtf::IsLegacyPerastageEditorValue("Perastage"));
+  assert(gdtf::IsLegacyPerastageEditorValue("PERASTAGE 1.6.85"));
+  assert(gdtf::IsLegacyPerastageEditorValue("perastage-cli/1.6"));
+  assert(gdtf::IsLegacyPerastageEditorValue("Perastage-1.5"));
+  assert(!gdtf::IsLegacyPerastageEditorValue("PerastageVendor"));
+  assert(!gdtf::IsLegacyPerastageEditorValue("Vendor Perastage"));
+  assert(!gdtf::IsLegacyPerastageEditorValue("Perastaging"));
+
   {
     tinyxml2::XMLDocument doc;
     ParseInto(doc, MinimalGdtf(
@@ -107,6 +127,54 @@ int main() {
     GdtfCanonicalizer::Result second = GdtfCanonicalizer::CanonicalizeDescription(doc);
     assert(second.success);
     assert(CountRevisionText(doc, "Canonicalized GDTF structure for Perastage export") == 1);
+  }
+
+  {
+    tinyxml2::XMLDocument doc;
+    ParseInto(doc, "<GDTF DataVersion=\"1.2\"><FixtureType Name=\"Legacy\" "
+        "Manufacturer=\"Perastage\" Description=\"Synthetic fixture\" "
+        "FixtureTypeID=\"12345678-1234-4234-9234-123456789abc\" Editor=\"Perastage\">"
+        "<AttributeDefinitions><FeatureGroups/><Attributes/></AttributeDefinitions>"
+        "<Wheels/><PhysicalDescriptions/><Models/><Geometries><Geometry Name=\"Root\"/>"
+        "</Geometries><DMXModes><DMXMode Name=\"Mode\" Geometry=\"Root\">"
+        "<DMXChannels/></DMXMode></DMXModes><Revisions/><FTPresets/><Protocols/>"
+        "</FixtureType></GDTF>");
+    auto result = GdtfCanonicalizer::CanonicalizeDescription(doc);
+    assert(result.success && result.changed);
+    auto *fixtureType = doc.FirstChildElement("GDTF")->FirstChildElement("FixtureType");
+    assert(fixtureType->Attribute("Editor") == nullptr);
+    assert(fixtureType->FirstChildElement("FTPresets") != nullptr);
+    assert(fixtureType->FirstChildElement("Protocols") != nullptr);
+    assert(fixtureType->FirstChildElement("PerastageMutationAudit") == nullptr);
+    assert(CountRevisionText(doc, "Canonicalized GDTF structure for Perastage export") == 1);
+    const auto validation = perastage::inspection::ValidateXmlAgainstSchema(
+        Serialize(doc), perastage::inspection::Gdtf12Schema());
+    assert(validation.schema.status == perastage::inspection::ValidationStatus::Valid);
+    auto second = GdtfCanonicalizer::CanonicalizeDescription(doc);
+    assert(second.success && !second.changed);
+    assert(CountRevisionText(doc, "Canonicalized GDTF structure for Perastage export") == 1);
+  }
+
+  {
+    tinyxml2::XMLDocument doc;
+    ParseInto(doc, MinimalGdtf("<AttributeDefinitions/><ThirdPartyExtension/>"
+                               "<Geometries/><DMXModes/>"));
+    const auto result = GdtfCanonicalizer::CanonicalizeDescription(doc);
+    assert(!result.success);
+    assert(doc.FirstChildElement("GDTF")->FirstChildElement("FixtureType")
+               ->FirstChildElement("ThirdPartyExtension") != nullptr);
+  }
+
+  {
+    tinyxml2::XMLDocument doc;
+    ParseInto(doc, "<GDTF DataVersion=\"1.2\"><FixtureType Name=\"Vendor\" "
+        "Manufacturer=\"Vendor\" Description=\"Fixture\" "
+        "FixtureTypeID=\"12345678-1234-4234-9234-123456789abc\" Editor=\"Vendor Tool\">"
+        "<AttributeDefinitions/><Geometries/><DMXModes/></FixtureType></GDTF>");
+    const auto result = GdtfCanonicalizer::CanonicalizeDescription(doc);
+    assert(!result.success);
+    assert(std::string(doc.FirstChildElement("GDTF")->FirstChildElement("FixtureType")
+                           ->Attribute("Editor")) == "Vendor Tool");
   }
 
   {
@@ -151,6 +219,16 @@ int main() {
     assert(std::filesystem::exists(dest));
     assert(ArchiveContainsEntry(dest, "description.xml"));
     assert(!ArchiveContainsEntry(dest, "Dummy 1ch/description.xml"));
+    assert(ArchiveContainsEntry(dest, "models/gltf/body.glb"));
+    assert(ArchiveContainsEntry(dest, "wheels/open.png"));
+    std::string modelPayload;
+    std::string wheelPayload;
+    assert(tests::zip::ReadEntry(dest, "models/gltf/body.glb", &modelPayload));
+    assert(tests::zip::ReadEntry(dest, "wheels/open.png", &wheelPayload));
+    assert(modelPayload == "model");
+    assert(wheelPayload == "wheel");
+    assert(ArchiveContainsEntry(source, "Dummy 1ch/description.xml"));
+    assert(!ArchiveContainsEntry(source, "description.xml"));
     std::filesystem::remove_all(tempDir);
   }
 
