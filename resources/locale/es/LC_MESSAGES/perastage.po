@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-28 11:49+0000\n"
+"POT-Creation-Date: 2026-09-28 12:17+0000\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -199,7 +199,7 @@ msgstr ""
 
 #: gui/dictionary_export_conflict_dialog.cpp:29
 #: gui/dictionaryeditdialog.cpp:515 gui/dictionaryeditdialog.cpp:571
-#: gui/inspection/inspector_workspace_panel.cpp:69 gui/mainwindow_menu.cpp:190
+#: gui/inspection/inspector_workspace_panel.cpp:71 gui/mainwindow_menu.cpp:190
 msgid "File"
 msgstr "Archivo"
 
@@ -1233,7 +1233,8 @@ msgid "Fixture ID"
 msgstr "ID del aparato"
 
 #: gui/fixturetable/fixture_table_columns.cpp:13 gui/hoisttablepanel.cpp:461
-#: gui/inspection/inspector_workspace_panel.cpp:354 gui/summarypanel.cpp:260
+#: gui/inspection/gdtf_inspector_details_panel.cpp:134
+#: gui/inspection/inspector_workspace_panel.cpp:361 gui/summarypanel.cpp:260
 #: gui/summarypanel.cpp:269 mvr/mvrimporter.cpp:328
 msgid "Type"
 msgstr "Tipo"
@@ -1321,6 +1322,7 @@ msgstr "Filtro de color"
 
 #: gui/fixturetablepanel.cpp:289 gui/fixturetablepanel.cpp:323
 #: gui/hoisttablepanel.cpp:475 gui/hoisttablepanel.cpp:506
+#: gui/inspection/gdtf_inspector_details_panel.cpp:47
 #: gui/trusstablepanel.cpp:304 gui/trusstablepanel.cpp:340
 #: tests/localization_catalog_integration_test.cpp:213
 #: tests/localization_catalog_integration_test.cpp:216
@@ -1641,7 +1643,7 @@ msgid "Search:"
 msgstr "Buscar:"
 
 #: gui/gdtfsearchdialog.cpp:100
-#: gui/inspection/inspector_workspace_panel.cpp:524
+#: gui/inspection/inspector_workspace_panel.cpp:542
 #: tests/localization_catalog_integration_test.cpp:205
 msgid "Manufacturer:"
 msgstr "Fabricante:"
@@ -1662,7 +1664,9 @@ msgstr "Siguiente >"
 msgid "Page 1/1"
 msgstr "Página 1/1"
 
-#: gui/gdtfsearchdialog.cpp:126 gui/trusstablepanel.cpp:303
+#: gui/gdtfsearchdialog.cpp:126
+#: gui/inspection/gdtf_inspector_details_panel.cpp:40
+#: gui/trusstablepanel.cpp:303
 msgid "Manufacturer"
 msgstr "Fabricante"
 
@@ -1687,6 +1691,7 @@ msgid "Creation Date"
 msgstr "Fecha de creación"
 
 #: gui/gdtfsearchdialog.cpp:138
+#: gui/inspection/gdtf_inspector_details_panel.cpp:46
 msgid "Revision"
 msgstr "Revisión"
 
@@ -1873,172 +1878,288 @@ msgstr ""
 "El ajuste preestablecido ficticio solo se puede asignar cuando no hay ningún "
 "elemento de motor vinculado."
 
-#: gui/inspection/inspector_workspace_panel.cpp:65
+#: gui/inspection/gdtf_inspector_details_panel.cpp:20
+#: gui/inspection/gdtf_inspector_details_panel.cpp:31
+#: gui/inspection/gdtf_inspector_details_panel.cpp:104
+msgid "Unavailable"
+msgstr "No disponible"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:38
+#: gui/rider_fixture_resolution_dialog.cpp:103 mvr/mvrimporter.cpp:735
+msgid "Fixture type"
+msgstr "Tipo de aparato"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:39
+msgid "Fixture type ID"
+msgstr "ID del tipo de aparato"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:41
+msgid "Short name"
+msgstr "Nombre corto"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:42
+msgid "Long name"
+msgstr "Nombre largo"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:43
+#: gui/inspection/gdtf_inspector_details_panel.cpp:169
+msgid "Description"
+msgstr "Descripción"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:44
+msgid "Thumbnail reference"
+msgstr "Referencia de miniatura"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:45
+msgid "Creation date"
+msgstr "Fecha de creación"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:48
+msgid "Power consumption"
+msgstr "Consumo de energía"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:51
+msgid "Truss cross-section type"
+msgstr "Tipo de sección transversal de truss"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:53
+msgid "Truss cross-section"
+msgstr "Sección transversal de truss"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:83
+msgid "Overview / FixtureType"
+msgstr "Resumen / FixtureType"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:84
+msgid "Modes and channels"
+msgstr "Modos y canales"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:85
+msgid "Wheels / resources"
+msgstr "Ruedas / recursos"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:102
+msgid "Revision history"
+msgstr "Historial de revisiones"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:112
+msgid "FixtureType metadata is unavailable."
+msgstr "Los metadatos de FixtureType no están disponibles."
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:126
+msgid "No DMX modes are available."
+msgstr "No hay modos DMX disponibles."
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:133
+msgid "Wheel"
+msgstr "Rueda"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:138
+#: gui/inspection/gdtf_inspector_details_panel.cpp:153 gui/layerpanel.cpp:87
+#: gui/layerpanel.cpp:101 gui/summarypanel.cpp:264 gui/summarypanel.cpp:318
+#: viewer2d/viewer2drenderpanel.cpp:347
+msgid "Color"
+msgstr "Color"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:139
+#: gui/inspection/gdtf_inspector_details_panel.cpp:152
+msgid "Filter"
+msgstr "Filtro"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:140
+msgid "Media reference"
+msgstr "Referencia multimedia"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:142
+msgid "Archive resource"
+msgstr "Recurso del archivo"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:144
+msgid "Graphic wheel reference"
+msgstr "Referencia de rueda gráfica"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:146
+msgid "Graphic wheel resource"
+msgstr "Recurso de rueda gráfica"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:157
+msgid "No wheel or filter details are available."
+msgstr "No hay detalles de ruedas ni filtros disponibles."
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:170
+msgid "Geometry"
+msgstr "Geometría"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:171
+msgid "Calculated footprint"
+msgstr "Huella calculada"
+
+#: gui/inspection/inspector_workspace_panel.cpp:67
 msgid "Folder"
 msgstr "Carpeta"
 
-#: gui/inspection/inspector_workspace_panel.cpp:68
+#: gui/inspection/inspector_workspace_panel.cpp:70
 msgid "Directory"
 msgstr "Directorio"
 
-#: gui/inspection/inspector_workspace_panel.cpp:74
+#: gui/inspection/inspector_workspace_panel.cpp:76
 msgid "Available"
 msgstr "Disponible"
 
-#: gui/inspection/inspector_workspace_panel.cpp:74
+#: gui/inspection/inspector_workspace_panel.cpp:76
 msgid "Unsafe path"
 msgstr "Ruta no segura"
 
-#: gui/inspection/inspector_workspace_panel.cpp:197
+#: gui/inspection/inspector_workspace_panel.cpp:199
 msgid "Canonical"
 msgstr "Canónico"
 
-#: gui/inspection/inspector_workspace_panel.cpp:198
+#: gui/inspection/inspector_workspace_panel.cpp:200
 msgid "Compatibility accepted"
 msgstr "Compatibilidad aceptada"
 
-#: gui/inspection/inspector_workspace_panel.cpp:199
 #: gui/inspection/inspector_workspace_panel.cpp:201
-#: gui/inspection/inspector_workspace_panel.cpp:537
+#: gui/inspection/inspector_workspace_panel.cpp:203
+#: gui/inspection/inspector_workspace_panel.cpp:555
 msgid "Unusable"
 msgstr "No utilizable"
 
-#: gui/inspection/inspector_workspace_panel.cpp:257
+#: gui/inspection/inspector_workspace_panel.cpp:259
 msgid "File:"
 msgstr "Archivo:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:261
+#: gui/inspection/inspector_workspace_panel.cpp:263
 msgid "Diagnostics:"
 msgstr "Diagnósticos:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:265
+#: gui/inspection/inspector_workspace_panel.cpp:267
 msgid "Validation layers:"
 msgstr "Capas de validación:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:278
+#: gui/inspection/inspector_workspace_panel.cpp:280
 msgid "(unresolved parent)"
 msgstr "(padre sin resolver)"
 
-#: gui/inspection/inspector_workspace_panel.cpp:338
+#: gui/inspection/inspector_workspace_panel.cpp:345
 msgid "Refresh"
 msgstr "Actualizar"
 
-#: gui/inspection/inspector_workspace_panel.cpp:339
+#: gui/inspection/inspector_workspace_panel.cpp:346
 msgid "Open external..."
 msgstr "Abrir archivo externo..."
 
-#: gui/inspection/inspector_workspace_panel.cpp:340
+#: gui/inspection/inspector_workspace_panel.cpp:347
 msgid "Back to parent MVR"
 msgstr "Volver al MVR principal"
 
-#: gui/inspection/inspector_workspace_panel.cpp:341
-#: gui/inspection/inspector_workspace_panel.cpp:454
-#: gui/inspection/inspector_workspace_panel.cpp:682
+#: gui/inspection/inspector_workspace_panel.cpp:348
+#: gui/inspection/inspector_workspace_panel.cpp:472
+#: gui/inspection/inspector_workspace_panel.cpp:733
 msgid "Source: Current project MVR"
 msgstr "Fuente: MVR del proyecto actual"
 
-#: gui/inspection/inspector_workspace_panel.cpp:342
-#: gui/inspection/inspector_workspace_panel.cpp:455
-#: gui/inspection/inspector_workspace_panel.cpp:682
+#: gui/inspection/inspector_workspace_panel.cpp:349
+#: gui/inspection/inspector_workspace_panel.cpp:473
+#: gui/inspection/inspector_workspace_panel.cpp:733
 msgid "Active project"
 msgstr "Proyecto activo"
 
-#: gui/inspection/inspector_workspace_panel.cpp:353
+#: gui/inspection/inspector_workspace_panel.cpp:360
 msgid "Path"
 msgstr "Ruta"
 
-#: gui/inspection/inspector_workspace_panel.cpp:355
+#: gui/inspection/inspector_workspace_panel.cpp:362
 msgid "Resource kind"
 msgstr "Tipo de recurso"
 
-#: gui/inspection/inspector_workspace_panel.cpp:356
+#: gui/inspection/inspector_workspace_panel.cpp:363
 #: gui/mvrxchange/mvr_xchange_dialog.cpp:180
 #: viewer2d/viewer2drenderpanel.cpp:380 viewer2d/viewer2drenderpanel.cpp:387
 #: viewer2d/viewer2drenderpanel.cpp:394
 msgid "Size"
 msgstr "Tamaño"
 
-#: gui/inspection/inspector_workspace_panel.cpp:357
+#: gui/inspection/inspector_workspace_panel.cpp:364
 msgid "Availability"
 msgstr "Disponibilidad"
 
-#: gui/inspection/inspector_workspace_panel.cpp:360
+#: gui/inspection/inspector_workspace_panel.cpp:367
 msgid "Package"
 msgstr "Paquete"
 
-#: gui/inspection/inspector_workspace_panel.cpp:361
-#: gui/inspection/inspector_workspace_panel.cpp:567
+#: gui/inspection/inspector_workspace_panel.cpp:368
+#: gui/inspection/inspector_workspace_panel.cpp:586
 msgid "Scene"
 msgstr "Escena"
 
-#: gui/inspection/inspector_workspace_panel.cpp:367
+#: gui/inspection/inspector_workspace_panel.cpp:374
 msgid "Find previous"
 msgstr "Buscar anterior"
 
-#: gui/inspection/inspector_workspace_panel.cpp:368
+#: gui/inspection/inspector_workspace_panel.cpp:375
 msgid "Find next"
 msgstr "Buscar siguiente"
 
-#: gui/inspection/inspector_workspace_panel.cpp:369
+#: gui/inspection/inspector_workspace_panel.cpp:376
 msgid "Copy all"
 msgstr "Copiar todo"
 
-#: gui/inspection/inspector_workspace_panel.cpp:370
+#: gui/inspection/inspector_workspace_panel.cpp:377
 msgid "Find:"
 msgstr "Buscar:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:382
+#: gui/inspection/inspector_workspace_panel.cpp:389
 #: gui/mainwindow_layout.cpp:422 gui/mainwindow_menu_builders.cpp:85
 #: gui/summarypanel.cpp:112
 msgid "Summary"
 msgstr "Resumen"
 
-#: gui/inspection/inspector_workspace_panel.cpp:383
-#: gui/inspection/inspector_workspace_panel.cpp:571
+#: gui/inspection/inspector_workspace_panel.cpp:390
+#: gui/inspection/inspector_workspace_panel.cpp:590
 msgid "GDTF details"
 msgstr "Detalles de GDTF"
 
-#: gui/inspection/inspector_workspace_panel.cpp:384
+#: gui/inspection/inspector_workspace_panel.cpp:391
 msgid "Issues"
 msgstr "Problemas"
 
-#: gui/inspection/inspector_workspace_panel.cpp:388
+#: gui/inspection/inspector_workspace_panel.cpp:395
 msgid "Severity"
 msgstr "Gravedad"
 
-#: gui/inspection/inspector_workspace_panel.cpp:389
+#: gui/inspection/inspector_workspace_panel.cpp:396
 msgid "Domain"
 msgstr "Dominio"
 
-#: gui/inspection/inspector_workspace_panel.cpp:390
+#: gui/inspection/inspector_workspace_panel.cpp:397
 msgid "Classification"
 msgstr "Clasificación"
 
-#: gui/inspection/inspector_workspace_panel.cpp:391
+#: gui/inspection/inspector_workspace_panel.cpp:398
 msgid "Code"
 msgstr "Código"
 
-#: gui/inspection/inspector_workspace_panel.cpp:392
+#: gui/inspection/inspector_workspace_panel.cpp:399
 msgid "Message"
 msgstr "Mensaje"
 
-#: gui/inspection/inspector_workspace_panel.cpp:393
+#: gui/inspection/inspector_workspace_panel.cpp:400
 msgid "Location"
 msgstr "Ubicación"
 
-#: gui/inspection/inspector_workspace_panel.cpp:394
+#: gui/inspection/inspector_workspace_panel.cpp:401
 msgid "Copy diagnostic"
 msgstr "Copiar diagnóstico"
 
-#: gui/inspection/inspector_workspace_panel.cpp:396
+#: gui/inspection/inspector_workspace_panel.cpp:403
 msgid "Diagnostics"
 msgstr "Diagnósticos"
 
-#: gui/inspection/inspector_workspace_panel.cpp:429
+#: gui/inspection/inspector_workspace_panel.cpp:447
 msgid "Open MVR or GDTF file"
 msgstr "Abrir archivo MVR o GDTF"
 
-#: gui/inspection/inspector_workspace_panel.cpp:430
+#: gui/inspection/inspector_workspace_panel.cpp:448
 msgid ""
 "MVR and GDTF files (*.mvr;*.gdtf)|*.mvr;*.gdtf|MVR files (*.mvr)|*.mvr|GDTF "
 "files (*.gdtf)|*.gdtf"
@@ -2046,126 +2167,126 @@ msgstr ""
 "Archivos MVR y GDTF (*.mvr;*.gdtf)|*.mvr;*.gdtf|Archivos MVR (*.mvr)|*.mvr|"
 "Archivos GDTF (*.gdtf)|*.gdtf"
 
-#: gui/inspection/inspector_workspace_panel.cpp:448
+#: gui/inspection/inspector_workspace_panel.cpp:466
 msgid "The current project could not be exported as a canonical MVR snapshot."
 msgstr ""
 "El proyecto actual no se pudo exportar como una instantánea MVR canónica."
 
-#: gui/inspection/inspector_workspace_panel.cpp:449
-#: gui/inspection/inspector_workspace_panel.cpp:460
-#: gui/inspection/inspector_workspace_panel.cpp:469
-#: gui/inspection/inspector_workspace_panel.cpp:483
-#: gui/inspection/inspector_workspace_panel.cpp:644
-#: gui/inspection/inspector_workspace_panel.cpp:666
-#: gui/inspection/inspector_workspace_panel.cpp:697
-#: gui/inspection/inspector_workspace_panel.cpp:702
+#: gui/inspection/inspector_workspace_panel.cpp:467
+#: gui/inspection/inspector_workspace_panel.cpp:478
+#: gui/inspection/inspector_workspace_panel.cpp:487
+#: gui/inspection/inspector_workspace_panel.cpp:501
+#: gui/inspection/inspector_workspace_panel.cpp:695
+#: gui/inspection/inspector_workspace_panel.cpp:717
+#: gui/inspection/inspector_workspace_panel.cpp:748
+#: gui/inspection/inspector_workspace_panel.cpp:753
 #: gui/mainwindow_layout.cpp:452 gui/mainwindow_menu.cpp:236
 #: gui/mainwindow_menu_builders.cpp:71
 msgid "MVR / GDTF Inspector"
 msgstr "Inspector de MVR / GDTF"
 
-#: gui/inspection/inspector_workspace_panel.cpp:459
+#: gui/inspection/inspector_workspace_panel.cpp:477
 msgid ""
 "The current project could not be inspected because of an unexpected error."
 msgstr ""
 "El proyecto actual no se pudo inspeccionar debido a un error inesperado."
 
-#: gui/inspection/inspector_workspace_panel.cpp:469
+#: gui/inspection/inspector_workspace_panel.cpp:487
 msgid "Only MVR and GDTF files can be inspected."
 msgstr "Solo se pueden inspeccionar archivos MVR y GDTF."
 
-#: gui/inspection/inspector_workspace_panel.cpp:474
-#: gui/inspection/inspector_workspace_panel.cpp:684
+#: gui/inspection/inspector_workspace_panel.cpp:492
+#: gui/inspection/inspector_workspace_panel.cpp:735
 #, c-format
 msgid "Source: %s"
 msgstr "Fuente: %s"
 
-#: gui/inspection/inspector_workspace_panel.cpp:475
-#: gui/inspection/inspector_workspace_panel.cpp:685
-msgid "External file — not part of the current project"
-msgstr "Archivo externo — no forma parte del proyecto actual"
+#: gui/inspection/inspector_workspace_panel.cpp:493
+#: gui/inspection/inspector_workspace_panel.cpp:736
+msgid "External file - not part of the current project"
+msgstr "Archivo externo - no forma parte del proyecto actual"
 
-#: gui/inspection/inspector_workspace_panel.cpp:483
+#: gui/inspection/inspector_workspace_panel.cpp:501
 msgid "The file could not be inspected because of an unexpected error."
 msgstr "No se pudo inspeccionar el archivo debido a un error inesperado."
 
-#: gui/inspection/inspector_workspace_panel.cpp:504
-#: gui/inspection/inspector_workspace_panel.cpp:537
+#: gui/inspection/inspector_workspace_panel.cpp:522
+#: gui/inspection/inspector_workspace_panel.cpp:555
 msgid "Format:"
 msgstr "Formato:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:504
-#: gui/inspection/inspector_workspace_panel.cpp:537
+#: gui/inspection/inspector_workspace_panel.cpp:522
+#: gui/inspection/inspector_workspace_panel.cpp:555
 #: gui/mvrxchange/mvr_xchange_dialog.cpp:146
 msgid "Status:"
 msgstr "Estado:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:505
+#: gui/inspection/inspector_workspace_panel.cpp:523
 msgid "Embedded resource in parent MVR"
 msgstr "Recurso incrustado en el MVR principal"
 
-#: gui/inspection/inspector_workspace_panel.cpp:516
-#: gui/inspection/inspector_workspace_panel.cpp:544
+#: gui/inspection/inspector_workspace_panel.cpp:534
+#: gui/inspection/inspector_workspace_panel.cpp:562
 msgid "Package entries:"
 msgstr "Entradas del paquete:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:518
-#: gui/inspection/inspector_workspace_panel.cpp:546
+#: gui/inspection/inspector_workspace_panel.cpp:536
+#: gui/inspection/inspector_workspace_panel.cpp:564
 msgid "Resources:"
 msgstr "Recursos:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:523
+#: gui/inspection/inspector_workspace_panel.cpp:541
 msgid "Fixture type:"
 msgstr "Tipo de aparato:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:526
+#: gui/inspection/inspector_workspace_panel.cpp:544
 msgid "DMX modes:"
 msgstr "Modos DMX:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:537
+#: gui/inspection/inspector_workspace_panel.cpp:555
 msgid "Readable"
 msgstr "Legible"
 
-#: gui/inspection/inspector_workspace_panel.cpp:550
+#: gui/inspection/inspector_workspace_panel.cpp:568
 msgid "MVR version:"
 msgstr "Versión de MVR:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:551
+#: gui/inspection/inspector_workspace_panel.cpp:569
 msgid "Provider:"
 msgstr "Proveedor:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:552
+#: gui/inspection/inspector_workspace_panel.cpp:570
 msgid "Provider version:"
 msgstr "Versión del proveedor:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:574
+#: gui/inspection/inspector_workspace_panel.cpp:593
 msgid "GDTF summary"
 msgstr "Resumen de GDTF"
 
-#: gui/inspection/inspector_workspace_panel.cpp:574
+#: gui/inspection/inspector_workspace_panel.cpp:593
 msgid "MVR summary"
 msgstr "Resumen de MVR"
 
-#: gui/inspection/inspector_workspace_panel.cpp:640
+#: gui/inspection/inspector_workspace_panel.cpp:691
 msgid "Copy archive path"
 msgstr "Copiar ruta del archivo"
 
-#: gui/inspection/inspector_workspace_panel.cpp:644
-#: gui/inspection/inspector_workspace_panel.cpp:697
-#: gui/inspection/inspector_workspace_panel.cpp:702
+#: gui/inspection/inspector_workspace_panel.cpp:695
+#: gui/inspection/inspector_workspace_panel.cpp:748
+#: gui/inspection/inspector_workspace_panel.cpp:753
 msgid "The clipboard could not be opened."
 msgstr "No se pudo abrir el portapapeles."
 
-#: gui/inspection/inspector_workspace_panel.cpp:666
+#: gui/inspection/inspector_workspace_panel.cpp:717
 msgid "The embedded GDTF could not be inspected."
 msgstr "El GDTF incrustado no se pudo inspeccionar."
 
-#: gui/inspection/inspector_workspace_panel.cpp:672
+#: gui/inspection/inspector_workspace_panel.cpp:723
 #, c-format
 msgid "Embedded GDTF: %s"
 msgstr "GDTF incrustado: %s"
 
-#: gui/inspection/inspector_workspace_panel.cpp:673
+#: gui/inspection/inspector_workspace_panel.cpp:724
 msgid "Embedded in inspected MVR"
 msgstr "Incrustado en el MVR inspeccionado"
 
@@ -2173,11 +2294,6 @@ msgstr "Incrustado en el MVR inspeccionado"
 #: gui/summarypanel.cpp:316 tests/localization_catalog_integration_test.cpp:191
 msgid "Visible"
 msgstr "Visible"
-
-#: gui/layerpanel.cpp:87 gui/layerpanel.cpp:101 gui/summarypanel.cpp:264
-#: gui/summarypanel.cpp:318 viewer2d/viewer2drenderpanel.cpp:347
-msgid "Color"
-msgstr "Color"
 
 #: gui/layerpanel.cpp:276
 msgid "Layer Color"
@@ -4458,10 +4574,6 @@ msgstr "Comprobando el catálogo GDTF almacenado en caché..."
 msgid "Create"
 msgstr "Crear"
 
-#: gui/rider_fixture_resolution_dialog.cpp:103 mvr/mvrimporter.cpp:735
-msgid "Fixture type"
-msgstr "Tipo de aparato"
-
 #: gui/rider_fixture_resolution_dialog.cpp:105
 msgid "Qty"
 msgstr "Cantidad"
@@ -5658,9 +5770,6 @@ msgstr "Exportar imagen..."
 #~ "La consola transforma la selección mixta actual. Las armaduras agrupadas "
 #~ "se mueven a través de su grupo raíz; Los accesorios, soportes y objetos "
 #~ "de la escena siguen siendo objetivos exactos."
-
-#~ msgid "Command    Description"
-#~ msgstr "Comando    Descripción"
 
 #~ msgid "Clears all selections (fixtures, trusses, scene objects)."
 #~ msgstr ""

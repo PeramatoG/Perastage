@@ -1,6 +1,6 @@
 #include "inspection/gdtf_inspector_details_panel.h"
 
-#include "gdtf/gdtf_mode_browser_presenter.h"
+#include "inspection/gdtf_inspector_presentation.h"
 
 #include <unordered_map>
 
@@ -26,9 +26,33 @@ void AppendValue(wxString &target, const wxString &label,
   target << label << ": " << value << '\n';
 }
 
-// Formats one optional authored number without treating zero as presence.
-wxString AuthoredNumber(bool present, float value, const wxString &unit) {
-  return present ? wxString::Format("%g %s", value, unit.c_str()) : _("Unavailable");
+// Presents a projected optional value without interpreting its contents.
+wxString OptionalText(const GdtfInspectorValue &value) {
+  return value.available ? Text(value.value) : _("Unavailable");
+}
+
+// Maps a neutral overview field to its localized GUI label.
+wxString OverviewLabel(GdtfOverviewField field) {
+  switch (field) {
+  case GdtfOverviewField::DataVersion: return "DataVersion";
+  case GdtfOverviewField::FixtureTypeName: return _("Fixture type");
+  case GdtfOverviewField::FixtureTypeId: return _("Fixture type ID");
+  case GdtfOverviewField::Manufacturer: return _("Manufacturer");
+  case GdtfOverviewField::ShortName: return _("Short name");
+  case GdtfOverviewField::LongName: return _("Long name");
+  case GdtfOverviewField::Description: return _("Description");
+  case GdtfOverviewField::Thumbnail: return _("Thumbnail reference");
+  case GdtfOverviewField::CreationDate: return _("Creation date");
+  case GdtfOverviewField::Revision: return _("Revision");
+  case GdtfOverviewField::Weight: return _("Weight");
+  case GdtfOverviewField::PowerConsumption: return _("Power consumption");
+  case GdtfOverviewField::ModelColor: return "ModelColor";
+  case GdtfOverviewField::TrussCrossSectionType:
+    return _("Truss cross-section type");
+  case GdtfOverviewField::TrussCrossSection:
+    return _("Truss cross-section");
+  }
+  return {};
 }
 
 } // namespace
@@ -71,34 +95,19 @@ void GdtfInspectorDetailsPanel::SetResult(
     const perastage::inspection::GdtfInspectionResult &result) {
   wxString overview;
   if (result.document) {
-    const auto &value = result.document->Description();
-    AppendValue(overview, "DataVersion", OptionalText(value.dataVersion));
-    AppendValue(overview, _("Fixture type"), OptionalText(value.fixtureTypeName));
-    AppendValue(overview, _("Fixture type ID"), OptionalText(value.fixtureTypeId));
-    AppendValue(overview, _("Manufacturer"), OptionalText(value.manufacturer));
-    AppendValue(overview, _("Short name"), OptionalText(value.shortName));
-    AppendValue(overview, _("Long name"), OptionalText(value.longName));
-    AppendValue(overview, _("Description"), OptionalText(value.description));
-    AppendValue(overview, _("Thumbnail reference"), OptionalText(value.thumbnail));
-    AppendValue(overview, _("Creation date"), OptionalText(value.createDate));
-    AppendValue(overview, _("Revision"), OptionalText(value.revision));
-    AppendValue(overview, _("Weight"), AuthoredNumber(value.weightKgPresent,
-                                                       value.weightKg, "kg"));
-    AppendValue(overview, _("Power consumption"),
-                AuthoredNumber(value.powerConsumptionWPresent,
-                               value.powerConsumptionW, "W"));
-    AppendValue(overview, "ModelColor", OptionalText(value.modelColorHex));
-    AppendValue(overview, _("Truss cross-section type"),
-                OptionalText(value.trussCrossSectionType));
-    AppendValue(overview, _("Truss cross-section"),
-                OptionalText(value.trussCrossSection));
+    const auto presentation =
+        BuildGdtfOverviewPresentation(result.document->Description());
+    for (const auto &row : presentation.rows)
+      AppendValue(overview, OverviewLabel(row.field), OptionalText(row.value));
     overview << '\n' << _("Revision history") << ":\n";
-    if (value.revisions.empty())
+    if (presentation.revisions.empty())
       overview << _("Unavailable") << '\n';
-    for (const auto &revision : value.revisions)
-      overview << "• " << OptionalText(revision.text) << " — "
-               << OptionalText(revision.date) << " — "
+    for (const auto &revision : presentation.revisions) {
+      overview << "- " << OptionalText(revision.text) << " | "
+               << OptionalText(revision.date) << " | UserID: "
+               << OptionalText(revision.userId) << " | ModifiedBy: "
                << OptionalText(revision.modifiedBy) << '\n';
+    }
   } else {
     overview = _("FixtureType metadata is unavailable.");
   }
@@ -119,26 +128,29 @@ void GdtfInspectorDetailsPanel::SetResult(
 
   wxString wheels;
   if (result.wheelCatalog) {
-    for (const auto &wheel : result.wheelCatalog->wheels) {
+    const auto presentation = BuildGdtfWheelsPresentation(*result.wheelCatalog);
+    for (const auto &wheel : presentation.wheels) {
       wheels << _("Wheel") << ": " << OptionalText(wheel.name) << '\n';
       AppendValue(wheels, _("Type"), OptionalText(wheel.type));
       for (const auto &slot : wheel.slots) {
         wheels << "  [" << slot.index << "] " << OptionalText(slot.name)
                << '\n';
         AppendValue(wheels, "    " + _("Color"), OptionalText(slot.rawColor));
-        AppendValue(wheels, "    " + _("Filter"), OptionalText(slot.rawFilter));
+        AppendValue(wheels, "    " + _("Filter"), OptionalText(slot.filter));
         AppendValue(wheels, "    " + _("Media reference"),
-                    OptionalText(slot.mediaFileName));
+                    OptionalText(slot.mediaReference));
         AppendValue(wheels, "    " + _("Archive resource"),
-                    OptionalText(slot.resolvedResourcePath));
+                    OptionalText(slot.archiveResource));
         AppendValue(wheels, "    " + _("Graphic wheel reference"),
                     OptionalText(slot.graphicWheelReference));
+        AppendValue(wheels, "    " + _("Graphic wheel resource"),
+                    OptionalText(slot.graphicWheelResource));
       }
       wheels << '\n';
     }
-    for (const auto &filter : result.wheelCatalog->filters)
+    for (const auto &filter : presentation.filters)
       wheels << _("Filter") << ": " << OptionalText(filter.name)
-             << " — " << _("Color") << ": " << OptionalText(filter.rawColor)
+             << " | " << _("Color") << ": " << OptionalText(filter.rawColor)
              << '\n';
   }
   if (wheels.empty())
@@ -151,19 +163,19 @@ void GdtfInspectorDetailsPanel::SelectMode(int selection) {
   if (!modeDocument_ || selection < 0 ||
       static_cast<std::size_t>(selection) >= modeDocument_->modes.size())
     return;
-  const auto &mode = modeDocument_->modes[static_cast<std::size_t>(selection)];
+  const auto presentation = BuildGdtfInspectorModePresentation(
+      modeDocument_->modes[static_cast<std::size_t>(selection)]);
   wxString text;
-  AppendValue(text, _("Description"), OptionalText(mode.description));
-  AppendValue(text, _("Geometry"), OptionalText(mode.geometry));
+  AppendValue(text, _("Description"), OptionalText(presentation.description));
+  AppendValue(text, _("Geometry"), OptionalText(presentation.geometry));
   AppendValue(text, _("Calculated footprint"),
-              wxString::Format("%d", mode.calculatedFootprint));
+              wxString::Format("%d", presentation.calculatedFootprint));
   text << '\n';
-  const auto rows = BuildGdtfModeBrowserPresentation(&mode);
   std::unordered_map<std::string, int> depths;
-  for (const auto &row : rows) {
+  for (const auto &row : presentation.nodes) {
     const int depth = row.parentId.empty() ? 0 : depths[row.parentId] + 1;
     depths[row.id] = depth;
-    text << wxString(' ', depth * 2) << "• " << Text(row.item);
+    text << wxString(' ', depth * 2) << "- " << Text(row.item);
     if (!row.dmxRange.empty()) text << "  DMX " << Text(row.dmxRange);
     if (!row.physicalRange.empty()) text << "  " << Text(row.physicalRange);
     if (!row.unit.empty()) text << " " << Text(row.unit);

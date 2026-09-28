@@ -20,7 +20,10 @@ Changes since **v1.6.0**.
   DMX mode and channel hierarchy, and wheel/resource pages. Standalone and
   embedded GDTFs now expose authored metadata, physical ranges, attributes,
   channel functions and sets, filters, colors, and geometry references without
-  extraction, downloads, previews, or an editing workflow.
+  extraction, downloads, previews, or an editing workflow. XML folding markers
+  now respond to clicks, line numbers adapt to each document, Inspector tabs
+  restore by stable page identity, and issue and detail punctuation renders
+  consistently across supported platforms.
 
 ## Compatibility, stability, and performance
 

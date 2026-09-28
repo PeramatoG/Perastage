@@ -73,6 +73,41 @@ void CheckResourceKinds() {
   assert(std::string(gui::inspection::ResourceKindLabel(directory)).empty());
 }
 
+// Verifies stable page tokens, legacy migration, and unavailable-page identity.
+void CheckDetailsPageTokens() {
+  using gui::inspection::InspectorDetailsPage;
+  assert(std::string(gui::inspection::InspectorDetailsPageToken(
+             InspectorDetailsPage::Summary)) == "summary");
+  assert(std::string(gui::inspection::InspectorDetailsPageToken(
+             InspectorDetailsPage::GdtfDetails)) == "gdtf-details");
+  assert(gui::inspection::ParseInspectorDetailsPageToken("issues") ==
+         InspectorDetailsPage::Issues);
+  assert(gui::inspection::ParseInspectorDetailsPageToken("diagnostics") ==
+         InspectorDetailsPage::Diagnostics);
+  assert(gui::inspection::ParseInspectorDetailsPageToken("1") ==
+         InspectorDetailsPage::Issues);
+  assert(gui::inspection::ParseInspectorDetailsPageToken("2") ==
+         InspectorDetailsPage::Diagnostics);
+  assert(gui::inspection::ParseInspectorDetailsPageToken("invalid") ==
+         InspectorDetailsPage::Summary);
+}
+
+// Verifies issue formatting uses ASCII punctuation around unchanged UTF-8 data.
+void CheckIssueFormatting() {
+  const std::string code = Utf8String(u8"gdtf.照明");
+  assert(gui::inspection::FormatIssueGroupLine(
+             3, code, "compatibility", "warning") ==
+         "3 x " + code + "  [compatibility, warning]\n");
+}
+
+// Verifies XML line-number sizing follows each document's line count.
+void CheckXmlLineNumberDigits() {
+  assert(gui::inspection::XmlLineNumberDigits(0) == 1);
+  assert(gui::inspection::XmlLineNumberDigits(9) == 1);
+  assert(gui::inspection::XmlLineNumberDigits(10) == 2);
+  assert(gui::inspection::XmlLineNumberDigits(12345) == 5);
+}
+
 } // namespace
 
 // Exercises the Inspector's GUI-independent presentation projection.
@@ -80,5 +115,8 @@ int main() {
   CheckDiagnosticLocation();
   CheckGdtfStatuses();
   CheckResourceKinds();
+  CheckDetailsPageTokens();
+  CheckIssueFormatting();
+  CheckXmlLineNumberDigits();
   return 0;
 }
