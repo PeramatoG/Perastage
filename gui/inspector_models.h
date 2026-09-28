@@ -40,6 +40,8 @@ struct SceneTreeNode {
   std::string name;
   bool unresolved = false;
   std::vector<SceneTreeNode> children;
+
+  bool operator==(const SceneTreeNode &) const = default;
 };
 
 // Projects all neutral scene descriptors without consulting the live scene.

@@ -47,7 +47,7 @@ private:
   void InspectCurrentProject();
   void ClearResult();
   void ShowGdtf(const perastage::inspection::GdtfInspectionResult &result,
-                bool nested = false);
+                const std::vector<std::uint8_t> *packageBytes = nullptr);
   void ShowMvr(const perastage::inspection::MvrInspectionResult &result);
   void PopulatePackage(
       const std::vector<perastage::inspection::ResourceDescriptor> &resources);

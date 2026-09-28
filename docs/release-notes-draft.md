@@ -12,7 +12,10 @@ Changes since **v1.6.0**.
   hierarchical package and scene navigation, structured issue summaries, and
   exact syntax-highlighted XML with folding and wrapping search. Embedded GDTFs
   can be inspected without extraction, package paths are available from their
-  context menu, and the workflow remains non-mutating and offline.
+  context menu, and the workflow remains non-mutating and offline. Nested MVR
+  ChildList relationships remain intact in the scene tree, embedded GDTF
+  resources keep their normal classifications, and restored Inspector layouts
+  initialize the current-project snapshot only when visible.
 
 ## Compatibility, stability, and performance
 

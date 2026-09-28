@@ -636,6 +636,9 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
   if (startupSplashInitializationPending && startupMetrics_)
     ++startupMetrics_->auiUpdates;
 
+  if (preset.name == "inspector_view")
+    ActivateInspectorIfVisible();
+
   layoutModeActive = layoutMode;
 
   if (layoutMode && layoutViewerPanel &&
@@ -653,6 +656,13 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
   }
 
   UpdateViewMenuChecks();
+}
+
+// Activates the Inspector only after startup loading and while its pane is visible.
+void MainWindow::ActivateInspectorIfVisible() {
+  if (!startupProjectLoadPending && inspectorWorkspacePanel && auiManager &&
+      IsPaneShown(auiManager, "InspectorWorkspace"))
+    inspectorWorkspacePanel->Activate();
 }
 
 void MainWindow::ApplySavedLayout() {
@@ -786,7 +796,6 @@ void MainWindow::OnApplyInspectorLayout(wxCommandEvent &WXUNUSED(event)) {
   if (!preset)
     return;
   ApplyLayoutPreset(*preset, std::nullopt, false, true);
-  inspectorWorkspacePanel->Activate();
 }
 
 void MainWindow::OnLayoutViewEdit(wxCommandEvent &WXUNUSED(event)) {

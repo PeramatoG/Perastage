@@ -796,7 +796,7 @@ void MainWindow::OnPaneClose(wxAuiManagerEvent &event) {
 
 void MainWindow::SetStartupProjectLoadPending(bool pending) {
   startupProjectLoadPending = pending;
-
+  if (!pending) ActivateInspectorIfVisible();
   wxMenuBar *menuBar = GetMenuBar();
   if (menuBar) {
     menuBar->Enable(ID_File_New, !pending);

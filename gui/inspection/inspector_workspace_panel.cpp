@@ -59,8 +59,12 @@ public:
     switch (column) {
     case 0: variant = FromUtf8(node.name); break;
     case 1:
-      variant = node.entryType == perastage::inspection::PackageEntryType::Directory
-                    ? _("directory") : _("file");
+      variant = node.syntheticFolder
+                    ? _("Folder")
+                    : node.entryType ==
+                              perastage::inspection::PackageEntryType::Directory
+                          ? _("Directory")
+                          : _("File");
       break;
     case 2: variant = FromUtf8(ResourceKindLabel(Descriptor(node)));
       break;
@@ -249,8 +253,12 @@ void AppendCommonSummary(
     const std::vector<perastage::inspection::ValidationResult> &validation) {
   if (!inspection.request.sourcePath.empty())
     text << _("File:") << ' ' << PathText(inspection.request.sourcePath) << '\n';
-  const auto diagnostics = AllDiagnostics(inspection, validation);
-  text << _("Diagnostics:") << ' ' << diagnostics.size() << '\n';
+  std::array<std::size_t, 4> totals{};
+  for (const auto &diagnostic : AllDiagnostics(inspection, validation))
+    ++totals[static_cast<std::size_t>(diagnostic.severity)];
+  text << _("Diagnostics:") << " information=" << totals[0]
+       << ", warning=" << totals[1] << ", error=" << totals[2]
+       << ", fatal=" << totals[3] << '\n';
   if (!validation.empty()) {
     text << _("Validation layers:");
     for (const auto &result : validation)
@@ -276,15 +284,24 @@ void AppendSceneNodes(wxDataViewTreeCtrl &tree, const wxDataViewItem &parent,
 void ConfigureXmlEditor(wxStyledTextCtrl &editor) {
   const wxColour foreground = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
   const wxColour background = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
+  const bool dark = background.GetLuminance() < 0.5;
   editor.StyleSetForeground(wxSTC_STYLE_DEFAULT, foreground);
   editor.StyleSetBackground(wxSTC_STYLE_DEFAULT, background);
   editor.StyleClearAll();
   editor.SetLexer(wxSTC_LEX_XML);
-  editor.StyleSetForeground(wxSTC_H_TAG, wxColour(0, 96, 160));
-  editor.StyleSetForeground(wxSTC_H_ATTRIBUTE, wxColour(128, 64, 0));
-  editor.StyleSetForeground(wxSTC_H_DOUBLESTRING, wxColour(0, 112, 48));
-  editor.StyleSetForeground(wxSTC_H_SINGLESTRING, wxColour(0, 112, 48));
-  editor.StyleSetForeground(wxSTC_H_COMMENT, wxColour(96, 96, 96));
+  editor.StyleSetForeground(wxSTC_H_TAG,
+                            dark ? wxColour(110, 190, 255)
+                                 : wxColour(0, 96, 160));
+  editor.StyleSetForeground(wxSTC_H_ATTRIBUTE,
+                            dark ? wxColour(255, 190, 100)
+                                 : wxColour(128, 64, 0));
+  const wxColour stringColour =
+      dark ? wxColour(120, 220, 150) : wxColour(0, 112, 48);
+  editor.StyleSetForeground(wxSTC_H_DOUBLESTRING, stringColour);
+  editor.StyleSetForeground(wxSTC_H_SINGLESTRING, stringColour);
+  editor.StyleSetForeground(wxSTC_H_COMMENT,
+                            dark ? wxColour(180, 180, 180)
+                                 : wxColour(96, 96, 96));
   editor.SetProperty("fold", "1");
   editor.SetMarginType(1, wxSTC_MARGIN_SYMBOL);
   editor.SetMarginMask(1, wxSTC_MASK_FOLDERS);
@@ -471,22 +488,33 @@ void InspectorWorkspacePanel::ClearResult() {
 }
 
 // Projects high-level GDTF facts without reparsing the retained XML.
-void InspectorWorkspacePanel::ShowGdtf(const perastage::inspection::GdtfInspectionResult &result, bool nested) {
+void InspectorWorkspacePanel::ShowGdtf(
+    const perastage::inspection::GdtfInspectionResult &result,
+    const std::vector<std::uint8_t> *packageBytes) {
   ClearResult(); wxString text;
   text << _("Format:") << " GDTF\n" << _("Status:") << ' ' << LocalizedGdtfReadStatus(result.status) << '\n';
-  if (nested) text << _("Embedded resource in parent MVR") << '\n';
+  if (packageBytes) text << _("Embedded resource in parent MVR") << '\n';
   AppendCommonSummary(text, result.inspection, result.validation);
   std::vector<perastage::inspection::ResourceDescriptor> resources;
-  if (result.packageInventory)
-    resources = nested
+  if (result.packageInventory) {
+    resources = packageBytes
                     ? perastage::inspection::DescribePackageResources(
-                          *result.packageInventory)
+                          *packageBytes, *result.packageInventory, 4096,
+                          result.inspection.request)
                     : perastage::inspection::DescribePackageResources(
                           result.inspection.request.sourcePath,
                           *result.packageInventory);
+    text << _("Package entries:") << ' '
+         << result.packageInventory->entries.size() << "\n"
+         << _("Resources:") << ' ' << resources.size() << '\n';
+  }
   if (result.document) {
     const auto &description = result.document->Description();
-    text << "DataVersion: " << FromUtf8(description.dataVersion) << "\n" << _("Fixture type:") << ' ' << FromUtf8(description.fixtureTypeName) << "\n" << _("Manufacturer:") << ' ' << FromUtf8(description.manufacturer) << '\n';
+    text << "DataVersion: " << FromUtf8(description.dataVersion) << "\n"
+         << _("Fixture type:") << ' ' << FromUtf8(description.fixtureTypeName)
+         << "\n" << _("Manufacturer:") << ' '
+         << FromUtf8(description.manufacturer) << "\n"
+         << _("DMX modes:") << ' ' << description.dmxModeNames.size() << '\n';
     SetXml(result.document->Archive().descriptionXml);
   }
   summary_->SetValue(text); PopulatePackage(resources); PopulateDiagnostics(result.inspection, result.validation);
@@ -503,10 +531,18 @@ void InspectorWorkspacePanel::ShowMvr(const perastage::inspection::MvrInspection
     resources = retainedMvrBytes_.empty()
                     ? perastage::inspection::DescribePackageResources(result.inspection.request.sourcePath, *result.packageInventory)
                     : perastage::inspection::DescribePackageResources(retainedMvrBytes_, *result.packageInventory, 4096);
+    text << _("Package entries:") << ' '
+         << result.packageInventory->entries.size() << "\n"
+         << _("Resources:") << ' ' << resources.size() << '\n';
   }
   if (result.snapshot) {
     const auto &snapshot = *result.snapshot;
-    text << _("MVR version:") << ' ' << snapshot.versionMajor << '.' << snapshot.versionMinor << "\n" << _("Provider:") << ' ' << FromUtf8(snapshot.provider) << '\n';
+    text << _("MVR version:") << ' ' << snapshot.versionMajor << '.'
+         << snapshot.versionMinor << "\n" << _("Provider:") << ' '
+         << FromUtf8(snapshot.provider) << "\n" << _("Provider version:")
+         << ' ' << FromUtf8(snapshot.providerVersion) << '\n';
+    for (const auto &count : snapshot.nodeCounts)
+      text << FromUtf8(count.type) << ": " << count.count << '\n';
     SetXml(snapshot.sceneDescriptionXml); PopulateScene(snapshot);
   }
   summary_->SetValue(text); PopulatePackage(resources); PopulateDiagnostics(result.inspection, result.validation);
@@ -562,7 +598,7 @@ void InspectorWorkspacePanel::FindXml(bool forward) {
   const auto found = FindText(text, query, xml_->GetSelectionStart(), xml_->GetSelectionEnd(), forward);
   if (found) {
     xml_->SetSelection(static_cast<int>(*found), static_cast<int>(*found + query.size()));
-    xml_->ScrollCaret(); xml_->SetFocus();
+    xml_->EnsureCaretVisible(); xml_->SetFocus();
   }
 }
 
@@ -608,7 +644,7 @@ void InspectorWorkspacePanel::OpenNestedGdtf(const std::string &archivePath, std
                                    : perastage::inspection::InspectMvr(externalPath_);
   identity_->SetLabel(wxString::Format(_("Embedded GDTF: %s"), FromUtf8(archivePath)));
   sourceType_->SetLabel(_("Embedded in inspected MVR")); back_->Show(); Layout();
-  ShowGdtf(*nested.gdtf, true);
+  ShowGdtf(*nested.gdtf, &nested.resource.bytes);
 }
 
 // Restores the retained parent MVR result without rebuilding its source.

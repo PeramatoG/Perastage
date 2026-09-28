@@ -20,6 +20,9 @@
 #include <wx/zipstrm.h>
 
 #include "configmanager.h"
+#include "guiconfigservices.h"
+#include "inspector_project_source.h"
+#include "inspection/mvr_inspection.h"
 #include "fixture.h"
 #include "gdtf_test_fixture_builder.h"
 #include "layer.h"
@@ -30,6 +33,38 @@
 #include "wx_path_utils.h"
 
 namespace fs = std::filesystem;
+
+// Supplies a focused project-session boundary around one test scene.
+class FakeProjectSession final : public IGuiProjectSessionService {
+public:
+  explicit FakeProjectSession(MvrScene &scene) : scene_(scene) {}
+
+  // Rejects saves because Inspector capture must remain read-only.
+  bool SaveProject(const std::string &) override { return false; }
+
+  // Rejects loads because Inspector capture must retain the current scene.
+  bool LoadProject(const std::string &) override { return false; }
+
+  // Returns the mutable scene required by the project-session interface.
+  MvrScene &GetScene() override { return scene_; }
+
+  // Returns the immutable scene consumed by the Inspector source adapter.
+  const MvrScene &GetScene() const override { return scene_; }
+
+  // Leaves the representative scene unchanged during this focused test.
+  void Reset() override {}
+
+  // Returns the explicitly controlled dirty state.
+  bool IsDirty() const override { return dirty_; }
+
+  // Records a save request without changing the scene.
+  void MarkSaved() override { dirty_ = false; }
+
+  bool dirty_ = true;
+
+private:
+  MvrScene &scene_;
+};
 
 struct ArchiveSnapshot {
   std::unordered_map<std::string, std::string> entries;
@@ -421,6 +456,25 @@ int main() {
     assert(scene.fixtures.at(uuid).transform.w == fixture.transform.w);
     assert(scene.fixtures.at(uuid).transform.o == fixture.transform.o);
   }
+
+  FakeProjectSession inspectorProject(scene);
+  const bool dirtyBeforeInspection = inspectorProject.IsDirty();
+  const auto firstInspection =
+      gui::inspection::CurrentProjectInspector(inspectorProject).Capture();
+  const auto secondInspection =
+      gui::inspection::CurrentProjectInspector(inspectorProject).Capture();
+  assert(firstInspection && secondInspection);
+  assert(!firstInspection->bytes.empty());
+  assert(firstInspection->result.Success() && firstInspection->result.snapshot);
+  assert(firstInspection->bytes == secondInspection->bytes);
+  assert(inspectorProject.IsDirty() == dirtyBeforeInspection);
+  assert(scene.fixtures.size() == sceneBeforeSnapshot.fixtures.size());
+  assert(scene.layers.size() == sceneBeforeSnapshot.layers.size());
+  const auto retainedInspection =
+      perastage::inspection::InspectMvrBytes(firstInspection->bytes);
+  assert(retainedInspection.Success() && retainedInspection.snapshot);
+  assert(retainedInspection.snapshot->sceneDescriptionXml ==
+         firstInspection->result.snapshot->sceneDescriptionXml);
   for (const auto &[uuid, expected] : editableIds) {
     const Fixture &fixture = scene.fixtures.at(uuid);
     assert(fixture.fixtureId == expected.first);
