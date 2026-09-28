@@ -4,6 +4,11 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 menu_source="$repo_root/gui/mainwindow_menu.cpp"
 window_source="$repo_root/gui/mainwindow.cpp"
+inspector_icon="$repo_root/resources/icons/outline/code-xml.svg"
+
+test -f "$inspector_icon"
+grep -Fq '<!-- @license lucide-static v0.562.0 - ISC -->' "$inspector_icon"
+rg -U -q 'ID_View_Layout_Inspector[^;]*loadToolbarIcon\("code-xml"' "$menu_source"
 
 required_tools=(
   ID_Edit_AddFixture

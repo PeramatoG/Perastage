@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-27 03:09+0000\n"
+"POT-Creation-Date: 2026-09-28 06:40+0000\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -238,7 +238,6 @@ msgid "Path: -"
 msgstr "Camino: -"
 
 #: gui/dictionary_selection_controls.cpp:39
-#: gui/inspection/inspector_workspace_panel.cpp:204
 msgid "Open..."
 msgstr "Abierto..."
 
@@ -1234,7 +1233,7 @@ msgid "Fixture ID"
 msgstr "ID del aparato"
 
 #: gui/fixturetable/fixture_table_columns.cpp:13 gui/hoisttablepanel.cpp:461
-#: gui/inspection/inspector_workspace_panel.cpp:217 gui/summarypanel.cpp:260
+#: gui/inspection/inspector_workspace_panel.cpp:335 gui/summarypanel.cpp:260
 #: gui/summarypanel.cpp:269 mvr/mvrimporter.cpp:328
 msgid "Type"
 msgstr "Tipo"
@@ -1356,13 +1355,13 @@ msgstr "Valor numérico no válido"
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:280
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:504
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:647
-#: gui/mainwindow_io.cpp:250 gui/mainwindow_io.cpp:342
-#: gui/mainwindow_io.cpp:413 gui/mainwindow_io.cpp:448
-#: gui/mainwindow_io.cpp:470 gui/mainwindow_io.cpp:494
-#: gui/mainwindow_io.cpp:553 gui/mainwindow_io.cpp:686
-#: gui/mainwindow_io.cpp:696 gui/mainwindow_io.cpp:746
-#: gui/mainwindow_io.cpp:834 gui/mainwindow_io.cpp:876
-#: gui/mainwindow_io.cpp:894 gui/mainwindow_menu.cpp:1250
+#: gui/mainwindow_io.cpp:251 gui/mainwindow_io.cpp:343
+#: gui/mainwindow_io.cpp:414 gui/mainwindow_io.cpp:449
+#: gui/mainwindow_io.cpp:471 gui/mainwindow_io.cpp:495
+#: gui/mainwindow_io.cpp:554 gui/mainwindow_io.cpp:687
+#: gui/mainwindow_io.cpp:697 gui/mainwindow_io.cpp:747
+#: gui/mainwindow_io.cpp:833 gui/mainwindow_io.cpp:874
+#: gui/mainwindow_io.cpp:892 gui/mainwindow_menu.cpp:1250
 #: gui/ridertextdialog.cpp:218 gui/ridertextdialog.cpp:224
 #: gui/ridertextdialog.cpp:233 gui/ridertextdialog.cpp:245
 #: gui/ridertextdialog.cpp:319 gui/ridertextdialog.cpp:334
@@ -1642,7 +1641,7 @@ msgid "Search:"
 msgstr "Buscar:"
 
 #: gui/gdtfsearchdialog.cpp:100
-#: gui/inspection/inspector_workspace_panel.cpp:359
+#: gui/inspection/inspector_workspace_panel.cpp:489
 #: tests/localization_catalog_integration_test.cpp:205
 msgid "Manufacturer:"
 msgstr "Fabricante:"
@@ -1874,122 +1873,166 @@ msgstr ""
 "El ajuste preestablecido ficticio solo se puede asignar cuando no hay ningún "
 "elemento de motor vinculado."
 
-#: gui/inspection/inspector_workspace_panel.cpp:94
+#: gui/inspection/inspector_workspace_panel.cpp:63
+msgid "directory"
+msgstr "directorio"
+
+#: gui/inspection/inspector_workspace_panel.cpp:63
+msgid "file"
+msgstr "archivo"
+
+#: gui/inspection/inspector_workspace_panel.cpp:68
+msgid "Available"
+msgstr "Disponible"
+
+#: gui/inspection/inspector_workspace_panel.cpp:68
+msgid "Unsafe path"
+msgstr "Ruta no segura"
+
+#: gui/inspection/inspector_workspace_panel.cpp:191
 msgid "Canonical"
 msgstr "Canónico"
 
-#: gui/inspection/inspector_workspace_panel.cpp:96
+#: gui/inspection/inspector_workspace_panel.cpp:192
 msgid "Compatibility accepted"
 msgstr "Compatibilidad aceptada"
 
-#: gui/inspection/inspector_workspace_panel.cpp:98
-#: gui/inspection/inspector_workspace_panel.cpp:100
-#: gui/inspection/inspector_workspace_panel.cpp:376
+#: gui/inspection/inspector_workspace_panel.cpp:193
+#: gui/inspection/inspector_workspace_panel.cpp:195
+#: gui/inspection/inspector_workspace_panel.cpp:499
 msgid "Unusable"
 msgstr "No utilizable"
 
-#: gui/inspection/inspector_workspace_panel.cpp:171
+#: gui/inspection/inspector_workspace_panel.cpp:251
 msgid "File:"
 msgstr "Archivo:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:175
+#: gui/inspection/inspector_workspace_panel.cpp:253
 msgid "Diagnostics:"
 msgstr "Diagnósticos:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:179
+#: gui/inspection/inspector_workspace_panel.cpp:255
 msgid "Validation layers:"
 msgstr "Capas de validación:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:205
-msgid "No file selected"
-msgstr "Ningún archivo seleccionado"
+#: gui/inspection/inspector_workspace_panel.cpp:268
+msgid "(unresolved parent)"
+msgstr "(padre sin resolver)"
 
-#: gui/inspection/inspector_workspace_panel.cpp:212
-msgid "Package"
-msgstr "Paquete"
+#: gui/inspection/inspector_workspace_panel.cpp:319
+msgid "Refresh"
+msgstr "Actualizar"
 
-#: gui/inspection/inspector_workspace_panel.cpp:216
+#: gui/inspection/inspector_workspace_panel.cpp:320
+msgid "Open external..."
+msgstr "Abrir archivo externo..."
+
+#: gui/inspection/inspector_workspace_panel.cpp:321
+msgid "Back to parent MVR"
+msgstr "Volver al MVR principal"
+
+#: gui/inspection/inspector_workspace_panel.cpp:322
+#: gui/inspection/inspector_workspace_panel.cpp:428
+#: gui/inspection/inspector_workspace_panel.cpp:619
+msgid "Source: Current project MVR"
+msgstr "Fuente: MVR del proyecto actual"
+
+#: gui/inspection/inspector_workspace_panel.cpp:323
+#: gui/inspection/inspector_workspace_panel.cpp:429
+#: gui/inspection/inspector_workspace_panel.cpp:619
+msgid "Active project"
+msgstr "Proyecto activo"
+
+#: gui/inspection/inspector_workspace_panel.cpp:334
 msgid "Path"
 msgstr "Ruta"
 
-#: gui/inspection/inspector_workspace_panel.cpp:218
+#: gui/inspection/inspector_workspace_panel.cpp:336
 msgid "Resource kind"
 msgstr "Tipo de recurso"
 
-#: gui/inspection/inspector_workspace_panel.cpp:219
+#: gui/inspection/inspector_workspace_panel.cpp:337
 #: gui/mvrxchange/mvr_xchange_dialog.cpp:180
 #: viewer2d/viewer2drenderpanel.cpp:380 viewer2d/viewer2drenderpanel.cpp:387
 #: viewer2d/viewer2drenderpanel.cpp:394
 msgid "Size"
 msgstr "Tamaño"
 
-#: gui/inspection/inspector_workspace_panel.cpp:220
+#: gui/inspection/inspector_workspace_panel.cpp:338
 msgid "Availability"
 msgstr "Disponibilidad"
 
-#: gui/inspection/inspector_workspace_panel.cpp:221
-msgid "Copy path"
-msgstr "Copiar ruta"
+#: gui/inspection/inspector_workspace_panel.cpp:341
+msgid "Package"
+msgstr "Paquete"
 
-#: gui/inspection/inspector_workspace_panel.cpp:230
+#: gui/inspection/inspector_workspace_panel.cpp:342
+msgid "Scene"
+msgstr "Escena"
+
+#: gui/inspection/inspector_workspace_panel.cpp:348
 msgid "Find previous"
 msgstr "Buscar anterior"
 
-#: gui/inspection/inspector_workspace_panel.cpp:231
+#: gui/inspection/inspector_workspace_panel.cpp:349
 msgid "Find next"
 msgstr "Buscar siguiente"
 
-#: gui/inspection/inspector_workspace_panel.cpp:232
+#: gui/inspection/inspector_workspace_panel.cpp:350
 msgid "Copy all"
 msgstr "Copiar todo"
 
-#: gui/inspection/inspector_workspace_panel.cpp:233
+#: gui/inspection/inspector_workspace_panel.cpp:351
 msgid "Find:"
 msgstr "Buscar:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:248
+#: gui/inspection/inspector_workspace_panel.cpp:362
 #: gui/mainwindow_layout.cpp:422 gui/mainwindow_menu_builders.cpp:85
 #: gui/summarypanel.cpp:112
 msgid "Summary"
 msgstr "Resumen"
 
-#: gui/inspection/inspector_workspace_panel.cpp:253
+#: gui/inspection/inspector_workspace_panel.cpp:362
+msgid "Issues"
+msgstr "Problemas"
+
+#: gui/inspection/inspector_workspace_panel.cpp:366
 msgid "Severity"
 msgstr "Gravedad"
 
-#: gui/inspection/inspector_workspace_panel.cpp:254
+#: gui/inspection/inspector_workspace_panel.cpp:367
 msgid "Domain"
 msgstr "Dominio"
 
-#: gui/inspection/inspector_workspace_panel.cpp:255
+#: gui/inspection/inspector_workspace_panel.cpp:368
 msgid "Classification"
 msgstr "Clasificación"
 
-#: gui/inspection/inspector_workspace_panel.cpp:256
+#: gui/inspection/inspector_workspace_panel.cpp:369
 msgid "Code"
 msgstr "Código"
 
-#: gui/inspection/inspector_workspace_panel.cpp:257
+#: gui/inspection/inspector_workspace_panel.cpp:370
 msgid "Message"
 msgstr "Mensaje"
 
-#: gui/inspection/inspector_workspace_panel.cpp:258
+#: gui/inspection/inspector_workspace_panel.cpp:371
 msgid "Location"
 msgstr "Ubicación"
 
-#: gui/inspection/inspector_workspace_panel.cpp:260
+#: gui/inspection/inspector_workspace_panel.cpp:372
 msgid "Copy diagnostic"
 msgstr "Copiar diagnóstico"
 
-#: gui/inspection/inspector_workspace_panel.cpp:264
+#: gui/inspection/inspector_workspace_panel.cpp:374
 msgid "Diagnostics"
 msgstr "Diagnósticos"
 
-#: gui/inspection/inspector_workspace_panel.cpp:293
+#: gui/inspection/inspector_workspace_panel.cpp:403
 msgid "Open MVR or GDTF file"
 msgstr "Abrir archivo MVR o GDTF"
 
-#: gui/inspection/inspector_workspace_panel.cpp:294
+#: gui/inspection/inspector_workspace_panel.cpp:404
 msgid ""
 "MVR and GDTF files (*.mvr;*.gdtf)|*.mvr;*.gdtf|MVR files (*.mvr)|*.mvr|GDTF "
 "files (*.gdtf)|*.gdtf"
@@ -1997,82 +2040,102 @@ msgstr ""
 "Archivos MVR y GDTF (*.mvr;*.gdtf)|*.mvr;*.gdtf|Archivos MVR (*.mvr)|*.mvr|"
 "Archivos GDTF (*.gdtf)|*.gdtf"
 
-#: gui/inspection/inspector_workspace_panel.cpp:309
-msgid "Only MVR and GDTF files can be inspected."
-msgstr "Solo se pueden inspeccionar archivos MVR y GDTF."
+#: gui/inspection/inspector_workspace_panel.cpp:422
+msgid "The current project could not be exported as a canonical MVR snapshot."
+msgstr ""
+"El proyecto actual no se pudo exportar como una instantánea MVR canónica."
 
-#: gui/inspection/inspector_workspace_panel.cpp:310
-#: gui/inspection/inspector_workspace_panel.cpp:325
-#: gui/inspection/inspector_workspace_panel.cpp:481
-#: gui/inspection/inspector_workspace_panel.cpp:498
-#: gui/inspection/inspector_workspace_panel.cpp:505
-#: gui/mainwindow_layout.cpp:452 gui/mainwindow_menu.cpp:237
+#: gui/inspection/inspector_workspace_panel.cpp:423
+#: gui/inspection/inspector_workspace_panel.cpp:434
+#: gui/inspection/inspector_workspace_panel.cpp:443
+#: gui/inspection/inspector_workspace_panel.cpp:457
+#: gui/inspection/inspector_workspace_panel.cpp:581
+#: gui/inspection/inspector_workspace_panel.cpp:603
+#: gui/inspection/inspector_workspace_panel.cpp:634
+#: gui/inspection/inspector_workspace_panel.cpp:639
+#: gui/mainwindow_layout.cpp:452 gui/mainwindow_menu.cpp:236
 #: gui/mainwindow_menu_builders.cpp:71
 msgid "MVR / GDTF Inspector"
 msgstr "Inspector de MVR / GDTF"
 
-#: gui/inspection/inspector_workspace_panel.cpp:324
+#: gui/inspection/inspector_workspace_panel.cpp:433
+msgid ""
+"The current project could not be inspected because of an unexpected error."
+msgstr ""
+"El proyecto actual no se pudo inspeccionar debido a un error inesperado."
+
+#: gui/inspection/inspector_workspace_panel.cpp:443
+msgid "Only MVR and GDTF files can be inspected."
+msgstr "Solo se pueden inspeccionar archivos MVR y GDTF."
+
+#: gui/inspection/inspector_workspace_panel.cpp:448
+#: gui/inspection/inspector_workspace_panel.cpp:621
+#, c-format
+msgid "Source: %s"
+msgstr "Fuente: %s"
+
+#: gui/inspection/inspector_workspace_panel.cpp:449
+#: gui/inspection/inspector_workspace_panel.cpp:622
+msgid "External file — not part of the current project"
+msgstr "Archivo externo — no forma parte del proyecto actual"
+
+#: gui/inspection/inspector_workspace_panel.cpp:457
 msgid "The file could not be inspected because of an unexpected error."
 msgstr "No se pudo inspeccionar el archivo debido a un error inesperado."
 
-#: gui/inspection/inspector_workspace_panel.cpp:343
-#: gui/inspection/inspector_workspace_panel.cpp:374
+#: gui/inspection/inspector_workspace_panel.cpp:476
+#: gui/inspection/inspector_workspace_panel.cpp:499
 msgid "Format:"
 msgstr "Formato:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:344
-#: gui/inspection/inspector_workspace_panel.cpp:375
+#: gui/inspection/inspector_workspace_panel.cpp:476
+#: gui/inspection/inspector_workspace_panel.cpp:499
 #: gui/mvrxchange/mvr_xchange_dialog.cpp:146
 msgid "Status:"
 msgstr "Estado:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:351
-#: gui/inspection/inspector_workspace_panel.cpp:383
-msgid "Package entries:"
-msgstr "Entradas del paquete:"
+#: gui/inspection/inspector_workspace_panel.cpp:477
+msgid "Embedded resource in parent MVR"
+msgstr "Recurso incrustado en el MVR principal"
 
-#: gui/inspection/inspector_workspace_panel.cpp:353
-#: gui/inspection/inspector_workspace_panel.cpp:385
-msgid "Resources:"
-msgstr "Recursos:"
-
-#: gui/inspection/inspector_workspace_panel.cpp:357
+#: gui/inspection/inspector_workspace_panel.cpp:489
 msgid "Fixture type:"
 msgstr "Tipo de aparato:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:361
-msgid "DMX modes:"
-msgstr "Modos DMX:"
-
-#: gui/inspection/inspector_workspace_panel.cpp:376
+#: gui/inspection/inspector_workspace_panel.cpp:499
 msgid "Readable"
 msgstr "Legible"
 
-#: gui/inspection/inspector_workspace_panel.cpp:388
+#: gui/inspection/inspector_workspace_panel.cpp:509
 msgid "MVR version:"
 msgstr "Versión de MVR:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:390
+#: gui/inspection/inspector_workspace_panel.cpp:509
 msgid "Provider:"
 msgstr "Proveedor:"
 
-#: gui/inspection/inspector_workspace_panel.cpp:391
-msgid "Provider version:"
-msgstr "Versión del proveedor:"
+#: gui/inspection/inspector_workspace_panel.cpp:577
+msgid "Copy archive path"
+msgstr "Copiar ruta del archivo"
 
-#: gui/inspection/inspector_workspace_panel.cpp:419
-msgid "Available"
-msgstr "Disponible"
-
-#: gui/inspection/inspector_workspace_panel.cpp:419
-msgid "Unsafe path"
-msgstr "Ruta no segura"
-
-#: gui/inspection/inspector_workspace_panel.cpp:480
-#: gui/inspection/inspector_workspace_panel.cpp:497
-#: gui/inspection/inspector_workspace_panel.cpp:504
+#: gui/inspection/inspector_workspace_panel.cpp:581
+#: gui/inspection/inspector_workspace_panel.cpp:634
+#: gui/inspection/inspector_workspace_panel.cpp:639
 msgid "The clipboard could not be opened."
 msgstr "No se pudo abrir el portapapeles."
+
+#: gui/inspection/inspector_workspace_panel.cpp:603
+msgid "The embedded GDTF could not be inspected."
+msgstr "El GDTF incrustado no se pudo inspeccionar."
+
+#: gui/inspection/inspector_workspace_panel.cpp:609
+#, c-format
+msgid "Embedded GDTF: %s"
+msgstr "GDTF incrustado: %s"
+
+#: gui/inspection/inspector_workspace_panel.cpp:610
+msgid "Embedded in inspected MVR"
+msgstr "Incrustado en el MVR inspeccionado"
 
 #: gui/layerpanel.cpp:84 gui/layerpanel.cpp:100 gui/summarypanel.cpp:256
 #: gui/summarypanel.cpp:316 tests/localization_catalog_integration_test.cpp:191
@@ -2388,12 +2451,12 @@ msgid "loading a project"
 msgstr "cargar un proyecto"
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:643
-#: gui/mainwindow_io.cpp:239
+#: gui/mainwindow_io.cpp:240
 msgid "Open Project"
 msgstr "Abrir proyecto"
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:647
-#: gui/mainwindow_io.cpp:250
+#: gui/mainwindow_io.cpp:251
 msgid "Failed to load project."
 msgstr "No se pudo cargar el proyecto."
 
@@ -2673,12 +2736,12 @@ msgstr "Selección de accesorio de reemplazo no válida."
 msgid "Could not read fixture modes from the selected GDTF."
 msgstr "No se pudieron leer los modos de dispositivo del GDTF seleccionado."
 
-#: gui/mainwindow_io.cpp:230 gui/mainwindow_io.cpp:366
+#: gui/mainwindow_io.cpp:231 gui/mainwindow_io.cpp:367
 #, c-format
 msgid "Perastage files (*%s)|*%s"
 msgstr "Archivos de perastage (*%s)|*%s"
 
-#: gui/mainwindow_io.cpp:341 gui/mainwindow_io.cpp:412
+#: gui/mainwindow_io.cpp:342 gui/mainwindow_io.cpp:413
 msgid ""
 "Failed to save project.\n"
 "\n"
@@ -2686,112 +2749,112 @@ msgstr ""
 "No se pudo guardar el proyecto.\n"
 "\n"
 
-#: gui/mainwindow_io.cpp:385
+#: gui/mainwindow_io.cpp:386
 msgid "Save Project"
 msgstr "Guardar proyecto"
 
-#: gui/mainwindow_io.cpp:437 gui/ridertextdialog.cpp:201
+#: gui/mainwindow_io.cpp:438 gui/ridertextdialog.cpp:201
 msgid "Import Rider"
 msgstr "Importar rider"
 
-#: gui/mainwindow_io.cpp:448
+#: gui/mainwindow_io.cpp:449
 msgid "Failed to read rider."
 msgstr "No se pudo leer el anexo."
 
-#: gui/mainwindow_io.cpp:470 gui/ridertextdialog.cpp:233
+#: gui/mainwindow_io.cpp:471 gui/ridertextdialog.cpp:233
 msgid "Failed to import rider."
 msgstr "No se pudo importar el rider."
 
-#: gui/mainwindow_io.cpp:494 gui/ridertextdialog.cpp:319
+#: gui/mainwindow_io.cpp:495 gui/ridertextdialog.cpp:319
 #: gui/ridertextdialog.cpp:346
 msgid "Rider text is empty."
 msgstr "El texto del rider está vacío."
 
-#: gui/mainwindow_io.cpp:535
+#: gui/mainwindow_io.cpp:536
 msgid "Text scene creation progress"
 msgstr "Progreso de creación de escena desde texto"
 
-#: gui/mainwindow_io.cpp:542
+#: gui/mainwindow_io.cpp:543
 #, c-format
 msgid "Text import: %s (%d/%d)"
 msgstr "Importación de texto: %s (%d/%d)"
 
-#: gui/mainwindow_io.cpp:548
+#: gui/mainwindow_io.cpp:549
 #, c-format
 msgid "Text import: %s"
 msgstr "Importación de texto: %s"
 
-#: gui/mainwindow_io.cpp:553
+#: gui/mainwindow_io.cpp:554
 msgid "Failed to import rider text."
 msgstr "No se pudo importar el texto del anexo."
 
-#: gui/mainwindow_io.cpp:557
+#: gui/mainwindow_io.cpp:558
 msgid "Text import failed."
 msgstr "Error al importar texto."
 
-#: gui/mainwindow_io.cpp:579
+#: gui/mainwindow_io.cpp:580
 msgid "Text import completed."
 msgstr "Importación de texto completada."
 
-#: gui/mainwindow_io.cpp:601
+#: gui/mainwindow_io.cpp:602
 msgid "Export MVR file"
 msgstr "Exportar archivo MVR"
 
-#: gui/mainwindow_io.cpp:617
+#: gui/mainwindow_io.cpp:618
 msgid "Saving project..."
 msgstr "Guardando proyecto..."
 
-#: gui/mainwindow_io.cpp:646
+#: gui/mainwindow_io.cpp:647
 msgid "No truss data available."
 msgstr "No hay datos de armadura disponibles."
 
-#: gui/mainwindow_io.cpp:646 gui/mainwindow_io.cpp:705
+#: gui/mainwindow_io.cpp:647 gui/mainwindow_io.cpp:706
 msgid "Export Truss"
 msgstr "Armadura de exportación"
 
-#: gui/mainwindow_io.cpp:674
+#: gui/mainwindow_io.cpp:675
 msgid "Save Truss"
 msgstr "Guardar armadura"
 
-#: gui/mainwindow_io.cpp:686 gui/mainwindow_io.cpp:876
+#: gui/mainwindow_io.cpp:687 gui/mainwindow_io.cpp:874
 msgid "Model file not found."
 msgstr "Archivo de modelo no encontrado."
 
-#: gui/mainwindow_io.cpp:695
+#: gui/mainwindow_io.cpp:696
 msgid "Failed to export truss GDTF."
 msgstr "No se pudo exportar el truss GDTF."
 
-#: gui/mainwindow_io.cpp:705
+#: gui/mainwindow_io.cpp:706
 msgid "Truss exported successfully."
 msgstr "Truss exportado exitosamente."
 
-#: gui/mainwindow_io.cpp:719
+#: gui/mainwindow_io.cpp:720
 msgid "No fixture data available."
 msgstr "No hay datos de partidos disponibles."
 
-#: gui/mainwindow_io.cpp:719 gui/mainwindow_io.cpp:760
-#: gui/mainwindow_io.cpp:769 gui/mainwindow_io.cpp:777
-#: gui/mainwindow_io.cpp:839
+#: gui/mainwindow_io.cpp:720 gui/mainwindow_io.cpp:761
+#: gui/mainwindow_io.cpp:770 gui/mainwindow_io.cpp:778
+#: gui/mainwindow_io.cpp:837
 msgid "Export Fixture"
 msgstr "Accesorio de exportación"
 
-#: gui/mainwindow_io.cpp:746
+#: gui/mainwindow_io.cpp:747
 msgid "GDTF file not found."
 msgstr "Archivo GDTF no encontrado."
 
-#: gui/mainwindow_io.cpp:759
+#: gui/mainwindow_io.cpp:760
 msgid "Could not create the Perastage fixture derivative."
 msgstr "No se pudo crear el derivado del dispositivo Perastage."
 
-#: gui/mainwindow_io.cpp:768
+#: gui/mainwindow_io.cpp:769
 msgid "Could not update the Perastage fixture derivative."
 msgstr "No se pudo actualizar el derivado del dispositivo Perastage."
 
-#: gui/mainwindow_io.cpp:800
+#: gui/mainwindow_io.cpp:801
 msgid "Save Fixture"
 msgstr "Guardar accesorio"
 
-#: gui/mainwindow_io.cpp:812
+#: gui/mainwindow_io.cpp:813
 msgid ""
 "This will overwrite the original GDTF library asset. Perastage normally "
 "preserves originals and exports a derived copy instead.\n"
@@ -2804,44 +2867,44 @@ msgstr ""
 "\n"
 "¿Desea sobrescribir el archivo GDTF original?"
 
-#: gui/mainwindow_io.cpp:815
+#: gui/mainwindow_io.cpp:816
 msgid "Overwrite Original GDTF"
 msgstr "Sobrescribir original GDTF"
 
-#: gui/mainwindow_io.cpp:832
+#: gui/mainwindow_io.cpp:831
 #, c-format
 msgid "Failed to write file: %s"
 msgstr "No se pudo escribir el archivo: %s"
 
-#: gui/mainwindow_io.cpp:839
+#: gui/mainwindow_io.cpp:837
 msgid "Fixture exported successfully."
 msgstr "Accesorio exportado exitosamente."
 
-#: gui/mainwindow_io.cpp:852
+#: gui/mainwindow_io.cpp:850
 msgid "No scene objects available."
 msgstr "No hay objetos de escena disponibles."
 
-#: gui/mainwindow_io.cpp:852 gui/mainwindow_io.cpp:898
+#: gui/mainwindow_io.cpp:850 gui/mainwindow_io.cpp:896
 msgid "Export Scene Object"
 msgstr "Exportar objeto de escena"
 
-#: gui/mainwindow_io.cpp:884
+#: gui/mainwindow_io.cpp:882
 msgid "Save Object"
 msgstr "Guardar objeto"
 
-#: gui/mainwindow_io.cpp:894
+#: gui/mainwindow_io.cpp:892
 msgid "Failed to copy file."
 msgstr "No se pudo copiar el archivo."
 
-#: gui/mainwindow_io.cpp:898
+#: gui/mainwindow_io.cpp:896
 msgid "Object exported successfully."
 msgstr "Objeto exportado exitosamente."
 
-#: gui/mainwindow_io.cpp:915 gui/mainwindow_print.cpp:651
+#: gui/mainwindow_io.cpp:913 gui/mainwindow_print.cpp:651
 msgid "Select table"
 msgstr "Seleccione tabla"
 
-#: gui/mainwindow_io.cpp:915 gui/tableprinter.cpp:164 gui/tableprinter.cpp:172
+#: gui/mainwindow_io.cpp:913 gui/tableprinter.cpp:164 gui/tableprinter.cpp:172
 #: gui/tableprinter.cpp:207
 msgid "Export CSV"
 msgstr "Exportar CSV"
@@ -2889,13 +2952,13 @@ msgstr "X: -- m Y: -- m Z: -- m"
 msgid "Version %s"
 msgstr "Versión %s"
 
-#: gui/mainwindow_layout.cpp:1136
+#: gui/mainwindow_layout.cpp:1137
 msgid "Layout view update skipped: target view not found."
 msgstr ""
 "Se omitió la actualización de la vista de diseño: no se encontró la vista de "
 "destino."
 
-#: gui/mainwindow_layout.cpp:1166
+#: gui/mainwindow_layout.cpp:1167
 msgid "Layout view update failed."
 msgstr "Error al actualizar la vista de diseño."
 
@@ -5301,6 +5364,21 @@ msgstr "Estilo de renderizado"
 msgid "Export image..."
 msgstr "Exportar imagen..."
 
+#~ msgid "No file selected"
+#~ msgstr "Ningún archivo seleccionado"
+
+#~ msgid "Package entries:"
+#~ msgstr "Entradas del paquete:"
+
+#~ msgid "Resources:"
+#~ msgstr "Recursos:"
+
+#~ msgid "DMX modes:"
+#~ msgstr "Modos DMX:"
+
+#~ msgid "Provider version:"
+#~ msgstr "Versión del proveedor:"
+
 #~ msgid "XML"
 #~ msgstr "XML"
 
@@ -5485,9 +5563,6 @@ msgstr "Exportar imagen..."
 
 #~ msgid "Perastage missing localization sentinel"
 #~ msgstr "Perastage falta centinela de localización"
-
-#~ msgid "file"
-#~ msgstr "archivo"
 
 #~ msgid "folder-open"
 #~ msgstr "carpeta abierta"

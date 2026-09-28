@@ -7,12 +7,12 @@ Changes since **v1.6.0**.
 ## New features and workflow improvements
 
 - Added a native, read-only MVR / GDTF Inspector workspace alongside the 3D,
-  2D, and Layout Mode views, with package browsing, structured diagnostics,
-  exact retained XML, search and copy tools, and layout persistence that never
-  changes the active project. Resource classifications now use bounded Core
-  inspection, while Unicode paths and complete structured diagnostic locations
-  are preserved across supported platforms. The Inspector remains grouped with
-  the other workspace switches in the Layout Views toolbar.
+  2D, and Layout Mode views. It now opens on a canonical snapshot of the active
+  project, supports explicit refresh and external MVR/GDTF files, provides
+  hierarchical package and scene navigation, structured issue summaries, and
+  exact syntax-highlighted XML with folding and wrapping search. Embedded GDTFs
+  can be inspected without extraction, package paths are available from their
+  context menu, and the workflow remains non-mutating and offline.
 
 ## Compatibility, stability, and performance
 

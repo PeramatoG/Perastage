@@ -445,7 +445,7 @@ void MainWindow::SetupLayout() {
                                         .PaneBorder(true));
 
   inspectorWorkspacePanel = new gui::inspection::InspectorWorkspacePanel(
-      this, guiConfigServices->Preferences());
+      this, guiConfigServices->Preferences(), guiConfigServices->Project());
   auiManager->AddPane(inspectorWorkspacePanel,
                       wxAuiPaneInfo()
                           .Name("InspectorWorkspace")
@@ -786,6 +786,7 @@ void MainWindow::OnApplyInspectorLayout(wxCommandEvent &WXUNUSED(event)) {
   if (!preset)
     return;
   ApplyLayoutPreset(*preset, std::nullopt, false, true);
+  inspectorWorkspacePanel->Activate();
 }
 
 void MainWindow::OnLayoutViewEdit(wxCommandEvent &WXUNUSED(event)) {

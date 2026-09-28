@@ -192,6 +192,17 @@ set_perastage_test_labels(InspectorPresentation
                           LAYER standard-strict
                           DOMAINS architecture gui inspection gdtf mvr)
 
+add_executable(inspector_models_test
+               inspector_models_test.cpp
+               ../gui/inspector_models.cpp)
+target_include_directories(inspector_models_test PRIVATE ../core ../gui)
+target_link_libraries(inspector_models_test PRIVATE perastage_inspection_mvr
+                                                    perastage_inspection_resource)
+add_test(NAME InspectorModels COMMAND inspector_models_test)
+set_perastage_test_labels(InspectorModels
+                          LABELS standard-strict
+                          DOMAINS architecture gui inspection mvr)
+
 add_executable(mvr_inspection_standalone_test
                mvr_inspection_standalone_test.cpp)
 target_include_directories(mvr_inspection_standalone_test PRIVATE ../core)
