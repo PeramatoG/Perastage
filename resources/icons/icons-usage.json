@@ -73,6 +73,12 @@
       "group": "LayoutViewsToolbar"
     },
     {
+      "name": "MVR / GDTF Inspector",
+      "icon": "outline/code-xml.svg",
+      "description": "Switches to the read-only MVR and GDTF Inspector.",
+      "group": "LayoutViewsToolbar"
+    },
+    {
       "name": "Axis Lock",
       "icon": "outline/move-3d.svg",
       "description": "Toggles axis-constrained selection movement in the 2D and 3D viewports.",

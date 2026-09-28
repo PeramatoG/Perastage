@@ -192,6 +192,17 @@ set_perastage_test_labels(InspectorPresentation
                           LAYER standard-strict
                           DOMAINS architecture gui inspection gdtf mvr)
 
+add_executable(inspector_models_test
+               inspector_models_test.cpp
+               ../gui/inspector_models.cpp)
+target_include_directories(inspector_models_test PRIVATE ../core ../gui)
+target_link_libraries(inspector_models_test PRIVATE perastage_inspection_mvr
+                                                    perastage_inspection_resource)
+add_test(NAME InspectorModels COMMAND inspector_models_test)
+set_perastage_test_labels(InspectorModels
+                          LABELS standard-strict
+                          DOMAINS architecture gui inspection mvr)
+
 add_executable(mvr_inspection_standalone_test
                mvr_inspection_standalone_test.cpp)
 target_include_directories(mvr_inspection_standalone_test PRIVATE ../core)
@@ -1289,6 +1300,7 @@ set_library_env(SaveLoadRoundtrip)
 
 add_executable(mvr_project_fixture_metadata_contracts_test
                mvr_project_fixture_metadata_contracts_test.cpp
+               ../gui/inspector_project_source.cpp
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
                ../core/configmanager.cpp ../core/configservices.cpp
@@ -1315,11 +1327,12 @@ add_executable(mvr_project_fixture_metadata_contracts_test
 target_include_directories(mvr_project_fixture_metadata_contracts_test PRIVATE
                            . support ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(mvr_project_fixture_metadata_contracts_test PRIVATE
-                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2
+                      perastage_inspection_mvr)
 add_test(NAME MvrProjectFixtureMetadataContracts
          COMMAND mvr_project_fixture_metadata_contracts_test)
 set_perastage_test_labels(MvrProjectFixtureMetadataContracts
-                          LAYER standard-strict DOMAINS mvr project)
+                          LAYER standard-strict DOMAINS mvr project gui inspection)
 set_library_env(MvrProjectFixtureMetadataContracts)
 
 add_executable(project_support_userdata_roundtrip_test project_support_userdata_roundtrip_test.cpp

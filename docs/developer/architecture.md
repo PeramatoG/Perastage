@@ -158,6 +158,12 @@ The headless CLI and wxWidgets Inspector are independent production frontends
 that consume these structured results directly. Serialization and presentation
 are outside this semantic contract: the CLI owns its reports, while
 `gui/inspection/` owns only native presentation and layout integration.
+The adjacent `gui/inspector_models.*` toolkit-independent package-tree,
+scene-tree, issue-grouping, and text-search models project existing Inspection
+Core facts without parsing MVR or GDTF data. The current-project source adapter
+in `gui/inspector_project_source.*` receives `IGuiProjectSessionService`
+explicitly, exports one canonical in-memory MVR snapshot, and retains those
+exact bytes for resource navigation until the user refreshes.
 The minimal `perastage_inspection_serialization` boundary converts an existing
 neutral `Result` to deterministic machine-readable JSON, while the higher-level
 `perastage_inspection_report_serialization` boundary composes complete reports

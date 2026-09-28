@@ -291,6 +291,7 @@ private:
   void SaveCameraSettings();
   void SaveUserConfigWithViewport2DState();
   void ApplySavedLayout();
+  void ActivateInspectorIfVisible();
   void ApplyLayoutPreset(const LayoutViewPreset &preset,
                          const std::optional<std::string> &perspective,
                          bool layoutMode, bool persistPerspective);

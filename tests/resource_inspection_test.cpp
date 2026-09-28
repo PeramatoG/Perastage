@@ -467,6 +467,17 @@ void TestNestedGdtf(const fs::path &root) {
   assert(nested.gdtf->inspection.request.sourcePath == mvrPath);
   assert(nested.resource.resolvedPath == "fixture.gdtf");
   AssertNoWorkspacePath(*nested.gdtf);
+  const auto standaloneResources = DescribePackageResources(
+      gdtfPath, *standalone.packageInventory, 4096);
+  const auto embeddedResources = DescribePackageResources(
+      nested.resource.bytes, *nested.gdtf->packageInventory, 4096,
+      nested.gdtf->inspection.request);
+  assert(embeddedResources.size() == standaloneResources.size());
+  for (std::size_t index = 0; index < standaloneResources.size(); ++index) {
+    assert(embeddedResources[index].displayPath ==
+           standaloneResources[index].displayPath);
+    assert(embeddedResources[index].kind == standaloneResources[index].kind);
+  }
 
   const std::vector<std::uint8_t> mvrBytes = ReadBytes(mvrPath);
   const NestedGdtfInspectionResult ownedNested = InspectNestedGdtf(

@@ -36,6 +36,7 @@ gui/mainwindow_menu.cpp|clipboard-paste|resource-path|Stable toolbar icon resour
 gui/mainwindow_menu.cpp|box|resource-path|Stable toolbar icon resource identifier.
 gui/mainwindow_menu.cpp|panels-right-bottom|resource-path|Stable toolbar icon resource identifier.
 gui/mainwindow_menu.cpp|square-asterisk|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|code-xml|resource-path|Stable toolbar icon resource identifier.
 gui/mainwindow_menu.cpp|cube-view-top|resource-path|Stable toolbar icon resource identifier.
 gui/mainwindow_menu.cpp|cube-view-front|resource-path|Stable toolbar icon resource identifier.
 gui/mainwindow_menu.cpp|cube-view-side|resource-path|Stable toolbar icon resource identifier.

@@ -234,7 +234,7 @@ void MainWindow::CreateToolBars() {
       loadToolbarIcon("square-asterisk", wxART_MISSING_IMAGE),
       _("Switch to Layout Mode View"));
   layoutViewsToolBar->AddTool(ID_View_Layout_Inspector, _("MVR / GDTF Inspector"),
-                              loadToolbarIcon("file", wxART_NORMAL_FILE),
+                              loadToolbarIcon("code-xml", wxART_NORMAL_FILE),
                               _("Switch to MVR / GDTF Inspector"));
   layoutViewsToolBar->AddSeparator();
   layoutViewsToolBar->AddTool(

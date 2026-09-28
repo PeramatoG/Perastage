@@ -15,7 +15,7 @@ endif()
 set(wxWidgets_USE_UNICODE ON)
 
 if(WIN32)
-    find_package(wxWidgets CONFIG REQUIRED COMPONENTS core base aui gl html richtext xml)
+    find_package(wxWidgets CONFIG REQUIRED COMPONENTS core base aui gl html richtext xml stc)
     set(_wx_libs
         wx::core
         wx::base
@@ -23,6 +23,7 @@ if(WIN32)
         wx::gl
         wx::html
         wx::richtext
+        wx::stc
     )
     if(TARGET wx::xml)
         list(APPEND _wx_libs wx::xml)
@@ -34,7 +35,7 @@ if(WIN32)
     set(_wx_includes "")
     find_package(tinyxml2 CONFIG REQUIRED)
 else()
-    find_package(wxWidgets REQUIRED COMPONENTS core base aui gl html richtext xml)
+    find_package(wxWidgets REQUIRED COMPONENTS core base aui gl html richtext xml stc)
     include(${wxWidgets_USE_FILE})
     set(_wx_libs ${wxWidgets_LIBRARIES})
     if(NOT wxWidgets_CONFIG_EXECUTABLE)
