@@ -24,8 +24,11 @@ int main() {
   nested.kind = perastage::inspection::ResourceKind::NestedGdtf;
   nested.rawReadSupported = true;
   const auto nestedPreview = DecidePreview(nested);
-  assert(!nestedPreview.allowed);
-  assert(nestedPreview.maxBytes == 0);
+  assert(nestedPreview.allowed);
+  assert(nestedPreview.maxBytes == kInspectorNestedGdtfPreviewBytes);
+  nested.sizeKnown = true;
+  nested.size = kInspectorNestedGdtfPreviewBytes + 1;
+  assert(!DecidePreview(nested).allowed);
 
   assert(DecideNestedGdtfOpen(true, kInspectorNestedGdtfOpenBytes).allowed);
   assert(!DecideNestedGdtfOpen(true,

@@ -10,6 +10,8 @@ namespace gui::inspection {
 
 inline constexpr std::uint64_t kInspectorImagePreviewBytes = 16U * 1024U * 1024U;
 inline constexpr std::uint64_t kInspectorModelPreviewBytes = 64U * 1024U * 1024U;
+inline constexpr std::uint64_t kInspectorNestedGdtfPreviewBytes =
+    16U * 1024U * 1024U;
 inline constexpr std::uint64_t kInspectorNestedGdtfOpenBytes =
     512U * 1024U * 1024U;
 inline constexpr std::uint64_t kInspectorTextPreviewBytes = 4U * 1024U * 1024U;

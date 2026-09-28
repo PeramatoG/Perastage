@@ -1,7 +1,7 @@
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(wxWidgets REQUIRED COMPONENTS core base aui gl html)
+find_package(wxWidgets REQUIRED COMPONENTS core base aui gl html stc)
 include(${wxWidgets_USE_FILE})
 find_package(tinyxml2 CONFIG REQUIRED)
 find_package(CURL REQUIRED)
@@ -244,6 +244,39 @@ add_test(NAME InspectorPreviewPolicy COMMAND inspector_preview_policy_test)
 set_perastage_test_labels(InspectorPreviewPolicy
                           LAYER standard-strict
                           DOMAINS architecture gui inspection security)
+
+add_executable(inspector_navigation_request_test
+               inspector_navigation_request_test.cpp
+               ../gui/inspection/inspector_navigation_request.cpp)
+target_include_directories(inspector_navigation_request_test
+                           PRIVATE ../core ../gui)
+add_test(NAME InspectorNavigationRequest
+         COMMAND inspector_navigation_request_test)
+set_perastage_test_labels(InspectorNavigationRequest
+                          LAYER standard-strict
+                          DOMAINS architecture gui inspection)
+
+add_executable(inspector_xml_editor_test
+               inspector_xml_editor_test.cpp
+               ../gui/inspection/inspector_xml_editor.cpp)
+target_include_directories(inspector_xml_editor_test PRIVATE ../gui)
+target_link_libraries(inspector_xml_editor_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME InspectorXmlEditor COMMAND inspector_xml_editor_test)
+set_perastage_test_labels(InspectorXmlEditor
+                          LAYER standard-strict
+                          DOMAINS gui inspection)
+
+add_executable(inspector_navigation_dispatch_test
+               inspector_navigation_dispatch_test.cpp
+               ../gui/inspection/inspector_navigation_dispatch.cpp)
+target_include_directories(inspector_navigation_dispatch_test PRIVATE ../gui)
+target_link_libraries(inspector_navigation_dispatch_test
+                      PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME InspectorNavigationDispatch
+         COMMAND inspector_navigation_dispatch_test)
+set_perastage_test_labels(InspectorNavigationDispatch
+                          LAYER standard-strict
+                          DOMAINS gui inspection)
 
 add_executable(inspector_source_context_test
                inspector_source_context_test.cpp

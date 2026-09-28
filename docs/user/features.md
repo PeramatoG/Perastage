@@ -43,9 +43,9 @@ Perastage is designed for lighting designers, programmers, and technicians who n
   color, and archive-resource references. Geometry names and effective channel
   offsets are shown where the GDTF read model provides them. Selecting a safe
   package resource updates the persistent, bounded Preview pane for images,
-  text/XML, or GLB/3DS models. Activate an embedded GDTF directly instead of
-  previewing it; unsupported and oversized resources stay visible and receive
-  a preview status without being treated as invalid.
+  text/XML, GLB/3DS models, or embedded GDTFs. Activate an embedded GDTF to
+  inspect its complete read-only document; unsupported and oversized resources
+  stay visible and receive a preview status without being treated as invalid.
 - The exact retained XML has syntax highlighting, clickable folding markers,
   explicit **Fold all** and **Unfold all** controls, line numbers sized to the
   current document, selection, copy-all, and wrapping forward or reverse find.

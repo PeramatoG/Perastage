@@ -6,6 +6,9 @@
 #include "inspection/gdtf_inspector_details_panel.h"
 #include "inspection/inspector_presentation.h"
 #include "inspection/inspector_preview_policy.h"
+#include "inspection/inspector_navigation_dispatch.h"
+#include "inspection/inspector_navigation_request.h"
+#include "inspection/inspector_xml_editor.h"
 #include "gdtf/inspector_model_preview.h"
 #include "inspector_project_source.h"
 #include "inspection/nested_gdtf_inspection.h"
@@ -39,6 +42,7 @@
 #include <wx/settings.h>
 #include <wx/textctrl.h>
 #include <wx/thread.h>
+#include <wx/weakref.h>
 
 wxDEFINE_EVENT(wxEVT_INSPECTOR_ASYNC_RESULT, wxThreadEvent);
 
@@ -404,41 +408,6 @@ void AppendCommonSummary(
   }
 }
 
-// Configures theme-aware XML syntax presentation and folding.
-void ConfigureXmlEditor(wxStyledTextCtrl &editor) {
-  const wxColour foreground = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
-  const wxColour background = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
-  const bool dark = background.GetLuminance() < 0.5;
-  editor.StyleSetForeground(wxSTC_STYLE_DEFAULT, foreground);
-  editor.StyleSetBackground(wxSTC_STYLE_DEFAULT, background);
-  editor.StyleClearAll();
-  editor.SetLexer(wxSTC_LEX_XML);
-  editor.StyleSetForeground(wxSTC_H_TAG,
-                            dark ? wxColour(110, 190, 255)
-                                 : wxColour(0, 96, 160));
-  editor.StyleSetForeground(wxSTC_H_ATTRIBUTE,
-                            dark ? wxColour(255, 190, 100)
-                                 : wxColour(128, 64, 0));
-  const wxColour stringColour =
-      dark ? wxColour(120, 220, 150) : wxColour(0, 112, 48);
-  editor.StyleSetForeground(wxSTC_H_DOUBLESTRING, stringColour);
-  editor.StyleSetForeground(wxSTC_H_SINGLESTRING, stringColour);
-  editor.StyleSetForeground(wxSTC_H_COMMENT,
-                            dark ? wxColour(180, 180, 180)
-                                 : wxColour(96, 96, 96));
-  editor.SetProperty("fold", "1");
-  editor.SetMarginType(kXmlLineNumberMargin, wxSTC_MARGIN_NUMBER);
-  editor.SetMarginWidth(kXmlLineNumberMargin, 0);
-  editor.SetMarginSensitive(kXmlLineNumberMargin, false);
-  editor.StyleSetForeground(wxSTC_STYLE_LINENUMBER, foreground);
-  editor.StyleSetBackground(wxSTC_STYLE_LINENUMBER, background);
-  editor.SetMarginType(kXmlFoldMargin, wxSTC_MARGIN_SYMBOL);
-  editor.SetMarginMask(kXmlFoldMargin, wxSTC_MASK_FOLDERS);
-  editor.SetMarginWidth(kXmlFoldMargin, 16);
-  editor.SetMarginSensitive(kXmlFoldMargin, true);
-  editor.SetReadOnly(true);
-}
-
 } // namespace
 
 // Constructs the Inspector workspace and restores presentation-only state.
@@ -534,7 +503,7 @@ void InspectorWorkspacePanel::BuildLayout() {
   findRow->Add(unfoldAll, 0, wxRIGHT, 5);
   findRow->Add(loadCompleteXml_);
   xml_ = new wxStyledTextCtrl(xmlPanel, wxID_ANY);
-  ConfigureXmlEditor(*xml_);
+  ConfigureInspectorXmlEditor(*xml_);
   xmlColumn->Add(findRow, 0, wxEXPAND | wxBOTTOM, 6);
   xmlColumn->Add(xmlStatus_, 0, wxEXPAND | wxBOTTOM, 4);
   xmlColumn->Add(xml_, 1, wxEXPAND);
@@ -622,8 +591,10 @@ void InspectorWorkspacePanel::BuildLayout() {
   loadCompleteXml_->Bind(wxEVT_BUTTON,
                          [this](wxCommandEvent &) { LoadCompleteXml(); });
   xml_->Bind(wxEVT_STC_MARGINCLICK, [this](wxStyledTextEvent &event) {
-    if (event.GetMargin() == kXmlFoldMargin)
-      xml_->ToggleFold(xml_->LineFromPosition(event.GetPosition()));
+    const int line = xml_->LineFromPosition(event.GetPosition());
+    if (event.GetMargin() == kXmlFoldMargin &&
+        (xml_->GetFoldLevel(line) & wxSTC_FOLDLEVELHEADERFLAG) != 0)
+      xml_->ToggleFold(line);
   });
   notebook_->Bind(wxEVT_NOTEBOOK_PAGE_CHANGED, [this](wxBookCtrlEvent &event) {
     if (!configuringDetailsPage_)
@@ -984,6 +955,7 @@ void InspectorWorkspacePanel::SetXml(const std::string &xml) {
                    : xml.size());
   const std::string shown = xml.substr(0, shownBytes);
   xml_->SetReadOnly(false); xml_->SetTextRaw(shown.c_str()); xml_->SetReadOnly(true);
+  ColouriseInspectorXml(*xml_);
   xmlStatus_->SetLabel(bounded
                            ? _("Bounded XML preview; Find searches the loaded preview only, and the exact retained document is available on demand.")
                            : _("Complete exact XML"));
@@ -1000,6 +972,7 @@ void InspectorWorkspacePanel::LoadCompleteXml() {
   xml_->SetReadOnly(false);
   xml_->SetTextRaw(exactXml_.c_str());
   xml_->SetReadOnly(true);
+  ColouriseInspectorXml(*xml_);
   xmlStatus_->SetLabel(_("Complete exact XML"));
   loadCompleteXml_->Hide();
   xml_->SetMarginWidth(
@@ -1019,6 +992,8 @@ void InspectorWorkspacePanel::FindXml(bool forward) {
                          static_cast<std::size_t>(xml_->GetTextLength()));
   const auto found = FindText(text, query, xml_->GetSelectionStart(), xml_->GetSelectionEnd(), forward);
   if (found) {
+    const int line = xml_->LineFromPosition(static_cast<int>(*found));
+    xml_->EnsureVisible(line);
     xml_->SetSelection(static_cast<int>(*found), static_cast<int>(*found + query.size()));
     xml_->EnsureCaretVisible(); xml_->SetFocus();
   }
@@ -1052,8 +1027,30 @@ void InspectorWorkspacePanel::ActivatePackageEntry(wxDataViewEvent &event) {
                          ? static_cast<PackageDataViewModel *>(packageModel_)
                                ->Value(event.GetItem())
                          : nullptr;
-  if (data && data->resourceKind == perastage::inspection::ResourceKind::NestedGdtf)
-    OpenNestedGdtf(data->archivePath, data->sizeKnown, data->size);
+  if (!data)
+    return;
+  const auto request = BuildNestedGdtfNavigationRequest(*data);
+  if (!request)
+    return;
+  const std::string displayName =
+      diagnostics::DiagnosticLogger::FileNameOnly(request->archivePath);
+  diagnostics::DiagnosticLogger::Info(
+      "Inspector package item activated: " + displayName);
+  wxWeakRef<InspectorWorkspacePanel> weakThis(this);
+  QueueNestedGdtfNavigation(*this, *request,
+                           [weakThis, displayName](
+                               NestedGdtfNavigationRequest request) {
+                             if (!weakThis)
+                               return;
+                             diagnostics::DiagnosticLogger::Info(
+                                 "Inspector deferred nested GDTF open begins: " +
+                                 displayName);
+                             weakThis->OpenNestedGdtf(
+                                 request.archivePath, request.sizeKnown,
+                                 request.size);
+                           });
+  diagnostics::DiagnosticLogger::Info(
+      "Inspector nested GDTF open queued: " + displayName);
 }
 
 // Reads and classifies only the selected payload under the explicit preview cap.
@@ -1141,6 +1138,9 @@ void InspectorWorkspacePanel::OpenNestedGdtf(
   const auto sourceGeneration = BeginSourceLoad(
       wxString::Format(_("Embedded GDTF: %s"), FromUtf8(archivePath)),
       _("Embedded in inspected MVR"));
+  diagnostics::DiagnosticLogger::Info(
+      "Inspector nested source generation started: " +
+      std::to_string(sourceGeneration));
   back_->Show();
   worker_->Submit(
       [parent, archivePath, sourceGeneration,
@@ -1161,15 +1161,36 @@ void InspectorWorkspacePanel::OpenNestedGdtf(
         payload->kind = WorkspaceAsyncResult::Kind::NestedGdtf;
         payload->sourceGeneration = sourceGeneration;
         payload->archivePath = archivePath;
-        if (!resource.Success())
+        if (!resource.Success()) {
+          diagnostics::DiagnosticLogger::Warning(
+              "Inspector nested GDTF resource read failed: " +
+              diagnostics::DiagnosticLogger::FileNameOnly(archivePath));
           return payload;
+        }
+        diagnostics::DiagnosticLogger::Info(
+            "Inspector nested GDTF resource read completed: " +
+            diagnostics::DiagnosticLogger::FileNameOnly(archivePath));
         payload->sourceBytes =
             std::make_shared<const std::vector<std::uint8_t>>(
                 std::move(resource.bytes));
         if (token.stop_requested())
           return InspectorAsyncWorker::Payload{};
-        payload->gdtf = std::make_shared<const perastage::inspection::GdtfInspectionResult>(
-            perastage::inspection::InspectGdtf(*payload->sourceBytes));
+        try {
+          payload->gdtf = std::make_shared<
+              const perastage::inspection::GdtfInspectionResult>(
+              perastage::inspection::InspectGdtf(*payload->sourceBytes));
+        } catch (...) {
+          diagnostics::DiagnosticLogger::Error(
+              "Inspector nested GDTF inspection threw: " +
+              diagnostics::DiagnosticLogger::FileNameOnly(archivePath));
+          throw;
+        }
+        diagnostics::DiagnosticLogger::Info(
+            std::string("Inspector nested GDTF inspection ") +
+            (payload->gdtf && payload->gdtf->inspection.Success()
+                 ? "completed: "
+                 : "failed: ") +
+            diagnostics::DiagnosticLogger::FileNameOnly(archivePath));
         if (token.stop_requested())
           return InspectorAsyncWorker::Payload{};
         if (payload->gdtf && payload->gdtf->packageInventory)
@@ -1267,10 +1288,17 @@ void InspectorWorkspacePanel::HandleAsyncResult(
     previewPage_->Layout();
     return;
   }
-  if (result.sourceGeneration != requestCoordinator_.SourceGeneration())
+  if (result.sourceGeneration != requestCoordinator_.SourceGeneration()) {
+    if (result.kind == WorkspaceAsyncResult::Kind::NestedGdtf)
+      diagnostics::DiagnosticLogger::Info(
+          "Inspector nested GDTF result rejected as stale.");
     return;
+  }
   if ((result.kind == WorkspaceAsyncResult::Kind::Mvr && !result.mvr) ||
       (result.kind != WorkspaceAsyncResult::Kind::Mvr && !result.gdtf)) {
+    if (result.kind == WorkspaceAsyncResult::Kind::NestedGdtf)
+      diagnostics::DiagnosticLogger::Warning(
+          "Inspector nested GDTF result accepted without a usable document.");
     summary_->SetValue(_("The source could not be inspected."));
     return;
   }
@@ -1295,14 +1323,18 @@ void InspectorWorkspacePanel::HandleAsyncResult(
     return;
   }
   if (result.kind == WorkspaceAsyncResult::Kind::NestedGdtf) {
+    diagnostics::DiagnosticLogger::Info(
+        "Inspector nested GDTF result accepted; presentation begins.");
     identity_->SetLabel(wxString::Format(_("Embedded GDTF: %s"),
                                          FromUtf8(result.archivePath)));
     sourceType_->SetLabel(_("Embedded in inspected MVR"));
     back_->Show();
-    ShowGdtf(*result.gdtf, *context);
+  }
+  ShowGdtf(*result.gdtf, *context);
+  if (result.kind == WorkspaceAsyncResult::Kind::NestedGdtf) {
     Layout();
-  } else {
-    ShowGdtf(*result.gdtf, *context);
+    diagnostics::DiagnosticLogger::Info(
+        "Inspector nested GDTF presentation completed.");
   }
 }
 
