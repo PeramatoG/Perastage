@@ -19,5 +19,16 @@ int main() {
   perastage::inspection::ResourceDescriptor binary;
   binary.rawReadSupported = true;
   assert(!DecidePreview(binary).allowed);
+
+  assert(DecideNestedGdtfOpen(true, kInspectorNestedGdtfOpenBytes).allowed);
+  assert(!DecideNestedGdtfOpen(true,
+                               kInspectorNestedGdtfOpenBytes + 1).allowed);
+  const auto unknown = DecideNestedGdtfOpen(false, 0);
+  assert(unknown.allowed);
+  assert(unknown.maxBytes == kInspectorNestedGdtfOpenBytes);
+  assert(InspectorPreviewFilename("CON.glb") == "preview.glb");
+  assert(InspectorPreviewFilename("bad:name.3DS") == "preview.3ds");
+  assert(InspectorPreviewFilename("unicode/照明.gdtf") == "preview.gdtf");
+  assert(!InspectorPreviewFilename("archive.exe"));
   return 0;
 }

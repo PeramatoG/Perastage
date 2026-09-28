@@ -44,6 +44,12 @@ public:
     // Serialize an isolated canonical scene snapshot without modifying live project state.
     bool ExportCanonicalSnapshotToBuffer(const MvrScene& scene,
                                          std::vector<uint8_t>& outBytes);
+    // Serialize an isolated canonical scene with captured export behavior.
+    bool ExportCanonicalSnapshotToBuffer(const MvrScene& scene,
+                                         std::vector<uint8_t>& outBytes,
+                                         const MvrExportOptions& options) {
+        return SerializeSnapshotToBuffer(scene, outBytes, options);
+    }
     // Return structured diagnostics collected during the most recent export.
     const std::vector<MvrExportDiagnostic>& GetExportDiagnostics() const;
     // Return a legacy text view derived from structured diagnostics.

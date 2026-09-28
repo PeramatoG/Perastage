@@ -185,6 +185,18 @@ void CheckSplitterRatios() {
   assert(FormatSplitterRatio(1.0) == "0.8500");
 }
 
+// Verifies bounded XML prefixes never split a multi-byte UTF-8 character.
+void CheckUtf8Prefix() {
+  const std::string text = "abc照明z";
+  const auto firstCharacter = text.find("照");
+  assert(gui::inspection::Utf8PrefixLength(text, firstCharacter + 1) ==
+         firstCharacter);
+  assert(gui::inspection::Utf8PrefixLength(text, firstCharacter + 2) ==
+         firstCharacter);
+  assert(gui::inspection::Utf8PrefixLength(text, firstCharacter + 3) ==
+         firstCharacter + 3);
+}
+
 // Verifies large inventories and scenes project every node deterministically.
 void CheckLargeProjection() {
   using namespace perastage::inspection;
@@ -223,6 +235,7 @@ int main() {
   CheckIssues();
   CheckSearch();
   CheckSplitterRatios();
+  CheckUtf8Prefix();
   CheckLargeProjection();
   return 0;
 }

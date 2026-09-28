@@ -20,7 +20,7 @@ Changes since **v1.6.0**.
   DMX mode and channel hierarchy, and wheel/resource pages. Standalone and
   embedded GDTFs now expose authored metadata, physical ranges, attributes,
   channel functions and sets, filters, colors, and geometry references without
-  extraction, downloads, previews, or an editing workflow. XML folding markers
+  permanent extraction, downloads, or an editing workflow. XML folding markers
   now respond to clicks, line numbers adapt to each document, Inspector tabs
   restore by stable page identity, and issue and detail punctuation renders
   consistently across supported platforms.
@@ -32,7 +32,10 @@ Changes since **v1.6.0**.
   model-backed package and Scene navigation, resizable remembered workspace
   panes, bounded large-XML loading, and on-demand image, text, model, and nested
   GDTF previews. Preview resources remain immutable and temporary model data is
-  removed automatically.
+  removed automatically. Source loading now remains authoritative over stale
+  resource interactions, current-project archive creation and GLB/3DS geometry
+  preparation run in managed background work, and returning from embedded GDTF
+  inspection restores the exact parent package and preview identity.
 
 - Strengthened read-only Inspector reliability with complete deterministic parity, malformed-container, Unicode resource, diagnostic-separation, and non-mutation characterization, and made Inspector coverage explicitly visible in the informational Core/MVR report.
 

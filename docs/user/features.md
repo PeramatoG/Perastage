@@ -59,9 +59,13 @@ Perastage is designed for lighting designers, programmers, and technicians who n
   missing resources online, save snapshots, or change project selection and
   dirty state.
 - Inspection and selected-resource reads run in managed background work. Rapid
-  source or resource changes supersede older results, so a late completion can
-  never replace the latest selection. Temporary model files are automatically
-  removed and are never written beside the inspected source.
+  source or resource changes use separate request lifetimes, so an obsolete
+  preview can neither cancel nor replace the latest source. Current-project
+  capture copies the scene briefly on the UI thread, then performs canonical
+  archive creation and inspection in background work. GLB/3DS geometry is
+  prepared in background work; bounded GDTF fixture-model parsing still uses
+  the GUI-side established loader. Temporary model files use controlled names,
+  are automatically removed, and are never written beside the inspected source.
 
 ### MVR import and open behavior
 

@@ -211,6 +211,9 @@ target_include_directories(inspector_models_test PRIVATE ../core ../gui)
 target_link_libraries(inspector_models_test PRIVATE perastage_inspection_mvr
                                                     perastage_inspection_resource)
 add_test(NAME InspectorModels COMMAND inspector_models_test)
+set_perastage_test_labels(InspectorModels
+                          LAYER standard-strict
+                          DOMAINS architecture gui inspection mvr)
 
 add_executable(inspector_async_worker_test
                inspector_async_worker_test.cpp
@@ -229,15 +232,31 @@ target_compile_definitions(inspector_async_worker_legacy_test
                            PRIVATE PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT=1)
 add_test(NAME InspectorAsyncWorkerLegacy
          COMMAND inspector_async_worker_legacy_test)
+set_perastage_test_labels(InspectorAsyncWorkerLegacy
+                          LAYER standard-strict
+                          DOMAINS architecture gui inspection threading)
 
 add_executable(inspector_preview_policy_test
                inspector_preview_policy_test.cpp
                ../gui/inspection/inspector_preview_policy.cpp)
 target_include_directories(inspector_preview_policy_test PRIVATE ../core ../gui)
 add_test(NAME InspectorPreviewPolicy COMMAND inspector_preview_policy_test)
-set_perastage_test_labels(InspectorModels
-                          LABELS standard-strict
-                          DOMAINS architecture gui inspection mvr)
+set_perastage_test_labels(InspectorPreviewPolicy
+                          LAYER standard-strict
+                          DOMAINS architecture gui inspection security)
+
+add_executable(inspector_source_context_test
+               inspector_source_context_test.cpp
+               ../gui/inspection/inspector_source_context.cpp)
+target_include_directories(inspector_source_context_test PRIVATE ../core ../gui)
+target_link_libraries(inspector_source_context_test
+                      PRIVATE perastage_inspection_mvr
+                              perastage_inspection_gdtf
+                              perastage_inspection_resource)
+add_test(NAME InspectorSourceContext COMMAND inspector_source_context_test)
+set_perastage_test_labels(InspectorSourceContext
+                          LAYER standard-strict
+                          DOMAINS architecture gui inspection threading)
 
 add_executable(mvr_inspection_standalone_test
                mvr_inspection_standalone_test.cpp)

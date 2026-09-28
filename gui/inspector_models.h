@@ -79,4 +79,8 @@ double ParseSplitterRatio(const std::optional<std::string> &stored,
 // Serializes a clamped splitter ratio for DPI-independent persistence.
 std::string FormatSplitterRatio(double ratio);
 
+// Returns a byte prefix that never ends inside a UTF-8 code point.
+std::size_t Utf8PrefixLength(const std::string &text,
+                             std::size_t maximumBytes);
+
 } // namespace gui::inspection

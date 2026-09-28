@@ -66,6 +66,27 @@ private:
   MvrScene &scene_;
 };
 
+// Supplies the one explicitly captured canonical export preference.
+class FakeInspectorPreferences final : public IGuiPreferencesService {
+public:
+  // Ignores writes because capture is read-only.
+  void SetValue(const std::string &, const std::string &) override {}
+  // Returns the explicitly controlled truss authority setting.
+  std::optional<std::string> GetValue(const std::string &key) const override {
+    return key == "mvr_truss_geometry_authority"
+               ? std::optional<std::string>("0")
+               : std::nullopt;
+  }
+  // Ignores removals because capture is read-only.
+  void RemoveKey(const std::string &) override {}
+  // Reports successful no-op persistence.
+  bool SaveUserConfig() const override { return true; }
+  // Returns the controlled numeric preference fallback.
+  float GetFloat(const std::string &) const override { return 0.0f; }
+  // Ignores numeric writes because capture is read-only.
+  void SetFloat(const std::string &, float) override {}
+};
+
 struct ArchiveSnapshot {
   std::unordered_map<std::string, std::string> entries;
   std::string sceneXml;
@@ -458,15 +479,32 @@ int main() {
   }
 
   FakeProjectSession inspectorProject(scene);
+  FakeInspectorPreferences inspectorPreferences;
   const bool dirtyBeforeInspection = inspectorProject.IsDirty();
   const auto firstInspection =
-      gui::inspection::CurrentProjectInspector(inspectorProject).Capture();
+      gui::inspection::CurrentProjectInspector(inspectorProject,
+                                                inspectorPreferences).Capture();
   const auto secondInspection =
-      gui::inspection::CurrentProjectInspector(inspectorProject).Capture();
+      gui::inspection::CurrentProjectInspector(inspectorProject,
+                                                inspectorPreferences).Capture();
   assert(firstInspection && secondInspection);
   assert(!firstInspection->bytes.empty());
   assert(firstInspection->result.Success() && firstInspection->result.snapshot);
   assert(firstInspection->bytes == secondInspection->bytes);
+  const auto immutableInput =
+      gui::inspection::CurrentProjectInspector(inspectorProject,
+                                                inspectorPreferences)
+          .CaptureInput();
+  assert(immutableInput.scene.get() != &scene);
+  const auto immutableBefore =
+      gui::inspection::CurrentProjectInspector::Serialize(immutableInput);
+  const std::string originalProvider = scene.provider;
+  scene.provider = "Mutated after Inspector capture";
+  const auto immutableAfter =
+      gui::inspection::CurrentProjectInspector::Serialize(immutableInput);
+  scene.provider = originalProvider;
+  assert(immutableBefore && immutableAfter);
+  assert(*immutableBefore == *immutableAfter);
   assert(inspectorProject.IsDirty() == dirtyBeforeInspection);
   assert(scene.fixtures.size() == sceneBeforeSnapshot.fixtures.size());
   assert(scene.layers.size() == sceneBeforeSnapshot.layers.size());

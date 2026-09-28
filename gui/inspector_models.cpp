@@ -308,4 +308,14 @@ std::string FormatSplitterRatio(double ratio) {
   return text.str();
 }
 
+// Clips a byte limit backward when it intersects a UTF-8 continuation run.
+std::size_t Utf8PrefixLength(const std::string &text,
+                             std::size_t maximumBytes) {
+  std::size_t length = std::min(maximumBytes, text.size());
+  while (length > 0 && length < text.size() &&
+         (static_cast<unsigned char>(text[length]) & 0xc0U) == 0x80U)
+    --length;
+  return length;
+}
+
 } // namespace gui::inspection

@@ -6,6 +6,7 @@
 #include "inspection/resource_inspection.h"
 #include "inspection/inspector_presentation.h"
 #include "inspection/inspector_async_worker.h"
+#include "inspection/inspector_source_context.h"
 
 #include <filesystem>
 #include <optional>
@@ -54,13 +55,12 @@ private:
   void RefreshSource();
   void InspectCurrentProject();
   void ClearResult();
+  std::uint64_t BeginSourceLoad(const wxString &identity,
+                                const wxString &sourceType);
   void ShowGdtf(const perastage::inspection::GdtfInspectionResult &result,
-                const std::vector<std::uint8_t> *packageBytes = nullptr,
-                const std::vector<perastage::inspection::ResourceDescriptor>
-                    *preparedResources = nullptr);
+                const DisplayedPackageContext &context);
   void ShowMvr(const perastage::inspection::MvrInspectionResult &result,
-               const std::vector<perastage::inspection::ResourceDescriptor>
-                   *preparedResources = nullptr);
+               const DisplayedPackageContext &context);
   void PopulatePackage(
       const std::vector<perastage::inspection::ResourceDescriptor> &resources);
   void PopulateScene(
@@ -77,23 +77,19 @@ private:
   void ShowPackageContextMenu(wxDataViewEvent &event);
   void ActivatePackageEntry(wxDataViewEvent &event);
   void RequestResourcePreview(wxDataViewEvent &event);
-  void OpenNestedGdtf(const std::string &archivePath, std::uint64_t size);
+  void OpenNestedGdtf(const std::string &archivePath, bool sizeKnown,
+                      std::uint64_t size);
   void ReturnToParentMvr();
   void CopySelectedDiagnostic();
   void CopyAllXml();
-  void HandleAsyncResult(std::uint64_t generation,
-                         InspectorAsyncWorker::Payload payload);
+  void HandleAsyncResult(bool preview, std::uint64_t workerGeneration,
+                         InspectorAsyncWorker::Result result);
 
   IGuiPreferencesService &preferences_;
   const IGuiProjectSessionService &project_;
   SourceKind sourceKind_ = SourceKind::None;
-  std::filesystem::path externalPath_;
-  std::vector<std::uint8_t> retainedMvrBytes_;
-  std::vector<std::uint8_t> displayedPackageBytes_;
-  perastage::inspection::PackageKind displayedPackageKind_ =
-      perastage::inspection::PackageKind::Mvr;
-  std::optional<perastage::inspection::MvrInspectionResult> parentMvr_;
-  std::vector<perastage::inspection::ResourceDescriptor> parentResources_;
+  InspectorRequestCoordinator requestCoordinator_;
+  std::shared_ptr<const DisplayedPackageContext> parentContext_;
   wxStaticText *identity_ = nullptr;
   wxStaticText *sourceType_ = nullptr;
   wxButton *back_ = nullptr;
@@ -128,8 +124,6 @@ private:
   double detailsRatio_ = 0.66;
   bool splitterRatiosApplied_ = false;
   std::unique_ptr<InspectorAsyncWorker> worker_;
-  std::uint64_t displayedGeneration_ = 0;
-  std::string sourceFingerprint_;
 };
 
 } // namespace gui::inspection

@@ -195,28 +195,46 @@ caller identity in diagnostics and is never exposed by the inspection result.
 Byte-backed GDTF documents have no standalone filesystem source, while nested
 results retain the outer package request and embedded entry identity separately.
 Image and model decoding remains the responsibility of later
-presentation-specific preview adapters. The Inspector now owns one long-lived
-managed worker for filesystem inspection, bounded package classification,
-nested-GDTF reads, and selected-resource reads. Submissions are immutable and
-non-blocking; every source, refresh, navigation, and preview request advances a
-generation, and both the worker and GUI event boundary reject stale results.
-Shutdown joins the worker before the window is destroyed. The active-project
-scene is never traversed by that worker: the GUI-owned source adapter first
-captures exact canonical MVR bytes, which become the immutable worker input and
-remain attached to the displayed result.
+presentation-specific preview adapters. The Inspector owns one long-lived
+managed worker with source and preview request lanes; source work has priority,
+and obsolete preview interaction can never supersede a newer source load.
+Immutable displayed-package contexts bind the
+package kind, filesystem path or shared owned bytes, prepared resources,
+inspection result, and cache fingerprint. Source requests invalidate visible
+package interaction immediately; source generations and preview
+sub-generations independently reject stale results at the worker and GUI event
+boundaries. Shutdown joins the worker before the window is destroyed.
+
+The active-project scene is never traversed by a worker. The GUI-owned adapter
+synchronously copies the live `MvrScene` and captures the truss-geometry export
+setting without mutation; canonical ZIP serialization, inspection, and package
+classification then run from that immutable input on the source worker. The
+scene copy is the only residual synchronous current-project stage. Heavy
+package bytes and inspection results use shared immutable ownership, including
+parent MVR restoration after nested GDTF navigation.
 
 Inspector previews are selection-driven and do not decode entries while the
 package model is populated. Automatic reads are capped at 16 MiB for images,
-64 MiB for GLB/3DS models, 512 MiB for nested GDTF, and 4 MiB for text/XML.
-Decoded images are limited to 4096 pixels per dimension and the Inspector image
-cache to 64 MiB. Path-only 3D loaders receive owned bytes through an
+64 MiB for GLB/3DS models, 16 MiB for nested-GDTF preview, and 4 MiB for
+text/XML. An explicit embedded-GDTF open has a separate 512 MiB hard ceiling;
+known larger entries remain visible but are refused as an Inspector operation,
+and unknown sizes remain bounded by the same ceiling. This higher explicit
+ceiling accommodates production fixture archives with model assets while still
+preventing archive metadata from selecting an unbounded allocation. The
+existing GUI bitmap cache is the sole owner of its 4096-pixel decoded-image
+dimension limit, while the Inspector configures a 64 MiB bitmap cache budget.
+Path-only loaders receive owned bytes through an
 `inspector-preview` `runtime_storage::TemporaryWorkspace`; it is owned by the
 preview panel, removed on replacement/destruction, never changes the source,
 and never appears in semantic diagnostics. No resource is permanently
 extracted. XML above 2 MiB initially uses a clearly labelled bounded view while
 retaining the exact text for copy and an explicit complete-load action. These
 preview limits describe GUI resource use only and never become standards
-validation findings.
+validation findings. GLB/3DS geometry-only parsing runs on the preview worker
+with texture decoding disabled, and only prepared CPU geometry reaches the GUI
+and OpenGL panel. GDTF fixture-model parsing remains GUI-thread work because the
+existing archive/cache loader is not thread-safe; its automatic input is
+therefore constrained by the 16 MiB nested-GDTF preview cap.
 
 `perastage_inspection_core` is the first minimal non-GUI link boundary. This
 static library owns only `core/inspection/inspection_contract.cpp`, publishes

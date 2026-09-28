@@ -6,6 +6,7 @@
 #include "inspection/gdtf_inspector_details_panel.h"
 #include "inspection/inspector_presentation.h"
 #include "inspection/inspector_preview_policy.h"
+#include "gdtf/inspector_model_preview.h"
 #include "inspector_project_source.h"
 #include "inspection/nested_gdtf_inspection.h"
 #include "fixturepreviewpanel.h"
@@ -17,6 +18,7 @@
 #include <cctype>
 #include <charconv>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <tuple>
 
@@ -49,28 +51,36 @@ constexpr char kNavigationRatioKey[] = "inspector_workspace_navigation_ratio";
 constexpr char kDetailsRatioKey[] = "inspector_workspace_details_ratio";
 constexpr int kXmlLineNumberMargin = 0;
 constexpr int kXmlFoldMargin = 1;
-constexpr std::uint64_t kNestedGdtfLimit = 512U * 1024U * 1024U;
+constexpr char kUuidColumnLabel[] = "UUID";
 
 // Owns one immutable background inspection result until the GUI accepts it.
 struct WorkspaceAsyncResult final : InspectorAsyncPayload {
   enum class Kind { Mvr, Gdtf, NestedGdtf, ResourcePreview };
   Kind kind = Kind::Mvr;
-  std::optional<perastage::inspection::MvrInspectionResult> mvr;
-  std::optional<perastage::inspection::GdtfInspectionResult> gdtf;
-  std::vector<std::uint8_t> sourceBytes;
+  std::shared_ptr<const perastage::inspection::MvrInspectionResult> mvr;
+  std::shared_ptr<const perastage::inspection::GdtfInspectionResult> gdtf;
+  ImmutablePackageBytes sourceBytes;
+  std::filesystem::path filesystemPath;
   std::string archivePath;
   std::optional<perastage::inspection::ResourceReadResult> resource;
   std::optional<perastage::inspection::TextPreviewResult> textPreview;
   perastage::inspection::ResourceKind resourceKind =
       perastage::inspection::ResourceKind::Binary;
   std::string sourceFingerprint;
-  std::vector<perastage::inspection::ResourceDescriptor> resources;
+  std::shared_ptr<const std::vector<perastage::inspection::ResourceDescriptor>>
+      resources;
+  std::uint64_t sourceGeneration = 0;
+  std::optional<InspectorPreviewTicket> previewTicket;
+  // Allows one GUI-thread move into the renderer without copying large geometry.
+  mutable std::optional<Mesh> preparedModel;
+  std::string previewError;
 };
 
 // Carries a full-width generation through the wx event queue.
 struct WorkspaceAsyncEvent {
-  std::uint64_t generation = 0;
-  InspectorAsyncWorker::Payload payload;
+  bool preview = false;
+  std::uint64_t workerGeneration = 0;
+  InspectorAsyncWorker::Result result;
 };
 
 wxString FromUtf8(const std::string &value);
@@ -439,12 +449,16 @@ InspectorWorkspacePanel::InspectorWorkspacePanel(
   RestoreLayout();
   Bind(wxEVT_INSPECTOR_ASYNC_RESULT, [this](wxThreadEvent &event) {
     auto result = event.GetPayload<WorkspaceAsyncEvent>();
-    HandleAsyncResult(result.generation, std::move(result.payload));
+    HandleAsyncResult(result.preview, result.workerGeneration,
+                      std::move(result.result));
   });
   worker_ = std::make_unique<InspectorAsyncWorker>(
-      [this](std::uint64_t generation, InspectorAsyncWorker::Payload payload) {
+      [this](InspectorTaskDomain domain, std::uint64_t generation,
+             InspectorAsyncWorker::Result result) {
         auto *event = new wxThreadEvent(wxEVT_INSPECTOR_ASYNC_RESULT);
-        event->SetPayload(WorkspaceAsyncEvent{generation, std::move(payload)});
+        event->SetPayload(WorkspaceAsyncEvent{
+            domain == InspectorTaskDomain::Preview, generation,
+            std::move(result)});
         wxQueueEvent(this, event);
       });
 }
@@ -492,7 +506,8 @@ void InspectorWorkspacePanel::BuildLayout() {
                               wxDefaultSize, wxDV_SINGLE);
   scene_->AppendTextColumn(_("Name"), 0, wxDATAVIEW_CELL_INERT, 200);
   scene_->AppendTextColumn(_("Type"), 1, wxDATAVIEW_CELL_INERT, 110);
-  scene_->AppendTextColumn("UUID", 2, wxDATAVIEW_CELL_INERT, 230);
+  scene_->AppendTextColumn(FromUtf8(kUuidColumnLabel), 2,
+                           wxDATAVIEW_CELL_INERT, 230);
   navigation_->AddPage(package_, _("Package"));
   navigation_->AddPage(scene_, _("Scene"));
   detailsSplitter_ = new wxSplitterWindow(
@@ -618,13 +633,13 @@ void InspectorWorkspacePanel::SaveLayout() const {
                         InspectorDetailsPageToken(preferredDetailsPage_));
   preferences_.SetValue(kGdtfPageKey,
                         std::to_string(gdtfDetails_->SelectedPage()));
-  if (navigationSplitter_->GetClientSize().x > 0)
+  if (navigationSplitter_->GetClientSize().x >= FromDIP(300))
     preferences_.SetValue(
         kNavigationRatioKey,
         FormatSplitterRatio(static_cast<double>(
                                 navigationSplitter_->GetSashPosition()) /
                             navigationSplitter_->GetClientSize().x));
-  if (detailsSplitter_->GetClientSize().x > 0)
+  if (detailsSplitter_->GetClientSize().x >= FromDIP(360))
     preferences_.SetValue(
         kDetailsRatioKey,
         FormatSplitterRatio(static_cast<double>(
@@ -645,36 +660,48 @@ void InspectorWorkspacePanel::ChooseFile() {
 void InspectorWorkspacePanel::RefreshSource() {
   if (sourceKind_ == SourceKind::CurrentProject || sourceKind_ == SourceKind::None)
     InspectCurrentProject();
-  else
-    OpenFile(externalPath_);
+  else if (const auto context = parentContext_
+                                    ? parentContext_
+                                    : requestCoordinator_.DisplayedContext())
+    OpenFile(context->filesystemPath);
 }
 
 // Captures and retains exactly one canonical current-project MVR snapshot.
 void InspectorWorkspacePanel::InspectCurrentProject() {
   try {
-    const auto captured = CurrentProjectInspector(project_).CaptureBytes();
-    if (!captured) {
-      wxMessageBox(_("The current project could not be exported as a canonical MVR snapshot."),
-                   _("MVR / GDTF Inspector"), wxOK | wxICON_ERROR, this);
-      return;
-    }
+    const auto input =
+        CurrentProjectInspector(project_, preferences_).CaptureInput();
     sourceKind_ = SourceKind::CurrentProject;
-    externalPath_.clear(); retainedMvrBytes_ = *captured;
-    parentMvr_.reset(); parentResources_.clear();
-    identity_->SetLabel(_("Source: Current project MVR"));
-    sourceType_->SetLabel(_("Active project")); back_->Hide();
-    auto bytes = *captured;
-    displayedGeneration_ = worker_->Submit(
-        [bytes = std::move(bytes)](InspectorStopToken token) {
+    parentContext_.reset(); back_->Hide();
+    const auto sourceGeneration = BeginSourceLoad(
+        _("Source: Current project MVR"), _("Active project"));
+    worker_->Submit(
+        [input, sourceGeneration](InspectorStopToken token)
+            -> InspectorAsyncWorker::Payload {
+          if (token.stop_requested())
+            return InspectorAsyncWorker::Payload{};
+          auto serialized = CurrentProjectInspector::Serialize(input);
+          if (!serialized)
+            throw std::runtime_error(
+                "Canonical current-project serialization failed.");
+          auto bytes = std::make_shared<const std::vector<std::uint8_t>>(
+              std::move(*serialized));
           if (token.stop_requested())
             return InspectorAsyncWorker::Payload{};
           auto payload = std::make_shared<WorkspaceAsyncResult>();
           payload->kind = WorkspaceAsyncResult::Kind::Mvr;
           payload->sourceBytes = bytes;
-          payload->mvr = perastage::inspection::InspectMvrBytes(bytes);
-          if (payload->mvr->packageInventory)
-            payload->resources = perastage::inspection::DescribePackageResources(
-                bytes, *payload->mvr->packageInventory, 4096);
+          payload->sourceGeneration = sourceGeneration;
+          payload->mvr = std::make_shared<const perastage::inspection::MvrInspectionResult>(
+              perastage::inspection::InspectMvrBytes(*bytes));
+          if (token.stop_requested())
+            return InspectorAsyncWorker::Payload{};
+          if (payload->mvr->packageInventory) {
+            payload->resources = std::make_shared<const std::vector<
+                perastage::inspection::ResourceDescriptor>>(
+                perastage::inspection::DescribePackageResources(
+                    *bytes, *payload->mvr->packageInventory, 4096));
+          }
           return payload;
         });
   } catch (const std::exception &error) {
@@ -693,31 +720,41 @@ void InspectorWorkspacePanel::OpenFile(const std::filesystem::path &path) {
     return;
   }
   try {
-    externalPath_ = path; retainedMvrBytes_.clear(); parentMvr_.reset();
-    parentResources_.clear(); back_->Hide();
-    identity_->SetLabel(wxString::Format(_("Source: %s"), PathText(path).AfterLast(wxFILE_SEP_PATH)));
-    sourceType_->SetLabel(_("External file - not part of the current project"));
+    parentContext_.reset(); back_->Hide();
+    const auto sourceGeneration = BeginSourceLoad(
+        wxString::Format(_("Source: %s"),
+                         PathText(path).AfterLast(wxFILE_SEP_PATH)),
+        _("External file - not part of the current project"));
     const bool gdtf = extension == ".gdtf";
     sourceKind_ = gdtf ? SourceKind::ExternalGdtf : SourceKind::ExternalMvr;
-    displayedGeneration_ = worker_->Submit(
-        [path, gdtf](InspectorStopToken token) {
+    worker_->Submit(
+        [path, gdtf, sourceGeneration](InspectorStopToken token)
+            -> InspectorAsyncWorker::Payload {
           if (token.stop_requested())
             return InspectorAsyncWorker::Payload{};
           auto payload = std::make_shared<WorkspaceAsyncResult>();
           payload->kind = gdtf ? WorkspaceAsyncResult::Kind::Gdtf
                                : WorkspaceAsyncResult::Kind::Mvr;
+          payload->sourceGeneration = sourceGeneration;
+          payload->filesystemPath = path;
           if (gdtf)
-            payload->gdtf = perastage::inspection::InspectGdtf(path);
+            payload->gdtf = std::make_shared<const perastage::inspection::GdtfInspectionResult>(
+                perastage::inspection::InspectGdtf(path));
           else
-            payload->mvr = perastage::inspection::InspectMvr(path);
+            payload->mvr = std::make_shared<const perastage::inspection::MvrInspectionResult>(
+                perastage::inspection::InspectMvr(path));
+          if (token.stop_requested())
+            return InspectorAsyncWorker::Payload{};
           const auto *inventory = gdtf
               ? (payload->gdtf->packageInventory
                      ? &*payload->gdtf->packageInventory : nullptr)
               : (payload->mvr->packageInventory
                      ? &*payload->mvr->packageInventory : nullptr);
           if (inventory)
-            payload->resources = perastage::inspection::DescribePackageResources(
-                path, *inventory, 4096);
+            payload->resources = std::make_shared<const std::vector<
+                perastage::inspection::ResourceDescriptor>>(
+                perastage::inspection::DescribePackageResources(
+                    path, *inventory, 4096));
           return payload;
         });
   } catch (const std::exception &error) {
@@ -747,24 +784,34 @@ void InspectorWorkspacePanel::ClearResult() {
   previewImage_->Hide(); previewText_->Hide(); previewModel_->Hide();
 }
 
+// Invalidates old interactions and presents an immediate source-loading state.
+std::uint64_t InspectorWorkspacePanel::BeginSourceLoad(
+    const wxString &identity, const wxString &sourceType) {
+  worker_->Cancel(InspectorTaskDomain::Preview);
+  const auto generation = requestCoordinator_.BeginSourceRequest();
+  ClearResult();
+  package_->Enable(false);
+  scene_->Enable(false);
+  identity_->SetLabel(identity);
+  sourceType_->SetLabel(sourceType);
+  summary_->SetValue(_("Inspecting source..."));
+  return generation;
+}
+
 // Projects high-level GDTF facts without reparsing the retained XML.
 void InspectorWorkspacePanel::ShowGdtf(
     const perastage::inspection::GdtfInspectionResult &result,
-    const std::vector<std::uint8_t> *packageBytes,
-    const std::vector<perastage::inspection::ResourceDescriptor>
-        *preparedResources) {
+    const DisplayedPackageContext &context) {
   ClearResult(); ConfigureNavigation(true); wxString text;
-  displayedPackageKind_ = perastage::inspection::PackageKind::Gdtf;
-  displayedPackageBytes_ = packageBytes ? *packageBytes
-                                        : std::vector<std::uint8_t>{};
+  package_->Enable(true); scene_->Enable(true);
   text << _("Format:") << " GDTF\n" << _("Status:") << ' ' << LocalizedGdtfReadStatus(result.status) << '\n';
-  if (packageBytes) text << _("Embedded resource in parent MVR") << '\n';
+  if (context.packageBytes) text << _("Embedded resource in parent MVR") << '\n';
   AppendCommonSummary(text, result.inspection, result.validation);
   std::vector<perastage::inspection::ResourceDescriptor> resources;
   if (result.packageInventory) {
-    resources = preparedResources ? *preparedResources : packageBytes
+    resources = context.resources ? *context.resources : context.packageBytes
                     ? perastage::inspection::DescribePackageResources(
-                          *packageBytes, *result.packageInventory, 4096,
+                          *context.packageBytes, *result.packageInventory, 4096,
                           result.inspection.request)
                     : perastage::inspection::DescribePackageResources(
                           result.inspection.request.sourcePath,
@@ -790,18 +837,16 @@ void InspectorWorkspacePanel::ShowGdtf(
 // Projects high-level MVR facts from the immutable Inspection Core snapshot.
 void InspectorWorkspacePanel::ShowMvr(
     const perastage::inspection::MvrInspectionResult &result,
-    const std::vector<perastage::inspection::ResourceDescriptor>
-        *preparedResources) {
+    const DisplayedPackageContext &context) {
   ClearResult(); ConfigureNavigation(false); wxString text;
-  displayedPackageKind_ = perastage::inspection::PackageKind::Mvr;
-  displayedPackageBytes_ = retainedMvrBytes_;
+  package_->Enable(true); scene_->Enable(true);
   text << _("Format:") << " MVR\n" << _("Status:") << ' ' << (result.Success() ? _("Readable") : _("Unusable")) << '\n';
   AppendCommonSummary(text, result.inspection, result.validation);
   std::vector<perastage::inspection::ResourceDescriptor> resources;
   if (result.packageInventory) {
-    resources = preparedResources ? *preparedResources : retainedMvrBytes_.empty()
+    resources = context.resources ? *context.resources : !context.packageBytes
                     ? perastage::inspection::DescribePackageResources(result.inspection.request.sourcePath, *result.packageInventory)
-                    : perastage::inspection::DescribePackageResources(retainedMvrBytes_, *result.packageInventory, 4096);
+                    : perastage::inspection::DescribePackageResources(*context.packageBytes, *result.packageInventory, 4096);
     text << _("Package entries:") << ' '
          << result.packageInventory->entries.size() << "\n"
          << _("Resources:") << ' ' << resources.size() << '\n';
@@ -907,16 +952,13 @@ void InspectorWorkspacePanel::PopulateDiagnostics(
 void InspectorWorkspacePanel::SetXml(const std::string &xml) {
   exactXml_ = xml;
   const bool bounded = xml.size() > kInspectorEagerXmlBytes;
-  std::size_t shownBytes = bounded
-                               ? static_cast<std::size_t>(kInspectorEagerXmlBytes)
-                               : xml.size();
-  while (shownBytes > 0 && shownBytes < xml.size() &&
-         (static_cast<unsigned char>(xml[shownBytes]) & 0xc0U) == 0x80U)
-    --shownBytes;
+  const std::size_t shownBytes = Utf8PrefixLength(
+      xml, bounded ? static_cast<std::size_t>(kInspectorEagerXmlBytes)
+                   : xml.size());
   const std::string shown = xml.substr(0, shownBytes);
   xml_->SetReadOnly(false); xml_->SetTextRaw(shown.c_str()); xml_->SetReadOnly(true);
   xmlStatus_->SetLabel(bounded
-                           ? _("Bounded XML preview; the exact retained document is available on demand.")
+                           ? _("Bounded XML preview; Find searches the loaded preview only, and the exact retained document is available on demand.")
                            : _("Complete exact XML"));
   loadCompleteXml_->Show(bounded);
   const int digits =
@@ -979,7 +1021,7 @@ void InspectorWorkspacePanel::ActivatePackageEntry(wxDataViewEvent &event) {
                                ->Value(event.GetItem())
                          : nullptr;
   if (data && data->resourceKind == perastage::inspection::ResourceKind::NestedGdtf)
-    OpenNestedGdtf(data->archivePath, data->sizeKnown ? data->size : kNestedGdtfLimit);
+    OpenNestedGdtf(data->archivePath, data->sizeKnown, data->size);
 }
 
 // Reads and classifies only the selected payload under the explicit preview cap.
@@ -993,100 +1035,169 @@ void InspectorWorkspacePanel::RequestResourcePreview(wxDataViewEvent &event) {
     return;
   const auto descriptor = PackageDataViewModel::Descriptor(*node);
   const auto decision = DecidePreview(descriptor);
+  previewModel_->ResetPreview();
   previewImage_->Hide(); previewText_->Hide(); previewModel_->Hide();
   previewStatus_->SetLabel(FromUtf8(decision.status));
   previewPage_->Layout();
   if (!decision.allowed)
     return;
 
-  const auto bytes = displayedPackageBytes_;
-  const auto path = externalPath_;
-  const auto packageKind = displayedPackageKind_;
+  const auto context = requestCoordinator_.DisplayedContext();
+  const auto ticket = requestCoordinator_.BeginPreview(context);
+  if (!ticket)
+    return;
   const auto entry = node->archivePath;
   const auto resourceKind = node->resourceKind;
-  const auto fingerprint = sourceFingerprint_;
-  const bool owned = !bytes.empty();
-  displayedGeneration_ = worker_->Submit(
-      [bytes, path, packageKind, entry, resourceKind, fingerprint, owned,
-       limit = decision.maxBytes](InspectorStopToken token) {
+  worker_->SubmitPreview(
+      [ticket = *ticket, entry, resourceKind,
+       limit = decision.maxBytes](InspectorStopToken token)
+          -> InspectorAsyncWorker::Payload {
         if (token.stop_requested())
           return InspectorAsyncWorker::Payload{};
         auto payload = std::make_shared<WorkspaceAsyncResult>();
         payload->kind = WorkspaceAsyncResult::Kind::ResourcePreview;
         payload->archivePath = entry;
         payload->resourceKind = resourceKind;
-        payload->sourceFingerprint = fingerprint;
+        payload->sourceFingerprint = ticket.context->fingerprint;
+        payload->previewTicket = ticket;
+        const bool owned = static_cast<bool>(ticket.context->packageBytes);
+        const auto &packageKind = ticket.context->packageKind;
         if (resourceKind == perastage::inspection::ResourceKind::Text ||
             resourceKind == perastage::inspection::ResourceKind::XmlText) {
           payload->textPreview = owned
               ? perastage::inspection::PreviewPackageText(
-                    bytes, packageKind, entry, limit)
+                    *ticket.context->packageBytes, packageKind, entry, limit)
               : perastage::inspection::PreviewPackageText(
-                    path, packageKind, entry, limit);
+                    ticket.context->filesystemPath, packageKind, entry, limit);
         } else {
           payload->resource = owned
               ? perastage::inspection::ReadPackageResource(
-                    bytes, packageKind, entry, limit)
+                    *ticket.context->packageBytes, packageKind, entry, limit)
               : perastage::inspection::ReadPackageResource(
-                    path, packageKind, entry, limit);
+                    ticket.context->filesystemPath, packageKind, entry, limit);
         }
+        if (token.stop_requested())
+          return InspectorAsyncWorker::Payload{};
+        if (resourceKind == perastage::inspection::ResourceKind::Model &&
+            payload->resource && payload->resource->Success()) {
+          payload->preparedModel = PrepareInspectorModel(
+              payload->resource->bytes, entry, &payload->previewError);
+          payload->resource->bytes.clear();
+          payload->resource->bytes.shrink_to_fit();
+        }
+        if (token.stop_requested())
+          return InspectorAsyncWorker::Payload{};
         return payload;
       });
 }
 
 // Uses the established filesystem or byte-oriented nested GDTF inspection path.
-void InspectorWorkspacePanel::OpenNestedGdtf(const std::string &archivePath, std::uint64_t size) {
-  const auto limit = std::max<std::uint64_t>(size, 1);
-  if (!parentMvr_)
+void InspectorWorkspacePanel::OpenNestedGdtf(
+    const std::string &archivePath, bool sizeKnown, std::uint64_t size) {
+  const auto parent = requestCoordinator_.DisplayedContext();
+  if (!parent || !parent->mvr)
     return;
-  const auto bytes = retainedMvrBytes_;
-  const auto path = externalPath_;
-  const bool owned = sourceKind_ == SourceKind::CurrentProject;
-  displayedGeneration_ = worker_->Submit(
-      [bytes, path, archivePath, limit, owned](InspectorStopToken token) {
+  const auto decision = DecideNestedGdtfOpen(sizeKnown, size);
+  if (!decision.allowed) {
+    previewStatus_->SetLabel(
+        _("This embedded GDTF exceeds the Inspector open limit."));
+    notebook_->SetSelection(
+        static_cast<std::size_t>(notebook_->FindPage(previewPage_)));
+    return;
+  }
+  parentContext_ = parent;
+  const auto sourceGeneration = BeginSourceLoad(
+      wxString::Format(_("Embedded GDTF: %s"), FromUtf8(archivePath)),
+      _("Embedded in inspected MVR"));
+  back_->Show();
+  worker_->Submit(
+      [parent, archivePath, sourceGeneration,
+       limit = decision.maxBytes](InspectorStopToken token)
+          -> InspectorAsyncWorker::Payload {
         if (token.stop_requested())
           return InspectorAsyncWorker::Payload{};
-        auto nested = owned
-                          ? perastage::inspection::InspectNestedGdtf(
-                                bytes, archivePath, limit)
-                          : perastage::inspection::InspectNestedGdtf(
-                                path, archivePath, limit);
+        auto resource = parent->packageBytes
+                            ? perastage::inspection::ReadPackageResource(
+                                  *parent->packageBytes,
+                                  perastage::inspection::PackageKind::Mvr,
+                                  archivePath, limit)
+                            : perastage::inspection::ReadPackageResource(
+                                  parent->filesystemPath,
+                                  perastage::inspection::PackageKind::Mvr,
+                                  archivePath, limit);
         auto payload = std::make_shared<WorkspaceAsyncResult>();
         payload->kind = WorkspaceAsyncResult::Kind::NestedGdtf;
+        payload->sourceGeneration = sourceGeneration;
         payload->archivePath = archivePath;
-        payload->sourceBytes = std::move(nested.resource.bytes);
-        payload->gdtf = std::move(nested.gdtf);
+        if (!resource.Success())
+          return payload;
+        payload->sourceBytes =
+            std::make_shared<const std::vector<std::uint8_t>>(
+                std::move(resource.bytes));
+        if (token.stop_requested())
+          return InspectorAsyncWorker::Payload{};
+        payload->gdtf = std::make_shared<const perastage::inspection::GdtfInspectionResult>(
+            perastage::inspection::InspectGdtf(*payload->sourceBytes));
+        if (token.stop_requested())
+          return InspectorAsyncWorker::Payload{};
         if (payload->gdtf && payload->gdtf->packageInventory)
-          payload->resources = perastage::inspection::DescribePackageResources(
-              payload->sourceBytes, *payload->gdtf->packageInventory, 4096);
+          payload->resources = std::make_shared<const std::vector<
+              perastage::inspection::ResourceDescriptor>>(
+              perastage::inspection::DescribePackageResources(
+                  *payload->sourceBytes, *payload->gdtf->packageInventory,
+                  4096));
         return payload;
       });
 }
 
 // Restores the retained parent MVR result without rebuilding its source.
 void InspectorWorkspacePanel::ReturnToParentMvr() {
-  if (!parentMvr_) return;
+  if (!parentContext_ || !parentContext_->mvr) return;
   worker_->Cancel();
-  displayedGeneration_ = worker_->LatestGeneration();
-  const auto result = *parentMvr_;
+  const auto parent = parentContext_;
+  const auto generation = requestCoordinator_.BeginSourceRequest();
+  requestCoordinator_.PublishSource(generation, parent);
+  parentContext_.reset();
   back_->Hide();
   if (sourceKind_ == SourceKind::CurrentProject) {
     identity_->SetLabel(_("Source: Current project MVR")); sourceType_->SetLabel(_("Active project"));
   } else {
-    identity_->SetLabel(wxString::Format(_("Source: %s"), PathText(externalPath_).AfterLast(wxFILE_SEP_PATH)));
+    identity_->SetLabel(wxString::Format(
+        _("Source: %s"),
+        PathText(parent->filesystemPath).AfterLast(wxFILE_SEP_PATH)));
     sourceType_->SetLabel(_("External file - not part of the current project"));
   }
-  ShowMvr(result, &parentResources_); Layout();
+  ShowMvr(*parent->mvr, *parent); Layout();
 }
 
 // Publishes only the latest generation after it reaches the GUI event loop.
 void InspectorWorkspacePanel::HandleAsyncResult(
-    std::uint64_t generation, InspectorAsyncWorker::Payload payload) {
-  if (generation != displayedGeneration_ ||
-      generation != worker_->LatestGeneration() || !payload)
+    bool preview, std::uint64_t workerGeneration,
+    InspectorAsyncWorker::Result completion) {
+  const auto domain = preview ? InspectorTaskDomain::Preview
+                              : InspectorTaskDomain::Source;
+  if (workerGeneration != worker_->LatestGeneration(domain))
     return;
-  const auto &result = static_cast<const WorkspaceAsyncResult &>(*payload);
+  if (!completion.error.empty()) {
+    diagnostics::DiagnosticLogger::Error(
+        std::string("Inspector operation failed unexpectedly: ") +
+        completion.error);
+    if (preview)
+      previewStatus_->SetLabel(
+          _("The selected resource could not be previewed."));
+    else
+      summary_->SetValue(
+          _("The source could not be inspected because of an unexpected error."));
+    return;
+  }
+  if (!completion.payload)
+    return;
+  const auto &result =
+      static_cast<const WorkspaceAsyncResult &>(*completion.payload);
   if (result.kind == WorkspaceAsyncResult::Kind::ResourcePreview) {
+    if (!result.previewTicket ||
+        !requestCoordinator_.AcceptPreview(*result.previewTicket))
+      return;
     previewImage_->Hide(); previewText_->Hide(); previewModel_->Hide();
     if (result.textPreview && result.textPreview->Success()) {
       previewText_->SetValue(FromUtf8(result.textPreview->text));
@@ -1101,9 +1212,18 @@ void InspectorWorkspacePanel::HandleAsyncResult(
       previewImage_->SetBitmap(decoded.bitmap);
       previewImage_->Show();
       previewStatus_->SetLabel(FromUtf8(decoded.diagnostic));
+    } else if (result.resourceKind ==
+                   perastage::inspection::ResourceKind::Model) {
+      const bool loaded = result.preparedModel &&
+                          previewModel_->ApplyPreparedMesh(
+                              std::move(*result.preparedModel));
+      previewModel_->Show();
+      previewStatus_->SetLabel(
+          loaded ? _("Model preview loaded from prepared geometry.")
+                 : _("The model preview could not be loaded."));
     } else if (result.resource && result.resource->Success() &&
-               (result.resourceKind == perastage::inspection::ResourceKind::Model ||
-                result.resourceKind == perastage::inspection::ResourceKind::NestedGdtf)) {
+               result.resourceKind ==
+                   perastage::inspection::ResourceKind::NestedGdtf) {
       const bool loaded = previewModel_->LoadOwnedResource(
           result.resource->bytes, result.archivePath);
       previewModel_->Show();
@@ -1116,30 +1236,42 @@ void InspectorWorkspacePanel::HandleAsyncResult(
     notebook_->SetSelection(static_cast<std::size_t>(notebook_->FindPage(previewPage_)));
     return;
   }
+  if (result.sourceGeneration != requestCoordinator_.SourceGeneration())
+    return;
+  if ((result.kind == WorkspaceAsyncResult::Kind::Mvr && !result.mvr) ||
+      (result.kind != WorkspaceAsyncResult::Kind::Mvr && !result.gdtf)) {
+    summary_->SetValue(_("The source could not be inspected."));
+    return;
+  }
+  auto context = std::make_shared<DisplayedPackageContext>();
+  context->packageKind = result.kind == WorkspaceAsyncResult::Kind::Mvr
+                             ? perastage::inspection::PackageKind::Mvr
+                             : perastage::inspection::PackageKind::Gdtf;
+  context->filesystemPath = result.filesystemPath;
+  context->packageBytes = result.sourceBytes;
+  context->fingerprint = std::to_string(result.sourceGeneration) + ':' +
+                         (result.archivePath.empty() ? "source"
+                                                     : result.archivePath);
+  context->mvr = result.mvr;
+  context->gdtf = result.gdtf;
+  context->resources = result.resources
+                           ? result.resources
+                           : std::make_shared<const std::vector<
+                                 perastage::inspection::ResourceDescriptor>>();
+  requestCoordinator_.PublishSource(result.sourceGeneration, context);
   if (result.kind == WorkspaceAsyncResult::Kind::Mvr && result.mvr) {
-    sourceFingerprint_ = std::to_string(generation);
-    if (!result.sourceBytes.empty())
-      retainedMvrBytes_ = result.sourceBytes;
-    parentMvr_ = *result.mvr;
-    parentResources_ = result.resources;
-    ShowMvr(*result.mvr, &result.resources);
+    ShowMvr(*result.mvr, *context);
     return;
   }
-  if (!result.gdtf) {
-    wxMessageBox(_("The GDTF could not be inspected."),
-                 _("MVR / GDTF Inspector"), wxOK | wxICON_ERROR, this);
-    return;
-  }
-  sourceFingerprint_ = std::to_string(generation);
   if (result.kind == WorkspaceAsyncResult::Kind::NestedGdtf) {
     identity_->SetLabel(wxString::Format(_("Embedded GDTF: %s"),
                                          FromUtf8(result.archivePath)));
     sourceType_->SetLabel(_("Embedded in inspected MVR"));
     back_->Show();
-    ShowGdtf(*result.gdtf, &result.sourceBytes, &result.resources);
+    ShowGdtf(*result.gdtf, *context);
     Layout();
   } else {
-    ShowGdtf(*result.gdtf, nullptr, &result.resources);
+    ShowGdtf(*result.gdtf, *context);
   }
 }
 

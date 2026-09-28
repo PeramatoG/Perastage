@@ -43,6 +43,12 @@ public:
     bool LoadOwnedResource(const std::vector<unsigned char>& bytes,
                            const std::string& archivePath);
 
+    // Applies worker-prepared neutral geometry on the GUI thread.
+    bool ApplyPreparedMesh(Mesh mesh);
+
+    // Clears the previous preview before a replacement starts.
+    void ResetPreview();
+
 private:
     void OnPaint(wxPaintEvent& evt);
     void OnResize(wxSizeEvent& evt);
