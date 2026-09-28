@@ -14,8 +14,8 @@ PreviewPolicyDecision DecidePreview(
   case ResourceKind::Image: limit = kInspectorImagePreviewBytes; break;
   case ResourceKind::Model: limit = kInspectorModelPreviewBytes; break;
   case ResourceKind::NestedGdtf:
-    limit = kInspectorNestedGdtfPreviewBytes;
-    break;
+    return {false, 0,
+            "Activate this embedded GDTF to inspect it."};
   case ResourceKind::XmlText:
   case ResourceKind::Text: limit = kInspectorTextPreviewBytes; break;
   case ResourceKind::Binary:

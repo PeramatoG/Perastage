@@ -30,6 +30,11 @@ InspectorRequestCoordinator::BeginPreview(
                                 context};
 }
 
+// Invalidates selection-driven work without changing displayed source authority.
+void InspectorRequestCoordinator::InvalidatePreview() {
+  ++previewGeneration_;
+}
+
 // Accepts a preview only while both its source and sub-generation remain current.
 bool InspectorRequestCoordinator::AcceptPreview(
     const InspectorPreviewTicket &ticket) const {

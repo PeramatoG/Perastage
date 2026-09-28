@@ -26,10 +26,15 @@ int main() {
   const auto previewA = coordinator.BeginPreview(parent);
   assert(previewA);
 
+  coordinator.InvalidatePreview();
+  assert(!coordinator.AcceptPreview(*previewA));
+  const auto replacementPreview = coordinator.BeginPreview(parent);
+  assert(replacementPreview);
+
   const auto sourceB = coordinator.BeginSourceRequest();
   assert(!coordinator.DisplayedContext());
   assert(!coordinator.BeginPreview(parent));
-  assert(!coordinator.AcceptPreview(*previewA));
+  assert(!coordinator.AcceptPreview(*replacementPreview));
   coordinator.PublishSource(sourceB, nested);
   assert(coordinator.DisplayedContext() == nested);
 

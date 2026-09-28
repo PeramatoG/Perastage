@@ -42,16 +42,19 @@ Perastage is designed for lighting designers, programmers, and technicians who n
   inspect its channel/function/set hierarchy, and review wheel, slot, filter,
   color, and archive-resource references. Geometry names and effective channel
   offsets are shown where the GDTF read model provides them. Selecting a safe
-  package resource opens an on-demand bounded Preview for images, text/XML,
-  GLB/3DS models, or nested GDTF data; unsupported and oversized resources stay
-  visible and receive a preview status without being treated as invalid.
+  package resource updates the persistent, bounded Preview pane for images,
+  text/XML, or GLB/3DS models. Activate an embedded GDTF directly instead of
+  previewing it; unsupported and oversized resources stay visible and receive
+  a preview status without being treated as invalid.
 - The exact retained XML has syntax highlighting, clickable folding markers,
-  line numbers sized to the current document, selection, copy-all, and wrapping
-  forward or reverse find. Documents above the automatic display limit start
+  explicit **Fold all** and **Unfold all** controls, line numbers sized to the
+  current document, selection, copy-all, and wrapping forward or reverse find.
+  The Preview remains visible below the right-side details notebook. Documents
+  above the automatic display limit start
   with a clearly labelled bounded view and retain an explicit action to load
   the complete exact text. Drag the workspace dividers to resize Navigation,
-  XML/resource, and Details; these proportions are saved independently of
-  monitor resolution. Scene rows expose separate Name, Type, and UUID columns.
+  XML/resource, Details, and Preview; these proportions are saved independently
+  of monitor resolution. Scene rows expose separate Name, Type, and UUID columns.
   The Issues view groups structured
   diagnostic codes while the Diagnostics view retains full technical detail;
   archive paths are copied from a package entry's context menu.

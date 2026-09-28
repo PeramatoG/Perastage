@@ -49,6 +49,7 @@ constexpr char kPageKey[] = "inspector_workspace_details_page";
 constexpr char kGdtfPageKey[] = "inspector_workspace_gdtf_page";
 constexpr char kNavigationRatioKey[] = "inspector_workspace_navigation_ratio";
 constexpr char kDetailsRatioKey[] = "inspector_workspace_details_ratio";
+constexpr char kPreviewRatioKey[] = "inspector_workspace_preview_ratio";
 constexpr int kXmlLineNumberMargin = 0;
 constexpr int kXmlFoldMargin = 1;
 constexpr char kUuidColumnLabel[] = "UUID";
@@ -467,6 +468,7 @@ InspectorWorkspacePanel::InspectorWorkspacePanel(
 InspectorWorkspacePanel::~InspectorWorkspacePanel() {
   worker_.reset();
   DeletePendingEvents();
+  previewModel_->ResetPreview();
   SaveLayout();
 }
 
@@ -521,11 +523,15 @@ void InspectorWorkspacePanel::BuildLayout() {
   auto *previous = new wxButton(xmlPanel, wxID_ANY, _("Find previous"));
   auto *next = new wxButton(xmlPanel, wxID_ANY, _("Find next"));
   auto *copyAll = new wxButton(xmlPanel, wxID_ANY, _("Copy all"));
+  auto *foldAll = new wxButton(xmlPanel, wxID_ANY, _("Fold all"));
+  auto *unfoldAll = new wxButton(xmlPanel, wxID_ANY, _("Unfold all"));
   loadCompleteXml_ = new wxButton(xmlPanel, wxID_ANY, _("Load complete XML"));
   xmlStatus_ = new wxStaticText(xmlPanel, wxID_ANY, {});
   findRow->Add(new wxStaticText(xmlPanel, wxID_ANY, _("Find:")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   findRow->Add(search_, 1, wxRIGHT, 5); findRow->Add(previous, 0, wxRIGHT, 5);
   findRow->Add(next, 0, wxRIGHT, 5); findRow->Add(copyAll, 0, wxRIGHT, 5);
+  findRow->Add(foldAll, 0, wxRIGHT, 5);
+  findRow->Add(unfoldAll, 0, wxRIGHT, 5);
   findRow->Add(loadCompleteXml_);
   xml_ = new wxStyledTextCtrl(xmlPanel, wxID_ANY);
   ConfigureXmlEditor(*xml_);
@@ -535,7 +541,11 @@ void InspectorWorkspacePanel::BuildLayout() {
   loadCompleteXml_->Hide();
   xmlPanel->SetSizer(xmlColumn);
 
-  notebook_ = new wxNotebook(detailsSplitter_, wxID_ANY);
+  previewSplitter_ = new wxSplitterWindow(
+      detailsSplitter_, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+      wxSP_LIVE_UPDATE | wxSP_3D);
+  previewSplitter_->SetMinimumPaneSize(FromDIP(120));
+  notebook_ = new wxNotebook(previewSplitter_, wxID_ANY);
   summary_ = new wxTextCtrl(notebook_, wxID_ANY, {}, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
   gdtfDetails_ = new GdtfInspectorDetailsPanel(notebook_);
   issues_ = new wxTextCtrl(notebook_, wxID_ANY, {}, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
@@ -554,8 +564,10 @@ void InspectorWorkspacePanel::BuildLayout() {
   auto *copyDiagnostic = new wxButton(diagnosticPage_, wxID_ANY, _("Copy diagnostic"));
   diagnosticSizer->Add(diagnostics_, 1, wxEXPAND | wxBOTTOM, 6); diagnosticSizer->Add(copyDiagnostic, 0, wxALIGN_RIGHT);
   diagnosticPage_->SetSizer(diagnosticSizer); notebook_->AddPage(diagnosticPage_, _("Diagnostics"));
-  previewPage_ = new wxPanel(notebook_);
+  previewPage_ = new wxPanel(previewSplitter_);
   auto *previewSizer = new wxBoxSizer(wxVERTICAL);
+  previewSizer->Add(new wxStaticText(previewPage_, wxID_ANY, _("Preview")),
+                    0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 6);
   previewStatus_ = new wxStaticText(previewPage_, wxID_ANY,
                                     _("Select a package resource to preview it."));
   previewImage_ = new wxStaticBitmap(previewPage_, wxID_ANY, wxNullBitmap);
@@ -569,10 +581,10 @@ void InspectorWorkspacePanel::BuildLayout() {
   previewSizer->Add(previewModel_, 1, wxEXPAND | wxALL, 6);
   previewImage_->Hide(); previewText_->Hide(); previewModel_->Hide();
   previewPage_->SetSizer(previewSizer);
-  notebook_->AddPage(previewPage_, _("Preview"));
   previewBitmapCache_ = std::make_unique<GdtfResourceBitmapCache>(
       kInspectorImageCacheBytes);
-  detailsSplitter_->SplitVertically(xmlPanel, notebook_);
+  previewSplitter_->SplitHorizontally(notebook_, previewPage_);
+  detailsSplitter_->SplitVertically(xmlPanel, previewSplitter_);
   navigationSplitter_->SplitVertically(navigation_, detailsSplitter_);
   root->Add(navigationSplitter_, 1,
             wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
@@ -580,11 +592,14 @@ void InspectorWorkspacePanel::BuildLayout() {
 
   Bind(wxEVT_SIZE, [this](wxSizeEvent &event) {
     if (!splitterRatiosApplied_ && navigationSplitter_->GetClientSize().x > 0 &&
-        detailsSplitter_->GetClientSize().x > 0) {
+        detailsSplitter_->GetClientSize().x > 0 &&
+        previewSplitter_->GetClientSize().y > 0) {
       navigationSplitter_->SetSashPosition(static_cast<int>(
           navigationSplitter_->GetClientSize().x * navigationRatio_));
       detailsSplitter_->SetSashPosition(static_cast<int>(
           detailsSplitter_->GetClientSize().x * detailsRatio_));
+      previewSplitter_->SetSashPosition(static_cast<int>(
+          previewSplitter_->GetClientSize().y * previewRatio_));
       splitterRatiosApplied_ = true;
     }
     event.Skip();
@@ -602,6 +617,8 @@ void InspectorWorkspacePanel::BuildLayout() {
   next->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { FindXml(true); });
   search_->Bind(wxEVT_TEXT_ENTER, [this](wxCommandEvent &) { FindXml(true); });
   copyAll->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { CopyAllXml(); });
+  foldAll->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { FoldXml(true); });
+  unfoldAll->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { FoldXml(false); });
   loadCompleteXml_->Bind(wxEVT_BUTTON,
                          [this](wxCommandEvent &) { LoadCompleteXml(); });
   xml_->Bind(wxEVT_STC_MARGINCLICK, [this](wxStyledTextEvent &event) {
@@ -625,6 +642,8 @@ void InspectorWorkspacePanel::RestoreLayout() {
       preferences_.GetValue(kNavigationRatioKey), 0.25);
   detailsRatio_ =
       ParseSplitterRatio(preferences_.GetValue(kDetailsRatioKey), 0.66);
+  previewRatio_ =
+      ParseSplitterRatio(preferences_.GetValue(kPreviewRatioKey), 0.68);
 }
 
 // Saves only the selected details page for the next workspace activation.
@@ -645,6 +664,12 @@ void InspectorWorkspacePanel::SaveLayout() const {
         FormatSplitterRatio(static_cast<double>(
                                 detailsSplitter_->GetSashPosition()) /
                             detailsSplitter_->GetClientSize().x));
+  if (previewSplitter_->GetClientSize().y >= FromDIP(240))
+    preferences_.SetValue(
+        kPreviewRatioKey,
+        FormatSplitterRatio(static_cast<double>(
+                                previewSplitter_->GetSashPosition()) /
+                            previewSplitter_->GetClientSize().y));
   preferences_.SaveUserConfig();
 }
 
@@ -781,7 +806,9 @@ void InspectorWorkspacePanel::ClearResult() {
   exactXml_.clear(); xmlStatus_->SetLabel({}); loadCompleteXml_->Hide();
   search_->Clear();
   previewStatus_->SetLabel(_("Select a package resource to preview it."));
+  previewModel_->ResetPreview();
   previewImage_->Hide(); previewText_->Hide(); previewModel_->Hide();
+  previewPage_->Layout();
 }
 
 // Invalidates old interactions and presents an immediate source-loading state.
@@ -997,6 +1024,11 @@ void InspectorWorkspacePanel::FindXml(bool forward) {
   }
 }
 
+// Expands or contracts every foldable XML section in the current buffer.
+void InspectorWorkspacePanel::FoldXml(bool fold) {
+  xml_->FoldAll(fold ? wxSTC_FOLDACTION_CONTRACT : wxSTC_FOLDACTION_EXPAND);
+}
+
 // Opens a contextual archive-path action for the selected actual entry.
 void InspectorWorkspacePanel::ShowPackageContextMenu(wxDataViewEvent &event) {
   const auto item = event.GetItem();
@@ -1026,6 +1058,8 @@ void InspectorWorkspacePanel::ActivatePackageEntry(wxDataViewEvent &event) {
 
 // Reads and classifies only the selected payload under the explicit preview cap.
 void InspectorWorkspacePanel::RequestResourcePreview(wxDataViewEvent &event) {
+  worker_->Cancel(InspectorTaskDomain::Preview);
+  requestCoordinator_.InvalidatePreview();
   const auto *node = packageModel_
                          ? static_cast<PackageDataViewModel *>(packageModel_)
                                ->Value(event.GetItem())
@@ -1101,8 +1135,6 @@ void InspectorWorkspacePanel::OpenNestedGdtf(
   if (!decision.allowed) {
     previewStatus_->SetLabel(
         _("This embedded GDTF exceeds the Inspector open limit."));
-    notebook_->SetSelection(
-        static_cast<std::size_t>(notebook_->FindPage(previewPage_)));
     return;
   }
   parentContext_ = parent;
@@ -1233,7 +1265,6 @@ void InspectorWorkspacePanel::HandleAsyncResult(
       previewStatus_->SetLabel(_("The selected resource could not be previewed."));
     }
     previewPage_->Layout();
-    notebook_->SetSelection(static_cast<std::size_t>(notebook_->FindPage(previewPage_)));
     return;
   }
   if (result.sourceGeneration != requestCoordinator_.SourceGeneration())

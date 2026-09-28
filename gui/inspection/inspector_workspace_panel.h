@@ -74,6 +74,7 @@ private:
   void SetXml(const std::string &xml);
   void LoadCompleteXml();
   void FindXml(bool forward);
+  void FoldXml(bool fold);
   void ShowPackageContextMenu(wxDataViewEvent &event);
   void ActivatePackageEntry(wxDataViewEvent &event);
   void RequestResourcePreview(wxDataViewEvent &event);
@@ -111,6 +112,7 @@ private:
   wxDataViewModel *sceneModel_ = nullptr;
   wxSplitterWindow *navigationSplitter_ = nullptr;
   wxSplitterWindow *detailsSplitter_ = nullptr;
+  wxSplitterWindow *previewSplitter_ = nullptr;
   wxListCtrl *diagnostics_ = nullptr;
   wxTextCtrl *search_ = nullptr;
   wxStyledTextCtrl *xml_ = nullptr;
@@ -122,6 +124,7 @@ private:
   bool configuringDetailsPage_ = false;
   double navigationRatio_ = 0.25;
   double detailsRatio_ = 0.66;
+  double previewRatio_ = 0.68;
   bool splitterRatiosApplied_ = false;
   std::unique_ptr<InspectorAsyncWorker> worker_;
 };

@@ -39,7 +39,15 @@ Changes since **v1.6.0**.
 
 - Strengthened read-only Inspector reliability with complete deterministic parity, malformed-container, Unicode resource, diagnostic-separation, and non-mutation characterization, and made Inspector coverage explicitly visible in the informational Core/MVR report.
 
+- Improved the Inspector with explicit XML fold and unfold actions and a
+  persistent, resizable Preview pane below the details area. Embedded GDTFs now
+  open directly rather than starting a competing automatic model preview.
+
 ## Important fixes
+
+- Prevented a Windows crash when rapidly selecting and activating an embedded
+  GDTF by cancelling obsolete preview work, clearing preview-owned model state
+  on source changes, and rejecting late preview results.
 
 - Corrected GDTF inspection so the standard `FTPresets` section is no longer
   reported as unknown, while canonical publication now removes the known

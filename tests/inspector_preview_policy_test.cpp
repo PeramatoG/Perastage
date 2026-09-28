@@ -20,6 +20,13 @@ int main() {
   binary.rawReadSupported = true;
   assert(!DecidePreview(binary).allowed);
 
+  perastage::inspection::ResourceDescriptor nested;
+  nested.kind = perastage::inspection::ResourceKind::NestedGdtf;
+  nested.rawReadSupported = true;
+  const auto nestedPreview = DecidePreview(nested);
+  assert(!nestedPreview.allowed);
+  assert(nestedPreview.maxBytes == 0);
+
   assert(DecideNestedGdtfOpen(true, kInspectorNestedGdtfOpenBytes).allowed);
   assert(!DecideNestedGdtfOpen(true,
                                kInspectorNestedGdtfOpenBytes + 1).allowed);

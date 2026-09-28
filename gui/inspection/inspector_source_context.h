@@ -45,6 +45,7 @@ public:
       std::shared_ptr<const DisplayedPackageContext> context);
   std::optional<InspectorPreviewTicket> BeginPreview(
       const std::shared_ptr<const DisplayedPackageContext> &context);
+  void InvalidatePreview();
   bool AcceptPreview(const InspectorPreviewTicket &ticket) const;
   std::shared_ptr<const DisplayedPackageContext> DisplayedContext() const;
   std::uint64_t SourceGeneration() const;
