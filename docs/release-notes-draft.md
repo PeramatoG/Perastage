@@ -53,7 +53,9 @@ Changes since **v1.6.0**.
   ready, restores parent interaction after failures, and lays out Back
   navigation only after a successful transition. The nested-open bound now
   shares Inspection Core's resource-read safety limit, allowing valid embedded
-  fixtures to open instead of being rejected before reading.
+  fixtures to open instead of being rejected before reading. Inspector tab
+  ownership now remains fixed while switching between MVR and GDTF, preventing
+  native Windows notebook assertions during transition repainting.
 
 - Kept fixture previews reliable when switching between OpenGL views by
   rebinding the Preview canvas context before every render. Selecting the

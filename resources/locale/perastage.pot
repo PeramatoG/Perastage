@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.6.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-28 20:02+0000\n"
+"POT-Creation-Date: 2026-09-28 22:19+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1101,7 +1101,7 @@ msgid "Fixture ID"
 msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:13 gui/hoisttablepanel.cpp:461
-#: gui/inspection/gdtf_inspector_details_panel.cpp:134
+#: gui/inspection/gdtf_inspector_details_panel.cpp:152
 #: gui/inspection/inspector_workspace_panel.cpp:474
 #: gui/inspection/inspector_workspace_panel.cpp:481 gui/summarypanel.cpp:260
 #: gui/summarypanel.cpp:269 mvr/mvrimporter.cpp:328
@@ -1494,7 +1494,7 @@ msgid "Search:"
 msgstr ""
 
 #: gui/gdtfsearchdialog.cpp:100
-#: gui/inspection/inspector_workspace_panel.cpp:857
+#: gui/inspection/inspector_workspace_panel.cpp:858
 #: tests/localization_catalog_integration_test.cpp:205
 msgid "Manufacturer:"
 msgstr ""
@@ -1722,7 +1722,7 @@ msgstr ""
 
 #: gui/inspection/gdtf_inspector_details_panel.cpp:20
 #: gui/inspection/gdtf_inspector_details_panel.cpp:31
-#: gui/inspection/gdtf_inspector_details_panel.cpp:104
+#: gui/inspection/gdtf_inspector_details_panel.cpp:122
 msgid "Unavailable"
 msgstr ""
 
@@ -1744,7 +1744,7 @@ msgid "Long name"
 msgstr ""
 
 #: gui/inspection/gdtf_inspector_details_panel.cpp:43
-#: gui/inspection/gdtf_inspector_details_panel.cpp:169
+#: gui/inspection/gdtf_inspector_details_panel.cpp:187
 msgid "Description"
 msgstr ""
 
@@ -1768,71 +1768,74 @@ msgstr ""
 msgid "Truss cross-section"
 msgstr ""
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:83
-msgid "Overview / FixtureType"
-msgstr ""
-
-#: gui/inspection/gdtf_inspector_details_panel.cpp:84
-msgid "Modes and channels"
-msgstr ""
-
-#: gui/inspection/gdtf_inspector_details_panel.cpp:85
-msgid "Wheels / resources"
-msgstr ""
-
-#: gui/inspection/gdtf_inspector_details_panel.cpp:102
-msgid "Revision history"
-msgstr ""
-
-#: gui/inspection/gdtf_inspector_details_panel.cpp:112
+#: gui/inspection/gdtf_inspector_details_panel.cpp:68
+#: gui/inspection/gdtf_inspector_details_panel.cpp:130
 msgid "FixtureType metadata is unavailable."
 msgstr ""
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:126
+#: gui/inspection/gdtf_inspector_details_panel.cpp:71
+#: gui/inspection/gdtf_inspector_details_panel.cpp:144
 msgid "No DMX modes are available."
 msgstr ""
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:133
+#: gui/inspection/gdtf_inspector_details_panel.cpp:72
+#: gui/inspection/gdtf_inspector_details_panel.cpp:175
+msgid "No wheel or filter details are available."
+msgstr ""
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:100
+msgid "Overview / FixtureType"
+msgstr ""
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:101
+msgid "Modes and channels"
+msgstr ""
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:102
+msgid "Wheels / resources"
+msgstr ""
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:120
+msgid "Revision history"
+msgstr ""
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:151
 msgid "Wheel"
 msgstr ""
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:138
-#: gui/inspection/gdtf_inspector_details_panel.cpp:153 gui/layerpanel.cpp:87
+#: gui/inspection/gdtf_inspector_details_panel.cpp:156
+#: gui/inspection/gdtf_inspector_details_panel.cpp:171 gui/layerpanel.cpp:87
 #: gui/layerpanel.cpp:101 gui/summarypanel.cpp:264 gui/summarypanel.cpp:318
 #: viewer2d/viewer2drenderpanel.cpp:347
 msgid "Color"
 msgstr ""
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:139
-#: gui/inspection/gdtf_inspector_details_panel.cpp:152
+#: gui/inspection/gdtf_inspector_details_panel.cpp:157
+#: gui/inspection/gdtf_inspector_details_panel.cpp:170
 msgid "Filter"
 msgstr ""
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:140
+#: gui/inspection/gdtf_inspector_details_panel.cpp:158
 msgid "Media reference"
 msgstr ""
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:142
+#: gui/inspection/gdtf_inspector_details_panel.cpp:160
 msgid "Archive resource"
 msgstr ""
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:144
+#: gui/inspection/gdtf_inspector_details_panel.cpp:162
 msgid "Graphic wheel reference"
 msgstr ""
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:146
+#: gui/inspection/gdtf_inspector_details_panel.cpp:164
 msgid "Graphic wheel resource"
 msgstr ""
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:157
-msgid "No wheel or filter details are available."
-msgstr ""
-
-#: gui/inspection/gdtf_inspector_details_panel.cpp:170
+#: gui/inspection/gdtf_inspector_details_panel.cpp:188
 msgid "Geometry"
 msgstr ""
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:171
+#: gui/inspection/gdtf_inspector_details_panel.cpp:189
 msgid "Calculated footprint"
 msgstr ""
 
@@ -1866,7 +1869,7 @@ msgstr ""
 
 #: gui/inspection/inspector_workspace_panel.cpp:340
 #: gui/inspection/inspector_workspace_panel.cpp:342
-#: gui/inspection/inspector_workspace_panel.cpp:873
+#: gui/inspection/inspector_workspace_panel.cpp:874
 msgid "Unusable"
 msgstr ""
 
@@ -1896,13 +1899,13 @@ msgstr ""
 
 #: gui/inspection/inspector_workspace_panel.cpp:458
 #: gui/inspection/inspector_workspace_panel.cpp:675
-#: gui/inspection/inspector_workspace_panel.cpp:1248
+#: gui/inspection/inspector_workspace_panel.cpp:1242
 msgid "Source: Current project MVR"
 msgstr ""
 
 #: gui/inspection/inspector_workspace_panel.cpp:459
 #: gui/inspection/inspector_workspace_panel.cpp:675
-#: gui/inspection/inspector_workspace_panel.cpp:1248
+#: gui/inspection/inspector_workspace_panel.cpp:1242
 msgid "Active project"
 msgstr ""
 
@@ -1930,7 +1933,6 @@ msgid "Package"
 msgstr ""
 
 #: gui/inspection/inspector_workspace_panel.cpp:485
-#: gui/inspection/inspector_workspace_panel.cpp:904
 msgid "Scene"
 msgstr ""
 
@@ -1969,7 +1971,6 @@ msgid "Summary"
 msgstr ""
 
 #: gui/inspection/inspector_workspace_panel.cpp:524
-#: gui/inspection/inspector_workspace_panel.cpp:908
 msgid "GDTF details"
 msgstr ""
 
@@ -2010,7 +2011,7 @@ msgid "Diagnostics"
 msgstr ""
 
 #: gui/inspection/inspector_workspace_panel.cpp:543
-#: gui/inspection/inspector_workspace_panel.cpp:781
+#: gui/inspection/inspector_workspace_panel.cpp:782
 msgid "Select a package resource to preview it."
 msgstr ""
 
@@ -2032,9 +2033,9 @@ msgstr ""
 #: gui/inspection/inspector_workspace_panel.cpp:708
 #: gui/inspection/inspector_workspace_panel.cpp:717
 #: gui/inspection/inspector_workspace_panel.cpp:760
-#: gui/inspection/inspector_workspace_panel.cpp:1051
-#: gui/inspection/inspector_workspace_panel.cpp:1401
-#: gui/inspection/inspector_workspace_panel.cpp:1406
+#: gui/inspection/inspector_workspace_panel.cpp:1045
+#: gui/inspection/inspector_workspace_panel.cpp:1395
+#: gui/inspection/inspector_workspace_panel.cpp:1400
 #: gui/mainwindow_layout.cpp:452 gui/mainwindow_menu.cpp:236
 #: gui/mainwindow_menu_builders.cpp:71
 msgid "MVR / GDTF Inspector"
@@ -2045,13 +2046,13 @@ msgid "Only MVR and GDTF files can be inspected."
 msgstr ""
 
 #: gui/inspection/inspector_workspace_panel.cpp:723
-#: gui/inspection/inspector_workspace_panel.cpp:1251
+#: gui/inspection/inspector_workspace_panel.cpp:1245
 #, c-format
 msgid "Source: %s"
 msgstr ""
 
 #: gui/inspection/inspector_workspace_panel.cpp:725
-#: gui/inspection/inspector_workspace_panel.cpp:1253
+#: gui/inspection/inspector_workspace_panel.cpp:1247
 msgid "External file - not part of the current project"
 msgstr ""
 
@@ -2059,138 +2060,138 @@ msgstr ""
 msgid "The file could not be inspected because of an unexpected error."
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:804
+#: gui/inspection/inspector_workspace_panel.cpp:805
 msgid "Inspecting source..."
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:837
-#: gui/inspection/inspector_workspace_panel.cpp:873
+#: gui/inspection/inspector_workspace_panel.cpp:838
+#: gui/inspection/inspector_workspace_panel.cpp:874
 msgid "Format:"
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:837
-#: gui/inspection/inspector_workspace_panel.cpp:873
+#: gui/inspection/inspector_workspace_panel.cpp:838
+#: gui/inspection/inspector_workspace_panel.cpp:874
 #: gui/mvrxchange/mvr_xchange_dialog.cpp:146
 msgid "Status:"
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:838
+#: gui/inspection/inspector_workspace_panel.cpp:839
 msgid "Embedded resource in parent MVR"
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:849
-#: gui/inspection/inspector_workspace_panel.cpp:880
+#: gui/inspection/inspector_workspace_panel.cpp:850
+#: gui/inspection/inspector_workspace_panel.cpp:881
 msgid "Package entries:"
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:851
-#: gui/inspection/inspector_workspace_panel.cpp:882
+#: gui/inspection/inspector_workspace_panel.cpp:852
+#: gui/inspection/inspector_workspace_panel.cpp:883
 msgid "Resources:"
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:856
+#: gui/inspection/inspector_workspace_panel.cpp:857
 msgid "Fixture type:"
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:859
+#: gui/inspection/inspector_workspace_panel.cpp:860
 msgid "DMX modes:"
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:873
+#: gui/inspection/inspector_workspace_panel.cpp:874
 msgid "Readable"
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:886
+#: gui/inspection/inspector_workspace_panel.cpp:887
 msgid "MVR version:"
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:887
+#: gui/inspection/inspector_workspace_panel.cpp:888
 msgid "Provider:"
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:888
+#: gui/inspection/inspector_workspace_panel.cpp:889
 msgid "Provider version:"
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:911
+#: gui/inspection/inspector_workspace_panel.cpp:905
 msgid "GDTF summary"
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:911
+#: gui/inspection/inspector_workspace_panel.cpp:905
 msgid "MVR summary"
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:992
+#: gui/inspection/inspector_workspace_panel.cpp:986
 msgid ""
 "Bounded XML preview; Find searches the loaded preview only, and the exact "
 "retained document is available on demand."
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:993
-#: gui/inspection/inspector_workspace_panel.cpp:1008
+#: gui/inspection/inspector_workspace_panel.cpp:987
+#: gui/inspection/inspector_workspace_panel.cpp:1002
 msgid "Complete exact XML"
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:1047
+#: gui/inspection/inspector_workspace_panel.cpp:1041
 msgid "Copy archive path"
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:1051
-#: gui/inspection/inspector_workspace_panel.cpp:1401
-#: gui/inspection/inspector_workspace_panel.cpp:1406
+#: gui/inspection/inspector_workspace_panel.cpp:1045
+#: gui/inspection/inspector_workspace_panel.cpp:1395
+#: gui/inspection/inspector_workspace_panel.cpp:1400
 msgid "The clipboard could not be opened."
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:1107
+#: gui/inspection/inspector_workspace_panel.cpp:1101
 msgid "This document is already shown in the XML pane."
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:1173
+#: gui/inspection/inspector_workspace_panel.cpp:1167
 msgid "This embedded GDTF exceeds the Inspector open limit."
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:1272
-#: gui/inspection/inspector_workspace_panel.cpp:1325
+#: gui/inspection/inspector_workspace_panel.cpp:1266
+#: gui/inspection/inspector_workspace_panel.cpp:1319
 msgid "The selected resource could not be previewed."
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:1275
-#: gui/inspection/inspector_workspace_panel.cpp:1284
-#: gui/inspection/inspector_workspace_panel.cpp:1348
+#: gui/inspection/inspector_workspace_panel.cpp:1269
+#: gui/inspection/inspector_workspace_panel.cpp:1278
+#: gui/inspection/inspector_workspace_panel.cpp:1342
 msgid "The embedded GDTF could not be inspected."
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:1278
+#: gui/inspection/inspector_workspace_panel.cpp:1272
 msgid "The source could not be inspected because of an unexpected error."
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:1297
+#: gui/inspection/inspector_workspace_panel.cpp:1291
 msgid "Complete bounded text preview"
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:1314
+#: gui/inspection/inspector_workspace_panel.cpp:1308
 msgid "Model preview loaded from prepared geometry."
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:1315
-#: gui/inspection/inspector_workspace_panel.cpp:1323
+#: gui/inspection/inspector_workspace_panel.cpp:1309
+#: gui/inspection/inspector_workspace_panel.cpp:1317
 msgid "The model preview could not be loaded."
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:1322
+#: gui/inspection/inspector_workspace_panel.cpp:1316
 msgid "Model preview loaded from temporary owned bytes."
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:1350
+#: gui/inspection/inspector_workspace_panel.cpp:1344
 msgid "The source could not be inspected."
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:1385
+#: gui/inspection/inspector_workspace_panel.cpp:1379
 #, c-format
 msgid "Embedded GDTF: %s"
 msgstr ""
 
-#: gui/inspection/inspector_workspace_panel.cpp:1387
+#: gui/inspection/inspector_workspace_panel.cpp:1381
 msgid "Embedded in inspected MVR"
 msgstr ""
 

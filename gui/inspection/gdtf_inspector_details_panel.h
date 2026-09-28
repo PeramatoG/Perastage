@@ -17,6 +17,8 @@ class GdtfInspectorDetailsPanel final : public wxPanel {
 public:
   explicit GdtfInspectorDetailsPanel(wxWindow *parent);
 
+  void ClearResult();
+  void SetAvailable(bool available);
   void SetResult(const perastage::inspection::GdtfInspectionResult &result);
   int SelectedPage() const;
   void SetSelectedPage(int page);

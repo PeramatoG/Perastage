@@ -773,6 +773,7 @@ void InspectorWorkspacePanel::ClearResult() {
     sceneModel_ = nullptr;
   }
   diagnostics_->DeleteAllItems(); diagnosticRows_.clear();
+  gdtfDetails_->ClearResult();
   xml_->SetReadOnly(false); xml_->ClearAll(); xml_->SetReadOnly(true);
   xml_->SetMarginWidth(kXmlLineNumberMargin,
                        xml_->TextWidth(wxSTC_STYLE_LINENUMBER, "9") + 8);
@@ -833,7 +834,7 @@ void InspectorWorkspacePanel::ShowGdtf(
     const perastage::inspection::GdtfInspectionResult &result,
     const DisplayedPackageContext &context) {
   ClearResult(); ConfigureNavigation(true); wxString text;
-  package_->Enable(true); scene_->Enable(true);
+  package_->Enable(true);
   text << _("Format:") << " GDTF\n" << _("Status:") << ' ' << LocalizedGdtfReadStatus(result.status) << '\n';
   if (context.packageBytes) text << _("Embedded resource in parent MVR") << '\n';
   AppendCommonSummary(text, result.inspection, result.validation);
@@ -861,7 +862,7 @@ void InspectorWorkspacePanel::ShowGdtf(
   }
   summary_->SetValue(text); PopulatePackage(resources); PopulateDiagnostics(result.inspection, result.validation);
   gdtfDetails_->SetResult(result);
-  navigation_->SetSelection(0);
+  navigation_->ChangeSelection(0);
 }
 
 // Projects high-level MVR facts from the immutable Inspection Core snapshot.
@@ -894,20 +895,13 @@ void InspectorWorkspacePanel::ShowMvr(
   summary_->SetValue(text); PopulatePackage(resources); PopulateDiagnostics(result.inspection, result.validation);
 }
 
-// Switches only format-specific pages while retaining shared package and diagnostics views.
+// Updates format-specific availability without changing native notebook topology.
 void InspectorWorkspacePanel::ConfigureNavigation(bool gdtf) {
   configuringDetailsPage_ = true;
-  const int scenePage = navigation_->FindPage(scene_);
-  if (gdtf && scenePage != wxNOT_FOUND)
-    navigation_->RemovePage(static_cast<std::size_t>(scenePage));
-  else if (!gdtf && scenePage == wxNOT_FOUND)
-    navigation_->AddPage(scene_, _("Scene"));
-
-  const int detailsPage = notebook_->FindPage(gdtfDetails_);
-  if (gdtf && detailsPage == wxNOT_FOUND)
-    notebook_->InsertPage(1, gdtfDetails_, _("GDTF details"));
-  else if (!gdtf && detailsPage != wxNOT_FOUND)
-    notebook_->RemovePage(static_cast<std::size_t>(detailsPage));
+  scene_->Enable(!gdtf);
+  gdtfDetails_->SetAvailable(gdtf);
+  if (gdtf)
+    navigation_->ChangeSelection(0);
   summary_->SetName(gdtf ? _("GDTF summary") : _("MVR summary"));
   SelectDetailsPage(preferredDetailsPage_, gdtf);
   configuringDetailsPage_ = false;
@@ -935,7 +929,7 @@ void InspectorWorkspacePanel::SelectDetailsPage(InspectorDetailsPage page,
     target = diagnosticPage_;
   const int index = notebook_->FindPage(target);
   if (index != wxNOT_FOUND)
-    notebook_->SetSelection(static_cast<std::size_t>(index));
+    notebook_->ChangeSelection(static_cast<std::size_t>(index));
 }
 
 // Populates the safe hierarchical package projection.

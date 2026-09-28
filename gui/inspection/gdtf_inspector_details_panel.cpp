@@ -63,6 +63,23 @@ GdtfInspectorDetailsPanel::GdtfInspectorDetailsPanel(wxWindow *parent)
   BuildLayout();
 }
 
+// Clears all format-specific values without changing native page ownership.
+void GdtfInspectorDetailsPanel::ClearResult() {
+  overview_->SetValue(_("FixtureType metadata is unavailable."));
+  modeDocument_.reset();
+  modes_->Clear();
+  modeDetails_->SetValue(_("No DMX modes are available."));
+  wheels_->SetValue(_("No wheel or filter details are available."));
+  pages_->ChangeSelection(0);
+}
+
+// Enables GDTF details only while a GDTF source is displayed.
+void GdtfInspectorDetailsPanel::SetAvailable(bool available) {
+  if (!available)
+    ClearResult();
+  Enable(available);
+}
+
 // Builds focused read-only pages without editor sessions or mutation actions.
 void GdtfInspectorDetailsPanel::BuildLayout() {
   auto *root = new wxBoxSizer(wxVERTICAL);
@@ -93,6 +110,7 @@ void GdtfInspectorDetailsPanel::BuildLayout() {
 // Projects neutral Core detail models without reparsing or changing the GDTF.
 void GdtfInspectorDetailsPanel::SetResult(
     const perastage::inspection::GdtfInspectionResult &result) {
+  Enable(true);
   wxString overview;
   if (result.document) {
     const auto presentation =
@@ -195,7 +213,7 @@ int GdtfInspectorDetailsPanel::SelectedPage() const {
 // Restores a valid persisted GDTF detail page selection.
 void GdtfInspectorDetailsPanel::SetSelectedPage(int page) {
   if (page >= 0 && page < static_cast<int>(pages_->GetPageCount()))
-    pages_->SetSelection(page);
+    pages_->ChangeSelection(page);
 }
 
 } // namespace gui::inspection

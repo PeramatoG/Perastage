@@ -303,6 +303,16 @@ set_perastage_test_labels(InspectorNavigationDispatch
                           LAYER standard-strict
                           DOMAINS gui inspection)
 
+add_executable(inspector_notebook_topology_test
+               inspector_notebook_topology_test.cpp)
+target_link_libraries(inspector_notebook_topology_test
+                      PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME InspectorNotebookTopology
+         COMMAND inspector_notebook_topology_test)
+set_perastage_test_labels(InspectorNotebookTopology
+                          LAYER standard-strict
+                          DOMAINS gui inspection)
+
 add_executable(inspector_source_context_test
                inspector_source_context_test.cpp
                ../gui/inspection/inspector_source_context.cpp)
@@ -408,6 +418,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(GuiNoConfigManagerGet ${CMAKE_CURRENT_SOURCE_DIR}/check_no_configmanager_get_in_gui.sh)
     add_bash_policy_test(GuiInspectorBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_gui_inspector_boundary.sh LABELS standard-strict architecture gui inspection)
     add_bash_policy_test(InspectorNestedTransitionUi ${CMAKE_CURRENT_SOURCE_DIR}/check_inspector_nested_transition_ui.sh LABELS standard-strict architecture gui inspection)
+    add_bash_policy_test(InspectorNotebookTopologyPolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_inspector_notebook_topology.sh LABELS standard-strict architecture gui inspection)
     add_bash_policy_test(FixturePreviewGlContext ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_preview_gl_context.sh LABELS standard-strict architecture gui)
     add_bash_policy_test(LayoutViewerSelectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_selection_boundary.sh LABELS standard-strict architecture gui)
     add_bash_policy_test(MvrSceneNodeReaderBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_scene_node_reader_boundary.sh)
