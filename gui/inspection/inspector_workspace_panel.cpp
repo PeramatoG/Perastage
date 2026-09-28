@@ -668,7 +668,7 @@ void InspectorWorkspacePanel::InspectCurrentProject() {
     const auto input =
         CurrentProjectInspector(project_, preferences_).CaptureInput();
     sourceKind_ = SourceKind::CurrentProject;
-    parentContext_.reset(); back_->Hide();
+    parentContext_.reset(); SetBackNavigationVisible(false);
     const auto sourceGeneration = BeginSourceLoad(
         _("Source: Current project MVR"), _("Active project"));
     worker_->Submit(
@@ -716,7 +716,7 @@ void InspectorWorkspacePanel::OpenFile(const std::filesystem::path &path) {
     return;
   }
   try {
-    parentContext_.reset(); back_->Hide();
+    parentContext_.reset(); SetBackNavigationVisible(false);
     const auto sourceGeneration = BeginSourceLoad(
         wxString::Format(_("Source: %s"),
                          PathText(path).AfterLast(wxFILE_SEP_PATH)),
@@ -782,9 +782,16 @@ void InspectorWorkspacePanel::ClearResult() {
   previewPage_->Layout();
 }
 
+// Shows or hides parent navigation and immediately recomputes header geometry.
+void InspectorWorkspacePanel::SetBackNavigationVisible(bool visible) {
+  back_->Show(visible);
+  Layout();
+}
+
 // Invalidates old interactions and presents an immediate source-loading state.
 std::uint64_t InspectorWorkspacePanel::BeginSourceLoad(
     const wxString &identity, const wxString &sourceType) {
+  nestedTransition_.Cancel();
   worker_->Cancel(InspectorTaskDomain::Preview);
   const auto generation = requestCoordinator_.BeginSourceRequest();
   ClearResult();
@@ -794,6 +801,35 @@ std::uint64_t InspectorWorkspacePanel::BeginSourceLoad(
   sourceType_->SetLabel(sourceType);
   summary_->SetValue(_("Inspecting source..."));
   return generation;
+}
+
+// Starts transactional nested loading without clearing the committed parent UI.
+std::uint64_t InspectorWorkspacePanel::BeginNestedSourceLoad(
+    std::shared_ptr<const DisplayedPackageContext> parent) {
+  worker_->Cancel(InspectorTaskDomain::Preview);
+  const auto generation = requestCoordinator_.BeginRetainedSourceRequest();
+  nestedTransition_.Begin(std::move(parent), generation);
+  package_->Enable(false);
+  scene_->Enable(false);
+  previewModel_->ResetPreview();
+  previewImage_->Hide();
+  previewText_->Hide();
+  previewModel_->Hide();
+  previewStatus_->SetLabel(_("Opening embedded GDTF..."));
+  previewPage_->Layout();
+  return generation;
+}
+
+// Restores parent interaction after a current nested transition fails.
+void InspectorWorkspacePanel::FinishNestedSourceFailure(
+    const wxString &message) {
+  if (!nestedTransition_.IsPending())
+    return;
+  package_->Enable(true);
+  scene_->Enable(true);
+  previewStatus_->SetLabel(message);
+  nestedTransition_.Cancel();
+  SetBackNavigationVisible(false);
 }
 
 // Projects high-level GDTF facts without reparsing the retained XML.
@@ -1134,34 +1170,27 @@ void InspectorWorkspacePanel::OpenNestedGdtf(
         _("This embedded GDTF exceeds the Inspector open limit."));
     return;
   }
-  parentContext_ = parent;
-  const auto sourceGeneration = BeginSourceLoad(
-      wxString::Format(_("Embedded GDTF: %s"), FromUtf8(archivePath)),
-      _("Embedded in inspected MVR"));
+  const auto sourceGeneration = BeginNestedSourceLoad(parent);
   diagnostics::DiagnosticLogger::Info(
       "Inspector nested source generation started: " +
       std::to_string(sourceGeneration));
-  back_->Show();
-  worker_->Submit(
+  nestedTransition_.SetWorkerGeneration(worker_->Submit(
       [parent, archivePath, sourceGeneration,
        limit = decision.maxBytes](InspectorStopToken token)
           -> InspectorAsyncWorker::Payload {
         if (token.stop_requested())
           return InspectorAsyncWorker::Payload{};
-        auto resource = parent->packageBytes
-                            ? perastage::inspection::ReadPackageResource(
-                                  *parent->packageBytes,
-                                  perastage::inspection::PackageKind::Mvr,
-                                  archivePath, limit)
-                            : perastage::inspection::ReadPackageResource(
-                                  parent->filesystemPath,
-                                  perastage::inspection::PackageKind::Mvr,
-                                  archivePath, limit);
+        auto nested = parent->packageBytes
+                          ? perastage::inspection::InspectNestedGdtf(
+                                *parent->packageBytes, archivePath, limit,
+                                parent->mvr->inspection.request)
+                          : perastage::inspection::InspectNestedGdtf(
+                                parent->filesystemPath, archivePath, limit);
         auto payload = std::make_shared<WorkspaceAsyncResult>();
         payload->kind = WorkspaceAsyncResult::Kind::NestedGdtf;
         payload->sourceGeneration = sourceGeneration;
         payload->archivePath = archivePath;
-        if (!resource.Success()) {
+        if (!nested.resource.Success() || !nested.gdtf) {
           diagnostics::DiagnosticLogger::Warning(
               "Inspector nested GDTF resource read failed: " +
               diagnostics::DiagnosticLogger::FileNameOnly(archivePath));
@@ -1172,19 +1201,12 @@ void InspectorWorkspacePanel::OpenNestedGdtf(
             diagnostics::DiagnosticLogger::FileNameOnly(archivePath));
         payload->sourceBytes =
             std::make_shared<const std::vector<std::uint8_t>>(
-                std::move(resource.bytes));
+                std::move(nested.resource.bytes));
         if (token.stop_requested())
           return InspectorAsyncWorker::Payload{};
-        try {
-          payload->gdtf = std::make_shared<
-              const perastage::inspection::GdtfInspectionResult>(
-              perastage::inspection::InspectGdtf(*payload->sourceBytes));
-        } catch (...) {
-          diagnostics::DiagnosticLogger::Error(
-              "Inspector nested GDTF inspection threw: " +
-              diagnostics::DiagnosticLogger::FileNameOnly(archivePath));
-          throw;
-        }
+        payload->gdtf = std::make_shared<
+            const perastage::inspection::GdtfInspectionResult>(
+            std::move(*nested.gdtf));
         diagnostics::DiagnosticLogger::Info(
             std::string("Inspector nested GDTF inspection ") +
             (payload->gdtf && payload->gdtf->inspection.Success()
@@ -1200,7 +1222,7 @@ void InspectorWorkspacePanel::OpenNestedGdtf(
                   *payload->sourceBytes, *payload->gdtf->packageInventory,
                   4096));
         return payload;
-      });
+      }));
 }
 
 // Restores the retained parent MVR result without rebuilding its source.
@@ -1211,7 +1233,7 @@ void InspectorWorkspacePanel::ReturnToParentMvr() {
   const auto generation = requestCoordinator_.BeginSourceRequest();
   requestCoordinator_.PublishSource(generation, parent);
   parentContext_.reset();
-  back_->Hide();
+  SetBackNavigationVisible(false);
   if (sourceKind_ == SourceKind::CurrentProject) {
     identity_->SetLabel(_("Source: Current project MVR")); sourceType_->SetLabel(_("Active project"));
   } else {
@@ -1238,13 +1260,20 @@ void InspectorWorkspacePanel::HandleAsyncResult(
     if (preview)
       previewStatus_->SetLabel(
           _("The selected resource could not be previewed."));
+    else if (nestedTransition_.MatchesWorker(workerGeneration))
+      FinishNestedSourceFailure(
+          _("The embedded GDTF could not be inspected."));
     else
       summary_->SetValue(
           _("The source could not be inspected because of an unexpected error."));
     return;
   }
-  if (!completion.payload)
+  if (!completion.payload) {
+    if (!preview && nestedTransition_.MatchesWorker(workerGeneration))
+      FinishNestedSourceFailure(
+          _("The embedded GDTF could not be inspected."));
     return;
+  }
   const auto &result =
       static_cast<const WorkspaceAsyncResult &>(*completion.payload);
   if (result.kind == WorkspaceAsyncResult::Kind::ResourcePreview) {
@@ -1294,12 +1323,22 @@ void InspectorWorkspacePanel::HandleAsyncResult(
           "Inspector nested GDTF result rejected as stale.");
     return;
   }
+  if (result.kind == WorkspaceAsyncResult::Kind::NestedGdtf &&
+      !nestedTransition_.Matches(result.sourceGeneration)) {
+    diagnostics::DiagnosticLogger::Info(
+        "Inspector nested GDTF result rejected without a matching transition.");
+    return;
+  }
   if ((result.kind == WorkspaceAsyncResult::Kind::Mvr && !result.mvr) ||
       (result.kind != WorkspaceAsyncResult::Kind::Mvr && !result.gdtf)) {
-    if (result.kind == WorkspaceAsyncResult::Kind::NestedGdtf)
+    if (result.kind == WorkspaceAsyncResult::Kind::NestedGdtf) {
       diagnostics::DiagnosticLogger::Warning(
           "Inspector nested GDTF result accepted without a usable document.");
-    summary_->SetValue(_("The source could not be inspected."));
+      FinishNestedSourceFailure(
+          _("The embedded GDTF could not be inspected."));
+    } else {
+      summary_->SetValue(_("The source could not be inspected."));
+    }
     return;
   }
   auto context = std::make_shared<DisplayedPackageContext>();
@@ -1317,7 +1356,11 @@ void InspectorWorkspacePanel::HandleAsyncResult(
                            ? result.resources
                            : std::make_shared<const std::vector<
                                  perastage::inspection::ResourceDescriptor>>();
-  requestCoordinator_.PublishSource(result.sourceGeneration, context);
+  if (!requestCoordinator_.PublishSource(result.sourceGeneration, context)) {
+    diagnostics::DiagnosticLogger::Info(
+        "Inspector source result rejected during publication.");
+    return;
+  }
   if (result.kind == WorkspaceAsyncResult::Kind::Mvr && result.mvr) {
     ShowMvr(*result.mvr, *context);
     return;
@@ -1325,14 +1368,14 @@ void InspectorWorkspacePanel::HandleAsyncResult(
   if (result.kind == WorkspaceAsyncResult::Kind::NestedGdtf) {
     diagnostics::DiagnosticLogger::Info(
         "Inspector nested GDTF result accepted; presentation begins.");
-    identity_->SetLabel(wxString::Format(_("Embedded GDTF: %s"),
-                                         FromUtf8(result.archivePath)));
-    sourceType_->SetLabel(_("Embedded in inspected MVR"));
-    back_->Show();
+    parentContext_ = nestedTransition_.Commit();
   }
   ShowGdtf(*result.gdtf, *context);
   if (result.kind == WorkspaceAsyncResult::Kind::NestedGdtf) {
-    Layout();
+    identity_->SetLabel(wxString::Format(_("Embedded GDTF: %s"),
+                                         FromUtf8(result.archivePath)));
+    sourceType_->SetLabel(_("Embedded in inspected MVR"));
+    SetBackNavigationVisible(true);
     diagnostics::DiagnosticLogger::Info(
         "Inspector nested GDTF presentation completed.");
   }

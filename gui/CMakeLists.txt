@@ -67,6 +67,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_async_worker.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_navigation_dispatch.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_navigation_request.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_nested_transition.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/inspector_model_preview.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_preview_policy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_source_context.cpp

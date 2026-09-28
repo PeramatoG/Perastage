@@ -7,6 +7,7 @@
 #include "inspection/inspector_presentation.h"
 #include "inspection/inspector_async_worker.h"
 #include "inspection/inspector_source_context.h"
+#include "inspection/inspector_nested_transition.h"
 
 #include <filesystem>
 #include <optional>
@@ -57,6 +58,10 @@ private:
   void ClearResult();
   std::uint64_t BeginSourceLoad(const wxString &identity,
                                 const wxString &sourceType);
+  std::uint64_t BeginNestedSourceLoad(
+      std::shared_ptr<const DisplayedPackageContext> parent);
+  void FinishNestedSourceFailure(const wxString &message);
+  void SetBackNavigationVisible(bool visible);
   void ShowGdtf(const perastage::inspection::GdtfInspectionResult &result,
                 const DisplayedPackageContext &context);
   void ShowMvr(const perastage::inspection::MvrInspectionResult &result,
@@ -91,6 +96,7 @@ private:
   SourceKind sourceKind_ = SourceKind::None;
   InspectorRequestCoordinator requestCoordinator_;
   std::shared_ptr<const DisplayedPackageContext> parentContext_;
+  InspectorNestedTransition nestedTransition_;
   wxStaticText *identity_ = nullptr;
   wxStaticText *sourceType_ = nullptr;
   wxButton *back_ = nullptr;

@@ -40,7 +40,8 @@ struct InspectorPreviewTicket final {
 class InspectorRequestCoordinator final {
 public:
   std::uint64_t BeginSourceRequest();
-  void PublishSource(
+  std::uint64_t BeginRetainedSourceRequest();
+  bool PublishSource(
       std::uint64_t generation,
       std::shared_ptr<const DisplayedPackageContext> context);
   std::optional<InspectorPreviewTicket> BeginPreview(

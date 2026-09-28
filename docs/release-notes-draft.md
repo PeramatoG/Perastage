@@ -48,7 +48,10 @@ Changes since **v1.6.0**.
 
 - Prevented a Windows crash when activating an embedded GDTF by deferring the
   source transition until the package-tree activation callback has returned,
-  avoiding destructive model replacement during native event dispatch.
+  avoiding destructive model replacement during native event dispatch. Nested
+  inspection now keeps the parent MVR visible until the embedded document is
+  ready, restores parent interaction after failures, and lays out Back
+  navigation only after a successful transition.
 
 - Corrected GDTF inspection so the standard `FTPresets` section is no longer
   reported as unknown, while canonical publication now removes the known

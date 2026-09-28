@@ -256,6 +256,21 @@ set_perastage_test_labels(InspectorNavigationRequest
                           LAYER standard-strict
                           DOMAINS architecture gui inspection)
 
+add_executable(inspector_nested_transition_test
+               inspector_nested_transition_test.cpp
+               ../gui/inspection/inspector_nested_transition.cpp)
+target_include_directories(inspector_nested_transition_test
+                           PRIVATE ../core ../gui)
+target_link_libraries(inspector_nested_transition_test
+                      PRIVATE perastage_inspection_mvr
+                              perastage_inspection_gdtf
+                              perastage_inspection_resource)
+add_test(NAME InspectorNestedTransition
+         COMMAND inspector_nested_transition_test)
+set_perastage_test_labels(InspectorNestedTransition
+                          LAYER standard-strict
+                          DOMAINS architecture gui inspection threading)
+
 add_executable(inspector_xml_editor_test
                inspector_xml_editor_test.cpp
                ../gui/inspection/inspector_xml_editor.cpp)
