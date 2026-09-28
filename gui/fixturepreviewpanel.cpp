@@ -36,6 +36,7 @@
 #include <wx/wx.h>
 #include "fixturepreviewpanel.h"
 #include "preview_resource.h"
+#include "filesystem_path_utils.h"
 #include "loader3ds.h"
 #include "loaderglb.h"
 #include "../viewer_common/gl_canvas_config.h"
@@ -44,6 +45,7 @@
 #include <array>
 #include <algorithm>
 #include <cmath>
+#include <fstream>
 #include <utility>
 
 static constexpr float RENDER_SCALE = 0.001f;
@@ -245,6 +247,63 @@ void FixturePreviewPanel::LoadResource(const std::string& resourcePath)
                  kind == gui::PreviewResourceKind::ThreeDs)
             m_hasModel = LoadDirectModel(resourcePath);
     }
+    UpdateBoundsAndCamera();
+    Refresh();
+}
+
+// Materializes owned bytes only for the lifetime of this preview panel.
+bool FixturePreviewPanel::LoadOwnedResource(
+    const std::vector<unsigned char>& bytes, const std::string& archivePath)
+{
+    ResetPreview();
+    const auto kind = gui::GetPreviewResourceKind(archivePath);
+    const char* filename = kind == gui::PreviewResourceKind::Gdtf
+                               ? "preview.gdtf"
+                               : kind == gui::PreviewResourceKind::Glb
+                                     ? "preview.glb"
+                                     : kind == gui::PreviewResourceKind::ThreeDs
+                                           ? "preview.3ds"
+                                           : nullptr;
+    if (!filename)
+        return false;
+    m_previewWorkspace.emplace("inspector-preview", false);
+    if (!m_previewWorkspace->IsValid())
+        return false;
+    const auto path = m_previewWorkspace->Path() / filename;
+    std::ofstream output(path, std::ios::binary | std::ios::trunc);
+    output.write(reinterpret_cast<const char*>(bytes.data()),
+                 static_cast<std::streamsize>(bytes.size()));
+    output.close();
+    if (!output) {
+        m_previewWorkspace.reset();
+        return false;
+    }
+    LoadResource(PathUtils::PathToUtf8(path));
+    return m_hasModel;
+}
+
+// Applies prepared CPU geometry without parsing files or touching worker state.
+bool FixturePreviewPanel::ApplyPreparedMesh(Mesh mesh)
+{
+    ResetPreview();
+    if (mesh.vertices.empty() || mesh.indices.empty())
+        return false;
+    GdtfObject object;
+    object.mesh = std::move(mesh);
+    object.transform = Matrix{};
+    m_objects.push_back(std::move(object));
+    m_hasModel = true;
+    UpdateBoundsAndCamera();
+    Refresh();
+    return true;
+}
+
+// Removes all previous geometry before a replacement load can fail.
+void FixturePreviewPanel::ResetPreview()
+{
+    m_objects.clear();
+    m_hasModel = false;
+    m_previewWorkspace.reset();
     UpdateBoundsAndCamera();
     Refresh();
 }

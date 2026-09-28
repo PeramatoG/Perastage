@@ -146,16 +146,11 @@ static bool FixtureNeedsPhysicalGdtfPatch(const Fixture &fixture,
   }
   return needsPatch;
 }
-enum class TrussGeometryAuthority {
-  MvrGeometry = 0,
-  Gdtf = 1,
-};
-
-static TrussGeometryAuthority GetTrussGeometryAuthoritySetting() {
+static MvrTrussGeometryAuthority GetTrussGeometryAuthoritySetting() {
   const float rawValue =
       ConfigManager::Get().GetFloat("mvr_truss_geometry_authority");
-  return rawValue >= 0.5f ? TrussGeometryAuthority::Gdtf
-                          : TrussGeometryAuthority::MvrGeometry;
+  return rawValue >= 0.5f ? MvrTrussGeometryAuthority::Gdtf
+                          : MvrTrussGeometryAuthority::MvrGeometry;
 }
 
 static std::string TrimAscii(std::string value) {
@@ -1526,8 +1521,10 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   if (!preparation.success)
     return false;
   const MvrScene &scene = preparation.scene;
-  const TrussGeometryAuthority trussGeometryAuthority =
-      GetTrussGeometryAuthoritySetting();
+  const MvrTrussGeometryAuthority trussGeometryAuthority =
+      options.trussGeometryAuthority
+          ? *options.trussGeometryAuthority
+          : GetTrussGeometryAuthoritySetting();
   std::unordered_set<std::string> usedSymbolUuids;
   std::unordered_map<std::string, std::string> physicalPatchArchiveByKey;
   std::unordered_map<std::string, mvr_export_resources::GdtfRewriteRequest>
@@ -2068,7 +2065,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
           t.sourceRepresentation == Truss::GeometryRepresentation::Geometry3D;
       if (trussSourceGdtf.empty() &&
           (!importedFromMvrGeometry ||
-           trussGeometryAuthority == TrussGeometryAuthority::Gdtf)) {
+           trussGeometryAuthority == MvrTrussGeometryAuthority::Gdtf)) {
         auto trussWorkspace = CreateExportWorkspace("mvr-export-truss");
         fs::path tempPath = trussWorkspace.IsValid()
                                 ? trussWorkspace.Path() / ((t.uuid.empty() ? std::string("truss") : t.uuid) + ".gdtf")
@@ -2082,7 +2079,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
           resourceCollection.AdoptWorkspace(std::move(trussWorkspace));
         } else {
           const bool required = trussGeometryAuthority ==
-                                TrussGeometryAuthority::Gdtf;
+                                MvrTrussGeometryAuthority::Gdtf;
           AddDiagnostic({MvrExportDiagnosticCode::TrussGdtfMissing,
                          required ? MvrExportDiagnosticSeverity::Error
                                   : MvrExportDiagnosticSeverity::Warning,
@@ -2129,7 +2126,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
         t.parentGroupUuid.empty() ? t.transform : t.localTransform;
     values.position = resolveObjectPosition(t.uuid);
 
-    if (trussGeometryAuthority == TrussGeometryAuthority::MvrGeometry) {
+    if (trussGeometryAuthority == MvrTrussGeometryAuthority::MvrGeometry) {
       if (t.sourceRepresentation ==
               Truss::GeometryRepresentation::SymbolSymdef &&
           !t.sourceSymdefUuid.empty()) {

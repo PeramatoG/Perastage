@@ -5,9 +5,12 @@
 #include "inspection/mvr_inspection.h"
 #include "inspection/resource_inspection.h"
 #include "inspection/inspector_presentation.h"
+#include "inspection/inspector_async_worker.h"
+#include "inspection/inspector_source_context.h"
 
 #include <filesystem>
 #include <optional>
+#include <memory>
 #include <vector>
 
 #include <wx/panel.h>
@@ -15,15 +18,18 @@
 class IGuiPreferencesService;
 class IGuiProjectSessionService;
 class wxButton;
+class wxStaticBitmap;
 class wxDataViewEvent;
 class wxDataViewCtrl;
 class wxDataViewModel;
-class wxDataViewTreeCtrl;
 class wxListCtrl;
 class wxNotebook;
+class wxSplitterWindow;
 class wxStaticText;
 class wxStyledTextCtrl;
 class wxTextCtrl;
+class FixturePreviewPanel;
+class GdtfResourceBitmapCache;
 
 namespace gui::inspection {
 
@@ -49,9 +55,12 @@ private:
   void RefreshSource();
   void InspectCurrentProject();
   void ClearResult();
+  std::uint64_t BeginSourceLoad(const wxString &identity,
+                                const wxString &sourceType);
   void ShowGdtf(const perastage::inspection::GdtfInspectionResult &result,
-                const std::vector<std::uint8_t> *packageBytes = nullptr);
-  void ShowMvr(const perastage::inspection::MvrInspectionResult &result);
+                const DisplayedPackageContext &context);
+  void ShowMvr(const perastage::inspection::MvrInspectionResult &result,
+               const DisplayedPackageContext &context);
   void PopulatePackage(
       const std::vector<perastage::inspection::ResourceDescriptor> &resources);
   void PopulateScene(
@@ -63,20 +72,24 @@ private:
   InspectorDetailsPage CurrentDetailsPage() const;
   void SelectDetailsPage(InspectorDetailsPage page, bool gdtf);
   void SetXml(const std::string &xml);
+  void LoadCompleteXml();
   void FindXml(bool forward);
   void ShowPackageContextMenu(wxDataViewEvent &event);
   void ActivatePackageEntry(wxDataViewEvent &event);
-  void OpenNestedGdtf(const std::string &archivePath, std::uint64_t size);
+  void RequestResourcePreview(wxDataViewEvent &event);
+  void OpenNestedGdtf(const std::string &archivePath, bool sizeKnown,
+                      std::uint64_t size);
   void ReturnToParentMvr();
   void CopySelectedDiagnostic();
   void CopyAllXml();
+  void HandleAsyncResult(bool preview, std::uint64_t workerGeneration,
+                         InspectorAsyncWorker::Result result);
 
   IGuiPreferencesService &preferences_;
   const IGuiProjectSessionService &project_;
   SourceKind sourceKind_ = SourceKind::None;
-  std::filesystem::path externalPath_;
-  std::vector<std::uint8_t> retainedMvrBytes_;
-  std::optional<perastage::inspection::MvrInspectionResult> parentMvr_;
+  InspectorRequestCoordinator requestCoordinator_;
+  std::shared_ptr<const DisplayedPackageContext> parentContext_;
   wxStaticText *identity_ = nullptr;
   wxStaticText *sourceType_ = nullptr;
   wxButton *back_ = nullptr;
@@ -86,15 +99,31 @@ private:
   GdtfInspectorDetailsPanel *gdtfDetails_ = nullptr;
   wxTextCtrl *issues_ = nullptr;
   wxPanel *diagnosticPage_ = nullptr;
+  wxPanel *previewPage_ = nullptr;
+  wxStaticText *previewStatus_ = nullptr;
+  wxStaticBitmap *previewImage_ = nullptr;
+  wxTextCtrl *previewText_ = nullptr;
+  FixturePreviewPanel *previewModel_ = nullptr;
+  std::unique_ptr<GdtfResourceBitmapCache> previewBitmapCache_;
   wxDataViewCtrl *package_ = nullptr;
   wxDataViewModel *packageModel_ = nullptr;
-  wxDataViewTreeCtrl *scene_ = nullptr;
+  wxDataViewCtrl *scene_ = nullptr;
+  wxDataViewModel *sceneModel_ = nullptr;
+  wxSplitterWindow *navigationSplitter_ = nullptr;
+  wxSplitterWindow *detailsSplitter_ = nullptr;
   wxListCtrl *diagnostics_ = nullptr;
   wxTextCtrl *search_ = nullptr;
   wxStyledTextCtrl *xml_ = nullptr;
+  wxStaticText *xmlStatus_ = nullptr;
+  wxButton *loadCompleteXml_ = nullptr;
+  std::string exactXml_;
   std::vector<perastage::inspection::Diagnostic> diagnosticRows_;
   InspectorDetailsPage preferredDetailsPage_ = InspectorDetailsPage::Summary;
   bool configuringDetailsPage_ = false;
+  double navigationRatio_ = 0.25;
+  double detailsRatio_ = 0.66;
+  bool splitterRatiosApplied_ = false;
+  std::unique_ptr<InspectorAsyncWorker> worker_;
 };
 
 } // namespace gui::inspection

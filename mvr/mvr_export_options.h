@@ -17,15 +17,24 @@
  */
 #pragma once
 
+#include <optional>
+
 // Selects how truss geometry references are serialized during MVR export.
 enum class MvrTrussGeometryExportMode {
   Standard = 0,
   DirectGeometry3DForTrussSymbols = 1,
 };
 
+// Selects whether authored MVR or GDTF geometry is authoritative for trusses.
+enum class MvrTrussGeometryAuthority {
+  MvrGeometry = 0,
+  Gdtf = 1,
+};
+
 // Carries caller-selected MVR export behavior without depending on GUI classes.
 struct MvrExportOptions {
   MvrTrussGeometryExportMode trussGeometryExportMode = MvrTrussGeometryExportMode::Standard;
+  std::optional<MvrTrussGeometryAuthority> trussGeometryAuthority;
 };
 
 // Returns the single canonical policy used by project and interchange serialization.

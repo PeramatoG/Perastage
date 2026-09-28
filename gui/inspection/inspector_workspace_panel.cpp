@@ -5,8 +5,12 @@
 #include "inspection/inspection_report_aggregation.h"
 #include "inspection/gdtf_inspector_details_panel.h"
 #include "inspection/inspector_presentation.h"
+#include "inspection/inspector_preview_policy.h"
+#include "gdtf/inspector_model_preview.h"
 #include "inspector_project_source.h"
 #include "inspection/nested_gdtf_inspection.h"
+#include "fixturepreviewpanel.h"
+#include "gdtf/gdtf_resource_bitmap_cache.h"
 #include "wx_path_utils.h"
 
 #include <algorithm>
@@ -14,6 +18,7 @@
 #include <cctype>
 #include <charconv>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <tuple>
 
@@ -28,18 +33,55 @@
 #include <wx/notebook.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
+#include <wx/statbmp.h>
+#include <wx/splitter.h>
 #include <wx/stc/stc.h>
 #include <wx/settings.h>
 #include <wx/textctrl.h>
+#include <wx/thread.h>
+
+wxDEFINE_EVENT(wxEVT_INSPECTOR_ASYNC_RESULT, wxThreadEvent);
 
 namespace gui::inspection {
 namespace {
 
 constexpr char kPageKey[] = "inspector_workspace_details_page";
 constexpr char kGdtfPageKey[] = "inspector_workspace_gdtf_page";
+constexpr char kNavigationRatioKey[] = "inspector_workspace_navigation_ratio";
+constexpr char kDetailsRatioKey[] = "inspector_workspace_details_ratio";
 constexpr int kXmlLineNumberMargin = 0;
 constexpr int kXmlFoldMargin = 1;
-constexpr std::uint64_t kNestedGdtfLimit = 512U * 1024U * 1024U;
+constexpr char kUuidColumnLabel[] = "UUID";
+
+// Owns one immutable background inspection result until the GUI accepts it.
+struct WorkspaceAsyncResult final : InspectorAsyncPayload {
+  enum class Kind { Mvr, Gdtf, NestedGdtf, ResourcePreview };
+  Kind kind = Kind::Mvr;
+  std::shared_ptr<const perastage::inspection::MvrInspectionResult> mvr;
+  std::shared_ptr<const perastage::inspection::GdtfInspectionResult> gdtf;
+  ImmutablePackageBytes sourceBytes;
+  std::filesystem::path filesystemPath;
+  std::string archivePath;
+  std::optional<perastage::inspection::ResourceReadResult> resource;
+  std::optional<perastage::inspection::TextPreviewResult> textPreview;
+  perastage::inspection::ResourceKind resourceKind =
+      perastage::inspection::ResourceKind::Binary;
+  std::string sourceFingerprint;
+  std::shared_ptr<const std::vector<perastage::inspection::ResourceDescriptor>>
+      resources;
+  std::uint64_t sourceGeneration = 0;
+  std::optional<InspectorPreviewTicket> previewTicket;
+  // Allows one GUI-thread move into the renderer without copying large geometry.
+  mutable std::optional<Mesh> preparedModel;
+  std::string previewError;
+};
+
+// Carries a full-width generation through the wx event queue.
+struct WorkspaceAsyncEvent {
+  bool preview = false;
+  std::uint64_t workerGeneration = 0;
+  InspectorAsyncWorker::Result result;
+};
 
 wxString FromUtf8(const std::string &value);
 
@@ -129,16 +171,106 @@ private:
     }
   }
 
-  // Reconstructs the minimal descriptor needed by the existing label mapper.
+public:
+  // Reconstructs the minimal descriptor needed by presentation and preview.
   static perastage::inspection::ResourceDescriptor
   Descriptor(const PackageTreeNode &node) {
     perastage::inspection::ResourceDescriptor descriptor;
     descriptor.entryType = node.entryType;
     descriptor.kind = node.resourceKind;
+    descriptor.displayPath = node.archivePath;
+    descriptor.size = node.size;
+    descriptor.sizeKnown = node.sizeKnown;
+    descriptor.pathSafe = node.pathSafe;
+    descriptor.rawReadSupported = node.rawReadSupported;
+    descriptor.textPreviewSupported = node.textPreviewSupported;
     return descriptor;
   }
 
+private:
   // Resolves one valid native item to its owned node.
+  static const ViewNode &Node(const wxDataViewItem &item) {
+    return *static_cast<const ViewNode *>(item.GetID());
+  }
+
+  std::vector<std::unique_ptr<ViewNode>> roots_;
+};
+
+// Adapts the neutral scene topology to a lazy native Name/Type/UUID model.
+class SceneDataViewModel final : public wxDataViewModel {
+public:
+  explicit SceneDataViewModel(std::vector<SceneTreeNode> roots) {
+    Build(nullptr, std::move(roots), roots_);
+  }
+
+  // Returns the three explicit scene identity columns.
+  unsigned int GetColumnCount() const override { return 3; }
+
+  // Returns the string type shared by the scene columns.
+  wxString GetColumnType(unsigned int) const override { return "string"; }
+
+  // Supplies authored scene identity without deriving type from display text.
+  void GetValue(wxVariant &value, const wxDataViewItem &item,
+                unsigned int column) const override {
+    const auto &node = Node(item).value;
+    if (column == 0) {
+      wxString name = FromUtf8(node.name.empty() ? node.kind : node.name);
+      if (node.unresolved)
+        name << ' ' << _("(unresolved parent)");
+      value = name;
+    }
+    else if (column == 1)
+      value = FromUtf8(node.kind);
+    else
+      value = FromUtf8(node.uuid);
+  }
+
+  // Rejects all scene edits.
+  bool SetValue(const wxVariant &, const wxDataViewItem &,
+                unsigned int) override { return false; }
+
+  // Returns the authored parent or the invisible model root.
+  wxDataViewItem GetParent(const wxDataViewItem &item) const override {
+    return item.IsOk() && Node(item).parent
+               ? wxDataViewItem(Node(item).parent)
+               : wxDataViewItem{};
+  }
+
+  // Reports whether a scene node owns child topology.
+  bool IsContainer(const wxDataViewItem &item) const override {
+    return !item.IsOk() || !Node(item).children.empty();
+  }
+
+  // Materializes only the requested sibling range in the native control.
+  unsigned int GetChildren(const wxDataViewItem &parent,
+                           wxDataViewItemArray &children) const override {
+    const auto &source = parent.IsOk() ? Node(parent).children : roots_;
+    for (const auto &child : source)
+      children.Add(wxDataViewItem(child.get()));
+    return static_cast<unsigned int>(source.size());
+  }
+
+private:
+  struct ViewNode {
+    SceneTreeNode value;
+    ViewNode *parent = nullptr;
+    std::vector<std::unique_ptr<ViewNode>> children;
+  };
+
+  // Recursively owns neutral nodes without creating native tree items.
+  static void Build(ViewNode *parent, std::vector<SceneTreeNode> values,
+                    std::vector<std::unique_ptr<ViewNode>> &destination) {
+    for (auto &value : values) {
+      auto node = std::make_unique<ViewNode>();
+      auto children = std::move(value.children);
+      node->value = std::move(value);
+      node->parent = parent;
+      Build(node.get(), std::move(children), node->children);
+      destination.push_back(std::move(node));
+    }
+  }
+
+  // Resolves a valid native item to its stable owned node.
   static const ViewNode &Node(const wxDataViewItem &item) {
     return *static_cast<const ViewNode *>(item.GetID());
   }
@@ -271,19 +403,6 @@ void AppendCommonSummary(
   }
 }
 
-// Adds scene nodes recursively from the neutral presentation tree.
-void AppendSceneNodes(wxDataViewTreeCtrl &tree, const wxDataViewItem &parent,
-                      const std::vector<SceneTreeNode> &nodes) {
-  for (const auto &node : nodes) {
-    wxString label = FromUtf8(node.name.empty() ? node.kind : node.name);
-    if (!node.uuid.empty()) label << "  [" << FromUtf8(node.uuid) << ']';
-    if (node.unresolved) label << ' ' << _("(unresolved parent)");
-    const auto item = node.children.empty() ? tree.AppendItem(parent, label)
-                                           : tree.AppendContainer(parent, label);
-    AppendSceneNodes(tree, item, node.children);
-  }
-}
-
 // Configures theme-aware XML syntax presentation and folding.
 void ConfigureXmlEditor(wxStyledTextCtrl &editor) {
   const wxColour foreground = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
@@ -328,10 +447,28 @@ InspectorWorkspacePanel::InspectorWorkspacePanel(
     : wxPanel(parent, wxID_ANY), preferences_(preferences), project_(project) {
   BuildLayout();
   RestoreLayout();
+  Bind(wxEVT_INSPECTOR_ASYNC_RESULT, [this](wxThreadEvent &event) {
+    auto result = event.GetPayload<WorkspaceAsyncEvent>();
+    HandleAsyncResult(result.preview, result.workerGeneration,
+                      std::move(result.result));
+  });
+  worker_ = std::make_unique<InspectorAsyncWorker>(
+      [this](InspectorTaskDomain domain, std::uint64_t generation,
+             InspectorAsyncWorker::Result result) {
+        auto *event = new wxThreadEvent(wxEVT_INSPECTOR_ASYNC_RESULT);
+        event->SetPayload(WorkspaceAsyncEvent{
+            domain == InspectorTaskDomain::Preview, generation,
+            std::move(result)});
+        wxQueueEvent(this, event);
+      });
 }
 
 // Persists useful workspace state without retaining inspected content.
-InspectorWorkspacePanel::~InspectorWorkspacePanel() { SaveLayout(); }
+InspectorWorkspacePanel::~InspectorWorkspacePanel() {
+  worker_.reset();
+  DeletePendingEvents();
+  SaveLayout();
+}
 
 // Lazily inspects the active project the first time the workspace is opened.
 void InspectorWorkspacePanel::Activate() {
@@ -353,8 +490,11 @@ void InspectorWorkspacePanel::BuildLayout() {
   header->Add(back_, 0, wxRIGHT, 8); header->Add(identityBox, 1, wxALIGN_CENTER_VERTICAL);
   back_->Hide(); root->Add(header, 0, wxEXPAND | wxALL, 8);
 
-  auto *workspace = new wxBoxSizer(wxHORIZONTAL);
-  navigation_ = new wxNotebook(this, wxID_ANY);
+  navigationSplitter_ = new wxSplitterWindow(
+      this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+      wxSP_LIVE_UPDATE | wxSP_3D);
+  navigationSplitter_->SetMinimumPaneSize(FromDIP(150));
+  navigation_ = new wxNotebook(navigationSplitter_, wxID_ANY);
   package_ = new wxDataViewCtrl(navigation_, wxID_ANY, wxDefaultPosition,
                                 wxDefaultSize, wxDV_SINGLE);
   package_->AppendTextColumn(_("Path"), 0, wxDATAVIEW_CELL_INERT, 220);
@@ -362,27 +502,40 @@ void InspectorWorkspacePanel::BuildLayout() {
   package_->AppendTextColumn(_("Resource kind"), 2, wxDATAVIEW_CELL_INERT, 100);
   package_->AppendTextColumn(_("Size"), 3, wxDATAVIEW_CELL_INERT, 80, wxALIGN_RIGHT);
   package_->AppendTextColumn(_("Availability"), 4, wxDATAVIEW_CELL_INERT, 90);
-  scene_ = new wxDataViewTreeCtrl(navigation_, wxID_ANY, wxDefaultPosition,
-                                  wxDefaultSize, wxDV_SINGLE);
+  scene_ = new wxDataViewCtrl(navigation_, wxID_ANY, wxDefaultPosition,
+                              wxDefaultSize, wxDV_SINGLE);
+  scene_->AppendTextColumn(_("Name"), 0, wxDATAVIEW_CELL_INERT, 200);
+  scene_->AppendTextColumn(_("Type"), 1, wxDATAVIEW_CELL_INERT, 110);
+  scene_->AppendTextColumn(FromUtf8(kUuidColumnLabel), 2,
+                           wxDATAVIEW_CELL_INERT, 230);
   navigation_->AddPage(package_, _("Package"));
   navigation_->AddPage(scene_, _("Scene"));
-  workspace->Add(navigation_, 1, wxEXPAND | wxRIGHT, 8);
-
+  detailsSplitter_ = new wxSplitterWindow(
+      navigationSplitter_, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+      wxSP_LIVE_UPDATE | wxSP_3D);
+  detailsSplitter_->SetMinimumPaneSize(FromDIP(180));
+  auto *xmlPanel = new wxPanel(detailsSplitter_);
   auto *xmlColumn = new wxBoxSizer(wxVERTICAL);
   auto *findRow = new wxBoxSizer(wxHORIZONTAL);
-  search_ = new wxTextCtrl(this, wxID_ANY, {}, wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
-  auto *previous = new wxButton(this, wxID_ANY, _("Find previous"));
-  auto *next = new wxButton(this, wxID_ANY, _("Find next"));
-  auto *copyAll = new wxButton(this, wxID_ANY, _("Copy all"));
-  findRow->Add(new wxStaticText(this, wxID_ANY, _("Find:")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+  search_ = new wxTextCtrl(xmlPanel, wxID_ANY, {}, wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
+  auto *previous = new wxButton(xmlPanel, wxID_ANY, _("Find previous"));
+  auto *next = new wxButton(xmlPanel, wxID_ANY, _("Find next"));
+  auto *copyAll = new wxButton(xmlPanel, wxID_ANY, _("Copy all"));
+  loadCompleteXml_ = new wxButton(xmlPanel, wxID_ANY, _("Load complete XML"));
+  xmlStatus_ = new wxStaticText(xmlPanel, wxID_ANY, {});
+  findRow->Add(new wxStaticText(xmlPanel, wxID_ANY, _("Find:")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   findRow->Add(search_, 1, wxRIGHT, 5); findRow->Add(previous, 0, wxRIGHT, 5);
-  findRow->Add(next, 0, wxRIGHT, 5); findRow->Add(copyAll);
-  xml_ = new wxStyledTextCtrl(this, wxID_ANY);
+  findRow->Add(next, 0, wxRIGHT, 5); findRow->Add(copyAll, 0, wxRIGHT, 5);
+  findRow->Add(loadCompleteXml_);
+  xml_ = new wxStyledTextCtrl(xmlPanel, wxID_ANY);
   ConfigureXmlEditor(*xml_);
-  xmlColumn->Add(findRow, 0, wxEXPAND | wxBOTTOM, 6); xmlColumn->Add(xml_, 1, wxEXPAND);
-  workspace->Add(xmlColumn, 2, wxEXPAND | wxRIGHT, 8);
+  xmlColumn->Add(findRow, 0, wxEXPAND | wxBOTTOM, 6);
+  xmlColumn->Add(xmlStatus_, 0, wxEXPAND | wxBOTTOM, 4);
+  xmlColumn->Add(xml_, 1, wxEXPAND);
+  loadCompleteXml_->Hide();
+  xmlPanel->SetSizer(xmlColumn);
 
-  notebook_ = new wxNotebook(this, wxID_ANY);
+  notebook_ = new wxNotebook(detailsSplitter_, wxID_ANY);
   summary_ = new wxTextCtrl(notebook_, wxID_ANY, {}, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
   gdtfDetails_ = new GdtfInspectorDetailsPanel(notebook_);
   issues_ = new wxTextCtrl(notebook_, wxID_ANY, {}, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
@@ -401,19 +554,56 @@ void InspectorWorkspacePanel::BuildLayout() {
   auto *copyDiagnostic = new wxButton(diagnosticPage_, wxID_ANY, _("Copy diagnostic"));
   diagnosticSizer->Add(diagnostics_, 1, wxEXPAND | wxBOTTOM, 6); diagnosticSizer->Add(copyDiagnostic, 0, wxALIGN_RIGHT);
   diagnosticPage_->SetSizer(diagnosticSizer); notebook_->AddPage(diagnosticPage_, _("Diagnostics"));
-  workspace->Add(notebook_, 1, wxEXPAND);
-  root->Add(workspace, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8); SetSizer(root);
+  previewPage_ = new wxPanel(notebook_);
+  auto *previewSizer = new wxBoxSizer(wxVERTICAL);
+  previewStatus_ = new wxStaticText(previewPage_, wxID_ANY,
+                                    _("Select a package resource to preview it."));
+  previewImage_ = new wxStaticBitmap(previewPage_, wxID_ANY, wxNullBitmap);
+  previewText_ = new wxTextCtrl(previewPage_, wxID_ANY, {}, wxDefaultPosition,
+                                wxDefaultSize,
+                                wxTE_MULTILINE | wxTE_READONLY);
+  previewModel_ = new FixturePreviewPanel(previewPage_);
+  previewSizer->Add(previewStatus_, 0, wxEXPAND | wxALL, 6);
+  previewSizer->Add(previewImage_, 1, wxEXPAND | wxALL, 6);
+  previewSizer->Add(previewText_, 1, wxEXPAND | wxALL, 6);
+  previewSizer->Add(previewModel_, 1, wxEXPAND | wxALL, 6);
+  previewImage_->Hide(); previewText_->Hide(); previewModel_->Hide();
+  previewPage_->SetSizer(previewSizer);
+  notebook_->AddPage(previewPage_, _("Preview"));
+  previewBitmapCache_ = std::make_unique<GdtfResourceBitmapCache>(
+      kInspectorImageCacheBytes);
+  detailsSplitter_->SplitVertically(xmlPanel, notebook_);
+  navigationSplitter_->SplitVertically(navigation_, detailsSplitter_);
+  root->Add(navigationSplitter_, 1,
+            wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
+  SetSizer(root);
+
+  Bind(wxEVT_SIZE, [this](wxSizeEvent &event) {
+    if (!splitterRatiosApplied_ && navigationSplitter_->GetClientSize().x > 0 &&
+        detailsSplitter_->GetClientSize().x > 0) {
+      navigationSplitter_->SetSashPosition(static_cast<int>(
+          navigationSplitter_->GetClientSize().x * navigationRatio_));
+      detailsSplitter_->SetSashPosition(static_cast<int>(
+          detailsSplitter_->GetClientSize().x * detailsRatio_));
+      splitterRatiosApplied_ = true;
+    }
+    event.Skip();
+  });
 
   refresh->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { RefreshSource(); });
   open->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { ChooseFile(); });
   back_->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { ReturnToParentMvr(); });
   package_->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &InspectorWorkspacePanel::ShowPackageContextMenu, this);
   package_->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &InspectorWorkspacePanel::ActivatePackageEntry, this);
+  package_->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
+                 &InspectorWorkspacePanel::RequestResourcePreview, this);
   copyDiagnostic->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { CopySelectedDiagnostic(); });
   previous->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { FindXml(false); });
   next->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { FindXml(true); });
   search_->Bind(wxEVT_TEXT_ENTER, [this](wxCommandEvent &) { FindXml(true); });
   copyAll->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { CopyAllXml(); });
+  loadCompleteXml_->Bind(wxEVT_BUTTON,
+                         [this](wxCommandEvent &) { LoadCompleteXml(); });
   xml_->Bind(wxEVT_STC_MARGINCLICK, [this](wxStyledTextEvent &event) {
     if (event.GetMargin() == kXmlFoldMargin)
       xml_->ToggleFold(xml_->LineFromPosition(event.GetPosition()));
@@ -431,6 +621,10 @@ void InspectorWorkspacePanel::RestoreLayout() {
       preferences_.GetValue(kPageKey).value_or("summary"));
   gdtfDetails_->SetSelectedPage(
       ReadInt(preferences_, kGdtfPageKey, 0, 0, 2));
+  navigationRatio_ = ParseSplitterRatio(
+      preferences_.GetValue(kNavigationRatioKey), 0.25);
+  detailsRatio_ =
+      ParseSplitterRatio(preferences_.GetValue(kDetailsRatioKey), 0.66);
 }
 
 // Saves only the selected details page for the next workspace activation.
@@ -439,6 +633,18 @@ void InspectorWorkspacePanel::SaveLayout() const {
                         InspectorDetailsPageToken(preferredDetailsPage_));
   preferences_.SetValue(kGdtfPageKey,
                         std::to_string(gdtfDetails_->SelectedPage()));
+  if (navigationSplitter_->GetClientSize().x >= FromDIP(300))
+    preferences_.SetValue(
+        kNavigationRatioKey,
+        FormatSplitterRatio(static_cast<double>(
+                                navigationSplitter_->GetSashPosition()) /
+                            navigationSplitter_->GetClientSize().x));
+  if (detailsSplitter_->GetClientSize().x >= FromDIP(360))
+    preferences_.SetValue(
+        kDetailsRatioKey,
+        FormatSplitterRatio(static_cast<double>(
+                                detailsSplitter_->GetSashPosition()) /
+                            detailsSplitter_->GetClientSize().x));
   preferences_.SaveUserConfig();
 }
 
@@ -454,24 +660,50 @@ void InspectorWorkspacePanel::ChooseFile() {
 void InspectorWorkspacePanel::RefreshSource() {
   if (sourceKind_ == SourceKind::CurrentProject || sourceKind_ == SourceKind::None)
     InspectCurrentProject();
-  else
-    OpenFile(externalPath_);
+  else if (const auto context = parentContext_
+                                    ? parentContext_
+                                    : requestCoordinator_.DisplayedContext())
+    OpenFile(context->filesystemPath);
 }
 
 // Captures and retains exactly one canonical current-project MVR snapshot.
 void InspectorWorkspacePanel::InspectCurrentProject() {
   try {
-    const auto captured = CurrentProjectInspector(project_).Capture();
-    if (!captured) {
-      wxMessageBox(_("The current project could not be exported as a canonical MVR snapshot."),
-                   _("MVR / GDTF Inspector"), wxOK | wxICON_ERROR, this);
-      return;
-    }
+    const auto input =
+        CurrentProjectInspector(project_, preferences_).CaptureInput();
     sourceKind_ = SourceKind::CurrentProject;
-    externalPath_.clear(); retainedMvrBytes_ = captured->bytes;
-    parentMvr_.reset(); identity_->SetLabel(_("Source: Current project MVR"));
-    sourceType_->SetLabel(_("Active project")); back_->Hide();
-    ShowMvr(captured->result);
+    parentContext_.reset(); back_->Hide();
+    const auto sourceGeneration = BeginSourceLoad(
+        _("Source: Current project MVR"), _("Active project"));
+    worker_->Submit(
+        [input, sourceGeneration](InspectorStopToken token)
+            -> InspectorAsyncWorker::Payload {
+          if (token.stop_requested())
+            return InspectorAsyncWorker::Payload{};
+          auto serialized = CurrentProjectInspector::Serialize(input);
+          if (!serialized)
+            throw std::runtime_error(
+                "Canonical current-project serialization failed.");
+          auto bytes = std::make_shared<const std::vector<std::uint8_t>>(
+              std::move(*serialized));
+          if (token.stop_requested())
+            return InspectorAsyncWorker::Payload{};
+          auto payload = std::make_shared<WorkspaceAsyncResult>();
+          payload->kind = WorkspaceAsyncResult::Kind::Mvr;
+          payload->sourceBytes = bytes;
+          payload->sourceGeneration = sourceGeneration;
+          payload->mvr = std::make_shared<const perastage::inspection::MvrInspectionResult>(
+              perastage::inspection::InspectMvrBytes(*bytes));
+          if (token.stop_requested())
+            return InspectorAsyncWorker::Payload{};
+          if (payload->mvr->packageInventory) {
+            payload->resources = std::make_shared<const std::vector<
+                perastage::inspection::ResourceDescriptor>>(
+                perastage::inspection::DescribePackageResources(
+                    *bytes, *payload->mvr->packageInventory, 4096));
+          }
+          return payload;
+        });
   } catch (const std::exception &error) {
     diagnostics::DiagnosticLogger::Error(std::string("Inspector snapshot failed unexpectedly: ") + error.what());
     wxMessageBox(_("The current project could not be inspected because of an unexpected error."),
@@ -488,14 +720,43 @@ void InspectorWorkspacePanel::OpenFile(const std::filesystem::path &path) {
     return;
   }
   try {
-    externalPath_ = path; retainedMvrBytes_.clear(); parentMvr_.reset(); back_->Hide();
-    identity_->SetLabel(wxString::Format(_("Source: %s"), PathText(path).AfterLast(wxFILE_SEP_PATH)));
-    sourceType_->SetLabel(_("External file - not part of the current project"));
-    if (extension == ".gdtf") {
-      sourceKind_ = SourceKind::ExternalGdtf; ShowGdtf(perastage::inspection::InspectGdtf(path));
-    } else {
-      sourceKind_ = SourceKind::ExternalMvr; ShowMvr(perastage::inspection::InspectMvr(path));
-    }
+    parentContext_.reset(); back_->Hide();
+    const auto sourceGeneration = BeginSourceLoad(
+        wxString::Format(_("Source: %s"),
+                         PathText(path).AfterLast(wxFILE_SEP_PATH)),
+        _("External file - not part of the current project"));
+    const bool gdtf = extension == ".gdtf";
+    sourceKind_ = gdtf ? SourceKind::ExternalGdtf : SourceKind::ExternalMvr;
+    worker_->Submit(
+        [path, gdtf, sourceGeneration](InspectorStopToken token)
+            -> InspectorAsyncWorker::Payload {
+          if (token.stop_requested())
+            return InspectorAsyncWorker::Payload{};
+          auto payload = std::make_shared<WorkspaceAsyncResult>();
+          payload->kind = gdtf ? WorkspaceAsyncResult::Kind::Gdtf
+                               : WorkspaceAsyncResult::Kind::Mvr;
+          payload->sourceGeneration = sourceGeneration;
+          payload->filesystemPath = path;
+          if (gdtf)
+            payload->gdtf = std::make_shared<const perastage::inspection::GdtfInspectionResult>(
+                perastage::inspection::InspectGdtf(path));
+          else
+            payload->mvr = std::make_shared<const perastage::inspection::MvrInspectionResult>(
+                perastage::inspection::InspectMvr(path));
+          if (token.stop_requested())
+            return InspectorAsyncWorker::Payload{};
+          const auto *inventory = gdtf
+              ? (payload->gdtf->packageInventory
+                     ? &*payload->gdtf->packageInventory : nullptr)
+              : (payload->mvr->packageInventory
+                     ? &*payload->mvr->packageInventory : nullptr);
+          if (inventory)
+            payload->resources = std::make_shared<const std::vector<
+                perastage::inspection::ResourceDescriptor>>(
+                perastage::inspection::DescribePackageResources(
+                    path, *inventory, 4096));
+          return payload;
+        });
   } catch (const std::exception &error) {
     diagnostics::DiagnosticLogger::Error(std::string("Inspector failed unexpectedly: ") + error.what());
     wxMessageBox(_("The file could not be inspected because of an unexpected error."), _("MVR / GDTF Inspector"), wxOK | wxICON_ERROR, this);
@@ -509,27 +770,48 @@ void InspectorWorkspacePanel::ClearResult() {
     package_->AssociateModel(nullptr);
     packageModel_ = nullptr;
   }
-  scene_->DeleteAllItems();
+  if (sceneModel_) {
+    scene_->AssociateModel(nullptr);
+    sceneModel_ = nullptr;
+  }
   diagnostics_->DeleteAllItems(); diagnosticRows_.clear();
   xml_->SetReadOnly(false); xml_->ClearAll(); xml_->SetReadOnly(true);
   xml_->SetMarginWidth(kXmlLineNumberMargin,
                        xml_->TextWidth(wxSTC_STYLE_LINENUMBER, "9") + 8);
+  exactXml_.clear(); xmlStatus_->SetLabel({}); loadCompleteXml_->Hide();
   search_->Clear();
+  previewStatus_->SetLabel(_("Select a package resource to preview it."));
+  previewImage_->Hide(); previewText_->Hide(); previewModel_->Hide();
+}
+
+// Invalidates old interactions and presents an immediate source-loading state.
+std::uint64_t InspectorWorkspacePanel::BeginSourceLoad(
+    const wxString &identity, const wxString &sourceType) {
+  worker_->Cancel(InspectorTaskDomain::Preview);
+  const auto generation = requestCoordinator_.BeginSourceRequest();
+  ClearResult();
+  package_->Enable(false);
+  scene_->Enable(false);
+  identity_->SetLabel(identity);
+  sourceType_->SetLabel(sourceType);
+  summary_->SetValue(_("Inspecting source..."));
+  return generation;
 }
 
 // Projects high-level GDTF facts without reparsing the retained XML.
 void InspectorWorkspacePanel::ShowGdtf(
     const perastage::inspection::GdtfInspectionResult &result,
-    const std::vector<std::uint8_t> *packageBytes) {
+    const DisplayedPackageContext &context) {
   ClearResult(); ConfigureNavigation(true); wxString text;
+  package_->Enable(true); scene_->Enable(true);
   text << _("Format:") << " GDTF\n" << _("Status:") << ' ' << LocalizedGdtfReadStatus(result.status) << '\n';
-  if (packageBytes) text << _("Embedded resource in parent MVR") << '\n';
+  if (context.packageBytes) text << _("Embedded resource in parent MVR") << '\n';
   AppendCommonSummary(text, result.inspection, result.validation);
   std::vector<perastage::inspection::ResourceDescriptor> resources;
   if (result.packageInventory) {
-    resources = packageBytes
+    resources = context.resources ? *context.resources : context.packageBytes
                     ? perastage::inspection::DescribePackageResources(
-                          *packageBytes, *result.packageInventory, 4096,
+                          *context.packageBytes, *result.packageInventory, 4096,
                           result.inspection.request)
                     : perastage::inspection::DescribePackageResources(
                           result.inspection.request.sourcePath,
@@ -553,15 +835,18 @@ void InspectorWorkspacePanel::ShowGdtf(
 }
 
 // Projects high-level MVR facts from the immutable Inspection Core snapshot.
-void InspectorWorkspacePanel::ShowMvr(const perastage::inspection::MvrInspectionResult &result) {
+void InspectorWorkspacePanel::ShowMvr(
+    const perastage::inspection::MvrInspectionResult &result,
+    const DisplayedPackageContext &context) {
   ClearResult(); ConfigureNavigation(false); wxString text;
+  package_->Enable(true); scene_->Enable(true);
   text << _("Format:") << " MVR\n" << _("Status:") << ' ' << (result.Success() ? _("Readable") : _("Unusable")) << '\n';
   AppendCommonSummary(text, result.inspection, result.validation);
   std::vector<perastage::inspection::ResourceDescriptor> resources;
   if (result.packageInventory) {
-    resources = retainedMvrBytes_.empty()
+    resources = context.resources ? *context.resources : !context.packageBytes
                     ? perastage::inspection::DescribePackageResources(result.inspection.request.sourcePath, *result.packageInventory)
-                    : perastage::inspection::DescribePackageResources(retainedMvrBytes_, *result.packageInventory, 4096);
+                    : perastage::inspection::DescribePackageResources(*context.packageBytes, *result.packageInventory, 4096);
     text << _("Package entries:") << ' '
          << result.packageInventory->entries.size() << "\n"
          << _("Resources:") << ' ' << resources.size() << '\n';
@@ -633,7 +918,10 @@ void InspectorWorkspacePanel::PopulatePackage(const std::vector<perastage::inspe
 
 // Populates the deterministic scene projection without traversing live state.
 void InspectorWorkspacePanel::PopulateScene(const perastage::inspection::MvrInspectionSnapshot &snapshot) {
-  AppendSceneNodes(*scene_, wxDataViewItem{}, BuildSceneTree(snapshot));
+  auto *model = new SceneDataViewModel(BuildSceneTree(snapshot));
+  scene_->AssociateModel(model);
+  model->DecRef();
+  sceneModel_ = model;
 }
 
 // Populates structured issues and diagnostic rows without message heuristics.
@@ -662,12 +950,38 @@ void InspectorWorkspacePanel::PopulateDiagnostics(
 
 // Displays retained root XML exactly as supplied by Inspection Core.
 void InspectorWorkspacePanel::SetXml(const std::string &xml) {
-  xml_->SetReadOnly(false); xml_->SetTextRaw(xml.c_str()); xml_->SetReadOnly(true);
+  exactXml_ = xml;
+  const bool bounded = xml.size() > kInspectorEagerXmlBytes;
+  const std::size_t shownBytes = Utf8PrefixLength(
+      xml, bounded ? static_cast<std::size_t>(kInspectorEagerXmlBytes)
+                   : xml.size());
+  const std::string shown = xml.substr(0, shownBytes);
+  xml_->SetReadOnly(false); xml_->SetTextRaw(shown.c_str()); xml_->SetReadOnly(true);
+  xmlStatus_->SetLabel(bounded
+                           ? _("Bounded XML preview; Find searches the loaded preview only, and the exact retained document is available on demand.")
+                           : _("Complete exact XML"));
+  loadCompleteXml_->Show(bounded);
   const int digits =
       static_cast<int>(XmlLineNumberDigits(xml_->GetLineCount()));
   xml_->SetMarginWidth(kXmlLineNumberMargin,
                        xml_->TextWidth(wxSTC_STYLE_LINENUMBER,
                                        wxString('9', digits)) + 8);
+}
+
+// Loads the exact retained XML only after an explicit user action.
+void InspectorWorkspacePanel::LoadCompleteXml() {
+  xml_->SetReadOnly(false);
+  xml_->SetTextRaw(exactXml_.c_str());
+  xml_->SetReadOnly(true);
+  xmlStatus_->SetLabel(_("Complete exact XML"));
+  loadCompleteXml_->Hide();
+  xml_->SetMarginWidth(
+      kXmlLineNumberMargin,
+      xml_->TextWidth(wxSTC_STYLE_LINENUMBER,
+                      wxString('9', static_cast<int>(
+                                        XmlLineNumberDigits(xml_->GetLineCount())))) +
+          8);
+  Layout();
 }
 
 // Finds literal UTF-8 text with deterministic directional wrap-around.
@@ -707,38 +1021,258 @@ void InspectorWorkspacePanel::ActivatePackageEntry(wxDataViewEvent &event) {
                                ->Value(event.GetItem())
                          : nullptr;
   if (data && data->resourceKind == perastage::inspection::ResourceKind::NestedGdtf)
-    OpenNestedGdtf(data->archivePath, data->sizeKnown ? data->size : kNestedGdtfLimit);
+    OpenNestedGdtf(data->archivePath, data->sizeKnown, data->size);
+}
+
+// Reads and classifies only the selected payload under the explicit preview cap.
+void InspectorWorkspacePanel::RequestResourcePreview(wxDataViewEvent &event) {
+  const auto *node = packageModel_
+                         ? static_cast<PackageDataViewModel *>(packageModel_)
+                               ->Value(event.GetItem())
+                         : nullptr;
+  if (!node || node->syntheticFolder ||
+      node->entryType == perastage::inspection::PackageEntryType::Directory)
+    return;
+  const auto descriptor = PackageDataViewModel::Descriptor(*node);
+  const auto decision = DecidePreview(descriptor);
+  previewModel_->ResetPreview();
+  previewImage_->Hide(); previewText_->Hide(); previewModel_->Hide();
+  previewStatus_->SetLabel(FromUtf8(decision.status));
+  previewPage_->Layout();
+  if (!decision.allowed)
+    return;
+
+  const auto context = requestCoordinator_.DisplayedContext();
+  const auto ticket = requestCoordinator_.BeginPreview(context);
+  if (!ticket)
+    return;
+  const auto entry = node->archivePath;
+  const auto resourceKind = node->resourceKind;
+  worker_->SubmitPreview(
+      [ticket = *ticket, entry, resourceKind,
+       limit = decision.maxBytes](InspectorStopToken token)
+          -> InspectorAsyncWorker::Payload {
+        if (token.stop_requested())
+          return InspectorAsyncWorker::Payload{};
+        auto payload = std::make_shared<WorkspaceAsyncResult>();
+        payload->kind = WorkspaceAsyncResult::Kind::ResourcePreview;
+        payload->archivePath = entry;
+        payload->resourceKind = resourceKind;
+        payload->sourceFingerprint = ticket.context->fingerprint;
+        payload->previewTicket = ticket;
+        const bool owned = static_cast<bool>(ticket.context->packageBytes);
+        const auto &packageKind = ticket.context->packageKind;
+        if (resourceKind == perastage::inspection::ResourceKind::Text ||
+            resourceKind == perastage::inspection::ResourceKind::XmlText) {
+          payload->textPreview = owned
+              ? perastage::inspection::PreviewPackageText(
+                    *ticket.context->packageBytes, packageKind, entry, limit)
+              : perastage::inspection::PreviewPackageText(
+                    ticket.context->filesystemPath, packageKind, entry, limit);
+        } else {
+          payload->resource = owned
+              ? perastage::inspection::ReadPackageResource(
+                    *ticket.context->packageBytes, packageKind, entry, limit)
+              : perastage::inspection::ReadPackageResource(
+                    ticket.context->filesystemPath, packageKind, entry, limit);
+        }
+        if (token.stop_requested())
+          return InspectorAsyncWorker::Payload{};
+        if (resourceKind == perastage::inspection::ResourceKind::Model &&
+            payload->resource && payload->resource->Success()) {
+          payload->preparedModel = PrepareInspectorModel(
+              payload->resource->bytes, entry, &payload->previewError);
+          payload->resource->bytes.clear();
+          payload->resource->bytes.shrink_to_fit();
+        }
+        if (token.stop_requested())
+          return InspectorAsyncWorker::Payload{};
+        return payload;
+      });
 }
 
 // Uses the established filesystem or byte-oriented nested GDTF inspection path.
-void InspectorWorkspacePanel::OpenNestedGdtf(const std::string &archivePath, std::uint64_t size) {
-  const auto limit = std::max<std::uint64_t>(size, 1);
-  const auto nested = sourceKind_ == SourceKind::CurrentProject
-                          ? perastage::inspection::InspectNestedGdtf(retainedMvrBytes_, archivePath, limit)
-                          : perastage::inspection::InspectNestedGdtf(externalPath_, archivePath, limit);
-  if (!nested.gdtf) {
-    wxMessageBox(_("The embedded GDTF could not be inspected."), _("MVR / GDTF Inspector"), wxOK | wxICON_ERROR, this);
+void InspectorWorkspacePanel::OpenNestedGdtf(
+    const std::string &archivePath, bool sizeKnown, std::uint64_t size) {
+  const auto parent = requestCoordinator_.DisplayedContext();
+  if (!parent || !parent->mvr)
+    return;
+  const auto decision = DecideNestedGdtfOpen(sizeKnown, size);
+  if (!decision.allowed) {
+    previewStatus_->SetLabel(
+        _("This embedded GDTF exceeds the Inspector open limit."));
+    notebook_->SetSelection(
+        static_cast<std::size_t>(notebook_->FindPage(previewPage_)));
     return;
   }
-  if (!parentMvr_) parentMvr_ = sourceKind_ == SourceKind::CurrentProject
-                                   ? perastage::inspection::InspectMvrBytes(retainedMvrBytes_)
-                                   : perastage::inspection::InspectMvr(externalPath_);
-  identity_->SetLabel(wxString::Format(_("Embedded GDTF: %s"), FromUtf8(archivePath)));
-  sourceType_->SetLabel(_("Embedded in inspected MVR")); back_->Show(); Layout();
-  ShowGdtf(*nested.gdtf, &nested.resource.bytes);
+  parentContext_ = parent;
+  const auto sourceGeneration = BeginSourceLoad(
+      wxString::Format(_("Embedded GDTF: %s"), FromUtf8(archivePath)),
+      _("Embedded in inspected MVR"));
+  back_->Show();
+  worker_->Submit(
+      [parent, archivePath, sourceGeneration,
+       limit = decision.maxBytes](InspectorStopToken token)
+          -> InspectorAsyncWorker::Payload {
+        if (token.stop_requested())
+          return InspectorAsyncWorker::Payload{};
+        auto resource = parent->packageBytes
+                            ? perastage::inspection::ReadPackageResource(
+                                  *parent->packageBytes,
+                                  perastage::inspection::PackageKind::Mvr,
+                                  archivePath, limit)
+                            : perastage::inspection::ReadPackageResource(
+                                  parent->filesystemPath,
+                                  perastage::inspection::PackageKind::Mvr,
+                                  archivePath, limit);
+        auto payload = std::make_shared<WorkspaceAsyncResult>();
+        payload->kind = WorkspaceAsyncResult::Kind::NestedGdtf;
+        payload->sourceGeneration = sourceGeneration;
+        payload->archivePath = archivePath;
+        if (!resource.Success())
+          return payload;
+        payload->sourceBytes =
+            std::make_shared<const std::vector<std::uint8_t>>(
+                std::move(resource.bytes));
+        if (token.stop_requested())
+          return InspectorAsyncWorker::Payload{};
+        payload->gdtf = std::make_shared<const perastage::inspection::GdtfInspectionResult>(
+            perastage::inspection::InspectGdtf(*payload->sourceBytes));
+        if (token.stop_requested())
+          return InspectorAsyncWorker::Payload{};
+        if (payload->gdtf && payload->gdtf->packageInventory)
+          payload->resources = std::make_shared<const std::vector<
+              perastage::inspection::ResourceDescriptor>>(
+              perastage::inspection::DescribePackageResources(
+                  *payload->sourceBytes, *payload->gdtf->packageInventory,
+                  4096));
+        return payload;
+      });
 }
 
 // Restores the retained parent MVR result without rebuilding its source.
 void InspectorWorkspacePanel::ReturnToParentMvr() {
-  if (!parentMvr_) return;
-  const auto result = std::move(*parentMvr_); parentMvr_.reset(); back_->Hide();
+  if (!parentContext_ || !parentContext_->mvr) return;
+  worker_->Cancel();
+  const auto parent = parentContext_;
+  const auto generation = requestCoordinator_.BeginSourceRequest();
+  requestCoordinator_.PublishSource(generation, parent);
+  parentContext_.reset();
+  back_->Hide();
   if (sourceKind_ == SourceKind::CurrentProject) {
     identity_->SetLabel(_("Source: Current project MVR")); sourceType_->SetLabel(_("Active project"));
   } else {
-    identity_->SetLabel(wxString::Format(_("Source: %s"), PathText(externalPath_).AfterLast(wxFILE_SEP_PATH)));
+    identity_->SetLabel(wxString::Format(
+        _("Source: %s"),
+        PathText(parent->filesystemPath).AfterLast(wxFILE_SEP_PATH)));
     sourceType_->SetLabel(_("External file - not part of the current project"));
   }
-  ShowMvr(result); Layout();
+  ShowMvr(*parent->mvr, *parent); Layout();
+}
+
+// Publishes only the latest generation after it reaches the GUI event loop.
+void InspectorWorkspacePanel::HandleAsyncResult(
+    bool preview, std::uint64_t workerGeneration,
+    InspectorAsyncWorker::Result completion) {
+  const auto domain = preview ? InspectorTaskDomain::Preview
+                              : InspectorTaskDomain::Source;
+  if (workerGeneration != worker_->LatestGeneration(domain))
+    return;
+  if (!completion.error.empty()) {
+    diagnostics::DiagnosticLogger::Error(
+        std::string("Inspector operation failed unexpectedly: ") +
+        completion.error);
+    if (preview)
+      previewStatus_->SetLabel(
+          _("The selected resource could not be previewed."));
+    else
+      summary_->SetValue(
+          _("The source could not be inspected because of an unexpected error."));
+    return;
+  }
+  if (!completion.payload)
+    return;
+  const auto &result =
+      static_cast<const WorkspaceAsyncResult &>(*completion.payload);
+  if (result.kind == WorkspaceAsyncResult::Kind::ResourcePreview) {
+    if (!result.previewTicket ||
+        !requestCoordinator_.AcceptPreview(*result.previewTicket))
+      return;
+    previewImage_->Hide(); previewText_->Hide(); previewModel_->Hide();
+    if (result.textPreview && result.textPreview->Success()) {
+      previewText_->SetValue(FromUtf8(result.textPreview->text));
+      previewText_->Show();
+      previewStatus_->SetLabel(_("Complete bounded text preview"));
+    } else if (result.resource && result.resource->Success() &&
+               result.resourceKind == perastage::inspection::ResourceKind::Image) {
+      const auto decoded = previewBitmapCache_->GetOrCreate(
+          result.sourceFingerprint, result.archivePath, result.resource->bytes,
+          FromDIP(wxSize(480, 320)),
+          wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
+      previewImage_->SetBitmap(decoded.bitmap);
+      previewImage_->Show();
+      previewStatus_->SetLabel(FromUtf8(decoded.diagnostic));
+    } else if (result.resourceKind ==
+                   perastage::inspection::ResourceKind::Model) {
+      const bool loaded = result.preparedModel &&
+                          previewModel_->ApplyPreparedMesh(
+                              std::move(*result.preparedModel));
+      previewModel_->Show();
+      previewStatus_->SetLabel(
+          loaded ? _("Model preview loaded from prepared geometry.")
+                 : _("The model preview could not be loaded."));
+    } else if (result.resource && result.resource->Success() &&
+               result.resourceKind ==
+                   perastage::inspection::ResourceKind::NestedGdtf) {
+      const bool loaded = previewModel_->LoadOwnedResource(
+          result.resource->bytes, result.archivePath);
+      previewModel_->Show();
+      previewStatus_->SetLabel(loaded ? _("Model preview loaded from temporary owned bytes.")
+                                      : _("The model preview could not be loaded."));
+    } else {
+      previewStatus_->SetLabel(_("The selected resource could not be previewed."));
+    }
+    previewPage_->Layout();
+    notebook_->SetSelection(static_cast<std::size_t>(notebook_->FindPage(previewPage_)));
+    return;
+  }
+  if (result.sourceGeneration != requestCoordinator_.SourceGeneration())
+    return;
+  if ((result.kind == WorkspaceAsyncResult::Kind::Mvr && !result.mvr) ||
+      (result.kind != WorkspaceAsyncResult::Kind::Mvr && !result.gdtf)) {
+    summary_->SetValue(_("The source could not be inspected."));
+    return;
+  }
+  auto context = std::make_shared<DisplayedPackageContext>();
+  context->packageKind = result.kind == WorkspaceAsyncResult::Kind::Mvr
+                             ? perastage::inspection::PackageKind::Mvr
+                             : perastage::inspection::PackageKind::Gdtf;
+  context->filesystemPath = result.filesystemPath;
+  context->packageBytes = result.sourceBytes;
+  context->fingerprint = std::to_string(result.sourceGeneration) + ':' +
+                         (result.archivePath.empty() ? "source"
+                                                     : result.archivePath);
+  context->mvr = result.mvr;
+  context->gdtf = result.gdtf;
+  context->resources = result.resources
+                           ? result.resources
+                           : std::make_shared<const std::vector<
+                                 perastage::inspection::ResourceDescriptor>>();
+  requestCoordinator_.PublishSource(result.sourceGeneration, context);
+  if (result.kind == WorkspaceAsyncResult::Kind::Mvr && result.mvr) {
+    ShowMvr(*result.mvr, *context);
+    return;
+  }
+  if (result.kind == WorkspaceAsyncResult::Kind::NestedGdtf) {
+    identity_->SetLabel(wxString::Format(_("Embedded GDTF: %s"),
+                                         FromUtf8(result.archivePath)));
+    sourceType_->SetLabel(_("Embedded in inspected MVR"));
+    back_->Show();
+    ShowGdtf(*result.gdtf, *context);
+    Layout();
+  } else {
+    ShowGdtf(*result.gdtf, *context);
+  }
 }
 
 // Copies a deterministic representation of the selected diagnostic.
@@ -753,7 +1287,7 @@ void InspectorWorkspacePanel::CopySelectedDiagnostic() {
 
 // Copies the complete unchanged retained XML buffer.
 void InspectorWorkspacePanel::CopyAllXml() {
-  if (!CopyText(xml_->GetText())) wxMessageBox(_("The clipboard could not be opened."), _("MVR / GDTF Inspector"), wxOK | wxICON_WARNING, this);
+  if (!CopyText(FromUtf8(exactXml_))) wxMessageBox(_("The clipboard could not be opened."), _("MVR / GDTF Inspector"), wxOK | wxICON_WARNING, this);
 }
 
 } // namespace gui::inspection
