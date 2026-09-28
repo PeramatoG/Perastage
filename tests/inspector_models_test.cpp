@@ -174,6 +174,46 @@ void CheckSearch() {
                                    true) == secondUnicode);
 }
 
+// Verifies splitter ratios round-trip and malformed preferences fall back.
+void CheckSplitterRatios() {
+  using gui::inspection::FormatSplitterRatio;
+  using gui::inspection::ParseSplitterRatio;
+  assert(ParseSplitterRatio(FormatSplitterRatio(0.375), 0.25) == 0.375);
+  assert(ParseSplitterRatio(std::string("0.01"), 0.25) == 0.25);
+  assert(ParseSplitterRatio(std::string("not-a-number"), 0.4) == 0.4);
+  assert(ParseSplitterRatio(std::nullopt, 0.6) == 0.6);
+  assert(FormatSplitterRatio(1.0) == "0.8500");
+}
+
+// Verifies large inventories and scenes project every node deterministically.
+void CheckLargeProjection() {
+  using namespace perastage::inspection;
+  std::vector<ResourceDescriptor> resources;
+  MvrInspectionSnapshot snapshot;
+  constexpr std::size_t kCount = 10000;
+  resources.reserve(kCount);
+  snapshot.fixtures.reserve(kCount);
+  for (std::size_t index = 0; index < kCount; ++index) {
+    ResourceDescriptor resource;
+    resource.displayPath = "models/item-" + std::to_string(index) + ".glb";
+    resource.pathSafe = true;
+    resource.rawReadSupported = true;
+    resource.kind = ResourceKind::Model;
+    resources.push_back(std::move(resource));
+    snapshot.fixtures.push_back(
+        {"Fixture", "fixture-" + std::to_string(index),
+         "Fixture " + std::to_string(index)});
+  }
+  const auto package = gui::inspection::BuildPackageTree(resources);
+  assert(package.size() == 1);
+  assert(package.front().children.size() == kCount);
+  const auto scene = gui::inspection::BuildSceneTree(snapshot);
+  assert(scene.size() == kCount);
+  assert(std::all_of(scene.begin(), scene.end(), [](const auto &node) {
+    return node.kind == "Fixture" && !node.uuid.empty();
+  }));
+}
+
 } // namespace
 
 // Exercises the Inspector's toolkit-independent GUI-310 presentation models.
@@ -182,5 +222,7 @@ int main() {
   CheckSceneTree();
   CheckIssues();
   CheckSearch();
+  CheckSplitterRatios();
+  CheckLargeProjection();
   return 0;
 }

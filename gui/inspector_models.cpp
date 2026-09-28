@@ -1,8 +1,12 @@
 #include "inspector_models.h"
 
 #include <algorithm>
+#include <charconv>
+#include <cmath>
 #include <functional>
+#include <iomanip>
 #include <map>
+#include <sstream>
 #include <tuple>
 
 namespace gui::inspection {
@@ -53,7 +57,8 @@ PackageTreeNode ActualNode(
     const perastage::inspection::ResourceDescriptor &resource) {
   return {BaseName(resource.displayPath), resource.displayPath,
           resource.entryType, resource.kind, resource.size,
-          resource.sizeKnown, resource.pathSafe, false, {}};
+          resource.sizeKnown, resource.pathSafe, false,
+          resource.rawReadSupported, resource.textPreviewSupported, {}};
 }
 
 // Returns all scene descriptor collections in stable presentation order.
@@ -101,7 +106,7 @@ std::vector<PackageTreeNode> BuildPackageTree(
         siblings->push_back({components[index], prefix,
                              perastage::inspection::PackageEntryType::Directory,
                              perastage::inspection::ResourceKind::Binary, 0,
-                             false, true, true, {}});
+                             false, true, true, false, false, {}});
         folder = std::prev(siblings->end());
       }
       siblings = &folder->children;
@@ -278,6 +283,29 @@ std::optional<std::size_t> FindText(const std::string &text,
   }
   return found == std::string::npos ? std::nullopt
                                     : std::optional<std::size_t>(found);
+}
+
+// Parses a finite ratio within the usable pane range.
+double ParseSplitterRatio(const std::optional<std::string> &stored,
+                          double fallback) {
+  if (!stored)
+    return fallback;
+  double value = 0.0;
+  const auto parsed = std::from_chars(stored->data(),
+                                      stored->data() + stored->size(), value);
+  return parsed.ec == std::errc{} &&
+                 parsed.ptr == stored->data() + stored->size() &&
+                 std::isfinite(value) && value >= 0.15 && value <= 0.85
+             ? value
+             : fallback;
+}
+
+// Formats a normalized ratio with enough precision for stable round trips.
+std::string FormatSplitterRatio(double ratio) {
+  std::ostringstream text;
+  text << std::fixed << std::setprecision(4)
+       << std::clamp(ratio, 0.15, 0.85);
+  return text.str();
 }
 
 } // namespace gui::inspection

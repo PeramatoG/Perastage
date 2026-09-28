@@ -211,6 +211,30 @@ target_include_directories(inspector_models_test PRIVATE ../core ../gui)
 target_link_libraries(inspector_models_test PRIVATE perastage_inspection_mvr
                                                     perastage_inspection_resource)
 add_test(NAME InspectorModels COMMAND inspector_models_test)
+
+add_executable(inspector_async_worker_test
+               inspector_async_worker_test.cpp
+               ../gui/inspection/inspector_async_worker.cpp)
+target_include_directories(inspector_async_worker_test PRIVATE ../gui)
+add_test(NAME InspectorAsyncWorker COMMAND inspector_async_worker_test)
+set_perastage_test_labels(InspectorAsyncWorker
+                          LAYER standard-strict
+                          DOMAINS architecture gui inspection threading)
+
+add_executable(inspector_async_worker_legacy_test
+               inspector_async_worker_test.cpp
+               ../gui/inspection/inspector_async_worker.cpp)
+target_include_directories(inspector_async_worker_legacy_test PRIVATE ../gui)
+target_compile_definitions(inspector_async_worker_legacy_test
+                           PRIVATE PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT=1)
+add_test(NAME InspectorAsyncWorkerLegacy
+         COMMAND inspector_async_worker_legacy_test)
+
+add_executable(inspector_preview_policy_test
+               inspector_preview_policy_test.cpp
+               ../gui/inspection/inspector_preview_policy.cpp)
+target_include_directories(inspector_preview_policy_test PRIVATE ../core ../gui)
+add_test(NAME InspectorPreviewPolicy COMMAND inspector_preview_policy_test)
 set_perastage_test_labels(InspectorModels
                           LABELS standard-strict
                           DOMAINS architecture gui inspection mvr)

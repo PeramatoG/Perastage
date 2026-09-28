@@ -44,6 +44,7 @@
 #include <array>
 #include <algorithm>
 #include <cmath>
+#include <fstream>
 #include <utility>
 
 static constexpr float RENDER_SCALE = 0.001f;
@@ -247,6 +248,29 @@ void FixturePreviewPanel::LoadResource(const std::string& resourcePath)
     }
     UpdateBoundsAndCamera();
     Refresh();
+}
+
+// Materializes owned bytes only for the lifetime of this preview panel.
+bool FixturePreviewPanel::LoadOwnedResource(
+    const std::vector<unsigned char>& bytes, const std::string& archivePath)
+{
+    m_previewWorkspace.emplace("inspector-preview", false);
+    if (!m_previewWorkspace->IsValid())
+        return false;
+    std::filesystem::path name = std::filesystem::path(archivePath).filename();
+    if (name.empty())
+        name = "resource.bin";
+    const auto path = m_previewWorkspace->Path() / name;
+    std::ofstream output(path, std::ios::binary | std::ios::trunc);
+    output.write(reinterpret_cast<const char*>(bytes.data()),
+                 static_cast<std::streamsize>(bytes.size()));
+    if (!output) {
+        m_previewWorkspace.reset();
+        return false;
+    }
+    output.close();
+    LoadResource(path.string());
+    return m_hasModel;
 }
 
 // Loads a GDTF fixture model into the preview panel.

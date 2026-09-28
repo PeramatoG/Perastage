@@ -195,7 +195,28 @@ caller identity in diagnostics and is never exposed by the inspection result.
 Byte-backed GDTF documents have no standalone filesystem source, while nested
 results retain the outer package request and embedded entry identity separately.
 Image and model decoding remains the responsibility of later
-presentation-specific preview adapters.
+presentation-specific preview adapters. The Inspector now owns one long-lived
+managed worker for filesystem inspection, bounded package classification,
+nested-GDTF reads, and selected-resource reads. Submissions are immutable and
+non-blocking; every source, refresh, navigation, and preview request advances a
+generation, and both the worker and GUI event boundary reject stale results.
+Shutdown joins the worker before the window is destroyed. The active-project
+scene is never traversed by that worker: the GUI-owned source adapter first
+captures exact canonical MVR bytes, which become the immutable worker input and
+remain attached to the displayed result.
+
+Inspector previews are selection-driven and do not decode entries while the
+package model is populated. Automatic reads are capped at 16 MiB for images,
+64 MiB for GLB/3DS models, 512 MiB for nested GDTF, and 4 MiB for text/XML.
+Decoded images are limited to 4096 pixels per dimension and the Inspector image
+cache to 64 MiB. Path-only 3D loaders receive owned bytes through an
+`inspector-preview` `runtime_storage::TemporaryWorkspace`; it is owned by the
+preview panel, removed on replacement/destruction, never changes the source,
+and never appears in semantic diagnostics. No resource is permanently
+extracted. XML above 2 MiB initially uses a clearly labelled bounded view while
+retaining the exact text for copy and an explicit complete-load action. These
+preview limits describe GUI resource use only and never become standards
+validation findings.
 
 `perastage_inspection_core` is the first minimal non-GUI link boundary. This
 static library owns only `core/inspection/inspection_contract.cpp`, publishes

@@ -21,8 +21,10 @@
 #include <wx/glcanvas.h>
 #include <vector>
 #include <string>
+#include <optional>
 #include "viewer3dcamera.h"
 #include "gdtfloader.h"
+#include "runtime_storage.h"
 
 // Simple 3D preview panel for a single fixture
 class FixturePreviewPanel : public wxGLCanvas {
@@ -36,6 +38,10 @@ public:
 
     // Loads a supported preview resource and falls back to a cube on failure.
     void LoadResource(const std::string& resourcePath);
+
+    // Loads owned archive bytes through an automatically removed workspace.
+    bool LoadOwnedResource(const std::vector<unsigned char>& bytes,
+                           const std::string& archivePath);
 
 private:
     void OnPaint(wxPaintEvent& evt);
@@ -57,6 +63,7 @@ private:
     Viewer3DCamera m_camera;
     std::vector<GdtfObject> m_objects;
     bool m_hasModel = false;
+    std::optional<runtime_storage::TemporaryWorkspace> m_previewWorkspace;
     float m_bbMin[3];
     float m_bbMax[3];
 

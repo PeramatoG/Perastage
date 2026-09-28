@@ -21,6 +21,7 @@ class CurrentProjectInspector final {
 public:
   explicit CurrentProjectInspector(const IGuiProjectSessionService &project);
 
+  std::optional<std::vector<std::uint8_t>> CaptureBytes() const;
   std::optional<CurrentProjectInspection> Capture() const;
 
 private:

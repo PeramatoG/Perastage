@@ -23,6 +23,8 @@ struct PackageTreeNode {
   bool sizeKnown = false;
   bool pathSafe = false;
   bool syntheticFolder = true;
+  bool rawReadSupported = false;
+  bool textPreviewSupported = false;
   std::vector<PackageTreeNode> children;
 
   // Reports whether the unchanged archive path can be copied.
@@ -69,5 +71,12 @@ std::optional<std::size_t> FindText(const std::string &text,
                                     const std::string &query,
                                     std::size_t selectionStart,
                                     std::size_t selectionEnd, bool forward);
+
+// Parses a normalized splitter ratio and rejects invalid legacy values.
+double ParseSplitterRatio(const std::optional<std::string> &stored,
+                          double fallback);
+
+// Serializes a clamped splitter ratio for DPI-independent persistence.
+std::string FormatSplitterRatio(double ratio);
 
 } // namespace gui::inspection

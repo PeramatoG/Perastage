@@ -41,16 +41,27 @@ Perastage is designed for lighting designers, programmers, and technicians who n
   authored physical metadata and revision history, select each DMX mode and
   inspect its channel/function/set hierarchy, and review wheel, slot, filter,
   color, and archive-resource references. Geometry names and effective channel
-  offsets are shown where the GDTF read model provides them; image, model, and
-  3D previews are deliberately not loaded by this workflow.
+  offsets are shown where the GDTF read model provides them. Selecting a safe
+  package resource opens an on-demand bounded Preview for images, text/XML,
+  GLB/3DS models, or nested GDTF data; unsupported and oversized resources stay
+  visible and receive a preview status without being treated as invalid.
 - The exact retained XML has syntax highlighting, clickable folding markers,
   line numbers sized to the current document, selection, copy-all, and wrapping
-  forward or reverse find. The Issues view groups structured
+  forward or reverse find. Documents above the automatic display limit start
+  with a clearly labelled bounded view and retain an explicit action to load
+  the complete exact text. Drag the workspace dividers to resize Navigation,
+  XML/resource, and Details; these proportions are saved independently of
+  monitor resolution. Scene rows expose separate Name, Type, and UUID columns.
+  The Issues view groups structured
   diagnostic codes while the Diagnostics view retains full technical detail;
   archive paths are copied from a package entry's context menu.
 - The Inspector is intentionally read-only. It does not edit packages, resolve
   missing resources online, save snapshots, or change project selection and
   dirty state.
+- Inspection and selected-resource reads run in managed background work. Rapid
+  source or resource changes supersede older results, so a late completion can
+  never replace the latest selection. Temporary model files are automatically
+  removed and are never written beside the inspected source.
 
 ### MVR import and open behavior
 
