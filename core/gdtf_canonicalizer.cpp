@@ -3,13 +3,12 @@
 
 #include "gdtf_mutation_audit.h"
 #include "gdtf_fixture_type_vocabulary.h"
+#include "uuidutils.h"
 
 #include <algorithm>
 #include <array>
 #include <cctype>
-#include <cstdio>
 #include <fstream>
-#include <functional>
 #include <memory>
 #include <sstream>
 #include <unordered_set>
@@ -142,7 +141,7 @@ void AddError(Result &result, const Options &options, const std::string &message
     result.errors.push_back(options.sourceLabel + ": " + message);
 }
 
-// Builds a deterministic UUID-like value from stable FixtureType data.
+// Builds a deterministic UUID from stable FixtureType data.
 std::string BuildStableFixtureTypeId(const tinyxml2::XMLElement *fixtureType,
                                      const Options &options) {
   std::ostringstream seed;
@@ -155,15 +154,7 @@ std::string BuildStableFixtureTypeId(const tinyxml2::XMLElement *fixtureType,
     }
   }
   const std::string text = seed.str().empty() ? "Perastage GDTF" : seed.str();
-  const uint64_t h1 = std::hash<std::string>{}(text);
-  const uint64_t h2 = std::hash<std::string>{}("perastage:" + text);
-  char buffer[37];
-  std::snprintf(buffer, sizeof(buffer), "%08x-%04x-%04x-%04x-%012llx",
-                static_cast<unsigned>(h1 >> 32), static_cast<unsigned>((h1 >> 16) & 0xffff),
-                static_cast<unsigned>((h1 & 0x0fff) | 0x5000),
-                static_cast<unsigned>(((h2 >> 48) & 0x3fff) | 0x8000),
-                static_cast<unsigned long long>(h2 & 0xffffffffffffULL));
-  return std::string(buffer);
+  return DeriveDeterministicUuid(text);
 }
 
 // Returns true when a FixtureType child name is standard.

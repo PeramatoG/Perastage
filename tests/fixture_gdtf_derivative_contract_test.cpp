@@ -3,6 +3,7 @@
 #include "inspection/xml_schema_validation.h"
 
 #include "gdtf_test_fixture_builder.h"
+#include "zip_test_utils.h"
 
 #include <cassert>
 #include <filesystem>
@@ -26,7 +27,7 @@ std::string ReadFileBytes(const fs::path &path) {
 
 // Reads description.xml from a synthetic GDTF archive.
 std::string ReadDescriptionXml(const fs::path &path) {
-  wxFileInputStream input(path.string());
+  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(path));
   wxZipInputStream zip(input);
   std::unique_ptr<wxZipEntry> entry;
   while ((entry.reset(zip.GetNextEntry())), entry) {
@@ -48,14 +49,7 @@ std::string ReadDescriptionXml(const fs::path &path) {
 
 // Reports whether a GDTF archive retains a requested resource entry.
 bool ArchiveContainsEntry(const fs::path &path, const std::string &entryName) {
-  wxFileInputStream input(path.string());
-  wxZipInputStream zip(input);
-  std::unique_ptr<wxZipEntry> entry;
-  while ((entry.reset(zip.GetNextEntry())), entry) {
-    if (entry->GetName().ToStdString() == entryName)
-      return true;
-  }
-  return false;
+  return tests::zip::ReadEntry(path, entryName);
 }
 
 // Counts canonicalization revisions in one description payload.
@@ -187,7 +181,10 @@ int main() {
   assert(canonicalXml.find("PerastageMutationAudit") == std::string::npos);
   assert(canonicalXml.find("<FTPresets") != std::string::npos);
   assert(canonicalXml.find("<Protocols") != std::string::npos);
-  assert(ArchiveContainsEntry(canonicalDestination, "wheels/open.png"));
+  std::string wheelPayload;
+  assert(tests::zip::ReadEntry(canonicalDestination, "wheels/open.png",
+                               &wheelPayload));
+  assert(wheelPayload == "wheel-resource");
   assert(CountCanonicalizationRevisions(canonicalXml) == 1);
   const auto schemaValidation = perastage::inspection::ValidateXmlAgainstSchema(
       canonicalXml, perastage::inspection::Gdtf12Schema());
@@ -217,6 +214,7 @@ int main() {
   const std::string secondRepairedId =
       ReadFixtureTypeId(ReadDescriptionXml(placeholderSecond));
   assert(firstRepairedId == secondRepairedId);
+  assert(firstRepairedId == "a286da13-992c-59a4-aef3-d409c6905906");
   assert(firstRepairedId != "00000000-0000-0000-0000-000000000001");
   assert(firstRepairedId.size() == 36);
   assert(ReadFileBytes(placeholderSource) == originalPlaceholderBytes);

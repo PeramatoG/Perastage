@@ -1,6 +1,7 @@
 #include "wx_path_utils.h"
 #include "gdtf_canonicalizer.h"
 #include "gdtf_fixture_type_vocabulary.h"
+#include "support/zip_test_utils.h"
 #include "inspection/xml_schema_validation.h"
 
 #include <cassert>
@@ -90,15 +91,7 @@ void WriteNestedDescriptionArchive(const std::filesystem::path &path) {
 // Returns whether a ZIP archive contains an entry with the requested name.
 bool ArchiveContainsEntry(const std::filesystem::path &path,
                           const std::string &entryName) {
-  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(path));
-  assert(input.IsOk());
-  wxZipInputStream zip(input);
-  std::unique_ptr<wxZipEntry> entry;
-  while ((entry.reset(zip.GetNextEntry())), entry) {
-    if (entry->GetName().ToStdString() == entryName)
-      return true;
-  }
-  return false;
+  return tests::zip::ReadEntry(path, entryName);
 }
 
 } // namespace
@@ -228,6 +221,12 @@ int main() {
     assert(!ArchiveContainsEntry(dest, "Dummy 1ch/description.xml"));
     assert(ArchiveContainsEntry(dest, "models/gltf/body.glb"));
     assert(ArchiveContainsEntry(dest, "wheels/open.png"));
+    std::string modelPayload;
+    std::string wheelPayload;
+    assert(tests::zip::ReadEntry(dest, "models/gltf/body.glb", &modelPayload));
+    assert(tests::zip::ReadEntry(dest, "wheels/open.png", &wheelPayload));
+    assert(modelPayload == "model");
+    assert(wheelPayload == "wheel");
     assert(ArchiveContainsEntry(source, "Dummy 1ch/description.xml"));
     assert(!ArchiveContainsEntry(source, "description.xml"));
     std::filesystem::remove_all(tempDir);
