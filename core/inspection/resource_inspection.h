@@ -10,6 +10,10 @@
 
 namespace perastage::inspection {
 
+// Caps every generic package-resource read before archive allocation begins.
+inline constexpr std::uint64_t kMaximumPackageResourceReadBytes =
+    256ull * 1024ull * 1024ull;
+
 enum class ResourceKind : std::uint8_t {
   XmlText,
   Text,

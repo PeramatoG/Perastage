@@ -12,7 +12,6 @@
 
 namespace perastage::inspection {
 namespace {
-constexpr std::uint64_t kMaximumResourceReadBytes = 256ull * 1024ull * 1024ull;
 // Sixty-four bytes cover supported signatures and bound classic-ZIP sniff
 // storage.
 constexpr std::uint64_t kMaximumResourceSniffBytes = 64;
@@ -158,7 +157,7 @@ bool PrepareGenericRead(const std::string &resourcePath, std::uint64_t maxBytes,
   result.inspection.request = request;
   result.requestedPath = resourcePath;
   normalized = archive::NormalizeEntrySeparators(resourcePath);
-  if (maxBytes == 0 || maxBytes > kMaximumResourceReadBytes) {
+  if (maxBytes == 0 || maxBytes > kMaximumPackageResourceReadBytes) {
     AddDiagnostic(result.inspection, DiagnosticSeverity::Error,
                   resource_diagnostic_codes::InvalidReadLimit,
                   "The requested resource read limit is invalid.", normalized);

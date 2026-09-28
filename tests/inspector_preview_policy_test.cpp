@@ -31,6 +31,8 @@ int main() {
   assert(!DecidePreview(nested).allowed);
 
   assert(DecideNestedGdtfOpen(true, kInspectorNestedGdtfOpenBytes).allowed);
+  static_assert(kInspectorNestedGdtfOpenBytes ==
+                perastage::inspection::kMaximumPackageResourceReadBytes);
   assert(!DecideNestedGdtfOpen(true,
                                kInspectorNestedGdtfOpenBytes + 1).allowed);
   const auto unknown = DecideNestedGdtfOpen(false, 0);

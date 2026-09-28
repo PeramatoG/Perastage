@@ -188,18 +188,22 @@ FixturePreviewPanel::~FixturePreviewPanel()
     delete m_glContext;
 }
 
-// Initializes fixture preview OpenGL state only after centralized GLEW/context validation.
-void FixturePreviewPanel::InitGL()
+// Binds the preview context and initializes its reusable OpenGL state.
+bool FixturePreviewPanel::InitGL()
 {
     if(!IsShownOnScreen()){
-        return;
+        return false;
+    }
+    if (!gl_lifecycle::TrySetCurrent(*this, m_glContext,
+                                     "FixturePreviewPanel", "OnPaint")) {
+        return false;
     }
     if(!m_glInitialized){
         const GLEWInitResult initResult =
             gl_lifecycle::InitializeGlew(*this, *m_glContext, "FixturePreviewPanel");
         if (!initResult.success) {
             wxLogError("%s", initResult.message);
-            return;
+            return false;
         }
         if (initResult.isWarningOnly) {
             wxLogDebug("%s", initResult.message);
@@ -211,6 +215,7 @@ void FixturePreviewPanel::InitGL()
     glEnable(GL_LIGHT0);
     glEnable(GL_COLOR_MATERIAL);
     glClearColor(0.08f,0.08f,0.08f,1.0f);
+    return true;
 }
 
 // Loads a direct GLB or 3DS model into the preview object list.
@@ -401,7 +406,9 @@ void FixturePreviewPanel::OnPaint(wxPaintEvent&)
     if(!IsShownOnScreen()){
         return;
     }
-    InitGL();
+    if (!InitGL()) {
+        return;
+    }
     Render();
     SwapBuffers();
 }

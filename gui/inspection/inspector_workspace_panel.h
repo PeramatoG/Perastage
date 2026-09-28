@@ -129,7 +129,7 @@ private:
   InspectorDetailsPage preferredDetailsPage_ = InspectorDetailsPage::Summary;
   bool configuringDetailsPage_ = false;
   double navigationRatio_ = 0.25;
-  double detailsRatio_ = 0.66;
+  double detailsRatio_ = 0.67;
   double previewRatio_ = 0.68;
   bool splitterRatiosApplied_ = false;
   std::unique_ptr<InspectorAsyncWorker> worker_;

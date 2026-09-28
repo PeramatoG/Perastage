@@ -58,7 +58,7 @@ private:
     void OnMouseWheel(wxMouseEvent& evt);
     void OnCaptureLost(wxMouseCaptureLostEvent& evt);
 
-    void InitGL();
+    bool InitGL();
     void Render();
     bool LoadDirectModel(const std::string& modelPath);
     void UpdateBoundsAndCamera();

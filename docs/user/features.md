@@ -46,6 +46,8 @@ Perastage is designed for lighting designers, programmers, and technicians who n
   text/XML, GLB/3DS models, or embedded GDTFs. Activate an embedded GDTF to
   inspect its complete read-only document; unsupported and oversized resources
   stay visible and receive a preview status without being treated as invalid.
+  The primary XML document already visible in the central pane is not duplicated
+  in Preview, while other supported XML and text resources remain previewable.
 - The exact retained XML has syntax highlighting, clickable folding markers,
   explicit **Fold all** and **Unfold all** controls, line numbers sized to the
   current document, selection, copy-all, and wrapping forward or reverse find.

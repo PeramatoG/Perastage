@@ -6,6 +6,7 @@
 #include "inspection/gdtf_inspector_details_panel.h"
 #include "inspection/inspector_presentation.h"
 #include "inspection/inspector_preview_policy.h"
+#include "inspection/inspector_primary_xml.h"
 #include "inspection/inspector_navigation_dispatch.h"
 #include "inspection/inspector_navigation_request.h"
 #include "inspection/inspector_xml_editor.h"
@@ -52,7 +53,8 @@ namespace {
 constexpr char kPageKey[] = "inspector_workspace_details_page";
 constexpr char kGdtfPageKey[] = "inspector_workspace_gdtf_page";
 constexpr char kNavigationRatioKey[] = "inspector_workspace_navigation_ratio";
-constexpr char kDetailsRatioKey[] = "inspector_workspace_details_ratio";
+// Version 2 migrates unreleased equal-width layouts to the intended 2:1 split.
+constexpr char kDetailsRatioKey[] = "inspector_workspace_details_ratio_v2";
 constexpr char kPreviewRatioKey[] = "inspector_workspace_preview_ratio";
 constexpr int kXmlLineNumberMargin = 0;
 constexpr int kXmlFoldMargin = 1;
@@ -612,7 +614,7 @@ void InspectorWorkspacePanel::RestoreLayout() {
   navigationRatio_ = ParseSplitterRatio(
       preferences_.GetValue(kNavigationRatioKey), 0.25);
   detailsRatio_ =
-      ParseSplitterRatio(preferences_.GetValue(kDetailsRatioKey), 0.66);
+      ParseSplitterRatio(preferences_.GetValue(kDetailsRatioKey), 0.67);
   previewRatio_ =
       ParseSplitterRatio(preferences_.GetValue(kPreviewRatioKey), 0.68);
 }
@@ -811,12 +813,6 @@ std::uint64_t InspectorWorkspacePanel::BeginNestedSourceLoad(
   nestedTransition_.Begin(std::move(parent), generation);
   package_->Enable(false);
   scene_->Enable(false);
-  previewModel_->ResetPreview();
-  previewImage_->Hide();
-  previewText_->Hide();
-  previewModel_->Hide();
-  previewStatus_->SetLabel(_("Opening embedded GDTF..."));
-  previewPage_->Layout();
   return generation;
 }
 
@@ -1102,14 +1098,21 @@ void InspectorWorkspacePanel::RequestResourcePreview(wxDataViewEvent &event) {
     return;
   const auto descriptor = PackageDataViewModel::Descriptor(*node);
   const auto decision = DecidePreview(descriptor);
+  const auto context = requestCoordinator_.DisplayedContext();
   previewModel_->ResetPreview();
   previewImage_->Hide(); previewText_->Hide(); previewModel_->Hide();
+  if (context && IsInspectorPrimaryXmlResource(
+                     descriptor, InspectorPrimaryXmlEntry(*context))) {
+    previewStatus_->SetLabel(
+        _("This document is already shown in the XML pane."));
+    previewPage_->Layout();
+    return;
+  }
   previewStatus_->SetLabel(FromUtf8(decision.status));
   previewPage_->Layout();
   if (!decision.allowed)
     return;
 
-  const auto context = requestCoordinator_.DisplayedContext();
   const auto ticket = requestCoordinator_.BeginPreview(context);
   if (!ticket)
     return;
@@ -1191,9 +1194,16 @@ void InspectorWorkspacePanel::OpenNestedGdtf(
         payload->sourceGeneration = sourceGeneration;
         payload->archivePath = archivePath;
         if (!nested.resource.Success() || !nested.gdtf) {
+          std::string codes;
+          for (const auto &diagnostic : nested.resource.inspection.diagnostics) {
+            if (!codes.empty())
+              codes += ',';
+            codes += diagnostic.code;
+          }
           diagnostics::DiagnosticLogger::Warning(
               "Inspector nested GDTF resource read failed: " +
-              diagnostics::DiagnosticLogger::FileNameOnly(archivePath));
+              diagnostics::DiagnosticLogger::FileNameOnly(archivePath) +
+              "; codes=" + (codes.empty() ? "unknown" : codes));
           return payload;
         }
         diagnostics::DiagnosticLogger::Info(

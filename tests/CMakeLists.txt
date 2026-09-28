@@ -173,8 +173,9 @@ set_perastage_test_labels(PackageInspection
                           LAYER standard-strict
                           DOMAINS architecture core zip gdtf mvr security)
 
-add_executable(resource_inspection_test resource_inspection_test.cpp)
-target_include_directories(resource_inspection_test PRIVATE ../core)
+add_executable(resource_inspection_test resource_inspection_test.cpp
+               ../gui/inspection/inspector_preview_policy.cpp)
+target_include_directories(resource_inspection_test PRIVATE ../core ../gui)
 target_link_libraries(resource_inspection_test PRIVATE
                       perastage_inspection_nested_gdtf ${wxWidgets_LIBRARIES})
 add_test(NAME ResourceInspection COMMAND resource_inspection_test)
@@ -244,6 +245,15 @@ add_test(NAME InspectorPreviewPolicy COMMAND inspector_preview_policy_test)
 set_perastage_test_labels(InspectorPreviewPolicy
                           LAYER standard-strict
                           DOMAINS architecture gui inspection security)
+
+add_executable(inspector_primary_xml_test
+               inspector_primary_xml_test.cpp
+               ../gui/inspection/inspector_primary_xml_policy.cpp)
+target_include_directories(inspector_primary_xml_test PRIVATE ../core ../gui)
+add_test(NAME InspectorPrimaryXml COMMAND inspector_primary_xml_test)
+set_perastage_test_labels(InspectorPrimaryXml
+                          LAYER standard-strict
+                          DOMAINS architecture gui inspection)
 
 add_executable(inspector_navigation_request_test
                inspector_navigation_request_test.cpp
@@ -397,6 +407,8 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(DocsPerastageTreeModules ${CMAKE_CURRENT_SOURCE_DIR}/check_perastage_tree_modules.sh)
     add_bash_policy_test(GuiNoConfigManagerGet ${CMAKE_CURRENT_SOURCE_DIR}/check_no_configmanager_get_in_gui.sh)
     add_bash_policy_test(GuiInspectorBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_gui_inspector_boundary.sh LABELS standard-strict architecture gui inspection)
+    add_bash_policy_test(InspectorNestedTransitionUi ${CMAKE_CURRENT_SOURCE_DIR}/check_inspector_nested_transition_ui.sh LABELS standard-strict architecture gui inspection)
+    add_bash_policy_test(FixturePreviewGlContext ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_preview_gl_context.sh LABELS standard-strict architecture gui)
     add_bash_policy_test(LayoutViewerSelectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_selection_boundary.sh LABELS standard-strict architecture gui)
     add_bash_policy_test(MvrSceneNodeReaderBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_scene_node_reader_boundary.sh)
     add_bash_policy_test(MvrImportResourceResolverBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_import_resource_resolver_boundary.sh)

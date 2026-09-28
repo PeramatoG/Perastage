@@ -51,7 +51,16 @@ Changes since **v1.6.0**.
   avoiding destructive model replacement during native event dispatch. Nested
   inspection now keeps the parent MVR visible until the embedded document is
   ready, restores parent interaction after failures, and lays out Back
-  navigation only after a successful transition.
+  navigation only after a successful transition. The nested-open bound now
+  shares Inspection Core's resource-read safety limit, allowing valid embedded
+  fixtures to open instead of being rejected before reading.
+
+- Kept fixture previews reliable when switching between OpenGL views by
+  rebinding the Preview canvas context before every render. Selecting the
+  primary MVR or GDTF XML document no longer duplicates it in Preview, and a
+  one-time Inspector layout preference migration restores the intended
+  two-thirds XML and one-third details proportions without overriding later
+  user adjustments.
 
 - Corrected GDTF inspection so the standard `FTPresets` section is no longer
   reported as unknown, while canonical publication now removes the known

@@ -182,6 +182,7 @@ void CheckSplitterRatios() {
   assert(ParseSplitterRatio(std::string("0.01"), 0.25) == 0.25);
   assert(ParseSplitterRatio(std::string("not-a-number"), 0.4) == 0.4);
   assert(ParseSplitterRatio(std::nullopt, 0.6) == 0.6);
+  assert(ParseSplitterRatio(std::nullopt, 0.67) == 0.67);
   assert(FormatSplitterRatio(1.0) == "0.8500");
 }
 
