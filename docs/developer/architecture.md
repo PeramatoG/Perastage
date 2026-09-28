@@ -164,6 +164,10 @@ Core facts without parsing MVR or GDTF data. The current-project source adapter
 in `gui/inspector_project_source.*` receives `IGuiProjectSessionService`
 explicitly, exports one canonical in-memory MVR snapshot, and retains those
 exact bytes for resource navigation until the user refreshes.
+The GDTF inspection result also retains the existing immutable mode/channel and
+wheel-catalog read models as in-memory detail data. Filesystem and owned-byte
+entry points populate those models from the same retained `description.xml`;
+the GUI only projects them and neither parses XML nor enters an editor session.
 The minimal `perastage_inspection_serialization` boundary converts an existing
 neutral `Result` to deterministic machine-readable JSON, while the higher-level
 `perastage_inspection_report_serialization` boundary composes complete reports

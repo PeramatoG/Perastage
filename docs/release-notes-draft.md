@@ -16,6 +16,11 @@ Changes since **v1.6.0**.
   ChildList relationships remain intact in the scene tree, embedded GDTF
   resources keep their normal classifications, and restored Inspector layouts
   initialize the current-project snapshot only when visible.
+- Expanded the read-only GDTF Inspector with dedicated FixtureType overview,
+  DMX mode and channel hierarchy, and wheel/resource pages. Standalone and
+  embedded GDTFs now expose authored metadata, physical ranges, attributes,
+  channel functions and sets, filters, colors, and geometry references without
+  extraction, downloads, previews, or an editing workflow.
 
 ## Compatibility, stability, and performance
 

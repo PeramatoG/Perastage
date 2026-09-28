@@ -37,6 +37,12 @@ Perastage is designed for lighting designers, programmers, and technicians who n
 - Browse MVR package paths hierarchically or switch to the scene tree built from
   the inspected snapshot. Activate an embedded GDTF to inspect it through the
   normal read-only GDTF view, then return to its parent MVR.
+- For a GDTF, use the dedicated detail pages to review FixtureType identity,
+  authored physical metadata and revision history, select each DMX mode and
+  inspect its channel/function/set hierarchy, and review wheel, slot, filter,
+  color, and archive-resource references. Geometry names and effective channel
+  offsets are shown where the GDTF read model provides them; image, model, and
+  3D previews are deliberately not loaded by this workflow.
 - The exact retained XML has syntax highlighting, folding, selection, copy-all,
   and wrapping forward or reverse find. The Issues view groups structured
   diagnostic codes while the Diagnostics view retains full technical detail;

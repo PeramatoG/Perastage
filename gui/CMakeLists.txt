@@ -62,6 +62,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_share_message_formatter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_share_download_workflow.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_presentation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/inspection/gdtf_inspector_details_panel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/inspector_models.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/inspector_project_source.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_workspace_panel.cpp

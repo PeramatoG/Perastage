@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-28 07:12+0000\n"
+"POT-Creation-Date: 2026-09-28 11:49+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -195,7 +195,7 @@ msgstr ""
 
 #: gui/dictionary_export_conflict_dialog.cpp:29
 #: gui/dictionaryeditdialog.cpp:515 gui/dictionaryeditdialog.cpp:571
-#: gui/inspection/inspector_workspace_panel.cpp:67 gui/mainwindow_menu.cpp:190
+#: gui/inspection/inspector_workspace_panel.cpp:69 gui/mainwindow_menu.cpp:190
 msgid "File"
 msgstr "文件"
 
@@ -1208,7 +1208,7 @@ msgid "Fixture ID"
 msgstr "灯具 ID"
 
 #: gui/fixturetable/fixture_table_columns.cpp:13 gui/hoisttablepanel.cpp:461
-#: gui/inspection/inspector_workspace_panel.cpp:352 gui/summarypanel.cpp:260
+#: gui/inspection/inspector_workspace_panel.cpp:354 gui/summarypanel.cpp:260
 #: gui/summarypanel.cpp:269 mvr/mvrimporter.cpp:328
 msgid "Type"
 msgstr "类型"
@@ -1602,7 +1602,7 @@ msgid "Search:"
 msgstr "搜索 GDTF"
 
 #: gui/gdtfsearchdialog.cpp:100
-#: gui/inspection/inspector_workspace_panel.cpp:515
+#: gui/inspection/inspector_workspace_panel.cpp:524
 #: tests/localization_catalog_integration_test.cpp:205
 msgid "Manufacturer:"
 msgstr "制造商："
@@ -1827,166 +1827,172 @@ msgid ""
 "Dummy preset can only be assigned when there is no linked motor fixture."
 msgstr "仅当未关联电机灯具时，才能分配虚拟预设。"
 
-#: gui/inspection/inspector_workspace_panel.cpp:63
+#: gui/inspection/inspector_workspace_panel.cpp:65
 msgid "Folder"
 msgstr "文件夹"
 
-#: gui/inspection/inspector_workspace_panel.cpp:66
+#: gui/inspection/inspector_workspace_panel.cpp:68
 msgid "Directory"
 msgstr "目录"
 
-#: gui/inspection/inspector_workspace_panel.cpp:72
+#: gui/inspection/inspector_workspace_panel.cpp:74
 msgid "Available"
 msgstr "可用"
 
-#: gui/inspection/inspector_workspace_panel.cpp:72
+#: gui/inspection/inspector_workspace_panel.cpp:74
 msgid "Unsafe path"
 msgstr "不安全路径"
 
-#: gui/inspection/inspector_workspace_panel.cpp:195
+#: gui/inspection/inspector_workspace_panel.cpp:197
 msgid "Canonical"
 msgstr "规范"
 
-#: gui/inspection/inspector_workspace_panel.cpp:196
+#: gui/inspection/inspector_workspace_panel.cpp:198
 msgid "Compatibility accepted"
 msgstr "已接受兼容模式"
 
-#: gui/inspection/inspector_workspace_panel.cpp:197
 #: gui/inspection/inspector_workspace_panel.cpp:199
-#: gui/inspection/inspector_workspace_panel.cpp:527
+#: gui/inspection/inspector_workspace_panel.cpp:201
+#: gui/inspection/inspector_workspace_panel.cpp:537
 msgid "Unusable"
 msgstr "不可用"
 
-#: gui/inspection/inspector_workspace_panel.cpp:255
+#: gui/inspection/inspector_workspace_panel.cpp:257
 msgid "File:"
 msgstr "文件："
 
-#: gui/inspection/inspector_workspace_panel.cpp:259
+#: gui/inspection/inspector_workspace_panel.cpp:261
 msgid "Diagnostics:"
 msgstr "诊断："
 
-#: gui/inspection/inspector_workspace_panel.cpp:263
+#: gui/inspection/inspector_workspace_panel.cpp:265
 msgid "Validation layers:"
 msgstr "验证层："
 
-#: gui/inspection/inspector_workspace_panel.cpp:276
+#: gui/inspection/inspector_workspace_panel.cpp:278
 msgid "(unresolved parent)"
 msgstr "（父项未解析）"
 
-#: gui/inspection/inspector_workspace_panel.cpp:336
+#: gui/inspection/inspector_workspace_panel.cpp:338
 msgid "Refresh"
 msgstr "刷新"
 
-#: gui/inspection/inspector_workspace_panel.cpp:337
+#: gui/inspection/inspector_workspace_panel.cpp:339
 msgid "Open external..."
 msgstr "打开外部文件..."
 
-#: gui/inspection/inspector_workspace_panel.cpp:338
+#: gui/inspection/inspector_workspace_panel.cpp:340
 msgid "Back to parent MVR"
 msgstr "返回上级 MVR"
 
-#: gui/inspection/inspector_workspace_panel.cpp:339
-#: gui/inspection/inspector_workspace_panel.cpp:445
-#: gui/inspection/inspector_workspace_panel.cpp:655
+#: gui/inspection/inspector_workspace_panel.cpp:341
+#: gui/inspection/inspector_workspace_panel.cpp:454
+#: gui/inspection/inspector_workspace_panel.cpp:682
 msgid "Source: Current project MVR"
 msgstr "来源：当前项目 MVR"
 
-#: gui/inspection/inspector_workspace_panel.cpp:340
-#: gui/inspection/inspector_workspace_panel.cpp:446
-#: gui/inspection/inspector_workspace_panel.cpp:655
+#: gui/inspection/inspector_workspace_panel.cpp:342
+#: gui/inspection/inspector_workspace_panel.cpp:455
+#: gui/inspection/inspector_workspace_panel.cpp:682
 msgid "Active project"
 msgstr "活动项目"
 
-#: gui/inspection/inspector_workspace_panel.cpp:351
+#: gui/inspection/inspector_workspace_panel.cpp:353
 msgid "Path"
 msgstr "路径"
 
-#: gui/inspection/inspector_workspace_panel.cpp:353
+#: gui/inspection/inspector_workspace_panel.cpp:355
 msgid "Resource kind"
 msgstr "资源类型"
 
-#: gui/inspection/inspector_workspace_panel.cpp:354
+#: gui/inspection/inspector_workspace_panel.cpp:356
 #: gui/mvrxchange/mvr_xchange_dialog.cpp:180
 #: viewer2d/viewer2drenderpanel.cpp:380 viewer2d/viewer2drenderpanel.cpp:387
 #: viewer2d/viewer2drenderpanel.cpp:394
 msgid "Size"
 msgstr "尺寸"
 
-#: gui/inspection/inspector_workspace_panel.cpp:355
+#: gui/inspection/inspector_workspace_panel.cpp:357
 msgid "Availability"
 msgstr "可用性"
 
-#: gui/inspection/inspector_workspace_panel.cpp:358
+#: gui/inspection/inspector_workspace_panel.cpp:360
 msgid "Package"
 msgstr "包"
 
-#: gui/inspection/inspector_workspace_panel.cpp:359
+#: gui/inspection/inspector_workspace_panel.cpp:361
+#: gui/inspection/inspector_workspace_panel.cpp:567
 msgid "Scene"
 msgstr "场景"
 
-#: gui/inspection/inspector_workspace_panel.cpp:365
+#: gui/inspection/inspector_workspace_panel.cpp:367
 msgid "Find previous"
 msgstr "查找上一个"
 
-#: gui/inspection/inspector_workspace_panel.cpp:366
+#: gui/inspection/inspector_workspace_panel.cpp:368
 msgid "Find next"
 msgstr "查找下一个"
 
-#: gui/inspection/inspector_workspace_panel.cpp:367
+#: gui/inspection/inspector_workspace_panel.cpp:369
 msgid "Copy all"
 msgstr "全部复制"
 
-#: gui/inspection/inspector_workspace_panel.cpp:368
+#: gui/inspection/inspector_workspace_panel.cpp:370
 msgid "Find:"
 msgstr "查找："
 
-#: gui/inspection/inspector_workspace_panel.cpp:379
+#: gui/inspection/inspector_workspace_panel.cpp:382
 #: gui/mainwindow_layout.cpp:422 gui/mainwindow_menu_builders.cpp:85
 #: gui/summarypanel.cpp:112
 msgid "Summary"
 msgstr "摘要"
 
-#: gui/inspection/inspector_workspace_panel.cpp:379
+#: gui/inspection/inspector_workspace_panel.cpp:383
+#: gui/inspection/inspector_workspace_panel.cpp:571
+msgid "GDTF details"
+msgstr "GDTF 详细信息"
+
+#: gui/inspection/inspector_workspace_panel.cpp:384
 msgid "Issues"
 msgstr "问题"
 
-#: gui/inspection/inspector_workspace_panel.cpp:383
+#: gui/inspection/inspector_workspace_panel.cpp:388
 msgid "Severity"
 msgstr "严重性"
 
-#: gui/inspection/inspector_workspace_panel.cpp:384
+#: gui/inspection/inspector_workspace_panel.cpp:389
 msgid "Domain"
 msgstr "领域"
 
-#: gui/inspection/inspector_workspace_panel.cpp:385
+#: gui/inspection/inspector_workspace_panel.cpp:390
 msgid "Classification"
 msgstr "分类"
 
-#: gui/inspection/inspector_workspace_panel.cpp:386
+#: gui/inspection/inspector_workspace_panel.cpp:391
 msgid "Code"
 msgstr "代码"
 
-#: gui/inspection/inspector_workspace_panel.cpp:387
+#: gui/inspection/inspector_workspace_panel.cpp:392
 msgid "Message"
 msgstr "消息"
 
-#: gui/inspection/inspector_workspace_panel.cpp:388
+#: gui/inspection/inspector_workspace_panel.cpp:393
 msgid "Location"
 msgstr "位置"
 
-#: gui/inspection/inspector_workspace_panel.cpp:389
+#: gui/inspection/inspector_workspace_panel.cpp:394
 msgid "Copy diagnostic"
 msgstr "复制诊断信息"
 
-#: gui/inspection/inspector_workspace_panel.cpp:391
+#: gui/inspection/inspector_workspace_panel.cpp:396
 msgid "Diagnostics"
 msgstr "诊断"
 
-#: gui/inspection/inspector_workspace_panel.cpp:420
+#: gui/inspection/inspector_workspace_panel.cpp:429
 msgid "Open MVR or GDTF file"
 msgstr "打开 MVR 或 GDTF 文件"
 
-#: gui/inspection/inspector_workspace_panel.cpp:421
+#: gui/inspection/inspector_workspace_panel.cpp:430
 msgid ""
 "MVR and GDTF files (*.mvr;*.gdtf)|*.mvr;*.gdtf|MVR files (*.mvr)|*.mvr|GDTF "
 "files (*.gdtf)|*.gdtf"
@@ -1994,116 +2000,124 @@ msgstr ""
 "MVR 和 GDTF 文件 (*.mvr;*.gdtf)|*.mvr;*.gdtf|MVR 文件 (*.mvr)|*.mvr|GDTF 文"
 "件 (*.gdtf)|*.gdtf"
 
-#: gui/inspection/inspector_workspace_panel.cpp:439
+#: gui/inspection/inspector_workspace_panel.cpp:448
 msgid "The current project could not be exported as a canonical MVR snapshot."
 msgstr "无法将当前项目导出为规范 MVR 快照。"
 
-#: gui/inspection/inspector_workspace_panel.cpp:440
-#: gui/inspection/inspector_workspace_panel.cpp:451
+#: gui/inspection/inspector_workspace_panel.cpp:449
 #: gui/inspection/inspector_workspace_panel.cpp:460
-#: gui/inspection/inspector_workspace_panel.cpp:474
-#: gui/inspection/inspector_workspace_panel.cpp:617
-#: gui/inspection/inspector_workspace_panel.cpp:639
-#: gui/inspection/inspector_workspace_panel.cpp:670
-#: gui/inspection/inspector_workspace_panel.cpp:675
+#: gui/inspection/inspector_workspace_panel.cpp:469
+#: gui/inspection/inspector_workspace_panel.cpp:483
+#: gui/inspection/inspector_workspace_panel.cpp:644
+#: gui/inspection/inspector_workspace_panel.cpp:666
+#: gui/inspection/inspector_workspace_panel.cpp:697
+#: gui/inspection/inspector_workspace_panel.cpp:702
 #: gui/mainwindow_layout.cpp:452 gui/mainwindow_menu.cpp:236
 #: gui/mainwindow_menu_builders.cpp:71
 msgid "MVR / GDTF Inspector"
 msgstr "MVR / GDTF 检查器"
 
-#: gui/inspection/inspector_workspace_panel.cpp:450
+#: gui/inspection/inspector_workspace_panel.cpp:459
 msgid ""
 "The current project could not be inspected because of an unexpected error."
 msgstr "由于意外错误，无法检查当前项目。"
 
-#: gui/inspection/inspector_workspace_panel.cpp:460
+#: gui/inspection/inspector_workspace_panel.cpp:469
 msgid "Only MVR and GDTF files can be inspected."
 msgstr "只能检查 MVR 和 GDTF 文件。"
 
-#: gui/inspection/inspector_workspace_panel.cpp:465
-#: gui/inspection/inspector_workspace_panel.cpp:657
+#: gui/inspection/inspector_workspace_panel.cpp:474
+#: gui/inspection/inspector_workspace_panel.cpp:684
 #, c-format
 msgid "Source: %s"
 msgstr "来源：%s"
 
-#: gui/inspection/inspector_workspace_panel.cpp:466
-#: gui/inspection/inspector_workspace_panel.cpp:658
+#: gui/inspection/inspector_workspace_panel.cpp:475
+#: gui/inspection/inspector_workspace_panel.cpp:685
 msgid "External file — not part of the current project"
 msgstr "外部文件 — 不属于当前项目"
 
-#: gui/inspection/inspector_workspace_panel.cpp:474
+#: gui/inspection/inspector_workspace_panel.cpp:483
 msgid "The file could not be inspected because of an unexpected error."
 msgstr "由于发生意外错误，无法检查该文件。"
 
-#: gui/inspection/inspector_workspace_panel.cpp:495
-#: gui/inspection/inspector_workspace_panel.cpp:527
+#: gui/inspection/inspector_workspace_panel.cpp:504
+#: gui/inspection/inspector_workspace_panel.cpp:537
 msgid "Format:"
 msgstr "格式："
 
-#: gui/inspection/inspector_workspace_panel.cpp:495
-#: gui/inspection/inspector_workspace_panel.cpp:527
+#: gui/inspection/inspector_workspace_panel.cpp:504
+#: gui/inspection/inspector_workspace_panel.cpp:537
 #: gui/mvrxchange/mvr_xchange_dialog.cpp:146
 msgid "Status:"
 msgstr "状态"
 
-#: gui/inspection/inspector_workspace_panel.cpp:496
+#: gui/inspection/inspector_workspace_panel.cpp:505
 msgid "Embedded resource in parent MVR"
 msgstr "上级 MVR 中的嵌入资源"
 
-#: gui/inspection/inspector_workspace_panel.cpp:507
-#: gui/inspection/inspector_workspace_panel.cpp:534
+#: gui/inspection/inspector_workspace_panel.cpp:516
+#: gui/inspection/inspector_workspace_panel.cpp:544
 msgid "Package entries:"
 msgstr "包条目："
 
-#: gui/inspection/inspector_workspace_panel.cpp:509
-#: gui/inspection/inspector_workspace_panel.cpp:536
+#: gui/inspection/inspector_workspace_panel.cpp:518
+#: gui/inspection/inspector_workspace_panel.cpp:546
 msgid "Resources:"
 msgstr "资源："
 
-#: gui/inspection/inspector_workspace_panel.cpp:514
+#: gui/inspection/inspector_workspace_panel.cpp:523
 msgid "Fixture type:"
 msgstr "灯具类型："
 
-#: gui/inspection/inspector_workspace_panel.cpp:517
+#: gui/inspection/inspector_workspace_panel.cpp:526
 msgid "DMX modes:"
 msgstr "DMX 模式："
 
-#: gui/inspection/inspector_workspace_panel.cpp:527
+#: gui/inspection/inspector_workspace_panel.cpp:537
 msgid "Readable"
 msgstr "可读取"
 
-#: gui/inspection/inspector_workspace_panel.cpp:540
+#: gui/inspection/inspector_workspace_panel.cpp:550
 msgid "MVR version:"
 msgstr "MVR 版本："
 
-#: gui/inspection/inspector_workspace_panel.cpp:541
+#: gui/inspection/inspector_workspace_panel.cpp:551
 msgid "Provider:"
 msgstr "提供者："
 
-#: gui/inspection/inspector_workspace_panel.cpp:542
+#: gui/inspection/inspector_workspace_panel.cpp:552
 msgid "Provider version:"
 msgstr "提供者版本："
 
-#: gui/inspection/inspector_workspace_panel.cpp:613
+#: gui/inspection/inspector_workspace_panel.cpp:574
+msgid "GDTF summary"
+msgstr "GDTF 摘要"
+
+#: gui/inspection/inspector_workspace_panel.cpp:574
+msgid "MVR summary"
+msgstr "MVR 摘要"
+
+#: gui/inspection/inspector_workspace_panel.cpp:640
 msgid "Copy archive path"
 msgstr "复制归档路径"
 
-#: gui/inspection/inspector_workspace_panel.cpp:617
-#: gui/inspection/inspector_workspace_panel.cpp:670
-#: gui/inspection/inspector_workspace_panel.cpp:675
+#: gui/inspection/inspector_workspace_panel.cpp:644
+#: gui/inspection/inspector_workspace_panel.cpp:697
+#: gui/inspection/inspector_workspace_panel.cpp:702
 msgid "The clipboard could not be opened."
 msgstr "无法打开剪贴板。"
 
-#: gui/inspection/inspector_workspace_panel.cpp:639
+#: gui/inspection/inspector_workspace_panel.cpp:666
 msgid "The embedded GDTF could not be inspected."
 msgstr "无法检查嵌入的 GDTF。"
 
-#: gui/inspection/inspector_workspace_panel.cpp:645
+#: gui/inspection/inspector_workspace_panel.cpp:672
 #, c-format
 msgid "Embedded GDTF: %s"
 msgstr "嵌入的 GDTF：%s"
 
-#: gui/inspection/inspector_workspace_panel.cpp:646
+#: gui/inspection/inspector_workspace_panel.cpp:673
 msgid "Embedded in inspected MVR"
 msgstr "嵌入在检查的 MVR 中"
 
@@ -2902,11 +2916,11 @@ msgstr "X: -- 米 Y: -- 米 Z: -- 米"
 msgid "Version %s"
 msgstr "版本 %s"
 
-#: gui/mainwindow_layout.cpp:1140
+#: gui/mainwindow_layout.cpp:1146
 msgid "Layout view update skipped: target view not found."
 msgstr "布局视图更新已跳过：未找到目标视图。"
 
-#: gui/mainwindow_layout.cpp:1170
+#: gui/mainwindow_layout.cpp:1176
 msgid "Layout view update failed."
 msgstr "布局视图更新失败。"
 

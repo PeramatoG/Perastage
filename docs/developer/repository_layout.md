@@ -103,6 +103,8 @@ for bounded raw classic-ZIP directory mechanics. Core also owns
 `perastage_gdtf_read`, the shared production implementation of the archive,
 description, and immutable document readers, and `perastage_inspection_gdtf`,
 which composes them with package inventory and the neutral inspection contract.
+The shared read target also owns the mode/channel, wheel-catalog, and CIE color
+read models exposed as optional in-memory GDTF inspection details.
 The application and inspection service independently consume the shared reader.
 The normal application now links the focused GDTF, MVR, and resource inspection
 targets for the production wxWidgets Inspector under `gui/inspection/`; the

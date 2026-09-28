@@ -462,6 +462,16 @@ void TestNestedGdtf(const fs::path &root) {
   assert(nested.gdtf->document->Description().fixtureTypeName ==
          standalone.document->Description().fixtureTypeName);
   assert(nested.gdtf->document->Modes() == standalone.document->Modes());
+  assert(nested.gdtf->modeChannels && standalone.modeChannels);
+  assert(nested.gdtf->modeChannels->modes.size() ==
+         standalone.modeChannels->modes.size());
+  assert(nested.gdtf->modeChannels->modes.front().name ==
+         standalone.modeChannels->modes.front().name);
+  assert(nested.gdtf->modeChannels->modes.front().geometry ==
+         standalone.modeChannels->modes.front().geometry);
+  assert(nested.gdtf->wheelCatalog && standalone.wheelCatalog);
+  assert(nested.gdtf->wheelCatalog->wheels.size() ==
+         standalone.wheelCatalog->wheels.size());
   assert(nested.gdtf->document->SourcePath().empty());
   assert(!nested.gdtf->document->SourceFilePresent());
   assert(nested.gdtf->inspection.request.sourcePath == mvrPath);
@@ -485,6 +495,12 @@ void TestNestedGdtf(const fs::path &root) {
   assert(ownedNested.Success());
   assert(ownedNested.gdtf->document->Description().fixtureTypeName ==
          standalone.document->Description().fixtureTypeName);
+  assert(ownedNested.gdtf->modeChannels);
+  assert(ownedNested.gdtf->modeChannels->modes.front().name ==
+         standalone.modeChannels->modes.front().name);
+  assert(ownedNested.gdtf->wheelCatalog);
+  assert(ownedNested.gdtf->wheelCatalog->wheels.size() ==
+         standalone.wheelCatalog->wheels.size());
   assert(ownedNested.gdtf->document->SourcePath().empty());
   assert(!ownedNested.gdtf->document->SourceFilePresent());
   assert(ownedNested.gdtf->inspection.request.sourcePath == mvrPath);

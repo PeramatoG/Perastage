@@ -26,6 +26,8 @@ class wxTextCtrl;
 
 namespace gui::inspection {
 
+class GdtfInspectorDetailsPanel;
+
 // Presents read-only MVR and GDTF inspection results in native controls.
 class InspectorWorkspacePanel final : public wxPanel {
 public:
@@ -56,6 +58,7 @@ private:
   void PopulateDiagnostics(
       const perastage::inspection::Result &inspection,
       const std::vector<perastage::inspection::ValidationResult> &validation);
+  void ConfigureNavigation(bool gdtf);
   void SetXml(const std::string &xml);
   void FindXml(bool forward);
   void ShowPackageContextMenu(wxDataViewEvent &event);
@@ -77,6 +80,7 @@ private:
   wxNotebook *navigation_ = nullptr;
   wxNotebook *notebook_ = nullptr;
   wxTextCtrl *summary_ = nullptr;
+  GdtfInspectorDetailsPanel *gdtfDetails_ = nullptr;
   wxTextCtrl *issues_ = nullptr;
   wxDataViewCtrl *package_ = nullptr;
   wxDataViewModel *packageModel_ = nullptr;

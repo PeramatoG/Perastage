@@ -275,6 +275,10 @@ GdtfInspectionResult InspectGdtf(const Request &request) {
   result.validation.push_back(std::move(validation.xml));
   result.validation.push_back(std::move(validation.schema));
   result.validation.push_back(SemanticValidation(result.inspection));
+  result.modeChannels = gdtf::ReadGdtfModeChannelDocument(
+      document.Archive().descriptionXml);
+  result.wheelCatalog =
+      gdtf::ReadGdtfWheelCatalog(document.Archive().descriptionXml);
   result.document = std::move(document);
   if (result.Success()) {
     result.status = HasCompatibilityDiagnostic(result.inspection)

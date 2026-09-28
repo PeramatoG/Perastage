@@ -1,6 +1,8 @@
 #pragma once
 
 #include "gdtf/editor/gdtf_document.h"
+#include "gdtf/gdtf_mode_channel_browser.h"
+#include "gdtf/gdtf_wheel_catalog.h"
 #include "inspection/package_inspection.h"
 #include "inspection/xml_schema_validation.h"
 
@@ -23,6 +25,8 @@ struct GdtfInspectionResult {
   Result inspection;
   std::optional<PackageInventory> packageInventory;
   std::optional<gdtf::GdtfDocument> document;
+  std::optional<gdtf::GdtfModeChannelDocument> modeChannels;
+  std::optional<gdtf::GdtfWheelCatalog> wheelCatalog;
   std::vector<ValidationResult> validation;
   GdtfReadStatus status = GdtfReadStatus::Unusable;
 
