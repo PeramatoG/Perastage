@@ -4,6 +4,7 @@
 #include "inspector_models.h"
 #include "inspection/mvr_inspection.h"
 #include "inspection/resource_inspection.h"
+#include "inspection/inspector_presentation.h"
 
 #include <filesystem>
 #include <optional>
@@ -25,6 +26,8 @@ class wxStyledTextCtrl;
 class wxTextCtrl;
 
 namespace gui::inspection {
+
+class GdtfInspectorDetailsPanel;
 
 // Presents read-only MVR and GDTF inspection results in native controls.
 class InspectorWorkspacePanel final : public wxPanel {
@@ -56,6 +59,9 @@ private:
   void PopulateDiagnostics(
       const perastage::inspection::Result &inspection,
       const std::vector<perastage::inspection::ValidationResult> &validation);
+  void ConfigureNavigation(bool gdtf);
+  InspectorDetailsPage CurrentDetailsPage() const;
+  void SelectDetailsPage(InspectorDetailsPage page, bool gdtf);
   void SetXml(const std::string &xml);
   void FindXml(bool forward);
   void ShowPackageContextMenu(wxDataViewEvent &event);
@@ -77,7 +83,9 @@ private:
   wxNotebook *navigation_ = nullptr;
   wxNotebook *notebook_ = nullptr;
   wxTextCtrl *summary_ = nullptr;
+  GdtfInspectorDetailsPanel *gdtfDetails_ = nullptr;
   wxTextCtrl *issues_ = nullptr;
+  wxPanel *diagnosticPage_ = nullptr;
   wxDataViewCtrl *package_ = nullptr;
   wxDataViewModel *packageModel_ = nullptr;
   wxDataViewTreeCtrl *scene_ = nullptr;
@@ -85,6 +93,8 @@ private:
   wxTextCtrl *search_ = nullptr;
   wxStyledTextCtrl *xml_ = nullptr;
   std::vector<perastage::inspection::Diagnostic> diagnosticRows_;
+  InspectorDetailsPage preferredDetailsPage_ = InspectorDetailsPage::Summary;
+  bool configuringDetailsPage_ = false;
 };
 
 } // namespace gui::inspection

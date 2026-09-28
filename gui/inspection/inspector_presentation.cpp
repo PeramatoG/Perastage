@@ -72,4 +72,37 @@ ResourceKindLabel(const perastage::inspection::ResourceDescriptor &resource) {
   return "binary";
 }
 
+// Returns the stable preference token for one semantic details page.
+const char *InspectorDetailsPageToken(InspectorDetailsPage page) {
+  switch (page) {
+  case InspectorDetailsPage::Summary: return "summary";
+  case InspectorDetailsPage::GdtfDetails: return "gdtf-details";
+  case InspectorDetailsPage::Issues: return "issues";
+  case InspectorDetailsPage::Diagnostics: return "diagnostics";
+  }
+  return "summary";
+}
+
+// Parses current tokens and permissively migrates legacy numeric indices.
+InspectorDetailsPage ParseInspectorDetailsPageToken(const std::string &value) {
+  if (value == "gdtf-details") return InspectorDetailsPage::GdtfDetails;
+  if (value == "issues" || value == "1") return InspectorDetailsPage::Issues;
+  if (value == "diagnostics" || value == "2" || value == "3")
+    return InspectorDetailsPage::Diagnostics;
+  return InspectorDetailsPage::Summary;
+}
+
+// Formats an issue row with deterministic ASCII punctuation around UTF-8 data.
+std::string FormatIssueGroupLine(std::size_t count, const std::string &code,
+                                 const std::string &classification,
+                                 const std::string &severity) {
+  return std::to_string(count) + " x " + code + "  [" + classification +
+         ", " + severity + "]\n";
+}
+
+// Returns the decimal width needed for a positive displayed XML line count.
+std::size_t XmlLineNumberDigits(int lineCount) {
+  return std::to_string(lineCount > 0 ? lineCount : 1).size();
+}
+
 } // namespace gui::inspection

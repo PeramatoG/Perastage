@@ -112,6 +112,9 @@ add_library(perastage_gdtf_read STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_archive_reader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_description_reader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/gdtf_document.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_color_cie.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_mode_channel_browser.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_wheel_catalog.cpp
 )
 
 target_compile_features(perastage_gdtf_read PUBLIC cxx_std_20)
@@ -230,10 +233,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfdictionary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_fixture_insertion_preparation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_metadata_summary.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_color_cie.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_wheel_catalog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_dmx_inspector.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_mode_channel_browser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_download_workflow.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_download_filename.cpp

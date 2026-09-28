@@ -3,6 +3,7 @@
 #include "diagnostics/DiagnosticLogger.h"
 #include "guiconfigservices.h"
 #include "inspection/inspection_report_aggregation.h"
+#include "inspection/gdtf_inspector_details_panel.h"
 #include "inspection/inspector_presentation.h"
 #include "inspector_project_source.h"
 #include "inspection/nested_gdtf_inspection.h"
@@ -35,6 +36,9 @@ namespace gui::inspection {
 namespace {
 
 constexpr char kPageKey[] = "inspector_workspace_details_page";
+constexpr char kGdtfPageKey[] = "inspector_workspace_gdtf_page";
+constexpr int kXmlLineNumberMargin = 0;
+constexpr int kXmlFoldMargin = 1;
 constexpr std::uint64_t kNestedGdtfLimit = 512U * 1024U * 1024U;
 
 wxString FromUtf8(const std::string &value);
@@ -303,10 +307,15 @@ void ConfigureXmlEditor(wxStyledTextCtrl &editor) {
                             dark ? wxColour(180, 180, 180)
                                  : wxColour(96, 96, 96));
   editor.SetProperty("fold", "1");
-  editor.SetMarginType(1, wxSTC_MARGIN_SYMBOL);
-  editor.SetMarginMask(1, wxSTC_MASK_FOLDERS);
-  editor.SetMarginWidth(1, 16);
-  editor.SetMarginSensitive(1, true);
+  editor.SetMarginType(kXmlLineNumberMargin, wxSTC_MARGIN_NUMBER);
+  editor.SetMarginWidth(kXmlLineNumberMargin, 0);
+  editor.SetMarginSensitive(kXmlLineNumberMargin, false);
+  editor.StyleSetForeground(wxSTC_STYLE_LINENUMBER, foreground);
+  editor.StyleSetBackground(wxSTC_STYLE_LINENUMBER, background);
+  editor.SetMarginType(kXmlFoldMargin, wxSTC_MARGIN_SYMBOL);
+  editor.SetMarginMask(kXmlFoldMargin, wxSTC_MASK_FOLDERS);
+  editor.SetMarginWidth(kXmlFoldMargin, 16);
+  editor.SetMarginSensitive(kXmlFoldMargin, true);
   editor.SetReadOnly(true);
 }
 
@@ -375,20 +384,23 @@ void InspectorWorkspacePanel::BuildLayout() {
 
   notebook_ = new wxNotebook(this, wxID_ANY);
   summary_ = new wxTextCtrl(notebook_, wxID_ANY, {}, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
+  gdtfDetails_ = new GdtfInspectorDetailsPanel(notebook_);
   issues_ = new wxTextCtrl(notebook_, wxID_ANY, {}, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
-  notebook_->AddPage(summary_, _("Summary")); notebook_->AddPage(issues_, _("Issues"));
-  auto *diagnosticPage = new wxPanel(notebook_);
+  notebook_->AddPage(summary_, _("Summary"));
+  notebook_->AddPage(gdtfDetails_, _("GDTF details"));
+  notebook_->AddPage(issues_, _("Issues"));
+  diagnosticPage_ = new wxPanel(notebook_);
   auto *diagnosticSizer = new wxBoxSizer(wxVERTICAL);
-  diagnostics_ = new wxListCtrl(diagnosticPage, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
+  diagnostics_ = new wxListCtrl(diagnosticPage_, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
   diagnostics_->AppendColumn(_("Severity"), wxLIST_FORMAT_LEFT, 80);
   diagnostics_->AppendColumn(_("Domain"), wxLIST_FORMAT_LEFT, 80);
   diagnostics_->AppendColumn(_("Classification"), wxLIST_FORMAT_LEFT, 100);
   diagnostics_->AppendColumn(_("Code"), wxLIST_FORMAT_LEFT, 160);
   diagnostics_->AppendColumn(_("Message"), wxLIST_FORMAT_LEFT, 300);
   diagnostics_->AppendColumn(_("Location"), wxLIST_FORMAT_LEFT, 140);
-  auto *copyDiagnostic = new wxButton(diagnosticPage, wxID_ANY, _("Copy diagnostic"));
+  auto *copyDiagnostic = new wxButton(diagnosticPage_, wxID_ANY, _("Copy diagnostic"));
   diagnosticSizer->Add(diagnostics_, 1, wxEXPAND | wxBOTTOM, 6); diagnosticSizer->Add(copyDiagnostic, 0, wxALIGN_RIGHT);
-  diagnosticPage->SetSizer(diagnosticSizer); notebook_->AddPage(diagnosticPage, _("Diagnostics"));
+  diagnosticPage_->SetSizer(diagnosticSizer); notebook_->AddPage(diagnosticPage_, _("Diagnostics"));
   workspace->Add(notebook_, 1, wxEXPAND);
   root->Add(workspace, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8); SetSizer(root);
 
@@ -402,16 +414,31 @@ void InspectorWorkspacePanel::BuildLayout() {
   next->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { FindXml(true); });
   search_->Bind(wxEVT_TEXT_ENTER, [this](wxCommandEvent &) { FindXml(true); });
   copyAll->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { CopyAllXml(); });
+  xml_->Bind(wxEVT_STC_MARGINCLICK, [this](wxStyledTextEvent &event) {
+    if (event.GetMargin() == kXmlFoldMargin)
+      xml_->ToggleFold(xml_->LineFromPosition(event.GetPosition()));
+  });
+  notebook_->Bind(wxEVT_NOTEBOOK_PAGE_CHANGED, [this](wxBookCtrlEvent &event) {
+    if (!configuringDetailsPage_)
+      preferredDetailsPage_ = CurrentDetailsPage();
+    event.Skip();
+  });
 }
 
 // Restores the selected details page through GUI preferences.
 void InspectorWorkspacePanel::RestoreLayout() {
-  notebook_->SetSelection(ReadInt(preferences_, kPageKey, 0, 0, 2));
+  preferredDetailsPage_ = ParseInspectorDetailsPageToken(
+      preferences_.GetValue(kPageKey).value_or("summary"));
+  gdtfDetails_->SetSelectedPage(
+      ReadInt(preferences_, kGdtfPageKey, 0, 0, 2));
 }
 
 // Saves only the selected details page for the next workspace activation.
 void InspectorWorkspacePanel::SaveLayout() const {
-  preferences_.SetValue(kPageKey, std::to_string(notebook_->GetSelection()));
+  preferences_.SetValue(kPageKey,
+                        InspectorDetailsPageToken(preferredDetailsPage_));
+  preferences_.SetValue(kGdtfPageKey,
+                        std::to_string(gdtfDetails_->SelectedPage()));
   preferences_.SaveUserConfig();
 }
 
@@ -463,7 +490,7 @@ void InspectorWorkspacePanel::OpenFile(const std::filesystem::path &path) {
   try {
     externalPath_ = path; retainedMvrBytes_.clear(); parentMvr_.reset(); back_->Hide();
     identity_->SetLabel(wxString::Format(_("Source: %s"), PathText(path).AfterLast(wxFILE_SEP_PATH)));
-    sourceType_->SetLabel(_("External file — not part of the current project"));
+    sourceType_->SetLabel(_("External file - not part of the current project"));
     if (extension == ".gdtf") {
       sourceKind_ = SourceKind::ExternalGdtf; ShowGdtf(perastage::inspection::InspectGdtf(path));
     } else {
@@ -484,14 +511,17 @@ void InspectorWorkspacePanel::ClearResult() {
   }
   scene_->DeleteAllItems();
   diagnostics_->DeleteAllItems(); diagnosticRows_.clear();
-  xml_->SetReadOnly(false); xml_->ClearAll(); xml_->SetReadOnly(true); search_->Clear();
+  xml_->SetReadOnly(false); xml_->ClearAll(); xml_->SetReadOnly(true);
+  xml_->SetMarginWidth(kXmlLineNumberMargin,
+                       xml_->TextWidth(wxSTC_STYLE_LINENUMBER, "9") + 8);
+  search_->Clear();
 }
 
 // Projects high-level GDTF facts without reparsing the retained XML.
 void InspectorWorkspacePanel::ShowGdtf(
     const perastage::inspection::GdtfInspectionResult &result,
     const std::vector<std::uint8_t> *packageBytes) {
-  ClearResult(); wxString text;
+  ClearResult(); ConfigureNavigation(true); wxString text;
   text << _("Format:") << " GDTF\n" << _("Status:") << ' ' << LocalizedGdtfReadStatus(result.status) << '\n';
   if (packageBytes) text << _("Embedded resource in parent MVR") << '\n';
   AppendCommonSummary(text, result.inspection, result.validation);
@@ -518,12 +548,13 @@ void InspectorWorkspacePanel::ShowGdtf(
     SetXml(result.document->Archive().descriptionXml);
   }
   summary_->SetValue(text); PopulatePackage(resources); PopulateDiagnostics(result.inspection, result.validation);
+  gdtfDetails_->SetResult(result);
   navigation_->SetSelection(0);
 }
 
 // Projects high-level MVR facts from the immutable Inspection Core snapshot.
 void InspectorWorkspacePanel::ShowMvr(const perastage::inspection::MvrInspectionResult &result) {
-  ClearResult(); wxString text;
+  ClearResult(); ConfigureNavigation(false); wxString text;
   text << _("Format:") << " MVR\n" << _("Status:") << ' ' << (result.Success() ? _("Readable") : _("Unusable")) << '\n';
   AppendCommonSummary(text, result.inspection, result.validation);
   std::vector<perastage::inspection::ResourceDescriptor> resources;
@@ -548,6 +579,50 @@ void InspectorWorkspacePanel::ShowMvr(const perastage::inspection::MvrInspection
   summary_->SetValue(text); PopulatePackage(resources); PopulateDiagnostics(result.inspection, result.validation);
 }
 
+// Switches only format-specific pages while retaining shared package and diagnostics views.
+void InspectorWorkspacePanel::ConfigureNavigation(bool gdtf) {
+  configuringDetailsPage_ = true;
+  const int scenePage = navigation_->FindPage(scene_);
+  if (gdtf && scenePage != wxNOT_FOUND)
+    navigation_->RemovePage(static_cast<std::size_t>(scenePage));
+  else if (!gdtf && scenePage == wxNOT_FOUND)
+    navigation_->AddPage(scene_, _("Scene"));
+
+  const int detailsPage = notebook_->FindPage(gdtfDetails_);
+  if (gdtf && detailsPage == wxNOT_FOUND)
+    notebook_->InsertPage(1, gdtfDetails_, _("GDTF details"));
+  else if (!gdtf && detailsPage != wxNOT_FOUND)
+    notebook_->RemovePage(static_cast<std::size_t>(detailsPage));
+  summary_->SetName(gdtf ? _("GDTF summary") : _("MVR summary"));
+  SelectDetailsPage(preferredDetailsPage_, gdtf);
+  configuringDetailsPage_ = false;
+  Layout();
+}
+
+// Identifies the selected details page independently of dynamic notebook indices.
+InspectorDetailsPage InspectorWorkspacePanel::CurrentDetailsPage() const {
+  wxWindow *selected = notebook_->GetCurrentPage();
+  if (selected == gdtfDetails_) return InspectorDetailsPage::GdtfDetails;
+  if (selected == issues_) return InspectorDetailsPage::Issues;
+  if (selected == diagnosticPage_) return InspectorDetailsPage::Diagnostics;
+  return InspectorDetailsPage::Summary;
+}
+
+// Selects an available semantic page and falls back to Summary when necessary.
+void InspectorWorkspacePanel::SelectDetailsPage(InspectorDetailsPage page,
+                                                bool gdtf) {
+  wxWindow *target = summary_;
+  if (page == InspectorDetailsPage::GdtfDetails && gdtf)
+    target = gdtfDetails_;
+  else if (page == InspectorDetailsPage::Issues)
+    target = issues_;
+  else if (page == InspectorDetailsPage::Diagnostics)
+    target = diagnosticPage_;
+  const int index = notebook_->FindPage(target);
+  if (index != wxNOT_FOUND)
+    notebook_->SetSelection(static_cast<std::size_t>(index));
+}
+
 // Populates the safe hierarchical package projection.
 void InspectorWorkspacePanel::PopulatePackage(const std::vector<perastage::inspection::ResourceDescriptor> &resources) {
   auto *model = new PackageDataViewModel(BuildPackageTree(resources));
@@ -569,8 +644,9 @@ void InspectorWorkspacePanel::PopulateDiagnostics(
   const auto groups = BuildIssueGroups(diagnosticRows_);
   wxString issueText;
   for (const auto &group : groups)
-    issueText << group.count << " × " << FromUtf8(group.code) << "  ["
-              << ClassificationName(group.classification) << ", " << SeverityName(group.severity) << "]\n";
+    issueText << FromUtf8(FormatIssueGroupLine(
+        group.count, group.code, ClassificationName(group.classification),
+        SeverityName(group.severity)));
   issues_->SetValue(issueText);
   std::stable_sort(diagnosticRows_.begin(), diagnosticRows_.end(), [](const auto &left, const auto &right) {
     return std::tie(left.severity, left.classification, left.code) > std::tie(right.severity, right.classification, right.code);
@@ -587,6 +663,11 @@ void InspectorWorkspacePanel::PopulateDiagnostics(
 // Displays retained root XML exactly as supplied by Inspection Core.
 void InspectorWorkspacePanel::SetXml(const std::string &xml) {
   xml_->SetReadOnly(false); xml_->SetTextRaw(xml.c_str()); xml_->SetReadOnly(true);
+  const int digits =
+      static_cast<int>(XmlLineNumberDigits(xml_->GetLineCount()));
+  xml_->SetMarginWidth(kXmlLineNumberMargin,
+                       xml_->TextWidth(wxSTC_STYLE_LINENUMBER,
+                                       wxString('9', digits)) + 8);
 }
 
 // Finds literal UTF-8 text with deterministic directional wrap-around.
@@ -655,7 +736,7 @@ void InspectorWorkspacePanel::ReturnToParentMvr() {
     identity_->SetLabel(_("Source: Current project MVR")); sourceType_->SetLabel(_("Active project"));
   } else {
     identity_->SetLabel(wxString::Format(_("Source: %s"), PathText(externalPath_).AfterLast(wxFILE_SEP_PATH)));
-    sourceType_->SetLabel(_("External file — not part of the current project"));
+    sourceType_->SetLabel(_("External file - not part of the current project"));
   }
   ShowMvr(result); Layout();
 }

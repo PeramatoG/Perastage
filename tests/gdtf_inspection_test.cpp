@@ -36,14 +36,25 @@ std::string CompleteXml() {
          "Thumbnail=\"thumb\" CreateDate=\"2026-01-02T03:04:05\" "
          "RefFT=\"rev-a\"><Revisions><Revision Text=\"Initial\" "
          "Date=\"2026-01-02T03:04:05\" UserID=\"7\" ModifiedBy=\"Test\"/>"
-         "</Revisions><Wheels><Wheel Name=\"Color\"><Slot Name=\"Blue\" "
-         "MediaFileName=\"blue\" Gobo=\"wheels/blue.png\"/></Wheel></Wheels>"
+         "</Revisions><Filters><Filter Name=\"BlueFilter\" "
+         "Color=\"0.15,0.06,0.4\"/></Filters><Wheels><Wheel Name=\"Color\" "
+         "Type=\"Color\"><Slot Name=\"Blue\" Color=\"0.15,0.06,0.4\" "
+         "Filter=\"BlueFilter\" MediaFileName=\"blue\" "
+         "Gobo=\"wheels/blue.png\"/></Wheel></Wheels>"
          "<PhysicalDescriptions><Properties><Weight Value=\"12.5\"/>"
          "<OperatingTemperature Low=\"0\" High=\"40\"/></Properties>"
          "</PhysicalDescriptions><Models><Model Name=\"Body\" "
          "PrimitiveType=\"Cube\"/></Models><Geometries><Geometry Name=\"Root\" "
          "Model=\"Body\"/></Geometries><DMXModes><DMXMode Name=\"Mode A\" "
-         "Geometry=\"Root\"/><DMXMode Name=\"Mode B\" Geometry=\"Root\"/>"
+         "Description=\"Full mode\" Geometry=\"Root\"><DMXChannels>"
+         "<DMXChannel Offset=\"1,2\" Geometry=\"Root\"><LogicalChannel "
+         "Attribute=\"Dimmer\"><ChannelFunction Name=\"Dim\" "
+         "Attribute=\"Dimmer\" DMXFrom=\"0/2\" PhysicalFrom=\"0\" "
+         "PhysicalTo=\"100\" ModeMaster=\"Control\"><ChannelSet Name=\"Low\" "
+         "DMXFrom=\"0/2\"><SubChannelSet Name=\"Sub\" PhysicalFrom=\"0\" "
+         "PhysicalTo=\"1\" SubPhysicalUnit=\"Percent\"/></ChannelSet>"
+         "</ChannelFunction></LogicalChannel></DMXChannel></DMXChannels>"
+         "</DMXMode><DMXMode Name=\"Mode B\" Geometry=\"Root\"/>"
          "</DMXModes></FixtureType></GDTF>\n";
 }
 
@@ -242,6 +253,30 @@ void AssertStableResultEqual(const GdtfInspectionResult &left,
            right.document->RepeatedFamilies()[index].names);
   }
   assert(left.document->Valid() == right.document->Valid());
+  assert(left.modeChannels.has_value() == right.modeChannels.has_value());
+  assert(left.wheelCatalog.has_value() == right.wheelCatalog.has_value());
+  if (left.modeChannels) {
+    assert(left.modeChannels->modes.size() == right.modeChannels->modes.size());
+    for (std::size_t index = 0; index < left.modeChannels->modes.size(); ++index) {
+      const auto &a = left.modeChannels->modes[index];
+      const auto &b = right.modeChannels->modes[index];
+      assert(a.name == b.name);
+      assert(a.geometry == b.geometry);
+      assert(a.calculatedFootprint == b.calculatedFootprint);
+      assert(a.channels.size() == b.channels.size());
+    }
+  }
+  if (left.wheelCatalog) {
+    assert(left.wheelCatalog->wheels.size() == right.wheelCatalog->wheels.size());
+    assert(left.wheelCatalog->filters.size() == right.wheelCatalog->filters.size());
+    for (std::size_t index = 0; index < left.wheelCatalog->wheels.size(); ++index) {
+      const auto &a = left.wheelCatalog->wheels[index];
+      const auto &b = right.wheelCatalog->wheels[index];
+      assert(a.name == b.name);
+      assert(a.type == b.type);
+      assert(a.slots.size() == b.slots.size());
+    }
+  }
 }
 
 // Compares source identity for repeated use of the same GDTF entry point.
@@ -423,6 +458,22 @@ void TestCanonicalAndParity(const fs::path &directory) {
   assert(description.wheels.front().slots.front().mediaFileName == "blue");
   assert(description.wheels.front().slots.front().resourceReferences ==
          std::vector<std::string>({"wheels/blue.png"}));
+  assert(inspected.modeChannels && inspected.modeChannels->modes.size() == 2);
+  const auto &mode = inspected.modeChannels->modes.front();
+  assert(mode.description == "Full mode");
+  assert(mode.geometry == "Root");
+  assert(mode.calculatedFootprint == 2);
+  assert(mode.channels.front().resolution == 2);
+  const auto &function = mode.channels.front().logicalChannels.front()
+                             .channelFunctions.front();
+  assert(function.modeMaster == "Control");
+  assert(function.effectivePhysicalRange.available);
+  assert(function.channelSets.front().subChannelSets.size() == 1);
+  assert(inspected.wheelCatalog && inspected.wheelCatalog->wheels.size() == 1);
+  assert(inspected.wheelCatalog->filters.size() == 1);
+  assert(inspected.wheelCatalog->wheels.front().type == "Color");
+  assert(inspected.wheelCatalog->wheels.front().slots.front().rawFilter ==
+         "BlueFilter");
 
   const gdtf::ArchiveReadResult directArchive = gdtf::ReadGdtfArchive(path);
   const gdtf::GdtfDescriptionSnapshot directDescription =

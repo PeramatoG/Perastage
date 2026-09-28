@@ -192,6 +192,18 @@ set_perastage_test_labels(InspectorPresentation
                           LAYER standard-strict
                           DOMAINS architecture gui inspection gdtf mvr)
 
+add_executable(gdtf_inspector_presentation_test
+               gdtf_inspector_presentation_test.cpp
+               ../gui/inspection/gdtf_inspector_presentation.cpp
+               ../gui/gdtf/gdtf_mode_browser_presenter.cpp)
+target_include_directories(gdtf_inspector_presentation_test
+                           PRIVATE ../core ../gui)
+add_test(NAME GdtfInspectorPresentation
+         COMMAND gdtf_inspector_presentation_test)
+set_perastage_test_labels(GdtfInspectorPresentation
+                          LAYER standard-strict
+                          DOMAINS architecture gui inspection gdtf)
+
 add_executable(inspector_models_test
                inspector_models_test.cpp
                ../gui/inspector_models.cpp)
