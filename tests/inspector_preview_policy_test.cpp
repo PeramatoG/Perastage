@@ -20,7 +20,19 @@ int main() {
   binary.rawReadSupported = true;
   assert(!DecidePreview(binary).allowed);
 
+  perastage::inspection::ResourceDescriptor nested;
+  nested.kind = perastage::inspection::ResourceKind::NestedGdtf;
+  nested.rawReadSupported = true;
+  const auto nestedPreview = DecidePreview(nested);
+  assert(nestedPreview.allowed);
+  assert(nestedPreview.maxBytes == kInspectorNestedGdtfPreviewBytes);
+  nested.sizeKnown = true;
+  nested.size = kInspectorNestedGdtfPreviewBytes + 1;
+  assert(!DecidePreview(nested).allowed);
+
   assert(DecideNestedGdtfOpen(true, kInspectorNestedGdtfOpenBytes).allowed);
+  static_assert(kInspectorNestedGdtfOpenBytes ==
+                perastage::inspection::kMaximumPackageResourceReadBytes);
   assert(!DecideNestedGdtfOpen(true,
                                kInspectorNestedGdtfOpenBytes + 1).allowed);
   const auto unknown = DecideNestedGdtfOpen(false, 0);

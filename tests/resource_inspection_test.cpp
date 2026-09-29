@@ -1,5 +1,6 @@
 #include "inspection/nested_gdtf_inspection.h"
 #include "inspection/resource_inspection.h"
+#include "inspection/inspector_preview_policy.h"
 #include "support/archive_entry_test_utils.h"
 #include "wx_path_utils.h"
 
@@ -456,8 +457,12 @@ void TestNestedGdtf(const fs::path &root) {
   WritePackage(mvrPath, {{"fixture.gdtf", embedded}});
 
   const GdtfInspectionResult standalone = InspectGdtf(gdtfPath);
+  const auto openPolicy = gui::inspection::DecideNestedGdtfOpen(
+      true, static_cast<std::uint64_t>(gdtfBytes.size()));
+  assert(openPolicy.allowed);
+  assert(openPolicy.maxBytes == kMaximumPackageResourceReadBytes);
   const NestedGdtfInspectionResult nested =
-      InspectNestedGdtf(mvrPath, "fixture.gdtf", gdtfBytes.size());
+      InspectNestedGdtf(mvrPath, "fixture.gdtf", openPolicy.maxBytes);
   assert(standalone.Success() && nested.Success());
   assert(nested.gdtf->document->Description().fixtureTypeName ==
          standalone.document->Description().fixtureTypeName);
@@ -512,6 +517,18 @@ void TestNestedGdtf(const fs::path &root) {
   assert(!tooSmall.gdtf);
   assert(HasCode(tooSmall.resource.inspection,
                  resource_diagnostic_codes::TooLarge));
+
+  const fs::path declaredLargePath = root / "declared-large.mvr";
+  WriteStreamingPackage(declaredLargePath, "fixture.gdtf", embedded);
+  PatchCentralSize(declaredLargePath,
+                   static_cast<std::uint32_t>(openPolicy.maxBytes + 1));
+  const NestedGdtfInspectionResult declaredLarge = InspectNestedGdtf(
+      declaredLargePath, "fixture.gdtf", openPolicy.maxBytes);
+  assert(!declaredLarge.gdtf);
+  assert(HasCode(declaredLarge.resource.inspection,
+                 resource_diagnostic_codes::TooLarge));
+  assert(!HasCode(declaredLarge.resource.inspection,
+                  resource_diagnostic_codes::InvalidReadLimit));
 
   const NestedGdtfInspectionResult missing =
       InspectNestedGdtf(mvrPath, "missing.gdtf", gdtfBytes.size());

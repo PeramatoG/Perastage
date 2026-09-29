@@ -12,12 +12,21 @@ std::uint64_t InspectorRequestCoordinator::BeginSourceRequest() {
   return sourceGeneration_;
 }
 
+// Starts a source replacement while retaining the committed displayed context.
+std::uint64_t InspectorRequestCoordinator::BeginRetainedSourceRequest() {
+  ++sourceGeneration_;
+  ++previewGeneration_;
+  return sourceGeneration_;
+}
+
 // Publishes a source only when it still owns current source authority.
-void InspectorRequestCoordinator::PublishSource(
+bool InspectorRequestCoordinator::PublishSource(
     std::uint64_t generation,
     std::shared_ptr<const DisplayedPackageContext> context) {
-  if (generation == sourceGeneration_)
-    displayedContext_ = std::move(context);
+  if (generation != sourceGeneration_)
+    return false;
+  displayedContext_ = std::move(context);
+  return true;
 }
 
 // Creates preview identity only for the exact currently displayed context.
@@ -28,6 +37,11 @@ InspectorRequestCoordinator::BeginPreview(
     return std::nullopt;
   return InspectorPreviewTicket{sourceGeneration_, ++previewGeneration_,
                                 context};
+}
+
+// Invalidates selection-driven work without changing displayed source authority.
+void InspectorRequestCoordinator::InvalidatePreview() {
+  ++previewGeneration_;
 }
 
 // Accepts a preview only while both its source and sub-generation remain current.

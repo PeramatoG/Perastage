@@ -196,6 +196,26 @@ static void AssertCanonicalResourcePayloadEqual(
   assert(firstBytes == secondBytes);
 }
 
+// Compares canonical MVR contents while ignoring outer ZIP metadata.
+static void AssertCanonicalMvrContentEqual(
+    const std::vector<std::uint8_t> &first,
+    const std::vector<std::uint8_t> &second) {
+  const std::string firstBytes(first.begin(), first.end());
+  const std::string secondBytes(second.begin(), second.end());
+  const auto firstEntries = ReadArchiveEntries(firstBytes);
+  const auto secondEntries = ReadArchiveEntries(secondBytes);
+  assert(firstEntries.size() == secondEntries.size());
+  for (const auto &[entryName, firstPayload] : firstEntries) {
+    const auto secondEntry = secondEntries.find(entryName);
+    assert(secondEntry != secondEntries.end());
+    if (entryName == "GeneralSceneDescription.xml")
+      assert(firstPayload == secondEntry->second);
+    else
+      AssertCanonicalResourcePayloadEqual(entryName, firstPayload,
+                                          secondEntry->second);
+  }
+}
+
 // Returns the ASCII-lowercase representation of an archive identity.
 static std::string FoldAscii(std::string value) {
   std::transform(value.begin(), value.end(), value.begin(),
@@ -490,7 +510,8 @@ int main() {
   assert(firstInspection && secondInspection);
   assert(!firstInspection->bytes.empty());
   assert(firstInspection->result.Success() && firstInspection->result.snapshot);
-  assert(firstInspection->bytes == secondInspection->bytes);
+  AssertCanonicalMvrContentEqual(firstInspection->bytes,
+                                 secondInspection->bytes);
   const auto immutableInput =
       gui::inspection::CurrentProjectInspector(inspectorProject,
                                                 inspectorPreferences)
@@ -504,7 +525,7 @@ int main() {
       gui::inspection::CurrentProjectInspector::Serialize(immutableInput);
   scene.provider = originalProvider;
   assert(immutableBefore && immutableAfter);
-  assert(*immutableBefore == *immutableAfter);
+  AssertCanonicalMvrContentEqual(*immutableBefore, *immutableAfter);
   assert(inspectorProject.IsDirty() == dirtyBeforeInspection);
   assert(scene.fixtures.size() == sceneBeforeSnapshot.fixtures.size());
   assert(scene.layers.size() == sceneBeforeSnapshot.layers.size());

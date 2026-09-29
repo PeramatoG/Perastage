@@ -13,7 +13,7 @@ inline constexpr std::uint64_t kInspectorModelPreviewBytes = 64U * 1024U * 1024U
 inline constexpr std::uint64_t kInspectorNestedGdtfPreviewBytes =
     16U * 1024U * 1024U;
 inline constexpr std::uint64_t kInspectorNestedGdtfOpenBytes =
-    512U * 1024U * 1024U;
+    perastage::inspection::kMaximumPackageResourceReadBytes;
 inline constexpr std::uint64_t kInspectorTextPreviewBytes = 4U * 1024U * 1024U;
 inline constexpr std::uint64_t kInspectorEagerXmlBytes = 2U * 1024U * 1024U;
 inline constexpr std::size_t kInspectorImageCacheBytes = 64U * 1024U * 1024U;

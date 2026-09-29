@@ -22,22 +22,34 @@ int main() {
   const auto nested = Context("nested:same/path.png");
 
   const auto sourceA = coordinator.BeginSourceRequest();
-  coordinator.PublishSource(sourceA, parent);
+  assert(coordinator.PublishSource(sourceA, parent));
   const auto previewA = coordinator.BeginPreview(parent);
   assert(previewA);
 
-  const auto sourceB = coordinator.BeginSourceRequest();
-  assert(!coordinator.DisplayedContext());
-  assert(!coordinator.BeginPreview(parent));
+  coordinator.InvalidatePreview();
   assert(!coordinator.AcceptPreview(*previewA));
-  coordinator.PublishSource(sourceB, nested);
+  const auto replacementPreview = coordinator.BeginPreview(parent);
+  assert(replacementPreview);
+
+  const auto sourceB = coordinator.BeginRetainedSourceRequest();
+  assert(coordinator.DisplayedContext() == parent);
+  const auto pendingPreview = coordinator.BeginPreview(parent);
+  assert(pendingPreview);
+  coordinator.InvalidatePreview();
+  assert(coordinator.SourceGeneration() == sourceB);
+  assert(!coordinator.AcceptPreview(*replacementPreview));
+  const auto supersedingSource = coordinator.BeginRetainedSourceRequest();
+  assert(!coordinator.AcceptPreview(*pendingPreview));
+  assert(!coordinator.PublishSource(sourceB, nested));
+  assert(coordinator.DisplayedContext() == parent);
+  assert(coordinator.PublishSource(supersedingSource, nested));
   assert(coordinator.DisplayedContext() == nested);
 
   const auto rowPreview = coordinator.BeginPreview(nested);
   assert(rowPreview);
   const auto navigation = coordinator.BeginSourceRequest();
   assert(!coordinator.AcceptPreview(*rowPreview));
-  coordinator.PublishSource(navigation, parent);
+  assert(coordinator.PublishSource(navigation, parent));
   assert(coordinator.DisplayedContext()->fingerprint ==
          "parent:same/path.png");
   assert(coordinator.DisplayedContext()->fingerprint != nested->fingerprint);

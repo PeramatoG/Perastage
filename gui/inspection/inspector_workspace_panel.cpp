@@ -6,6 +6,10 @@
 #include "inspection/gdtf_inspector_details_panel.h"
 #include "inspection/inspector_presentation.h"
 #include "inspection/inspector_preview_policy.h"
+#include "inspection/inspector_primary_xml.h"
+#include "inspection/inspector_navigation_dispatch.h"
+#include "inspection/inspector_navigation_request.h"
+#include "inspection/inspector_xml_editor.h"
 #include "gdtf/inspector_model_preview.h"
 #include "inspector_project_source.h"
 #include "inspection/nested_gdtf_inspection.h"
@@ -39,6 +43,7 @@
 #include <wx/settings.h>
 #include <wx/textctrl.h>
 #include <wx/thread.h>
+#include <wx/weakref.h>
 
 wxDEFINE_EVENT(wxEVT_INSPECTOR_ASYNC_RESULT, wxThreadEvent);
 
@@ -48,7 +53,9 @@ namespace {
 constexpr char kPageKey[] = "inspector_workspace_details_page";
 constexpr char kGdtfPageKey[] = "inspector_workspace_gdtf_page";
 constexpr char kNavigationRatioKey[] = "inspector_workspace_navigation_ratio";
-constexpr char kDetailsRatioKey[] = "inspector_workspace_details_ratio";
+// Version 2 migrates unreleased equal-width layouts to the intended 2:1 split.
+constexpr char kDetailsRatioKey[] = "inspector_workspace_details_ratio_v2";
+constexpr char kPreviewRatioKey[] = "inspector_workspace_preview_ratio";
 constexpr int kXmlLineNumberMargin = 0;
 constexpr int kXmlFoldMargin = 1;
 constexpr char kUuidColumnLabel[] = "UUID";
@@ -403,41 +410,6 @@ void AppendCommonSummary(
   }
 }
 
-// Configures theme-aware XML syntax presentation and folding.
-void ConfigureXmlEditor(wxStyledTextCtrl &editor) {
-  const wxColour foreground = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
-  const wxColour background = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
-  const bool dark = background.GetLuminance() < 0.5;
-  editor.StyleSetForeground(wxSTC_STYLE_DEFAULT, foreground);
-  editor.StyleSetBackground(wxSTC_STYLE_DEFAULT, background);
-  editor.StyleClearAll();
-  editor.SetLexer(wxSTC_LEX_XML);
-  editor.StyleSetForeground(wxSTC_H_TAG,
-                            dark ? wxColour(110, 190, 255)
-                                 : wxColour(0, 96, 160));
-  editor.StyleSetForeground(wxSTC_H_ATTRIBUTE,
-                            dark ? wxColour(255, 190, 100)
-                                 : wxColour(128, 64, 0));
-  const wxColour stringColour =
-      dark ? wxColour(120, 220, 150) : wxColour(0, 112, 48);
-  editor.StyleSetForeground(wxSTC_H_DOUBLESTRING, stringColour);
-  editor.StyleSetForeground(wxSTC_H_SINGLESTRING, stringColour);
-  editor.StyleSetForeground(wxSTC_H_COMMENT,
-                            dark ? wxColour(180, 180, 180)
-                                 : wxColour(96, 96, 96));
-  editor.SetProperty("fold", "1");
-  editor.SetMarginType(kXmlLineNumberMargin, wxSTC_MARGIN_NUMBER);
-  editor.SetMarginWidth(kXmlLineNumberMargin, 0);
-  editor.SetMarginSensitive(kXmlLineNumberMargin, false);
-  editor.StyleSetForeground(wxSTC_STYLE_LINENUMBER, foreground);
-  editor.StyleSetBackground(wxSTC_STYLE_LINENUMBER, background);
-  editor.SetMarginType(kXmlFoldMargin, wxSTC_MARGIN_SYMBOL);
-  editor.SetMarginMask(kXmlFoldMargin, wxSTC_MASK_FOLDERS);
-  editor.SetMarginWidth(kXmlFoldMargin, 16);
-  editor.SetMarginSensitive(kXmlFoldMargin, true);
-  editor.SetReadOnly(true);
-}
-
 } // namespace
 
 // Constructs the Inspector workspace and restores presentation-only state.
@@ -467,6 +439,7 @@ InspectorWorkspacePanel::InspectorWorkspacePanel(
 InspectorWorkspacePanel::~InspectorWorkspacePanel() {
   worker_.reset();
   DeletePendingEvents();
+  previewModel_->ResetPreview();
   SaveLayout();
 }
 
@@ -521,21 +494,29 @@ void InspectorWorkspacePanel::BuildLayout() {
   auto *previous = new wxButton(xmlPanel, wxID_ANY, _("Find previous"));
   auto *next = new wxButton(xmlPanel, wxID_ANY, _("Find next"));
   auto *copyAll = new wxButton(xmlPanel, wxID_ANY, _("Copy all"));
+  auto *foldAll = new wxButton(xmlPanel, wxID_ANY, _("Fold all"));
+  auto *unfoldAll = new wxButton(xmlPanel, wxID_ANY, _("Unfold all"));
   loadCompleteXml_ = new wxButton(xmlPanel, wxID_ANY, _("Load complete XML"));
   xmlStatus_ = new wxStaticText(xmlPanel, wxID_ANY, {});
   findRow->Add(new wxStaticText(xmlPanel, wxID_ANY, _("Find:")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   findRow->Add(search_, 1, wxRIGHT, 5); findRow->Add(previous, 0, wxRIGHT, 5);
   findRow->Add(next, 0, wxRIGHT, 5); findRow->Add(copyAll, 0, wxRIGHT, 5);
+  findRow->Add(foldAll, 0, wxRIGHT, 5);
+  findRow->Add(unfoldAll, 0, wxRIGHT, 5);
   findRow->Add(loadCompleteXml_);
   xml_ = new wxStyledTextCtrl(xmlPanel, wxID_ANY);
-  ConfigureXmlEditor(*xml_);
+  ConfigureInspectorXmlEditor(*xml_);
   xmlColumn->Add(findRow, 0, wxEXPAND | wxBOTTOM, 6);
   xmlColumn->Add(xmlStatus_, 0, wxEXPAND | wxBOTTOM, 4);
   xmlColumn->Add(xml_, 1, wxEXPAND);
   loadCompleteXml_->Hide();
   xmlPanel->SetSizer(xmlColumn);
 
-  notebook_ = new wxNotebook(detailsSplitter_, wxID_ANY);
+  previewSplitter_ = new wxSplitterWindow(
+      detailsSplitter_, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+      wxSP_LIVE_UPDATE | wxSP_3D);
+  previewSplitter_->SetMinimumPaneSize(FromDIP(120));
+  notebook_ = new wxNotebook(previewSplitter_, wxID_ANY);
   summary_ = new wxTextCtrl(notebook_, wxID_ANY, {}, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
   gdtfDetails_ = new GdtfInspectorDetailsPanel(notebook_);
   issues_ = new wxTextCtrl(notebook_, wxID_ANY, {}, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
@@ -554,8 +535,10 @@ void InspectorWorkspacePanel::BuildLayout() {
   auto *copyDiagnostic = new wxButton(diagnosticPage_, wxID_ANY, _("Copy diagnostic"));
   diagnosticSizer->Add(diagnostics_, 1, wxEXPAND | wxBOTTOM, 6); diagnosticSizer->Add(copyDiagnostic, 0, wxALIGN_RIGHT);
   diagnosticPage_->SetSizer(diagnosticSizer); notebook_->AddPage(diagnosticPage_, _("Diagnostics"));
-  previewPage_ = new wxPanel(notebook_);
+  previewPage_ = new wxPanel(previewSplitter_);
   auto *previewSizer = new wxBoxSizer(wxVERTICAL);
+  previewSizer->Add(new wxStaticText(previewPage_, wxID_ANY, _("Preview")),
+                    0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 6);
   previewStatus_ = new wxStaticText(previewPage_, wxID_ANY,
                                     _("Select a package resource to preview it."));
   previewImage_ = new wxStaticBitmap(previewPage_, wxID_ANY, wxNullBitmap);
@@ -569,10 +552,10 @@ void InspectorWorkspacePanel::BuildLayout() {
   previewSizer->Add(previewModel_, 1, wxEXPAND | wxALL, 6);
   previewImage_->Hide(); previewText_->Hide(); previewModel_->Hide();
   previewPage_->SetSizer(previewSizer);
-  notebook_->AddPage(previewPage_, _("Preview"));
   previewBitmapCache_ = std::make_unique<GdtfResourceBitmapCache>(
       kInspectorImageCacheBytes);
-  detailsSplitter_->SplitVertically(xmlPanel, notebook_);
+  previewSplitter_->SplitHorizontally(notebook_, previewPage_);
+  detailsSplitter_->SplitVertically(xmlPanel, previewSplitter_);
   navigationSplitter_->SplitVertically(navigation_, detailsSplitter_);
   root->Add(navigationSplitter_, 1,
             wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
@@ -580,11 +563,14 @@ void InspectorWorkspacePanel::BuildLayout() {
 
   Bind(wxEVT_SIZE, [this](wxSizeEvent &event) {
     if (!splitterRatiosApplied_ && navigationSplitter_->GetClientSize().x > 0 &&
-        detailsSplitter_->GetClientSize().x > 0) {
+        detailsSplitter_->GetClientSize().x > 0 &&
+        previewSplitter_->GetClientSize().y > 0) {
       navigationSplitter_->SetSashPosition(static_cast<int>(
           navigationSplitter_->GetClientSize().x * navigationRatio_));
       detailsSplitter_->SetSashPosition(static_cast<int>(
           detailsSplitter_->GetClientSize().x * detailsRatio_));
+      previewSplitter_->SetSashPosition(static_cast<int>(
+          previewSplitter_->GetClientSize().y * previewRatio_));
       splitterRatiosApplied_ = true;
     }
     event.Skip();
@@ -602,11 +588,15 @@ void InspectorWorkspacePanel::BuildLayout() {
   next->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { FindXml(true); });
   search_->Bind(wxEVT_TEXT_ENTER, [this](wxCommandEvent &) { FindXml(true); });
   copyAll->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { CopyAllXml(); });
+  foldAll->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { FoldXml(true); });
+  unfoldAll->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { FoldXml(false); });
   loadCompleteXml_->Bind(wxEVT_BUTTON,
                          [this](wxCommandEvent &) { LoadCompleteXml(); });
   xml_->Bind(wxEVT_STC_MARGINCLICK, [this](wxStyledTextEvent &event) {
-    if (event.GetMargin() == kXmlFoldMargin)
-      xml_->ToggleFold(xml_->LineFromPosition(event.GetPosition()));
+    const int line = xml_->LineFromPosition(event.GetPosition());
+    if (event.GetMargin() == kXmlFoldMargin &&
+        (xml_->GetFoldLevel(line) & wxSTC_FOLDLEVELHEADERFLAG) != 0)
+      xml_->ToggleFold(line);
   });
   notebook_->Bind(wxEVT_NOTEBOOK_PAGE_CHANGED, [this](wxBookCtrlEvent &event) {
     if (!configuringDetailsPage_)
@@ -624,7 +614,9 @@ void InspectorWorkspacePanel::RestoreLayout() {
   navigationRatio_ = ParseSplitterRatio(
       preferences_.GetValue(kNavigationRatioKey), 0.25);
   detailsRatio_ =
-      ParseSplitterRatio(preferences_.GetValue(kDetailsRatioKey), 0.66);
+      ParseSplitterRatio(preferences_.GetValue(kDetailsRatioKey), 0.67);
+  previewRatio_ =
+      ParseSplitterRatio(preferences_.GetValue(kPreviewRatioKey), 0.68);
 }
 
 // Saves only the selected details page for the next workspace activation.
@@ -645,6 +637,12 @@ void InspectorWorkspacePanel::SaveLayout() const {
         FormatSplitterRatio(static_cast<double>(
                                 detailsSplitter_->GetSashPosition()) /
                             detailsSplitter_->GetClientSize().x));
+  if (previewSplitter_->GetClientSize().y >= FromDIP(240))
+    preferences_.SetValue(
+        kPreviewRatioKey,
+        FormatSplitterRatio(static_cast<double>(
+                                previewSplitter_->GetSashPosition()) /
+                            previewSplitter_->GetClientSize().y));
   preferences_.SaveUserConfig();
 }
 
@@ -672,7 +670,7 @@ void InspectorWorkspacePanel::InspectCurrentProject() {
     const auto input =
         CurrentProjectInspector(project_, preferences_).CaptureInput();
     sourceKind_ = SourceKind::CurrentProject;
-    parentContext_.reset(); back_->Hide();
+    parentContext_.reset(); SetBackNavigationVisible(false);
     const auto sourceGeneration = BeginSourceLoad(
         _("Source: Current project MVR"), _("Active project"));
     worker_->Submit(
@@ -720,7 +718,7 @@ void InspectorWorkspacePanel::OpenFile(const std::filesystem::path &path) {
     return;
   }
   try {
-    parentContext_.reset(); back_->Hide();
+    parentContext_.reset(); SetBackNavigationVisible(false);
     const auto sourceGeneration = BeginSourceLoad(
         wxString::Format(_("Source: %s"),
                          PathText(path).AfterLast(wxFILE_SEP_PATH)),
@@ -775,18 +773,28 @@ void InspectorWorkspacePanel::ClearResult() {
     sceneModel_ = nullptr;
   }
   diagnostics_->DeleteAllItems(); diagnosticRows_.clear();
+  gdtfDetails_->ClearResult();
   xml_->SetReadOnly(false); xml_->ClearAll(); xml_->SetReadOnly(true);
   xml_->SetMarginWidth(kXmlLineNumberMargin,
                        xml_->TextWidth(wxSTC_STYLE_LINENUMBER, "9") + 8);
   exactXml_.clear(); xmlStatus_->SetLabel({}); loadCompleteXml_->Hide();
   search_->Clear();
   previewStatus_->SetLabel(_("Select a package resource to preview it."));
+  previewModel_->ResetPreview();
   previewImage_->Hide(); previewText_->Hide(); previewModel_->Hide();
+  previewPage_->Layout();
+}
+
+// Shows or hides parent navigation and immediately recomputes header geometry.
+void InspectorWorkspacePanel::SetBackNavigationVisible(bool visible) {
+  back_->Show(visible);
+  Layout();
 }
 
 // Invalidates old interactions and presents an immediate source-loading state.
 std::uint64_t InspectorWorkspacePanel::BeginSourceLoad(
     const wxString &identity, const wxString &sourceType) {
+  nestedTransition_.Cancel();
   worker_->Cancel(InspectorTaskDomain::Preview);
   const auto generation = requestCoordinator_.BeginSourceRequest();
   ClearResult();
@@ -798,12 +806,35 @@ std::uint64_t InspectorWorkspacePanel::BeginSourceLoad(
   return generation;
 }
 
+// Starts transactional nested loading without clearing the committed parent UI.
+std::uint64_t InspectorWorkspacePanel::BeginNestedSourceLoad(
+    std::shared_ptr<const DisplayedPackageContext> parent) {
+  worker_->Cancel(InspectorTaskDomain::Preview);
+  const auto generation = requestCoordinator_.BeginRetainedSourceRequest();
+  nestedTransition_.Begin(std::move(parent), generation);
+  package_->Enable(false);
+  scene_->Enable(false);
+  return generation;
+}
+
+// Restores parent interaction after a current nested transition fails.
+void InspectorWorkspacePanel::FinishNestedSourceFailure(
+    const wxString &message) {
+  if (!nestedTransition_.IsPending())
+    return;
+  package_->Enable(true);
+  scene_->Enable(true);
+  previewStatus_->SetLabel(message);
+  nestedTransition_.Cancel();
+  SetBackNavigationVisible(false);
+}
+
 // Projects high-level GDTF facts without reparsing the retained XML.
 void InspectorWorkspacePanel::ShowGdtf(
     const perastage::inspection::GdtfInspectionResult &result,
     const DisplayedPackageContext &context) {
   ClearResult(); ConfigureNavigation(true); wxString text;
-  package_->Enable(true); scene_->Enable(true);
+  package_->Enable(true);
   text << _("Format:") << " GDTF\n" << _("Status:") << ' ' << LocalizedGdtfReadStatus(result.status) << '\n';
   if (context.packageBytes) text << _("Embedded resource in parent MVR") << '\n';
   AppendCommonSummary(text, result.inspection, result.validation);
@@ -831,7 +862,7 @@ void InspectorWorkspacePanel::ShowGdtf(
   }
   summary_->SetValue(text); PopulatePackage(resources); PopulateDiagnostics(result.inspection, result.validation);
   gdtfDetails_->SetResult(result);
-  navigation_->SetSelection(0);
+  navigation_->ChangeSelection(0);
 }
 
 // Projects high-level MVR facts from the immutable Inspection Core snapshot.
@@ -864,20 +895,13 @@ void InspectorWorkspacePanel::ShowMvr(
   summary_->SetValue(text); PopulatePackage(resources); PopulateDiagnostics(result.inspection, result.validation);
 }
 
-// Switches only format-specific pages while retaining shared package and diagnostics views.
+// Updates format-specific availability without changing native notebook topology.
 void InspectorWorkspacePanel::ConfigureNavigation(bool gdtf) {
   configuringDetailsPage_ = true;
-  const int scenePage = navigation_->FindPage(scene_);
-  if (gdtf && scenePage != wxNOT_FOUND)
-    navigation_->RemovePage(static_cast<std::size_t>(scenePage));
-  else if (!gdtf && scenePage == wxNOT_FOUND)
-    navigation_->AddPage(scene_, _("Scene"));
-
-  const int detailsPage = notebook_->FindPage(gdtfDetails_);
-  if (gdtf && detailsPage == wxNOT_FOUND)
-    notebook_->InsertPage(1, gdtfDetails_, _("GDTF details"));
-  else if (!gdtf && detailsPage != wxNOT_FOUND)
-    notebook_->RemovePage(static_cast<std::size_t>(detailsPage));
+  scene_->Enable(!gdtf);
+  gdtfDetails_->SetAvailable(gdtf);
+  if (gdtf)
+    navigation_->ChangeSelection(0);
   summary_->SetName(gdtf ? _("GDTF summary") : _("MVR summary"));
   SelectDetailsPage(preferredDetailsPage_, gdtf);
   configuringDetailsPage_ = false;
@@ -905,7 +929,7 @@ void InspectorWorkspacePanel::SelectDetailsPage(InspectorDetailsPage page,
     target = diagnosticPage_;
   const int index = notebook_->FindPage(target);
   if (index != wxNOT_FOUND)
-    notebook_->SetSelection(static_cast<std::size_t>(index));
+    notebook_->ChangeSelection(static_cast<std::size_t>(index));
 }
 
 // Populates the safe hierarchical package projection.
@@ -957,6 +981,7 @@ void InspectorWorkspacePanel::SetXml(const std::string &xml) {
                    : xml.size());
   const std::string shown = xml.substr(0, shownBytes);
   xml_->SetReadOnly(false); xml_->SetTextRaw(shown.c_str()); xml_->SetReadOnly(true);
+  ColouriseInspectorXml(*xml_);
   xmlStatus_->SetLabel(bounded
                            ? _("Bounded XML preview; Find searches the loaded preview only, and the exact retained document is available on demand.")
                            : _("Complete exact XML"));
@@ -973,6 +998,7 @@ void InspectorWorkspacePanel::LoadCompleteXml() {
   xml_->SetReadOnly(false);
   xml_->SetTextRaw(exactXml_.c_str());
   xml_->SetReadOnly(true);
+  ColouriseInspectorXml(*xml_);
   xmlStatus_->SetLabel(_("Complete exact XML"));
   loadCompleteXml_->Hide();
   xml_->SetMarginWidth(
@@ -992,9 +1018,16 @@ void InspectorWorkspacePanel::FindXml(bool forward) {
                          static_cast<std::size_t>(xml_->GetTextLength()));
   const auto found = FindText(text, query, xml_->GetSelectionStart(), xml_->GetSelectionEnd(), forward);
   if (found) {
+    const int line = xml_->LineFromPosition(static_cast<int>(*found));
+    xml_->EnsureVisible(line);
     xml_->SetSelection(static_cast<int>(*found), static_cast<int>(*found + query.size()));
     xml_->EnsureCaretVisible(); xml_->SetFocus();
   }
+}
+
+// Expands or contracts every foldable XML section in the current buffer.
+void InspectorWorkspacePanel::FoldXml(bool fold) {
+  xml_->FoldAll(fold ? wxSTC_FOLDACTION_CONTRACT : wxSTC_FOLDACTION_EXPAND);
 }
 
 // Opens a contextual archive-path action for the selected actual entry.
@@ -1020,12 +1053,36 @@ void InspectorWorkspacePanel::ActivatePackageEntry(wxDataViewEvent &event) {
                          ? static_cast<PackageDataViewModel *>(packageModel_)
                                ->Value(event.GetItem())
                          : nullptr;
-  if (data && data->resourceKind == perastage::inspection::ResourceKind::NestedGdtf)
-    OpenNestedGdtf(data->archivePath, data->sizeKnown, data->size);
+  if (!data)
+    return;
+  const auto request = BuildNestedGdtfNavigationRequest(*data);
+  if (!request)
+    return;
+  const std::string displayName =
+      diagnostics::DiagnosticLogger::FileNameOnly(request->archivePath);
+  diagnostics::DiagnosticLogger::Info(
+      "Inspector package item activated: " + displayName);
+  wxWeakRef<InspectorWorkspacePanel> weakThis(this);
+  QueueNestedGdtfNavigation(*this, *request,
+                           [weakThis, displayName](
+                               NestedGdtfNavigationRequest request) {
+                             if (!weakThis)
+                               return;
+                             diagnostics::DiagnosticLogger::Info(
+                                 "Inspector deferred nested GDTF open begins: " +
+                                 displayName);
+                             weakThis->OpenNestedGdtf(
+                                 request.archivePath, request.sizeKnown,
+                                 request.size);
+                           });
+  diagnostics::DiagnosticLogger::Info(
+      "Inspector nested GDTF open queued: " + displayName);
 }
 
 // Reads and classifies only the selected payload under the explicit preview cap.
 void InspectorWorkspacePanel::RequestResourcePreview(wxDataViewEvent &event) {
+  worker_->Cancel(InspectorTaskDomain::Preview);
+  requestCoordinator_.InvalidatePreview();
   const auto *node = packageModel_
                          ? static_cast<PackageDataViewModel *>(packageModel_)
                                ->Value(event.GetItem())
@@ -1035,14 +1092,21 @@ void InspectorWorkspacePanel::RequestResourcePreview(wxDataViewEvent &event) {
     return;
   const auto descriptor = PackageDataViewModel::Descriptor(*node);
   const auto decision = DecidePreview(descriptor);
+  const auto context = requestCoordinator_.DisplayedContext();
   previewModel_->ResetPreview();
   previewImage_->Hide(); previewText_->Hide(); previewModel_->Hide();
+  if (context && IsInspectorPrimaryXmlResource(
+                     descriptor, InspectorPrimaryXmlEntry(*context))) {
+    previewStatus_->SetLabel(
+        _("This document is already shown in the XML pane."));
+    previewPage_->Layout();
+    return;
+  }
   previewStatus_->SetLabel(FromUtf8(decision.status));
   previewPage_->Layout();
   if (!decision.allowed)
     return;
 
-  const auto context = requestCoordinator_.DisplayedContext();
   const auto ticket = requestCoordinator_.BeginPreview(context);
   if (!ticket)
     return;
@@ -1101,43 +1165,58 @@ void InspectorWorkspacePanel::OpenNestedGdtf(
   if (!decision.allowed) {
     previewStatus_->SetLabel(
         _("This embedded GDTF exceeds the Inspector open limit."));
-    notebook_->SetSelection(
-        static_cast<std::size_t>(notebook_->FindPage(previewPage_)));
     return;
   }
-  parentContext_ = parent;
-  const auto sourceGeneration = BeginSourceLoad(
-      wxString::Format(_("Embedded GDTF: %s"), FromUtf8(archivePath)),
-      _("Embedded in inspected MVR"));
-  back_->Show();
-  worker_->Submit(
+  const auto sourceGeneration = BeginNestedSourceLoad(parent);
+  diagnostics::DiagnosticLogger::Info(
+      "Inspector nested source generation started: " +
+      std::to_string(sourceGeneration));
+  nestedTransition_.SetWorkerGeneration(worker_->Submit(
       [parent, archivePath, sourceGeneration,
        limit = decision.maxBytes](InspectorStopToken token)
           -> InspectorAsyncWorker::Payload {
         if (token.stop_requested())
           return InspectorAsyncWorker::Payload{};
-        auto resource = parent->packageBytes
-                            ? perastage::inspection::ReadPackageResource(
-                                  *parent->packageBytes,
-                                  perastage::inspection::PackageKind::Mvr,
-                                  archivePath, limit)
-                            : perastage::inspection::ReadPackageResource(
-                                  parent->filesystemPath,
-                                  perastage::inspection::PackageKind::Mvr,
-                                  archivePath, limit);
+        auto nested = parent->packageBytes
+                          ? perastage::inspection::InspectNestedGdtf(
+                                *parent->packageBytes, archivePath, limit,
+                                parent->mvr->inspection.request)
+                          : perastage::inspection::InspectNestedGdtf(
+                                parent->filesystemPath, archivePath, limit);
         auto payload = std::make_shared<WorkspaceAsyncResult>();
         payload->kind = WorkspaceAsyncResult::Kind::NestedGdtf;
         payload->sourceGeneration = sourceGeneration;
         payload->archivePath = archivePath;
-        if (!resource.Success())
+        if (!nested.resource.Success() || !nested.gdtf) {
+          std::string codes;
+          for (const auto &diagnostic : nested.resource.inspection.diagnostics) {
+            if (!codes.empty())
+              codes += ',';
+            codes += diagnostic.code;
+          }
+          diagnostics::DiagnosticLogger::Warning(
+              "Inspector nested GDTF resource read failed: " +
+              diagnostics::DiagnosticLogger::FileNameOnly(archivePath) +
+              "; codes=" + (codes.empty() ? "unknown" : codes));
           return payload;
+        }
+        diagnostics::DiagnosticLogger::Info(
+            "Inspector nested GDTF resource read completed: " +
+            diagnostics::DiagnosticLogger::FileNameOnly(archivePath));
         payload->sourceBytes =
             std::make_shared<const std::vector<std::uint8_t>>(
-                std::move(resource.bytes));
+                std::move(nested.resource.bytes));
         if (token.stop_requested())
           return InspectorAsyncWorker::Payload{};
-        payload->gdtf = std::make_shared<const perastage::inspection::GdtfInspectionResult>(
-            perastage::inspection::InspectGdtf(*payload->sourceBytes));
+        payload->gdtf = std::make_shared<
+            const perastage::inspection::GdtfInspectionResult>(
+            std::move(*nested.gdtf));
+        diagnostics::DiagnosticLogger::Info(
+            std::string("Inspector nested GDTF inspection ") +
+            (payload->gdtf && payload->gdtf->inspection.Success()
+                 ? "completed: "
+                 : "failed: ") +
+            diagnostics::DiagnosticLogger::FileNameOnly(archivePath));
         if (token.stop_requested())
           return InspectorAsyncWorker::Payload{};
         if (payload->gdtf && payload->gdtf->packageInventory)
@@ -1147,7 +1226,7 @@ void InspectorWorkspacePanel::OpenNestedGdtf(
                   *payload->sourceBytes, *payload->gdtf->packageInventory,
                   4096));
         return payload;
-      });
+      }));
 }
 
 // Restores the retained parent MVR result without rebuilding its source.
@@ -1158,7 +1237,7 @@ void InspectorWorkspacePanel::ReturnToParentMvr() {
   const auto generation = requestCoordinator_.BeginSourceRequest();
   requestCoordinator_.PublishSource(generation, parent);
   parentContext_.reset();
-  back_->Hide();
+  SetBackNavigationVisible(false);
   if (sourceKind_ == SourceKind::CurrentProject) {
     identity_->SetLabel(_("Source: Current project MVR")); sourceType_->SetLabel(_("Active project"));
   } else {
@@ -1185,13 +1264,20 @@ void InspectorWorkspacePanel::HandleAsyncResult(
     if (preview)
       previewStatus_->SetLabel(
           _("The selected resource could not be previewed."));
+    else if (nestedTransition_.MatchesWorker(workerGeneration))
+      FinishNestedSourceFailure(
+          _("The embedded GDTF could not be inspected."));
     else
       summary_->SetValue(
           _("The source could not be inspected because of an unexpected error."));
     return;
   }
-  if (!completion.payload)
+  if (!completion.payload) {
+    if (!preview && nestedTransition_.MatchesWorker(workerGeneration))
+      FinishNestedSourceFailure(
+          _("The embedded GDTF could not be inspected."));
     return;
+  }
   const auto &result =
       static_cast<const WorkspaceAsyncResult &>(*completion.payload);
   if (result.kind == WorkspaceAsyncResult::Kind::ResourcePreview) {
@@ -1233,14 +1319,30 @@ void InspectorWorkspacePanel::HandleAsyncResult(
       previewStatus_->SetLabel(_("The selected resource could not be previewed."));
     }
     previewPage_->Layout();
-    notebook_->SetSelection(static_cast<std::size_t>(notebook_->FindPage(previewPage_)));
     return;
   }
-  if (result.sourceGeneration != requestCoordinator_.SourceGeneration())
+  if (result.sourceGeneration != requestCoordinator_.SourceGeneration()) {
+    if (result.kind == WorkspaceAsyncResult::Kind::NestedGdtf)
+      diagnostics::DiagnosticLogger::Info(
+          "Inspector nested GDTF result rejected as stale.");
     return;
+  }
+  if (result.kind == WorkspaceAsyncResult::Kind::NestedGdtf &&
+      !nestedTransition_.Matches(result.sourceGeneration)) {
+    diagnostics::DiagnosticLogger::Info(
+        "Inspector nested GDTF result rejected without a matching transition.");
+    return;
+  }
   if ((result.kind == WorkspaceAsyncResult::Kind::Mvr && !result.mvr) ||
       (result.kind != WorkspaceAsyncResult::Kind::Mvr && !result.gdtf)) {
-    summary_->SetValue(_("The source could not be inspected."));
+    if (result.kind == WorkspaceAsyncResult::Kind::NestedGdtf) {
+      diagnostics::DiagnosticLogger::Warning(
+          "Inspector nested GDTF result accepted without a usable document.");
+      FinishNestedSourceFailure(
+          _("The embedded GDTF could not be inspected."));
+    } else {
+      summary_->SetValue(_("The source could not be inspected."));
+    }
     return;
   }
   auto context = std::make_shared<DisplayedPackageContext>();
@@ -1258,20 +1360,28 @@ void InspectorWorkspacePanel::HandleAsyncResult(
                            ? result.resources
                            : std::make_shared<const std::vector<
                                  perastage::inspection::ResourceDescriptor>>();
-  requestCoordinator_.PublishSource(result.sourceGeneration, context);
+  if (!requestCoordinator_.PublishSource(result.sourceGeneration, context)) {
+    diagnostics::DiagnosticLogger::Info(
+        "Inspector source result rejected during publication.");
+    return;
+  }
   if (result.kind == WorkspaceAsyncResult::Kind::Mvr && result.mvr) {
     ShowMvr(*result.mvr, *context);
     return;
   }
   if (result.kind == WorkspaceAsyncResult::Kind::NestedGdtf) {
+    diagnostics::DiagnosticLogger::Info(
+        "Inspector nested GDTF result accepted; presentation begins.");
+    parentContext_ = nestedTransition_.Commit();
+  }
+  ShowGdtf(*result.gdtf, *context);
+  if (result.kind == WorkspaceAsyncResult::Kind::NestedGdtf) {
     identity_->SetLabel(wxString::Format(_("Embedded GDTF: %s"),
                                          FromUtf8(result.archivePath)));
     sourceType_->SetLabel(_("Embedded in inspected MVR"));
-    back_->Show();
-    ShowGdtf(*result.gdtf, *context);
-    Layout();
-  } else {
-    ShowGdtf(*result.gdtf, *context);
+    SetBackNavigationVisible(true);
+    diagnostics::DiagnosticLogger::Info(
+        "Inspector nested GDTF presentation completed.");
   }
 }
 

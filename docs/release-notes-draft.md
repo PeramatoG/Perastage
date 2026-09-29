@@ -39,7 +39,30 @@ Changes since **v1.6.0**.
 
 - Strengthened read-only Inspector reliability with complete deterministic parity, malformed-container, Unicode resource, diagnostic-separation, and non-mutation characterization, and made Inspector coverage explicitly visible in the informational Core/MVR report.
 
+- Improved the Inspector with explicit XML fold and unfold actions and a
+  persistent, resizable Preview pane below the details area. XML fold markers
+  and document-wide folding now work consistently, while embedded GDTFs retain
+  their bounded single-click 3D preview.
+
 ## Important fixes
+
+- Prevented a Windows crash when activating an embedded GDTF by deferring the
+  source transition until the package-tree activation callback has returned,
+  avoiding destructive model replacement during native event dispatch. Nested
+  inspection now keeps the parent MVR visible until the embedded document is
+  ready, restores parent interaction after failures, and lays out Back
+  navigation only after a successful transition. The nested-open bound now
+  shares Inspection Core's resource-read safety limit, allowing valid embedded
+  fixtures to open instead of being rejected before reading. Inspector tab
+  ownership now remains fixed while switching between MVR and GDTF, preventing
+  native Windows notebook assertions during transition repainting.
+
+- Kept fixture previews reliable when switching between OpenGL views by
+  rebinding the Preview canvas context before every render. Selecting the
+  primary MVR or GDTF XML document no longer duplicates it in Preview, and a
+  one-time Inspector layout preference migration restores the intended
+  two-thirds XML and one-third details proportions without overriding later
+  user adjustments.
 
 - Corrected GDTF inspection so the standard `FTPresets` section is no longer
   reported as unknown, while canonical publication now removes the known
@@ -92,6 +115,9 @@ Changes since **v1.6.0**.
 - Restored Windows Debug compilation of the Layout Viewer after its selection architecture update, including View2D frame lookup integration.
 
 ## Technical and packaging changes
+
+- Made Inspector policy tests use the repository's portable Python test-tool
+  launcher so they run consistently on Windows, macOS, and Linux CI hosts.
 
 - Documented and regression-tested the development CLI automation contract for versioned JSON, exit codes, stream routing, Unicode paths, and structured diagnostic locations, while explicitly keeping human-readable presentation outside the machine-compatibility promise. The CLI remains unshipped.
 

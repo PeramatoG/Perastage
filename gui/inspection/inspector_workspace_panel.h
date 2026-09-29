@@ -7,6 +7,7 @@
 #include "inspection/inspector_presentation.h"
 #include "inspection/inspector_async_worker.h"
 #include "inspection/inspector_source_context.h"
+#include "inspection/inspector_nested_transition.h"
 
 #include <filesystem>
 #include <optional>
@@ -57,6 +58,10 @@ private:
   void ClearResult();
   std::uint64_t BeginSourceLoad(const wxString &identity,
                                 const wxString &sourceType);
+  std::uint64_t BeginNestedSourceLoad(
+      std::shared_ptr<const DisplayedPackageContext> parent);
+  void FinishNestedSourceFailure(const wxString &message);
+  void SetBackNavigationVisible(bool visible);
   void ShowGdtf(const perastage::inspection::GdtfInspectionResult &result,
                 const DisplayedPackageContext &context);
   void ShowMvr(const perastage::inspection::MvrInspectionResult &result,
@@ -74,6 +79,7 @@ private:
   void SetXml(const std::string &xml);
   void LoadCompleteXml();
   void FindXml(bool forward);
+  void FoldXml(bool fold);
   void ShowPackageContextMenu(wxDataViewEvent &event);
   void ActivatePackageEntry(wxDataViewEvent &event);
   void RequestResourcePreview(wxDataViewEvent &event);
@@ -90,6 +96,7 @@ private:
   SourceKind sourceKind_ = SourceKind::None;
   InspectorRequestCoordinator requestCoordinator_;
   std::shared_ptr<const DisplayedPackageContext> parentContext_;
+  InspectorNestedTransition nestedTransition_;
   wxStaticText *identity_ = nullptr;
   wxStaticText *sourceType_ = nullptr;
   wxButton *back_ = nullptr;
@@ -111,6 +118,7 @@ private:
   wxDataViewModel *sceneModel_ = nullptr;
   wxSplitterWindow *navigationSplitter_ = nullptr;
   wxSplitterWindow *detailsSplitter_ = nullptr;
+  wxSplitterWindow *previewSplitter_ = nullptr;
   wxListCtrl *diagnostics_ = nullptr;
   wxTextCtrl *search_ = nullptr;
   wxStyledTextCtrl *xml_ = nullptr;
@@ -121,7 +129,8 @@ private:
   InspectorDetailsPage preferredDetailsPage_ = InspectorDetailsPage::Summary;
   bool configuringDetailsPage_ = false;
   double navigationRatio_ = 0.25;
-  double detailsRatio_ = 0.66;
+  double detailsRatio_ = 0.67;
+  double previewRatio_ = 0.68;
   bool splitterRatiosApplied_ = false;
   std::unique_ptr<InspectorAsyncWorker> worker_;
 };
