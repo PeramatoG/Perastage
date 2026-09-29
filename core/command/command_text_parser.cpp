@@ -142,7 +142,7 @@ bool IsCommandBoundary(const std::string &token, bool allowAxis,
 // Parses a selection command without consulting scene state.
 bool ParseSelection(const std::vector<std::string> &tokens,
                     SelectionTarget target, ParseResult &result) {
-  SelectionCommand command{target, target == SelectionTarget::Trusses, {}};
+  SelectionCommand command{target, {}};
   const auto normalized = NormalizeRangeTokens(tokens);
   SelectionOperationKind operation = SelectionOperationKind::Add;
   for (size_t index = 0; index < normalized.size();) {

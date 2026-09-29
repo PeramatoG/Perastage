@@ -416,9 +416,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
               perastage::command::text::SelectionTarget::Fixtures;
           auto &scene = cfg.GetScene();
           std::vector<std::string> current =
-              command.replace ? std::vector<std::string>()
-                              : (fixtures ? cfg.GetSelectedFixtures()
-                                          : cfg.GetSelectedTrusses());
+              fixtures ? cfg.GetSelectedFixtures() : std::vector<std::string>();
           auto addId = [&](int id) {
             std::string uid;
             if (fixtures) {

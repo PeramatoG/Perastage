@@ -25,7 +25,6 @@ struct ClearCommand {};
 
 struct SelectionCommand {
   SelectionTarget target = SelectionTarget::Fixtures;
-  bool replace = false;
   std::vector<SelectionOperation> operations;
 };
 

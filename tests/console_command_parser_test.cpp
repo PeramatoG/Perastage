@@ -36,20 +36,51 @@ const text::TransformCommand &TransformAt(const text::ParseResult &result,
 // Characterizes segment, selection, whole-line, and chaining grammar.
 int main() {
   bool relative = false;
+  assert(EqualValues(text::ParseTransformValues("-7 7", relative), {-7, 7}));
+  assert(!relative);
   assert(EqualValues(text::ParseTransformValues("-7 t 7", relative), {-7, 7}));
   assert(!relative);
-  assert(EqualValues(text::ParseTransformValues("++ 1.5 thru 3.5", relative),
+  assert(
+      EqualValues(text::ParseTransformValues("-7 thru 7", relative), {-7, 7}));
+  assert(!relative);
+  assert(EqualValues(text::ParseTransformValues("++ 1.5 t 3.5", relative),
                      {1.5f, 3.5f}));
   assert(relative);
-  auto segment = text::ParseTransformCommandSegment("--1.5 thru 3.5 --local");
-  assert(segment.relative && EqualValues(segment.values, {-1.5f, -3.5f}));
+  assert(EqualValues(text::ParseTransformValues("-- 1.5 thru 3.5", relative),
+                     {-1.5f, -3.5f}));
+  assert(relative);
+
+  auto segment = text::ParseTransformCommandSegment("++ 1 --local");
+  assert(segment.relative && EqualValues(segment.values, {1.0f}));
+  assert(segment.space == transform_space::TransformSpace::Local);
+  segment = text::ParseTransformCommandSegment("++ 2 -l");
+  assert(segment.relative && EqualValues(segment.values, {2.0f}));
   assert(segment.space == transform_space::TransformSpace::Local);
   segment = text::ParseTransformCommandSegment("++ 30 --group -l");
-  assert(segment.group && segment.relative);
+  assert(segment.group && segment.relative &&
+         EqualValues(segment.values, {30.0f}));
+  assert(segment.space == transform_space::TransformSpace::Local);
+  segment = text::ParseTransformCommandSegment("-7 thru 7");
+  assert(!segment.relative && EqualValues(segment.values, {-7.0f, 7.0f}));
+  segment = text::ParseTransformCommandSegment("-- 1.5");
+  assert(segment.relative && EqualValues(segment.values, {-1.5f}));
+  segment = text::ParseTransformCommandSegment("++1.25");
+  assert(segment.relative && EqualValues(segment.values, {1.25f}));
+  segment = text::ParseTransformCommandSegment("--1.25");
+  assert(segment.relative && EqualValues(segment.values, {-1.25f}));
+  segment = text::ParseTransformCommandSegment("--1.5 thru 3.5 --local");
+  assert(segment.relative && EqualValues(segment.values, {-1.5f, -3.5f}));
+  assert(segment.space == transform_space::TransformSpace::Local);
+  segment = text::ParseTransformCommandSegment("--group");
+  assert(!segment.relative && segment.group && segment.values.empty() &&
+         segment.remainder.empty());
   segment = text::ParseTransformCommandSegment("--wat");
-  assert(segment.values.empty() && segment.remainder == "--wat");
-  assert(!text::ParseTransformCommandSegment("nan").remainder.empty());
-  assert(!text::ParseTransformCommandSegment("inf").remainder.empty());
+  assert(!segment.relative && segment.values.empty() &&
+         segment.remainder == "--wat");
+  segment = text::ParseTransformCommandSegment("nan");
+  assert(segment.values.empty() && segment.remainder == "nan");
+  segment = text::ParseTransformCommandSegment("inf");
+  assert(segment.values.empty() && segment.remainder == "inf");
 
   auto parsed = text::ParseCommandLine("f 1");
   assert(parsed.Success() && SelectionAt(parsed).operations.size() == 1);
@@ -60,7 +91,9 @@ int main() {
   assert(operations[0].firstId == 1 && operations[0].lastId == 5);
   assert(operations[2].kind == text::SelectionOperationKind::Remove);
   parsed = text::ParseCommandLine("t 1-5");
-  assert(parsed.Success() && SelectionAt(parsed).replace);
+  assert(parsed.Success());
+  assert(SelectionAt(parsed).target == text::SelectionTarget::Trusses);
+  assert(SelectionAt(parsed).operations.size() == 1);
   for (const char *form : {"f 1t5", "f 1thru5", "f 1t 5", "f 1 thru5"})
     assert(text::ParseCommandLine(form).Success());
   parsed = text::ParseCommandLine("f nope");

@@ -16,10 +16,12 @@ on the text parser. Raw Console strings and parsed adapter syntax are therefore
 not semantic `Request` objects.
 
 The embedded Console consumes this neutral parser and retains its current
-scene-dependent execution, selection resolution, Undo publication, and GUI
-refresh responsibilities. CMD-420 and CMD-430 will migrate that execution and
-selection behavior to concrete semantic commands; the text parser does not
-prematurely define those contracts.
+scene-dependent execution, selection resolution and mutation policy, Undo
+publication, and GUI refresh responsibilities. In particular, the parser
+records ordered selection operations but does not decide whether they replace
+or extend the current selection. CMD-420 and CMD-430 will migrate that
+execution and selection behavior to concrete semantic commands; the text
+parser does not prematurely define those contracts.
 
 ## Semantic requests and identifiers
 
