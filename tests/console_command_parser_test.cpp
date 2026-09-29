@@ -31,6 +31,13 @@ const text::TransformCommand &TransformAt(const text::ParseResult &result,
   return std::get<text::TransformCommand>(result.commands.at(index));
 }
 
+// Returns the sole diagnostic from a failed parser result.
+const perastage::command::Diagnostic &
+OnlyDiagnostic(const text::ParseResult &result) {
+  assert(result.diagnostics.size() == 1);
+  return result.diagnostics.front();
+}
+
 } // namespace
 
 // Characterizes segment, selection, whole-line, and chaining grammar.
@@ -98,10 +105,10 @@ int main() {
     assert(text::ParseCommandLine(form).Success());
   parsed = text::ParseCommandLine("f nope");
   assert(!parsed.Success());
-  assert(parsed.diagnostics.front().phase ==
+  assert(OnlyDiagnostic(parsed).phase ==
          perastage::command::DiagnosticPhase::Parse);
-  assert(parsed.diagnostics.front().code ==
-         "command_text.invalid_selection_id");
+  assert(OnlyDiagnostic(parsed).code == "command_text.invalid_selection_id");
+  assert(OnlyDiagnostic(parsed).message == "Invalid selection id: nope");
 
   assert(text::ParseCommandLine("clear").Success());
   parsed = text::ParseCommandLine("X ++1 --LOCAL");
@@ -123,8 +130,22 @@ int main() {
   assert(parsed.Success() && parsed.commands.size() == 4);
   assert(std::holds_alternative<text::SelectionCommand>(parsed.commands[0]));
   assert(std::holds_alternative<text::ClearCommand>(parsed.commands[3]));
-  assert(!text::ParseCommandLine("unknown").Success());
-  assert(!text::ParseCommandLine("pos q 1").Success());
+  parsed = text::ParseCommandLine("unknown");
+  assert(!parsed.Success());
+  assert(OnlyDiagnostic(parsed).code == "command_text.unknown_command");
+  parsed = text::ParseCommandLine("pos q 1");
+  assert(!parsed.Success());
+  assert(OnlyDiagnostic(parsed).code == "command_text.invalid_transform");
+  parsed = text::ParseCommandLine("1,2");
+  assert(!parsed.Success());
+  assert(OnlyDiagnostic(parsed).code ==
+         "command_text.invalid_transform_triplet");
+  const auto repeatedFailure = text::ParseCommandLine("clear pos q 1");
+  assert(!repeatedFailure.Success() && repeatedFailure.commands.size() == 1);
+  assert(OnlyDiagnostic(repeatedFailure).code ==
+         "command_text.invalid_transform");
+  assert(OnlyDiagnostic(repeatedFailure).message ==
+         OnlyDiagnostic(text::ParseCommandLine("clear pos q 1")).message);
   assert(text::ParseCommandLine("pos x 1").Success());
   return 0;
 }

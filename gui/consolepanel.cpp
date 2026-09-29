@@ -50,6 +50,29 @@ enum class ConsoleMessageKind {
   Info,
 };
 
+// Returns the stable Console prefix for a structured diagnostic severity.
+wxString
+ConsoleDiagnosticPrefix(perastage::command::DiagnosticSeverity severity) {
+  switch (severity) {
+  case perastage::command::DiagnosticSeverity::Warning:
+    return "[WARNING] ";
+  case perastage::command::DiagnosticSeverity::Information:
+    return "[INFO] ";
+  case perastage::command::DiagnosticSeverity::Error:
+  default:
+    return "[ERROR] ";
+  }
+}
+
+// Formats one parser diagnostic for the technical Console presentation.
+wxString
+FormatParseDiagnostic(const perastage::command::Diagnostic &diagnostic) {
+  const wxString prefix = ConsoleDiagnosticPrefix(diagnostic.severity);
+  if (diagnostic.code == "command_text.unknown_command")
+    return prefix + "Syntax error";
+  return prefix + wxString::FromUTF8(diagnostic.message);
+}
+
 ConsoleMessageKind DetectMessageKind(const wxString &message) {
   if (!message.StartsWith("["))
     return ConsoleMessageKind::Default;
@@ -774,7 +797,8 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
     }
 
     if (!parsed.Success()) {
-      AppendMessage("[ERROR] Syntax error");
+      for (const auto &diagnostic : parsed.diagnostics)
+        AppendMessage(FormatParseDiagnostic(diagnostic));
       return;
     }
 

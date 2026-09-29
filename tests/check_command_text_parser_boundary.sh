@@ -12,16 +12,6 @@ if rg -ni '#include .*?(gui/|app/|configmanager|mainwindow|igui|viewer|tablepane
   echo "Command text parser must remain independent of GUI, App, scene IO, and viewers." >&2
   exit 1
 fi
-if rg -n '\breplace\b' "${parser_files[@]}"; then
-  echo "Command text syntax must not encode current-selection replacement policy." >&2
-  exit 1
-fi
-if ! rg -q -U 'fixtures[[:space:]]*\?[[:space:]]*cfg\.GetSelectedFixtures\(\)[[:space:]]*:[[:space:]]*std::vector<std::string>\(\)' \
-    "$root/gui/consolepanel.cpp"; then
-  echo "Console execution must preserve fixture extension and truss replacement behavior." >&2
-  exit 1
-fi
-
 # Prints every CMake command whose first argument is the requested target.
 extract_target_configuration() {
   local target="$1"

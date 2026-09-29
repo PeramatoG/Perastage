@@ -155,7 +155,7 @@ bool ParseSelection(const std::vector<std::string> &tokens,
     int first = 0;
     if (!TryParseInteger(normalized[index], first)) {
       AddError(result, "command_text.invalid_selection_id",
-               "Selection identifiers must be integers.");
+               "Invalid selection id: " + normalized[index]);
       return false;
     }
     int last = first;
@@ -163,7 +163,7 @@ bool ParseSelection(const std::vector<std::string> &tokens,
         normalized[index + 1] != "-") {
       if (!TryParseInteger(normalized[index + 1], last)) {
         AddError(result, "command_text.invalid_selection_id",
-                 "Selection identifiers must be integers.");
+                 "Invalid selection id: " + normalized[index + 1]);
         return false;
       }
       index += 2;
