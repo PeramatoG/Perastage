@@ -16,8 +16,8 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "consolepanel.h"
+#include "command/command_text_parser.h"
 #include "configmanager.h"
-#include "console_command_parser.h"
 #include "fixturetablepanel.h"
 #include "guiconfigservices.h"
 #include "hoisttablepanel.h"
@@ -31,7 +31,6 @@
 #include "viewer3dpanel.h"
 #include <algorithm>
 #include <cctype>
-#include <charconv>
 #include <exception>
 #include <fstream>
 #include <optional>
@@ -50,6 +49,29 @@ enum class ConsoleMessageKind {
   Command,
   Info,
 };
+
+// Returns the stable Console prefix for a structured diagnostic severity.
+wxString
+ConsoleDiagnosticPrefix(perastage::command::DiagnosticSeverity severity) {
+  switch (severity) {
+  case perastage::command::DiagnosticSeverity::Warning:
+    return "[WARNING] ";
+  case perastage::command::DiagnosticSeverity::Information:
+    return "[INFO] ";
+  case perastage::command::DiagnosticSeverity::Error:
+  default:
+    return "[ERROR] ";
+  }
+}
+
+// Formats one parser diagnostic for the technical Console presentation.
+wxString
+FormatParseDiagnostic(const perastage::command::Diagnostic &diagnostic) {
+  const wxString prefix = ConsoleDiagnosticPrefix(diagnostic.severity);
+  if (diagnostic.code == "command_text.unknown_command")
+    return prefix + "Syntax error";
+  return prefix + wxString::FromUTF8(diagnostic.message);
+}
 
 ConsoleMessageKind DetectMessageKind(const wxString &message) {
   if (!message.StartsWith("["))
@@ -106,7 +128,7 @@ wxString ReadUtf8File(const wxString &path) {
 }
 
 wxString ExtractConsoleSection(const wxString &markdown,
-                              const wxString &header) {
+                               const wxString &header) {
   const wxString startToken = "## " + header;
   const int start = markdown.Find(startToken);
   if (start == wxNOT_FOUND)
@@ -183,7 +205,7 @@ ConsolePanel::ConsolePanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
   m_textCtrl =
       new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
-                              wxTE_MULTILINE | wxTE_READONLY | wxTE_RICH2);
+                     wxTE_MULTILINE | wxTE_READONLY | wxTE_RICH2);
   m_textCtrl->SetBackgroundColour(*wxBLACK);
   m_textCtrl->SetForegroundColour(wxColour(0, 255, 0));
   wxFont font(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL,
@@ -233,7 +255,7 @@ void ConsolePanel::OnHelpButton(wxCommandEvent &) {
                            wxFONTWEIGHT_NORMAL));
   dialogSizer->Add(helpText, 1, wxEXPAND | wxALL, 8);
   dialogSizer->Add(helpDialog.CreateButtonSizer(wxOK), 0,
-                  wxALIGN_RIGHT | wxLEFT | wxRIGHT | wxBOTTOM, 8);
+                   wxALIGN_RIGHT | wxLEFT | wxRIGHT | wxBOTTOM, 8);
   helpDialog.SetSizerAndFit(dialogSizer);
   helpDialog.SetSize(620, 420);
   helpDialog.ShowModal();
@@ -248,8 +270,8 @@ void ConsolePanel::AppendMessage(const wxString &msg) {
   wxString safeMsg = msg;
   if (safeMsg.length() > kMaxConsoleMessageLength) {
     size_t keepLength = kMaxConsoleMessageLength > suffix.length()
-            ? kMaxConsoleMessageLength - suffix.length()
-            : 0;
+                            ? kMaxConsoleMessageLength - suffix.length()
+                            : 0;
     safeMsg = safeMsg.Left(keepLength) + suffix;
   }
 
@@ -397,260 +419,90 @@ void ConsolePanel::OnInputKeyDown(wxKeyEvent &event) {
   event.Skip();
 }
 
-static std::string trim(const std::string &s) {
-  size_t start = s.find_first_not_of(" \t\n\r");
-  size_t end = s.find_last_not_of(" \t\n\r");
-  if (start == std::string::npos)
-    return std::string();
-  return s.substr(start, end - start + 1);
-}
-
-static std::vector<std::string> split(const std::string &s, char delim) {
-  std::vector<std::string> parts;
-  std::stringstream ss(s);
-  std::string item;
-  while (std::getline(ss, item, delim))
-    parts.push_back(trim(item));
-  return parts;
-}
-
-static bool isNumberToken(const std::string &token) {
-  if (token.empty())
-    return false;
-  int value = 0;
-  auto begin = token.data();
-  auto end = token.data() + token.size();
-  auto result = std::from_chars(begin, end, value);
-  return result.ec == std::errc{} && result.ptr == end;
-}
-
-static std::vector<std::string>
-NormalizeRangeTokens(const std::vector<std::string> &tokens) {
-  std::vector<std::string> out;
-  out.reserve(tokens.size());
-  for (const auto &token : tokens) {
-    if (token == "+" || token == "-") {
-      out.push_back(token);
-      continue;
-    }
-    std::string lower = token;
-    std::transform(lower.begin(), lower.end(), lower.begin(),
-                   [](unsigned char c) { return std::tolower(c); });
-    if (lower == "t" || lower == "thru")
-      continue;
-    if (lower.size() > 4 && lower.rfind("thru", 0) == 0) {
-      std::string after = token.substr(4);
-      if (isNumberToken(after)) {
-        out.push_back(after);
-        continue;
-      }
-    }
-    if (lower.size() > 1 && lower.rfind("t", 0) == 0) {
-      std::string after = token.substr(1);
-      if (isNumberToken(after)) {
-        out.push_back(after);
-        continue;
-      }
-    }
-    if (lower.size() > 4 && lower.compare(lower.size() - 4, 4, "thru") == 0) {
-      std::string before = token.substr(0, token.size() - 4);
-      if (isNumberToken(before)) {
-        out.push_back(before);
-        continue;
-      }
-    }
-    if (lower.size() > 1 && lower.back() == 't') {
-      std::string before = token.substr(0, token.size() - 1);
-      if (isNumberToken(before)) {
-        out.push_back(before);
-        continue;
-      }
-    }
-    size_t thruPos = lower.find("thru");
-    if (thruPos != std::string::npos && thruPos > 0 &&
-        thruPos + 4 < token.size()) {
-      std::string before = token.substr(0, thruPos);
-      std::string after = token.substr(thruPos + 4);
-      if (isNumberToken(before) && isNumberToken(after)) {
-        out.push_back(before);
-        out.push_back(after);
-        continue;
-      }
-    }
-    size_t tPos = lower.find('t');
-    if (tPos != std::string::npos && tPos > 0 && tPos + 1 < token.size()) {
-      std::string before = token.substr(0, tPos);
-      std::string after = token.substr(tPos + 1);
-      if (isNumberToken(before) && isNumberToken(after)) {
-        out.push_back(before);
-        out.push_back(after);
-        continue;
-      }
-    }
-    size_t dashPos = token.find('-');
-    if (dashPos != std::string::npos && dashPos > 0 &&
-        dashPos + 1 < token.size() &&
-        token.find('-', dashPos + 1) == std::string::npos) {
-      std::string before = token.substr(0, dashPos);
-      std::string after = token.substr(dashPos + 1);
-      if (isNumberToken(before) && isNumberToken(after)) {
-        out.push_back(before);
-        out.push_back(after);
-        continue;
-      }
-    }
-    out.push_back(token);
-  }
-  return out;
-}
-
 // Parses and applies command-bar actions to the current scene selection.
 void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
   std::string cmd = std::string(cmdWx.ToUTF8());
-  cmd = trim(cmd);
-  if (cmd.empty())
+  if (cmd.find_first_not_of(" \t\n\r") == std::string::npos)
     return;
 
   AppendMessage("[CMD] " + cmdWx);
 
   try {
-    std::string lower = cmd;
-    std::transform(lower.begin(), lower.end(), lower.begin(),
-                   [](unsigned char c) { return std::tolower(c); });
-
     ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     const auto interactiveTransformPolicy =
         selection_movement_settings::LoadInteractiveTransformPolicy(cfg);
 
-    auto handleSelection = [&](bool fixtures, bool clearSel,
-                               const std::vector<std::string> &tokens) {
-      auto &scene = cfg.GetScene();
-      std::vector<std::string> current =
-          clearSel ? std::vector<std::string>()
-                   : (fixtures ? cfg.GetSelectedFixtures()
-                               : cfg.GetSelectedTrusses());
-      auto parseId = [&](const std::string &token, int &value) {
-        if (token.empty()) {
-          AppendMessage("[ERROR] Invalid selection id: empty token");
-          return false;
-        }
-        auto begin = token.data();
-        auto end = token.data() + token.size();
-        auto result = std::from_chars(begin, end, value);
-        if (result.ec != std::errc{} || result.ptr != end) {
-          AppendMessage("[ERROR] Invalid selection id: " +
-                        wxString::FromUTF8(token));
-          return false;
-        }
-        return true;
-      };
-      auto addId = [&](int id) {
-        std::string uid;
-        if (fixtures) {
-          for (const auto &[u, f] : scene.fixtures)
-            if (f.fixtureId == id) {
-              uid = u;
-              break;
+    auto handleSelection =
+        [&](const perastage::command::text::SelectionCommand &command) {
+          const bool fixtures =
+              command.target ==
+              perastage::command::text::SelectionTarget::Fixtures;
+          auto &scene = cfg.GetScene();
+          std::vector<std::string> current =
+              fixtures ? cfg.GetSelectedFixtures() : std::vector<std::string>();
+          auto addId = [&](int id) {
+            std::string uid;
+            if (fixtures) {
+              for (const auto &[u, f] : scene.fixtures)
+                if (f.fixtureId == id) {
+                  uid = u;
+                  break;
+                }
+            } else {
+              for (const auto &[u, t] : scene.trusses)
+                if (t.unitNumber == id) {
+                  uid = u;
+                  break;
+                }
             }
-        } else {
-          for (const auto &[u, t] : scene.trusses)
-            if (t.unitNumber == id) {
-              uid = u;
-              break;
+            if (!uid.empty() &&
+                std::find(current.begin(), current.end(), uid) == current.end())
+              current.push_back(uid);
+          };
+          auto removeId = [&](int id) {
+            auto it = current.begin();
+            while (it != current.end()) {
+              int fid = -1;
+              if (fixtures) {
+                auto fit = scene.fixtures.find(*it);
+                if (fit != scene.fixtures.end())
+                  fid = fit->second.fixtureId;
+              } else {
+                auto fit = scene.trusses.find(*it);
+                if (fit != scene.trusses.end())
+                  fid = fit->second.unitNumber;
+              }
+              if (fid == id)
+                it = current.erase(it);
+              else
+                ++it;
             }
-        }
-        if (!uid.empty() &&
-            std::find(current.begin(), current.end(), uid) == current.end())
-          current.push_back(uid);
-      };
-      auto removeId = [&](int id) {
-        auto it = current.begin();
-        while (it != current.end()) {
-          int fid = -1;
+          };
+          for (const auto &operation : command.operations) {
+            for (int id = operation.firstId; id <= operation.lastId; ++id) {
+              if (operation.kind ==
+                  perastage::command::text::SelectionOperationKind::Add)
+                addId(id);
+              else
+                removeId(id);
+            }
+          }
           if (fixtures) {
-            auto fit = scene.fixtures.find(*it);
-            if (fit != scene.fixtures.end())
-              fid = fit->second.fixtureId;
+            cfg.SetSelectedFixtures(current);
+            if (FixtureTablePanel::Instance())
+              FixtureTablePanel::Instance()->SelectByUuid(current);
           } else {
-            auto fit = scene.trusses.find(*it);
-            if (fit != scene.trusses.end())
-              fid = fit->second.unitNumber;
+            cfg.SetSelectedTrusses(current);
+            if (TrussTablePanel::Instance())
+              TrussTablePanel::Instance()->SelectByUuid(current);
           }
-          if (fid == id)
-            it = current.erase(it);
-          else
-            ++it;
-        }
-      };
-      std::vector<std::string> normalized = NormalizeRangeTokens(tokens);
-      char mode = '+';
-      for (size_t i = 0; i < normalized.size();) {
-        const std::string &tok = normalized[i];
-        if (tok == "+" || tok == "-") {
-          mode = tok[0];
-          ++i;
-          continue;
-        }
-        int a = 0;
-        if (!parseId(tok, a))
-          return;
-        if (i + 1 < normalized.size() && normalized[i + 1] != "+" &&
-            normalized[i + 1] != "-") {
-          int b = 0;
-          if (!parseId(normalized[i + 1], b))
-            return;
-          if (a > b)
-            std::swap(a, b);
-          for (int n = a; n <= b; ++n) {
-            if (mode == '+')
-              addId(n);
-            else
-              removeId(n);
+          if (Viewer2DPanel::Instance())
+            Viewer2DPanel::Instance()->SetSelectedUuids(current);
+          if (Viewer3DPanel::Instance()) {
+            Viewer3DPanel::Instance()->SetSelectedFixtures(current);
+            Viewer3DPanel::Instance()->Refresh();
           }
-          i += 2;
-        } else {
-          if (mode == '+')
-            addId(a);
-          else
-            removeId(a);
-          ++i;
-        }
-      }
-      if (fixtures) {
-        cfg.SetSelectedFixtures(current);
-        if (FixtureTablePanel::Instance())
-          FixtureTablePanel::Instance()->SelectByUuid(current);
-      } else {
-        cfg.SetSelectedTrusses(current);
-        if (TrussTablePanel::Instance())
-          TrussTablePanel::Instance()->SelectByUuid(current);
-      }
-      if (Viewer2DPanel::Instance())
-        Viewer2DPanel::Instance()->SetSelectedUuids(current);
-      if (Viewer3DPanel::Instance()) {
-        Viewer3DPanel::Instance()->SetSelectedFixtures(current);
-        Viewer3DPanel::Instance()->Refresh();
-      }
-    };
-
-    auto parsePivotToken = [&](const std::string &token,
-                               std::array<float, 3> &pivotMm) {
-      auto parts = split(token, ',');
-      if (parts.size() != 3)
-        return false;
-      for (size_t idx = 0; idx < 3; ++idx) {
-        std::string part = trim(parts[idx]);
-        if (part.empty())
-          return false;
-        std::stringstream parser(part);
-        float valueMeters = 0.0f;
-        parser >> valueMeters;
-        if (!parser || !parser.eof() || !std::isfinite(valueMeters))
-          return false;
-        pivotMm[idx] = valueMeters * 1000.0f;
-      }
-      return true;
-    };
+        };
 
     auto computeSelectionBoundsCenterMm =
         [&]() -> std::optional<std::array<float, 3>> {
@@ -691,9 +543,9 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
     auto buildEffectiveSelection = [&]() {
       return scene_grouping::ObjectSelection{
           .fixtures = cfg.GetSelectedFixtures(),
-                                             .trusses = cfg.GetSelectedTrusses(),
-                                             .supports = cfg.GetSelectedSupports(),
-                                             .sceneObjects = cfg.GetSelectedSceneObjects()};
+          .trusses = cfg.GetSelectedTrusses(),
+          .supports = cfg.GetSelectedSupports(),
+          .sceneObjects = cfg.GetSelectedSceneObjects()};
     };
 
     auto hasEffectiveTargets = [&]() {
@@ -793,12 +645,12 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
 
     auto rotateEffectiveAroundPivot =
         [&](MvrScene &scene, int axis, float angleDeg,
-                                          const std::array<float, 3> &pivotMm,
-                                          transform_space::TransformSpace space) {
+            const std::array<float, 3> &pivotMm,
+            transform_space::TransformSpace space) {
           scene_grouping::RotateSelectionAroundPivot(
               scene, buildEffectiveSelection(), axis, angleDeg, pivotMm, space,
               interactiveTransformPolicy);
-    };
+        };
 
     auto executeTransform = [&](const std::string &undoLabel,
                                 const auto &operation) {
@@ -818,20 +670,17 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
               std::pair{&before.w, &after.w}, std::pair{&before.o, &after.o}}) {
           for (size_t component = 0; component < 3; ++component)
             changed = changed || std::fabs((*pair.first)[component] -
-                                (*pair.second)[component]) > 0.0001f;
+                                           (*pair.second)[component]) > 0.0001f;
         }
       }
       if (!changed) {
-        AppendMessage(wxString("[INFO] Transform is already at the requested value."));
+        AppendMessage(
+            wxString("[INFO] Transform is already at the requested value."));
         return false;
       }
       cfg.PushUndoState(undoLabel);
       operation(cfg.GetScene());
       return true;
-    };
-
-    auto parseSegment = [](const std::string &s) {
-      return gui::console::ParseTransformCommandSegment(s);
     };
 
     auto refreshSelectionAfterTransform = [&]() {
@@ -876,45 +725,10 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
     };
 
-    auto isCmd = [](const std::string &tok, bool allowAxis,
-                    bool allowRangeSeparator) {
-      if (tok.empty())
-        return false;
-      std::string l = tok;
-      std::transform(l.begin(), l.end(), l.begin(),
-                     [](unsigned char c) { return std::tolower(c); });
-      if (allowRangeSeparator && (l == "t" || l == "thru"))
-        return false;
-      if (l == "clear" || l == "pos" || l == "rot" || l[0] == 'f' ||
-          l[0] == 't')
-        return true;
-      if (allowAxis && (l == "x" || l == "y" || l == "z"))
-        return true;
-      return false;
-    };
-
-    std::stringstream ts(lower);
-    std::vector<std::string> tokens;
-    std::string tok;
-    while (ts >> tok)
-      tokens.push_back(tok);
-
-    size_t i = 0;
-    while (i < tokens.size()) {
-      std::string word = tokens[i];
-      std::string lw = word;
-      std::transform(lw.begin(), lw.end(), lw.begin(),
-                     [](unsigned char c) { return std::tolower(c); });
-      size_t j = i + 1;
-      bool allowAxis = (lw != "pos" && lw != "rot");
-      bool allowRangeSeparator =
-          (lw == "pos" || lw == "rot" || lw == "x" || lw == "y" || lw == "z" ||
-           (!lw.empty() && (lw[0] == 'f' || lw[0] == 't')));
-      while (j < tokens.size() &&
-             !isCmd(tokens[j], allowAxis, allowRangeSeparator))
-        ++j;
-
-      if (lw == "clear") {
+    const auto parsed = perastage::command::text::ParseCommandLine(cmd);
+    for (const auto &parsedCommand : parsed.commands) {
+      if (std::holds_alternative<perastage::command::text::ClearCommand>(
+              parsedCommand)) {
         cfg.PushUndoState("cli clear");
         cfg.SetSelectedFixtures({});
         cfg.SetSelectedTrusses({});
@@ -931,186 +745,61 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         }
         if (Viewer2DPanel::Instance())
           Viewer2DPanel::Instance()->SetSelectedUuids({});
-      } else if (lw == "pos" || lw == "rot") {
-        bool isRot = (lw == "rot");
-        std::vector<std::string> segmentTokens;
-        for (size_t k = i + 1; k < j; ++k)
-          segmentTokens.push_back(tokens[k]);
+        continue;
+      }
 
-        bool useGroupRotation = false;
+      if (const auto *selection =
+              std::get_if<perastage::command::text::SelectionCommand>(
+                  &parsedCommand)) {
+        handleSelection(*selection);
+        continue;
+      }
 
-        std::optional<std::array<float, 3>> explicitPivotMm;
-        if (isRot && segmentTokens.size() > 1) {
-          std::array<float, 3> parsedPivotMm{};
-          if (parsePivotToken(segmentTokens.back(), parsedPivotMm)) {
-            explicitPivotMm = parsedPivotMm;
-            segmentTokens.pop_back();
-          }
-        }
-
-        std::string rest;
-        for (size_t k = 0; k < segmentTokens.size(); ++k) {
-          if (k > 0)
-            rest += ' ';
-          rest += segmentTokens[k];
-        }
-        const auto selFixtures = cfg.GetSelectedFixtures();
-        const auto selTrusses = cfg.GetSelectedTrusses();
-        const auto selSupports = cfg.GetSelectedSupports();
-        const auto selSceneObjects = cfg.GetSelectedSceneObjects();
-        bool validTransform = false;
-        bool appliedTransform = false;
-        if (rest.find(',') != std::string::npos) {
-          auto parts = split(rest, ',');
-          std::vector<gui::console::TransformCommandSegment> segments;
-          for (size_t idx = 0; idx < parts.size() && idx < 3; ++idx)
-            segments.push_back(parseSegment(parts[idx]));
-          validTransform = !segments.empty() &&
-                           std::all_of(segments.begin(), segments.end(),
-                                       [](const auto &segment) {
-                                         return !segment.values.empty() &&
-                                                segment.remainder.empty();
-                                       });
-          validTransform = validTransform && hasEffectiveTargets();
-          if (validTransform) {
-            appliedTransform = executeTransform(
-                std::string("cli ") + lw, [&](MvrScene &targetScene) {
-              for (size_t idx = 0; idx < segments.size(); ++idx) {
-                const auto &segment = segments[idx];
-                if (isRot) {
-                  applyRotEffective(targetScene, static_cast<int>(idx),
-                                    segment.values, segment.relative,
-                                    segment.space);
-                } else {
-                  applyPosEffective(targetScene, static_cast<int>(idx),
-                                    segment.values, segment.relative,
-                                    segment.space);
-                }
-              }
-            });
-          }
-        } else {
-          std::stringstream ps(rest);
-          std::string ax;
-          ps >> ax;
-          int axis = 0;
-          const bool validAxis = ax == "x" || ax == "y" || ax == "z";
-          if (ax == "y")
-            axis = 1;
-          else if (ax == "z")
-            axis = 2;
-          std::string valsStr;
-          std::getline(ps, valsStr);
-          valsStr = trim(valsStr);
-          const auto segment = parseSegment(valsStr);
-          useGroupRotation = segment.group;
-          validTransform = validAxis && !segment.values.empty() &&
-                           segment.remainder.empty() && hasEffectiveTargets();
-          if (validTransform && isRot && useGroupRotation) {
-            if (!segment.values.empty()) {
-              const auto pivotMm = explicitPivotMm.value_or(
-                  computeSelectionBoundsCenterMm().value_or(
-                      std::array<float, 3>{0.0f, 0.0f, 0.0f}));
-              const float angleDeg = segment.values[0];
-              appliedTransform = executeTransform(
-                  std::string("cli ") + lw, [&](MvrScene &targetScene) {
-                    rotateEffectiveAroundPivot(targetScene, axis, angleDeg,
-                                               pivotMm, segment.space);
-                  });
-            }
-          } else if (validTransform && isRot) {
-            appliedTransform = executeTransform(
-                std::string("cli ") + lw, [&](MvrScene &targetScene) {
-                  applyRotEffective(targetScene, axis, segment.values,
-                                    segment.relative, segment.space);
-                });
-          } else if (validTransform) {
-            appliedTransform = executeTransform(
-                std::string("cli ") + lw, [&](MvrScene &targetScene) {
-                  applyPosEffective(targetScene, axis, segment.values,
-                                    segment.relative, segment.space);
-                });
-          }
-        }
-        if (validTransform) {
-          if (appliedTransform)
-            refreshSelectionAfterTransform();
-        } else {
-          AppendMessage(
-              wxString("[ERROR] Invalid transform: provide a valid axis, finite "
-                "numeric values, valid modifiers, and a non-empty selection."));
-          return;
-        }
-      } else if (lw == "x" || lw == "y" || lw == "z") {
-        std::string rest;
-        for (size_t k = i + 1; k < j; ++k) {
-          if (k > i + 1)
-            rest += ' ';
-          rest += tokens[k];
-        }
-        const auto selFixtures = cfg.GetSelectedFixtures();
-        const auto selTrusses = cfg.GetSelectedTrusses();
-        const auto selSupports = cfg.GetSelectedSupports();
-        const auto selSceneObjects = cfg.GetSelectedSceneObjects();
-        int axis = (lw == "x") ? 0 : (lw == "y" ? 1 : 2);
-        const auto segment = parseSegment(rest);
-        if (!segment.values.empty() && segment.remainder.empty() &&
-            hasEffectiveTargets()) {
-          const bool applied =
-              executeTransform("cli pos", [&](MvrScene &targetScene) {
-                applyPosEffective(targetScene, axis, segment.values,
-                                  segment.relative, segment.space);
-              });
-          if (applied)
-            refreshSelectionAfterTransform();
-        } else {
-          AppendMessage(
-              wxString("[ERROR] Invalid transform: provide finite numeric values, "
-                "valid modifiers, and a non-empty selection."));
-          return;
-        }
-      } else if (!lw.empty() &&
-                 (std::isdigit(lw[0]) || lw[0] == '-' || lw[0] == '+') &&
-                 word.find(',') != std::string::npos) {
-        auto parts = split(word, ',');
-        std::vector<gui::console::TransformCommandSegment> segments;
-        for (const auto &part : parts)
-          segments.push_back(parseSegment(part));
-        const bool validTriplet =
-            segments.size() == 3 && hasEffectiveTargets() &&
-            std::all_of(segments.begin(), segments.end(),
-                        [](const auto &segment) {
-                          return !segment.values.empty() &&
-                                 segment.remainder.empty() && !segment.group;
-                        });
-        if (!validTriplet) {
-          AppendMessage(
-              wxString("[ERROR] Invalid transform triplet: provide three finite "
-                "numeric components and a non-empty selection."));
-          return;
-        }
-        const bool applied =
-            executeTransform("cli pos", [&](MvrScene &targetScene) {
-              for (size_t idx = 0; idx < segments.size(); ++idx)
-                applyPosEffective(targetScene, static_cast<int>(idx),
-                                  segments[idx].values, segments[idx].relative,
-                                  segments[idx].space);
-            });
-        if (applied)
-          refreshSelectionAfterTransform();
-      } else if (!lw.empty() && lw[0] == 'f') {
-        std::vector<std::string> sub(tokens.begin() + i + 1,
-                                     tokens.begin() + j);
-        handleSelection(true, false, sub);
-      } else if (!lw.empty() && lw[0] == 't') {
-        std::vector<std::string> sub(tokens.begin() + i + 1,
-                                     tokens.begin() + j);
-        handleSelection(false, true, sub);
-      } else {
-        AppendMessage("[ERROR] Syntax error");
+      const auto &transform =
+          std::get<perastage::command::text::TransformCommand>(parsedCommand);
+      if (!hasEffectiveTargets()) {
+        AppendMessage(wxString(
+            "[ERROR] Invalid transform: provide finite numeric values, "
+            "valid modifiers, and a non-empty selection."));
         return;
       }
-      i = j;
+      const bool isRotation =
+          transform.kind == perastage::command::text::TransformKind::Rotation;
+      bool applied = false;
+      if (isRotation && transform.components.size() == 1 &&
+          transform.components.front().group) {
+        const auto &component = transform.components.front();
+        const auto pivotMm = transform.pivotMm.value_or(
+            computeSelectionBoundsCenterMm().value_or(
+                std::array<float, 3>{0.0f, 0.0f, 0.0f}));
+        applied = executeTransform("cli rot", [&](MvrScene &targetScene) {
+          rotateEffectiveAroundPivot(targetScene, component.axis,
+                                     component.values.front(), pivotMm,
+                                     component.space);
+        });
+      } else {
+        applied = executeTransform(
+            isRotation ? "cli rot" : "cli pos", [&](MvrScene &targetScene) {
+              for (const auto &component : transform.components) {
+                if (isRotation)
+                  applyRotEffective(targetScene, component.axis,
+                                    component.values, component.relative,
+                                    component.space);
+                else
+                  applyPosEffective(targetScene, component.axis,
+                                    component.values, component.relative,
+                                    component.space);
+              }
+            });
+      }
+      if (applied)
+        refreshSelectionAfterTransform();
+    }
+
+    if (!parsed.Success()) {
+      for (const auto &diagnostic : parsed.diagnostics)
+        AppendMessage(FormatParseDiagnostic(diagnostic));
+      return;
     }
 
     AppendMessage("[INFO] OK");

@@ -27,6 +27,17 @@ target_include_directories(perastage_command_core PUBLIC
     ${CMAKE_SOURCE_DIR}/models
 )
 
+add_library(perastage_command_text_parser STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/command/command_text_parser.cpp
+)
+target_compile_features(perastage_command_text_parser PUBLIC cxx_std_20)
+target_include_directories(perastage_command_text_parser PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_link_libraries(perastage_command_text_parser
+    PUBLIC perastage_command_core
+)
+
 add_library(perastage_command_serialization STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/command/command_json_serializer.cpp
 )

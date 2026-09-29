@@ -71,6 +71,7 @@ source.
 ## Change quality
 - Keep changes small, focused, and explicit in responsibility naming.
 - Before introducing cross-module coupling, prefer an interface/helper in the module that owns the responsibility.
+- Prefer reusable GUI-independent command, query, or application services for important operations; keep human CLI, Console, and protocol syntax in adapters, following `docs/developer/command_api.md`.
 
 ## Debug/Release UI gating policy
 - When a request asks to hide or disable UI behavior in Release while keeping it in Debug,
