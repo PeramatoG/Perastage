@@ -2,6 +2,8 @@
 #include "gdtf/svg_preview_geometry.h"
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <sstream>
 
 #include <wx/brush.h>
@@ -200,44 +202,60 @@ GdtfBitmapDecodeResult GdtfResourceBitmapCache::DecodeSvg(
   result.bitmap = MakePlaceholder(targetSize, placeholderColor);
   if (svgText.empty()) {
     result.status = GdtfBitmapDecodeStatus::EmptyResourceData;
+    result.diagnostic = "SVG resource data is empty.";
   } else if (width <= 0 || height <= 0 || width > kMaxPreviewDimension ||
              height > kMaxPreviewDimension) {
     result.status = width > kMaxPreviewDimension || height > kMaxPreviewDimension
                         ? GdtfBitmapDecodeStatus::DimensionsTooLarge
                         : GdtfBitmapDecodeStatus::InvalidDimensions;
+    result.diagnostic = "SVG preview dimensions are invalid or exceed the safety limit.";
   } else {
     try {
-      const wxBitmapBundle bundle =
-          wxBitmapBundle::FromSVG(svgText.c_str(), wxDefaultSize);
-      const wxSize intrinsicSize =
-          bundle.IsOk() ? bundle.GetDefaultSize() : wxDefaultSize;
-      result.sourceWidth = intrinsicSize.GetWidth();
-      result.sourceHeight = intrinsicSize.GetHeight();
-      const auto fitted = gui::gdtf::FitSvgPreviewSize(
-          intrinsicSize.GetWidth(), intrinsicSize.GetHeight(), width, height,
-          kMaxPreviewDimension);
-      if (!bundle.IsOk()) {
-        result.status = GdtfBitmapDecodeStatus::DecodeFailure;
-      } else if (!fitted.IsValid()) {
+      const auto viewport = gui::gdtf::ParseSvgViewport(svgText);
+      if (!viewport) {
         result.status = GdtfBitmapDecodeStatus::InvalidDimensions;
+        result.diagnostic = "SVG viewport metadata is missing or invalid.";
+        return result;
+      }
+      result.sourceWidth = viewport->width <= std::numeric_limits<int>::max()
+                               ? static_cast<int>(std::lround(viewport->width))
+                               : std::numeric_limits<int>::max();
+      result.sourceHeight = viewport->height <= std::numeric_limits<int>::max()
+                                ? static_cast<int>(std::lround(viewport->height))
+                                : std::numeric_limits<int>::max();
+      const auto fitted = gui::gdtf::FitSvgPreviewSize(
+          viewport->width, viewport->height, width, height,
+          kMaxPreviewDimension);
+      if (!fitted.IsValid()) {
+        result.status = GdtfBitmapDecodeStatus::InvalidDimensions;
+        result.diagnostic = "SVG fitted dimensions are invalid.";
       } else {
+        const wxSize fittedSize(fitted.width, fitted.height);
+        const wxBitmapBundle bundle =
+            wxBitmapBundle::FromSVG(svgText.c_str(), fittedSize);
+        if (!bundle.IsOk()) {
+          result.status = GdtfBitmapDecodeStatus::DecodeFailure;
+          result.diagnostic = "wxWidgets could not parse the SVG resource.";
+          return result;
+        }
         const wxBitmap bitmap =
-            bundle.GetBitmap(wxSize(fitted.width, fitted.height));
+            bundle.GetBitmap(fittedSize);
         if (bitmap.IsOk()) {
           result.bitmap =
               ComposePreviewBitmap(bitmap.ConvertToImage(), targetSize);
           result.status = GdtfBitmapDecodeStatus::Success;
           result.decoded = true;
+          result.diagnostic = "Rendered SVG successfully.";
         } else {
           result.status = GdtfBitmapDecodeStatus::DecodeFailure;
+          result.diagnostic = "wxWidgets could not rasterize the SVG resource.";
         }
       }
     } catch (...) {
       result.status = GdtfBitmapDecodeStatus::DecodeFailure;
+      result.diagnostic = "SVG rendering failed unexpectedly.";
     }
   }
-  result.diagnostic = result.decoded ? "Rendered SVG successfully."
-                                     : "SVG rendering failed.";
   return result;
 }
 

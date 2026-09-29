@@ -1,10 +1,8 @@
 #include "gdtf/gdtf_resource_bitmap_cache.h"
-#include "gdtf/svg_preview_geometry.h"
-
 #include <cassert>
 #include <cmath>
 
-#include <wx/init.h>
+#include <wx/app.h>
 
 namespace {
 
@@ -22,21 +20,38 @@ bool IsCheckerPixel(const wxImage &image, int x, int y) {
          PixelNear(image, x, y, 145, 145, 145);
 }
 
-// Verifies deterministic aspect-fit geometry independently of rasterization.
-void TestFittedSizes() {
-  using gui::gdtf::FitSvgPreviewSize;
-  auto fitted = FitSvgPreviewSize(100.0, 200.0, 200, 100, 4096);
-  assert(fitted.width == 50 && fitted.height == 100);
-  fitted = FitSvgPreviewSize(200.0, 100.0, 100, 200, 4096);
-  assert(fitted.width == 100 && fitted.height == 50);
-  fitted = FitSvgPreviewSize(100.0, 100.0, 200, 100, 4096);
-  assert(fitted.width == 100 && fitted.height == 100);
-  fitted = FitSvgPreviewSize(1.0, 10000.0, 100, 100, 4096);
-  assert(fitted.width == 1 && fitted.height == 100);
-  assert(!FitSvgPreviewSize(0.0, 100.0, 100, 100, 4096).IsValid());
-  assert(!FitSvgPreviewSize(100.0, 100.0, 0, 100, 4096).IsValid());
-  assert(!FitSvgPreviewSize(100.0, 100.0, 5000, 100, 4096).IsValid());
-}
+class TestApp final : public wxApp {
+public:
+  // Initializes the GUI runtime required by bitmap and memory-DC resources.
+  bool OnInit() override { return true; }
+};
+
+wxIMPLEMENT_APP_NO_MAIN(TestApp);
+
+class AppScope final {
+public:
+  // Starts the native wxWidgets application runtime for this GUI test.
+  AppScope() {
+    int argc = 0;
+    char **argv = nullptr;
+    started_ = wxEntryStart(argc, argv);
+    if (started_ && wxTheApp)
+      initialized_ = wxTheApp->CallOnInit();
+  }
+
+  // Cleans up the native application runtime after bitmap resources are gone.
+  ~AppScope() {
+    if (started_)
+      wxEntryCleanup();
+  }
+
+  // Reports whether the native GUI runtime initialized successfully.
+  bool IsOk() const { return started_ && initialized_; }
+
+private:
+  bool started_ = false;
+  bool initialized_ = false;
+};
 
 // Renders one SVG through the production cache and requires a valid result.
 wxImage RenderSvg(GdtfResourceBitmapCache &cache, const std::string &entry,
@@ -52,11 +67,10 @@ wxImage RenderSvg(GdtfResourceBitmapCache &cache, const std::string &entry,
 
 // Verifies SVG fitting, alpha composition, authored white, and safe failures.
 int main() {
-  wxInitializer initializer;
-  if (!initializer.IsOk())
+  AppScope app;
+  if (!app.IsOk())
     return 77;
   GdtfResourceBitmapCache cache;
-  TestFittedSizes();
 
   const std::string portrait =
       "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 200'>"

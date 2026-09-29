@@ -315,9 +315,20 @@ add_executable(gdtf_resource_svg_bitmap_test
                ../gui/gdtf/gdtf_resource_bitmap_cache.cpp
                ../gui/gdtf/svg_preview_geometry.cpp)
 target_include_directories(gdtf_resource_svg_bitmap_test PRIVATE ../gui)
-target_link_libraries(gdtf_resource_svg_bitmap_test PRIVATE ${wxWidgets_LIBRARIES})
+target_link_libraries(gdtf_resource_svg_bitmap_test
+                      PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME GdtfResourceSvgBitmap COMMAND gdtf_resource_svg_bitmap_test)
 set_perastage_test_labels(GdtfResourceSvgBitmap
+                          LAYER standard-strict
+                          DOMAINS gui inspection)
+
+add_executable(svg_preview_geometry_test
+               svg_preview_geometry_test.cpp
+               ../gui/gdtf/svg_preview_geometry.cpp)
+target_include_directories(svg_preview_geometry_test PRIVATE ../gui)
+target_link_libraries(svg_preview_geometry_test PRIVATE tinyxml2::tinyxml2)
+add_test(NAME SvgPreviewGeometry COMMAND svg_preview_geometry_test)
+set_perastage_test_labels(SvgPreviewGeometry
                           LAYER standard-strict
                           DOMAINS gui inspection)
 
