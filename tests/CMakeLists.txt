@@ -1424,46 +1424,80 @@ target_include_directories(autopatcher_topology_test PRIVATE ../core ../models .
 add_test(NAME AutoPatchTopology COMMAND autopatcher_topology_test)
 set_library_env(AutoPatchTopology)
 
+# Compile shared MVR round-trip implementations once per include context.
+set(PERASTAGE_TEST_MVR_ROUNDTRIP_SOURCES
+    ../core/configmanager.cpp
+    ../core/dummyprofilelibrary.cpp
+    ../core/fixture_visual_color.cpp
+    ../core/gdtf_fixture_category.cpp
+    ../core/layer_service.cpp
+    ../core/mvr_identity_recovery.cpp
+    ../core/projectutils.cpp
+    ../core/runtime_storage.cpp
+    ../core/scene_grouping.cpp
+    ../core/scene_node_operations.cpp
+    ../core/scene_transform_integrity.cpp
+    ../core/utf8_utils.cpp
+    ../core/wx_path_utils.cpp
+    ../models/fixture.cpp
+    ../models/layer.cpp
+    ../models/mvrscene.cpp
+    ../models/sceneobject.cpp
+    ../models/truss.cpp
+    ../mvr/mvr_export_archive_writer.cpp
+    ../mvr/mvr_export_gdtf_resources.cpp
+    ../mvr/mvr_export_preparation.cpp
+    ../mvr/mvr_export_resource_collection.cpp
+    ../mvr/mvr_export_transport.cpp
+    ../mvr/mvr_import_project_application.cpp
+    ../mvr/mvr_xml_document_writer.cpp
+    ../mvr/mvr_xml_extension_writer.cpp
+    ../mvr/mvr_xml_scene_object_writer.cpp
+    ../mvr/mvrexporter.cpp
+    ../mvr/mvrimporter.cpp
+    ../mvr/primitive_model_resources.cpp
+    ../viewer2d/fixture_label_overrides.cpp
+    ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
+    ${LAYOUT_SOURCES})
+add_library(perastage_test_mvr_roundtrip_objects OBJECT
+            ${PERASTAGE_TEST_MVR_ROUNDTRIP_SOURCES})
+target_include_directories(perastage_test_mvr_roundtrip_objects PRIVATE
+                           . ../core ../models ../mvr ../gui ../third_party
+                           ${CMAKE_SOURCE_DIR}/core ${CMAKE_SOURCE_DIR}/mvr
+                           ${CMAKE_SOURCE_DIR}/models
+                           ${CMAKE_SOURCE_DIR}/core/diagnostics)
+target_link_libraries(perastage_test_mvr_roundtrip_objects PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+set(PERASTAGE_TEST_MVR_ROUNDTRIP_OBJECTS
+    $<TARGET_OBJECTS:perastage_test_mvr_roundtrip_objects>)
+
+add_library(perastage_test_mvr_roundtrip_support_objects OBJECT
+            ${PERASTAGE_TEST_MVR_ROUNDTRIP_SOURCES})
+target_include_directories(perastage_test_mvr_roundtrip_support_objects PRIVATE
+                           . support ../core ../models ../mvr ../gui ../third_party
+                           ${CMAKE_SOURCE_DIR}/core ${CMAKE_SOURCE_DIR}/mvr
+                           ${CMAKE_SOURCE_DIR}/models
+                           ${CMAKE_SOURCE_DIR}/core/diagnostics)
+target_link_libraries(perastage_test_mvr_roundtrip_support_objects PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+set(PERASTAGE_TEST_MVR_ROUNDTRIP_SUPPORT_OBJECTS
+    $<TARGET_OBJECTS:perastage_test_mvr_roundtrip_support_objects>)
+
 add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
-               ../core/gdtf_fixture_category.cpp
-               ../core/layer_service.cpp
-               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
-               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
-               ../core/wx_path_utils.cpp
-               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
-               ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp
-
-
-               ../core/fixture_visual_color.cpp
-               ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
-               ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
-               ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
-               ../core/scene_transform_integrity.cpp
-               ../core/mvr_identity_recovery.cpp
-               ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
                gdtfloader_stub.cpp
                consolepanel_stub.cpp
-               ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_MVR_ROUNDTRIP_SUPPORT_OBJECTS})
 target_include_directories(save_load_roundtrip_test PRIVATE
                            . support ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(save_load_roundtrip_test PRIVATE
@@ -1510,43 +1544,18 @@ set_library_env(MvrProjectFixtureMetadataContracts)
 
 add_executable(project_support_userdata_roundtrip_test project_support_userdata_roundtrip_test.cpp
                build_info_stub.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
-               ../core/gdtf_fixture_category.cpp
-               ../core/layer_service.cpp
-               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
-               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
-               ../core/wx_path_utils.cpp
-               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
-               ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp
-
-
-               ../core/fixture_visual_color.cpp
-               ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
-               ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
-               ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
-               ../core/scene_transform_integrity.cpp
-               ../core/mvr_identity_recovery.cpp
-               ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
                gdtfloader_stub.cpp
                consolepanel_stub.cpp
-               ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_MVR_ROUNDTRIP_OBJECTS})
 target_include_directories(project_support_userdata_roundtrip_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(project_support_userdata_roundtrip_test PRIVATE
@@ -1647,43 +1656,18 @@ set_perastage_test_labels(MvrGdtfImportMatching LAYER perastage-extension DOMAIN
 
 add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                build_info_stub.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
-               ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
-               ../core/scene_transform_integrity.cpp
-               ../core/mvr_identity_recovery.cpp
-               ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
-               ../core/gdtf_fixture_category.cpp
-               ../core/layer_service.cpp
-               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
-               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
-               ../core/wx_path_utils.cpp
-               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
-               ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp
-
-
-               ../core/fixture_visual_color.cpp
-               ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
-               ../viewer2d/fixture_label_overrides.cpp
                ../core/logger.cpp
                gdtfloader_stub.cpp
                consolepanel_stub.cpp
-               ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_MVR_ROUNDTRIP_OBJECTS})
 target_include_directories(mvr_dmx_address_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(mvr_dmx_address_test PRIVATE
@@ -1696,43 +1680,18 @@ set_library_env(MvrDmxAddressConversion)
 add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtrip_test.cpp
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
-               ../core/gdtf_fixture_category.cpp
-               ../core/layer_service.cpp
-               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
-               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
-               ../core/wx_path_utils.cpp
-               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
-               ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp
-
-
-               ../core/fixture_visual_color.cpp
-               ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
-               ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
-               ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
-               ../core/scene_transform_integrity.cpp
-               ../core/mvr_identity_recovery.cpp
-               ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
                gdtfloader_stub.cpp
                consolepanel_stub.cpp
-               ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_MVR_ROUNDTRIP_OBJECTS})
 target_include_directories(mvr_support_userdata_roundtrip_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(mvr_support_userdata_roundtrip_test PRIVATE
@@ -1787,43 +1746,18 @@ add_test(NAME FixtureVisualColor COMMAND fixture_visual_color_test)
 
 add_executable(mvr_layer_appearance_userdata_test mvr_layer_appearance_userdata_test.cpp
                build_info_stub.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
-               ../core/gdtf_fixture_category.cpp
-               ../core/layer_service.cpp
-               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
-               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
-               ../core/wx_path_utils.cpp
-               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
-               ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp
-
-
-               ../core/fixture_visual_color.cpp
-               ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
-               ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
-               ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
-               ../core/scene_transform_integrity.cpp
-               ../core/mvr_identity_recovery.cpp
-               ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
                gdtfloader_stub.cpp
                consolepanel_stub.cpp
-               ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_MVR_ROUNDTRIP_OBJECTS})
 target_include_directories(mvr_layer_appearance_userdata_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(mvr_layer_appearance_userdata_test PRIVATE
@@ -1836,43 +1770,18 @@ set_library_env(MvrLayerAppearanceUserData)
 add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtrip_test.cpp
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
-               ../core/gdtf_fixture_category.cpp
-               ../core/layer_service.cpp
-               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
-               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
-               ../core/wx_path_utils.cpp
-               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
-               ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp
-
-
-               ../core/fixture_visual_color.cpp
-               ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
-               ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
-               ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
-               ../core/scene_transform_integrity.cpp
-               ../core/mvr_identity_recovery.cpp
-               ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
                gdtfloader_stub.cpp
                consolepanel_stub.cpp
-               ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_MVR_ROUNDTRIP_SUPPORT_OBJECTS})
 target_include_directories(mvr_fixture_category_roundtrip_test PRIVATE
                            . support ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(mvr_fixture_category_roundtrip_test PRIVATE
@@ -1935,43 +1844,18 @@ set_library_env(MvrSceneObjectSymbolIdentity)
 
 add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_test.cpp
                build_info_stub.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
-               ../core/gdtf_fixture_category.cpp
-               ../core/layer_service.cpp
-               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
-               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
-               ../core/wx_path_utils.cpp
-               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
-               ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp
-
-
-               ../core/fixture_visual_color.cpp
-               ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
-               ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
-               ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
-               ../core/scene_transform_integrity.cpp
-               ../core/mvr_identity_recovery.cpp
-               ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
                gdtfloader_stub.cpp
                consolepanel_stub.cpp
-               ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_MVR_ROUNDTRIP_OBJECTS})
 target_include_directories(mvr_truss_roundtrip_structure_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(mvr_truss_roundtrip_structure_test PRIVATE
@@ -1984,43 +1868,18 @@ add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                mvr_export_file_buffer_parity_test_support.cpp
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
-               ../core/gdtf_fixture_category.cpp
-               ../core/layer_service.cpp
-               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
-               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
-               ../core/wx_path_utils.cpp
-               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
-               ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp
-
-
-               ../core/fixture_visual_color.cpp
-               ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
-               ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
-               ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
-               ../core/scene_transform_integrity.cpp
-               ../core/mvr_identity_recovery.cpp
-               ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
                gdtfloader_stub.cpp
                consolepanel_stub.cpp
-               ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_MVR_ROUNDTRIP_SUPPORT_OBJECTS})
 target_include_directories(mvr_exporter_compliance_test PRIVATE
                            . support ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(mvr_exporter_compliance_test PRIVATE
@@ -2032,28 +1891,14 @@ set_library_env(MvrExporterCompliance)
 add_executable(mvr_importer_archive_characterization_test
                mvr_importer_archive_characterization_test.cpp
                build_info_stub.cpp
-               ../core/configmanager.cpp ../core/configservices.cpp
-               ../core/projectutils.cpp ../core/library/library_bootstrap.cpp
-               ../core/gdtfdictionary.cpp ../core/gdtf_fixture_category.cpp
-               ../core/layer_service.cpp ../core/scene_grouping.cpp
-               ../core/scene_node_operations.cpp ../core/utf8_utils.cpp
+ ../core/configservices.cpp
+ ../core/library/library_bootstrap.cpp
+               ../core/gdtfdictionary.cpp
                ../core/trussdictionary.cpp ../core/trussloader.cpp
-               ../core/wx_path_utils.cpp ../core/runtime_storage.cpp
-               ../core/truss_gdtf_builder.cpp ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp
-
-
-               ../core/fixture_visual_color.cpp
-               ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
-               ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
-               ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp ../core/scene_transform_integrity.cpp
-               ../core/mvr_identity_recovery.cpp
-               ../mvr/primitive_model_resources.cpp
+               ../core/truss_gdtf_builder.cpp
                ../core/gdtf_canonicalizer.cpp ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp gdtfloader_stub.cpp consolepanel_stub.cpp
-               ../models/mvrscene.cpp ../models/fixture.cpp ../models/truss.cpp
-               ../models/sceneobject.cpp ../models/layer.cpp ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_MVR_ROUNDTRIP_OBJECTS})
 target_include_directories(mvr_importer_archive_characterization_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(mvr_importer_archive_characterization_test PRIVATE
@@ -2140,27 +1985,37 @@ add_test(NAME RiderSaveRoundtrip COMMAND rider_save_roundtrip_test
 set_perastage_test_labels(RiderSaveRoundtrip LAYER perastage-extension DOMAINS rider project gdtf)
 set_library_env(RiderSaveRoundtrip)
 
+# Compile the common Rider importer implementation once for the focused tests.
+add_library(perastage_test_rider_import_objects OBJECT
+            ../core/autopatcher.cpp
+            ../core/configmanager.cpp
+            ../core/hoist_weight_distribution.cpp
+            ../core/library/library_bootstrap.cpp
+            ../core/patchmanager.cpp
+            ../core/projectutils.cpp
+            ../core/rider_text_semantics.cpp
+            ../core/riderimporter.cpp
+            ../core/units/units.cpp
+            ../models/fixture.cpp
+            ../models/layer.cpp
+            ../models/sceneobject.cpp
+            ../models/truss.cpp
+            ${LAYOUT_SOURCES})
+target_include_directories(perastage_test_rider_import_objects PRIVATE
+                           . ../core ../models ../mvr ../gui ../third_party)
+target_link_libraries(perastage_test_rider_import_objects PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_uuid)
+set(PERASTAGE_TEST_RIDER_IMPORT_OBJECTS
+    $<TARGET_OBJECTS:perastage_test_rider_import_objects>)
+
 add_executable(riderimporter_fixtureid_test rider_import_fixtureid_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
-               ../core/riderimporter.cpp
-               ../core/rider_text_semantics.cpp
-               ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
-               ../core/hoist_weight_distribution.cpp
-               ../core/autopatcher.cpp
-               ../core/patchmanager.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
-               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_RIDER_IMPORT_OBJECTS})
 target_include_directories(riderimporter_fixtureid_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(riderimporter_fixtureid_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
@@ -2172,24 +2027,11 @@ set_library_env(RiderImporterFixtureIds)
 add_executable(rider_import_order_test rider_import_order_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
-               ../core/riderimporter.cpp
-               ../core/rider_text_semantics.cpp
-               ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
-               ../core/hoist_weight_distribution.cpp
-               ../core/autopatcher.cpp
-               ../core/patchmanager.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
-               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_RIDER_IMPORT_OBJECTS})
 target_include_directories(rider_import_order_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(rider_import_order_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
@@ -2200,24 +2042,11 @@ set_library_env(RiderImportOrder)
 add_executable(rider_import_linear_order_test rider_import_linear_order_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
-               ../core/riderimporter.cpp
-               ../core/rider_text_semantics.cpp
-               ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
-               ../core/hoist_weight_distribution.cpp
-               ../core/autopatcher.cpp
-               ../core/patchmanager.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
-               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_RIDER_IMPORT_OBJECTS})
 target_include_directories(rider_import_linear_order_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(rider_import_linear_order_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
@@ -2228,24 +2057,11 @@ set_library_env(RiderImportLinearOrder)
 add_executable(rider_import_preserve_existing_test rider_import_preserve_existing_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
-               ../core/riderimporter.cpp
-               ../core/rider_text_semantics.cpp
-               ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
-               ../core/hoist_weight_distribution.cpp
-               ../core/autopatcher.cpp
-               ../core/patchmanager.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
-               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_RIDER_IMPORT_OBJECTS})
 target_include_directories(rider_import_preserve_existing_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(rider_import_preserve_existing_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
@@ -2255,24 +2071,11 @@ set_library_env(RiderImportPreserveExisting)
 add_executable(rider_import_category_test rider_import_category_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
-               ../core/riderimporter.cpp
-               ../core/rider_text_semantics.cpp
-               ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
-               ../core/hoist_weight_distribution.cpp
-               ../core/autopatcher.cpp
-               ../core/patchmanager.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
-               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_RIDER_IMPORT_OBJECTS})
 target_include_directories(rider_import_category_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(rider_import_category_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
@@ -2282,24 +2085,11 @@ set_library_env(RiderImportCategory)
 add_executable(rider_autopatch_test rider_autopatch_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_onech_stub.cpp
-               ../core/riderimporter.cpp
-               ../core/rider_text_semantics.cpp
-               ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
-               ../core/hoist_weight_distribution.cpp
-               ../core/autopatcher.cpp
-               ../core/patchmanager.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
-               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_RIDER_IMPORT_OBJECTS})
 target_include_directories(rider_autopatch_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(rider_autopatch_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
@@ -2310,24 +2100,11 @@ set_library_env(RiderAutoPatch)
 add_executable(rider_layer_mode_test rider_layer_mode_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
-               ../core/riderimporter.cpp
-               ../core/rider_text_semantics.cpp
-               ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
-               ../core/hoist_weight_distribution.cpp
-               ../core/autopatcher.cpp
-               ../core/patchmanager.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
-               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_RIDER_IMPORT_OBJECTS})
 target_include_directories(rider_layer_mode_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(rider_layer_mode_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
@@ -2350,24 +2127,11 @@ add_test(NAME HoistWeightDistribution COMMAND hoist_weight_distribution_test)
 add_executable(rider_filter_preview_test rider_filter_preview_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
-               ../core/riderimporter.cpp
-               ../core/rider_text_semantics.cpp
-               ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
-               ../core/hoist_weight_distribution.cpp
-               ../core/autopatcher.cpp
-               ../core/patchmanager.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
-               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_RIDER_IMPORT_OBJECTS})
 target_include_directories(rider_filter_preview_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(rider_filter_preview_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
@@ -2377,24 +2141,11 @@ set_library_env(RiderFilterPreview)
 add_executable(rider_comments_test rider_comments_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
-               ../core/riderimporter.cpp
-               ../core/rider_text_semantics.cpp
-               ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
-               ../core/hoist_weight_distribution.cpp
-               ../core/autopatcher.cpp
-               ../core/patchmanager.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
-               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_RIDER_IMPORT_OBJECTS})
 target_include_directories(rider_comments_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(rider_comments_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
@@ -2404,24 +2155,11 @@ set_library_env(RiderComments)
 add_executable(rider_floor_default_hang_test rider_floor_default_hang_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
-               ../core/riderimporter.cpp
-               ../core/rider_text_semantics.cpp
-               ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
-               ../core/hoist_weight_distribution.cpp
-               ../core/autopatcher.cpp
-               ../core/patchmanager.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
-               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_RIDER_IMPORT_OBJECTS})
 target_include_directories(rider_floor_default_hang_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(rider_floor_default_hang_test PRIVATE ${wxWidgets_LIBRARIES}
@@ -2432,24 +2170,11 @@ set_library_env(RiderFloorDefaultHang)
 add_executable(rider_led_screen_object_test rider_led_screen_object_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
-               ../core/riderimporter.cpp
-               ../core/rider_text_semantics.cpp
-               ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
-               ../core/hoist_weight_distribution.cpp
-               ../core/autopatcher.cpp
-               ../core/patchmanager.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
-               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_RIDER_IMPORT_OBJECTS})
 target_include_directories(rider_led_screen_object_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(rider_led_screen_object_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
@@ -2487,24 +2212,11 @@ set_library_env(RiderHoistImport)
 add_executable(rider_lx_sides_import_test rider_lx_sides_import_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
-               ../core/riderimporter.cpp
-               ../core/rider_text_semantics.cpp
-               ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
-               ../core/hoist_weight_distribution.cpp
-               ../core/autopatcher.cpp
-               ../core/patchmanager.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
-               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_RIDER_IMPORT_OBJECTS})
 target_include_directories(rider_lx_sides_import_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(rider_lx_sides_import_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
@@ -2514,24 +2226,11 @@ set_library_env(RiderLxSidesImport)
 add_executable(rider_pipe_import_test rider_pipe_import_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
-               ../core/riderimporter.cpp
-               ../core/rider_text_semantics.cpp
-               ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
-               ../core/hoist_weight_distribution.cpp
-               ../core/autopatcher.cpp
-               ../core/patchmanager.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
-               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_RIDER_IMPORT_OBJECTS})
 target_include_directories(rider_pipe_import_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(rider_pipe_import_test PRIVATE ${wxWidgets_LIBRARIES}
@@ -2575,24 +2274,11 @@ set_perastage_test_labels(RiderRiggingTargetNormalizationContracts
 add_executable(rider_import_benchmark rider_import_benchmark.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
-               ../core/riderimporter.cpp
-               ../core/rider_text_semantics.cpp
-               ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
-               ../core/hoist_weight_distribution.cpp
-               ../core/autopatcher.cpp
-               ../core/patchmanager.cpp
-               ../core/configmanager.cpp
                ../core/configservices.cpp
-               ../core/projectutils.cpp
-               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
-               ../models/fixture.cpp
-               ../models/truss.cpp
-               ../models/sceneobject.cpp
-               ../models/layer.cpp
-               ${LAYOUT_SOURCES})
+               ${PERASTAGE_TEST_RIDER_IMPORT_OBJECTS})
 target_include_directories(rider_import_benchmark PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(rider_import_benchmark PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
@@ -2625,18 +2311,29 @@ add_bash_policy_test(SketchPostProcessArchitecture
 set_tests_properties(SketchPostProcessArchitecture PROPERTIES
                      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 
+# Compile the shared GDTF loader implementation once for its focused tests.
+add_library(perastage_test_gdtfloader_objects OBJECT
+            ../core/gdtf_canonicalizer.cpp
+            ../core/gdtf_document_mutation.cpp
+            ../core/gdtf_mutation_audit.cpp
+            ../viewer3d/gdtfloader.cpp
+            ../viewer3d/loader3ds.cpp
+            ../viewer3d/loaderglb.cpp
+            ../viewer3d/meshprimitives.cpp)
+target_include_directories(perastage_test_gdtfloader_objects PRIVATE
+                           . ../viewer3d ../models ../gui ../third_party)
+target_link_libraries(perastage_test_gdtfloader_objects PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2
+                      perastage_test_gdtf_archive_reader)
+set(PERASTAGE_TEST_GDTFLOADER_OBJECTS
+    $<TARGET_OBJECTS:perastage_test_gdtfloader_objects>)
+
 add_executable(gdtfloader_primitive_test gdtfloader_primitive_test.cpp
                build_info_stub.cpp
-               ../viewer3d/gdtfloader.cpp
-               ../core/gdtf_document_mutation.cpp
                ../core/runtime_storage.cpp
                ../core/logger.cpp
-               ../core/gdtf_canonicalizer.cpp
-               ../core/gdtf_mutation_audit.cpp
-               ../viewer3d/loader3ds.cpp
-               ../viewer3d/loaderglb.cpp
-               ../viewer3d/meshprimitives.cpp
-               consolepanel_stub.cpp)
+               consolepanel_stub.cpp
+               ${PERASTAGE_TEST_GDTFLOADER_OBJECTS})
 target_include_directories(gdtfloader_primitive_test PRIVATE
                            . ../viewer3d ../models ../gui ../third_party)
 target_link_libraries(gdtfloader_primitive_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
@@ -2683,17 +2380,11 @@ add_test(NAME Loader3dsNativeDimensions COMMAND loader3ds_native_dimensions_test
 set_library_env(Loader3dsNativeDimensions)
 
 add_executable(gdtfloader_channel_modes_test gdtfloader_channel_modes_test.cpp
-               ../viewer3d/gdtfloader.cpp
-               ../core/gdtf_document_mutation.cpp
                ../core/runtime_storage.cpp
                ../core/logger.cpp
-               ../core/gdtf_canonicalizer.cpp
-               ../core/gdtf_mutation_audit.cpp
-               ../viewer3d/loader3ds.cpp
-               ../viewer3d/loaderglb.cpp
-               ../viewer3d/meshprimitives.cpp
                build_info_stub.cpp
-               consolepanel_stub.cpp)
+               consolepanel_stub.cpp
+               ${PERASTAGE_TEST_GDTFLOADER_OBJECTS})
 target_include_directories(gdtfloader_channel_modes_test PRIVATE
                            . ../viewer3d ../models ../gui ../third_party)
 target_link_libraries(gdtfloader_channel_modes_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
@@ -2702,16 +2393,10 @@ set_library_env(GdtfLoaderChannelModeSummaries)
 
 add_executable(gdtfloader_geometry_roots_test gdtfloader_geometry_roots_test.cpp
                build_info_stub.cpp
-               ../viewer3d/gdtfloader.cpp
-               ../core/gdtf_document_mutation.cpp
                ../core/runtime_storage.cpp
                ../core/logger.cpp
-               ../core/gdtf_canonicalizer.cpp
-               ../core/gdtf_mutation_audit.cpp
-               ../viewer3d/loader3ds.cpp
-               ../viewer3d/loaderglb.cpp
-               ../viewer3d/meshprimitives.cpp
-               consolepanel_stub.cpp)
+               consolepanel_stub.cpp
+               ${PERASTAGE_TEST_GDTFLOADER_OBJECTS})
 target_include_directories(gdtfloader_geometry_roots_test PRIVATE
                            . ../viewer3d ../models ../gui ../third_party)
 target_link_libraries(gdtfloader_geometry_roots_test PRIVATE
@@ -2722,16 +2407,10 @@ set_library_env(GdtfLoaderGeometryRoots)
 add_executable(gdtfloader_file_model_cache_identity_test
                gdtfloader_file_model_cache_identity_test.cpp
                build_info_stub.cpp
-               ../viewer3d/gdtfloader.cpp
-               ../core/gdtf_document_mutation.cpp
                ../core/runtime_storage.cpp
                ../core/logger.cpp
-               ../core/gdtf_canonicalizer.cpp
-               ../core/gdtf_mutation_audit.cpp
-               ../viewer3d/loader3ds.cpp
-               ../viewer3d/loaderglb.cpp
-               ../viewer3d/meshprimitives.cpp
-               consolepanel_stub.cpp)
+               consolepanel_stub.cpp
+               ${PERASTAGE_TEST_GDTFLOADER_OBJECTS})
 target_include_directories(gdtfloader_file_model_cache_identity_test PRIVATE
                            . ../viewer3d ../models ../gui ../third_party)
 target_link_libraries(gdtfloader_file_model_cache_identity_test PRIVATE
@@ -2744,16 +2423,10 @@ set_library_env(GdtfLoaderFileModelCacheIdentity)
 add_executable(gdtfloader_set_properties_test gdtfloader_set_properties_test.cpp
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
-               ../viewer3d/gdtfloader.cpp
-               ../core/gdtf_document_mutation.cpp
                ../core/runtime_storage.cpp
                ../core/logger.cpp
-               ../core/gdtf_canonicalizer.cpp
-               ../core/gdtf_mutation_audit.cpp
-               ../viewer3d/loader3ds.cpp
-               ../viewer3d/loaderglb.cpp
-               ../viewer3d/meshprimitives.cpp
-               consolepanel_stub.cpp)
+               consolepanel_stub.cpp
+               ${PERASTAGE_TEST_GDTFLOADER_OBJECTS})
 target_include_directories(gdtfloader_set_properties_test PRIVATE
                            . ../core ../viewer3d ../models ../gui ../third_party)
 target_link_libraries(gdtfloader_set_properties_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
