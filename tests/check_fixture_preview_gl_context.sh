@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test_tool_requirements.sh"
+
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source_file="$root/gui/fixturepreviewpanel.cpp"
 
-python3 - "$source_file" <<'PY'
+run_test_python - "$source_file" <<'PY'
 from pathlib import Path
 import sys
 
