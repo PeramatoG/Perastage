@@ -242,7 +242,8 @@ function Resolve-ClassicVcpkgInstallation {
     $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
     $vcpkgExe = Join-Path $resolvedRoot 'vcpkg.exe'
     $toolchainFile = Join-Path $resolvedRoot 'scripts\buildsystems\vcpkg.cmake'
-    $installedTriplet = Join-Path $resolvedRoot "installed\$script:PerastageVcpkgTriplet"
+    $installedRoot = Join-Path $resolvedRoot 'installed'
+    $installedTriplet = Join-Path $installedRoot $script:PerastageVcpkgTriplet
     $errors = @()
 
     if (-not (Test-Path -LiteralPath (Join-Path $resolvedRoot '.vcpkg-root'))) { $errors += "Missing vcpkg root marker: $(Join-Path $resolvedRoot '.vcpkg-root')" }
@@ -262,6 +263,7 @@ function Resolve-ClassicVcpkgInstallation {
         Root = $resolvedRoot
         Executable = $vcpkgExe
         ToolchainFile = $toolchainFile
+        InstalledRoot = $installedRoot
         InstalledTriplet = $installedTriplet
     }
 }
@@ -305,20 +307,21 @@ function Test-PerastageVcpkgDependencies {
 
     Assert-PerastageWxSecretStoreHeaders -InstalledTriplet $Vcpkg.InstalledTriplet
 
-    $vcpkgStatus = Join-Path $Vcpkg.InstalledTriplet 'vcpkg\status'
-    if (Test-Path -LiteralPath $vcpkgStatus) {
-        $statusText = Get-Content -LiteralPath $vcpkgStatus -Raw
-        if ($statusText -match '(?ms)^Package: libxml2\r?\nVersion: ([^\r\n]+)') {
-            Write-Host "libxml2 version: $($Matches[1])"
-        }
-        $inventoryScript = Join-Path $repoRoot 'scripts\dependencies\report_installed.py'
-        $canonicalState = Join-Path $repoRoot 'dependencies\resolved-vcpkg.json'
-        $pythonCommand = Get-Command python -CommandType Application -ErrorAction Stop
-        Write-Host 'Direct dependency versions (differences from the official baseline are informational):'
-        & $pythonCommand.Source $inventoryScript --state $canonicalState --status $vcpkgStatus --triplet $PerastageVcpkgTriplet --include-host
-        if ($LASTEXITCODE -ne 0) {
-            throw 'The direct dependency inventory could not be read.'
-        }
+    $vcpkgStatus = Join-Path $Vcpkg.InstalledRoot 'vcpkg\status'
+    if (-not (Test-Path -LiteralPath $vcpkgStatus -PathType Leaf)) {
+        throw "The classic vcpkg status database is missing: $vcpkgStatus. Verify the selected installation; setup_windows.ps1 does not modify or repair vcpkg."
+    }
+    $statusText = Get-Content -LiteralPath $vcpkgStatus -Raw
+    if ($statusText -match '(?ms)^Package: libxml2\r?\nVersion: ([^\r\n]+)') {
+        Write-Host "libxml2 version: $($Matches[1])"
+    }
+    $inventoryScript = Join-Path $repoRoot 'scripts\dependencies\report_installed.py'
+    $canonicalState = Join-Path $repoRoot 'dependencies\resolved-vcpkg.json'
+    $pythonCommand = Get-Command python -CommandType Application -ErrorAction Stop
+    Write-Host 'Direct dependency versions (differences from the official baseline are informational):'
+    & $pythonCommand.Source $inventoryScript --state $canonicalState --status $vcpkgStatus --triplet $PerastageVcpkgTriplet --include-host
+    if ($LASTEXITCODE -ne 0) {
+        throw 'The direct dependency inventory could not be read.'
     }
 
     $gettextBin = Join-Path $Vcpkg.InstalledTriplet 'tools\gettext\bin'
