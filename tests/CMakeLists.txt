@@ -312,7 +312,8 @@ set_perastage_test_labels(InspectorXmlEditor
 
 add_executable(gdtf_resource_svg_bitmap_test
                gdtf_resource_svg_bitmap_test.cpp
-               ../gui/gdtf/gdtf_resource_bitmap_cache.cpp)
+               ../gui/gdtf/gdtf_resource_bitmap_cache.cpp
+               ../gui/gdtf/svg_preview_geometry.cpp)
 target_include_directories(gdtf_resource_svg_bitmap_test PRIVATE ../gui)
 target_link_libraries(gdtf_resource_svg_bitmap_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME GdtfResourceSvgBitmap COMMAND gdtf_resource_svg_bitmap_test)

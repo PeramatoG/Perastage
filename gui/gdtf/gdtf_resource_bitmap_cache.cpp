@@ -1,4 +1,5 @@
 #include "gdtf_resource_bitmap_cache.h"
+#include "gdtf/svg_preview_geometry.h"
 
 #include <algorithm>
 #include <sstream>
@@ -206,17 +207,30 @@ GdtfBitmapDecodeResult GdtfResourceBitmapCache::DecodeSvg(
                         : GdtfBitmapDecodeStatus::InvalidDimensions;
   } else {
     try {
-      const wxBitmapBundle bundle = wxBitmapBundle::FromSVG(
-          svgText.c_str(), wxSize(width, height));
-      const wxBitmap bitmap = bundle.GetBitmap(wxSize(width, height));
-      if (bitmap.IsOk()) {
-        result.bitmap = ComposePreviewBitmap(bitmap.ConvertToImage(), targetSize);
-        result.sourceWidth = bitmap.GetWidth();
-        result.sourceHeight = bitmap.GetHeight();
-        result.status = GdtfBitmapDecodeStatus::Success;
-        result.decoded = true;
-      } else {
+      const wxBitmapBundle bundle =
+          wxBitmapBundle::FromSVG(svgText.c_str(), wxDefaultSize);
+      const wxSize intrinsicSize =
+          bundle.IsOk() ? bundle.GetDefaultSize() : wxDefaultSize;
+      result.sourceWidth = intrinsicSize.GetWidth();
+      result.sourceHeight = intrinsicSize.GetHeight();
+      const auto fitted = gui::gdtf::FitSvgPreviewSize(
+          intrinsicSize.GetWidth(), intrinsicSize.GetHeight(), width, height,
+          kMaxPreviewDimension);
+      if (!bundle.IsOk()) {
         result.status = GdtfBitmapDecodeStatus::DecodeFailure;
+      } else if (!fitted.IsValid()) {
+        result.status = GdtfBitmapDecodeStatus::InvalidDimensions;
+      } else {
+        const wxBitmap bitmap =
+            bundle.GetBitmap(wxSize(fitted.width, fitted.height));
+        if (bitmap.IsOk()) {
+          result.bitmap =
+              ComposePreviewBitmap(bitmap.ConvertToImage(), targetSize);
+          result.status = GdtfBitmapDecodeStatus::Success;
+          result.decoded = true;
+        } else {
+          result.status = GdtfBitmapDecodeStatus::DecodeFailure;
+        }
       }
     } catch (...) {
       result.status = GdtfBitmapDecodeStatus::DecodeFailure;
