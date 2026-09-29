@@ -313,8 +313,9 @@ function Test-PerastageVcpkgDependencies {
         }
         $inventoryScript = Join-Path $repoRoot 'scripts\dependencies\report_installed.py'
         $canonicalState = Join-Path $repoRoot 'dependencies\resolved-vcpkg.json'
+        $pythonCommand = Get-Command python -CommandType Application -ErrorAction Stop
         Write-Host 'Direct dependency versions (differences from the official baseline are informational):'
-        python $inventoryScript --state $canonicalState --status $vcpkgStatus --include-host
+        & $pythonCommand.Source $inventoryScript --state $canonicalState --status $vcpkgStatus --triplet $PerastageVcpkgTriplet --include-host
         if ($LASTEXITCODE -ne 0) {
             throw 'The direct dependency inventory could not be read.'
         }

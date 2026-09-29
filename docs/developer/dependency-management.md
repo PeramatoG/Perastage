@@ -45,6 +45,12 @@ full CI and human review are mandatory and auto-merge is forbidden. Critical
 security advisories may start the same workflow out of band rather than waiting
 for the quarter.
 
+The repository must grant `GITHUB_TOKEN` read/write workflow permissions and
+enable **Allow GitHub Actions to create and approve pull requests** under
+**Settings > Actions > General**. The workflow uses no personal access token;
+its push and draft-PR steps fail with an actionable settings message when the
+repository policy blocks either operation.
+
 For a local no-mutation review using two fixed vcpkg checkouts:
 
 ```bash

@@ -5,11 +5,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 
-def status_versions(path: Path) -> dict[str, str]:
-    """Parse package versions from a vcpkg installed status file."""
+def status_versions(path: Path, triplet: str) -> dict[str, str]:
+    """Parse base-package versions for one triplet from a vcpkg status file."""
     result: dict[str, str] = {}
     for paragraph in path.read_text(encoding="utf-8", errors="replace").split("\n\n"):
         fields = {}
@@ -17,7 +18,8 @@ def status_versions(path: Path) -> dict[str, str]:
             if ": " in line:
                 key, value = line.split(": ", 1)
                 fields[key] = value
-        if fields.get("Package") and fields.get("Version") and not fields.get("Feature"):
+        if (fields.get("Architecture") == triplet and fields.get("Package")
+                and fields.get("Version") and not fields.get("Feature")):
             revision = fields.get("Port-Version", "0")
             suffix = f"#{revision}" if revision != "0" and "#" not in fields["Version"] else ""
             result[fields["Package"]] = fields["Version"] + suffix
@@ -29,14 +31,16 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--state", type=Path, default=Path("dependencies/resolved-vcpkg.json"))
     parser.add_argument("--status", type=Path, required=True)
+    parser.add_argument("--triplet", required=True)
     parser.add_argument("--strict", action="store_true")
     parser.add_argument("--include-host", action="store_true")
     parser.add_argument("--summary", type=Path)
     args = parser.parse_args()
     state = json.loads(args.state.read_text(encoding="utf-8"))
-    installed = status_versions(args.status)
+    installed = status_versions(args.status, args.triplet)
     lines = ["| Dependency | Role | Canonical | Installed | Result |", "| --- | --- | --- | --- | --- |"]
     mismatch = False
+    missing = []
     for package in state["packages"]:
         if package["role"] == "host" and not args.include_host:
             continue
@@ -44,12 +48,16 @@ def main() -> int:
         actual = installed.get(package["name"], "missing")
         result = "match" if actual == canonical else "different"
         mismatch |= result != "match"
+        if actual == "missing":
+            missing.append(package["name"])
         lines.append(f"| {package['name']} | {package['role']} | {canonical} | {actual} | {result} |")
     output = "\n".join(lines) + "\n"
     print(output, end="")
     if args.summary:
         with args.summary.open("a", encoding="utf-8") as stream:
             stream.write("\n### Direct vcpkg dependency inventory\n\n" + output)
+    if args.strict and missing:
+        print(f"missing direct packages for triplet {args.triplet}: {', '.join(missing)}", file=sys.stderr)
     return 1 if args.strict and mismatch else 0
 
 

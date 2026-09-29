@@ -5,10 +5,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 from pathlib import Path
 
-from model import load_json, resolve, version_label
+from checkout import require_checkout_head
+from model import load_json, resolve
 
 
 def write_json(path: Path, value: dict) -> None:
@@ -24,15 +24,15 @@ def main() -> int:
     parser.add_argument("--vcpkg", type=Path, required=True)
     args = parser.parse_args()
     manifest = load_json(args.repo / "vcpkg.json")
-    head = subprocess.run(["git", "-C", str(args.vcpkg), "rev-parse", "HEAD"], check=True,
-                          text=True, capture_output=True).stdout.strip()
-    if head != manifest["builtin-baseline"]:
-        raise SystemExit(f"vcpkg checkout is {head}; expected {manifest['builtin-baseline']}")
+    try:
+        require_checkout_head(args.vcpkg, manifest["builtin-baseline"], "canonical")
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
     state = resolve(manifest, load_json(args.repo / "dependencies/dependency-policy.json"), args.vcpkg)
     write_json(args.repo / "dependencies/resolved-vcpkg.json", state)
     wx = next(item for item in state["packages"] if item["name"] == "wxwidgets")
     write_json(args.repo / ".github/badges/wxwidgets.json",
-               {"schemaVersion": 1, "label": "wxWidgets", "message": version_label(wx), "color": "green"})
+               {"schemaVersion": 1, "label": "wxWidgets", "message": wx["version"], "color": "green"})
     return 0
 
 

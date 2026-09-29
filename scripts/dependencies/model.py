@@ -9,7 +9,13 @@ from pathlib import Path
 
 def load_json(path: Path) -> dict:
     """Load one UTF-8 JSON object."""
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(f"could not load JSON object from {path}: {error}") from error
+    if not isinstance(value, dict):
+        raise ValueError(f"expected a JSON object in {path}")
+    return value
 
 
 def direct_dependencies(manifest: dict) -> list[dict]:
@@ -27,6 +33,14 @@ def resolve(manifest: dict, policy: dict, registry: Path) -> dict:
     baseline = manifest["builtin-baseline"]
     default = load_json(registry / "versions" / "baseline.json")["default"]
     policies = {item["name"]: item for item in policy["vcpkg"]}
+    direct_names = {item["name"] for item in direct_dependencies(manifest)}
+    if set(policies) != direct_names:
+        missing = sorted(direct_names - set(policies))
+        extra = sorted(set(policies) - direct_names)
+        raise ValueError(f"vcpkg policy coverage mismatch; missing={missing}, extra={extra}")
+    missing_versions = sorted(direct_names - set(default))
+    if missing_versions:
+        raise ValueError(f"vcpkg baseline metadata is missing direct packages: {missing_versions}")
     packages = []
     for item in direct_dependencies(manifest):
         name = item["name"]

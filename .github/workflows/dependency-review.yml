@@ -5,10 +5,6 @@ on:
     - cron: "17 7 10 1,4,7,10 *"
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: write
-
 concurrency:
   group: quarterly-dependency-review
   cancel-in-progress: false
@@ -16,6 +12,9 @@ concurrency:
 jobs:
   review:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Checkout trusted repository source
         uses: actions/checkout@v6
@@ -36,12 +35,12 @@ jobs:
           echo "candidate=$candidate" >> "$GITHUB_OUTPUT"
       - name: Check bundled dependency awareness
         id: bundled
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          release="$(gh api repos/nlohmann/json/releases/latest --jq .tag_name)"
-          echo "notice=nlohmann/json latest upstream release observed: ${release}; source replacement remains manual." >> "$GITHUB_OUTPUT"
+          upstream="$(gh api repos/nlohmann/json/releases/latest --jq .tag_name 2>/dev/null || true)"
+          notice="$(python3 scripts/dependencies/bundled.py --header third_party/json.hpp --upstream "$upstream")"
+          echo "notice=$notice" >> "$GITHUB_OUTPUT"
       - name: Prepare policy-aware candidate
         env:
           BUNDLED_NOTICE: ${{ steps.bundled.outputs.notice || 'Bundled upstream lookup unavailable; manual/notify-only policy remains in effect.' }}
@@ -70,10 +69,16 @@ jobs:
           git switch -c "$branch"
           git add vcpkg.json dependencies/resolved-vcpkg.json .github/badges/wxwidgets.json
           git commit -m "chore: prepare dependency baseline review"
-          git push --force-with-lease origin "$branch"
+          git push --force-with-lease origin "$branch" || {
+            echo "::error::GitHub Actions could not push the review branch. Enable read/write Workflow permissions for GITHUB_TOKEN in Settings > Actions > General." >&2
+            exit 1
+          }
           existing="$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')"
           if test -z "$existing"; then
             gh pr create --draft --base main --head "$branch" \
               --title "chore: quarterly dependency baseline candidate" \
-              --body-file "$RUNNER_TEMP/dependency-review.md"
+              --body-file "$RUNNER_TEMP/dependency-review.md" || {
+                echo "::error::GitHub Actions could not create the draft PR. Enable 'Allow GitHub Actions to create and approve pull requests' in Settings > Actions > General." >&2
+                exit 1
+              }
           fi

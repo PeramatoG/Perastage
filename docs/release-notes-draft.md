@@ -27,11 +27,6 @@ Changes since **v1.6.0**.
 
 ## Compatibility, stability, and performance
 
-- Added reproducible dependency metadata, policy-aware local and CI version
-  reporting, and a safe quarterly draft-review workflow for maintainers.
-- Completed the supported Linux setup package lists for XML schema discovery
-  and native secure credential storage.
-
 - Made the read-only MVR / GDTF Inspector responsive on production-scale files
   with managed background inspection, latest-selection result safety, scalable
   model-backed package and Scene navigation, resizable remembered workspace
@@ -130,6 +125,12 @@ Changes since **v1.6.0**.
 - Restored Windows Debug compilation of the Layout Viewer after its selection architecture update, including View2D frame lookup integration.
 
 ## Technical and packaging changes
+
+- Added reproducible dependency metadata, policy-aware local and CI version
+  reporting, triplet-safe validation, and a safe quarterly draft-review
+  workflow with stronger checkout and policy safeguards for maintainers.
+- Completed the supported Linux setup package lists for XML schema discovery
+  and native secure credential storage.
 
 - Made Inspector policy tests use the repository's portable Python test-tool
   launcher so they run consistently on Windows, macOS, and Linux CI hosts.

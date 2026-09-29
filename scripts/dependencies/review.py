@@ -7,8 +7,9 @@ import argparse
 import json
 from pathlib import Path
 
+from checkout import require_checkout_head
 from generate_state import write_json
-from model import compare, load_json, markdown_report, resolve, version_label
+from model import compare, load_json, markdown_report, resolve
 
 
 def validate_features(manifest: dict, policy: dict, registry: Path) -> bool:
@@ -37,6 +38,11 @@ def main() -> int:
     args = parser.parse_args()
     manifest = load_json(args.repo / "vcpkg.json")
     policy = load_json(args.repo / "dependencies/dependency-policy.json")
+    try:
+        require_checkout_head(args.current_vcpkg, manifest["builtin-baseline"], "current")
+        require_checkout_head(args.candidate_vcpkg, args.candidate_baseline, "candidate")
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
     old = resolve(manifest, policy, args.current_vcpkg)
     candidate_manifest = dict(manifest)
     candidate_manifest["builtin-baseline"] = args.candidate_baseline
@@ -54,7 +60,7 @@ def main() -> int:
         write_json(args.repo / "dependencies/resolved-vcpkg.json", candidate)
         wx = next(item for item in candidate["packages"] if item["name"] == "wxwidgets")
         write_json(args.repo / ".github/badges/wxwidgets.json",
-                   {"schemaVersion": 1, "label": "wxWidgets", "message": version_label(wx), "color": "green"})
+                   {"schemaVersion": 1, "label": "wxWidgets", "message": wx["version"], "color": "green"})
     return 0
 
 
