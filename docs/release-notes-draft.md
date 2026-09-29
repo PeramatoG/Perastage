@@ -135,6 +135,10 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Moved Console position and rotation execution into a reusable,
+  GUI-independent semantic command boundary with transactional Undo, no-op,
+  and rollback behavior while preserving existing Console syntax and results.
+
 - Moved the Command Bar's human-text grammar into a reusable, GUI-independent
   parser while preserving current Console syntax and keeping selection policy
   and scene execution behavior unchanged in the application layer. Console
