@@ -17,6 +17,28 @@ add_library(perastage_inspection_core STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspection_contract.cpp
 )
 
+add_library(perastage_command_core STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/command/command_contract.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/command/command_mutation_transaction.cpp
+)
+target_compile_features(perastage_command_core PUBLIC cxx_std_20)
+target_include_directories(perastage_command_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/models
+)
+
+add_library(perastage_command_serialization STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/command/command_json_serializer.cpp
+)
+target_compile_features(perastage_command_serialization PUBLIC cxx_std_20)
+target_include_directories(perastage_command_serialization
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+    PRIVATE ${CMAKE_SOURCE_DIR}/third_party
+)
+target_link_libraries(perastage_command_serialization
+    PUBLIC perastage_command_core
+)
+
 file(READ "${CMAKE_SOURCE_DIR}/resources/standards/gdtf/1.2/gdtf.xsd"
      PERASTAGE_GDTF_12_XSD)
 file(READ "${CMAKE_SOURCE_DIR}/resources/standards/mvr/1.6/mvr.xsd"

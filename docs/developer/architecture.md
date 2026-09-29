@@ -148,6 +148,16 @@ publication, and Viewer3D retains cache implementation. Startup argument/path
 selection may be split internally in a future focused change, but ORG-034 and
 later organization work is outside this implementation.
 
+## Command contract
+
+Core owns the GUI-independent semantic command boundary under `core/command/`.
+`perastage_command_core` owns requests, results, execution context, and the
+transactional scene/selection mutation boundary; the focused
+`perastage_command_serialization` target owns versioned JSON output. Frontends
+remain responsible for parsing and presentation refresh, and the existing GUI
+Console has not yet migrated to this boundary. See
+[`command_api.md`](command_api.md) for the current contract.
+
 ## Tool and inspection contract
 
 Core owns the neutral request, structured result, and diagnostic types under
