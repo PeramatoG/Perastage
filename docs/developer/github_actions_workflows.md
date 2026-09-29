@@ -70,12 +70,18 @@ verified live ruleset, security rationale, and rollback procedure.
 
 `Weekly Compatibility Packages` in `.github/workflows/compatibility-builds.yml` runs weekly at `03:27 UTC` on Tuesday and supports `workflow_dispatch` with an optional `source_ref`.
 
-The workflow resolves `source_ref` or `main` to one exact SHA, does not modify `VERSION`, and builds only the secondary compatibility packages:
+Scheduled executions test the default branch. For a manual execution, an explicit
+`source_ref` overrides the ref selected in the GitHub **Run workflow** interface;
+when `source_ref` is empty, the workflow tests that selected ref. The chosen source
+is resolved once to an exact SHA before either secondary compatibility builder is
+invoked, and the workflow does not modify `VERSION`:
 
 - macOS 15 arm64 Release DMG.
 - Arch Linux x64 Release package.
 
-A newer compatibility run for the same ref cancels an older in-progress compatibility run. The individual macOS 15 and Arch builder workflows remain manually runnable when a maintainer needs to reproduce one package.
+A newer compatibility run for the same explicit or selected ref cancels an older
+in-progress compatibility run. The individual macOS 15 and Arch builder workflows
+remain manually runnable when a maintainer needs to reproduce one package.
 
 ## Minor draft releases
 

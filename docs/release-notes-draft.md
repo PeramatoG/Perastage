@@ -57,7 +57,9 @@ Changes since **v1.6.0**.
 ## Important fixes
 
 - Restored macOS 15 build compatibility for persisted Inspector splitter
-  preferences while keeping their representation locale-independent.
+  preferences while keeping their representation locale-independent. Manually
+  started compatibility builds now validate the branch selected by the maintainer
+  unless an explicit source override is supplied.
 
 - Prevented a Windows crash when activating an embedded GDTF by deferring the
   source transition until the package-tree activation callback has returned,
