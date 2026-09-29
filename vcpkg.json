@@ -2,7 +2,7 @@
   "name": "perastage",
   "version-string": "development",
   "license": "GPL-3.0-or-later",
-  "builtin-baseline": "0878b5224d4a4968940ee296a2e7fae2d3b62983",
+  "builtin-baseline": "b8b8df2201ad8509b81a830fe0957bcb98e06c27",
   "dependencies": [
     {
       "name": "wxwidgets",
