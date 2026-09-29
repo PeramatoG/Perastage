@@ -138,6 +138,27 @@ set_perastage_test_labels(XmlSchemaValidation LAYER standard-strict DOMAINS arch
 add_executable(inspection_contract_test inspection_contract_test.cpp)
 target_link_libraries(inspection_contract_test PRIVATE perastage_inspection_core)
 add_test(NAME InspectionContract COMMAND inspection_contract_test)
+
+add_executable(command_contract_test command_contract_test.cpp)
+target_link_libraries(command_contract_test PRIVATE perastage_command_core)
+add_test(NAME CommandContract COMMAND command_contract_test)
+set_perastage_test_labels(CommandContract LAYER unit DOMAINS command architecture)
+
+add_executable(command_mutation_transaction_test
+               command_mutation_transaction_test.cpp)
+target_link_libraries(command_mutation_transaction_test
+                      PRIVATE perastage_command_core)
+add_test(NAME CommandMutationTransaction COMMAND command_mutation_transaction_test)
+set_perastage_test_labels(CommandMutationTransaction LAYER unit
+                          DOMAINS command architecture)
+
+add_executable(command_json_serializer_test command_json_serializer_test.cpp)
+target_include_directories(command_json_serializer_test PRIVATE ../third_party)
+target_link_libraries(command_json_serializer_test
+                      PRIVATE perastage_command_serialization)
+add_test(NAME CommandJsonSerializer COMMAND command_json_serializer_test)
+set_perastage_test_labels(CommandJsonSerializer LAYER unit
+                          DOMAINS command serialization)
 set_perastage_test_labels(InspectionContract
                           LAYER perastage-extension
                           DOMAINS architecture core)
@@ -445,6 +466,7 @@ perastage_resolve_git_bash(RESOLVED_BASH_EXECUTABLE REQUIRED_FOR_TESTING)
 set(BASH_EXECUTABLE "${RESOLVED_BASH_EXECUTABLE}" CACHE FILEPATH "Resolved shell for repository policy tests" FORCE)
 if(BASH_EXECUTABLE)
     add_bash_policy_test(InspectionContractBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_contract_boundary.sh LABELS standard-strict architecture core)
+    add_bash_policy_test(CommandCoreBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_core_boundary.sh LABELS standard-strict architecture core command)
     add_bash_policy_test(InspectionTargetBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_target_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_serialization_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionReportSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_report_serialization_boundary.sh LABELS standard-strict architecture core inspection gdtf mvr)
