@@ -22,7 +22,16 @@ int main() {
   assert(!IsValidArgumentId("2fixtures"));
 
   assert(IsValidDiagnosticCode("command.argument.invalid"));
+  assert(IsValidDiagnosticCode("command.argument.invalid_type"));
+  assert(IsValidDiagnosticCode("scene.transform.no_selection"));
+  assert(IsValidDiagnosticCode("package.open_failed"));
+  assert(IsValidDiagnosticCode("mvr.xml.parse_failed"));
+  assert(!IsValidDiagnosticCode("Command.argument.invalid"));
+  assert(!IsValidDiagnosticCode("command..invalid"));
   assert(!IsValidDiagnosticCode("command_argument_invalid"));
+  assert(!IsValidDiagnosticCode("command.argument._invalid"));
+  assert(!IsValidDiagnosticCode("command.argument.invalid_"));
+  assert(!IsValidDiagnosticCode("command.argument.invalid__type"));
 
   Result success{Request{"test.command", {}}, Outcome::Success, {}, {}};
   assert(success.Success());

@@ -17,8 +17,19 @@ if rg -n "$forbidden" "${files[@]}"; then
   exit 1
 fi
 
-core_block="$(sed -n '/add_library(perastage_command_core STATIC/,/^)/p' core/CMakeLists.txt)"
-if printf '%s\n' "$core_block" | rg -n '(wx|gui|app|ConfigManager)'; then
+core_configuration="$(awk '
+  /^[[:space:]]*(add_library|target_[[:alnum:]_]+)\(perastage_command_core([[:space:])]|$)/ {
+    capture = 1
+  }
+  capture {
+    print
+  }
+  capture && /\)[[:space:]]*$/ {
+    capture = 0
+  }
+' core/CMakeLists.txt)"
+cmake_forbidden='(wx|MainWindow|ConfigManager|IGui|Viewer2D|Viewer3D|(^|[/_:;-])(gui|app)([/_:;)-]|$))'
+if printf '%s\n' "$core_configuration" | rg -ni "$cmake_forbidden"; then
   echo "perastage_command_core has a forbidden build dependency." >&2
   exit 1
 fi

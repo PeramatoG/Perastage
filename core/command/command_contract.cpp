@@ -6,9 +6,11 @@
 namespace perastage::command {
 namespace {
 
-// Returns whether a segment contains only lowercase ASCII letters and digits.
-bool IsLowercaseAsciiSegment(const std::string &segment, bool allowUnderscore) {
-  if (segment.empty() || segment.front() < 'a' || segment.front() > 'z')
+// Returns whether a segment follows the selected lowercase ASCII grammar.
+bool IsLowercaseAsciiSegment(const std::string &segment, bool allowUnderscore,
+                             bool requireLeadingLetter) {
+  if (segment.empty() || (requireLeadingLetter &&
+                          (segment.front() < 'a' || segment.front() > 'z')))
     return false;
   return std::all_of(segment.begin(), segment.end(), [allowUnderscore](char c) {
     return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
@@ -16,15 +18,19 @@ bool IsLowercaseAsciiSegment(const std::string &segment, bool allowUnderscore) {
   });
 }
 
-// Validates a dotted identifier whose segments use lowercase ASCII tokens.
-bool IsValidDottedId(const std::string &id) {
+// Validates a dotted identifier with the selected lowercase segment grammar.
+bool IsValidDottedId(const std::string &id, bool allowUnderscore,
+                     bool requireLeadingLetter) {
   if (id.empty())
     return false;
   std::size_t start = 0;
   while (start < id.size()) {
     const std::size_t end = id.find('.', start);
     const std::string segment = id.substr(start, end - start);
-    if (!IsLowercaseAsciiSegment(segment, false))
+    if (!IsLowercaseAsciiSegment(segment, allowUnderscore,
+                                 requireLeadingLetter) ||
+        (allowUnderscore && (segment.front() == '_' || segment.back() == '_' ||
+                             segment.find("__") != std::string::npos)))
       return false;
     if (end == std::string::npos)
       return true;
@@ -60,17 +66,20 @@ bool Result::HasErrors() const {
 }
 
 // Validates a stable lowercase ASCII dotted command identifier.
-bool IsValidCommandId(const std::string &id) { return IsValidDottedId(id); }
+bool IsValidCommandId(const std::string &id) {
+  return IsValidDottedId(id, false, true);
+}
 
 // Validates a stable lowercase ASCII snake-case argument identifier.
 bool IsValidArgumentId(const std::string &id) {
-  return IsLowercaseAsciiSegment(id, true) && id.front() != '_' &&
+  return IsLowercaseAsciiSegment(id, true, true) && id.front() != '_' &&
          id.back() != '_' && id.find("__") == std::string::npos;
 }
 
 // Validates a stable lowercase ASCII dotted diagnostic code.
 bool IsValidDiagnosticCode(const std::string &code) {
-  return IsValidDottedId(code);
+  return code.find('.') != std::string::npos &&
+         IsValidDottedId(code, true, false);
 }
 
 // Returns the stable machine token for a command outcome.

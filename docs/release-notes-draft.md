@@ -28,8 +28,8 @@ Changes since **v1.6.0**.
 ## Compatibility, stability, and performance
 
 - Added a GUI-independent semantic command foundation with typed requests,
-  structured diagnostics, atomic scene mutation rollback, and deterministic
-  machine-readable results for future command workflows.
+  structured diagnostics, efficient atomic scene mutation rollback, and
+  deterministic machine-readable results for future command workflows.
 
 - Made the read-only MVR / GDTF Inspector responsive on production-scale files
   with managed background inspection, latest-selection result safety, scalable

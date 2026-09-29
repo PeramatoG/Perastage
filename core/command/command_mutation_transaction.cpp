@@ -1,5 +1,7 @@
 #include "command_mutation_transaction.h"
 
+#include <utility>
+
 namespace perastage::command {
 
 // Captures the scene and selection before provisional command mutation.
@@ -42,8 +44,8 @@ MutationSummary MutationTransaction::Commit(const MutationSummary &changes,
 void MutationTransaction::Rollback() {
   if (finalized_)
     return;
-  context_.scene = sceneBefore_;
-  context_.selection = selectionBefore_;
+  context_.scene = std::move(sceneBefore_);
+  context_.selection = std::move(selectionBefore_);
   finalized_ = true;
 }
 

@@ -28,7 +28,9 @@ localized:
   by dots, such as `scene.transform.position`;
 - argument IDs use lowercase ASCII letter-led snake case, without leading,
   trailing, or consecutive underscores;
-- diagnostic codes follow the same lowercase ASCII dotted form as command IDs.
+- diagnostic codes use dotted lowercase ASCII technical identifiers; each
+  non-empty segment may use snake case without leading, trailing, or
+  consecutive underscores.
 
 Concrete identifiers are introduced with concrete commands; Command Core does
 not maintain a speculative registry.

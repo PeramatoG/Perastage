@@ -85,8 +85,23 @@ int main() {
   assert(scene.provider == "changed");
   assert(host.commitCount == 1);
 
-  host.throwOnCommit = true;
+  const scene_grouping::ObjectSelection selectionAfterCommit = selection;
   bool failed = false;
+  try {
+    MutationTransaction transaction(context);
+    scene.provider = "execution-failed";
+    selection.fixtures = {"fixture-execution-failed"};
+    throw std::runtime_error("execution failed");
+  } catch (const std::runtime_error &) {
+    failed = true;
+  }
+  assert(failed);
+  assert(scene.provider == "changed");
+  assert(EqualSelection(selection, selectionAfterCommit));
+  assert(host.commitCount == 1);
+
+  host.throwOnCommit = true;
+  failed = false;
   try {
     MutationTransaction transaction(context);
     scene.provider = "failed";
