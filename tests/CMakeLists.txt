@@ -467,6 +467,7 @@ set(BASH_EXECUTABLE "${RESOLVED_BASH_EXECUTABLE}" CACHE FILEPATH "Resolved shell
 if(BASH_EXECUTABLE)
     add_bash_policy_test(InspectionContractBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_contract_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(CommandCoreBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_core_boundary.sh LABELS standard-strict architecture core command)
+    add_bash_policy_test(CommandTextParserBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_text_parser_boundary.sh LABELS standard-strict architecture core command)
     add_bash_policy_test(InspectionTargetBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_target_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_serialization_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionReportSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_report_serialization_boundary.sh LABELS standard-strict architecture core inspection gdtf mvr)

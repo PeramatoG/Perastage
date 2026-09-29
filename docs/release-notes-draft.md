@@ -138,7 +138,8 @@ Changes since **v1.6.0**.
 - Moved the Command Bar's human-text grammar into a reusable, GUI-independent
   parser while preserving current Console syntax and keeping selection policy
   and scene execution behavior unchanged in the application layer. Console
-  syntax errors retain specific, ordered technical diagnostics.
+  syntax errors retain specific, ordered technical diagnostics, and automated
+  architecture checks protect the parser boundary on every supported platform.
 
 - Reduced clean test-build work by reusing identical production implementation objects across focused MVR, Rider importer, and GDTF loader test executables without changing the test inventory or coverage.
 
