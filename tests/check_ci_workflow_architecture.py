@@ -381,6 +381,14 @@ assert re.search(r'macos-installer:[\s\S]+needs: bump-version', main_patch)
 
 compat = (WORKFLOWS / 'compatibility-builds.yml').read_text()
 assert 'name: Weekly Compatibility Packages' in compat and 'schedule:' in compat
+effective_compat_ref = "${{ inputs.source_ref != '' && inputs.source_ref || github.ref }}"
+assert f'ref: {effective_compat_ref}' in compat, 'compatibility runs must prefer source_ref and otherwise use the selected workflow ref'
+assert "group: compatibility-packages-${{ inputs.source_ref || github.ref }}" in compat, 'compatibility concurrency must distinguish selected workflow refs'
+assert "inputs.source_ref || 'main'" not in compat and "inputs.source_ref || \"main\"" not in compat, 'compatibility runs must not silently identify an omitted source_ref as main'
+assert "inputs.source_ref || github.ref" in compat, 'explicit compatibility source_ref must take precedence over github.ref'
+assert 'source_sha=$(git rev-parse HEAD)' in compat, 'compatibility source must resolve once to an exact SHA'
+assert compat.count('source_ref: ${{ needs.resolve-source.outputs.source_sha }}') == 2, 'both compatibility builders must consume the exact resolved SHA'
+assert f'Requested ref: {effective_compat_ref}' in compat and 'Source SHA: ${{ needs.resolve-source.outputs.source_sha }}' in compat, 'compatibility summary must identify the requested ref and resolved SHA'
 assert compat.count('uses: ./.github/workflows/macos-15-manual-installer.yml') == 1
 assert compat.count('uses: ./.github/workflows/arch-package.yml') == 1
 assert 'windows-installer.yml' not in compat and 'linux-installer.yml' not in compat and 'macos-installer.yml' not in compat
