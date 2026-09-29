@@ -115,8 +115,13 @@ def main() -> int:
     for rule in policy["vcpkg"]:
         assert rule["required-features"] == manifest_by_name[rule["name"]]["features"]
     wx = next(item for item in state["packages"] if item["name"] == "wxwidgets")
-    assert wx["port-version"] == 1 and badge["message"] == wx["version"]
+    assert "port-version" in wx
+    assert isinstance(wx["port-version"], int) and not isinstance(wx["port-version"], bool)
+    assert wx["port-version"] >= 0
+    assert badge["message"] == wx["version"]
     assert "#" not in badge["message"]
+    expected_wx_label = wx["version"] + (f"#{wx['port-version']}" if wx["port-version"] else "")
+    assert version_label(wx) == expected_wx_label
 
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "img.shields.io/endpoint" in readme and "%2F.github%2Fbadges%2Fwxwidgets.json" in readme
