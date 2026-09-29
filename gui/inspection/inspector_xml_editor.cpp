@@ -1,4 +1,5 @@
 #include "inspection/inspector_xml_editor.h"
+#include "inspection/inspector_source_document.h"
 
 #include <wx/settings.h>
 #include <wx/stc/stc.h>
@@ -77,6 +78,23 @@ void ConfigureInspectorXmlEditor(wxStyledTextCtrl &editor) {
 // Recomputes lexer styles and fold levels for the current XML buffer.
 void ColouriseInspectorXml(wxStyledTextCtrl &editor) {
   editor.Colourise(0, -1);
+}
+
+// Applies XML or plain-text presentation without changing editor ownership.
+void SetInspectorSourceSyntax(wxStyledTextCtrl &editor,
+                              InspectorSourceSyntax syntax) {
+  const bool xml = syntax == InspectorSourceSyntax::Xml;
+  editor.SetLexer(xml ? wxSTC_LEX_XML : wxSTC_LEX_NULL);
+  editor.SetProperty("fold", xml ? "1" : "0");
+  editor.SetProperty("fold.html", xml ? "1" : "0");
+  editor.SetMarginWidth(kXmlFoldMargin, xml ? 16 : 0);
+  editor.SetMarginSensitive(kXmlFoldMargin, xml);
+  editor.Colourise(0, -1);
+}
+
+// Reports whether folding actions are meaningful for the current source mode.
+bool InspectorSourceSupportsFolding(InspectorSourceSyntax syntax) {
+  return syntax == InspectorSourceSyntax::Xml;
 }
 
 } // namespace gui::inspection

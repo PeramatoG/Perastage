@@ -151,6 +151,20 @@ std::string GdtfXml() {
          "<DMXChannels/></DMXMode></DMXModes></FixtureType></GDTF>";
 }
 
+// Verifies Core preserves SVG's validated XML semantic classification.
+void TestSvgClassification(const fs::path &root) {
+  const fs::path path = root / "svg-classification.mvr";
+  WritePackage(path,
+               {{"symbols/icon.svg",
+                 "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'/>"}});
+  const PackageInspectionResult package = InspectPackage(path);
+  assert(package.inventory);
+  const auto descriptors = DescribePackageResources(path, *package.inventory, 4096);
+  assert(descriptors.size() == 1);
+  assert(descriptors.front().kind == ResourceKind::XmlText);
+  assert(descriptors.front().textPreviewSupported);
+}
+
 // Verifies descriptors preserve authoritative inventory facts and Unicode.
 void TestDescriptors(const fs::path &root) {
   const fs::path path = root / "descriptors.mvr";
@@ -586,6 +600,7 @@ int main() {
   fs::remove_all(root, error);
   fs::create_directories(root);
   TestDescriptors(root);
+  TestSvgClassification(root);
   TestBoundedDescriptorSniff(root);
   TestPortableNestedPaths(root);
   TestReorderedCentralDirectory(root);

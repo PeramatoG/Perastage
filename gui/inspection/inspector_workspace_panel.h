@@ -8,6 +8,8 @@
 #include "inspection/inspector_async_worker.h"
 #include "inspection/inspector_source_context.h"
 #include "inspection/inspector_nested_transition.h"
+#include "inspection/inspector_resource_presentation.h"
+#include "inspection/inspector_source_document.h"
 
 #include <filesystem>
 #include <optional>
@@ -76,8 +78,11 @@ private:
   void ConfigureNavigation(bool gdtf);
   InspectorDetailsPage CurrentDetailsPage() const;
   void SelectDetailsPage(InspectorDetailsPage page, bool gdtf);
-  void SetXml(const std::string &xml);
-  void LoadCompleteXml();
+  void SetPrimarySourceDocument(const std::string &entryPath,
+                                const std::string &text);
+  void ShowSourceDocument();
+  void RestorePrimarySourceDocument();
+  void LoadCompleteSource();
   void FindXml(bool forward);
   void FoldXml(bool fold);
   void ShowPackageContextMenu(wxDataViewEvent &event);
@@ -109,7 +114,6 @@ private:
   wxPanel *previewPage_ = nullptr;
   wxStaticText *previewStatus_ = nullptr;
   wxStaticBitmap *previewImage_ = nullptr;
-  wxTextCtrl *previewText_ = nullptr;
   FixturePreviewPanel *previewModel_ = nullptr;
   std::unique_ptr<GdtfResourceBitmapCache> previewBitmapCache_;
   wxDataViewCtrl *package_ = nullptr;
@@ -122,9 +126,12 @@ private:
   wxListCtrl *diagnostics_ = nullptr;
   wxTextCtrl *search_ = nullptr;
   wxStyledTextCtrl *xml_ = nullptr;
+  wxStaticText *sourceIdentity_ = nullptr;
   wxStaticText *xmlStatus_ = nullptr;
   wxButton *loadCompleteXml_ = nullptr;
-  std::string exactXml_;
+  wxButton *foldAll_ = nullptr;
+  wxButton *unfoldAll_ = nullptr;
+  InspectorSourceDocumentState sourceDocuments_;
   std::vector<perastage::inspection::Diagnostic> diagnosticRows_;
   InspectorDetailsPage preferredDetailsPage_ = InspectorDetailsPage::Summary;
   bool configuringDetailsPage_ = false;

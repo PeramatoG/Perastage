@@ -1,4 +1,5 @@
 #include "inspection/inspector_xml_editor.h"
+#include "inspection/inspector_source_document.h"
 
 #include <array>
 #include <cassert>
@@ -80,6 +81,16 @@ int main() {
   editor->FoldAll(wxSTC_FOLDACTION_CONTRACT);
   editor->FoldAll(wxSTC_FOLDACTION_EXPAND);
   assert(editor->GetLineVisible(2));
+  gui::inspection::SetInspectorSourceSyntax(
+      *editor, gui::inspection::InspectorSourceSyntax::PlainText);
+  assert(editor->GetLexer() == wxSTC_LEX_NULL);
+  assert(editor->GetMarginWidth(1) == 0);
+  assert(!gui::inspection::InspectorSourceSupportsFolding(
+      gui::inspection::InspectorSourceSyntax::PlainText));
+  gui::inspection::SetInspectorSourceSyntax(
+      *editor, gui::inspection::InspectorSourceSyntax::Xml);
+  assert(editor->GetLexer() == wxSTC_LEX_XML);
+  assert(editor->GetMarginWidth(1) > 0);
   frame->Destroy();
   wxTheApp->ProcessPendingEvents();
   return 0;

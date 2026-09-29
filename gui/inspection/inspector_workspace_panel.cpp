@@ -7,6 +7,7 @@
 #include "inspection/inspector_presentation.h"
 #include "inspection/inspector_preview_policy.h"
 #include "inspection/inspector_primary_xml.h"
+#include "inspection/inspector_resource_presentation.h"
 #include "inspection/inspector_navigation_dispatch.h"
 #include "inspection/inspector_navigation_request.h"
 #include "inspection/inspector_xml_editor.h"
@@ -81,6 +82,7 @@ struct WorkspaceAsyncResult final : InspectorAsyncPayload {
   // Allows one GUI-thread move into the renderer without copying large geometry.
   mutable std::optional<Mesh> preparedModel;
   std::string previewError;
+  InspectorResourcePresentationPlan presentation;
 };
 
 // Carries a full-width generation through the wx event queue.
@@ -494,19 +496,21 @@ void InspectorWorkspacePanel::BuildLayout() {
   auto *previous = new wxButton(xmlPanel, wxID_ANY, _("Find previous"));
   auto *next = new wxButton(xmlPanel, wxID_ANY, _("Find next"));
   auto *copyAll = new wxButton(xmlPanel, wxID_ANY, _("Copy all"));
-  auto *foldAll = new wxButton(xmlPanel, wxID_ANY, _("Fold all"));
-  auto *unfoldAll = new wxButton(xmlPanel, wxID_ANY, _("Unfold all"));
+  foldAll_ = new wxButton(xmlPanel, wxID_ANY, _("Fold all"));
+  unfoldAll_ = new wxButton(xmlPanel, wxID_ANY, _("Unfold all"));
   loadCompleteXml_ = new wxButton(xmlPanel, wxID_ANY, _("Load complete XML"));
   xmlStatus_ = new wxStaticText(xmlPanel, wxID_ANY, {});
   findRow->Add(new wxStaticText(xmlPanel, wxID_ANY, _("Find:")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   findRow->Add(search_, 1, wxRIGHT, 5); findRow->Add(previous, 0, wxRIGHT, 5);
   findRow->Add(next, 0, wxRIGHT, 5); findRow->Add(copyAll, 0, wxRIGHT, 5);
-  findRow->Add(foldAll, 0, wxRIGHT, 5);
-  findRow->Add(unfoldAll, 0, wxRIGHT, 5);
+  findRow->Add(foldAll_, 0, wxRIGHT, 5);
+  findRow->Add(unfoldAll_, 0, wxRIGHT, 5);
   findRow->Add(loadCompleteXml_);
   xml_ = new wxStyledTextCtrl(xmlPanel, wxID_ANY);
   ConfigureInspectorXmlEditor(*xml_);
   xmlColumn->Add(findRow, 0, wxEXPAND | wxBOTTOM, 6);
+  sourceIdentity_ = new wxStaticText(xmlPanel, wxID_ANY, _("Source: none"));
+  xmlColumn->Add(sourceIdentity_, 0, wxEXPAND | wxBOTTOM, 4);
   xmlColumn->Add(xmlStatus_, 0, wxEXPAND | wxBOTTOM, 4);
   xmlColumn->Add(xml_, 1, wxEXPAND);
   loadCompleteXml_->Hide();
@@ -542,15 +546,11 @@ void InspectorWorkspacePanel::BuildLayout() {
   previewStatus_ = new wxStaticText(previewPage_, wxID_ANY,
                                     _("Select a package resource to preview it."));
   previewImage_ = new wxStaticBitmap(previewPage_, wxID_ANY, wxNullBitmap);
-  previewText_ = new wxTextCtrl(previewPage_, wxID_ANY, {}, wxDefaultPosition,
-                                wxDefaultSize,
-                                wxTE_MULTILINE | wxTE_READONLY);
   previewModel_ = new FixturePreviewPanel(previewPage_);
   previewSizer->Add(previewStatus_, 0, wxEXPAND | wxALL, 6);
   previewSizer->Add(previewImage_, 1, wxEXPAND | wxALL, 6);
-  previewSizer->Add(previewText_, 1, wxEXPAND | wxALL, 6);
   previewSizer->Add(previewModel_, 1, wxEXPAND | wxALL, 6);
-  previewImage_->Hide(); previewText_->Hide(); previewModel_->Hide();
+  previewImage_->Hide(); previewModel_->Hide();
   previewPage_->SetSizer(previewSizer);
   previewBitmapCache_ = std::make_unique<GdtfResourceBitmapCache>(
       kInspectorImageCacheBytes);
@@ -588,10 +588,10 @@ void InspectorWorkspacePanel::BuildLayout() {
   next->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { FindXml(true); });
   search_->Bind(wxEVT_TEXT_ENTER, [this](wxCommandEvent &) { FindXml(true); });
   copyAll->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { CopyAllXml(); });
-  foldAll->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { FoldXml(true); });
-  unfoldAll->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { FoldXml(false); });
+  foldAll_->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { FoldXml(true); });
+  unfoldAll_->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { FoldXml(false); });
   loadCompleteXml_->Bind(wxEVT_BUTTON,
-                         [this](wxCommandEvent &) { LoadCompleteXml(); });
+                         [this](wxCommandEvent &) { LoadCompleteSource(); });
   xml_->Bind(wxEVT_STC_MARGINCLICK, [this](wxStyledTextEvent &event) {
     const int line = xml_->LineFromPosition(event.GetPosition());
     if (event.GetMargin() == kXmlFoldMargin &&
@@ -777,11 +777,12 @@ void InspectorWorkspacePanel::ClearResult() {
   xml_->SetReadOnly(false); xml_->ClearAll(); xml_->SetReadOnly(true);
   xml_->SetMarginWidth(kXmlLineNumberMargin,
                        xml_->TextWidth(wxSTC_STYLE_LINENUMBER, "9") + 8);
-  exactXml_.clear(); xmlStatus_->SetLabel({}); loadCompleteXml_->Hide();
+  sourceDocuments_.Clear(); sourceIdentity_->SetLabel(_("Source: none"));
+  xmlStatus_->SetLabel({}); loadCompleteXml_->Hide();
   search_->Clear();
   previewStatus_->SetLabel(_("Select a package resource to preview it."));
   previewModel_->ResetPreview();
-  previewImage_->Hide(); previewText_->Hide(); previewModel_->Hide();
+  previewImage_->Hide(); previewModel_->Hide();
   previewPage_->Layout();
 }
 
@@ -858,7 +859,8 @@ void InspectorWorkspacePanel::ShowGdtf(
          << "\n" << _("Manufacturer:") << ' '
          << FromUtf8(description.manufacturer) << "\n"
          << _("DMX modes:") << ' ' << description.dmxModeNames.size() << '\n';
-    SetXml(result.document->Archive().descriptionXml);
+    SetPrimarySourceDocument(result.document->Archive().descriptionEntryPath,
+                             result.document->Archive().descriptionXml);
   }
   summary_->SetValue(text); PopulatePackage(resources); PopulateDiagnostics(result.inspection, result.validation);
   gdtfDetails_->SetResult(result);
@@ -890,7 +892,9 @@ void InspectorWorkspacePanel::ShowMvr(
          << ' ' << FromUtf8(snapshot.providerVersion) << '\n';
     for (const auto &count : snapshot.nodeCounts)
       text << FromUtf8(count.type) << ": " << count.count << '\n';
-    SetXml(snapshot.sceneDescriptionXml); PopulateScene(snapshot);
+    SetPrimarySourceDocument(snapshot.sceneDescriptionEntry,
+                             snapshot.sceneDescriptionXml);
+    PopulateScene(snapshot);
   }
   summary_->SetValue(text); PopulatePackage(resources); PopulateDiagnostics(result.inspection, result.validation);
 }
@@ -972,20 +976,39 @@ void InspectorWorkspacePanel::PopulateDiagnostics(
   }
 }
 
-// Displays retained root XML exactly as supplied by Inspection Core.
-void InspectorWorkspacePanel::SetXml(const std::string &xml) {
-  exactXml_ = xml;
-  const bool bounded = xml.size() > kInspectorEagerXmlBytes;
+// Establishes retained primary source authority and displays it immediately.
+void InspectorWorkspacePanel::SetPrimarySourceDocument(
+    const std::string &entryPath, const std::string &text) {
+  sourceDocuments_.SetPrimary(
+      {entryPath, text, InspectorSourceSyntax::Xml, true});
+  ShowSourceDocument();
+}
+
+// Projects the current neutral source document into the persistent editor.
+void InspectorWorkspacePanel::ShowSourceDocument() {
+  const auto &document = sourceDocuments_.Displayed();
+  if (!document)
+    return;
+  const bool bounded = document->primary &&
+                       document->exactText.size() > kInspectorEagerXmlBytes;
   const std::size_t shownBytes = Utf8PrefixLength(
-      xml, bounded ? static_cast<std::size_t>(kInspectorEagerXmlBytes)
-                   : xml.size());
-  const std::string shown = xml.substr(0, shownBytes);
+      document->exactText,
+      bounded ? static_cast<std::size_t>(kInspectorEagerXmlBytes)
+              : document->exactText.size());
+  const std::string shown = document->exactText.substr(0, shownBytes);
+  SetInspectorSourceSyntax(*xml_, document->syntax);
   xml_->SetReadOnly(false); xml_->SetTextRaw(shown.c_str()); xml_->SetReadOnly(true);
-  ColouriseInspectorXml(*xml_);
+  xml_->SetSelection(0, 0);
+  sourceIdentity_->SetLabel(wxString::Format(_("Source: %s"),
+                                             FromUtf8(document->entryPath)));
   xmlStatus_->SetLabel(bounded
                            ? _("Bounded XML preview; Find searches the loaded preview only, and the exact retained document is available on demand.")
-                           : _("Complete exact XML"));
+                           : document->syntax == InspectorSourceSyntax::Xml
+                                 ? _("Complete exact XML")
+                                 : _("Complete exact text"));
   loadCompleteXml_->Show(bounded);
+  foldAll_->Enable(InspectorSourceSupportsFolding(document->syntax));
+  unfoldAll_->Enable(InspectorSourceSupportsFolding(document->syntax));
   const int digits =
       static_cast<int>(XmlLineNumberDigits(xml_->GetLineCount()));
   xml_->SetMarginWidth(kXmlLineNumberMargin,
@@ -993,13 +1016,24 @@ void InspectorWorkspacePanel::SetXml(const std::string &xml) {
                                        wxString('9', digits)) + 8);
 }
 
-// Loads the exact retained XML only after an explicit user action.
-void InspectorWorkspacePanel::LoadCompleteXml() {
+// Restores the authoritative primary source document after visual selections.
+void InspectorWorkspacePanel::RestorePrimarySourceDocument() {
+  sourceDocuments_.RestorePrimary();
+  ShowSourceDocument();
+}
+
+// Loads the exact retained source only after an explicit user action.
+void InspectorWorkspacePanel::LoadCompleteSource() {
+  const auto &document = sourceDocuments_.Displayed();
+  if (!document)
+    return;
   xml_->SetReadOnly(false);
-  xml_->SetTextRaw(exactXml_.c_str());
+  xml_->SetTextRaw(document->exactText.c_str());
   xml_->SetReadOnly(true);
-  ColouriseInspectorXml(*xml_);
-  xmlStatus_->SetLabel(_("Complete exact XML"));
+  SetInspectorSourceSyntax(*xml_, document->syntax);
+  xmlStatus_->SetLabel(document->syntax == InspectorSourceSyntax::Xml
+                           ? _("Complete exact XML")
+                           : _("Complete exact text"));
   loadCompleteXml_->Hide();
   xml_->SetMarginWidth(
       kXmlLineNumberMargin,
@@ -1027,6 +1061,9 @@ void InspectorWorkspacePanel::FindXml(bool forward) {
 
 // Expands or contracts every foldable XML section in the current buffer.
 void InspectorWorkspacePanel::FoldXml(bool fold) {
+  if (!sourceDocuments_.Displayed() ||
+      !InspectorSourceSupportsFolding(sourceDocuments_.Displayed()->syntax))
+    return;
   xml_->FoldAll(fold ? wxSTC_FOLDACTION_CONTRACT : wxSTC_FOLDACTION_EXPAND);
 }
 
@@ -1087,24 +1124,30 @@ void InspectorWorkspacePanel::RequestResourcePreview(wxDataViewEvent &event) {
                          ? static_cast<PackageDataViewModel *>(packageModel_)
                                ->Value(event.GetItem())
                          : nullptr;
+  const auto context = requestCoordinator_.DisplayedContext();
+  RestorePrimarySourceDocument();
+  previewModel_->ResetPreview();
+  previewImage_->Hide(); previewModel_->Hide();
+  previewStatus_->SetLabel(_("Select a package resource to preview it."));
+  previewPage_->Layout();
   if (!node || node->syntheticFolder ||
       node->entryType == perastage::inspection::PackageEntryType::Directory)
     return;
   const auto descriptor = PackageDataViewModel::Descriptor(*node);
-  const auto decision = DecidePreview(descriptor);
-  const auto context = requestCoordinator_.DisplayedContext();
-  previewModel_->ResetPreview();
-  previewImage_->Hide(); previewText_->Hide(); previewModel_->Hide();
-  if (context && IsInspectorPrimaryXmlResource(
-                     descriptor, InspectorPrimaryXmlEntry(*context))) {
+  const auto primaryEntry = context ? InspectorPrimaryXmlEntry(*context)
+                                    : std::optional<std::string>{};
+  const auto presentation =
+      PlanInspectorResourcePresentation(descriptor, primaryEntry);
+  if (primaryEntry && IsInspectorPrimaryXmlResource(descriptor, primaryEntry)) {
     previewStatus_->SetLabel(
-        _("This document is already shown in the XML pane."));
+        _("This document is already shown in the Source pane."));
     previewPage_->Layout();
     return;
   }
+  const auto decision = DecidePreview(descriptor);
   previewStatus_->SetLabel(FromUtf8(decision.status));
   previewPage_->Layout();
-  if (!decision.allowed)
+  if (!decision.allowed || !presentation.requiresRead)
     return;
 
   const auto ticket = requestCoordinator_.BeginPreview(context);
@@ -1113,7 +1156,7 @@ void InspectorWorkspacePanel::RequestResourcePreview(wxDataViewEvent &event) {
   const auto entry = node->archivePath;
   const auto resourceKind = node->resourceKind;
   worker_->SubmitPreview(
-      [ticket = *ticket, entry, resourceKind,
+      [ticket = *ticket, entry, resourceKind, presentation,
        limit = decision.maxBytes](InspectorStopToken token)
           -> InspectorAsyncWorker::Payload {
         if (token.stop_requested())
@@ -1122,6 +1165,7 @@ void InspectorWorkspacePanel::RequestResourcePreview(wxDataViewEvent &event) {
         payload->kind = WorkspaceAsyncResult::Kind::ResourcePreview;
         payload->archivePath = entry;
         payload->resourceKind = resourceKind;
+        payload->presentation = presentation;
         payload->sourceFingerprint = ticket.context->fingerprint;
         payload->previewTicket = ticket;
         const bool owned = static_cast<bool>(ticket.context->packageBytes);
@@ -1284,11 +1328,29 @@ void InspectorWorkspacePanel::HandleAsyncResult(
     if (!result.previewTicket ||
         !requestCoordinator_.AcceptPreview(*result.previewTicket))
       return;
-    previewImage_->Hide(); previewText_->Hide(); previewModel_->Hide();
+    previewImage_->Hide(); previewModel_->Hide();
     if (result.textPreview && result.textPreview->Success()) {
-      previewText_->SetValue(FromUtf8(result.textPreview->text));
-      previewText_->Show();
-      previewStatus_->SetLabel(_("Complete bounded text preview"));
+      sourceDocuments_.ShowSelected(
+          {result.archivePath, result.textPreview->text,
+           result.presentation.source ==
+                   InspectorSourceRepresentation::SelectedXml
+               ? InspectorSourceSyntax::Xml
+               : InspectorSourceSyntax::PlainText,
+           false});
+      ShowSourceDocument();
+      if (result.presentation.visual ==
+          InspectorVisualRepresentation::SvgImage) {
+        const auto decoded = previewBitmapCache_->GetOrCreateSvg(
+            result.sourceFingerprint, result.archivePath,
+            result.textPreview->text, FromDIP(wxSize(480, 320)),
+            wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
+        previewImage_->SetBitmap(decoded.bitmap);
+        previewImage_->Show();
+        previewStatus_->SetLabel(FromUtf8(decoded.diagnostic));
+      } else {
+        previewStatus_->SetLabel(
+            _("The selected source is shown in the Source pane."));
+      }
     } else if (result.resource && result.resource->Success() &&
                result.resourceKind == perastage::inspection::ResourceKind::Image) {
       const auto decoded = previewBitmapCache_->GetOrCreate(
@@ -1316,6 +1378,7 @@ void InspectorWorkspacePanel::HandleAsyncResult(
       previewStatus_->SetLabel(loaded ? _("Model preview loaded from temporary owned bytes.")
                                       : _("The model preview could not be loaded."));
     } else {
+      RestorePrimarySourceDocument();
       previewStatus_->SetLabel(_("The selected resource could not be previewed."));
     }
     previewPage_->Layout();
@@ -1395,9 +1458,12 @@ void InspectorWorkspacePanel::CopySelectedDiagnostic() {
   if (!CopyText(FromUtf8(value))) wxMessageBox(_("The clipboard could not be opened."), _("MVR / GDTF Inspector"), wxOK | wxICON_WARNING, this);
 }
 
-// Copies the complete unchanged retained XML buffer.
+// Copies the complete exact source document currently displayed.
 void InspectorWorkspacePanel::CopyAllXml() {
-  if (!CopyText(FromUtf8(exactXml_))) wxMessageBox(_("The clipboard could not be opened."), _("MVR / GDTF Inspector"), wxOK | wxICON_WARNING, this);
+  const auto &document = sourceDocuments_.Displayed();
+  if (document && !CopyText(FromUtf8(document->exactText)))
+    wxMessageBox(_("The clipboard could not be opened."),
+                 _("MVR / GDTF Inspector"), wxOK | wxICON_WARNING, this);
 }
 
 } // namespace gui::inspection

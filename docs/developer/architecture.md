@@ -205,6 +205,17 @@ package interaction immediately; source generations and preview
 sub-generations independently reject stale results at the worker and GUI event
 boundaries. Shutdown joins the worker before the window is destroyed.
 
+Inspector resource presentation deliberately separates three concepts. Core's
+`ResourceKind` remains the semantic classification, Source is the textual
+representation of either the retained primary document or an exact bounded
+selected resource, and Preview is an optional visual representation. In
+particular, a validated SVG remains `XmlText`; a toolkit-independent policy
+selects XML Source plus SVG Preview only when that classification and a
+case-insensitive `.svg` suffix agree. One bounded text read supplies both
+representations, while wxWidgets rasterization stays isolated in the bitmap
+cache adapter. The source-document state retains primary authority separately
+so image, model, unsupported, and failed selections restore it deterministically.
+
 The active-project scene is never traversed by a worker. The GUI-owned adapter
 synchronously copies the live `MvrScene` and captures the truss-geometry export
 setting without mutation; canonical ZIP serialization, inspection, and package

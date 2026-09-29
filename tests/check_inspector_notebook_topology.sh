@@ -41,6 +41,14 @@ for signature in (
 build = function_body("void InspectorWorkspacePanel::BuildLayout(")
 assert build.count("navigation_->AddPage") == 2
 assert build.count("notebook_->AddPage") == 4
+
+selection = function_body("void InspectorWorkspacePanel::RequestResourcePreview(")
+for forbidden in (
+    "ClearResult(", "ConfigureNavigation(", "AssociateModel(", "AddPage(",
+    "InsertPage(", "RemovePage(", "DeletePage(", "DeleteAllPages(",
+    "Reparent(", "SetContainingSizer(",
+):
+    assert forbidden not in selection, ("package selection", forbidden)
 PY
 
 echo "Inspector notebook topology checks passed."
