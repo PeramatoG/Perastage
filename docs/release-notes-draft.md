@@ -131,6 +131,8 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Reduced clean test-build work by reusing identical production implementation objects across focused MVR, Rider importer, and GDTF loader test executables without changing the test inventory or coverage.
+
 - Added reproducible dependency metadata, policy-aware local and CI version
   reporting, triplet-safe validation, and a safe quarterly draft-review
   workflow with stronger checkout and policy safeguards that do not pin
