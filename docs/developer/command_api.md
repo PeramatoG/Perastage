@@ -8,11 +8,18 @@ context abstractions, and the mutation transaction. The separate
 `perastage_command_serialization` target owns JSON output and is the only one of
 the two targets that uses the JSON dependency.
 
-This boundary does not own parsing syntax, command registration, presentation,
-or concrete commands. In particular, CMD-400 does not migrate the current
-Console grammar or execution from `gui/console_command_parser.*` and
-`gui/consolepanel.cpp`. That work remains assigned to CMD-410, CMD-420, and
-CMD-430.
+Human command text remains an adapter rather than the semantic API. The focused
+`perastage_command_text_parser` target under `core/command/` owns the neutral,
+GUI-independent Console syntax model and parser. It may consume Command Core's
+structured diagnostic contract, while `perastage_command_core` never depends
+on the text parser. Raw Console strings and parsed adapter syntax are therefore
+not semantic `Request` objects.
+
+The embedded Console consumes this neutral parser and retains its current
+scene-dependent execution, selection resolution, Undo publication, and GUI
+refresh responsibilities. CMD-420 and CMD-430 will migrate that execution and
+selection behavior to concrete semantic commands; the text parser does not
+prematurely define those contracts.
 
 ## Semantic requests and identifiers
 

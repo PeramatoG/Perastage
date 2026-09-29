@@ -154,8 +154,11 @@ Core owns the GUI-independent semantic command boundary under `core/command/`.
 `perastage_command_core` owns requests, results, execution context, and the
 transactional scene/selection mutation boundary; the focused
 `perastage_command_serialization` target owns versioned JSON output. Frontends
-remain responsible for parsing and presentation refresh, and the existing GUI
-Console has not yet migrated to this boundary. See
+remain responsible for presentation refresh. The separate
+`perastage_command_text_parser` adapter target owns reusable human Console
+grammar and depends toward the semantic diagnostic contract; Command Core does
+not depend on human syntax. The GUI Console consumes that parser while its
+scene execution remains pending the next command-migration stages. See
 [`command_api.md`](command_api.md) for the current contract.
 
 ## Tool and inspection contract

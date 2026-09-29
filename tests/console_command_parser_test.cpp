@@ -1,85 +1,97 @@
-#include "console_command_parser.h"
+#include "command/command_text_parser.h"
 
 #include <cassert>
 #include <cmath>
-#include <vector>
+#include <variant>
+
+namespace text = perastage::command::text;
 
 namespace {
 
-// Compares two float vectors with a small tolerance for parser regression tests.
+// Compares two float vectors with a small tolerance.
 bool EqualValues(const std::vector<float> &actual,
                  const std::vector<float> &expected) {
   if (actual.size() != expected.size())
     return false;
-  for (size_t i = 0; i < actual.size(); ++i) {
-    if (std::fabs(actual[i] - expected[i]) > 0.0001f)
+  for (size_t index = 0; index < actual.size(); ++index)
+    if (std::fabs(actual[index] - expected[index]) > 0.0001f)
       return false;
-  }
   return true;
+}
+
+// Returns the selection command stored at the requested result index.
+const text::SelectionCommand &SelectionAt(const text::ParseResult &result,
+                                          size_t index = 0) {
+  return std::get<text::SelectionCommand>(result.commands.at(index));
+}
+
+// Returns the transform command stored at the requested result index.
+const text::TransformCommand &TransformAt(const text::ParseResult &result,
+                                          size_t index = 0) {
+  return std::get<text::TransformCommand>(result.commands.at(index));
 }
 
 } // namespace
 
-// Verifies transform value parsing accepts whitespace and thru-style separators.
+// Characterizes segment, selection, whole-line, and chaining grammar.
 int main() {
   bool relative = false;
-  auto values = gui::console::ParseTransformValues("-7 7", relative);
+  assert(EqualValues(text::ParseTransformValues("-7 t 7", relative), {-7, 7}));
   assert(!relative);
-  assert(EqualValues(values, {-7.0f, 7.0f}));
-
-  values = gui::console::ParseTransformValues("-7 t 7", relative);
-  assert(!relative);
-  assert(EqualValues(values, {-7.0f, 7.0f}));
-
-  values = gui::console::ParseTransformValues("-7 thru 7", relative);
-  assert(!relative);
-  assert(EqualValues(values, {-7.0f, 7.0f}));
-
-  values = gui::console::ParseTransformValues("++ 1.5 t 3.5", relative);
+  assert(EqualValues(text::ParseTransformValues("++ 1.5 thru 3.5", relative),
+                     {1.5f, 3.5f}));
   assert(relative);
-  assert(EqualValues(values, {1.5f, 3.5f}));
+  auto segment = text::ParseTransformCommandSegment("--1.5 thru 3.5 --local");
+  assert(segment.relative && EqualValues(segment.values, {-1.5f, -3.5f}));
+  assert(segment.space == transform_space::TransformSpace::Local);
+  segment = text::ParseTransformCommandSegment("++ 30 --group -l");
+  assert(segment.group && segment.relative);
+  segment = text::ParseTransformCommandSegment("--wat");
+  assert(segment.values.empty() && segment.remainder == "--wat");
+  assert(!text::ParseTransformCommandSegment("nan").remainder.empty());
+  assert(!text::ParseTransformCommandSegment("inf").remainder.empty());
 
-  values = gui::console::ParseTransformValues("-- 1.5 thru 3.5", relative);
-  assert(relative);
-  assert(EqualValues(values, {-1.5f, -3.5f}));
+  auto parsed = text::ParseCommandLine("f 1");
+  assert(parsed.Success() && SelectionAt(parsed).operations.size() == 1);
+  parsed = text::ParseCommandLine("f 5 thru 1 + 8 - 3t4");
+  assert(parsed.Success());
+  const auto &operations = SelectionAt(parsed).operations;
+  assert(operations.size() == 3);
+  assert(operations[0].firstId == 1 && operations[0].lastId == 5);
+  assert(operations[2].kind == text::SelectionOperationKind::Remove);
+  parsed = text::ParseCommandLine("t 1-5");
+  assert(parsed.Success() && SelectionAt(parsed).replace);
+  for (const char *form : {"f 1t5", "f 1thru5", "f 1t 5", "f 1 thru5"})
+    assert(text::ParseCommandLine(form).Success());
+  parsed = text::ParseCommandLine("f nope");
+  assert(!parsed.Success());
+  assert(parsed.diagnostics.front().phase ==
+         perastage::command::DiagnosticPhase::Parse);
+  assert(parsed.diagnostics.front().code ==
+         "command_text.invalid_selection_id");
 
-  auto localLong = gui::console::ParseTransformCommandSegment("++ 1 --local");
-  assert(localLong.relative);
-  assert(localLong.space == transform_space::TransformSpace::Local);
-  auto localShort = gui::console::ParseTransformCommandSegment("++ 2 -l");
-  assert(localShort.space == transform_space::TransformSpace::Local);
-  auto grouped = gui::console::ParseTransformCommandSegment("++ 30 --group -l");
-  assert(grouped.group);
-  assert(grouped.space == transform_space::TransformSpace::Local);
-  auto negative = gui::console::ParseTransformCommandSegment("-7 thru 7");
-  assert(EqualValues(negative.values, {-7.0f, 7.0f}));
-  auto relativeNegative = gui::console::ParseTransformCommandSegment("-- 1.5");
-  assert(relativeNegative.relative);
-  assert(EqualValues(relativeNegative.values, {-1.5f}));
-  auto compactPositive = gui::console::ParseTransformCommandSegment("++1.25");
-  assert(compactPositive.relative);
-  assert(EqualValues(compactPositive.values, {1.25f}));
-  auto compactNegative = gui::console::ParseTransformCommandSegment("--1.25");
-  assert(compactNegative.relative);
-  assert(EqualValues(compactNegative.values, {-1.25f}));
-  auto compactRange =
-      gui::console::ParseTransformCommandSegment("--1.5 thru 3.5 --local");
-  assert(compactRange.relative);
-  assert(compactRange.space == transform_space::TransformSpace::Local);
-  assert(EqualValues(compactRange.values, {-1.5f, -3.5f}));
-  auto modifierOnly = gui::console::ParseTransformCommandSegment("--group");
-  assert(!modifierOnly.relative);
-  assert(modifierOnly.group);
-  auto malformed = gui::console::ParseTransformCommandSegment("--wat");
-  assert(!malformed.relative);
-  assert(malformed.values.empty());
-  assert(malformed.remainder == "--wat");
-  auto notFinite = gui::console::ParseTransformCommandSegment("nan");
-  assert(notFinite.values.empty());
-  assert(notFinite.remainder == "nan");
-  auto infinity = gui::console::ParseTransformCommandSegment("inf");
-  assert(infinity.values.empty());
-  assert(infinity.remainder == "inf");
-
+  assert(text::ParseCommandLine("clear").Success());
+  parsed = text::ParseCommandLine("X ++1 --LOCAL");
+  assert(parsed.Success() && TransformAt(parsed).components.front().axis == 0);
+  parsed = text::ParseCommandLine("pos x -7 t 7");
+  assert(parsed.Success() &&
+         EqualValues(TransformAt(parsed).components.front().values, {-7, 7}));
+  parsed = text::ParseCommandLine("pos 1,2,3");
+  assert(parsed.Success() && TransformAt(parsed).components.size() == 3);
+  parsed = text::ParseCommandLine("rot 1,2,3");
+  assert(parsed.Success() &&
+         TransformAt(parsed).kind == text::TransformKind::Rotation);
+  parsed = text::ParseCommandLine("rot y ++45 --g --local -2.5,0,0");
+  assert(parsed.Success() && TransformAt(parsed).pivotMm.has_value());
+  assert(TransformAt(parsed).components.front().group);
+  parsed = text::ParseCommandLine("1,2,3");
+  assert(parsed.Success() && TransformAt(parsed).components.size() == 3);
+  parsed = text::ParseCommandLine("F 1 POS X 2 ROT Z --10 CLEAR");
+  assert(parsed.Success() && parsed.commands.size() == 4);
+  assert(std::holds_alternative<text::SelectionCommand>(parsed.commands[0]));
+  assert(std::holds_alternative<text::ClearCommand>(parsed.commands[3]));
+  assert(!text::ParseCommandLine("unknown").Success());
+  assert(!text::ParseCommandLine("pos q 1").Success());
+  assert(text::ParseCommandLine("pos x 1").Success());
   return 0;
 }
