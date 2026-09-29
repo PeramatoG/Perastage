@@ -44,6 +44,16 @@ Changes since **v1.6.0**.
   and document-wide folding now work consistently, while embedded GDTFs retain
   their bounded single-click 3D preview.
 
+- Improved Inspector resource presentation so selected SVGs show exact,
+  syntax-highlighted XML in Source and an in-memory rendered image in Preview
+  from one bounded package read. SVG previews now preserve their authored
+  viewport proportions and remain centered in portrait or landscape preview
+  areas across supported platforms while retaining transparency and explicitly
+  authored white fills.
+  Other XML and plain-text resources now use the
+  Source pane without duplicate Preview text, while image, model, unsupported,
+  and failed selections reliably restore the authoritative package XML.
+
 ## Important fixes
 
 - Prevented a Windows crash when activating an embedded GDTF by deferring the

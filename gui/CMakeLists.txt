@@ -54,6 +54,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_mode_browser_presenter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_mode_data_view_model.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_resource_bitmap_cache.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/svg_preview_geometry.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_wheel_inspector_panel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_modes_panel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_physical_properties_panel.cpp
@@ -70,9 +71,11 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_nested_transition.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/inspector_model_preview.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_preview_policy.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_resource_presentation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_primary_xml.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_primary_xml_policy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_source_context.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_source_document.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_xml_editor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/inspector_models.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/inspector_project_source.cpp

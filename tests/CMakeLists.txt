@@ -246,6 +246,25 @@ set_perastage_test_labels(InspectorPreviewPolicy
                           LAYER standard-strict
                           DOMAINS architecture gui inspection security)
 
+add_executable(inspector_resource_presentation_test
+               inspector_resource_presentation_test.cpp
+               ../gui/inspection/inspector_resource_presentation.cpp
+               ../gui/inspection/inspector_primary_xml_policy.cpp)
+target_include_directories(inspector_resource_presentation_test PRIVATE ../core ../gui)
+add_test(NAME InspectorResourcePresentation COMMAND inspector_resource_presentation_test)
+set_perastage_test_labels(InspectorResourcePresentation
+                          LAYER standard-strict
+                          DOMAINS architecture gui inspection)
+
+add_executable(inspector_source_document_test
+               inspector_source_document_test.cpp
+               ../gui/inspection/inspector_source_document.cpp)
+target_include_directories(inspector_source_document_test PRIVATE ../gui)
+add_test(NAME InspectorSourceDocument COMMAND inspector_source_document_test)
+set_perastage_test_labels(InspectorSourceDocument
+                          LAYER standard-strict
+                          DOMAINS architecture gui inspection)
+
 add_executable(inspector_primary_xml_test
                inspector_primary_xml_test.cpp
                ../gui/inspection/inspector_primary_xml_policy.cpp)
@@ -288,6 +307,28 @@ target_include_directories(inspector_xml_editor_test PRIVATE ../gui)
 target_link_libraries(inspector_xml_editor_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME InspectorXmlEditor COMMAND inspector_xml_editor_test)
 set_perastage_test_labels(InspectorXmlEditor
+                          LAYER standard-strict
+                          DOMAINS gui inspection)
+
+add_executable(gdtf_resource_svg_bitmap_test
+               gdtf_resource_svg_bitmap_test.cpp
+               ../gui/gdtf/gdtf_resource_bitmap_cache.cpp
+               ../gui/gdtf/svg_preview_geometry.cpp)
+target_include_directories(gdtf_resource_svg_bitmap_test PRIVATE ../gui)
+target_link_libraries(gdtf_resource_svg_bitmap_test
+                      PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME GdtfResourceSvgBitmap COMMAND gdtf_resource_svg_bitmap_test)
+set_perastage_test_labels(GdtfResourceSvgBitmap
+                          LAYER standard-strict
+                          DOMAINS gui inspection)
+
+add_executable(svg_preview_geometry_test
+               svg_preview_geometry_test.cpp
+               ../gui/gdtf/svg_preview_geometry.cpp)
+target_include_directories(svg_preview_geometry_test PRIVATE ../gui)
+target_link_libraries(svg_preview_geometry_test PRIVATE tinyxml2::tinyxml2)
+add_test(NAME SvgPreviewGeometry COMMAND svg_preview_geometry_test)
+set_perastage_test_labels(SvgPreviewGeometry
                           LAYER standard-strict
                           DOMAINS gui inspection)
 

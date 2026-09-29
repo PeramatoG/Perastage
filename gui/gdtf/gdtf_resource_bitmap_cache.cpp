@@ -1,9 +1,13 @@
 #include "gdtf_resource_bitmap_cache.h"
+#include "gdtf/svg_preview_geometry.h"
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <sstream>
 
 #include <wx/brush.h>
+#include <wx/bmpbndl.h>
 #include <wx/dcmemory.h>
 #include <wx/image.h>
 #include <wx/init.h>
@@ -68,6 +72,24 @@ GdtfBitmapDecodeResult GdtfResourceBitmapCache::GetOrCreate(
   GdtfBitmapDecodeResult result = DecodeResource(bytes, targetSize, placeholderColor);
   const std::size_t estimate = static_cast<std::size_t>(std::max(1, targetSize.GetWidth())) *
                                static_cast<std::size_t>(std::max(1, targetSize.GetHeight())) * 4u;
+  entries[key] = {result, estimate};
+  currentBytes += estimate;
+  EnforceLimit();
+  return result;
+}
+
+// Renders and caches an accepted in-memory SVG payload at a bounded target size.
+GdtfBitmapDecodeResult GdtfResourceBitmapCache::GetOrCreateSvg(
+    const std::string &sourceFingerprint, const std::string &entryPath,
+    const std::string &svgText, const wxSize &targetSize,
+    const wxColour &placeholderColor) {
+  const std::string key = MakeKey(sourceFingerprint, entryPath + "\nsvg", targetSize);
+  const auto found = entries.find(key);
+  if (found != entries.end())
+    return found->second.result;
+  auto result = DecodeSvg(svgText, targetSize, placeholderColor);
+  const std::size_t estimate = static_cast<std::size_t>(std::max(1, targetSize.x)) *
+                               static_cast<std::size_t>(std::max(1, targetSize.y)) * 4u;
   entries[key] = {result, estimate};
   currentBytes += estimate;
   EnforceLimit();
@@ -167,6 +189,73 @@ GdtfBitmapDecodeResult GdtfResourceBitmapCache::DecodeResource(
   result.status = GdtfBitmapDecodeStatus::Success;
   result.decoded = true;
   result.diagnostic = DecodeStatusText(result.status);
+  return result;
+}
+
+// Converts SVG text with wxWidgets while containing malformed-input failures.
+GdtfBitmapDecodeResult GdtfResourceBitmapCache::DecodeSvg(
+    const std::string &svgText, const wxSize &targetSize,
+    const wxColour &placeholderColor) const {
+  GdtfBitmapDecodeResult result;
+  const int width = targetSize.GetWidth();
+  const int height = targetSize.GetHeight();
+  result.bitmap = MakePlaceholder(targetSize, placeholderColor);
+  if (svgText.empty()) {
+    result.status = GdtfBitmapDecodeStatus::EmptyResourceData;
+    result.diagnostic = "SVG resource data is empty.";
+  } else if (width <= 0 || height <= 0 || width > kMaxPreviewDimension ||
+             height > kMaxPreviewDimension) {
+    result.status = width > kMaxPreviewDimension || height > kMaxPreviewDimension
+                        ? GdtfBitmapDecodeStatus::DimensionsTooLarge
+                        : GdtfBitmapDecodeStatus::InvalidDimensions;
+    result.diagnostic = "SVG preview dimensions are invalid or exceed the safety limit.";
+  } else {
+    try {
+      const auto viewport = gui::gdtf::ParseSvgViewport(svgText);
+      if (!viewport) {
+        result.status = GdtfBitmapDecodeStatus::InvalidDimensions;
+        result.diagnostic = "SVG viewport metadata is missing or invalid.";
+        return result;
+      }
+      result.sourceWidth = viewport->width <= std::numeric_limits<int>::max()
+                               ? static_cast<int>(std::lround(viewport->width))
+                               : std::numeric_limits<int>::max();
+      result.sourceHeight = viewport->height <= std::numeric_limits<int>::max()
+                                ? static_cast<int>(std::lround(viewport->height))
+                                : std::numeric_limits<int>::max();
+      const auto fitted = gui::gdtf::FitSvgPreviewSize(
+          viewport->width, viewport->height, width, height,
+          kMaxPreviewDimension);
+      if (!fitted.IsValid()) {
+        result.status = GdtfBitmapDecodeStatus::InvalidDimensions;
+        result.diagnostic = "SVG fitted dimensions are invalid.";
+      } else {
+        const wxSize fittedSize(fitted.width, fitted.height);
+        const wxBitmapBundle bundle =
+            wxBitmapBundle::FromSVG(svgText.c_str(), fittedSize);
+        if (!bundle.IsOk()) {
+          result.status = GdtfBitmapDecodeStatus::DecodeFailure;
+          result.diagnostic = "wxWidgets could not parse the SVG resource.";
+          return result;
+        }
+        const wxBitmap bitmap =
+            bundle.GetBitmap(fittedSize);
+        if (bitmap.IsOk()) {
+          result.bitmap =
+              ComposePreviewBitmap(bitmap.ConvertToImage(), targetSize);
+          result.status = GdtfBitmapDecodeStatus::Success;
+          result.decoded = true;
+          result.diagnostic = "Rendered SVG successfully.";
+        } else {
+          result.status = GdtfBitmapDecodeStatus::DecodeFailure;
+          result.diagnostic = "wxWidgets could not rasterize the SVG resource.";
+        }
+      }
+    } catch (...) {
+      result.status = GdtfBitmapDecodeStatus::DecodeFailure;
+      result.diagnostic = "SVG rendering failed unexpectedly.";
+    }
+  }
   return result;
 }
 

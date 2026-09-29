@@ -46,6 +46,10 @@ public:
                                      const std::vector<unsigned char> &bytes,
                                      const wxSize &targetSize,
                                      const wxColour &placeholderColor);
+  GdtfBitmapDecodeResult GetOrCreateSvg(
+      const std::string &sourceFingerprint, const std::string &entryPath,
+      const std::string &svgText, const wxSize &targetSize,
+      const wxColour &placeholderColor);
 
 private:
   struct Entry {
@@ -60,6 +64,9 @@ private:
   GdtfBitmapDecodeResult DecodeResource(const std::vector<unsigned char> &bytes,
                                         const wxSize &targetSize,
                                         const wxColour &placeholderColor) const;
+  GdtfBitmapDecodeResult DecodeSvg(const std::string &svgText,
+                                   const wxSize &targetSize,
+                                   const wxColour &placeholderColor) const;
   void EnforceLimit();
 
   std::map<std::string, Entry> entries;
