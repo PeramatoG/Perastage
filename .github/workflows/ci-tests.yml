@@ -205,6 +205,8 @@ jobs:
         continue-on-error: true
         shell: bash
         run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" checkpoint --phase "Install/materialize vcpkg packages"
+      - name: Verify direct dependency inventory
+        run: python3 scripts/dependencies/report_installed.py --status "$VCPKG_INSTALLED/vcpkg/status" --strict --summary "$GITHUB_STEP_SUMMARY"
       - name: Capture after vcpkg install filesystem telemetry
         continue-on-error: true
         shell: bash
@@ -684,6 +686,9 @@ jobs:
         shell: pwsh
         run: |
           & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Install/materialize vcpkg packages"
+      - name: Verify direct dependency inventory
+        shell: pwsh
+        run: '& "$env:PERASTAGE_PYTHON" scripts/dependencies/report_installed.py --status "$env:VCPKG_INSTALLED\vcpkg\status" --strict --include-host --summary "$env:GITHUB_STEP_SUMMARY"'
       - name: Capture after vcpkg install filesystem telemetry
         continue-on-error: true
         shell: pwsh
@@ -1076,6 +1081,8 @@ jobs:
         continue-on-error: true
         shell: bash
         run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" checkpoint --phase "Install/materialize vcpkg packages"
+      - name: Verify direct dependency inventory
+        run: python3 scripts/dependencies/report_installed.py --status "$VCPKG_INSTALLED/vcpkg/status" --strict --summary "$GITHUB_STEP_SUMMARY"
       - name: Capture after vcpkg install filesystem telemetry
         continue-on-error: true
         shell: bash

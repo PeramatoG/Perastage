@@ -65,10 +65,14 @@ def main() -> int:
     if not nanovg_row or "MIT" in nanovg_row or "Zlib" not in nanovg_row:
         errors.append("NanoVG must have its own component row identifying Zlib, not MIT")
 
-    curl_license = (ROOT / "licenses" / "curl_LICENSE.txt").read_text(encoding="utf-8")
-    current_curl_marker = "Copyright (c) 1996 - 2026, Daniel Stenberg"
-    if current_curl_marker not in curl_license or "Copyright (c) 1996 - 2025" in curl_license:
-        errors.append("curl primary license does not match the pinned curl 8.21.0 legal text")
+    curl_path = ROOT / "licenses" / "curl_LICENSE.txt"
+    if not curl_path.is_file():
+        errors.append("curl primary license is missing")
+    else:
+        curl_license = curl_path.read_text(encoding="utf-8")
+        for marker in ("COPYRIGHT AND PERMISSION NOTICE", "Daniel Stenberg", "Permission to use, copy, modify"):
+            if marker not in curl_license:
+                errors.append(f"curl primary license is missing identity or permission marker: {marker}")
 
     manifest = json.loads((ROOT / "vcpkg.json").read_text(encoding="utf-8"))
     runtime_dependencies = {

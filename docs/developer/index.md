@@ -13,6 +13,7 @@ contracts describe one subsystem without superseding their canonical parent.
 | Code-health and refactoring policy | [Code Health](code_health.md) |
 | Maintainer operations and recovery | [Maintainer Runbook](maintainer_runbook.md) |
 | Build and dependency workflows | [Build and Dependency Guide](build.md) |
+| Dependency maintenance policy and quarterly review | [Dependency Management](dependency-management.md) |
 | Packaging and platform integration | [Packaging](packaging.md) |
 | CI and release workflow architecture | [GitHub Actions workflow architecture](github_actions_workflows.md), with [Main branch protection](main_branch_protection.md) as the focused ruleset contract |
 | Versioning and release/change-history policy | [Versioning Policy](versioning-policy.md) |

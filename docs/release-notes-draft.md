@@ -27,6 +27,11 @@ Changes since **v1.6.0**.
 
 ## Compatibility, stability, and performance
 
+- Added reproducible dependency metadata, policy-aware local and CI version
+  reporting, and a safe quarterly draft-review workflow for maintainers.
+- Completed the supported Linux setup package lists for XML schema discovery
+  and native secure credential storage.
+
 - Made the read-only MVR / GDTF Inspector responsive on production-scale files
   with managed background inspection, latest-selection result safety, scalable
   model-backed package and Scene navigation, resizable remembered workspace

@@ -311,6 +311,13 @@ function Test-PerastageVcpkgDependencies {
         if ($statusText -match '(?ms)^Package: libxml2\r?\nVersion: ([^\r\n]+)') {
             Write-Host "libxml2 version: $($Matches[1])"
         }
+        $inventoryScript = Join-Path $repoRoot 'scripts\dependencies\report_installed.py'
+        $canonicalState = Join-Path $repoRoot 'dependencies\resolved-vcpkg.json'
+        Write-Host 'Direct dependency versions (differences from the official baseline are informational):'
+        python $inventoryScript --state $canonicalState --status $vcpkgStatus --include-host
+        if ($LASTEXITCODE -ne 0) {
+            throw 'The direct dependency inventory could not be read.'
+        }
     }
 
     $gettextBin = Join-Path $Vcpkg.InstalledTriplet 'tools\gettext\bin'

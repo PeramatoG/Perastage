@@ -29,7 +29,7 @@ def forbid(pattern, *paths, flags=0):
 
 manifest = json.loads(read('vcpkg.json'))
 baseline = manifest.get('builtin-baseline')
-assert baseline == '0878b5224d4a4968940ee296a2e7fae2d3b62983', 'vcpkg.json must pin the expected builtin-baseline'
+assert isinstance(baseline, str) and re.fullmatch(r'[0-9a-f]{40}', baseline), 'vcpkg.json must pin a valid 40-character builtin-baseline'
 deps = manifest['dependencies']
 wx = next((dep for dep in deps if isinstance(dep, dict) and dep.get('name') == 'wxwidgets'), None)
 assert wx and 'secretstore' in wx.get('features', []), 'vcpkg.json must request wxwidgets[secretstore]'
@@ -57,7 +57,6 @@ require(r'hostx86.*x86', windows_implementation, flags=re.I)
 require(r'cached compiler Visual Studio root', windows_implementation)
 require(r'VCPKG_MANIFEST_MODE=OFF|VCPKG_MANIFEST_MODE.*OFF', windows_implementation, 'CMakePresets.json', '.github/workflows/windows-installer.yml', '.github/workflows/linux-installer.yml', '.github/workflows/arch-package.yml', '.github/workflows/macos-installer.yml', '.github/workflows/macos-15-manual-installer.yml')
 require(r'securestore-v2', '.github/workflows/windows-installer.yml', '.github/workflows/linux-installer.yml', '.github/workflows/arch-package.yml', '.github/workflows/macos-installer.yml', '.github/workflows/macos-15-manual-installer.yml')
-require(r'0878b5224d4a4968940ee296a2e7fae2d3b62983', 'vcpkg.json')
 require(r'get_vcpkg_baseline\.py vcpkg\.json', '.github/workflows/windows-installer.yml', '.github/workflows/linux-installer.yml', '.github/workflows/arch-package.yml', '.github/workflows/macos-installer.yml', '.github/workflows/macos-15-manual-installer.yml')
 ci_workflow = read('.github/workflows/ci-tests.yml')
 for platform, build_dir in (

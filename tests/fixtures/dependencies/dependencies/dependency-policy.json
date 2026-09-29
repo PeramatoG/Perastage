@@ -1,0 +1,1 @@
+{"schema-version":1,"vcpkg":[{"name":"alpha","maintenance-group":"feature-performance","quarterly-candidate":true,"required-features":[]},{"name":"beta","maintenance-group":"stable-runtime","quarterly-candidate":false,"required-features":["tool"]}]}

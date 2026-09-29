@@ -10,7 +10,9 @@ this guide owns build prerequisites and procedures.
 
 - CMake 3.21 or newer.
 - C++20-capable compiler/toolchain.
-- wxWidgets 3.3.1 or compatible development package.
+- A compatible wxWidgets development package. Official vcpkg builds use the
+  repository-pinned baseline and generated state; local Windows classic-vcpkg
+  packages may be newer, and Linux/WSL uses compatible distribution versions.
 - Required libraries:
   - wxWidgets
   - tinyxml2
@@ -28,6 +30,13 @@ this guide owns build prerequisites and procedures.
 ## Windows vcpkg dependency setup
 
 Perastage keeps the root `vcpkg.json` manifest as the dependency source of truth for CI and for documenting the required packages. The normal local Windows workflow is intentionally classic vcpkg: set `VCPKG_ROOT` to a classic vcpkg checkout, install dependencies once into `$env:VCPKG_ROOT\installed\x64-windows`, and then configure with the shared Ninja presets. Visual Studio and CMake must not run an automatic vcpkg install during local configure.
+
+The repository baseline is canonical for official builds, while
+`dependencies/resolved-vcpkg.json` records its resolved direct versions. The
+classic Windows validator reports installed versions and treats divergence as
+informational; it never changes or downgrades the selected checkout. See
+[Dependency Management](dependency-management.md) for review and regeneration
+policy.
 
 The canonical local Windows presets are:
 
@@ -240,6 +249,8 @@ Use the WSL presets from a Linux/WSL environment where the required development 
 The root `setup.sh` launcher installs the distro packages needed by dependency
 discovery, `ripgrep` for repository policy tests, and the Spanish and Simplified
 Chinese locales used by the complete CTest suite on its supported apt path.
+Its supported package lists include libxml2 and libsecret development headers
+required by XML schema discovery and the native credential-store capability.
 Ripgrep is a development/test dependency, not an application runtime
 dependency. The MVR-xchange `mdns` package
 is not available from those distro package sets. Supply it externally as
