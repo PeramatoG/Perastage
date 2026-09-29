@@ -1,0 +1,119 @@
+{
+  "baseline": "0878b5224d4a4968940ee296a2e7fae2d3b62983",
+  "generated": true,
+  "packages": [
+    {
+      "features": [],
+      "license": null,
+      "maintenance-group": "stable-runtime",
+      "name": "backward-cpp",
+      "port-version": 1,
+      "role": "runtime",
+      "version": "2023-11-24"
+    },
+    {
+      "features": [],
+      "license": "curl AND ISC AND BSD-3-Clause",
+      "maintenance-group": "security-interop",
+      "name": "curl",
+      "port-version": 1,
+      "role": "runtime",
+      "version": "8.21.0"
+    },
+    {
+      "features": [
+        "tools"
+      ],
+      "license": "GPL-3.0-only",
+      "maintenance-group": "build-tooling",
+      "name": "gettext",
+      "port-version": 4,
+      "role": "host",
+      "version": "0.22.5"
+    },
+    {
+      "features": [],
+      "license": null,
+      "maintenance-group": "stable-runtime",
+      "name": "glew",
+      "port-version": 0,
+      "role": "runtime",
+      "version": "2.3.1"
+    },
+    {
+      "features": [],
+      "license": "MIT",
+      "maintenance-group": "security-interop",
+      "name": "libxml2",
+      "port-version": 0,
+      "role": "runtime",
+      "version": "2.15.3"
+    },
+    {
+      "features": [],
+      "license": "Unlicense",
+      "maintenance-group": "security-interop",
+      "name": "mdns",
+      "port-version": 0,
+      "role": "runtime",
+      "version": "1.4.3"
+    },
+    {
+      "features": [],
+      "license": "MIT",
+      "maintenance-group": "feature-performance",
+      "name": "meshoptimizer",
+      "port-version": 0,
+      "role": "runtime",
+      "version": "1.1.1"
+    },
+    {
+      "features": [],
+      "license": null,
+      "maintenance-group": "stable-runtime",
+      "name": "nanovg",
+      "port-version": 0,
+      "role": "runtime",
+      "version": "2023-08-26"
+    },
+    {
+      "features": [],
+      "license": "LGPL-2.0-or-later OR MPL-2.0",
+      "maintenance-group": "security-interop",
+      "name": "podofo",
+      "port-version": 0,
+      "role": "runtime",
+      "version": "1.1.1"
+    },
+    {
+      "features": [],
+      "license": "Zlib",
+      "maintenance-group": "security-interop",
+      "name": "tinyxml2",
+      "port-version": 0,
+      "role": "runtime",
+      "version": "11.0.0"
+    },
+    {
+      "features": [
+        "secretstore"
+      ],
+      "license": "LGPL-2.0-or-later WITH WxWindows-exception-3.1",
+      "maintenance-group": "feature-performance",
+      "name": "wxwidgets",
+      "port-version": 1,
+      "role": "runtime",
+      "version": "3.3.1"
+    },
+    {
+      "features": [],
+      "license": "Zlib",
+      "maintenance-group": "security-interop",
+      "name": "zlib",
+      "port-version": 1,
+      "role": "runtime",
+      "version": "1.3.2"
+    }
+  ],
+  "schema-version": 1
+}

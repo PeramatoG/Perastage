@@ -1,0 +1,84 @@
+name: Quarterly dependency review
+
+on:
+  schedule:
+    - cron: "17 7 10 1,4,7,10 *"
+  workflow_dispatch:
+
+concurrency:
+  group: quarterly-dependency-review
+  cancel-in-progress: false
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout trusted repository source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Read repository baseline
+        id: current
+        run: echo "baseline=$(python3 .github/scripts/get_vcpkg_baseline.py vcpkg.json)" >> "$GITHUB_OUTPUT"
+      - name: Fetch fixed registry snapshots as data
+        id: registry
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/microsoft/vcpkg.git "$RUNNER_TEMP/vcpkg-current"
+          git -C "$RUNNER_TEMP/vcpkg-current" fetch --depth 1 origin "${{ steps.current.outputs.baseline }}"
+          git -C "$RUNNER_TEMP/vcpkg-current" checkout --detach FETCH_HEAD
+          git clone --depth 1 https://github.com/microsoft/vcpkg.git "$RUNNER_TEMP/vcpkg-candidate"
+          candidate="$(git -C "$RUNNER_TEMP/vcpkg-candidate" rev-parse HEAD)"
+          echo "candidate=$candidate" >> "$GITHUB_OUTPUT"
+      - name: Check bundled dependency awareness
+        id: bundled
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          upstream="$(gh api repos/nlohmann/json/releases/latest --jq .tag_name 2>/dev/null || true)"
+          notice="$(python3 scripts/dependencies/bundled.py --header third_party/json.hpp --upstream "$upstream")"
+          echo "notice=$notice" >> "$GITHUB_OUTPUT"
+      - name: Prepare policy-aware candidate
+        env:
+          BUNDLED_NOTICE: ${{ steps.bundled.outputs.notice || 'Bundled upstream lookup unavailable; manual/notify-only policy remains in effect.' }}
+        run: |
+          set -euo pipefail
+          python3 scripts/dependencies/review.py \
+            --current-vcpkg "$RUNNER_TEMP/vcpkg-current" \
+            --candidate-vcpkg "$RUNNER_TEMP/vcpkg-candidate" \
+            --candidate-baseline "${{ steps.registry.outputs.candidate }}" \
+            --bundled-notice "$BUNDLED_NOTICE" --report "$RUNNER_TEMP/dependency-review.md" --apply
+          cat "$RUNNER_TEMP/dependency-review.md" >> "$GITHUB_STEP_SUMMARY"
+          unexpected="$(git diff --name-only | grep -Ev '^(vcpkg.json|dependencies/resolved-vcpkg.json|\.github/badges/wxwidgets.json)$' || true)"
+          test -z "$unexpected" || { echo "Unexpected generated changes: $unexpected" >&2; exit 1; }
+      - name: Open draft candidate pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "No trigger-class dependency change; report only." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          branch="automation/dependency-review-${{ steps.registry.outputs.candidate }}"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git switch -c "$branch"
+          git add vcpkg.json dependencies/resolved-vcpkg.json .github/badges/wxwidgets.json
+          git commit -m "chore: prepare dependency baseline review"
+          git push --force-with-lease origin "$branch" || {
+            echo "::error::GitHub Actions could not push the review branch. Enable read/write Workflow permissions for GITHUB_TOKEN in Settings > Actions > General." >&2
+            exit 1
+          }
+          existing="$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')"
+          if test -z "$existing"; then
+            gh pr create --draft --base main --head "$branch" \
+              --title "chore: quarterly dependency baseline candidate" \
+              --body-file "$RUNNER_TEMP/dependency-review.md" || {
+                echo "::error::GitHub Actions could not create the draft PR. Enable 'Allow GitHub Actions to create and approve pull requests' in Settings > Actions > General." >&2
+                exit 1
+              }
+          fi

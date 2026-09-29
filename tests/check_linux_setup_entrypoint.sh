@@ -161,8 +161,14 @@ chmod +x "$FAKE_BIN/dnf"
 run_setup Debug --skip-build
 assert_file_contains "dnf installs the expected dependency prefix" \
     'sudo:dnf install -y gcc gcc-c++ make cmake ninja-build' "$COMMAND_LOG"
+assert_file_contains "dnf installs wxWidgets development files" \
+    'wxGTK-devel' "$COMMAND_LOG"
+assert_file_contains "dnf installs libxml2 development files" \
+    'libxml2-devel' "$COMMAND_LOG"
+assert_file_contains "dnf installs secure-store development files" \
+    'libsecret-devel' "$COMMAND_LOG"
 assert_file_contains "dnf installs ripgrep for the complete Debug test suite" \
-    'wxGTK-devel ripgrep' "$COMMAND_LOG"
+    'ripgrep' "$COMMAND_LOG"
 rm "$FAKE_BIN/dnf"
 
 if run_setup --skip-build >"$TEMP_DIR/unsupported.out" 2>"$TEMP_DIR/unsupported.err"; then

@@ -1,0 +1,29 @@
+{
+  "schema-version": 1,
+  "vcpkg": [
+    {"name":"wxwidgets","provider":"vcpkg","maintenance-group":"feature-performance","quarterly-candidate":true,"update-mode":"automatic-candidate","required-features":["secretstore"],"expose-version":true,"rationale":"GUI framework and secure credential-store capability."},
+    {"name":"meshoptimizer","provider":"vcpkg","maintenance-group":"feature-performance","quarterly-candidate":true,"update-mode":"automatic-candidate","required-features":[],"expose-version":false,"rationale":"Performance-sensitive geometry optimization."},
+    {"name":"curl","provider":"vcpkg","maintenance-group":"security-interop","quarterly-candidate":true,"update-mode":"automatic-candidate","required-features":[],"expose-version":false,"rationale":"Network interoperability and security fixes."},
+    {"name":"libxml2","provider":"vcpkg","maintenance-group":"security-interop","quarterly-candidate":true,"update-mode":"automatic-candidate","required-features":[],"expose-version":false,"rationale":"XML and schema interoperability."},
+    {"name":"tinyxml2","provider":"vcpkg","maintenance-group":"security-interop","quarterly-candidate":true,"update-mode":"automatic-candidate","required-features":[],"expose-version":false,"rationale":"Project XML interoperability."},
+    {"name":"podofo","provider":"vcpkg","maintenance-group":"security-interop","quarterly-candidate":true,"update-mode":"automatic-candidate","required-features":[],"expose-version":false,"rationale":"PDF parsing and writing interoperability."},
+    {"name":"zlib","provider":"vcpkg","maintenance-group":"security-interop","quarterly-candidate":true,"update-mode":"automatic-candidate","required-features":[],"expose-version":false,"rationale":"Compressed data interoperability."},
+    {"name":"mdns","provider":"vcpkg","maintenance-group":"security-interop","quarterly-candidate":true,"update-mode":"automatic-candidate","required-features":[],"expose-version":false,"rationale":"MVR-xchange service discovery interoperability."},
+    {"name":"glew","provider":"vcpkg","maintenance-group":"stable-runtime","quarterly-candidate":false,"update-mode":"manual","required-features":[],"expose-version":false,"rationale":"Stable OpenGL runtime integration."},
+    {"name":"nanovg","provider":"vcpkg","maintenance-group":"stable-runtime","quarterly-candidate":false,"update-mode":"manual","required-features":[],"expose-version":false,"rationale":"Stable vector rendering runtime."},
+    {"name":"backward-cpp","provider":"vcpkg","maintenance-group":"stable-runtime","quarterly-candidate":false,"update-mode":"manual","required-features":[],"expose-version":false,"rationale":"Stable diagnostic runtime support."},
+    {"name":"gettext","provider":"vcpkg","maintenance-group":"build-tooling","quarterly-candidate":false,"update-mode":"manual","required-features":["tools"],"expose-version":false,"rationale":"Host-only localization build tools."}
+  ],
+  "bundled": [
+    {"name":"nlohmann/json","provider":"bundled","maintenance-group":"security-interop","quarterly-candidate":true,"update-mode":"notify-only","manual-replacement":true,"expose-version":false,"rationale":"Security awareness is automated, but the reviewed single header is replaced manually."},
+    {"name":"stb_easy_font","provider":"bundled","maintenance-group":"stable-runtime","quarterly-candidate":false,"update-mode":"manual","manual-replacement":true,"expose-version":false,"rationale":"Stable vendored source is reviewed and replaced manually."},
+    {"name":"Lucide selected SVG assets","provider":"bundled","maintenance-group":"visual","quarterly-candidate":false,"update-mode":"manual","manual-replacement":true,"expose-version":false,"rationale":"Selected and custom visual assets require manual visual review."},
+    {"name":"Noto Sans","provider":"bundled","maintenance-group":"visual","quarterly-candidate":false,"update-mode":"manual","manual-replacement":true,"expose-version":false,"rationale":"Bundled font assets require manual visual and licensing review."}
+  ],
+  "capabilities": [
+    {"name":"OpenGL/GLU","provider":"system","maintenance-group":"compatibility","update-mode":"platform","expose-version":false,"rationale":"Provided by platform graphics stacks."},
+    {"name":"GTK/libsecret","provider":"system","maintenance-group":"compatibility","update-mode":"platform","expose-version":false,"rationale":"Linux UI and secure-store capabilities follow distribution packages."},
+    {"name":"compiler/runtime libraries","provider":"system","maintenance-group":"compatibility","update-mode":"platform","expose-version":false,"rationale":"Toolchain capabilities follow supported platform environments."}
+  ],
+  "excluded": [{"name":"MVR/GDTF schemas and standards resources","provider":"standards","maintenance-group":"standards","update-mode":"excluded","expose-version":false,"rationale":"Standards resources follow specification review, not software dependency automation."}]
+}

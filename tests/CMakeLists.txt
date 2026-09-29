@@ -589,6 +589,12 @@ if(Python3_Interpreter_FOUND)
     add_repository_policy_test(DependencyDiscoveryOwnership ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_dependency_discovery_ownership.py
                                LABELS standard-strict policy cmake)
+    add_repository_policy_test(DependencyGovernance ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_dependency_governance.py
+                               LABELS standard-strict policy dependencies)
+    add_repository_policy_test(DependencyReviewWorkflow ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_dependency_review_workflow.py
+                               LABELS standard-strict policy dependencies ci)
     add_repository_policy_test(LocalizationBuildOwnership ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_localization_build_ownership.py
                                LABELS standard-strict policy cmake localization)

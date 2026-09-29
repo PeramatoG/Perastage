@@ -126,6 +126,14 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Added reproducible dependency metadata, policy-aware local and CI version
+  reporting, triplet-safe validation, and a safe quarterly draft-review
+  workflow with stronger checkout and policy safeguards that do not pin
+  changeable port revisions in tests. Local Windows reporting now reads
+  metadata from the standard classic-vcpkg installation-root layout.
+- Completed the supported Linux setup package lists for XML schema discovery
+  and native secure credential storage.
+
 - Made Inspector policy tests use the repository's portable Python test-tool
   launcher so they run consistently on Windows, macOS, and Linux CI hosts.
 

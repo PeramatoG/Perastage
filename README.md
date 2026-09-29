@@ -11,7 +11,7 @@
     <img alt="Total Downloads" src="https://img.shields.io/github/downloads/PeramatoG/Perastage/total?label=total%20downloads&style=flat-square">
   </a>
   <img alt="C++20" src="https://img.shields.io/badge/C%2B%2B-20-blue?style=flat-square">
-  <img alt="wxWidgets" src="https://img.shields.io/badge/wxWidgets-3.3.1-green?style=flat-square">
+  <img alt="wxWidgets" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FPeramatoG%2FPerastage%2Fmain%2F.github%2Fbadges%2Fwxwidgets.json&style=flat-square">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square">
   <a href="https://github.com/PeramatoG/Perastage/blob/main/LICENSE.txt">
     <img alt="License" src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue?style=flat-square">
