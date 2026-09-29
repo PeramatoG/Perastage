@@ -178,9 +178,21 @@ void CheckSearch() {
 void CheckSplitterRatios() {
   using gui::inspection::FormatSplitterRatio;
   using gui::inspection::ParseSplitterRatio;
+  constexpr double fallback = 0.42;
+
   assert(ParseSplitterRatio(FormatSplitterRatio(0.375), 0.25) == 0.375);
-  assert(ParseSplitterRatio(std::string("0.01"), 0.25) == 0.25);
-  assert(ParseSplitterRatio(std::string("not-a-number"), 0.4) == 0.4);
+  assert(ParseSplitterRatio(std::string("0.15"), fallback) == 0.15);
+  assert(ParseSplitterRatio(std::string("0.85"), fallback) == 0.85);
+  assert(ParseSplitterRatio(std::string("0.6250"), fallback) == 0.625);
+  assert(ParseSplitterRatio(std::string("5e-1"), fallback) == 0.5);
+
+  for (const std::string invalid : {
+           "0.1499", "0.8501", "",      "not-a-number", "0.5junk",
+           " 0.5",   "0.5 ",   "0,5",   "nan",          "inf",
+           "-inf",
+       })
+    assert(ParseSplitterRatio(invalid, fallback) == fallback);
+
   assert(ParseSplitterRatio(std::nullopt, 0.6) == 0.6);
   assert(ParseSplitterRatio(std::nullopt, 0.67) == 0.67);
   assert(FormatSplitterRatio(1.0) == "0.8500");

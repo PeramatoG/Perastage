@@ -1,10 +1,10 @@
 #include "inspector_models.h"
 
 #include <algorithm>
-#include <charconv>
 #include <cmath>
 #include <functional>
 #include <iomanip>
+#include <locale>
 #include <map>
 #include <sstream>
 #include <tuple>
@@ -290,11 +290,12 @@ double ParseSplitterRatio(const std::optional<std::string> &stored,
                           double fallback) {
   if (!stored)
     return fallback;
+
+  std::istringstream text(*stored);
+  text.imbue(std::locale::classic());
   double value = 0.0;
-  const auto parsed = std::from_chars(stored->data(),
-                                      stored->data() + stored->size(), value);
-  return parsed.ec == std::errc{} &&
-                 parsed.ptr == stored->data() + stored->size() &&
+  const bool parsed = static_cast<bool>(text >> std::noskipws >> value);
+  return parsed && text.peek() == std::char_traits<char>::eof() &&
                  std::isfinite(value) && value >= 0.15 && value <= 0.85
              ? value
              : fallback;
@@ -303,6 +304,7 @@ double ParseSplitterRatio(const std::optional<std::string> &stored,
 // Formats a normalized ratio with enough precision for stable round trips.
 std::string FormatSplitterRatio(double ratio) {
   std::ostringstream text;
+  text.imbue(std::locale::classic());
   text << std::fixed << std::setprecision(4)
        << std::clamp(ratio, 0.15, 0.85);
   return text.str();

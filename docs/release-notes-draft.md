@@ -56,6 +56,9 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
+- Restored macOS 15 build compatibility for persisted Inspector splitter
+  preferences while keeping their representation locale-independent.
+
 - Prevented a Windows crash when activating an embedded GDTF by deferring the
   source transition until the package-tree activation callback has returned,
   avoiding destructive model replacement during native event dispatch. Nested
