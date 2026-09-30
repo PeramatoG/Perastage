@@ -20,5 +20,15 @@ struct SceneObjectToTrussConversionResult {
   std::vector<std::string> convertedUuids;
 };
 
+struct SceneObjectToTrussConversionScope {
+  std::string modelFile;
+  std::vector<std::string> sceneObjectUuids;
+};
+
+// Resolves the deterministic same-model conversion scope for one scene object.
+SceneObjectToTrussConversionScope ResolveSceneObjectsWithSameModelToTrusses(
+    const MvrScene &scene, const std::string &sourceSceneObjectUuid);
+
+// Converts all scene objects in the source object's resolved same-model scope.
 SceneObjectToTrussConversionResult ConvertSceneObjectsWithSameModelToTrusses(
     MvrScene &scene, const std::string &sourceSceneObjectUuid);

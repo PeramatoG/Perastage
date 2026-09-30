@@ -61,27 +61,50 @@ void RepointGroupChildrenToTrusses(MvrScene &scene,
 
 } // namespace
 
+// Resolves the deterministic same-model conversion scope for one scene object.
+SceneObjectToTrussConversionScope ResolveSceneObjectsWithSameModelToTrusses(
+    const MvrScene &scene, const std::string &sourceSceneObjectUuid) {
+  SceneObjectToTrussConversionScope scope;
+  const auto sourceIt = scene.sceneObjects.find(sourceSceneObjectUuid);
+  if (sourceIt == scene.sceneObjects.end())
+    return scope;
+
+  scope.modelFile = SceneObjectModelKey(sourceIt->second);
+  if (scope.modelFile.empty())
+    return scope;
+
+  for (const auto &[uuid, object] : scene.sceneObjects) {
+    if (SceneObjectModelKey(object) == scope.modelFile)
+      scope.sceneObjectUuids.push_back(uuid);
+  }
+  std::sort(scope.sceneObjectUuids.begin(), scope.sceneObjectUuids.end());
+  return scope;
+}
+
 // Converts all scene objects sharing the selected object's model into trusses.
 SceneObjectToTrussConversionResult ConvertSceneObjectsWithSameModelToTrusses(
     MvrScene &scene, const std::string &sourceSceneObjectUuid) {
   SceneObjectToTrussConversionResult result;
-  const auto sourceIt = scene.sceneObjects.find(sourceSceneObjectUuid);
-  if (sourceIt == scene.sceneObjects.end())
+  const SceneObjectToTrussConversionScope scope =
+      ResolveSceneObjectsWithSameModelToTrusses(scene, sourceSceneObjectUuid);
+  result.modelFile = scope.modelFile;
+  if (scope.sceneObjectUuids.empty())
     return result;
-
-  result.modelFile = SceneObjectModelKey(sourceIt->second);
-  if (result.modelFile.empty())
+  if (std::any_of(scope.sceneObjectUuids.begin(), scope.sceneObjectUuids.end(),
+                  [&](const std::string &uuid) {
+                    return scene.trusses.contains(uuid);
+                  }))
     return result;
 
   std::vector<SceneObject> objectsToConvert;
-  for (const auto &[uuid, object] : scene.sceneObjects) {
-    if (SceneObjectModelKey(object) == result.modelFile)
-      objectsToConvert.push_back(object);
-  }
+  objectsToConvert.reserve(scope.sceneObjectUuids.size());
+  for (const std::string &uuid : scope.sceneObjectUuids)
+    objectsToConvert.push_back(scene.sceneObjects.at(uuid));
 
   result.convertedUuids.reserve(objectsToConvert.size());
   for (const SceneObject &object : objectsToConvert) {
-    scene.trusses[object.uuid] = BuildTrussFromSceneObject(object, result.modelFile);
+    scene.trusses[object.uuid] =
+        BuildTrussFromSceneObject(object, result.modelFile);
     scene.sceneObjects.erase(object.uuid);
     result.convertedUuids.push_back(object.uuid);
   }
