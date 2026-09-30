@@ -47,12 +47,15 @@ int main() {
   const std::string help =
       "Usage: perastage-cli [--help | --version]\n"
       "       perastage-cli inspect <file> [--view <view> | --json]\n"
+      "       perastage-cli capabilities [--json]\n"
       "\n"
       "Options:\n"
       "  -h, --help  Show this help and exit.\n"
       "  --version   Show the CLI version and exit.\n"
       "\n"
       "Commands:\n"
+      "  capabilities  List semantic operations and current frontend "
+      "exposure.\n"
       "  inspect     Inspect a GDTF or MVR package.\n";
   const std::string inspectHelp =
       "Usage: perastage-cli inspect <file> [--view <view> | --json]\n\n"
@@ -81,6 +84,17 @@ int main() {
   passed &= CheckCase({"file.mvr"}, {2, "", usageError("file.mvr")});
   passed &= CheckCase({"--help", "extra"}, {2, "", usageError("extra")});
   passed &= CheckCase({"--version", "extra"}, {2, "", usageError("extra")});
+  passed &= CheckCase({"capabilities", "--bad"},
+                      {2, "",
+                       "perastage-cli capabilities: unknown option: --bad\nTry "
+                       "'perastage-cli capabilities --help' for usage.\n"});
+  passed &= CheckCase(
+      {"capabilities", "--help"},
+      {0,
+       "Usage: perastage-cli capabilities [--json]\n\nOptions:\n  "
+       "--json      Emit discovery schema version 1.\n  -h, --help  Show "
+       "this help and exit.\n",
+       ""});
   passed &= CheckCase({"inspect", "--help"}, {0, inspectHelp, ""});
   passed &=
       CheckCase({"inspect"},

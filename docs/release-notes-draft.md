@@ -41,6 +41,10 @@ Changes since **v1.6.0**.
   object, selection, layer, group, and fixture patch results, including one
   canonical patch-address interpretation, for future automation and headless
   integrations.
+- Added deterministic capability discovery for existing semantic Command and
+  Query operations, including argument types, effect classification, and
+  truthful frontend availability. The development CLI displays the catalog in
+  human-readable or versioned JSON form without loading or changing a project.
 - Migrated grouping, ungrouping, Fixture-to-Hoist conversion, and same-model
   SceneObject-to-Truss conversion to the shared semantic command layer. These
   actions now use one atomic Undo operation, preserve stable object identities,
