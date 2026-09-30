@@ -147,8 +147,9 @@ Changes since **v1.6.0**.
 
 - Moved Console fixture and truss selection semantics into the shared,
   GUI-independent command layer with stable UUID identities, deterministic
-  numeric-ID diagnostics, preserved chained-command behavior, and accurate
-  mutation reporting when a selection clear cannot be published.
+  numeric-ID diagnostics, deterministic removal of all selected fixtures that
+  share an ID, preserved chained-command behavior, and accurate mutation
+  reporting when a selection clear cannot be published.
 
 - Kept Linux build prerequisites centrally maintained and non-interactive on
   CI runners and compatibility containers, including isolated Python build

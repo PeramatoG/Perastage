@@ -65,10 +65,14 @@ identities. Fixture commands retain the prior fixture selection; matching the
 historical Console behavior, each truss command starts its target category
 empty before applying its ordered operations. Ranges and mixed add/remove
 operations are resolved in parser order. Missing numeric IDs remain successful
-no-ops with an information diagnostic. Duplicate fixture IDs or truss unit
-numbers previously selected whichever unordered-map entry happened to appear
-first when adding; that behavior was unsafe and nondeterministic. The adapter
-now emits `scene.selection.numeric_id_ambiguous` and skips the ambiguous ID.
+no-ops with an information diagnostic. An ADD with duplicate fixture IDs or
+truss unit numbers previously selected whichever unordered-map entry appeared
+first; because that behavior was unsafe and nondeterministic, the adapter emits
+`scene.selection.numeric_id_ambiguous` and skips the ADD. REMOVE instead
+resolves against the ordered current target selection and removes every
+selected object whose numeric ID matches, even when unselected scene objects
+share that ID. Both operations produce only stable object-kind and UUID
+references for semantic execution.
 
 `scene.selection.clear` retains the narrowly characterized embedded Console
 behavior: it clears fixtures, trusses, and scene objects but not supports. It

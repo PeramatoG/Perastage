@@ -164,6 +164,38 @@ int main() {
       std::get<text::SelectionCommand>(parsed.commands.front()), context);
   assert(result.Success() && selected.fixtures == beforeAmbiguous);
   assert(HasDiagnostic(result, "scene.selection.numeric_id_ambiguous"));
+
+  selected.fixtures = {first.uuid, duplicate.uuid, second.uuid};
+  const auto trussesBeforeDuplicateRemoval = selected.trusses;
+  const auto supportsBeforeDuplicateRemoval = selected.supports;
+  const auto objectsBeforeDuplicateRemoval = selected.sceneObjects;
+  parsed = text::ParseCommandLine("f - 1");
+  result = text::ExecuteSelection(
+      std::get<text::SelectionCommand>(parsed.commands.front()), context);
+  assert(result.Success());
+  assert(selected.fixtures == std::vector<std::string>({second.uuid}));
+  assert(!HasDiagnostic(result, "scene.selection.numeric_id_ambiguous"));
+  assert(selected.trusses == trussesBeforeDuplicateRemoval);
+  assert(selected.supports == supportsBeforeDuplicateRemoval);
+  assert(selected.sceneObjects == objectsBeforeDuplicateRemoval);
+
+  selected.fixtures = {first.uuid, second.uuid};
+  result = text::ExecuteSelection(
+      std::get<text::SelectionCommand>(parsed.commands.front()), context);
+  assert(result.Success());
+  assert(selected.fixtures == std::vector<std::string>({second.uuid}));
+  assert(!HasDiagnostic(result, "scene.selection.numeric_id_ambiguous"));
+
+  selected.fixtures.clear();
+  parsed = text::ParseCommandLine("f 2");
+  result = text::ExecuteSelection(
+      std::get<text::SelectionCommand>(parsed.commands.front()), context);
+  assert(result.Success());
+  assert(selected.fixtures == std::vector<std::string>({second.uuid}));
+  parsed = text::ParseCommandLine("f - 2");
+  result = text::ExecuteSelection(
+      std::get<text::SelectionCommand>(parsed.commands.front()), context);
+  assert(result.Success() && selected.fixtures.empty());
   scene.fixtures.erase(duplicate.uuid);
 
   Truss duplicateTruss = truss;
@@ -236,6 +268,8 @@ int main() {
   assert(!result.mutation.projectMetadataChanged);
   assert(!result.mutation.undoEntryRecorded);
   assert(!result.mutation.projectDirty);
+  assert(result.request.has_value());
+  assert(result.request->commandId == selection::kClearCommandId);
   assert(HasDiagnostic(result, "scene.selection.clear_failed"));
   host.fail = false;
 
