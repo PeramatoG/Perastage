@@ -139,6 +139,9 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Kept Linux build prerequisites centrally maintained while aligning packaging
+  policy validation with the shared installer used by the AppImage workflow.
+
 - Moved Console position and rotation execution into a reusable,
   GUI-independent semantic command boundary with transactional Undo, no-op,
   and rollback behavior while preserving existing Console syntax and results.
