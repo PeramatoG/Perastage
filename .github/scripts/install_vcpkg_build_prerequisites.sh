@@ -17,7 +17,7 @@ case "$platform" in
     "${apt[@]}" update
     packages=(
       build-essential cmake ninja-build pkg-config gettext autopoint python3-venv \
-      autoconf autoconf-archive automake libtool libltdl-dev curl unzip zip \
+      autoconf autoconf-archive automake bison libtool libltdl-dev curl unzip zip \
       libx11-dev libxau-dev libxdmcp-dev x11proto-dev libxi-dev libxtst-dev \
       libxrender-dev libgtk-3-dev libglib2.0-dev libsecret-1-dev \
       libpango1.0-dev libatk1.0-dev libcairo2-dev libgdk-pixbuf-2.0-dev \

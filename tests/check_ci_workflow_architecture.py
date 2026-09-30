@@ -106,7 +106,7 @@ assert '.github/scripts/install_vcpkg_build_prerequisites.sh linux' in remote
 assert '.github/scripts/install_vcpkg_build_prerequisites.sh macos' in remote
 linux_packages = [
     'build-essential', 'cmake', 'ninja-build', 'pkg-config', 'python3-venv', 'autoconf',
-    'automake', 'libtool', 'libx11-dev', 'libxi-dev', 'libxtst-dev',
+    'automake', 'bison', 'libtool', 'libx11-dev', 'libxi-dev', 'libxtst-dev',
     'libxrender-dev', 'libgtk-3-dev', 'libglib2.0-dev', 'libsecret-1-dev',
     'libpango1.0-dev', 'libatk1.0-dev', 'libcairo2-dev',
     'libgdk-pixbuf-2.0-dev', 'libxkbcommon-dev', 'libgl1-mesa-dev',
