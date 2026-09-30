@@ -170,6 +170,14 @@ add_test(NAME CommandSelection COMMAND command_selection_test)
 set_perastage_test_labels(CommandSelection LAYER unit
                           DOMAINS command architecture)
 
+add_executable(command_scene_tools_test command_scene_tools_test.cpp)
+target_link_libraries(command_scene_tools_test PRIVATE
+                      perastage_command_scene_tools
+                      perastage_mvr_scene_model)
+add_test(NAME CommandSceneTools COMMAND command_scene_tools_test)
+set_perastage_test_labels(CommandSceneTools LAYER unit
+                          DOMAINS command architecture)
+
 add_executable(command_json_serializer_test command_json_serializer_test.cpp)
 target_include_directories(command_json_serializer_test PRIVATE ../third_party)
 target_link_libraries(command_json_serializer_test
@@ -488,6 +496,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(CommandTextParserBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_text_parser_boundary.sh LABELS standard-strict architecture core command)
     add_bash_policy_test(CommandTransformBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_transform_boundary.sh LABELS standard-strict architecture core command)
     add_bash_policy_test(CommandSelectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_selection_boundary.sh LABELS standard-strict architecture core command)
+    add_bash_policy_test(CommandSceneToolsBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_scene_tools_boundary.sh LABELS standard-strict architecture core command)
     add_bash_policy_test(InspectionTargetBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_target_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_serialization_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionReportSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_report_serialization_boundary.sh LABELS standard-strict architecture core inspection gdtf mvr)

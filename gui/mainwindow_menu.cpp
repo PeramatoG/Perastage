@@ -83,8 +83,6 @@
 #include "rigging_extra_weight_settings.h"
 #include "riggingpanel.h"
 #include "scene_grouping.h"
-#include "scene_node_operations.h"
-#include "scene_object_truss_converter.h"
 #include "scene_object_primitive_creation.h"
 #include "scene_object_primitive_dialogs.h"
 #include "sceneobjecttablepanel.h"
@@ -601,100 +599,6 @@ void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
   if (layerPanel)
     layerPanel->ReloadLayers();
   RefreshAfterSceneChange();
-}
-
-// Converts selected fixtures into hoist supports.
-void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
-  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  const auto selected = cfg.GetSelectedFixtures();
-  if (selected.empty()) {
-    wxMessageBox(_("Please select fixtures to convert first."), _("Convert to Hoist"),
-                 wxOK | wxICON_INFORMATION);
-    return;
-  }
-
-  auto &scene = cfg.GetScene();
-  std::vector<std::string> convertible;
-  for (const auto &uuid : selected) {
-    if (scene.fixtures.contains(uuid) && !scene.supports.contains(uuid))
-      convertible.push_back(uuid);
-  }
-  if (convertible.empty()) {
-    wxMessageBox(_("The selected fixtures cannot be converted."),
-                 _("Convert to Hoist"), wxOK | wxICON_INFORMATION);
-    return;
-  }
-  cfg.PushUndoState("convert fixtures to hoists");
-
-  std::vector<std::string> newIds;
-  for (const auto &uuid : convertible) {
-    const auto result =
-        scene_node_operations::ConvertFixtureToSupport(scene, uuid);
-    if (result.changed)
-      newIds.push_back(result.uuid);
-  }
-
-  cfg.SetSelectedSupports(newIds);
-  cfg.SetSelectedFixtures({});
-
-  if (fixturePanel)
-    fixturePanel->ReloadData();
-  if (hoistPanel)
-    hoistPanel->ReloadData();
-  if (viewportPanel) {
-    viewportPanel->UpdateScene();
-    viewportPanel->Refresh();
-  }
-  RefreshSummary();
-  RefreshRigging();
-
-  wxMessageBox(
-      wxString::Format(_("Converted %zu fixture(s) to hoists."), newIds.size()),
-      _("Convert to Hoist"), wxOK | wxICON_INFORMATION);
-}
-
-// Converts selected scene objects sharing the same model file into trusses.
-void MainWindow::OnConvertSceneObjectsToTruss(wxCommandEvent &WXUNUSED(event)) {
-  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  const auto selected = cfg.GetSelectedSceneObjects();
-  if (selected.empty()) {
-    wxMessageBox(_("Please select a scene object to convert first."),
-                 _("Convert Scene Objects to Truss"), wxOK | wxICON_INFORMATION);
-    return;
-  }
-
-  cfg.PushUndoState("convert scene objects to trusses");
-  auto &scene = cfg.GetScene();
-  const SceneObjectToTrussConversionResult result =
-      ConvertSceneObjectsWithSameModelToTrusses(scene, selected.front());
-  if (result.convertedUuids.empty()) {
-    wxMessageBox(_("No scene objects with a valid model file were converted."),
-                 _("Convert Scene Objects to Truss"), wxOK | wxICON_INFORMATION);
-    return;
-  }
-
-  cfg.SetSelectedSceneObjects({});
-  cfg.SetSelectedTrusses(result.convertedUuids);
-
-  if (sceneObjPanel)
-    sceneObjPanel->ReloadData();
-  if (trussPanel)
-    trussPanel->ReloadData();
-  if (viewportPanel) {
-    viewportPanel->UpdateScene();
-    viewportPanel->Refresh();
-  }
-  if (viewport2DPanel) {
-    viewport2DPanel->UpdateScene();
-    viewport2DPanel->Refresh();
-  }
-  RefreshSummary();
-  RefreshRigging();
-
-  wxMessageBox(wxString::Format(_("Converted %zu scene object(s) with model '%s' to truss."),
-                                result.convertedUuids.size(),
-                                wxString::FromUTF8(result.modelFile).c_str()),
-               _("Convert Scene Objects to Truss"), wxOK | wxICON_INFORMATION);
 }
 
 // Runs the fixture symbol generation tool when the feature is enabled.

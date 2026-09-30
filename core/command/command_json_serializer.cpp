@@ -51,11 +51,17 @@ std::string SerializeResultToJson(const Result &result) {
   for (const Diagnostic &diagnostic : result.diagnostics)
     diagnostics.push_back(SerializeDiagnostic(diagnostic));
 
+  nlohmann::json outputs = nlohmann::json::array();
+  for (const Argument &output : result.outputs) {
+    outputs.push_back(
+        {{"id", output.id}, {"value", SerializeValue(output.value)}});
+  }
   nlohmann::json serialized{{"schema_version", kCommandJsonSchemaVersion},
                             {"request", nullptr},
                             {"outcome", OutcomeToken(result.outcome)},
                             {"diagnostics", std::move(diagnostics)},
-                            {"mutation", SerializeMutation(result.mutation)}};
+                            {"mutation", SerializeMutation(result.mutation)},
+                            {"outputs", std::move(outputs)}};
   if (result.request)
     serialized["request"] = SerializeRequest(*result.request);
   return serialized.dump();

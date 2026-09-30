@@ -17,10 +17,12 @@
  */
 #include "mainwindow.h"
 
+#include "command/command_scene_tools.h"
 #include "configmanager.h"
 #include "fixturetablepanel.h"
 #include "guiconfigservices.h"
 #include "hoisttablepanel.h"
+#include "project_mutation_host.h"
 #include "scene_grouping.h"
 #include "sceneobjecttablepanel.h"
 #include "selection_movement_settings.h"
@@ -48,13 +50,13 @@ BuildGroupingSelection(const ConfigManager &cfg) {
           .sceneObjects = cfg.GetSelectedSceneObjects()};
 }
 
-// Applies a grouping operation result to the persistent selection state.
+// Applies semantic selection state to the persistent project adapter.
 void ApplyGroupingResultSelection(
-    ConfigManager &cfg, const scene_grouping::OperationResult &result) {
-  cfg.SetSelectedFixtures(result.affectedFixtures);
-  cfg.SetSelectedTrusses(result.affectedTrusses);
-  cfg.SetSelectedSupports(result.affectedSupports);
-  cfg.SetSelectedSceneObjects(result.affectedSceneObjects);
+    ConfigManager &cfg, const scene_grouping::ObjectSelection &selection) {
+  cfg.SetSelectedFixtures(selection.fixtures);
+  cfg.SetSelectedTrusses(selection.trusses);
+  cfg.SetSelectedSupports(selection.supports);
+  cfg.SetSelectedSceneObjects(selection.sceneObjects);
 }
 
 // Updates table selections after grouping without triggering redundant
@@ -98,16 +100,16 @@ void MainWindow::OnGroupSelection(wxCommandEvent &WXUNUSED(event)) {
   if (SelectionSize(selection) < 2)
     return;
 
-  cfg.PushUndoState("group selected elements");
-  scene_grouping::OperationResult result =
-      scene_grouping::GroupSelection(cfg.GetScene(), selection);
-  if (!result.changed) {
-    cfg.Undo();
+  scene_grouping::ObjectSelection semanticSelection = selection;
+  GuiProjectMutationHost mutationHost(cfg);
+  perastage::command::ExecutionContext context{cfg.GetScene(),
+                                               semanticSelection, mutationHost};
+  const auto result = perastage::command::scene_tools::ExecuteGroup(
+      {.objects = selection}, context);
+  if (!result.Success() || !result.mutation.sceneChanged)
     return;
-  }
 
-  ApplyGroupingResultSelection(cfg, result);
-  cfg.MarkDirty();
+  ApplyGroupingResultSelection(cfg, semanticSelection);
   RefreshAfterSceneChange(true);
   RefreshGroupingTableSelections(this, cfg);
   RefreshGroupingViewportHighlights(cfg);
@@ -121,16 +123,16 @@ void MainWindow::OnUngroupSelection(wxCommandEvent &WXUNUSED(event)) {
   if (SelectionSize(selection) == 0)
     return;
 
-  cfg.PushUndoState("ungroup selected elements");
-  scene_grouping::OperationResult result =
-      scene_grouping::UngroupSelection(cfg.GetScene(), selection);
-  if (!result.changed) {
-    cfg.Undo();
+  scene_grouping::ObjectSelection semanticSelection = selection;
+  GuiProjectMutationHost mutationHost(cfg);
+  perastage::command::ExecutionContext context{cfg.GetScene(),
+                                               semanticSelection, mutationHost};
+  const auto result = perastage::command::scene_tools::ExecuteUngroup(
+      {.objects = selection}, context);
+  if (!result.Success() || !result.mutation.sceneChanged)
     return;
-  }
 
-  ApplyGroupingResultSelection(cfg, result);
-  cfg.MarkDirty();
+  ApplyGroupingResultSelection(cfg, semanticSelection);
   RefreshAfterSceneChange(true);
   RefreshGroupingTableSelections(this, cfg);
   RefreshGroupingViewportHighlights(cfg);

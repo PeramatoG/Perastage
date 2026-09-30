@@ -22,6 +22,8 @@ int main() {
       {DiagnosticSeverity::Warning, DiagnosticPhase::Validation,
        "command.test.warning", "Test warning.", "distance"});
   result.mutation = {true, true, false, true, true};
+  result.outputs.push_back(
+      {"affected_uuids", std::vector<std::string>{"a", "b"}});
 
   const std::string first = serialization::SerializeResultToJson(result);
   const std::string second = serialization::SerializeResultToJson(result);
@@ -40,6 +42,8 @@ int main() {
   assert(parsed["request"]["arguments"][6]["value"][1] == "b");
   assert(parsed["mutation"]["scene_changed"] == true);
   assert(parsed["mutation"]["undo_entry_recorded"] == true);
+  assert(parsed["outputs"][0]["id"] == "affected_uuids");
+  assert(parsed["outputs"][0]["value"][1] == "b");
 
   Result parseFailure{std::nullopt, Outcome::ParseError, {}, {}};
   parseFailure.diagnostics.push_back(

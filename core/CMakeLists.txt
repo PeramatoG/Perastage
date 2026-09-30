@@ -16,6 +16,17 @@ target_link_libraries(perastage_mvr_core_support
 add_library(perastage_scene_node_operations STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_node_operations.cpp
 )
+
+add_library(perastage_scene_object_truss_converter STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/scene_object_truss_converter.cpp
+)
+target_compile_features(perastage_scene_object_truss_converter PUBLIC cxx_std_20)
+target_include_directories(perastage_scene_object_truss_converter PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
+)
+target_link_libraries(perastage_scene_object_truss_converter
+    PUBLIC perastage_mvr_core_support
+)
 target_compile_features(perastage_scene_node_operations PUBLIC cxx_std_20)
 target_include_directories(perastage_scene_node_operations
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
@@ -44,6 +55,19 @@ add_library(perastage_command_transform STATIC
 
 add_library(perastage_command_selection STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/command/command_selection.cpp
+)
+add_library(perastage_command_scene_tools STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/command/command_scene_tools.cpp
+)
+target_compile_features(perastage_command_scene_tools PUBLIC cxx_std_20)
+target_include_directories(perastage_command_scene_tools PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
+)
+target_link_libraries(perastage_command_scene_tools PUBLIC
+    perastage_command_core
+    perastage_mvr_core_support
+    perastage_scene_node_operations
+    perastage_scene_object_truss_converter
 )
 target_compile_features(perastage_command_selection PUBLIC cxx_std_20)
 target_include_directories(perastage_command_selection PUBLIC
@@ -374,7 +398,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/rider_text_semantics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_clipboard.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_transform_integrity.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/scene_object_truss_converter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scenedatamanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/simplecrypt.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/Symbol2DImageBuilder.cpp

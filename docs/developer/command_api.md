@@ -121,10 +121,51 @@ project selection snapshot and publishes it through `PushUndoSnapshot`; it
 does not refresh GUI state. Frontends use `MutationSummary::sceneChanged` to
 decide whether to refresh tables or viewers.
 
-The public `perastage-cli` remains read-only. External transform syntax is
-deferred until CMD-430 provides stable selectors and FRONT-510 provides
-explicit input/output ownership; the semantic executor itself is headless and
-does not depend on that future frontend.
+The public `perastage-cli` remains read-only. CMD-430 now provides stable
+selectors; external mutation remains deferred until FRONT-510 defines explicit
+project/file input and output ownership. The semantic executor itself is
+headless and does not depend on that future frontend.
+
+## Higher-level scene tools
+
+The `perastage_command_scene_tools` target exposes four stable semantic IDs:
+
+- `scene.group.create` and `scene.group.ungroup` take ordered
+  `fixture_uuids`, `truss_uuids`, `support_uuids`, and
+  `scene_object_uuids`. Creation outputs `group_uuid`; both operations output
+  the four ordered `affected_*_uuids` arrays.
+- `scene.convert.fixture_to_support` takes ordered, unique `fixture_uuids` and
+  outputs `converted_uuids` plus `cleared_motor_reference_uuids`.
+- `scene.convert.scene_objects_to_trusses` takes one
+  `source_scene_object_uuid`. Its intentionally explicit scope is every scene
+  object with the source object's existing model identity; it outputs
+  `converted_uuids` and `model_file`.
+
+All identities are stable UUIDs and all arguments are explicit. Conversion is
+destructive: it replaces the source node type while preserving UUID, placement,
+hierarchy metadata, and the existing Core service's cross-reference behavior.
+The commands validate their complete target scope before mutation, update the
+semantic selection, and publish exactly one Undo snapshot. True no-ops publish
+nothing, and publication failure restores scene and selection. Main-window
+handlers now only collect inputs, invoke these commands, present results, and
+refresh frontend views.
+
+### CMD-440 candidate audit
+
+| Candidate | Existing owner and production caller | Inputs and implicit state | Mutation, determinism, and decision |
+| --- | --- | --- | --- |
+| Group / ungroup | `scene_grouping`; group and ungroup main-window actions | Cross-table typed UUID selection; no preference | Mutates GroupObjects, hierarchy, layers and local metadata, then replaces selection with affected UUIDs. Deterministic except newly generated group UUID. Migrated. |
+| Add/remove group members | `scene_grouping`; drag/group interaction paths | Target group plus interaction-derived membership | The service is reusable, but its current production workflows do not form a standalone semantic command consumer. Deferred rather than creating an unused abstraction. |
+| Fixture to Support | `scene_node_operations`; Convert to Hoist action | Explicit fixture UUIDs; no preference | Destructively replaces node kind, preserves UUID and hierarchy, clears motor references deterministically, and selects supports. Migrated. |
+| Same-model SceneObject to Truss | scene-object truss converter; Convert Scene Objects action | Explicit source UUID; same-model scope is part of the established service | Destructively replaces all matching objects while preserving UUIDs; the adapter sorts converted UUID output and selection for deterministic ordering. Migrated. |
+| Whole/selected auto patch | `AutoPatcher`; Auto Patch action and rider import | Selection chooses scope; GUI currently supplies implicit default universe/channel | Overwrites DMX addresses and has mature topology/order rules, but the service returns no mutation/result characterization and the importer is a second non-transactional consumer. Deferred pending a focused result boundary rather than guessing change detection in Command Core. |
+| Line distribution | `fixture_line_distribution`; fixture-distribution dialogs and viewport actions | Ordered fixtures and line/spacing values, but edge extents and points are currently gathered by viewer/dialog workflows | Deterministic fixture transforms, with ordering significant. Deferred because not every exposed GUI variant has neutral geometry ownership; Command Core must not depend on viewer loaders or picking state. |
+
+Grouping previously pushed Undo before attempting the operation and then called
+Undo for a no-op. The semantic command intentionally produces the same final
+scene/history state without the transient, meaningless history operation.
+SceneObject conversion previously left a pre-pushed Undo entry when its source
+had no valid model; validation now produces no Undo entry.
 
 ## Results and diagnostics
 
@@ -139,6 +180,11 @@ Mutation summaries report only semantic facts: scene, selection, or project
 metadata changes; whether an Undo entry was recorded; and whether the project
 is dirty. Viewer, table, and other presentation refresh decisions belong to the
 frontend and must not enter this contract.
+
+The optional ordered `outputs` collection carries the same typed scalar and
+homogeneous-array values as request arguments. It is reserved for immediate
+machine-readable command results such as created or converted UUIDs, rather
+than arbitrary recursive JSON.
 
 ## Execution and transaction boundary
 
@@ -159,7 +205,7 @@ state.
 ## Machine schema
 
 Command JSON has `schema_version` 1 and the top-level members
-`schema_version`, `request`, `outcome`, `diagnostics`, and `mutation`. Arguments
+`schema_version`, `request`, `outcome`, `diagnostics`, `mutation`, and `outputs`. Arguments
 retain their JSON scalar or homogeneous-array types and their in-memory order;
 diagnostics also retain order. A parse failure without a request emits
 `"request": null`.

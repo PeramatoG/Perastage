@@ -50,6 +50,7 @@ struct Result {
   Outcome outcome = Outcome::Success;
   std::vector<Diagnostic> diagnostics;
   MutationSummary mutation;
+  std::vector<Argument> outputs;
 
   bool Success() const;
   bool HasWarnings() const;

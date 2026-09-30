@@ -6,6 +6,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/addressdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/columnselectiondialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/consolepanel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/project_mutation_host.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mouse_capture_ownership.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui_feature_flags.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/wx_text_utils.cpp
@@ -130,6 +131,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_truss_replace.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_gdtf_credentials.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_grouping.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_conversion.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_menu.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_fixture_distribution.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_scene_clipboard.cpp
@@ -183,6 +185,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     perastage_command_text_parser
     perastage_command_transform_text_adapter
     perastage_command_selection_text_adapter
+    perastage_command_scene_tools
     perastage_inspection_gdtf
     perastage_inspection_mvr
     perastage_inspection_nested_gdtf

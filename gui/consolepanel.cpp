@@ -25,7 +25,7 @@
 #include "guiconfigservices.h"
 #include "hoisttablepanel.h"
 #include "mainwindow.h"
-#include "project_fixture_identity.h"
+#include "project_mutation_host.h"
 #include "sceneobjecttablepanel.h"
 #include "selection_movement_settings.h"
 #include "trusstablepanel.h"
@@ -43,33 +43,6 @@
 #include <wx/stdpaths.h>
 
 namespace {
-
-class ConsoleProjectMutationHost final
-    : public perastage::command::ProjectMutationHost {
-public:
-  // Creates a Console mutation publisher backed by the active project.
-  explicit ConsoleProjectMutationHost(ConfigManager &config) : config_(config) {}
-
-  // Publishes the exact pre-command scene and selection as one Undo entry.
-  perastage::command::MutationPublication CommitMutation(
-      const MvrScene &sceneBefore,
-      const scene_grouping::ObjectSelection &selectionBefore,
-      const std::string &undoLabel) override {
-    SelectionState selection;
-    selection.SetSelectedFixtures(selectionBefore.fixtures);
-    selection.SetSelectedTrusses(selectionBefore.trusses);
-    selection.SetSelectedSupports(selectionBefore.supports);
-    selection.SetSelectedSceneObjects(selectionBefore.sceneObjects);
-    config_.PushUndoSnapshot(
-        sceneBefore, selection,
-        config_.GetValue(project_identity::kFixtureLabelOverridesConfigKey),
-        undoLabel);
-    return {true, config_.IsDirty()};
-  }
-
-private:
-  ConfigManager &config_;
-};
 
 enum class ConsoleMessageKind {
   Default,
@@ -522,7 +495,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
             .trusses = cfg.GetSelectedTrusses(),
             .supports = cfg.GetSelectedSupports(),
             .sceneObjects = cfg.GetSelectedSceneObjects()};
-        ConsoleProjectMutationHost mutationHost(cfg);
+        GuiProjectMutationHost mutationHost(cfg);
         perastage::command::ExecutionContext context{
             cfg.GetScene(), commandSelection, mutationHost};
         const auto result =
@@ -557,7 +530,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
             .trusses = cfg.GetSelectedTrusses(),
             .supports = cfg.GetSelectedSupports(),
             .sceneObjects = cfg.GetSelectedSceneObjects()};
-        ConsoleProjectMutationHost mutationHost(cfg);
+        GuiProjectMutationHost mutationHost(cfg);
         perastage::command::ExecutionContext context{
             cfg.GetScene(), commandSelection, mutationHost};
         const auto result =
@@ -596,7 +569,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           .trusses = cfg.GetSelectedTrusses(),
           .supports = cfg.GetSelectedSupports(),
           .sceneObjects = cfg.GetSelectedSceneObjects()};
-      ConsoleProjectMutationHost mutationHost(cfg);
+      GuiProjectMutationHost mutationHost(cfg);
       perastage::command::ExecutionContext context{
           cfg.GetScene(), commandSelection, mutationHost};
       const auto result = perastage::command::transform::Execute(
