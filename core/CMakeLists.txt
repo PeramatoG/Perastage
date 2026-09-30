@@ -13,6 +13,17 @@ target_link_libraries(perastage_mvr_core_support
     PRIVATE tinyxml2::tinyxml2 ${_wx_base_libs}
 )
 
+add_library(perastage_scene_node_operations STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/scene_node_operations.cpp
+)
+target_compile_features(perastage_scene_node_operations PUBLIC cxx_std_20)
+target_include_directories(perastage_scene_node_operations
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
+)
+target_link_libraries(perastage_scene_node_operations
+    PUBLIC perastage_mvr_core_support
+)
+
 add_library(perastage_inspection_core STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspection_contract.cpp
 )
@@ -27,6 +38,18 @@ target_include_directories(perastage_command_core PUBLIC
     ${CMAKE_SOURCE_DIR}/models
 )
 
+add_library(perastage_command_transform STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/command/command_transform.cpp
+)
+target_compile_features(perastage_command_transform PUBLIC cxx_std_20)
+target_include_directories(perastage_command_transform PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/models
+)
+target_link_libraries(perastage_command_transform
+    PUBLIC perastage_command_core perastage_mvr_core_support
+)
+
 add_library(perastage_command_text_parser STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/command/command_text_parser.cpp
 )
@@ -36,6 +59,17 @@ target_include_directories(perastage_command_text_parser PUBLIC
 )
 target_link_libraries(perastage_command_text_parser
     PUBLIC perastage_command_core
+)
+
+add_library(perastage_command_transform_text_adapter STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/command/command_transform_text_adapter.cpp
+)
+target_compile_features(perastage_command_transform_text_adapter PUBLIC cxx_std_20)
+target_include_directories(perastage_command_transform_text_adapter PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_link_libraries(perastage_command_transform_text_adapter
+    PUBLIC perastage_command_text_parser perastage_command_transform
 )
 
 add_library(perastage_command_serialization STATIC
@@ -239,6 +273,7 @@ target_link_libraries(perastage_inspection_report_serialization
 target_link_libraries(${PROJECT_NAME} PRIVATE
     perastage_gdtf_read
     perastage_runtime_storage
+    perastage_scene_node_operations
 )
 
 target_sources(${PROJECT_NAME} PRIVATE
@@ -315,7 +350,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/rider_fixture_resolution.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rider_text_semantics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_clipboard.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/scene_node_operations.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_transform_integrity.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_object_truss_converter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scenedatamanager.cpp

@@ -16,14 +16,14 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "consolepanel.h"
+#include "command/command_transform_text_adapter.h"
 #include "command/command_text_parser.h"
 #include "configmanager.h"
 #include "fixturetablepanel.h"
 #include "guiconfigservices.h"
 #include "hoisttablepanel.h"
 #include "mainwindow.h"
-#include "matrixutils.h"
-#include "scene_grouping.h"
+#include "project_fixture_identity.h"
 #include "sceneobjecttablepanel.h"
 #include "selection_movement_settings.h"
 #include "trusstablepanel.h"
@@ -41,6 +41,33 @@
 #include <wx/stdpaths.h>
 
 namespace {
+
+class ConsoleProjectMutationHost final
+    : public perastage::command::ProjectMutationHost {
+public:
+  // Creates a Console mutation publisher backed by the active project.
+  explicit ConsoleProjectMutationHost(ConfigManager &config) : config_(config) {}
+
+  // Publishes the exact pre-transform scene and selection as one Undo entry.
+  perastage::command::MutationPublication CommitMutation(
+      const MvrScene &sceneBefore,
+      const scene_grouping::ObjectSelection &selectionBefore,
+      const std::string &undoLabel) override {
+    SelectionState selection;
+    selection.SetSelectedFixtures(selectionBefore.fixtures);
+    selection.SetSelectedTrusses(selectionBefore.trusses);
+    selection.SetSelectedSupports(selectionBefore.supports);
+    selection.SetSelectedSceneObjects(selectionBefore.sceneObjects);
+    config_.PushUndoSnapshot(
+        sceneBefore, selection,
+        config_.GetValue(project_identity::kFixtureLabelOverridesConfigKey),
+        undoLabel);
+    return {true, config_.IsDirty()};
+  }
+
+private:
+  ConfigManager &config_;
+};
 
 enum class ConsoleMessageKind {
   Default,
@@ -71,6 +98,16 @@ FormatParseDiagnostic(const perastage::command::Diagnostic &diagnostic) {
   if (diagnostic.code == "command_text.unknown_command")
     return prefix + "Syntax error";
   return prefix + wxString::FromUTF8(diagnostic.message);
+}
+
+// Formats one semantic command diagnostic for Console presentation.
+wxString FormatCommandDiagnostic(
+    const perastage::command::Diagnostic &diagnostic) {
+  if (diagnostic.code == "scene.transform.no_effective_targets")
+    return "[ERROR] Invalid transform: provide finite numeric values, valid "
+           "modifiers, and a non-empty selection.";
+  return ConsoleDiagnosticPrefix(diagnostic.severity) +
+         wxString::FromUTF8(diagnostic.message);
 }
 
 ConsoleMessageKind DetectMessageKind(const wxString &message) {
@@ -504,185 +541,6 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           }
         };
 
-    auto computeSelectionBoundsCenterMm =
-        [&]() -> std::optional<std::array<float, 3>> {
-      auto &scene = cfg.GetScene();
-      bool hasAny = false;
-      std::array<float, 3> minCorner{};
-      std::array<float, 3> maxCorner{};
-      auto expandBounds = [&](const std::array<float, 3> &positionMm) {
-        if (!hasAny) {
-          minCorner = positionMm;
-          maxCorner = positionMm;
-          hasAny = true;
-          return;
-        }
-        for (size_t axis = 0; axis < 3; ++axis) {
-          minCorner[axis] = std::min(minCorner[axis], positionMm[axis]);
-          maxCorner[axis] = std::max(maxCorner[axis], positionMm[axis]);
-        }
-      };
-      const scene_grouping::ObjectSelection selection{
-          .fixtures = cfg.GetSelectedFixtures(),
-          .trusses = cfg.GetSelectedTrusses(),
-          .supports = cfg.GetSelectedSupports(),
-          .sceneObjects = cfg.GetSelectedSceneObjects()};
-      for (const auto &target :
-           scene_grouping::BuildInteractiveTransformTargets(
-               scene, selection, interactiveTransformPolicy))
-        expandBounds(scene_grouping::GetTargetWorldTransform(scene, target).o);
-      if (!hasAny)
-        return std::nullopt;
-      return std::array<float, 3>{
-          (minCorner[0] + maxCorner[0]) * 0.5f,
-          (minCorner[1] + maxCorner[1]) * 0.5f,
-          (minCorner[2] + maxCorner[2]) * 0.5f,
-      };
-    };
-
-    auto buildEffectiveSelection = [&]() {
-      return scene_grouping::ObjectSelection{
-          .fixtures = cfg.GetSelectedFixtures(),
-          .trusses = cfg.GetSelectedTrusses(),
-          .supports = cfg.GetSelectedSupports(),
-          .sceneObjects = cfg.GetSelectedSceneObjects()};
-    };
-
-    auto hasEffectiveTargets = [&]() {
-      return !scene_grouping::BuildInteractiveTransformTargets(
-                  cfg.GetScene(), buildEffectiveSelection(),
-                  interactiveTransformPolicy)
-                  .empty();
-    };
-
-    auto applyPosEffective = [&](MvrScene &scene, int axis,
-                                 const std::vector<float> &vals, bool relative,
-                                 transform_space::TransformSpace space =
-                                     transform_space::TransformSpace::World) {
-      if (vals.empty())
-        return;
-      const auto targets = scene_grouping::BuildInteractiveTransformTargets(
-          scene, buildEffectiveSelection(), interactiveTransformPolicy);
-      const size_t n = targets.size();
-      if (n == 0)
-        return;
-      const float start = vals[0] * 1000.0f;
-      const float end = (vals.size() > 1 ? vals[1] : vals[0]) * 1000.0f;
-      for (size_t i = 0; i < n; ++i) {
-        const float value = (vals.size() > 1 && n > 1)
-                                ? start + (end - start) *
-                                              static_cast<float>(i) /
-                                              static_cast<float>(n - 1)
-                                : start;
-        Matrix transform =
-            scene_grouping::GetTargetWorldTransform(scene, targets[i]);
-        if (relative) {
-          std::array<float, 3> delta{0.0f, 0.0f, 0.0f};
-          delta[axis] = value;
-          transform = transform_space::ApplyIncrementalTranslation(
-              transform, delta, space);
-        } else {
-          transform.o[axis] = value;
-        }
-        scene_grouping::SetTargetWorldTransform(scene, targets[i], transform);
-      }
-    };
-
-    auto applyRotEffective = [&](MvrScene &scene, int axis,
-                                 const std::vector<float> &vals, bool relative,
-                                 transform_space::TransformSpace space =
-                                     transform_space::TransformSpace::World) {
-      if (vals.empty())
-        return;
-      const auto targets = scene_grouping::BuildInteractiveTransformTargets(
-          scene, buildEffectiveSelection(), interactiveTransformPolicy);
-      const size_t n = targets.size();
-      if (n == 0)
-        return;
-      const float start = vals[0];
-      const float end = vals.size() > 1 ? vals[1] : vals[0];
-      int eAxis = 0;
-      switch (axis) {
-      case 0:
-        eAxis = 2;
-        break;
-      case 1:
-        eAxis = 1;
-        break;
-      default:
-        eAxis = 0;
-        break;
-      }
-      for (size_t i = 0; i < n; ++i) {
-        const float angle = (vals.size() > 1 && n > 1)
-                                ? start + (end - start) *
-                                              static_cast<float>(i) /
-                                              static_cast<float>(n - 1)
-                                : start;
-        Matrix transform =
-            scene_grouping::GetTargetWorldTransform(scene, targets[i]);
-        Matrix rotated;
-        if (relative) {
-          Matrix delta = MatrixUtils::Identity();
-          if (axis == 0)
-            delta = MatrixUtils::EulerToMatrix(0.0f, 0.0f, angle);
-          else if (axis == 1)
-            delta = MatrixUtils::EulerToMatrix(0.0f, angle, 0.0f);
-          else
-            delta = MatrixUtils::EulerToMatrix(angle, 0.0f, 0.0f);
-          rotated = transform_space::ApplyIncrementalRotation(transform, delta,
-                                                              space);
-        } else {
-          auto e = MatrixUtils::MatrixToEuler(transform);
-          e[eAxis] = angle;
-          rotated = MatrixUtils::ApplyRotationPreservingScale(
-              transform, MatrixUtils::EulerToMatrix(e[0], e[1], e[2]),
-              transform.o);
-        }
-        scene_grouping::SetTargetWorldTransform(scene, targets[i], rotated);
-      }
-    };
-
-    auto rotateEffectiveAroundPivot =
-        [&](MvrScene &scene, int axis, float angleDeg,
-            const std::array<float, 3> &pivotMm,
-            transform_space::TransformSpace space) {
-          scene_grouping::RotateSelectionAroundPivot(
-              scene, buildEffectiveSelection(), axis, angleDeg, pivotMm, space,
-              interactiveTransformPolicy);
-        };
-
-    auto executeTransform = [&](const std::string &undoLabel,
-                                const auto &operation) {
-      MvrScene preview = cfg.GetScene();
-      operation(preview);
-      const auto targets = scene_grouping::BuildInteractiveTransformTargets(
-          cfg.GetScene(), buildEffectiveSelection(),
-          interactiveTransformPolicy);
-      bool changed = false;
-      for (const auto &target : targets) {
-        const Matrix before =
-            scene_grouping::GetTargetWorldTransform(cfg.GetScene(), target);
-        const Matrix after =
-            scene_grouping::GetTargetWorldTransform(preview, target);
-        for (const auto &pair :
-             {std::pair{&before.u, &after.u}, std::pair{&before.v, &after.v},
-              std::pair{&before.w, &after.w}, std::pair{&before.o, &after.o}}) {
-          for (size_t component = 0; component < 3; ++component)
-            changed = changed || std::fabs((*pair.first)[component] -
-                                           (*pair.second)[component]) > 0.0001f;
-        }
-      }
-      if (!changed) {
-        AppendMessage(
-            wxString("[INFO] Transform is already at the requested value."));
-        return false;
-      }
-      cfg.PushUndoState(undoLabel);
-      operation(cfg.GetScene());
-      return true;
-    };
-
     auto refreshSelectionAfterTransform = [&]() {
       const auto selFixtures = cfg.GetSelectedFixtures();
       const auto selTrusses = cfg.GetSelectedTrusses();
@@ -757,42 +615,22 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
 
       const auto &transform =
           std::get<perastage::command::text::TransformCommand>(parsedCommand);
-      if (!hasEffectiveTargets()) {
-        AppendMessage(wxString(
-            "[ERROR] Invalid transform: provide finite numeric values, "
-            "valid modifiers, and a non-empty selection."));
+      scene_grouping::ObjectSelection commandSelection{
+          .fixtures = cfg.GetSelectedFixtures(),
+          .trusses = cfg.GetSelectedTrusses(),
+          .supports = cfg.GetSelectedSupports(),
+          .sceneObjects = cfg.GetSelectedSceneObjects()};
+      ConsoleProjectMutationHost mutationHost(cfg);
+      perastage::command::ExecutionContext context{
+          cfg.GetScene(), commandSelection, mutationHost};
+      const auto result = perastage::command::transform::Execute(
+          perastage::command::text::AdaptTransform(transform), context,
+          interactiveTransformPolicy);
+      for (const auto &diagnostic : result.diagnostics)
+        AppendMessage(FormatCommandDiagnostic(diagnostic));
+      if (!result.Success())
         return;
-      }
-      const bool isRotation =
-          transform.kind == perastage::command::text::TransformKind::Rotation;
-      bool applied = false;
-      if (isRotation && transform.components.size() == 1 &&
-          transform.components.front().group) {
-        const auto &component = transform.components.front();
-        const auto pivotMm = transform.pivotMm.value_or(
-            computeSelectionBoundsCenterMm().value_or(
-                std::array<float, 3>{0.0f, 0.0f, 0.0f}));
-        applied = executeTransform("cli rot", [&](MvrScene &targetScene) {
-          rotateEffectiveAroundPivot(targetScene, component.axis,
-                                     component.values.front(), pivotMm,
-                                     component.space);
-        });
-      } else {
-        applied = executeTransform(
-            isRotation ? "cli rot" : "cli pos", [&](MvrScene &targetScene) {
-              for (const auto &component : transform.components) {
-                if (isRotation)
-                  applyRotEffective(targetScene, component.axis,
-                                    component.values, component.relative,
-                                    component.space);
-                else
-                  applyPosEffective(targetScene, component.axis,
-                                    component.values, component.relative,
-                                    component.space);
-              }
-            });
-      }
-      if (applied)
+      if (result.mutation.sceneChanged)
         refreshSelectionAfterTransform();
     }
 

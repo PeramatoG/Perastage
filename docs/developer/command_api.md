@@ -15,13 +15,17 @@ structured diagnostic contract, while `perastage_command_core` never depends
 on the text parser. Raw Console strings and parsed adapter syntax are therefore
 not semantic `Request` objects.
 
-The embedded Console consumes this neutral parser and retains its current
-scene-dependent execution, selection resolution and mutation policy, Undo
-publication, and GUI refresh responsibilities. In particular, the parser
-records ordered selection operations but does not decide whether they replace
-or extend the current selection. CMD-420 and CMD-430 will migrate that
-execution and selection behavior to concrete semantic commands; the text
-parser does not prematurely define those contracts.
+The embedded Console consumes this neutral parser. The separate
+`perastage_command_transform_text_adapter` target depends on both the parser
+and semantic transform boundaries; the parser remains independently usable by
+syntax-only consumers and does not depend on scene execution. The adapter
+converts position values from the Console grammar's meters to semantic
+millimeters, then invokes `perastage_command_transform`. The Console owns
+project-context acquisition, structured-result presentation, and GUI refresh;
+it does not own reusable transform algorithms. Selection and `clear` execution
+remain Console-owned pending CMD-430. In particular, the parser records ordered
+selection operations but does not decide whether they replace or extend the
+current selection.
 
 ## Semantic requests and identifiers
 
@@ -43,6 +47,44 @@ localized:
 
 Concrete identifiers are introduced with concrete commands; Command Core does
 not maintain a speculative registry.
+
+## Scene transform commands
+
+The focused `perastage_command_transform` production target implements two
+stable operations: `scene.transform.position`, whose component values and
+ranges are explicitly millimeters, and `scene.transform.rotation`, whose
+component values and ranges are explicitly degrees.
+
+A typed command contains ordered X/Y/Z components. Each component retains its
+single value or interpolation range, relative/absolute mode, explicit `world`
+or `local` transform space, and the legacy group-pivot marker. An optional
+pivot is an explicit XYZ millimeter triplet. The deterministic generic
+`Request` projection uses axis-specific `_millimeters` or `_degrees` arguments
+plus `_relative`, `_space`, and `_group` arguments, followed by `pivot_mm` when
+present.
+
+Execution uses only the scene and current `ObjectSelection` supplied through
+`ExecutionContext`, plus an explicitly supplied `InteractiveTransformPolicy`.
+Relative transforms use the existing transform-space helpers. Absolute
+rotation retains the established Console Euler-axis mapping and preserves
+origin and scale. Group rotation uses either its explicit pivot or the center
+of the current effective targets' world origins.
+
+Every semantic transform runs through one `MutationTransaction`. A changed
+multi-axis command publishes one pre-mutation snapshot with the compatible
+`cli pos` or `cli rot` Undo label. A tolerance-equivalent no-op succeeds with
+an information diagnostic and publishes nothing. Publication failure restores
+the exact scene and selection captured before execution.
+
+The application-side mutation host converts neutral object selection to the
+project selection snapshot and publishes it through `PushUndoSnapshot`; it
+does not refresh GUI state. Frontends use `MutationSummary::sceneChanged` to
+decide whether to refresh tables or viewers.
+
+The public `perastage-cli` remains read-only. External transform syntax is
+deferred until CMD-430 provides stable selectors and FRONT-510 provides
+explicit input/output ownership; the semantic executor itself is headless and
+does not depend on that future frontend.
 
 ## Results and diagnostics
 

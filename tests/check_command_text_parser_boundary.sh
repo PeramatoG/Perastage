@@ -38,9 +38,9 @@ if [[ -z "$parser_target_configuration" ]]; then
   echo "Command text parser target configuration was not found." >&2
   exit 1
 fi
-if rg -ni '(wxwidgets|(^|[^a-z])wx([^a-z]|$)|gui|app|mainwindow|configmanager|igui|viewer2d|viewer3d|tablepanel|mvr|gdtf)' \
+if rg -ni '(wxwidgets|(^|[^a-z])wx([^a-z]|$)|gui|app|mainwindow|configmanager|igui|viewer2d|viewer3d|tablepanel|mvr|gdtf|command_transform|scene_grouping|scene_node_operations)' \
     <<<"$parser_target_configuration"; then
-  echo "Command text parser target has a forbidden CMake dependency or include path." >&2
+  echo "Command text parser target has a forbidden execution, scene, or frontend dependency." >&2
   exit 1
 fi
 if ! rg -q 'perastage_command_core' <<<"$parser_target_configuration"; then
