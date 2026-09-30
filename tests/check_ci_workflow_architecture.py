@@ -216,6 +216,16 @@ for needle in [
 assert 'runs-on: ubuntu-latest' not in linux_installer
 assert 'releases/download/continuous/linuxdeploy' not in linux_installer
 assert 'pull_request:' in linux_installer and '- vcpkg.json' in linux_installer
+for needle in [
+    'fetch cmake --x-stderr-status',
+    'APPIMAGE_CMAKE=$cmake_path',
+    'CMake >= 3.27',
+    '"$APPIMAGE_CMAKE" --preset wsl-x64-release',
+    '"$APPIMAGE_CMAKE" --build --preset wsl-release-stage',
+]:
+    assert needle in linux_installer, f'AppImage workflow must use vcpkg-managed CMake: {needle}'
+assert 'cmake --preset wsl-x64-release' not in linux_installer
+assert 'cmake --build --preset wsl-release-stage' not in linux_installer
 appimage_compiled_cache = linux_installer[
     linux_installer.index('Restore vcpkg installed packages and binary archives'):
     linux_installer.index('Prepare vcpkg folders')

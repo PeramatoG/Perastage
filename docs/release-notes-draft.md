@@ -141,8 +141,8 @@ Changes since **v1.6.0**.
 
 - Kept Linux build prerequisites centrally maintained and non-interactive on
   CI runners and compatibility containers, including isolated Python build
-  environments and host build tools required by dependencies, with aligned
-  packaging policy validation.
+  environments and pinned build tools required by dependencies, with aligned
+  packaging policy validation and consistent project generation.
 
 - Moved Console position and rotation execution into a reusable,
   GUI-independent semantic command boundary with transactional Undo, no-op,

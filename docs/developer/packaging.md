@@ -136,6 +136,9 @@ Raising this floor must be an explicit maintainer decision; it must never occur
 implicitly through an `ubuntu-latest` runner update. In particular, every
 vcpkg baseline change must continue to pass the AppImage compatibility build.
 Its Jammy/GCC 11 compiled caches are isolated from normal current-Linux caches.
+The lane resolves its project-build CMake through the pinned vcpkg toolchain so
+it can consume current package configurations; this build tool does not alter
+the Jammy/GCC 11 runtime ABI floor.
 The Arch package is intentionally separate and follows Arch Linux's rolling,
 current library environment rather than this portable compatibility contract.
 

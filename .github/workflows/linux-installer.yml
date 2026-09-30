@@ -160,6 +160,25 @@ jobs:
             --downloads-root "$VCPKG_DOWNLOADS" \
             --attempts 4 --initial-delay-seconds 30 --max-delay-seconds 120 \
             --log "$CI_LOG_DIR/vcpkg-install-x64-linux.log"
+
+      - name: Resolve vcpkg-managed CMake
+        run: |
+          set -euo pipefail
+          cmake_path="$("$VCPKG_ROOT/vcpkg" fetch cmake --x-stderr-status)"
+          test -n "$cmake_path" || { echo "vcpkg did not return a CMake executable path." >&2; exit 1; }
+          test -x "$cmake_path" || { echo "vcpkg-managed CMake is not executable: $cmake_path" >&2; exit 1; }
+          cmake_version="$("$cmake_path" --version | awk 'NR == 1 { print $3 }')"
+          echo "APPIMAGE_CMAKE=$cmake_path"
+          "$cmake_path" --version
+          python3 - "$cmake_version" <<'PY'
+          import sys
+
+          version = tuple(int(component) for component in sys.argv[1].split('.'))
+          if version < (3, 27):
+              raise SystemExit(f"AppImage project generation requires CMake >= 3.27, got {sys.argv[1]}")
+          PY
+          echo "APPIMAGE_CMAKE=$cmake_path" >> "$GITHUB_ENV"
+
       - name: Save vcpkg downloads cache
         if: ${{ steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v5
@@ -186,7 +205,7 @@ jobs:
       - name: Configure CMake
         run: |
           python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-linux.log" -- \
-            cmake --preset wsl-x64-release \
+            "$APPIMAGE_CMAKE" --preset wsl-x64-release \
               -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG -g" \
               -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
@@ -200,7 +219,7 @@ jobs:
 
       - name: Build staged distribution
         run: |
-          cmake --build --preset wsl-release-stage
+          "$APPIMAGE_CMAKE" --build --preset wsl-release-stage
 
           STAGE_DIR="out/install/Release"
           test -f "$STAGE_DIR/Perastage" || { echo "Missing staged executable: $STAGE_DIR/Perastage"; exit 1; }
