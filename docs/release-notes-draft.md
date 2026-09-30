@@ -139,9 +139,10 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
-- Kept Linux build prerequisites centrally maintained, non-interactive on CI
-  runners and compatibility containers, and aligned packaging policy validation
-  with the shared installer used by the AppImage workflow.
+- Kept Linux build prerequisites centrally maintained and non-interactive on
+  CI runners and compatibility containers, including isolated Python build
+  environments required by dependencies, with aligned packaging policy
+  validation.
 
 - Moved Console position and rotation execution into a reusable,
   GUI-independent semantic command boundary with transactional Undo, no-op,
