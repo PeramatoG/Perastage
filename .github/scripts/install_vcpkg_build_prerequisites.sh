@@ -6,9 +6,9 @@ platform="${1:-}"
 case "$platform" in
   linux|linux-appimage)
     if [ "$(id -u)" -eq 0 ]; then
-      apt=(apt-get)
+      apt=(env DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get)
     elif command -v sudo >/dev/null 2>&1; then
-      apt=(sudo apt-get)
+      apt=(sudo env DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get)
     else
       echo "Linux prerequisites require root or sudo." >&2
       exit 1

@@ -81,6 +81,8 @@ assert all('pull_request_target' not in text for text in all_workflows.values())
 assert all(not re.search(r'secrets\.[A-Z0-9_]*(?:PAT|PERSONAL_ACCESS_TOKEN)', text, re.IGNORECASE) for text in all_workflows.values())
 remote = all_workflows['vcpkg-binary-cache.yml']
 prerequisites = Path('.github/scripts/install_vcpkg_build_prerequisites.sh').read_text()
+assert 'apt=(env DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get)' in prerequisites, 'root Linux prerequisite installation must remain non-interactive'
+assert 'apt=(sudo env DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get)' in prerequisites, 'sudo Linux prerequisite installation must explicitly preserve the non-interactive environment'
 for needle in ['contents: read', 'packages: write', 'workflow_dispatch:', 'branches: [main]', '--mode readwrite', 'x64-windows', 'x64-linux', 'arm64-osx']:
     assert needle in remote, f'warming workflow is missing {needle}'
 for needle in ['concurrency:', 'group: perastage-vcpkg-binary-cache', 'cancel-in-progress: false']:
