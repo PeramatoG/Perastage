@@ -40,7 +40,9 @@ Changes since **v1.6.0**.
 - Migrated grouping, ungrouping, Fixture-to-Hoist conversion, and same-model
   SceneObject-to-Truss conversion to the shared semantic command layer. These
   actions now use one atomic Undo operation, preserve stable object identities,
-  and avoid empty history entries when an operation cannot make a change.
+  avoid empty history entries when an operation cannot make a change, and
+  prevent SceneObject conversion from replacing an existing truss that has a
+  conflicting identifier.
 
 - Made the read-only MVR / GDTF Inspector responsive on production-scale files
   with managed background inspection, latest-selection result safety, scalable

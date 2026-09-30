@@ -145,10 +145,13 @@ All identities are stable UUIDs and all arguments are explicit. Conversion is
 destructive: it replaces the source node type while preserving UUID, placement,
 hierarchy metadata, and the existing Core service's cross-reference behavior.
 The commands validate their complete target scope before mutation, update the
-semantic selection, and publish exactly one Undo snapshot. True no-ops publish
-nothing, and publication failure restores scene and selection. Main-window
-handlers now only collect inputs, invoke these commands, present results, and
-refresh frontend views.
+semantic selection, and publish exactly one Undo snapshot. Mutation summaries
+compare the ordered pre-command and post-command selections, so
+`selectionChanged` is independent from `sceneChanged`. Same-model truss
+conversion rejects the complete request before mutation if any target UUID is
+already owned by a truss. True no-ops publish nothing, and publication failure
+restores scene and selection. Main-window handlers now only collect inputs,
+invoke these commands, present results, and refresh frontend views.
 
 ### CMD-440 candidate audit
 

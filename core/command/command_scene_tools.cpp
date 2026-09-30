@@ -17,6 +17,14 @@ std::size_t ObjectCount(const scene_grouping::ObjectSelection &objects) {
          objects.supports.size() + objects.sceneObjects.size();
 }
 
+// Compares every ordered category in two semantic selections.
+bool EqualSelection(const scene_grouping::ObjectSelection &left,
+                    const scene_grouping::ObjectSelection &right) {
+  return left.fixtures == right.fixtures && left.trusses == right.trusses &&
+         left.supports == right.supports &&
+         left.sceneObjects == right.sceneObjects;
+}
+
 // Reports whether every requested identity exists in its declared container.
 bool ValidObjects(const MvrScene &scene,
                   const scene_grouping::ObjectSelection &objects) {
@@ -98,6 +106,7 @@ Result ExecuteGroup(const GroupCommand &command, ExecutionContext &context) {
     return result;
   }
   MutationTransaction transaction(context);
+  const scene_grouping::ObjectSelection selectionBefore = context.selection;
   try {
     const auto operation =
         scene_grouping::GroupSelection(context.scene, command.objects);
@@ -118,8 +127,9 @@ Result ExecuteGroup(const GroupCommand &command, ExecutionContext &context) {
         {"affected_support_uuids", operation.affectedSupports});
     result.outputs.push_back(
         {"affected_scene_object_uuids", operation.affectedSceneObjects});
-    result.mutation =
-        transaction.Commit({true, true}, "group selected elements");
+    result.mutation = transaction.Commit(
+        {true, !EqualSelection(selectionBefore, context.selection)},
+        "group selected elements");
   } catch (const std::exception &error) {
     return ExecutionFailure(std::move(result), "scene.group.failed",
                             std::string("Grouping failed: ") + error.what());
@@ -144,6 +154,7 @@ Result ExecuteUngroup(const GroupCommand &command, ExecutionContext &context) {
     return result;
   }
   MutationTransaction transaction(context);
+  const scene_grouping::ObjectSelection selectionBefore = context.selection;
   try {
     const auto operation =
         scene_grouping::UngroupSelection(context.scene, command.objects);
@@ -163,8 +174,9 @@ Result ExecuteUngroup(const GroupCommand &command, ExecutionContext &context) {
         {"affected_support_uuids", operation.affectedSupports});
     result.outputs.push_back(
         {"affected_scene_object_uuids", operation.affectedSceneObjects});
-    result.mutation =
-        transaction.Commit({true, true}, "ungroup selected elements");
+    result.mutation = transaction.Commit(
+        {true, !EqualSelection(selectionBefore, context.selection)},
+        "ungroup selected elements");
   } catch (const std::exception &error) {
     return ExecutionFailure(std::move(result), "scene.group.ungroup_failed",
                             std::string("Ungrouping failed: ") + error.what());
@@ -203,6 +215,7 @@ Result ExecuteFixtureToSupport(const FixtureToSupportCommand &command,
     return result;
   }
   MutationTransaction transaction(context);
+  const scene_grouping::ObjectSelection selectionBefore = context.selection;
   try {
     std::vector<std::string> cleared;
     for (const auto &uuid : command.fixtureUuids) {
@@ -220,8 +233,9 @@ Result ExecuteFixtureToSupport(const FixtureToSupportCommand &command,
     context.selection.supports = command.fixtureUuids;
     result.outputs.push_back({"converted_uuids", command.fixtureUuids});
     result.outputs.push_back({"cleared_motor_reference_uuids", cleared});
-    result.mutation =
-        transaction.Commit({true, true}, "convert fixtures to hoists");
+    result.mutation = transaction.Commit(
+        {true, !EqualSelection(selectionBefore, context.selection)},
+        "convert fixtures to hoists");
   } catch (const std::exception &error) {
     return ExecutionFailure(std::move(result), "scene.convert.fixture_failed",
                             std::string("Fixture conversion failed: ") +
@@ -248,27 +262,47 @@ Result ExecuteSceneObjectsToTrusses(const SceneObjectsToTrussesCommand &command,
          "source_scene_object_uuid"});
     return result;
   }
+  const SceneObjectToTrussConversionScope scope =
+      ResolveSceneObjectsWithSameModelToTrusses(context.scene,
+                                                command.sourceSceneObjectUuid);
+  if (scope.sceneObjectUuids.empty()) {
+    result.outcome = Outcome::ValidationError;
+    result.diagnostics.push_back(
+        {DiagnosticSeverity::Error, DiagnosticPhase::Validation,
+         "scene.convert.missing_model",
+         "The source scene object has no convertible model.",
+         "source_scene_object_uuid"});
+    return result;
+  }
+  const auto collision =
+      std::find_if(scope.sceneObjectUuids.begin(), scope.sceneObjectUuids.end(),
+                   [&](const std::string &uuid) {
+                     return context.scene.trusses.contains(uuid);
+                   });
+  if (collision != scope.sceneObjectUuids.end()) {
+    result.outcome = Outcome::ValidationError;
+    result.diagnostics.push_back({DiagnosticSeverity::Error,
+                                  DiagnosticPhase::Validation,
+                                  "scene.convert.truss_uuid_conflict",
+                                  "A scene object in the conversion scope "
+                                  "conflicts with an existing truss UUID.",
+                                  "source_scene_object_uuid"});
+    return result;
+  }
   MutationTransaction transaction(context);
+  const scene_grouping::ObjectSelection selectionBefore = context.selection;
   try {
     const auto conversion = ConvertSceneObjectsWithSameModelToTrusses(
         context.scene, command.sourceSceneObjectUuid);
-    if (conversion.convertedUuids.empty()) {
-      result.outcome = Outcome::ValidationError;
-      result.diagnostics.push_back(
-          {DiagnosticSeverity::Error, DiagnosticPhase::Validation,
-           "scene.convert.missing_model",
-           "The source scene object has no convertible model.",
-           "source_scene_object_uuid"});
-      return result;
-    }
     std::vector<std::string> convertedUuids = conversion.convertedUuids;
     std::sort(convertedUuids.begin(), convertedUuids.end());
     context.selection.sceneObjects.clear();
     context.selection.trusses = convertedUuids;
     result.outputs.push_back({"converted_uuids", convertedUuids});
     result.outputs.push_back({"model_file", conversion.modelFile});
-    result.mutation =
-        transaction.Commit({true, true}, "convert scene objects to trusses");
+    result.mutation = transaction.Commit(
+        {true, !EqualSelection(selectionBefore, context.selection)},
+        "convert scene objects to trusses");
   } catch (const std::exception &error) {
     return ExecutionFailure(std::move(result), "scene.convert.truss_failed",
                             std::string("Scene-object conversion failed: ") +
