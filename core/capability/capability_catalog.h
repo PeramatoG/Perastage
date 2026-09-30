@@ -63,6 +63,8 @@ const Descriptor *Find(std::string_view operationId);
 // Checks only the generic shape of a Command request against its descriptor.
 std::vector<RequestShapeIssue>
 ValidateRequestShape(const command::Request &request);
+// Maps one Command argument value to the stable capability type vocabulary.
+ArgumentType TypeOfArgumentValue(const command::ArgumentValue &value);
 
 const char *Token(OperationKind value);
 const char *Token(ArgumentType value);

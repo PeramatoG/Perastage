@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <set>
+#include <type_traits>
 
 namespace perastage::capability {
 namespace {
@@ -168,11 +169,32 @@ const std::vector<Descriptor> &Inventory() {
   return catalog;
 }
 
-// Maps a command value variant onto the capability type vocabulary.
-ArgumentType TypeOf(const command::ArgumentValue &value) {
-  return static_cast<ArgumentType>(value.index());
-}
 } // namespace
+
+// Maps one Command argument value to the stable capability type vocabulary.
+ArgumentType TypeOfArgumentValue(const command::ArgumentValue &value) {
+  return std::visit(
+      [](const auto &typedValue) {
+        using T = std::decay_t<decltype(typedValue)>;
+        if constexpr (std::is_same_v<T, bool>)
+          return ArgumentType::Boolean;
+        else if constexpr (std::is_same_v<T, std::int64_t>)
+          return ArgumentType::Int64;
+        else if constexpr (std::is_same_v<T, double>)
+          return ArgumentType::Float64;
+        else if constexpr (std::is_same_v<T, std::string>)
+          return ArgumentType::String;
+        else if constexpr (std::is_same_v<T, std::vector<std::int64_t>>)
+          return ArgumentType::Int64List;
+        else if constexpr (std::is_same_v<T, std::vector<double>>)
+          return ArgumentType::Float64List;
+        else {
+          static_assert(std::is_same_v<T, std::vector<std::string>>);
+          return ArgumentType::StringList;
+        }
+      },
+      value);
+}
 
 // Returns the immutable catalog in ascending operation-ID order.
 std::span<const Descriptor> Catalog() { return Inventory(); }
@@ -197,14 +219,16 @@ ValidateRequestShape(const command::Request &request) {
     return {{RequestShapeIssueKind::UnknownOperation, {}}};
   std::set<std::string_view> seen;
   for (const auto &argument : request.arguments) {
+    if (!seen.insert(argument.id).second) {
+      issues.push_back({RequestShapeIssueKind::DuplicateArgument, argument.id});
+      continue;
+    }
     const auto found = std::find_if(
         descriptor->arguments.begin(), descriptor->arguments.end(),
         [&](const A &candidate) { return candidate.id == argument.id; });
     if (found == descriptor->arguments.end())
       issues.push_back({RequestShapeIssueKind::UnknownArgument, argument.id});
-    else if (!seen.insert(argument.id).second)
-      issues.push_back({RequestShapeIssueKind::DuplicateArgument, argument.id});
-    else if (found->type != TypeOf(argument.value))
+    else if (found->type != TypeOfArgumentValue(argument.value))
       issues.push_back({RequestShapeIssueKind::WrongType, argument.id});
   }
   for (const A &argument : descriptor->arguments)

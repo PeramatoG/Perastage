@@ -160,6 +160,10 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Strengthened capability discovery contract coverage for exact operation
+  inventory, argument types, frontend exposure, JSON structure, CLI output,
+  and dependency boundaries.
+
 - Moved Console fixture and truss selection semantics into the shared,
   GUI-independent command layer with stable UUID identities, deterministic
   numeric-ID diagnostics, deterministic removal of all selected fixtures that

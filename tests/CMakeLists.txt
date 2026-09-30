@@ -11,6 +11,7 @@ enable_testing()
 
 add_executable(perastage_cli_runner_test perastage_cli_runner_test.cpp)
 target_link_libraries(perastage_cli_runner_test PRIVATE perastage_cli_support)
+target_include_directories(perastage_cli_runner_test PRIVATE ../third_party)
 target_compile_definitions(perastage_cli_runner_test PRIVATE
                            PERASTAGE_CLI_TEST_VERSION="${PROJECT_VERSION}")
 add_test(NAME PerastageCliRunner COMMAND perastage_cli_runner_test)

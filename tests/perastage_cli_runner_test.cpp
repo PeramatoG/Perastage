@@ -9,6 +9,11 @@
  */
 #include "cli_runner.h"
 
+#include "capability/capability_catalog.h"
+#include "capability/capability_json_serializer.h"
+#include "json.hpp"
+
+#include <array>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -36,6 +41,49 @@ bool CheckCase(const std::vector<std::string_view> &args,
                 << '\n';
       return false;
     }
+  }
+  return true;
+}
+
+// Verifies both real capability discovery paths against the shared catalog.
+bool CheckCapabilityDiscovery() {
+  const std::array<std::string_view, 1> humanArgs = {"capabilities"};
+  const std::array<std::string_view, 2> jsonArgs = {"capabilities", "--json"};
+  std::string previousHuman;
+  std::string previousJson;
+  for (int repetition = 0; repetition < 2; ++repetition) {
+    std::ostringstream humanOut;
+    std::ostringstream humanErr;
+    if (perastage::cli::Run(humanArgs, humanOut, humanErr) != 0 ||
+        !humanErr.str().empty() ||
+        humanOut.str().find(
+            "discovery only; development_cli does not execute") ==
+            std::string::npos)
+      return false;
+    for (const auto &descriptor : perastage::capability::Catalog())
+      if (humanOut.str().find(descriptor.operationId) == std::string::npos)
+        return false;
+
+    std::ostringstream jsonOut;
+    std::ostringstream jsonErr;
+    if (perastage::cli::Run(jsonArgs, jsonOut, jsonErr) != 0 ||
+        !jsonErr.str().empty() ||
+        jsonOut.str() != perastage::capability::SerializeCatalogJson())
+      return false;
+    const auto json = nlohmann::json::parse(jsonOut.str());
+    if (json.at("schema_version") != 1 ||
+        json.at("operations").size() != perastage::capability::Catalog().size())
+      return false;
+    for (std::size_t index = 0; index < perastage::capability::Catalog().size();
+         ++index)
+      if (json.at("operations")[index].at("operation_id") !=
+          perastage::capability::Catalog()[index].operationId)
+        return false;
+    if (repetition != 0 &&
+        (humanOut.str() != previousHuman || jsonOut.str() != previousJson))
+      return false;
+    previousHuman = humanOut.str();
+    previousJson = jsonOut.str();
   }
   return true;
 }
@@ -75,6 +123,7 @@ int main() {
   };
 
   bool passed = true;
+  passed &= CheckCapabilityDiscovery();
   passed &= CheckCase({}, {0, help, ""});
   passed &= CheckCase({"-h"}, {0, help, ""});
   passed &= CheckCase({"--help"}, {0, help, ""});
