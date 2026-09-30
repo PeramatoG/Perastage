@@ -17,6 +17,16 @@ std::size_t ObjectCount(const scene_grouping::ObjectSelection &objects) {
          objects.supports.size() + objects.sceneObjects.size();
 }
 
+// Reports whether any object kind repeats one of its UUID identities.
+bool HasDuplicateObjects(const scene_grouping::ObjectSelection &objects) {
+  const auto hasDuplicates = [](const std::vector<std::string> &uuids) {
+    return std::set<std::string>(uuids.begin(), uuids.end()).size() !=
+           uuids.size();
+  };
+  return hasDuplicates(objects.fixtures) || hasDuplicates(objects.trusses) ||
+         hasDuplicates(objects.supports) || hasDuplicates(objects.sceneObjects);
+}
+
 // Compares every ordered category in two semantic selections.
 bool EqualSelection(const scene_grouping::ObjectSelection &left,
                     const scene_grouping::ObjectSelection &right) {
@@ -95,14 +105,29 @@ BuildSceneObjectsToTrussesRequest(const SceneObjectsToTrussesCommand &command) {
 Result ExecuteGroup(const GroupCommand &command, ExecutionContext &context) {
   Result result;
   result.request = BuildGroupRequest(command, false);
-  if (ObjectCount(command.objects) < 2 ||
-      !ValidObjects(context.scene, command.objects)) {
+  if (!ValidObjects(context.scene, command.objects)) {
     result.outcome = Outcome::ValidationError;
     result.diagnostics.push_back(
         {DiagnosticSeverity::Error, DiagnosticPhase::Validation,
          "scene.group.invalid_objects",
          "Grouping requires at least two existing explicitly typed objects.",
          "fixture_uuids"});
+    return result;
+  }
+  if (HasDuplicateObjects(command.objects)) {
+    result.outcome = Outcome::ValidationError;
+    result.diagnostics.push_back(
+        {DiagnosticSeverity::Error, DiagnosticPhase::Validation,
+         "scene.group.duplicate_object",
+         "Grouping object UUIDs must be distinct within each object kind."});
+    return result;
+  }
+  if (ObjectCount(command.objects) < 2) {
+    result.outcome = Outcome::ValidationError;
+    result.diagnostics.push_back(
+        {DiagnosticSeverity::Error, DiagnosticPhase::Validation,
+         "scene.group.invalid_objects",
+         "Grouping requires at least two distinct typed objects."});
     return result;
   }
   MutationTransaction transaction(context);
@@ -274,19 +299,25 @@ Result ExecuteSceneObjectsToTrusses(const SceneObjectsToTrussesCommand &command,
          "source_scene_object_uuid"});
     return result;
   }
-  const auto collision =
-      std::find_if(scope.sceneObjectUuids.begin(), scope.sceneObjectUuids.end(),
-                   [&](const std::string &uuid) {
-                     return context.scene.trusses.contains(uuid);
-                   });
-  if (collision != scope.sceneObjectUuids.end()) {
+  std::vector<std::string> collisions;
+  for (const std::string &uuid : scope.sceneObjectUuids) {
+    if (context.scene.trusses.contains(uuid))
+      collisions.push_back(uuid);
+  }
+  if (!collisions.empty()) {
+    std::string message =
+        "Scene-object conversion conflicts with existing truss UUID(s): ";
+    for (std::size_t index = 0; index < collisions.size(); ++index) {
+      if (index != 0)
+        message += ", ";
+      message += collisions[index];
+    }
+    message += ".";
     result.outcome = Outcome::ValidationError;
-    result.diagnostics.push_back({DiagnosticSeverity::Error,
-                                  DiagnosticPhase::Validation,
-                                  "scene.convert.truss_uuid_conflict",
-                                  "A scene object in the conversion scope "
-                                  "conflicts with an existing truss UUID.",
-                                  "source_scene_object_uuid"});
+    result.diagnostics.push_back(
+        {DiagnosticSeverity::Error, DiagnosticPhase::Validation,
+         "scene.convert.truss_uuid_conflict", std::move(message),
+         "source_scene_object_uuid"});
     return result;
   }
   MutationTransaction transaction(context);

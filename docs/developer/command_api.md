@@ -133,7 +133,10 @@ The `perastage_command_scene_tools` target exposes four stable semantic IDs:
 - `scene.group.create` and `scene.group.ungroup` take ordered
   `fixture_uuids`, `truss_uuids`, `support_uuids`, and
   `scene_object_uuids`. Creation outputs `group_uuid`; both operations output
-  the four ordered `affected_*_uuids` arrays.
+  the four ordered `affected_*_uuids` arrays. Group creation requires at least
+  two distinct typed identities; repeating a UUID within one object kind is a
+  `scene.group.duplicate_object` validation error rather than an instruction to
+  normalize the request.
 - `scene.convert.fixture_to_support` takes ordered, unique `fixture_uuids` and
   outputs `converted_uuids` plus `cleared_motor_reference_uuids`.
 - `scene.convert.scene_objects_to_trusses` takes one
@@ -149,9 +152,11 @@ semantic selection, and publish exactly one Undo snapshot. Mutation summaries
 compare the ordered pre-command and post-command selections, so
 `selectionChanged` is independent from `sceneChanged`. Same-model truss
 conversion rejects the complete request before mutation if any target UUID is
-already owned by a truss. True no-ops publish nothing, and publication failure
-restores scene and selection. Main-window handlers now only collect inputs,
-invoke these commands, present results, and refresh frontend views.
+already owned by a truss, and its diagnostic lists every conflicting UUID in
+deterministic order. True no-ops publish nothing, and publication failure
+restores scene and selection and returns no committed-result outputs.
+Main-window handlers now only collect inputs, invoke these commands, present
+results, and refresh frontend views.
 
 ### CMD-440 candidate audit
 

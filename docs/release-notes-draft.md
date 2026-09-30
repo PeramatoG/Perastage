@@ -42,7 +42,8 @@ Changes since **v1.6.0**.
   actions now use one atomic Undo operation, preserve stable object identities,
   avoid empty history entries when an operation cannot make a change, and
   prevent SceneObject conversion from replacing an existing truss that has a
-  conflicting identifier.
+  conflicting identifier. Invalid grouping requests with repeated objects are
+  rejected before changing the project.
 
 - Made the read-only MVR / GDTF Inspector responsive on production-scale files
   with managed background inspection, latest-selection result safety, scalable
