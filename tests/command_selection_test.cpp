@@ -166,6 +166,17 @@ int main() {
   assert(HasDiagnostic(result, "scene.selection.numeric_id_ambiguous"));
   scene.fixtures.erase(duplicate.uuid);
 
+  Truss duplicateTruss = truss;
+  duplicateTruss.uuid = "truss-b";
+  scene.trusses[duplicateTruss.uuid] = duplicateTruss;
+  selected.trusses = {truss.uuid};
+  parsed = text::ParseCommandLine("t 7");
+  result = text::ExecuteSelection(
+      std::get<text::SelectionCommand>(parsed.commands.front()), context);
+  assert(result.Success() && selected.trusses.empty());
+  assert(HasDiagnostic(result, "scene.selection.numeric_id_ambiguous"));
+  scene.trusses.erase(duplicateTruss.uuid);
+
   const size_t fixtureCount = scene.fixtures.size();
   const size_t trussCount = scene.trusses.size();
   selected.fixtures.clear();
@@ -216,6 +227,16 @@ int main() {
   result = selection::ExecuteClear(context);
   assert(result.outcome == Outcome::ExecutionError);
   assert(selected.fixtures == beforeFailedClear.fixtures);
+  assert(selected.trusses == beforeFailedClear.trusses);
+  assert(selected.supports == beforeFailedClear.supports);
+  assert(selected.sceneObjects == beforeFailedClear.sceneObjects);
+  assert(!result.mutation.HasSemanticChanges());
+  assert(!result.mutation.sceneChanged);
+  assert(!result.mutation.selectionChanged);
+  assert(!result.mutation.projectMetadataChanged);
+  assert(!result.mutation.undoEntryRecorded);
+  assert(!result.mutation.projectDirty);
+  assert(HasDiagnostic(result, "scene.selection.clear_failed"));
   host.fail = false;
 
   assert(scene.fixtures.size() == fixtureCount);

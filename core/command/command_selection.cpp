@@ -152,6 +152,7 @@ Result ExecuteClear(ExecutionContext &context) {
   } catch (const std::exception &error) {
     context.selection = before;
     result.outcome = Outcome::ExecutionError;
+    result.mutation = {};
     result.diagnostics.push_back(
         {DiagnosticSeverity::Error, DiagnosticPhase::Execution,
          "scene.selection.clear_failed",
@@ -159,6 +160,7 @@ Result ExecuteClear(ExecutionContext &context) {
   } catch (...) {
     context.selection = before;
     result.outcome = Outcome::ExecutionError;
+    result.mutation = {};
     result.diagnostics.push_back(
         {DiagnosticSeverity::Error, DiagnosticPhase::Execution,
          "scene.selection.clear_failed", "Selection clear failed."});

@@ -50,7 +50,7 @@ public:
   // Creates a Console mutation publisher backed by the active project.
   explicit ConsoleProjectMutationHost(ConfigManager &config) : config_(config) {}
 
-  // Publishes the exact pre-transform scene and selection as one Undo entry.
+  // Publishes the exact pre-command scene and selection as one Undo entry.
   perastage::command::MutationPublication CommitMutation(
       const MvrScene &sceneBefore,
       const scene_grouping::ObjectSelection &selectionBefore,

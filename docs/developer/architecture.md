@@ -157,8 +157,12 @@ transactional scene/selection mutation boundary; the focused
 remain responsible for presentation refresh. The separate
 `perastage_command_text_parser` adapter target owns reusable human Console
 grammar and depends toward the semantic diagnostic contract; Command Core does
-not depend on human syntax. The GUI Console consumes that parser while its
-scene execution remains pending the next command-migration stages. See
+not depend on human syntax. Semantic transform and fixture/truss selection
+algorithms are owned by the focused Command Core transform and selection
+targets. The selection text adapter resolves numeric Console IDs against an
+explicitly supplied scene. The GUI Console acquires project context, presents
+results, and refreshes GUI state; it no longer owns those reusable algorithms.
+External CLI scene mutation remains deferred. See
 [`command_api.md`](command_api.md) for the current contract.
 
 ## Tool and inspection contract
