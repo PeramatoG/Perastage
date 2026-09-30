@@ -27,13 +27,30 @@ produce identical results, independent of unordered-map insertion order.
 ## Patch diagnostics
 
 Addresses must be complete positive `universe.channel` values with channels in
-the range 1 through 512. The caller supplies a read-only footprint resolver,
-normally backed by an authoritative GDTF read context. Query Core never loads
+the range 1 through 512. Only ASCII decimal digits and exactly one dot are
+accepted: whitespace, signs, missing components, additional dots, trailing
+text, zero values, overflowing integers, and channels above 512 are invalid.
+This strict rule is owned by the shared Core `fixture_patch_address` primitive
+and is also used by AutoPatch and MVR merge patch-warning analysis, rather than being reinterpreted by Query Core. The caller supplies a
+read-only footprint resolver, normally backed by an authoritative GDTF read context. Query Core never loads
 or downloads a GDTF and never substitutes a one-channel footprint. It reports
 `scene.patch.invalid_address`, `scene.patch.unresolved_footprint`, and
 `scene.patch.range_exceeds_universe`. Conflicts contain the intersecting
-channel interval and two fixture UUIDs. This analysis does not change AutoPatch
-behavior.
+channel interval and two fixture UUIDs. An unresolved, zero, or negative
+footprint is represented by an empty `footprint` and
+`scene.patch.unresolved_footprint`; no range is invented. Fixtures are sorted by
+UUID before pairwise analysis, so conflicts are ordered by the first fixture
+UUID and then the second fixture UUID. This analysis does not change AutoPatch
+mutation behavior.
+
+## Identity and Command selection
+
+The neutral scene identity covers fixtures, trusses, supports, scene objects,
+and groups because Query results describe the complete scene hierarchy. The
+CMD-430 selection API deliberately retains its narrower selectable kind with
+only fixtures, trusses, supports, and scene objects. It converts those values
+explicitly to neutral identity tokens; a group cannot be expressed as a
+selection command target and cannot alias a fixture selection bucket.
 
 ## Validation provenance
 

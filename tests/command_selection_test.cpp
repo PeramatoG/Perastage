@@ -9,13 +9,19 @@
 
 using namespace perastage::command;
 
+template <typename T>
+concept HasGroupEnumerator = requires { T::Group; };
+
+static_assert(!HasGroupEnumerator<selection::ObjectKind>);
+
 namespace {
 
 class RecordingHost final : public ProjectMutationHost {
 public:
   // Records selection-clear publication while leaving ordinary selection local.
   MutationPublication
-  CommitMutation(const MvrScene &, const scene_grouping::ObjectSelection &before,
+  CommitMutation(const MvrScene &,
+                 const scene_grouping::ObjectSelection &before,
                  const std::string &undoLabel) override {
     selectionBefore = before;
     label = undoLabel;
@@ -39,9 +45,9 @@ Matrix At(float x) {
 }
 
 // Executes parsed commands in order like the embedded Console adapter.
-std::vector<Result> ExecuteLine(
-    const std::string &line, ExecutionContext &context,
-    const scene_grouping::InteractiveTransformPolicy &policy = {}) {
+std::vector<Result>
+ExecuteLine(const std::string &line, ExecutionContext &context,
+            const scene_grouping::InteractiveTransformPolicy &policy = {}) {
   std::vector<Result> results;
   const auto parsed = text::ParseCommandLine(line);
   assert(parsed.Success());
@@ -121,6 +127,42 @@ int main() {
   assert(result.request->commandId == selection::kUpdateCommandId);
   assert(result.request->arguments[0].id == "target_kind");
   assert(result.request->arguments[2].id == "operation_kinds");
+
+  selection::Command selectSupport;
+  selectSupport.target = selection::ObjectKind::Support;
+  selectSupport.preserveExisting = false;
+  selectSupport.operations = {
+      {selection::OperationKind::Add,
+       {{selection::ObjectKind::Support, support.uuid}}}};
+  result = selection::Execute(selectSupport, context);
+  assert(result.Success() &&
+         selected.supports == std::vector<std::string>({support.uuid}));
+  selection::Command selectObject;
+  selectObject.target = selection::ObjectKind::SceneObject;
+  selectObject.preserveExisting = false;
+  selectObject.operations = {
+      {selection::OperationKind::Add,
+       {{selection::ObjectKind::SceneObject, object.uuid}}}};
+  result = selection::Execute(selectObject, context);
+  assert(result.Success() &&
+         selected.sceneObjects == std::vector<std::string>({object.uuid}));
+  assert(host.publications == 0 && !result.mutation.sceneChanged &&
+         !result.mutation.projectDirty);
+
+  const scene_grouping::ObjectSelection beforeInvalidTarget = selected;
+  selection::Command invalidTarget;
+  invalidTarget.target = static_cast<selection::ObjectKind>(999);
+  invalidTarget.preserveExisting = false;
+  result = selection::Execute(invalidTarget, context);
+  assert(result.outcome == Outcome::ValidationError);
+  assert(HasDiagnostic(result, "scene.selection.invalid_target"));
+  assert(selected.fixtures == beforeInvalidTarget.fixtures &&
+         selected.trusses == beforeInvalidTarget.trusses &&
+         selected.supports == beforeInvalidTarget.supports &&
+         selected.sceneObjects == beforeInvalidTarget.sceneObjects);
+  assert(host.publications == 0 && !result.mutation.sceneChanged &&
+         !result.mutation.selectionChanged && !result.mutation.projectDirty &&
+         !result.mutation.undoEntryRecorded);
 
   result = selection::Execute(stable, context);
   assert(result.Success() && !result.mutation.selectionChanged);
@@ -221,8 +263,7 @@ int main() {
 
   chain = ExecuteLine("t 7 pos x ++1", context);
   assert(chain.size() == 2 && chain[1].Success());
-  assert(std::fabs(scene.trusses[truss.uuid].transform.o[0] - 1200.0f) <
-         0.01f);
+  assert(std::fabs(scene.trusses[truss.uuid].transform.o[0] - 1200.0f) < 0.01f);
 
   chain = ExecuteLine("f 2 + 1 - 2 pos y 2", context);
   assert(chain.size() == 2);

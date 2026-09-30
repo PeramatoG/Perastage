@@ -1,29 +1,50 @@
 #include "command_selection.h"
 
 #include "mvrscene.h"
+#include "scene_object_identity.h"
 
 #include <algorithm>
 #include <exception>
+#include <optional>
 
 namespace perastage::command::selection {
 namespace {
 
+// Converts a selectable Command kind to the broader neutral scene kind.
+std::optional<scene_identity::ObjectKind> ToSceneObjectKind(ObjectKind kind) {
+  switch (kind) {
+  case ObjectKind::Fixture:
+    return scene_identity::ObjectKind::Fixture;
+  case ObjectKind::Truss:
+    return scene_identity::ObjectKind::Truss;
+  case ObjectKind::Support:
+    return scene_identity::ObjectKind::Support;
+  case ObjectKind::SceneObject:
+    return scene_identity::ObjectKind::SceneObject;
+  }
+  return std::nullopt;
+}
+
+// Returns the shared stable token for a selectable Command kind.
+const char *KindToken(ObjectKind kind) {
+  const auto sceneKind = ToSceneObjectKind(kind);
+  return sceneKind ? scene_identity::KindToken(*sceneKind) : "invalid";
+}
+
 // Returns the selection bucket owned by an object kind.
-std::vector<std::string> &Bucket(scene_grouping::ObjectSelection &selection,
+std::vector<std::string> *Bucket(scene_grouping::ObjectSelection &selection,
                                  ObjectKind kind) {
   switch (kind) {
   case ObjectKind::Fixture:
-    return selection.fixtures;
+    return &selection.fixtures;
   case ObjectKind::Truss:
-    return selection.trusses;
+    return &selection.trusses;
   case ObjectKind::Support:
-    return selection.supports;
+    return &selection.supports;
   case ObjectKind::SceneObject:
-    return selection.sceneObjects;
-  case ObjectKind::Group:
-    return selection.fixtures;
+    return &selection.sceneObjects;
   }
-  return selection.fixtures;
+  return nullptr;
 }
 
 // Reports whether a UUID identifies an object of the declared scene kind.
@@ -37,8 +58,6 @@ bool Exists(const MvrScene &scene, const ObjectReference &object) {
     return scene.supports.contains(object.uuid);
   case ObjectKind::SceneObject:
     return scene.sceneObjects.contains(object.uuid);
-  case ObjectKind::Group:
-    return false;
   }
   return false;
 }
@@ -55,10 +74,9 @@ bool Equal(const scene_grouping::ObjectSelection &left,
 
 // Projects a typed selection update into the stable generic request contract.
 Request BuildRequest(const Command &command) {
-  Request request{
-      kUpdateCommandId,
-      {{"target_kind", std::string(scene_identity::KindToken(command.target))},
-       {"preserve_existing", command.preserveExisting}}};
+  Request request{kUpdateCommandId,
+                  {{"target_kind", std::string(KindToken(command.target))},
+                   {"preserve_existing", command.preserveExisting}}};
   std::vector<std::string> operationKinds;
   std::vector<std::string> objectKinds;
   std::vector<std::string> objectUuids;
@@ -66,7 +84,7 @@ Request BuildRequest(const Command &command) {
     for (const ObjectReference &object : operation.objects) {
       operationKinds.emplace_back(
           operation.kind == OperationKind::Add ? "add" : "remove");
-      objectKinds.emplace_back(scene_identity::KindToken(object.kind));
+      objectKinds.emplace_back(KindToken(object.kind));
       objectUuids.push_back(object.uuid);
     }
   }
@@ -80,6 +98,16 @@ Request BuildRequest(const Command &command) {
 Result Execute(const Command &command, ExecutionContext &context) {
   Result result;
   result.request = BuildRequest(command);
+  std::vector<std::string> *selected =
+      Bucket(context.selection, command.target);
+  if (selected == nullptr) {
+    result.outcome = Outcome::ValidationError;
+    result.diagnostics.push_back(
+        {DiagnosticSeverity::Error, DiagnosticPhase::Validation,
+         "scene.selection.invalid_target",
+         "The selection target kind is not supported.", "target_kind"});
+    return result;
+  }
   for (const Operation &operation : command.operations) {
     for (const ObjectReference &object : operation.objects) {
       if (object.kind != command.target || object.uuid.empty() ||
@@ -97,20 +125,19 @@ Result Execute(const Command &command, ExecutionContext &context) {
   }
 
   const scene_grouping::ObjectSelection before = context.selection;
-  auto &selected = Bucket(context.selection, command.target);
   if (!command.preserveExisting)
-    selected.clear();
+    selected->clear();
   for (const Operation &operation : command.operations) {
     for (const ObjectReference &object : operation.objects) {
       const auto found =
-          std::find(selected.begin(), selected.end(), object.uuid);
+          std::find(selected->begin(), selected->end(), object.uuid);
       if (operation.kind == OperationKind::Add) {
-        if (found == selected.end())
-          selected.push_back(object.uuid);
+        if (found == selected->end())
+          selected->push_back(object.uuid);
       } else {
-        selected.erase(
-            std::remove(selected.begin(), selected.end(), object.uuid),
-            selected.end());
+        selected->erase(
+            std::remove(selected->begin(), selected->end(), object.uuid),
+            selected->end());
       }
     }
   }

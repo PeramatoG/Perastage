@@ -1,9 +1,9 @@
 #include "query/scene_query.h"
 
+#include "fixture_patch_address.h"
 #include "mvrscene.h"
 
 #include <algorithm>
-#include <charconv>
 #include <map>
 #include <set>
 
@@ -49,27 +49,6 @@ FindReference(const MvrScene &scene, const std::string &uuid) {
   if (scene.groupObjects.contains(uuid))
     return {{scene_identity::ObjectKind::Group, uuid}};
   return std::nullopt;
-}
-
-// Parses a complete positive universe.channel address.
-std::optional<std::pair<int, int>> ParseAddress(const std::string &text) {
-  const std::size_t dot = text.find('.');
-  if (dot == std::string::npos || dot == 0 || dot + 1 == text.size() ||
-      text.find('.', dot + 1) != std::string::npos)
-    return std::nullopt;
-  int universe = 0;
-  int channel = 0;
-  const auto parse = [](std::string_view value, int &result) {
-    const auto converted =
-        std::from_chars(value.data(), value.data() + value.size(), result);
-    return converted.ec == std::errc{} &&
-           converted.ptr == value.data() + value.size();
-  };
-  if (!parse(std::string_view(text).substr(0, dot), universe) ||
-      !parse(std::string_view(text).substr(dot + 1), channel) || universe < 1 ||
-      channel < 1 || channel > 512)
-    return std::nullopt;
-  return {{universe, channel}};
 }
 
 // Appends all UUIDs in one selection bucket as typed references.
@@ -211,7 +190,7 @@ PatchStatus GetPatchStatus(const MvrScene &scene,
     PatchFixture status;
     status.uuid = fixture->uuid;
     status.rawAddress = fixture->address;
-    const auto address = ParseAddress(fixture->address);
+    const auto address = patch::ParseFixturePatchAddress(fixture->address);
     if (!address) {
       result.diagnostics.push_back(
           {"scene.patch.invalid_address",
@@ -219,8 +198,8 @@ PatchStatus GetPatchStatus(const MvrScene &scene,
            scene_identity::ObjectReference{scene_identity::ObjectKind::Fixture,
                                            fixture->uuid}});
     } else {
-      status.universe = address->first;
-      status.startChannel = address->second;
+      status.universe = address->universe;
+      status.startChannel = address->channel;
     }
     status.footprint =
         resolveFootprint ? resolveFootprint(*fixture) : std::nullopt;

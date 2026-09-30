@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "autopatcher.h"
+#include "fixture_patch_address.h"
 #include "gdtfloader.h"
 #include "patchmanager.h"
 #include <algorithm>
@@ -74,25 +75,6 @@ struct LogicalPatchPosition {
   double centerY = 0.0;
   int channels = 0;
 };
-
-// Parses a stored universe.channel patch address.
-std::optional<PatchManager::PatchAddress>
-ParsePatchAddress(const std::string &address) {
-  const size_t dotPos = address.find('.');
-  if (dotPos == std::string::npos || dotPos == 0 ||
-      dotPos + 1 >= address.size())
-    return std::nullopt;
-
-  try {
-    const int universe = std::stoi(address.substr(0, dotPos));
-    const int channel = std::stoi(address.substr(dotPos + 1));
-    if (universe < 1 || channel < 1 || channel > 512)
-      return std::nullopt;
-    return PatchManager::PatchAddress{universe, channel};
-  } catch (...) {
-    return std::nullopt;
-  }
-}
 
 // Resolves a fixture's footprint from its GDTF mode with a safe fallback.
 int ResolveFixtureChannelCount(const MvrScene &scene, const Fixture &fixture) {
@@ -437,11 +419,12 @@ FindNextAddressAfterHighestPatchedFixture(
   for (const auto &[uuid, fixture] : scene.fixtures) {
     if (ignoredUuids.contains(uuid))
       continue;
-    const auto startAddress = ParsePatchAddress(fixture.address);
-    if (!startAddress)
+    const auto parsedAddress =
+        perastage::patch::ParseFixturePatchAddress(fixture.address);
+    if (!parsedAddress)
       continue;
     const int absoluteStart =
-        (startAddress->universe - 1) * 512 + startAddress->channel;
+        (parsedAddress->universe - 1) * 512 + parsedAddress->channel;
     highestAbsoluteEnd = std::max(
         highestAbsoluteEnd,
         absoluteStart + ResolveFixtureChannelCount(scene, fixture) - 1);

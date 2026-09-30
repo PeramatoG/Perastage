@@ -150,6 +150,12 @@ target_link_libraries(scene_query_test PRIVATE perastage_query_core
 add_test(NAME SceneQuery COMMAND scene_query_test)
 set_perastage_test_labels(SceneQuery LAYER unit DOMAINS query architecture)
 
+add_executable(fixture_patch_address_test fixture_patch_address_test.cpp)
+target_include_directories(fixture_patch_address_test PRIVATE ../core)
+add_test(NAME FixturePatchAddress COMMAND fixture_patch_address_test)
+set_perastage_test_labels(FixturePatchAddress LAYER unit
+                          DOMAINS query core mvr)
+
 add_executable(command_mutation_transaction_test
                command_mutation_transaction_test.cpp)
 target_link_libraries(command_mutation_transaction_test

@@ -184,6 +184,9 @@ dirty a project, refresh UI, download resources, or resolve GUI preferences;
 Commands remain the sole shared mutation boundary. The leaf
 `scene_object_identity.h` contract gives Command and Query code the same typed
 UUID semantics without making Query depend on command execution.
+The neutral `fixture_patch_address.h` leaf owns strict parsing of stored DMX
+addresses for Query Core, AutoPatch, and MVR merge warning analysis; it has no
+scene mutation or presentation responsibility.
 
 The stable query identifiers are `scene.summary`, `scene.selection.get`,
 `scene.objects.list`, `scene.object.get`, `scene.layers.list`,

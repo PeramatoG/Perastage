@@ -18,6 +18,7 @@
 #include "mvr_merge_analyzer.h"
 
 #include "file_import_utils.h"
+#include "fixture_patch_address.h"
 #include "uuidutils.h"
 
 #include <algorithm>
@@ -151,35 +152,9 @@ SortedUuidKeys(const std::unordered_map<std::string, T> &objects) {
   return keys;
 }
 
-struct ParsedPatchAddress {
-  int universe = 0;
-  int channel = 0;
-};
-
-// Parses a fixture DMX address token into a valid universe and channel pair.
-std::optional<ParsedPatchAddress> ParseFixturePatchAddress(
-    const std::string &address) {
-  const std::string trimmed = TrimAscii(address);
-  if (trimmed.empty())
-    return std::nullopt;
-
-  const size_t dot = trimmed.find('.');
-  if (dot == std::string::npos)
-    return std::nullopt;
-
-  try {
-    const int universe = std::stoi(trimmed.substr(0, dot));
-    const int channel = std::stoi(trimmed.substr(dot + 1));
-    if (universe < 1 || channel < 1 || channel > 512)
-      return std::nullopt;
-    return ParsedPatchAddress{universe, channel};
-  } catch (...) {
-    return std::nullopt;
-  }
-}
-
 // Builds a stable string key for a parsed DMX patch address.
-std::string BuildPatchAddressKey(const ParsedPatchAddress &address) {
+std::string
+BuildPatchAddressKey(const perastage::patch::FixturePatchAddress &address) {
   return std::to_string(address.universe) + "." +
          std::to_string(address.channel);
 }
@@ -193,7 +168,8 @@ void AnalyzePatchAddressWarnings(const MvrScene &target,
       SortedUuidKeys(target.fixtures);
   for (const std::string &uuid : currentFixtureUuids) {
     const auto parsedAddress =
-        ParseFixturePatchAddress(target.fixtures.at(uuid).address);
+        perastage::patch::ParseFixturePatchAddress(
+            target.fixtures.at(uuid).address);
     if (!parsedAddress.has_value())
       continue;
     currentByAddress[BuildPatchAddressKey(*parsedAddress)].push_back(uuid);
@@ -205,7 +181,8 @@ void AnalyzePatchAddressWarnings(const MvrScene &target,
     if (analysis.skippedIncomingUuids.contains(incomingUuid))
       continue;
     const auto parsedAddress =
-        ParseFixturePatchAddress(imported.fixtures.at(incomingUuid).address);
+        perastage::patch::ParseFixturePatchAddress(
+            imported.fixtures.at(incomingUuid).address);
     if (!parsedAddress.has_value())
       continue;
 

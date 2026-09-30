@@ -1,7 +1,6 @@
 #pragma once
 
 #include "command/command_execution.h"
-#include "scene_object_identity.h"
 
 #include <string>
 #include <vector>
@@ -11,7 +10,7 @@ namespace perastage::command::selection {
 inline constexpr const char *kUpdateCommandId = "scene.selection.update";
 inline constexpr const char *kClearCommandId = "scene.selection.clear";
 
-using ObjectKind = scene_identity::ObjectKind;
+enum class ObjectKind { Fixture, Truss, Support, SceneObject };
 enum class OperationKind { Add, Remove };
 
 struct ObjectReference {

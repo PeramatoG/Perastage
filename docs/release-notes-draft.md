@@ -38,8 +38,9 @@ Changes since **v1.6.0**.
   structured diagnostics, efficient atomic scene mutation rollback, and
   deterministic machine-readable results for future command workflows.
 - Added a GUI-independent, read-only scene query foundation with deterministic
-  object, selection, layer, group, and fixture patch results for future
-  automation and headless integrations.
+  object, selection, layer, group, and fixture patch results, including one
+  canonical patch-address interpretation, for future automation and headless
+  integrations.
 - Migrated grouping, ungrouping, Fixture-to-Hoist conversion, and same-model
   SceneObject-to-Truss conversion to the shared semantic command layer. These
   actions now use one atomic Undo operation, preserve stable object identities,
