@@ -169,9 +169,40 @@ services. The shared GUI `GuiProjectMutationHost` is the application-side Undo
 publisher used by Console and current main-window command consumers; refresh
 and presentation remain frontend-owned. Auto patching and fixture distribution
 remain with their existing owners until their implicit scope/geometry inputs
-have neutral contracts. Query, capability, and external mutation frontends
-remain for later roadmap stages; external CLI scene mutation remains deferred. See
+have neutral contracts. Capability and external mutation frontends remain for
+later roadmap stages; external CLI scene mutation remains deferred. See
 [`command_api.md`](command_api.md) for the current contract.
+
+## Query contract
+
+Core owns the GUI-independent, read-only scene query boundary under
+`core/query/`. `perastage_query_core` accepts only an explicit `const MvrScene&`,
+the semantic `ObjectSelection`, and an optional caller-supplied fixture
+footprint resolver. It returns deliberate value descriptors and never exposes
+scene containers or pointers. Query operations cannot create Undo entries,
+dirty a project, refresh UI, download resources, or resolve GUI preferences;
+Commands remain the sole shared mutation boundary. The leaf
+`scene_object_identity.h` contract gives Command and Query code the same typed
+UUID semantics without making Query depend on command execution.
+The neutral `fixture_patch_address.h` leaf owns strict parsing of stored DMX
+addresses for Query Core, AutoPatch, and MVR merge warning analysis; it has no
+scene mutation or presentation responsibility.
+
+The stable query identifiers are `scene.summary`, `scene.selection.get`,
+`scene.objects.list`, `scene.object.get`, `scene.layers.list`,
+`scene.groups.list`, and `scene.patch.status`. Results use explicit stable
+sorting rules. Patch analysis owns strict parsing of the stored
+`universe.channel` form and interval overlap detection. Footprints are
+dependency-injected so Query Core does not depend on the viewer GDTF loader;
+invalid addresses, unresolved footprints, and ranges crossing channel 512 are
+reported explicitly rather than assigned guessed footprints. See
+[`query_api.md`](query_api.md) for result semantics.
+
+Inspection diagnostics remain separate. Existing Inspection Core reports are
+about the exact file or immutable byte source inspected and are not attached to
+an active scene that may since have changed. QRY-450 therefore exposes no
+validation report until a future active-project service can guarantee current
+provenance; Query Core does not duplicate the MVR/GDTF validators.
 
 ## Tool and inspection contract
 

@@ -87,7 +87,9 @@ not contribute sources to the GUI application. Every module above registers its 
 source list through its own `CMakeLists.txt`; `core/` additionally owns the
 focused `perastage_inspection_core` static library and links it into the
 inspection services and focused tests rather than compiling private copies of
-its implementation. Core also
+its implementation. Core also owns `perastage_query_core`, the read-only
+structured scene/project query boundary. It consumes neutral scene state and
+typed UUID identity without application or GUI dependencies. Core also
 owns the separate `perastage_inspection_serialization` static library, whose
 standard-C++ interface serializes existing neutral inspection results while its
 vendored JSON dependency remains private. The separate

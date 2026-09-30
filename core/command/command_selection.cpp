@@ -1,42 +1,50 @@
 #include "command_selection.h"
 
 #include "mvrscene.h"
+#include "scene_object_identity.h"
 
 #include <algorithm>
 #include <exception>
+#include <optional>
 
 namespace perastage::command::selection {
 namespace {
 
-// Returns the stable machine token for an object kind.
-const char *KindToken(ObjectKind kind) {
+// Converts a selectable Command kind to the broader neutral scene kind.
+std::optional<scene_identity::ObjectKind> ToSceneObjectKind(ObjectKind kind) {
   switch (kind) {
   case ObjectKind::Fixture:
-    return "fixture";
+    return scene_identity::ObjectKind::Fixture;
   case ObjectKind::Truss:
-    return "truss";
+    return scene_identity::ObjectKind::Truss;
   case ObjectKind::Support:
-    return "support";
+    return scene_identity::ObjectKind::Support;
   case ObjectKind::SceneObject:
-    return "scene_object";
+    return scene_identity::ObjectKind::SceneObject;
   }
-  return "invalid";
+  return std::nullopt;
+}
+
+// Returns the shared stable token for a selectable Command kind.
+const char *KindToken(ObjectKind kind) {
+  const auto sceneKind = ToSceneObjectKind(kind);
+  return sceneKind ? scene_identity::KindToken(*sceneKind) : "invalid";
 }
 
 // Returns the selection bucket owned by an object kind.
-std::vector<std::string> &Bucket(scene_grouping::ObjectSelection &selection,
+std::vector<std::string> *Bucket(scene_grouping::ObjectSelection &selection,
                                  ObjectKind kind) {
   switch (kind) {
   case ObjectKind::Fixture:
-    return selection.fixtures;
+    return &selection.fixtures;
   case ObjectKind::Truss:
-    return selection.trusses;
+    return &selection.trusses;
   case ObjectKind::Support:
-    return selection.supports;
+    return &selection.supports;
   case ObjectKind::SceneObject:
-    return selection.sceneObjects;
+    return &selection.sceneObjects;
   }
-  return selection.fixtures;
+  return nullptr;
 }
 
 // Reports whether a UUID identifies an object of the declared scene kind.
@@ -74,9 +82,8 @@ Request BuildRequest(const Command &command) {
   std::vector<std::string> objectUuids;
   for (const Operation &operation : command.operations) {
     for (const ObjectReference &object : operation.objects) {
-      operationKinds.emplace_back(operation.kind == OperationKind::Add
-                                      ? "add"
-                                      : "remove");
+      operationKinds.emplace_back(
+          operation.kind == OperationKind::Add ? "add" : "remove");
       objectKinds.emplace_back(KindToken(object.kind));
       objectUuids.push_back(object.uuid);
     }
@@ -91,34 +98,46 @@ Request BuildRequest(const Command &command) {
 Result Execute(const Command &command, ExecutionContext &context) {
   Result result;
   result.request = BuildRequest(command);
+  std::vector<std::string> *selected =
+      Bucket(context.selection, command.target);
+  if (selected == nullptr) {
+    result.outcome = Outcome::ValidationError;
+    result.diagnostics.push_back(
+        {DiagnosticSeverity::Error, DiagnosticPhase::Validation,
+         "scene.selection.invalid_target",
+         "The selection target kind is not supported.", "target_kind"});
+    return result;
+  }
   for (const Operation &operation : command.operations) {
     for (const ObjectReference &object : operation.objects) {
       if (object.kind != command.target || object.uuid.empty() ||
           !Exists(context.scene, object)) {
         result.outcome = Outcome::ValidationError;
-        result.diagnostics.push_back(
-            {DiagnosticSeverity::Error, DiagnosticPhase::Validation,
-             "scene.selection.invalid_object",
-             "A selection object must identify an existing object of the target kind.",
-             "object_uuids"});
+        result.diagnostics.push_back({DiagnosticSeverity::Error,
+                                      DiagnosticPhase::Validation,
+                                      "scene.selection.invalid_object",
+                                      "A selection object must identify an "
+                                      "existing object of the target kind.",
+                                      "object_uuids"});
         return result;
       }
     }
   }
 
   const scene_grouping::ObjectSelection before = context.selection;
-  auto &selected = Bucket(context.selection, command.target);
   if (!command.preserveExisting)
-    selected.clear();
+    selected->clear();
   for (const Operation &operation : command.operations) {
     for (const ObjectReference &object : operation.objects) {
-      const auto found = std::find(selected.begin(), selected.end(), object.uuid);
+      const auto found =
+          std::find(selected->begin(), selected->end(), object.uuid);
       if (operation.kind == OperationKind::Add) {
-        if (found == selected.end())
-          selected.push_back(object.uuid);
+        if (found == selected->end())
+          selected->push_back(object.uuid);
       } else {
-        selected.erase(std::remove(selected.begin(), selected.end(), object.uuid),
-                       selected.end());
+        selected->erase(
+            std::remove(selected->begin(), selected->end(), object.uuid),
+            selected->end());
       }
     }
   }
@@ -126,11 +145,13 @@ Result Execute(const Command &command, ExecutionContext &context) {
   if (!result.mutation.selectionChanged)
     result.diagnostics.push_back(
         {DiagnosticSeverity::Information, DiagnosticPhase::Execution,
-         "scene.selection.noop", "Selection is already in the requested state."});
+         "scene.selection.noop",
+         "Selection is already in the requested state."});
   return result;
 }
 
-// Clears the historically supported Console selection categories transactionally.
+// Clears the historically supported Console selection categories
+// transactionally.
 Result ExecuteClear(ExecutionContext &context) {
   Result result;
   result.request = Request{kClearCommandId, {}};

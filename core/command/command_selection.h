@@ -35,7 +35,8 @@ Request BuildRequest(const Command &command);
 // Applies UUID-based selection operations without mutating project content.
 Result Execute(const Command &command, ExecutionContext &context);
 
-// Clears the historically supported Console selection categories transactionally.
+// Clears the historically supported Console selection categories
+// transactionally.
 Result ExecuteClear(ExecutionContext &context);
 
 } // namespace perastage::command::selection
