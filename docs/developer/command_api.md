@@ -15,8 +15,11 @@ structured diagnostic contract, while `perastage_command_core` never depends
 on the text parser. Raw Console strings and parsed adapter syntax are therefore
 not semantic `Request` objects.
 
-The embedded Console consumes this neutral parser. Its focused transform
-adapter converts position values from the Console grammar's meters to semantic
+The embedded Console consumes this neutral parser. The separate
+`perastage_command_transform_text_adapter` target depends on both the parser
+and semantic transform boundaries; the parser remains independently usable by
+syntax-only consumers and does not depend on scene execution. The adapter
+converts position values from the Console grammar's meters to semantic
 millimeters, then invokes `perastage_command_transform`. The Console owns
 project-context acquisition, structured-result presentation, and GUI refresh;
 it does not own reusable transform algorithms. Selection and `clear` execution

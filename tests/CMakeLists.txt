@@ -152,10 +152,10 @@ add_test(NAME CommandMutationTransaction COMMAND command_mutation_transaction_te
 set_perastage_test_labels(CommandMutationTransaction LAYER unit
                           DOMAINS command architecture)
 
-add_executable(command_transform_test command_transform_test.cpp
-               ../core/scene_node_operations.cpp)
+add_executable(command_transform_test command_transform_test.cpp)
 target_link_libraries(command_transform_test PRIVATE
-                      perastage_command_text_parser perastage_command_transform
+                      perastage_command_transform_text_adapter
+                      perastage_command_transform
                       perastage_mvr_scene_model)
 add_test(NAME CommandTransform COMMAND command_transform_test)
 set_perastage_test_labels(CommandTransform LAYER unit

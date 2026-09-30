@@ -103,6 +103,9 @@ FormatParseDiagnostic(const perastage::command::Diagnostic &diagnostic) {
 // Formats one semantic command diagnostic for Console presentation.
 wxString FormatCommandDiagnostic(
     const perastage::command::Diagnostic &diagnostic) {
+  if (diagnostic.code == "scene.transform.no_effective_targets")
+    return "[ERROR] Invalid transform: provide finite numeric values, valid "
+           "modifiers, and a non-empty selection.";
   return ConsoleDiagnosticPrefix(diagnostic.severity) +
          wxString::FromUTF8(diagnostic.message);
 }

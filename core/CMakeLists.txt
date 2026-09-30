@@ -1,3 +1,11 @@
+add_library(perastage_scene_node_operations STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/scene_node_operations.cpp
+)
+target_compile_features(perastage_scene_node_operations PUBLIC cxx_std_20)
+target_include_directories(perastage_scene_node_operations
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
+)
+
 add_library(perastage_mvr_core_support STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_visual_color.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_fixture_category.cpp
@@ -9,7 +17,7 @@ target_include_directories(perastage_mvr_core_support
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
 )
 target_link_libraries(perastage_mvr_core_support
-    PUBLIC perastage_uuid
+    PUBLIC perastage_uuid perastage_scene_node_operations
     PRIVATE tinyxml2::tinyxml2 ${_wx_base_libs}
 )
 
@@ -41,14 +49,24 @@ target_link_libraries(perastage_command_transform
 
 add_library(perastage_command_text_parser STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/command/command_text_parser.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/command/command_transform_text_adapter.cpp
 )
 target_compile_features(perastage_command_text_parser PUBLIC cxx_std_20)
 target_include_directories(perastage_command_text_parser PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 target_link_libraries(perastage_command_text_parser
-    PUBLIC perastage_command_core perastage_command_transform
+    PUBLIC perastage_command_core
+)
+
+add_library(perastage_command_transform_text_adapter STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/command/command_transform_text_adapter.cpp
+)
+target_compile_features(perastage_command_transform_text_adapter PUBLIC cxx_std_20)
+target_include_directories(perastage_command_transform_text_adapter PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_link_libraries(perastage_command_transform_text_adapter
+    PUBLIC perastage_command_text_parser perastage_command_transform
 )
 
 add_library(perastage_command_serialization STATIC
@@ -328,7 +346,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/rider_fixture_resolution.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rider_text_semantics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_clipboard.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/scene_node_operations.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_transform_integrity.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_object_truss_converter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scenedatamanager.cpp

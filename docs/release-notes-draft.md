@@ -138,6 +138,9 @@ Changes since **v1.6.0**.
 - Moved Console position and rotation execution into a reusable,
   GUI-independent semantic command boundary with transactional Undo, no-op,
   and rollback behavior while preserving existing Console syntax and results.
+  The human-text parser remains independently reusable, and transform-space
+  regression coverage now follows the established yaw, pitch, and roll
+  convention on every supported platform.
 
 - Moved the Command Bar's human-text grammar into a reusable, GUI-independent
   parser while preserving current Console syntax and keeping selection policy
