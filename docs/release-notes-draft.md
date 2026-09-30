@@ -140,7 +140,8 @@ Changes since **v1.6.0**.
   and rollback behavior while preserving existing Console syntax and results.
   The human-text parser remains independently reusable, and transform-space
   regression coverage now follows the established yaw, pitch, and roll
-  convention on every supported platform.
+  convention on every supported platform. Read-only Core consumers remain
+  independent from generic scene-node mutation operations.
 
 - Moved the Command Bar's human-text grammar into a reusable, GUI-independent
   parser while preserving current Console syntax and keeping selection policy

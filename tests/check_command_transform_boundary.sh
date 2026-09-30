@@ -46,6 +46,17 @@ if ! rg -q 'perastage_command_core' <<<"$transform_configuration"; then
   exit 1
 fi
 
+scene_support_configuration="$(extract_target_configuration perastage_mvr_core_support)"
+scene_operations_configuration="$(extract_target_configuration perastage_scene_node_operations)"
+if rg -q 'perastage_scene_node_operations' <<<"$scene_support_configuration"; then
+  echo "Neutral MVR Core support must not inherit generic scene-node mutations." >&2
+  exit 1
+fi
+if ! rg -q 'perastage_mvr_core_support' <<<"$scene_operations_configuration"; then
+  echo "Scene-node operations must consume neutral MVR Core support." >&2
+  exit 1
+fi
+
 # The test target lives in a separate CMake file, so inspect its bounded block.
 command_test_configuration="$(awk '
   /add_executable\(command_transform_test([[:space:])]|$)/ { capture = 1 }
