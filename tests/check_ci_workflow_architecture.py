@@ -220,6 +220,11 @@ for needle in [
 assert 'runs-on: ubuntu-latest' not in linux_installer
 assert 'releases/download/continuous/linuxdeploy' not in linux_installer
 assert 'pull_request:' in linux_installer and '- vcpkg.json' in linux_installer
+appimage_smoke_test = Path('.github/scripts/smoke_test_appimage.sh').read_text()
+assert "xdotool search --onlyvisible --name '[Pp]erastage'" in appimage_smoke_test
+assert 'xdotool search --onlyvisible --pid "$app_pid"' not in appimage_smoke_test
+for needle in ['kill -0 "$app_pid"', 'xwininfo -root -tree', '_NET_WM_PID', 'WM_CLASS', 'Map State:']:
+    assert needle in appimage_smoke_test, f'AppImage smoke test is missing X11 validation or diagnostics: {needle}'
 for needle in [
     'fetch cmake --x-stderr-status',
     'APPIMAGE_CMAKE=$cmake_path',
