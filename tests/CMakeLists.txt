@@ -144,6 +144,12 @@ target_link_libraries(command_contract_test PRIVATE perastage_command_core)
 add_test(NAME CommandContract COMMAND command_contract_test)
 set_perastage_test_labels(CommandContract LAYER unit DOMAINS command architecture)
 
+add_executable(scene_query_test scene_query_test.cpp)
+target_link_libraries(scene_query_test PRIVATE perastage_query_core
+                      perastage_mvr_scene_model)
+add_test(NAME SceneQuery COMMAND scene_query_test)
+set_perastage_test_labels(SceneQuery LAYER unit DOMAINS query architecture)
+
 add_executable(command_mutation_transaction_test
                command_mutation_transaction_test.cpp)
 target_link_libraries(command_mutation_transaction_test
@@ -497,6 +503,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(CommandTransformBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_transform_boundary.sh LABELS standard-strict architecture core command)
     add_bash_policy_test(CommandSelectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_selection_boundary.sh LABELS standard-strict architecture core command)
     add_bash_policy_test(CommandSceneToolsBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_scene_tools_boundary.sh LABELS standard-strict architecture core command)
+    add_bash_policy_test(QueryCoreBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_query_core_boundary.sh LABELS standard-strict architecture core query)
     add_bash_policy_test(InspectionTargetBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_target_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_serialization_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionReportSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_report_serialization_boundary.sh LABELS standard-strict architecture core inspection gdtf mvr)

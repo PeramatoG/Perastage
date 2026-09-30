@@ -43,6 +43,15 @@ add_library(perastage_command_core STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/command/command_contract.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/command/command_mutation_transaction.cpp
 )
+
+add_library(perastage_query_core STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/query/scene_query.cpp
+)
+target_compile_features(perastage_query_core PUBLIC cxx_std_20)
+target_include_directories(perastage_query_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/models
+)
 target_compile_features(perastage_command_core PUBLIC cxx_std_20)
 target_include_directories(perastage_command_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

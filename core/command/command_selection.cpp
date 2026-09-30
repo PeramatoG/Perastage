@@ -8,21 +8,6 @@
 namespace perastage::command::selection {
 namespace {
 
-// Returns the stable machine token for an object kind.
-const char *KindToken(ObjectKind kind) {
-  switch (kind) {
-  case ObjectKind::Fixture:
-    return "fixture";
-  case ObjectKind::Truss:
-    return "truss";
-  case ObjectKind::Support:
-    return "support";
-  case ObjectKind::SceneObject:
-    return "scene_object";
-  }
-  return "invalid";
-}
-
 // Returns the selection bucket owned by an object kind.
 std::vector<std::string> &Bucket(scene_grouping::ObjectSelection &selection,
                                  ObjectKind kind) {
@@ -35,6 +20,8 @@ std::vector<std::string> &Bucket(scene_grouping::ObjectSelection &selection,
     return selection.supports;
   case ObjectKind::SceneObject:
     return selection.sceneObjects;
+  case ObjectKind::Group:
+    return selection.fixtures;
   }
   return selection.fixtures;
 }
@@ -50,6 +37,8 @@ bool Exists(const MvrScene &scene, const ObjectReference &object) {
     return scene.supports.contains(object.uuid);
   case ObjectKind::SceneObject:
     return scene.sceneObjects.contains(object.uuid);
+  case ObjectKind::Group:
+    return false;
   }
   return false;
 }
@@ -66,18 +55,18 @@ bool Equal(const scene_grouping::ObjectSelection &left,
 
 // Projects a typed selection update into the stable generic request contract.
 Request BuildRequest(const Command &command) {
-  Request request{kUpdateCommandId,
-                  {{"target_kind", std::string(KindToken(command.target))},
-                   {"preserve_existing", command.preserveExisting}}};
+  Request request{
+      kUpdateCommandId,
+      {{"target_kind", std::string(scene_identity::KindToken(command.target))},
+       {"preserve_existing", command.preserveExisting}}};
   std::vector<std::string> operationKinds;
   std::vector<std::string> objectKinds;
   std::vector<std::string> objectUuids;
   for (const Operation &operation : command.operations) {
     for (const ObjectReference &object : operation.objects) {
-      operationKinds.emplace_back(operation.kind == OperationKind::Add
-                                      ? "add"
-                                      : "remove");
-      objectKinds.emplace_back(KindToken(object.kind));
+      operationKinds.emplace_back(
+          operation.kind == OperationKind::Add ? "add" : "remove");
+      objectKinds.emplace_back(scene_identity::KindToken(object.kind));
       objectUuids.push_back(object.uuid);
     }
   }
@@ -96,11 +85,12 @@ Result Execute(const Command &command, ExecutionContext &context) {
       if (object.kind != command.target || object.uuid.empty() ||
           !Exists(context.scene, object)) {
         result.outcome = Outcome::ValidationError;
-        result.diagnostics.push_back(
-            {DiagnosticSeverity::Error, DiagnosticPhase::Validation,
-             "scene.selection.invalid_object",
-             "A selection object must identify an existing object of the target kind.",
-             "object_uuids"});
+        result.diagnostics.push_back({DiagnosticSeverity::Error,
+                                      DiagnosticPhase::Validation,
+                                      "scene.selection.invalid_object",
+                                      "A selection object must identify an "
+                                      "existing object of the target kind.",
+                                      "object_uuids"});
         return result;
       }
     }
@@ -112,13 +102,15 @@ Result Execute(const Command &command, ExecutionContext &context) {
     selected.clear();
   for (const Operation &operation : command.operations) {
     for (const ObjectReference &object : operation.objects) {
-      const auto found = std::find(selected.begin(), selected.end(), object.uuid);
+      const auto found =
+          std::find(selected.begin(), selected.end(), object.uuid);
       if (operation.kind == OperationKind::Add) {
         if (found == selected.end())
           selected.push_back(object.uuid);
       } else {
-        selected.erase(std::remove(selected.begin(), selected.end(), object.uuid),
-                       selected.end());
+        selected.erase(
+            std::remove(selected.begin(), selected.end(), object.uuid),
+            selected.end());
       }
     }
   }
@@ -126,11 +118,13 @@ Result Execute(const Command &command, ExecutionContext &context) {
   if (!result.mutation.selectionChanged)
     result.diagnostics.push_back(
         {DiagnosticSeverity::Information, DiagnosticPhase::Execution,
-         "scene.selection.noop", "Selection is already in the requested state."});
+         "scene.selection.noop",
+         "Selection is already in the requested state."});
   return result;
 }
 
-// Clears the historically supported Console selection categories transactionally.
+// Clears the historically supported Console selection categories
+// transactionally.
 Result ExecuteClear(ExecutionContext &context) {
   Result result;
   result.request = Request{kClearCommandId, {}};
