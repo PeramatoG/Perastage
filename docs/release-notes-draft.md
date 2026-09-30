@@ -64,6 +64,9 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
+- Restored GCC 11 compilation of the asynchronous update check while
+  preserving its existing background-check and busy-dialog behavior.
+
 - Restored macOS 15 build compatibility for persisted Inspector splitter
   preferences while keeping their representation locale-independent. Manually
   started compatibility builds now validate the branch selected by the maintainer

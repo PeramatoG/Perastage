@@ -923,7 +923,7 @@ void MainWindow::OnCheckForUpdates(wxCommandEvent &WXUNUSED(event)) {
   auto busyInfo = std::make_shared<wxBusyInfo>("Checking for updates...");
   auto disabler = std::make_shared<wxWindowDisabler>();
 
-  std::thread([this, busyInfo, disabler]() {
+  std::thread([this, busyInfo, disabler]() mutable {
     gui::update::AppUpdateService service;
     const gui::update::CheckResult result = service.CheckForUpdates();
 
