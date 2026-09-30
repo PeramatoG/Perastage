@@ -15,8 +15,8 @@ class AppImageAbiTest(unittest.TestCase):
         cases = [
             ("GLIBC", "2.35", False),
             ("GLIBC", "2.36", True),
-            ("GLIBCXX", "3.4.29", False),
-            ("GLIBCXX", "3.4.30", True),
+            ("GLIBCXX", "3.4.30", False),
+            ("GLIBCXX", "3.4.31", True),
             ("CXXABI", "1.3.13", False),
             ("CXXABI", "1.3.14", True),
         ]
@@ -36,12 +36,12 @@ Version definition section '.gnu.version_d' contains 2 entries:
 Version needs section '.gnu.version_r' contains 2 entries:
   Version: 1  File: libc.so.6  Cnt: 2
   0x0010:   Name: GLIBC_2.35  Flags: none  Version: 4
-  0x0020:   Name: GLIBCXX_3.4.29  Flags: none  Version: 3
+  0x0020:   Name: GLIBCXX_3.4.30  Flags: none  Version: 3
 No version information found in this file.
 """
         self.assertEqual(
             abi.parse_required_versions(fixture),
-            [("GLIBC", (2, 35), "GLIBC_2.35"), ("GLIBCXX", (3, 4, 29), "GLIBCXX_3.4.29")],
+            [("GLIBC", (2, 35), "GLIBC_2.35"), ("GLIBCXX", (3, 4, 30), "GLIBCXX_3.4.30")],
         )
 
 

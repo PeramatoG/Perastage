@@ -10,10 +10,11 @@ import subprocess
 import sys
 
 
-# Ubuntu 22.04 and GCC 11 define the intentional x86_64 AppImage ABI ceiling.
+# The fixed runtime ceilings match Ubuntu 22.04's glibc and supported libstdc++.
+# GCC 11 remains the selected compiler but does not define the libstdc++ ceiling.
 ABI_LIMITS = {
     "GLIBC": (2, 35),
-    "GLIBCXX": (3, 4, 29),
+    "GLIBCXX": (3, 4, 30),
     "CXXABI": (1, 3, 13),
 }
 VERSION_PATTERN = re.compile(r"\b(GLIBCXX|GLIBC|CXXABI)_([0-9]+(?:\.[0-9]+)+)\b")

@@ -95,6 +95,19 @@ jobs:
           gcc-11 --version
           g++-11 --version
           printf 'CC=%s\nCXX=%s\n' "$CC" "$CXX"
+          dpkg-query -W libstdc++6
+          libstdcpp_candidate="$(g++-11 -print-file-name=libstdc++.so)"
+          libstdcpp_path="$(readlink -f "$libstdcpp_candidate")"
+          printf 'GCC 11 libstdc++ candidate: %s\nResolved system libstdc++: %s\n' \
+            "$libstdcpp_candidate" "$libstdcpp_path"
+          test -f "$libstdcpp_path" || { echo "GCC 11 did not resolve the system libstdc++ runtime." >&2; exit 1; }
+          libstdcpp_versions="$(readelf --version-info --wide "$libstdcpp_path" | grep -oE 'GLIBCXX_[0-9]+(\.[0-9]+)+')"
+          highest_glibcxx="$(printf '%s\n' "$libstdcpp_versions" | sort -Vu | tail -n 1)"
+          echo "Highest system libstdc++ GLIBCXX symbol: $highest_glibcxx"
+          grep -qx 'GLIBCXX_3.4.30' <<< "$libstdcpp_versions" || {
+            echo "Ubuntu 22.04 compatibility environment must provide GLIBCXX_3.4.30." >&2
+            exit 1
+          }
           . /etc/os-release
           test "$ID" = ubuntu && test "$VERSION_ID" = 22.04 || {
             echo "AppImage builds require the Ubuntu 22.04 compatibility container, got ${ID:-unknown} ${VERSION_ID:-unknown}." >&2

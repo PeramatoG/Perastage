@@ -29,7 +29,9 @@ Changes since **v1.6.0**.
 
 - Restored broad Linux AppImage compatibility by building and validating the
   complete package against Ubuntu 22.04, glibc 2.35, and GCC 11, with a
-  packaged-application startup check before release.
+  packaged-application startup check before release. The fixed ABI audit now
+  reflects Ubuntu 22.04's supported C++ runtime independently of the selected
+  compiler version.
 
 - Added a GUI-independent semantic command foundation with typed requests,
   structured diagnostics, efficient atomic scene mutation rollback, and

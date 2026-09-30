@@ -123,13 +123,22 @@ The official generic Linux release asset remains the AppImage produced by `.gith
 
 ### AppImage compatibility contract
 
-The **Perastage x86_64 AppImage compatibility floor is Ubuntu 22.04 / glibc
-2.35 / GCC 11**. The workflow host may be newer (currently
+The **Perastage x86_64 AppImage compatibility floor is Ubuntu 22.04**, with
+GCC 11 selected as its compiler. The fixed runtime contract is:
+
+- GLIBC maximum: `2.35`
+- GLIBCXX maximum: `3.4.30`
+- CXXABI maximum: `1.3.13`
+
+Ubuntu 22.04's supported libstdc++ runtime belongs to the GCC 12 ABI series,
+even though Perastage is deliberately compiled with GCC 11. The compiler
+selection and runtime libstdc++ ceiling are therefore related but distinct.
+The workflow host may be newer (currently
 `ubuntu-26.04`), but compilation, dependency builds, staging, tooling, and
 AppImage creation all run inside an `ubuntu:22.04` container. That container,
 not the host runner image, defines the binary compatibility boundary. The
 finished package is audited across every bundled ELF object for maximum
-`GLIBC_2.35`, `GLIBCXX_3.4.29`, and `CXXABI_1.3.13` requirements, and is then
+`GLIBC_2.35`, `GLIBCXX_3.4.30`, and `CXXABI_1.3.13` requirements, and is then
 started under X11 in the same compatibility environment.
 
 Raising this floor must be an explicit maintainer decision; it must never occur
