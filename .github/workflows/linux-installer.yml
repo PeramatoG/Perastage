@@ -17,6 +17,18 @@ on:
         required: false
         type: string
         default: ""
+  pull_request:
+    paths:
+      - vcpkg.json
+      - vcpkg-configuration.json
+      - .github/workflows/linux-installer.yml
+      - .github/scripts/check_appimage_abi.py
+      - .github/scripts/download_verified.sh
+      - .github/scripts/smoke_test_appimage.sh
+      - .github/scripts/install_vcpkg_build_prerequisites.sh
+      - packaging/linux/**
+      - CMakeLists.txt
+      - cmake/InstallStage.cmake
   push:
     branches:
       - ci/linux-appimage
@@ -27,7 +39,12 @@ permissions:
 
 jobs:
   build-linux-appimage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
+    container:
+      image: ubuntu:22.04
+    defaults:
+      run:
+        shell: bash
 
     env:
       # Single source of truth for all vcpkg paths used across steps.
@@ -39,8 +56,16 @@ jobs:
       VCPKG_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-cache/binary
       CI_LOG_DIR: ${{ github.workspace }}/out/ci-logs
       VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache/binary,readwrite
+      CC: gcc-11
+      CXX: g++-11
 
     steps:
+      - name: Bootstrap minimal container tools
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            bash ca-certificates git python3 tar gzip unzip
+
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
@@ -60,50 +85,36 @@ jobs:
           echo "VCPKG_BASELINE=${baseline}" >> "$GITHUB_ENV"
 
       - name: Install Linux build dependencies
+        run: .github/scripts/install_vcpkg_build_prerequisites.sh linux-appimage
+
+      - name: Verify AppImage compatibility environment
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            mono-complete \
-            build-essential \
-            cmake \
-            ninja-build \
-            pkg-config \
-            autoconf \
-            autoconf-archive \
-            automake \
-            libtool \
-            libltdl-dev \
-            gettext \
-            autopoint \
-            m4 \
-            curl \
-            unzip \
-            zip \
-            patchelf \
-            libx11-dev \
-            libxau-dev \
-            libxdmcp-dev \
-            x11proto-dev \
-            libxi-dev \
-            libxtst-dev \
-            libxrender-dev \
-            libgtk-3-dev \
-            libglib2.0-dev \
-            libsecret-1-dev \
-            libpango1.0-dev \
-            libatk1.0-dev \
-            libcairo2-dev \
-            libgdk-pixbuf-2.0-dev \
-            libxkbcommon-dev \
-            libgl1-mesa-dev \
-            libglu1-mesa-dev \
-            libgpg-error0 \
-            libgcrypt20 \
-            imagemagick \
-            file \
-            desktop-file-utils \
-            shared-mime-info \
-            libglib2.0-bin
+          set -euo pipefail
+          cat /etc/os-release
+          ldd --version
+          gcc-11 --version
+          g++-11 --version
+          printf 'CC=%s\nCXX=%s\n' "$CC" "$CXX"
+          dpkg-query -W libstdc++6
+          libstdcpp_candidate="$(g++-11 -print-file-name=libstdc++.so)"
+          libstdcpp_path="$(readlink -f "$libstdcpp_candidate")"
+          printf 'GCC 11 libstdc++ candidate: %s\nResolved system libstdc++: %s\n' \
+            "$libstdcpp_candidate" "$libstdcpp_path"
+          test -f "$libstdcpp_path" || { echo "GCC 11 did not resolve the system libstdc++ runtime." >&2; exit 1; }
+          libstdcpp_versions="$(readelf --version-info --wide "$libstdcpp_path" | grep -oE 'GLIBCXX_[0-9]+(\.[0-9]+)+')"
+          highest_glibcxx="$(printf '%s\n' "$libstdcpp_versions" | sort -Vu | tail -n 1)"
+          echo "Highest system libstdc++ GLIBCXX symbol: $highest_glibcxx"
+          grep -qx 'GLIBCXX_3.4.30' <<< "$libstdcpp_versions" || {
+            echo "Ubuntu 22.04 compatibility environment must provide GLIBCXX_3.4.30." >&2
+            exit 1
+          }
+          . /etc/os-release
+          test "$ID" = ubuntu && test "$VERSION_ID" = 22.04 || {
+            echo "AppImage builds require the Ubuntu 22.04 compatibility container, got ${ID:-unknown} ${VERSION_ID:-unknown}." >&2
+            exit 1
+          }
+          test "$(command -v "$CC")" = /usr/bin/gcc-11 || { echo "CC must select /usr/bin/gcc-11." >&2; exit 1; }
+          test "$(command -v "$CXX")" = /usr/bin/g++-11 || { echo "CXX must select /usr/bin/g++-11." >&2; exit 1; }
 
       - name: Restore vcpkg downloads
         id: vcpkg-downloads-cache
@@ -123,9 +134,9 @@ jobs:
             .vcpkg-cache/installed
             .vcpkg-cache/packages
             .vcpkg-cache/binary
-          key: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-compiled-v4-${{ runner.os }}-${{ runner.arch }}-x64-linux-appimage-jammy-gcc11-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
-            vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-${{ steps.vcpkg-baseline.outputs.baseline }}-
+            vcpkg-compiled-v4-${{ runner.os }}-${{ runner.arch }}-x64-linux-appimage-jammy-gcc11-${{ steps.vcpkg-baseline.outputs.baseline }}-
 
       - name: Prepare vcpkg folders
         run: |
@@ -162,6 +173,25 @@ jobs:
             --downloads-root "$VCPKG_DOWNLOADS" \
             --attempts 4 --initial-delay-seconds 30 --max-delay-seconds 120 \
             --log "$CI_LOG_DIR/vcpkg-install-x64-linux.log"
+
+      - name: Resolve vcpkg-managed CMake
+        run: |
+          set -euo pipefail
+          cmake_path="$("$VCPKG_ROOT/vcpkg" fetch cmake --x-stderr-status)"
+          test -n "$cmake_path" || { echo "vcpkg did not return a CMake executable path." >&2; exit 1; }
+          test -x "$cmake_path" || { echo "vcpkg-managed CMake is not executable: $cmake_path" >&2; exit 1; }
+          cmake_version="$("$cmake_path" --version | awk 'NR == 1 { print $3 }')"
+          echo "APPIMAGE_CMAKE=$cmake_path"
+          "$cmake_path" --version
+          python3 - "$cmake_version" <<'PY'
+          import sys
+
+          version = tuple(int(component) for component in sys.argv[1].split('.'))
+          if version < (3, 27):
+              raise SystemExit(f"AppImage project generation requires CMake >= 3.27, got {sys.argv[1]}")
+          PY
+          echo "APPIMAGE_CMAKE=$cmake_path" >> "$GITHUB_ENV"
+
       - name: Save vcpkg downloads cache
         if: ${{ steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v5
@@ -182,13 +212,13 @@ jobs:
       - name: Summarize vcpkg cache behavior
         if: ${{ always() }}
         run: |
-          python3 .github/scripts/write_vcpkg_cache_summary.py --platform linux --triplet x64-linux --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable
+          python3 .github/scripts/write_vcpkg_cache_summary.py --platform linux-appimage-jammy-gcc11 --triplet x64-linux --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v4 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable
 
 
       - name: Configure CMake
         run: |
           python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-linux.log" -- \
-            cmake --preset wsl-x64-release \
+            "$APPIMAGE_CMAKE" --preset wsl-x64-release \
               -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG -g" \
               -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
@@ -202,7 +232,7 @@ jobs:
 
       - name: Build staged distribution
         run: |
-          cmake --build --preset wsl-release-stage
+          "$APPIMAGE_CMAKE" --build --preset wsl-release-stage
 
           STAGE_DIR="out/install/Release"
           test -f "$STAGE_DIR/Perastage" || { echo "Missing staged executable: $STAGE_DIR/Perastage"; exit 1; }
@@ -315,27 +345,17 @@ jobs:
             cp -L "$LIB_PATH" "$APPDIR/usr/lib/$LIB_NAME"
           done
 
-          # Download a file and fail if it appears empty or unexpectedly small.
-          download_checked() {
-            local url="$1"
-            local output="$2"
-            curl -fL --retry 3 --retry-delay 2 -o "$output" "$url"
-            test -s "$output" || { echo "Downloaded file is empty: $output"; exit 1; }
-            if [ "$(wc -c < "$output")" -lt 1024 ]; then
-              echo "Downloaded file is unexpectedly small: $output"
-              echo "URL: $url"
-              cat "$output"
-              exit 1
-            fi
-          }
-
-          download_checked \
-            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
+          .github/scripts/download_verified.sh \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-x86_64.AppImage \
+            c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d \
             linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
 
-          download_checked \
+          # continuous currently points at upstream commit 8c8c91f762b412a19f4e8d2c4b35afb98f2d7c81;
+          # its verified content hash makes a mutable-asset change fail closed.
+          .github/scripts/download_verified.sh \
             https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage \
+            a6d71e2b6cd66f8e8d16c37ad164658985e0cf5fcaa950c90a482890cb9d13e0 \
             appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
 
@@ -366,6 +386,13 @@ jobs:
           test -f squashfs-root/Perastage.png || { echo "Extracted icon is missing"; exit 1; }
           test -f squashfs-root/usr/bin/Perastage || { echo "Extracted executable is missing"; exit 1; }
           test -f squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "Extracted MIME metadata is missing"; exit 1; }
+          test -d squashfs-root/usr/bin/resources || { echo "Extracted resources directory is missing"; exit 1; }
+          test -d squashfs-root/usr/bin/library || { echo "Extracted library directory is missing"; exit 1; }
+          test -d squashfs-root/usr/bin/licenses || { echo "Extracted licenses directory is missing"; exit 1; }
+          for LIB_NAME in libgpg-error.so.0 libgcrypt.so.20; do
+            test -f "squashfs-root/usr/lib/$LIB_NAME" || { echo "Extracted runtime library is missing: $LIB_NAME"; exit 1; }
+          done
+          desktop-file-validate squashfs-root/Perastage.desktop
           grep -q 'application/x-perastage-mvr' squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "MIME type for .mvr is missing"; exit 1; }
           grep -q 'application/x-perastage-project' squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "MIME type for .pstg is missing"; exit 1; }
           for lang in es zh_CN; do
@@ -376,6 +403,18 @@ jobs:
           patchelf --print-rpath squashfs-root/usr/bin/Perastage || true
           echo "---- Extracted Perastage linked GTK/GDK libs ----"
           ldd squashfs-root/usr/bin/Perastage | grep -E 'gtk|gdk|pixbuf|glib|gio|pango|cairo|atk|harfbuzz|rsvg' || true
+
+      - name: Enforce AppImage ABI compatibility
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/check_appimage_abi.py squashfs-root | tee "$CI_LOG_DIR/appimage-abi.log"
+
+      - name: Smoke test final AppImage under X11
+        run: |
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          .github/scripts/smoke_test_appimage.sh \
+            "$GITHUB_WORKSPACE/Perastage-${VERSION}-x86_64.AppImage" \
+            "$CI_LOG_DIR/appimage-startup.log"
 
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v7

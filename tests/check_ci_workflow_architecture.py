@@ -81,6 +81,8 @@ assert all('pull_request_target' not in text for text in all_workflows.values())
 assert all(not re.search(r'secrets\.[A-Z0-9_]*(?:PAT|PERSONAL_ACCESS_TOKEN)', text, re.IGNORECASE) for text in all_workflows.values())
 remote = all_workflows['vcpkg-binary-cache.yml']
 prerequisites = Path('.github/scripts/install_vcpkg_build_prerequisites.sh').read_text()
+assert 'apt=(env DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get)' in prerequisites, 'root Linux prerequisite installation must remain non-interactive'
+assert 'apt=(sudo env DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get)' in prerequisites, 'sudo Linux prerequisite installation must explicitly preserve the non-interactive environment'
 for needle in ['contents: read', 'packages: write', 'workflow_dispatch:', 'branches: [main]', '--mode readwrite', 'x64-windows', 'x64-linux', 'arm64-osx']:
     assert needle in remote, f'warming workflow is missing {needle}'
 for needle in ['concurrency:', 'group: perastage-vcpkg-binary-cache', 'cancel-in-progress: false']:
@@ -103,8 +105,8 @@ assert 'not independently verified' in remote
 assert '.github/scripts/install_vcpkg_build_prerequisites.sh linux' in remote
 assert '.github/scripts/install_vcpkg_build_prerequisites.sh macos' in remote
 linux_packages = [
-    'build-essential', 'cmake', 'ninja-build', 'pkg-config', 'autoconf',
-    'automake', 'libtool', 'libx11-dev', 'libxi-dev', 'libxtst-dev',
+    'build-essential', 'cmake', 'ninja-build', 'pkg-config', 'python3-venv', 'autoconf',
+    'automake', 'bison', 'libtool', 'libx11-dev', 'libxi-dev', 'libxtst-dev',
     'libxrender-dev', 'libgtk-3-dev', 'libglib2.0-dev', 'libsecret-1-dev',
     'libpango1.0-dev', 'libatk1.0-dev', 'libcairo2-dev',
     'libgdk-pixbuf-2.0-dev', 'libxkbcommon-dev', 'libgl1-mesa-dev',
@@ -175,7 +177,9 @@ ci_text = (WORKFLOWS / 'ci-tests.yml').read_text()
 win_installer = (WORKFLOWS / 'windows-installer.yml').read_text()
 linux_installer = (WORKFLOWS / 'linux-installer.yml').read_text()
 assert 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-' in ci_text and 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-' in win_installer
-assert 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-' in ci_text and 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-' in linux_installer
+assert 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-' in ci_text
+assert 'vcpkg-compiled-v4-${{ runner.os }}-${{ runner.arch }}-x64-linux-appimage-jammy-gcc11-' in linux_installer
+assert 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-' not in linux_installer, 'AppImage compiled caches must not fall back to generic Linux trees'
 assert 'arm64-osx-sdk-${{ steps.macos-sdk.outputs.identity }}' in ci_text, 'macOS Debug CI must include the resolved SDK/Xcode identity'
 assert 'vcpkg-compiled-v4-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-' in ci_text
 assert 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-' not in ci_text
@@ -194,6 +198,49 @@ assert 'arm64-osx-macos15-deployment-${{ env.MACOSX_DEPLOYMENT_TARGET }}-' in (W
 assert 'x64-linux-arch-' in (WORKFLOWS / 'arch-package.yml').read_text(), 'Arch packaging must remain isolated from Ubuntu-compatible Linux caches'
 assert ci_text.count('.github/scripts/install_vcpkg_build_prerequisites.sh linux') == 1
 assert ci_text.count('.github/scripts/install_vcpkg_build_prerequisites.sh macos') == 1
+
+# The AppImage has a deliberate Jammy/GCC 11 ABI boundary independent of its host runner.
+for needle in [
+    'runs-on: ubuntu-26.04',
+    'image: ubuntu:22.04',
+    'CC: gcc-11',
+    'CXX: g++-11',
+    'dpkg-query -W libstdc++6',
+    'g++-11 -print-file-name=libstdc++.so',
+    'readlink -f "$libstdcpp_candidate"',
+    "grep -qx 'GLIBCXX_3.4.30'",
+    'check_appimage_abi.py squashfs-root',
+    'smoke_test_appimage.sh',
+    'desktop-file-validate squashfs-root/Perastage.desktop',
+    'c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d',
+    'a6d71e2b6cd66f8e8d16c37ad164658985e0cf5fcaa950c90a482890cb9d13e0',
+    '.github/scripts/download_verified.sh',
+]:
+    assert needle in linux_installer, f'AppImage compatibility workflow is missing {needle}'
+assert 'runs-on: ubuntu-latest' not in linux_installer
+assert 'releases/download/continuous/linuxdeploy' not in linux_installer
+assert 'pull_request:' in linux_installer and '- vcpkg.json' in linux_installer
+appimage_smoke_test = Path('.github/scripts/smoke_test_appimage.sh').read_text()
+assert "xdotool search --onlyvisible --name '[Pp]erastage'" in appimage_smoke_test
+assert 'xdotool search --onlyvisible --pid "$app_pid"' not in appimage_smoke_test
+for needle in ['kill -0 "$app_pid"', 'xwininfo -root -tree', '_NET_WM_PID', 'WM_CLASS', 'Map State:']:
+    assert needle in appimage_smoke_test, f'AppImage smoke test is missing X11 validation or diagnostics: {needle}'
+for needle in [
+    'fetch cmake --x-stderr-status',
+    'APPIMAGE_CMAKE=$cmake_path',
+    'CMake >= 3.27',
+    '"$APPIMAGE_CMAKE" --preset wsl-x64-release',
+    '"$APPIMAGE_CMAKE" --build --preset wsl-release-stage',
+]:
+    assert needle in linux_installer, f'AppImage workflow must use vcpkg-managed CMake: {needle}'
+assert 'cmake --preset wsl-x64-release' not in linux_installer
+assert 'cmake --build --preset wsl-release-stage' not in linux_installer
+appimage_compiled_cache = linux_installer[
+    linux_installer.index('Restore vcpkg installed packages and binary archives'):
+    linux_installer.index('Prepare vcpkg folders')
+]
+assert 'x64-linux-appimage-jammy-gcc11' in appimage_compiled_cache
+assert 'x64-linux-default' not in appimage_compiled_cache
 
 ci = (WORKFLOWS / 'ci-tests.yml').read_text()
 for needle in ['name: CI Debug Tests', 'push:', 'pull_request:', 'workflow_call:', 'CMAKE_BUILD_TYPE=Debug', '-DBUILD_TESTING=ON', 'cancel-in-progress: true', '-host_arch=x64 -arch=x64', 'VCPKG_TARGET_TRIPLET=x64-windows']:

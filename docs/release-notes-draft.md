@@ -27,6 +27,13 @@ Changes since **v1.6.0**.
 
 ## Compatibility, stability, and performance
 
+- Restored broad Linux AppImage compatibility by building and validating the
+  complete package against Ubuntu 22.04, glibc 2.35, and GCC 11, with a
+  packaged-application startup check before release. The fixed ABI audit now
+  reflects Ubuntu 22.04's supported C++ runtime independently of the selected
+  compiler version, and startup validation identifies the real visible main
+  window independently of the AppImage launcher process.
+
 - Added a GUI-independent semantic command foundation with typed requests,
   structured diagnostics, efficient atomic scene mutation rollback, and
   deterministic machine-readable results for future command workflows.
@@ -59,6 +66,9 @@ Changes since **v1.6.0**.
   and failed selections reliably restore the authoritative package XML.
 
 ## Important fixes
+
+- Restored GCC 11 compilation of the asynchronous update check while
+  preserving its existing background-check and busy-dialog behavior.
 
 - Restored macOS 15 build compatibility for persisted Inspector splitter
   preferences while keeping their representation locale-independent. Manually
@@ -134,6 +144,11 @@ Changes since **v1.6.0**.
 - Restored Windows Debug compilation of the Layout Viewer after its selection architecture update, including View2D frame lookup integration.
 
 ## Technical and packaging changes
+
+- Kept Linux build prerequisites centrally maintained and non-interactive on
+  CI runners and compatibility containers, including isolated Python build
+  environments and pinned build tools required by dependencies, with aligned
+  packaging policy validation and consistent project generation.
 
 - Moved Console position and rotation execution into a reusable,
   GUI-independent semantic command boundary with transactional Undo, no-op,
