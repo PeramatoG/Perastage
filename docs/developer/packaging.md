@@ -121,6 +121,24 @@ The uninstall behavior is conservative and removes Perastage-owned registration 
 
 The official generic Linux release asset remains the AppImage produced by `.github/workflows/linux-installer.yml`. This is the recommended download for general Linux distribution because it keeps the existing staged application layout and bundles the runtime pieces expected by the AppImage flow.
 
+### AppImage compatibility contract
+
+The **Perastage x86_64 AppImage compatibility floor is Ubuntu 22.04 / glibc
+2.35 / GCC 11**. The workflow host may be newer (currently
+`ubuntu-26.04`), but compilation, dependency builds, staging, tooling, and
+AppImage creation all run inside an `ubuntu:22.04` container. That container,
+not the host runner image, defines the binary compatibility boundary. The
+finished package is audited across every bundled ELF object for maximum
+`GLIBC_2.35`, `GLIBCXX_3.4.29`, and `CXXABI_1.3.13` requirements, and is then
+started under X11 in the same compatibility environment.
+
+Raising this floor must be an explicit maintainer decision; it must never occur
+implicitly through an `ubuntu-latest` runner update. In particular, every
+vcpkg baseline change must continue to pass the AppImage compatibility build.
+Its Jammy/GCC 11 compiled caches are isolated from normal current-Linux caches.
+The Arch package is intentionally separate and follows Arch Linux's rolling,
+current library environment rather than this portable compatibility contract.
+
 Perastage also generates an experimental Arch Linux pacman package from `.github/workflows/arch-package.yml`:
 
 - Artifact name: `Perastage-<version>-arch-x86_64.pkg.tar.zst`

@@ -175,7 +175,9 @@ ci_text = (WORKFLOWS / 'ci-tests.yml').read_text()
 win_installer = (WORKFLOWS / 'windows-installer.yml').read_text()
 linux_installer = (WORKFLOWS / 'linux-installer.yml').read_text()
 assert 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-' in ci_text and 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-' in win_installer
-assert 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-' in ci_text and 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-' in linux_installer
+assert 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-' in ci_text
+assert 'vcpkg-compiled-v4-${{ runner.os }}-${{ runner.arch }}-x64-linux-appimage-jammy-gcc11-' in linux_installer
+assert 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-' not in linux_installer, 'AppImage compiled caches must not fall back to generic Linux trees'
 assert 'arm64-osx-sdk-${{ steps.macos-sdk.outputs.identity }}' in ci_text, 'macOS Debug CI must include the resolved SDK/Xcode identity'
 assert 'vcpkg-compiled-v4-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-' in ci_text
 assert 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-' not in ci_text
@@ -194,6 +196,30 @@ assert 'arm64-osx-macos15-deployment-${{ env.MACOSX_DEPLOYMENT_TARGET }}-' in (W
 assert 'x64-linux-arch-' in (WORKFLOWS / 'arch-package.yml').read_text(), 'Arch packaging must remain isolated from Ubuntu-compatible Linux caches'
 assert ci_text.count('.github/scripts/install_vcpkg_build_prerequisites.sh linux') == 1
 assert ci_text.count('.github/scripts/install_vcpkg_build_prerequisites.sh macos') == 1
+
+# The AppImage has a deliberate Jammy/GCC 11 ABI boundary independent of its host runner.
+for needle in [
+    'runs-on: ubuntu-26.04',
+    'image: ubuntu:22.04',
+    'CC: gcc-11',
+    'CXX: g++-11',
+    'check_appimage_abi.py squashfs-root',
+    'smoke_test_appimage.sh',
+    'desktop-file-validate squashfs-root/Perastage.desktop',
+    'c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d',
+    'a6d71e2b6cd66f8e8d16c37ad164658985e0cf5fcaa950c90a482890cb9d13e0',
+    '.github/scripts/download_verified.sh',
+]:
+    assert needle in linux_installer, f'AppImage compatibility workflow is missing {needle}'
+assert 'runs-on: ubuntu-latest' not in linux_installer
+assert 'releases/download/continuous/linuxdeploy' not in linux_installer
+assert 'pull_request:' in linux_installer and '- vcpkg.json' in linux_installer
+appimage_compiled_cache = linux_installer[
+    linux_installer.index('Restore vcpkg installed packages and binary archives'):
+    linux_installer.index('Prepare vcpkg folders')
+]
+assert 'x64-linux-appimage-jammy-gcc11' in appimage_compiled_cache
+assert 'x64-linux-default' not in appimage_compiled_cache
 
 ci = (WORKFLOWS / 'ci-tests.yml').read_text()
 for needle in ['name: CI Debug Tests', 'push:', 'pull_request:', 'workflow_call:', 'CMAKE_BUILD_TYPE=Debug', '-DBUILD_TESTING=ON', 'cancel-in-progress: true', '-host_arch=x64 -arch=x64', 'VCPKG_TARGET_TRIPLET=x64-windows']:

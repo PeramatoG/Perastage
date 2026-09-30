@@ -27,6 +27,10 @@ Changes since **v1.6.0**.
 
 ## Compatibility, stability, and performance
 
+- Restored broad Linux AppImage compatibility by building and validating the
+  complete package against Ubuntu 22.04, glibc 2.35, and GCC 11, with a
+  packaged-application startup check before release.
+
 - Added a GUI-independent semantic command foundation with typed requests,
   structured diagnostics, efficient atomic scene mutation rollback, and
   deterministic machine-readable results for future command workflows.
