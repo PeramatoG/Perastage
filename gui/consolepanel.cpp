@@ -16,6 +16,8 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "consolepanel.h"
+#include "command/command_selection.h"
+#include "command/command_selection_text_adapter.h"
 #include "command/command_transform_text_adapter.h"
 #include "command/command_text_parser.h"
 #include "configmanager.h"
@@ -469,78 +471,6 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
     const auto interactiveTransformPolicy =
         selection_movement_settings::LoadInteractiveTransformPolicy(cfg);
 
-    auto handleSelection =
-        [&](const perastage::command::text::SelectionCommand &command) {
-          const bool fixtures =
-              command.target ==
-              perastage::command::text::SelectionTarget::Fixtures;
-          auto &scene = cfg.GetScene();
-          std::vector<std::string> current =
-              fixtures ? cfg.GetSelectedFixtures() : std::vector<std::string>();
-          auto addId = [&](int id) {
-            std::string uid;
-            if (fixtures) {
-              for (const auto &[u, f] : scene.fixtures)
-                if (f.fixtureId == id) {
-                  uid = u;
-                  break;
-                }
-            } else {
-              for (const auto &[u, t] : scene.trusses)
-                if (t.unitNumber == id) {
-                  uid = u;
-                  break;
-                }
-            }
-            if (!uid.empty() &&
-                std::find(current.begin(), current.end(), uid) == current.end())
-              current.push_back(uid);
-          };
-          auto removeId = [&](int id) {
-            auto it = current.begin();
-            while (it != current.end()) {
-              int fid = -1;
-              if (fixtures) {
-                auto fit = scene.fixtures.find(*it);
-                if (fit != scene.fixtures.end())
-                  fid = fit->second.fixtureId;
-              } else {
-                auto fit = scene.trusses.find(*it);
-                if (fit != scene.trusses.end())
-                  fid = fit->second.unitNumber;
-              }
-              if (fid == id)
-                it = current.erase(it);
-              else
-                ++it;
-            }
-          };
-          for (const auto &operation : command.operations) {
-            for (int id = operation.firstId; id <= operation.lastId; ++id) {
-              if (operation.kind ==
-                  perastage::command::text::SelectionOperationKind::Add)
-                addId(id);
-              else
-                removeId(id);
-            }
-          }
-          if (fixtures) {
-            cfg.SetSelectedFixtures(current);
-            if (FixtureTablePanel::Instance())
-              FixtureTablePanel::Instance()->SelectByUuid(current);
-          } else {
-            cfg.SetSelectedTrusses(current);
-            if (TrussTablePanel::Instance())
-              TrussTablePanel::Instance()->SelectByUuid(current);
-          }
-          if (Viewer2DPanel::Instance())
-            Viewer2DPanel::Instance()->SetSelectedUuids(current);
-          if (Viewer3DPanel::Instance()) {
-            Viewer3DPanel::Instance()->SetSelectedFixtures(current);
-            Viewer3DPanel::Instance()->Refresh();
-          }
-        };
-
     auto refreshSelectionAfterTransform = [&]() {
       const auto selFixtures = cfg.GetSelectedFixtures();
       const auto selTrusses = cfg.GetSelectedTrusses();
@@ -587,10 +517,23 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
     for (const auto &parsedCommand : parsed.commands) {
       if (std::holds_alternative<perastage::command::text::ClearCommand>(
               parsedCommand)) {
-        cfg.PushUndoState("cli clear");
-        cfg.SetSelectedFixtures({});
-        cfg.SetSelectedTrusses({});
-        cfg.SetSelectedSceneObjects({});
+        scene_grouping::ObjectSelection commandSelection{
+            .fixtures = cfg.GetSelectedFixtures(),
+            .trusses = cfg.GetSelectedTrusses(),
+            .supports = cfg.GetSelectedSupports(),
+            .sceneObjects = cfg.GetSelectedSceneObjects()};
+        ConsoleProjectMutationHost mutationHost(cfg);
+        perastage::command::ExecutionContext context{
+            cfg.GetScene(), commandSelection, mutationHost};
+        const auto result =
+            perastage::command::selection::ExecuteClear(context);
+        for (const auto &diagnostic : result.diagnostics)
+          AppendMessage(FormatCommandDiagnostic(diagnostic));
+        if (!result.Success())
+          return;
+        cfg.SetSelectedFixtures(commandSelection.fixtures);
+        cfg.SetSelectedTrusses(commandSelection.trusses);
+        cfg.SetSelectedSceneObjects(commandSelection.sceneObjects);
         if (FixtureTablePanel::Instance())
           FixtureTablePanel::Instance()->SelectByUuid({});
         if (TrussTablePanel::Instance())
@@ -609,7 +552,40 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       if (const auto *selection =
               std::get_if<perastage::command::text::SelectionCommand>(
                   &parsedCommand)) {
-        handleSelection(*selection);
+        scene_grouping::ObjectSelection commandSelection{
+            .fixtures = cfg.GetSelectedFixtures(),
+            .trusses = cfg.GetSelectedTrusses(),
+            .supports = cfg.GetSelectedSupports(),
+            .sceneObjects = cfg.GetSelectedSceneObjects()};
+        ConsoleProjectMutationHost mutationHost(cfg);
+        perastage::command::ExecutionContext context{
+            cfg.GetScene(), commandSelection, mutationHost};
+        const auto result =
+            perastage::command::text::ExecuteSelection(*selection, context);
+        for (const auto &diagnostic : result.diagnostics)
+          AppendMessage(FormatCommandDiagnostic(diagnostic));
+        if (!result.Success())
+          return;
+        const bool fixtures =
+            selection->target ==
+            perastage::command::text::SelectionTarget::Fixtures;
+        const auto &current = fixtures ? commandSelection.fixtures
+                                       : commandSelection.trusses;
+        if (fixtures) {
+          cfg.SetSelectedFixtures(current);
+          if (FixtureTablePanel::Instance())
+            FixtureTablePanel::Instance()->SelectByUuid(current);
+        } else {
+          cfg.SetSelectedTrusses(current);
+          if (TrussTablePanel::Instance())
+            TrussTablePanel::Instance()->SelectByUuid(current);
+        }
+        if (Viewer2DPanel::Instance())
+          Viewer2DPanel::Instance()->SetSelectedUuids(current);
+        if (Viewer3DPanel::Instance()) {
+          Viewer3DPanel::Instance()->SetSelectedFixtures(current);
+          Viewer3DPanel::Instance()->Refresh();
+        }
         continue;
       }
 

@@ -22,10 +22,12 @@ syntax-only consumers and does not depend on scene execution. The adapter
 converts position values from the Console grammar's meters to semantic
 millimeters, then invokes `perastage_command_transform`. The Console owns
 project-context acquisition, structured-result presentation, and GUI refresh;
-it does not own reusable transform algorithms. Selection and `clear` execution
-remain Console-owned pending CMD-430. In particular, the parser records ordered
-selection operations but does not decide whether they replace or extend the
-current selection.
+it does not own reusable transform or selection algorithms. The focused
+`perastage_command_selection` target owns UUID-based selection updates and the
+compatible selection-only `clear` operation. The
+`perastage_command_selection_text_adapter` target resolves Console fixture IDs
+and truss unit numbers against an explicitly supplied scene; lookup remains
+outside the syntax-only parser.
 
 ## Semantic requests and identifiers
 
@@ -47,6 +49,40 @@ localized:
 
 Concrete identifiers are introduced with concrete commands; Command Core does
 not maintain a speculative registry.
+
+## Scene selection commands
+
+`scene.selection.update` uses an explicit object kind and UUID for every
+semantic object reference. Its stable arguments are `target_kind`,
+`preserve_existing`, and aligned `operation_kinds`, `object_kinds`, and
+`object_uuids` lists. Updates preserve UUID ordering, ignore repeated adds,
+remove matching UUIDs, and leave all non-target selection categories intact.
+They set `selectionChanged` only for an actual ordered selection change and do
+not create Undo state or dirty the project.
+
+Console `f` and `t` numeric IDs are adapter syntax rather than semantic
+identities. Fixture commands retain the prior fixture selection; matching the
+historical Console behavior, each truss command starts its target category
+empty before applying its ordered operations. Ranges and mixed add/remove
+operations are resolved in parser order. Missing numeric IDs remain successful
+no-ops with an information diagnostic. Duplicate fixture IDs or truss unit
+numbers previously selected whichever unordered-map entry happened to appear
+first when adding; that behavior was unsafe and nondeterministic. The adapter
+now emits `scene.selection.numeric_id_ambiguous` and skips the ambiguous ID.
+
+`scene.selection.clear` retains the narrowly characterized embedded Console
+behavior: it clears fixtures, trusses, and scene objects but not supports. It
+also retains the legacy `cli clear` Undo publication and dirty-state effect,
+including when those three categories were already empty. The latter case is
+reported as `scene.selection.clear_noop`; the Undo publication is compatibility
+behavior rather than evidence of scene-content mutation. No general scene
+reset behavior is implied.
+
+Selection and clear commands mutate neither scene resources nor transforms.
+Tables and viewers are synchronized only by the Console after each command.
+Because the Console publishes the resulting selection before executing the
+next parsed command, a transform later in the same line observes the selection
+produced by every preceding command.
 
 ## Scene transform commands
 
