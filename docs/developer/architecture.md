@@ -170,8 +170,10 @@ publisher used by Console and current main-window command consumers; refresh
 and presentation remain frontend-owned. Auto patching and fixture distribution
 remain with their existing owners until their implicit scope/geometry inputs
 have neutral contracts. The focused `core/capability/` boundary describes the
-real Command and Query surfaces without dispatching them; separate serialization
-provides versioned discovery JSON. External CLI scene mutation remains deferred. See
+real Command and Query surfaces without dispatching them. It consumes neutral
+operation IDs and request value types without linking Command execution or
+mutation infrastructure; separate serialization provides versioned discovery
+JSON. External CLI scene mutation remains deferred. See
 [`command_api.md`](command_api.md) for the current contract.
 
 ## Query contract

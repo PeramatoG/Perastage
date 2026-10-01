@@ -162,7 +162,9 @@ Changes since **v1.6.0**.
 
 - Strengthened capability discovery contract coverage for exact operation
   inventory, argument types, frontend exposure, JSON structure, CLI output,
-  cross-platform compatibility, and dependency boundaries.
+  cross-platform compatibility, and dependency boundaries. Capability discovery
+  now consumes neutral operation identifiers without linking scene mutation or
+  transaction infrastructure.
 
 - Moved Console fixture and truss selection semantics into the shared,
   GUI-independent command layer with stable UUID identities, deterministic

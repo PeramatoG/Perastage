@@ -1,8 +1,6 @@
 #include "capability/capability_catalog.h"
 
-#include "command/command_scene_tools.h"
-#include "command/command_selection.h"
-#include "command/command_transform.h"
+#include "command/command_operation_ids.h"
 #include "query/query_contract.h"
 
 #include <algorithm>

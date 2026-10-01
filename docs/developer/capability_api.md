@@ -9,6 +9,12 @@ descriptors and structural Command request validation, while
 The catalog is descriptive only: it contains no callbacks, scene access,
 dispatch, confirmation policy, or transport behavior.
 
+Stable Command IDs are owned by the neutral
+`core/command/command_operation_ids.h` contract. Capability Core consumes that
+header and the generic request value contract without linking Command execution,
+mutation, or transaction targets. The serialization target depends only on
+Capability Core, and the development CLI consumes that serialization facade.
+
 Descriptors contain the stable operation ID, `command` or `query` kind, a
 concise English summary, effect, arguments, and current frontend exposure.
 Arguments use the closed vocabulary `boolean`, `int64`, `float64`, `string`,

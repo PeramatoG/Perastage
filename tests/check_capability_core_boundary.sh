@@ -9,16 +9,21 @@ if rg -n -i "$forbidden" "${files[@]}"; then
   exit 1
 fi
 
+forbidden_headers='command/(command_execution|command_mutation_transaction|command_transform|command_selection|command_scene_tools)\.h'
+if rg -n "$forbidden_headers" "${files[@]}"; then
+  echo "Capability Core includes an execution-facing Command header." >&2
+  exit 1
+fi
+if ! rg -q '#include "command/command_operation_ids\.h"' "$root/core/capability/capability_catalog.cpp"; then
+  echo "Capability Core must consume the neutral Command operation-ID contract." >&2
+  exit 1
+fi
+
 cmake="$root/core/CMakeLists.txt"
 core_block="$(awk '/add_library\(perastage_capability_core/{active=1} /add_library\(perastage_capability_serialization/{active=0} active' "$cmake")"
 serialization_block="$(awk '/add_library\(perastage_capability_serialization/{active=1} /target_compile_features\(perastage_query_core/{active=0} active' "$cmake")"
-cmake_forbidden='perastage_(command_(transform|selection|scene_tools)|query_core|cli|gui|app|viewer|.*(ipc|osc|mcp|transport|mutation))'
-if rg -n -i "$cmake_forbidden" <<<"$core_block"; then
-  echo "perastage_capability_core links an execution, presentation, or transport target." >&2
-  exit 1
-fi
-if ! rg -q 'target_link_libraries\(perastage_capability_core PUBLIC perastage_command_core\)' <<<"$core_block"; then
-  echo "perastage_capability_core must depend only on the lightweight Command contract target." >&2
+if rg -n 'target_link_libraries\(perastage_capability_core' <<<"$core_block"; then
+  echo "perastage_capability_core must not link execution or mutation targets." >&2
   exit 1
 fi
 serialization_links="$(awk '/target_link_libraries\(perastage_capability_serialization/{active=1} active{print} active && /\)/{exit}' <<<"$serialization_block")"

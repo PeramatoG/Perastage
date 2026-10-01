@@ -52,9 +52,8 @@ add_library(perastage_capability_core STATIC
 )
 target_compile_features(perastage_capability_core PUBLIC cxx_std_20)
 target_include_directories(perastage_capability_core PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
-target_link_libraries(perastage_capability_core PUBLIC perastage_command_core)
 
 add_library(perastage_capability_serialization STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/capability/capability_json_serializer.cpp

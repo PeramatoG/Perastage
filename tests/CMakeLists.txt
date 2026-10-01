@@ -156,6 +156,12 @@ add_test(NAME CapabilityCatalog COMMAND capability_catalog_test)
 set_perastage_test_labels(CapabilityCatalog LAYER unit
                           DOMAINS capability command query architecture)
 
+add_executable(capability_core_link_test capability_core_link_test.cpp)
+target_link_libraries(capability_core_link_test PRIVATE perastage_capability_core)
+add_test(NAME CapabilityCoreLink COMMAND capability_core_link_test)
+set_perastage_test_labels(CapabilityCoreLink LAYER unit
+                          DOMAINS capability architecture)
+
 add_executable(scene_query_test scene_query_test.cpp)
 target_link_libraries(scene_query_test PRIVATE perastage_query_core
                       perastage_mvr_scene_model)
