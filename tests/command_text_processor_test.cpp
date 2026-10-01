@@ -119,4 +119,44 @@ int main() {
                        "scene.transform.execution_failed"));
   assert(!execution.mutation.HasSemanticChanges());
   assert(scene.fixtures.at(fixture.uuid).transform.o == beforeFailure.o);
+
+  host.fail = false;
+  selection.fixtures.clear();
+  const int publicationsBeforeOrderedStop = host.publications;
+  execution = text::ProcessCommandLine("f 1 pos x 2 f - 1 pos y 3 rot z 10",
+                                       context, policy);
+  assert(!execution.Success() && execution.stopped);
+  assert(execution.records.size() == 4);
+  assert(execution.records[0].result.request->commandId ==
+         "scene.selection.update");
+  assert(execution.records[1].result.request->commandId ==
+         "scene.transform.position");
+  assert(execution.records[2].result.request->commandId ==
+         "scene.selection.update");
+  assert(execution.records[3].result.request->commandId ==
+         "scene.transform.position");
+  assert(execution.records[3].result.outcome == Outcome::ValidationError);
+  assert(!execution.records[3].result.mutation.HasSemanticChanges());
+  assert(selection.fixtures.empty());
+  assert(std::fabs(scene.fixtures.at(fixture.uuid).transform.o[0] - 2000.0f) <
+         0.01f);
+  assert(execution.mutation.selectionChanged &&
+         execution.mutation.sceneChanged);
+  assert(execution.mutation.undoEntryRecorded &&
+         execution.mutation.projectDirty);
+  assert(host.publications == publicationsBeforeOrderedStop + 1);
+
+  selection.fixtures = {fixture.uuid};
+  const int publicationsBeforePartialParse = host.publications;
+  execution = text::ProcessCommandLine("clear pos x invalid", context, policy);
+  assert(!execution.Success() && execution.stopped);
+  assert(execution.records.size() == 1);
+  assert(execution.records.front().result.request->commandId ==
+         "scene.selection.clear");
+  assert(execution.parseDiagnostics.size() == 1);
+  assert(execution.parseDiagnostics.front().phase == DiagnosticPhase::Parse);
+  assert(selection.fixtures.empty());
+  assert(execution.mutation.selectionChanged &&
+         execution.mutation.undoEntryRecorded);
+  assert(host.publications == publicationsBeforePartialParse + 1);
 }
