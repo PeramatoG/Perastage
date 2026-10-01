@@ -10,6 +10,10 @@
 #include <fstream>
 #include <system_error>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 namespace perastage::external_scene {
 namespace fs = std::filesystem;
 namespace {
@@ -20,15 +24,8 @@ public:
   command::MutationPublication CommitMutation(
       const MvrScene &, const scene_grouping::ObjectSelection &,
       const std::string &) override {
-    dirty_ = true;
     return {.undoEntryRecorded = false, .projectDirty = true};
   }
-
-  // Reports whether any semantic Command published a headless mutation.
-  bool dirty() const { return dirty_; }
-
-private:
-  bool dirty_ = false;
 };
 
 // Resolves enough path spelling and symlink aliases to protect input ownership.
@@ -47,8 +44,6 @@ bool Publish(const fs::path &output, const std::vector<std::uint8_t> &bytes,
   const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
   const fs::path staged = output.string() + ".perastage-stage-" +
                           std::to_string(nonce);
-  const fs::path backup = output.string() + ".perastage-backup-" +
-                          std::to_string(nonce);
   {
     std::ofstream stream(staged, std::ios::binary | std::ios::trunc);
     if (!stream || !stream.write(reinterpret_cast<const char *>(bytes.data()),
@@ -60,29 +55,30 @@ bool Publish(const fs::path &output, const std::vector<std::uint8_t> &bytes,
     }
   }
 
+  bool published = false;
+#ifdef _WIN32
+  const DWORD flags = MOVEFILE_WRITE_THROUGH |
+                      (overwrite ? MOVEFILE_REPLACE_EXISTING : 0);
+  published = MoveFileExW(staged.c_str(), output.c_str(), flags) != 0;
+#else
   std::error_code error;
-  const bool existed = fs::exists(output, error) && !error;
-  if (existed && overwrite) {
-    fs::rename(output, backup, error);
-    if (error) {
+  if (overwrite) {
+    fs::rename(staged, output, error);
+    published = !error;
+  } else {
+    fs::create_hard_link(staged, output, error);
+    if (!error) {
       fs::remove(staged, error);
-      diagnostic = "Could not stage the existing output for replacement.";
-      return false;
+      published = true;
     }
   }
-  fs::rename(staged, output, error);
-  if (error) {
-    if (existed && overwrite) {
-      std::error_code restoreError;
-      fs::rename(backup, output, restoreError);
-    }
+#endif
+  if (!published) {
     std::error_code ignored;
     fs::remove(staged, ignored);
     diagnostic = "Could not publish the output MVR.";
     return false;
   }
-  if (existed && overwrite)
-    fs::remove(backup, error);
   return true;
 }
 
@@ -134,18 +130,21 @@ Result Execute(const Request &request) {
   for (const std::string &text : request.commands) {
     command::text::LineExecutionResult execution =
         command::text::ProcessCommandLine(text, context, transformPolicy);
-    for (auto &record : execution.records)
+    for (auto &record : execution.records) {
+      result.sceneChanged = result.sceneChanged ||
+                            record.result.mutation.sceneChanged;
+      result.selectionChanged = result.selectionChanged ||
+                                record.result.mutation.selectionChanged;
+      result.projectDirty = result.projectDirty ||
+                            record.result.mutation.projectDirty;
       result.commandResults.push_back(std::move(record.result));
+    }
     if (!execution.Success()) {
       for (const command::Diagnostic &diagnostic : execution.parseDiagnostics)
         result.diagnostics.push_back(diagnostic.message);
-      if (result.diagnostics.empty())
-        result.diagnostics.push_back("A semantic command failed.");
       return result;
     }
   }
-  result.sceneChanged = host.dirty();
-
   std::vector<std::uint8_t> archive;
   MvrExporter exporter;
   if (!exporter.ExportCanonicalSnapshotToBuffer(imported.scene, archive)) {

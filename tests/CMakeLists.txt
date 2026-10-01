@@ -1557,7 +1557,7 @@ set(PERASTAGE_TEST_MVR_ROUNDTRIP_SOURCES
     ../mvr/mvr_xml_document_writer.cpp
     ../mvr/mvr_xml_extension_writer.cpp
     ../mvr/mvr_xml_scene_object_writer.cpp
-    ../mvr/mvrexporter.cpp
+    ../mvr/mvrexporter.cpp ../mvr/mvrexporter_application.cpp
     ../mvr/mvrimporter.cpp
     ../mvr/primitive_model_resources.cpp
     ../viewer2d/fixture_label_overrides.cpp
@@ -1626,7 +1626,7 @@ add_executable(mvr_project_fixture_metadata_contracts_test
 
 
                ../core/fixture_visual_color.cpp ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
-               ../viewer2d/fixture_label_overrides.cpp ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
+               ../viewer2d/fixture_label_overrides.cpp ../mvr/mvrexporter.cpp ../mvr/mvrexporter_application.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
                ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
@@ -1733,7 +1733,7 @@ add_executable(rider_truss_dictionary_normalization_test
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvrexporter_application.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
                ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
@@ -1822,7 +1822,7 @@ add_executable(mvr_perastage_metadata_recovery_test
 
                ../core/fixture_visual_color.cpp ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvrexporter_application.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
                ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
@@ -1917,7 +1917,7 @@ add_executable(mvr_sceneobject_symbol_identity_test mvr_sceneobject_symbol_ident
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvrexporter_application.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
                ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
@@ -2067,7 +2067,7 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvrexporter_application.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
                ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
@@ -2589,7 +2589,7 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvrexporter_application.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
                ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
@@ -2616,7 +2616,7 @@ add_test(NAME SymbolFixtureApplyPresentation
 add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvrexporter_application.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
                ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
@@ -3603,6 +3603,30 @@ foreach(PERASTAGE_DICTIONARY_TEST IN LISTS
                        ../core/gdtf_canonicalizer.cpp)
     endif()
     target_link_libraries(${PERASTAGE_DICTIONARY_TEST} PRIVATE perastage_uuid)
+endforeach()
+
+# Supplies the neutral production GDTF reader to direct-source exporter tests.
+get_property(PERASTAGE_MVR_EXPORT_TEST_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(PERASTAGE_MVR_EXPORT_TEST IN LISTS PERASTAGE_MVR_EXPORT_TEST_TARGETS)
+    get_target_property(PERASTAGE_MVR_EXPORT_TEST_SOURCES
+                        ${PERASTAGE_MVR_EXPORT_TEST} SOURCES)
+    if("../mvr/mvrexporter.cpp" IN_LIST PERASTAGE_MVR_EXPORT_TEST_SOURCES)
+        target_link_libraries(${PERASTAGE_MVR_EXPORT_TEST} PRIVATE
+                              perastage_gdtf_read)
+    endif()
+endforeach()
+foreach(PERASTAGE_MVR_ROUNDTRIP_CONSUMER IN ITEMS
+        save_load_roundtrip_test
+        project_support_userdata_roundtrip_test
+        truss_path_encoding_regression_test
+        mvr_dmx_address_test
+        mvr_support_userdata_roundtrip_test
+        mvr_layer_appearance_userdata_test
+        mvr_fixture_category_roundtrip_test
+        mvr_truss_roundtrip_structure_test
+        mvr_exporter_compliance_test)
+    target_link_libraries(${PERASTAGE_MVR_ROUNDTRIP_CONSUMER} PRIVATE
+                          perastage_gdtf_read)
 endforeach()
 
 # Guards the explicit dictionary publication dependency inventory against drift.

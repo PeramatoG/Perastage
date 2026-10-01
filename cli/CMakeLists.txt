@@ -9,7 +9,7 @@ target_sources(perastage_cli_support PRIVATE
 target_compile_features(perastage_cli_support PUBLIC cxx_std_20)
 target_include_directories(perastage_cli_support
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
-    PRIVATE "${CMAKE_SOURCE_DIR}/core")
+    PRIVATE "${CMAKE_SOURCE_DIR}/core" "${CMAKE_SOURCE_DIR}/third_party")
 target_compile_definitions(perastage_cli_support PRIVATE
     PERASTAGE_CLI_VERSION="${PROJECT_VERSION}")
 target_link_libraries(perastage_cli_support PUBLIC

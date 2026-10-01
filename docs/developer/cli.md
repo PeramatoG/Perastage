@@ -34,6 +34,9 @@ transforms currently form this surface. A parse, validation, execution,
 resource, serialization, or publication failure leaves both the source and any
 pre-existing output unchanged. Successful output uses the production canonical
 MVR preparation, resource collection, XML serialization, and archive writer.
+Application-owned exporters explicitly supply their resolved fixture fallback
+through `MvrExportEnvironment`; the neutral CLI export supplies no fallback and
+never searches Perastage's installed or user fixture libraries.
 
 Unlike the embedded Console, which mutates the active GUI project and records
 application Undo state, this workflow uses an isolated headless scene and has

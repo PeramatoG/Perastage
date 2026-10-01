@@ -220,20 +220,17 @@ bool ResolveModelDependencyPath(const fs::path &modelPath,
   return false;
 }
 
-// Avoids application-library fallback when exporting an isolated scene.
-std::string ResolveFallbackFixtureGdtfPath() {
-  return {};
-}
-
 } // namespace
 
 namespace mvr_export_resources {
 
 // Initializes collection and reserves a temporary workspace for primitive models.
 ResourceCollection::ResourceCollection(std::string sceneBasePath,
+                                       fs::path fixtureFallbackGdtfPath,
                                        DiagnosticSink diagnosticSink,
                                        InformationalLogSink informationalLogSink)
     : m_sceneBasePath(std::move(sceneBasePath)),
+      m_fixtureFallbackGdtfPath(std::move(fixtureFallbackGdtfPath)),
       m_diagnosticSink(std::move(diagnosticSink)),
       m_informationalLogSink(std::move(informationalLogSink)) {
   runtime_storage::TemporaryWorkspace workspace("mvr-export-primitives");
@@ -272,11 +269,6 @@ std::string ResourceCollection::NormalizeArchiveEntryPath(std::string path) {
   while (path.rfind("./", 0) == 0) path.erase(0, 2);
   while (!path.empty() && path.front() == '/') path.erase(path.begin());
   return path;
-}
-
-// Resolves the established compatibility fixture GDTF in preference order.
-std::string ResourceCollection::ResolveFallbackFixtureGdtfPath() {
-  return ::ResolveFallbackFixtureGdtfPath();
 }
 
 // Produces a stable absolute identity path relative to the scene base directory.
@@ -359,7 +351,11 @@ std::string ResourceCollection::RegisterGdtfResource(const std::string &objectUu
   std::string resolved = ResolveExistingResourceSourcePath(rawGdtfPath);
   ResourceProvenance provenance = ResourceProvenance::StandardPreserved;
   if (resolved.empty() && allowFallback) {
-    resolved = ResolveFallbackFixtureGdtfPath();
+    std::error_code fallbackError;
+    if (!m_fixtureFallbackGdtfPath.empty() &&
+        fs::is_regular_file(m_fixtureFallbackGdtfPath, fallbackError) &&
+        !fallbackError)
+      resolved = m_fixtureFallbackGdtfPath.generic_string();
     if (!resolved.empty()) {
       provenance = ResourceProvenance::CompatibilityFallback;
       if (m_diagnosticSink) m_diagnosticSink({MvrExportDiagnosticCode::GdtfFallbackUsed,

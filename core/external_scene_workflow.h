@@ -18,6 +18,8 @@ struct Request {
 struct Result {
   bool success = false;
   bool sceneChanged = false;
+  bool selectionChanged = false;
+  bool projectDirty = false;
   bool outputPublished = false;
   std::vector<command::Result> commandResults;
   std::vector<std::string> diagnostics;

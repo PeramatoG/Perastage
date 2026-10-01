@@ -10,7 +10,10 @@ Changes since **v1.6.0**.
   fixture/truss selection and transform commands to an explicitly supplied MVR
   and publishing a canonical result to a separate output file. Sources are
   never modified, existing outputs require explicit overwrite permission, and
-  failed command sequences publish no partial result.
+  failed command sequences publish no partial result. Machine-readable failures
+  retain semantic command diagnostics, while application exports continue to
+  use their configured fixture-library fallback without exposing that library
+  to isolated CLI workflows.
 
 - Added a native, read-only MVR / GDTF Inspector workspace alongside the 3D,
   2D, and Layout Mode views. It now opens on a canonical snapshot of the active

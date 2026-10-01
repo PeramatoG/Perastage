@@ -72,7 +72,7 @@ target_link_libraries(perastage_mvr_export
     PRIVATE perastage_gdtf_read perastage_mvr_read tinyxml2::tinyxml2
             ${wxWidgets_LIBRARIES}
 )
-if(NOT MSVC)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_compile_options(perastage_mvr_export PRIVATE -ffunction-sections)
     target_link_options(perastage_mvr_export INTERFACE -Wl,--gc-sections)
 endif()

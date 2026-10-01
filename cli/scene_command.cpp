@@ -2,6 +2,7 @@
 
 #include "command/command_json_serializer.h"
 #include "external_scene_workflow.h"
+#include "json.hpp"
 
 #include <ostream>
 #include <string>
@@ -15,6 +16,35 @@ void WriteHelp(std::ostream &out) {
          "--command <text> [--command <text> ...] [--overwrite] [--json]\n\n"
          "The input is read-only. The output must be a different explicit "
          "path.\n";
+}
+
+// Serializes one complete workflow result without changing Command JSON.
+std::string SerializeWorkflowResult(const external_scene::Result &result) {
+  nlohmann::json commands = nlohmann::json::array();
+  for (const auto &commandResult : result.commandResults) {
+    commands.push_back(nlohmann::json::parse(
+        command::serialization::SerializeResultToJson(commandResult)));
+  }
+  return nlohmann::json{{"schema_version", 1},
+                        {"success", result.success},
+                        {"scene_changed", result.sceneChanged},
+                        {"selection_changed", result.selectionChanged},
+                        {"project_dirty", result.projectDirty},
+                        {"output_published", result.outputPublished},
+                        {"command_results", std::move(commands)},
+                        {"diagnostics", result.diagnostics}}
+      .dump();
+}
+
+// Writes semantic Command diagnostics directly from structured results.
+void WriteSemanticDiagnostics(const external_scene::Result &result,
+                              std::ostream &err) {
+  for (const auto &commandResult : result.commandResults) {
+    for (const auto &diagnostic : commandResult.diagnostics) {
+      err << "perastage-cli scene command: " << diagnostic.code << ": "
+          << diagnostic.message << '\n';
+    }
+  }
 }
 
 } // namespace
@@ -61,21 +91,17 @@ int RunScene(std::span<const std::string_view> args, std::ostream &out,
 
   external_scene::Result result = external_scene::Execute(request);
   if (!result.success) {
-    for (const std::string &diagnostic : result.diagnostics)
-      err << "perastage-cli scene: " << diagnostic << '\n';
+    if (json)
+      out << SerializeWorkflowResult(result) << '\n';
+    else {
+      for (const std::string &diagnostic : result.diagnostics)
+        err << "perastage-cli scene: " << diagnostic << '\n';
+      WriteSemanticDiagnostics(result, err);
+    }
     return 4;
   }
   if (json) {
-    out << "{\"schema_version\":1,\"success\":true,\"scene_changed\":"
-        << (result.sceneChanged ? "true" : "false")
-        << ",\"output_published\":true,\"command_results\":[";
-    for (std::size_t index = 0; index < result.commandResults.size(); ++index) {
-      if (index)
-        out << ',';
-      out << command::serialization::SerializeResultToJson(
-          result.commandResults[index]);
-    }
-    out << "]}\n";
+    out << SerializeWorkflowResult(result) << '\n';
   } else {
     out << "Published canonical MVR: " << request.outputPath.string() << '\n';
   }

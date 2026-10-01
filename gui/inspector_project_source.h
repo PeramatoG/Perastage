@@ -2,6 +2,7 @@
 
 #include "inspection/mvr_inspection.h"
 #include "mvr_export_options.h"
+#include "mvr_export_environment.h"
 #include "mvrscene.h"
 
 #include <cstdint>
@@ -24,6 +25,7 @@ struct CurrentProjectInspection {
 struct CurrentProjectSnapshotInput {
   std::shared_ptr<const MvrScene> scene;
   MvrExportOptions options;
+  MvrExportEnvironment environment;
 };
 
 // Generates immutable current-project snapshots through the canonical exporter.

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
 import subprocess
 import sys
 import tempfile
@@ -57,6 +58,20 @@ def main() -> int:
             archive.writestr("fixture.gdtf", fixture_bytes.getvalue())
         source_digest = digest(source)
 
+        selection_output = root / "selection.mvr"
+        selection = run(cli, "scene", str(source), "--output",
+                        str(selection_output), "--command", "f 1", "--json")
+        assert selection.returncode == 0, selection.stderr
+        selection_json = json.loads(selection.stdout)
+        assert selection_json["scene_changed"] is False
+        assert selection_json["selection_changed"] is True
+
+        clear_output = root / "clear.mvr"
+        clear = run(cli, "scene", str(source), "--output", str(clear_output),
+                    "--command", "clear", "--json")
+        assert clear.returncode == 0, clear.stderr
+        assert json.loads(clear.stdout)["scene_changed"] is False
+
         result = run(cli, "scene", str(source), "--output", str(output),
                      "--command", "f 1", "--command", "pos x 1",
                      "--command", "pos y ++2")
@@ -76,10 +91,22 @@ def main() -> int:
                    "--command", "f 1").returncode != 0
         assert output.read_bytes() == unchanged
         failure = run(cli, "scene", str(source), "--output", str(output),
-                      "--overwrite", "--command", "f 1 pos x 4",
-                      "--command", "unknown")
+                      "--overwrite", "--command", "f 1 pos x 4 f - 1 pos y 2",
+                      "--json")
         assert failure.returncode != 0
+        failure_json = json.loads(failure.stdout)
+        assert failure_json["success"] is False
+        assert failure_json["scene_changed"] is True
+        assert failure_json["output_published"] is False
+        assert failure_json["command_results"][-1]["diagnostics"][0]["code"] == \
+            "scene.transform.no_effective_targets"
         assert output.read_bytes() == unchanged
+        human_failure = run(
+            cli, "scene", str(source), "--output", str(root / "failed.mvr"),
+            "--command", "pos x 1")
+        assert human_failure.returncode != 0
+        assert "scene.transform.no_effective_targets" in human_failure.stderr
+        assert not (root / "failed.mvr").exists()
         assert digest(source) == source_digest
         assert run(cli, "scene", str(source), "--command", "f 1").returncode == 2
         assert run(cli, "scene", str(source), "--output", str(source),
@@ -89,7 +116,9 @@ def main() -> int:
                           "--overwrite", "--command", "f 1",
                           "--command", "rot z 90", "--json")
         assert overwritten.returncode == 0, overwritten.stderr
-        assert '"output_published":true' in overwritten.stdout
+        overwritten_json = json.loads(overwritten.stdout)
+        assert overwritten_json["scene_changed"] is True
+        assert overwritten_json["output_published"] is True
         assert digest(source) == source_digest
     return 0
 
