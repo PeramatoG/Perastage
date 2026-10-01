@@ -76,8 +76,8 @@ bool CheckCapabilityDiscovery() {
       return false;
     for (std::size_t index = 0; index < perastage::capability::Catalog().size();
          ++index)
-      if (json.at("operations")[index].at("operation_id") !=
-          perastage::capability::Catalog()[index].operationId)
+      if (json.at("operations")[index].at("operation_id").get<std::string>() !=
+          std::string(perastage::capability::Catalog()[index].operationId))
         return false;
     if (repetition != 0 &&
         (humanOut.str() != previousHuman || jsonOut.str() != previousJson))

@@ -56,13 +56,53 @@ void CheckSingleIssue(const command::Request &request,
   assert(issues.front().argumentId == argumentId);
 }
 
-// Verifies one operation's exact frontend exposure.
-void CheckExposure(std::string_view operationId, std::string_view frontendId,
-                   capability::ExposureState state) {
-  const auto &frontends = Require(operationId).frontends;
-  assert(frontends.size() == 1);
-  assert(frontends.front().frontendId == frontendId);
-  assert(frontends.front().state == state);
+struct ExpectedArgument {
+  std::string id;
+  capability::ArgumentType type;
+  bool required;
+};
+
+// Verifies one descriptor's complete stable semantic shape.
+void CheckDescriptor(
+    std::string_view operationId, capability::OperationKind kind,
+    capability::Effect effect, const std::vector<ExpectedArgument> &arguments,
+    const std::vector<capability::FrontendExposure> &frontends) {
+  const auto &descriptor = Require(operationId);
+  assert(descriptor.kind == kind);
+  assert(descriptor.effect == effect);
+  assert(descriptor.arguments.size() == arguments.size());
+  for (std::size_t index = 0; index < arguments.size(); ++index) {
+    assert(descriptor.arguments[index].id == arguments[index].id);
+    assert(descriptor.arguments[index].type == arguments[index].type);
+    assert(descriptor.arguments[index].required == arguments[index].required);
+  }
+  assert(descriptor.frontends.size() == frontends.size());
+  for (std::size_t index = 0; index < frontends.size(); ++index) {
+    assert(descriptor.frontends[index].frontendId ==
+           frontends[index].frontendId);
+    assert(descriptor.frontends[index].state == frontends[index].state);
+  }
+}
+
+// Builds the exact ordered transform argument expectation for one operation.
+std::vector<ExpectedArgument> TransformArguments(std::string_view valueSuffix,
+                                                 bool includesPivot) {
+  std::vector<ExpectedArgument> arguments;
+  for (std::string_view axis : {"x", "y", "z"}) {
+    const std::string prefix(axis);
+    arguments.push_back({prefix + std::string(valueSuffix),
+                         capability::ArgumentType::Float64List, false});
+    arguments.push_back(
+        {prefix + "_relative", capability::ArgumentType::Boolean, false});
+    arguments.push_back(
+        {prefix + "_space", capability::ArgumentType::String, false});
+    arguments.push_back(
+        {prefix + "_group", capability::ArgumentType::Boolean, false});
+  }
+  if (includesPivot)
+    arguments.push_back(
+        {"pivot_mm", capability::ArgumentType::Float64List, false});
+  return arguments;
 }
 
 // Verifies the exact current Command and Query inventory.
@@ -119,10 +159,10 @@ void CheckArgumentValueTypes() {
 void CheckCommandParity() {
   using capability::ArgumentType;
   command::transform::Command position{command::transform::Kind::Position,
-      {{0, {10.0}, false, false},
-       {1, {20.0}, true, false},
-       {2, {30.0, 40.0}, false, true}},
-      std::nullopt};
+                                       {{0, {10.0}, false, false},
+                                        {1, {20.0}, true, false},
+                                        {2, {30.0, 40.0}, false, true}},
+                                       std::nullopt};
   command::transform::Command rotation{command::transform::Kind::Rotation,
                                        {{0, {10.0}, false, false},
                                         {1, {20.0}, true, false},
@@ -195,44 +235,65 @@ void CheckRequestShapeFailures() {
   assert(repeatedUnknown[1].kind == RequestShapeIssueKind::DuplicateArgument);
 }
 
-// Verifies all Query descriptors and their caller-facing arguments.
-void CheckQueries() {
-  const std::array<std::string_view, 7> queryIds = {
-      query::kSummaryQueryId, query::kSelectionQueryId, query::kObjectsQueryId,
-      query::kObjectQueryId,  query::kLayersQueryId,    query::kGroupsQueryId,
-      query::kPatchQueryId};
-  for (std::string_view id : queryIds) {
-    const auto &descriptor = Require(id);
-    assert(descriptor.kind == capability::OperationKind::Query);
-    assert(descriptor.effect == capability::Effect::ReadOnly);
-    assert(descriptor.frontends.empty());
-  }
-  for (std::string_view id : {query::kSummaryQueryId, query::kSelectionQueryId,
-                              query::kObjectsQueryId, query::kLayersQueryId,
-                              query::kGroupsQueryId, query::kPatchQueryId})
-    assert(Require(id).arguments.empty());
-  const auto &object = Require(query::kObjectQueryId);
-  assert(object.arguments.size() == 2);
-  CheckArgument(object, "object_kind", capability::ArgumentType::String, true);
-  CheckArgument(object, "object_uuid", capability::ArgumentType::String, true);
-}
+// Verifies every descriptor's exact arguments, classification, and exposure.
+void CheckDescriptorFidelity() {
+  using capability::ArgumentType;
+  using capability::Effect;
+  using capability::ExposureState;
+  using capability::FrontendExposure;
+  using capability::OperationKind;
+  const std::vector<FrontendExposure> consoleFull = {
+      {"embedded_console", ExposureState::Full}};
+  const std::vector<FrontendExposure> consolePartial = {
+      {"embedded_console", ExposureState::Partial}};
+  const std::vector<FrontendExposure> desktopFull = {
+      {"desktop_gui", ExposureState::Full}};
 
-// Verifies the exact current operation-to-frontend exposure mapping.
-void CheckFrontendExposure() {
-  CheckExposure(command::transform::kPositionCommandId, "embedded_console",
-                capability::ExposureState::Full);
-  CheckExposure(command::transform::kRotationCommandId, "embedded_console",
-                capability::ExposureState::Full);
-  CheckExposure(command::selection::kClearCommandId, "embedded_console",
-                capability::ExposureState::Full);
-  CheckExposure(command::selection::kUpdateCommandId, "embedded_console",
-                capability::ExposureState::Partial);
+  CheckDescriptor(command::scene_tools::kFixtureToSupportCommandId,
+                  OperationKind::Command, Effect::Destructive,
+                  {{"fixture_uuids", ArgumentType::StringList, true}},
+                  desktopFull);
+  CheckDescriptor(command::scene_tools::kSceneObjectsToTrussesCommandId,
+                  OperationKind::Command, Effect::Destructive,
+                  {{"source_scene_object_uuid", ArgumentType::String, true}},
+                  desktopFull);
+  const std::vector<ExpectedArgument> groupArguments = {
+      {"fixture_uuids", ArgumentType::StringList, true},
+      {"truss_uuids", ArgumentType::StringList, true},
+      {"support_uuids", ArgumentType::StringList, true},
+      {"scene_object_uuids", ArgumentType::StringList, true}};
+  CheckDescriptor(command::scene_tools::kGroupCreateCommandId,
+                  OperationKind::Command, Effect::Mutating, groupArguments,
+                  desktopFull);
+  CheckDescriptor(command::scene_tools::kGroupUngroupCommandId,
+                  OperationKind::Command, Effect::Mutating, groupArguments,
+                  desktopFull);
+  CheckDescriptor(command::selection::kClearCommandId, OperationKind::Command,
+                  Effect::Mutating, {}, consoleFull);
+  CheckDescriptor(command::selection::kUpdateCommandId, OperationKind::Command,
+                  Effect::Mutating,
+                  {{"target_kind", ArgumentType::String, true},
+                   {"preserve_existing", ArgumentType::Boolean, true},
+                   {"operation_kinds", ArgumentType::StringList, true},
+                   {"object_kinds", ArgumentType::StringList, true},
+                   {"object_uuids", ArgumentType::StringList, true}},
+                  consolePartial);
+  CheckDescriptor(command::transform::kPositionCommandId,
+                  OperationKind::Command, Effect::Mutating,
+                  TransformArguments("_millimeters", false), consoleFull);
+  CheckDescriptor(command::transform::kRotationCommandId,
+                  OperationKind::Command, Effect::Mutating,
+                  TransformArguments("_degrees", true), consoleFull);
+
   for (std::string_view id :
-       {command::scene_tools::kGroupCreateCommandId,
-        command::scene_tools::kGroupUngroupCommandId,
-        command::scene_tools::kFixtureToSupportCommandId,
-        command::scene_tools::kSceneObjectsToTrussesCommandId})
-    CheckExposure(id, "desktop_gui", capability::ExposureState::Full);
+       {query::kGroupsQueryId, query::kLayersQueryId, query::kObjectsQueryId,
+        query::kPatchQueryId, query::kSelectionQueryId, query::kSummaryQueryId})
+    CheckDescriptor(id, OperationKind::Query, Effect::ReadOnly, {}, {});
+  CheckDescriptor(query::kObjectQueryId, OperationKind::Query, Effect::ReadOnly,
+                  {{"object_kind", ArgumentType::String, true},
+                   {"object_uuid", ArgumentType::String, true}},
+                  {});
+
   for (const auto &descriptor : capability::Catalog())
     for (const auto &frontend : descriptor.frontends) {
       assert(frontend.frontendId != "development_cli");
@@ -254,8 +315,8 @@ void CheckSerialization() {
   const auto &operations = json.at("operations");
   assert(operations.size() == capability::Catalog().size());
   for (std::size_t index = 0; index < operations.size(); ++index)
-    assert(operations[index].at("operation_id") ==
-           capability::Catalog()[index].operationId);
+    assert(operations[index].at("operation_id").get<std::string>() ==
+           std::string(capability::Catalog()[index].operationId));
   const auto &operation = operations.front();
   for (const char *field : {"operation_id", "kind", "effect", "summary",
                             "arguments", "frontend_exposure"})
@@ -276,8 +337,7 @@ int main() {
   CheckArgumentValueTypes();
   CheckCommandParity();
   CheckRequestShapeFailures();
-  CheckQueries();
-  CheckFrontendExposure();
+  CheckDescriptorFidelity();
   CheckSerialization();
   return 0;
 }

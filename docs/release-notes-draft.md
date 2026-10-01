@@ -162,7 +162,7 @@ Changes since **v1.6.0**.
 
 - Strengthened capability discovery contract coverage for exact operation
   inventory, argument types, frontend exposure, JSON structure, CLI output,
-  and dependency boundaries.
+  cross-platform compatibility, and dependency boundaries.
 
 - Moved Console fixture and truss selection semantics into the shared,
   GUI-independent command layer with stable UUID identities, deterministic
