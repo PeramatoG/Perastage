@@ -13,7 +13,8 @@ Changes since **v1.6.0**.
   failed command sequences publish no partial result. Machine-readable failures
   retain semantic command diagnostics, while application exports continue to
   use their configured fixture-library fallback without exposing that library
-  to isolated CLI workflows.
+  to isolated CLI workflows. Exporter regression coverage now explicitly
+  protects both sides of that resource-ownership boundary.
 
 - Added a native, read-only MVR / GDTF Inspector workspace alongside the 3D,
   2D, and Layout Mode views. It now opens on a canonical snapshot of the active
