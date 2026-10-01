@@ -182,9 +182,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    perastage_command_text_parser
-    perastage_command_transform_text_adapter
-    perastage_command_selection_text_adapter
+    perastage_command_text_processor
     perastage_command_scene_tools
     perastage_inspection_gdtf
     perastage_inspection_mvr

@@ -132,6 +132,9 @@ add_library(perastage_command_transform_text_adapter STATIC
 add_library(perastage_command_selection_text_adapter STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/command/command_selection_text_adapter.cpp
 )
+add_library(perastage_command_text_processor STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/command/command_text_processor.cpp
+)
 target_compile_features(perastage_command_selection_text_adapter PUBLIC cxx_std_20)
 target_include_directories(perastage_command_selection_text_adapter PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -145,6 +148,16 @@ target_include_directories(perastage_command_transform_text_adapter PUBLIC
 )
 target_link_libraries(perastage_command_transform_text_adapter
     PUBLIC perastage_command_text_parser perastage_command_transform
+)
+target_compile_features(perastage_command_text_processor PUBLIC cxx_std_20)
+target_include_directories(perastage_command_text_processor PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/models
+)
+target_link_libraries(perastage_command_text_processor PUBLIC
+    perastage_command_text_parser
+    perastage_command_selection_text_adapter
+    perastage_command_transform_text_adapter
 )
 
 add_library(perastage_command_serialization STATIC

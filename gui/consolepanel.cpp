@@ -16,10 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "consolepanel.h"
-#include "command/command_selection.h"
-#include "command/command_selection_text_adapter.h"
-#include "command/command_transform_text_adapter.h"
-#include "command/command_text_parser.h"
+#include "command/command_text_processor.h"
 #include "configmanager.h"
 #include "fixturetablepanel.h"
 #include "guiconfigservices.h"
@@ -76,8 +73,8 @@ FormatParseDiagnostic(const perastage::command::Diagnostic &diagnostic) {
 }
 
 // Formats one semantic command diagnostic for Console presentation.
-wxString FormatCommandDiagnostic(
-    const perastage::command::Diagnostic &diagnostic) {
+wxString
+FormatCommandDiagnostic(const perastage::command::Diagnostic &diagnostic) {
   if (diagnostic.code == "scene.transform.no_effective_targets")
     return "[ERROR] Invalid transform: provide finite numeric values, valid "
            "modifiers, and a non-empty selection.";
@@ -431,10 +428,10 @@ void ConsolePanel::OnInputKeyDown(wxKeyEvent &event) {
   event.Skip();
 }
 
-// Parses and applies command-bar actions to the current scene selection.
+// Executes a command line through Core and applies its structured UI effects.
 void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
-  std::string cmd = std::string(cmdWx.ToUTF8());
-  if (cmd.find_first_not_of(" \t\n\r") == std::string::npos)
+  const std::string commandText(cmdWx.ToUTF8());
+  if (commandText.find_first_not_of(" \t\n\r") == std::string::npos)
     return;
 
   AppendMessage("[CMD] " + cmdWx);
@@ -444,69 +441,71 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
     const auto interactiveTransformPolicy =
         selection_movement_settings::LoadInteractiveTransformPolicy(cfg);
 
-    auto refreshSelectionAfterTransform = [&]() {
-      const auto selFixtures = cfg.GetSelectedFixtures();
-      const auto selTrusses = cfg.GetSelectedTrusses();
-      const auto selSupports = cfg.GetSelectedSupports();
-      const auto selSceneObjects = cfg.GetSelectedSceneObjects();
+    auto refreshSelectionAfterTransform =
+        [&](const scene_grouping::ObjectSelection &selection) {
+          if (!selection.fixtures.empty() && FixtureTablePanel::Instance()) {
+            FixtureTablePanel::Instance()->ReloadData();
+            FixtureTablePanel::Instance()->SelectByUuid(selection.fixtures,
+                                                        false);
+          }
+          if (!selection.trusses.empty() && TrussTablePanel::Instance()) {
+            TrussTablePanel::Instance()->ReloadData();
+            TrussTablePanel::Instance()->SelectByUuid(selection.trusses, false);
+          }
+          if (!selection.supports.empty() && HoistTablePanel::Instance()) {
+            HoistTablePanel::Instance()->ReloadData();
+            HoistTablePanel::Instance()->SelectByUuid(selection.supports,
+                                                      false);
+          }
+          if (!selection.sceneObjects.empty() &&
+              SceneObjectTablePanel::Instance()) {
+            SceneObjectTablePanel::Instance()->ReloadData();
+            SceneObjectTablePanel::Instance()->SelectByUuid(
+                selection.sceneObjects, false);
+          }
 
-      if (!selFixtures.empty() && FixtureTablePanel::Instance()) {
-        FixtureTablePanel::Instance()->ReloadData();
-        FixtureTablePanel::Instance()->SelectByUuid(selFixtures, false);
-      }
-      if (!selTrusses.empty() && TrussTablePanel::Instance()) {
-        TrussTablePanel::Instance()->ReloadData();
-        TrussTablePanel::Instance()->SelectByUuid(selTrusses, false);
-      }
-      if (!selSupports.empty() && HoistTablePanel::Instance()) {
-        HoistTablePanel::Instance()->ReloadData();
-        HoistTablePanel::Instance()->SelectByUuid(selSupports, false);
-      }
-      if (!selSceneObjects.empty() && SceneObjectTablePanel::Instance()) {
-        SceneObjectTablePanel::Instance()->ReloadData();
-        SceneObjectTablePanel::Instance()->SelectByUuid(selSceneObjects, false);
-      }
+          std::vector<std::string> mergedSelection;
+          const auto appendSelection =
+              [&](const std::vector<std::string> &source) {
+                mergedSelection.insert(mergedSelection.end(), source.begin(),
+                                       source.end());
+              };
+          appendSelection(selection.fixtures);
+          appendSelection(selection.trusses);
+          appendSelection(selection.supports);
+          appendSelection(selection.sceneObjects);
 
-      std::vector<std::string> mergedSelection;
-      const auto appendSelection = [&](const std::vector<std::string> &source) {
-        mergedSelection.insert(mergedSelection.end(), source.begin(),
-                               source.end());
-      };
-      appendSelection(selFixtures);
-      appendSelection(selTrusses);
-      appendSelection(selSupports);
-      appendSelection(selSceneObjects);
+          if (Viewer3DPanel::Instance()) {
+            Viewer3DPanel::Instance()->SetSelectedFixtures(mergedSelection);
+            Viewer3DPanel::Instance()->UpdateScene();
+            Viewer3DPanel::Instance()->Refresh();
+          }
+          if (Viewer2DPanel::Instance())
+            Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
+        };
 
-      if (Viewer3DPanel::Instance()) {
-        Viewer3DPanel::Instance()->SetSelectedFixtures(mergedSelection);
-        Viewer3DPanel::Instance()->UpdateScene();
-        Viewer3DPanel::Instance()->Refresh();
-      }
-      if (Viewer2DPanel::Instance())
-        Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
-    };
+    scene_grouping::ObjectSelection commandSelection{
+        .fixtures = cfg.GetSelectedFixtures(),
+        .trusses = cfg.GetSelectedTrusses(),
+        .supports = cfg.GetSelectedSupports(),
+        .sceneObjects = cfg.GetSelectedSceneObjects()};
+    GuiProjectMutationHost mutationHost(cfg);
+    perastage::command::ExecutionContext context{
+        cfg.GetScene(), commandSelection, mutationHost};
+    const auto execution = perastage::command::text::ProcessCommandLine(
+        commandText, context, interactiveTransformPolicy);
 
-    const auto parsed = perastage::command::text::ParseCommandLine(cmd);
-    for (const auto &parsedCommand : parsed.commands) {
+    for (const auto &record : execution.records) {
+      for (const auto &diagnostic : record.result.diagnostics)
+        AppendMessage(FormatCommandDiagnostic(diagnostic));
+      if (!record.result.Success())
+        return;
+
       if (std::holds_alternative<perastage::command::text::ClearCommand>(
-              parsedCommand)) {
-        scene_grouping::ObjectSelection commandSelection{
-            .fixtures = cfg.GetSelectedFixtures(),
-            .trusses = cfg.GetSelectedTrusses(),
-            .supports = cfg.GetSelectedSupports(),
-            .sceneObjects = cfg.GetSelectedSceneObjects()};
-        GuiProjectMutationHost mutationHost(cfg);
-        perastage::command::ExecutionContext context{
-            cfg.GetScene(), commandSelection, mutationHost};
-        const auto result =
-            perastage::command::selection::ExecuteClear(context);
-        for (const auto &diagnostic : result.diagnostics)
-          AppendMessage(FormatCommandDiagnostic(diagnostic));
-        if (!result.Success())
-          return;
-        cfg.SetSelectedFixtures(commandSelection.fixtures);
-        cfg.SetSelectedTrusses(commandSelection.trusses);
-        cfg.SetSelectedSceneObjects(commandSelection.sceneObjects);
+              record.command)) {
+        cfg.SetSelectedFixtures(record.selectionAfter.fixtures);
+        cfg.SetSelectedTrusses(record.selectionAfter.trusses);
+        cfg.SetSelectedSceneObjects(record.selectionAfter.sceneObjects);
         if (FixtureTablePanel::Instance())
           FixtureTablePanel::Instance()->SelectByUuid({});
         if (TrussTablePanel::Instance())
@@ -524,26 +523,12 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
 
       if (const auto *selection =
               std::get_if<perastage::command::text::SelectionCommand>(
-                  &parsedCommand)) {
-        scene_grouping::ObjectSelection commandSelection{
-            .fixtures = cfg.GetSelectedFixtures(),
-            .trusses = cfg.GetSelectedTrusses(),
-            .supports = cfg.GetSelectedSupports(),
-            .sceneObjects = cfg.GetSelectedSceneObjects()};
-        GuiProjectMutationHost mutationHost(cfg);
-        perastage::command::ExecutionContext context{
-            cfg.GetScene(), commandSelection, mutationHost};
-        const auto result =
-            perastage::command::text::ExecuteSelection(*selection, context);
-        for (const auto &diagnostic : result.diagnostics)
-          AppendMessage(FormatCommandDiagnostic(diagnostic));
-        if (!result.Success())
-          return;
+                  &record.command)) {
         const bool fixtures =
             selection->target ==
             perastage::command::text::SelectionTarget::Fixtures;
-        const auto &current = fixtures ? commandSelection.fixtures
-                                       : commandSelection.trusses;
+        const auto &current = fixtures ? record.selectionAfter.fixtures
+                                       : record.selectionAfter.trusses;
         if (fixtures) {
           cfg.SetSelectedFixtures(current);
           if (FixtureTablePanel::Instance())
@@ -562,35 +547,18 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         continue;
       }
 
-      const auto &transform =
-          std::get<perastage::command::text::TransformCommand>(parsedCommand);
-      scene_grouping::ObjectSelection commandSelection{
-          .fixtures = cfg.GetSelectedFixtures(),
-          .trusses = cfg.GetSelectedTrusses(),
-          .supports = cfg.GetSelectedSupports(),
-          .sceneObjects = cfg.GetSelectedSceneObjects()};
-      GuiProjectMutationHost mutationHost(cfg);
-      perastage::command::ExecutionContext context{
-          cfg.GetScene(), commandSelection, mutationHost};
-      const auto result = perastage::command::transform::Execute(
-          perastage::command::text::AdaptTransform(transform), context,
-          interactiveTransformPolicy);
-      for (const auto &diagnostic : result.diagnostics)
-        AppendMessage(FormatCommandDiagnostic(diagnostic));
-      if (!result.Success())
-        return;
-      if (result.mutation.sceneChanged)
-        refreshSelectionAfterTransform();
+      if (record.result.mutation.sceneChanged)
+        refreshSelectionAfterTransform(record.selectionAfter);
     }
 
-    if (!parsed.Success()) {
-      for (const auto &diagnostic : parsed.diagnostics)
+    if (!execution.parseDiagnostics.empty()) {
+      for (const auto &diagnostic : execution.parseDiagnostics)
         AppendMessage(FormatParseDiagnostic(diagnostic));
       return;
     }
 
     AppendMessage("[INFO] OK");
-  } catch (const std::exception &e) {
-    AppendMessage("[ERROR] " + wxString::FromUTF8(e.what()));
+  } catch (const std::exception &error) {
+    AppendMessage("[ERROR] " + wxString::FromUTF8(error.what()));
   }
 }

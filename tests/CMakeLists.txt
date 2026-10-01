@@ -200,6 +200,14 @@ add_test(NAME CommandSelection COMMAND command_selection_test)
 set_perastage_test_labels(CommandSelection LAYER unit
                           DOMAINS command architecture)
 
+add_executable(command_text_processor_test command_text_processor_test.cpp)
+target_link_libraries(command_text_processor_test PRIVATE
+                      perastage_command_text_processor
+                      perastage_mvr_scene_model)
+add_test(NAME CommandTextProcessor COMMAND command_text_processor_test)
+set_perastage_test_labels(CommandTextProcessor LAYER unit
+                          DOMAINS command architecture)
+
 add_executable(command_scene_tools_test command_scene_tools_test.cpp)
 target_link_libraries(command_scene_tools_test PRIVATE
                       perastage_command_scene_tools
@@ -524,6 +532,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(InspectionContractBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_contract_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(CommandCoreBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_core_boundary.sh LABELS standard-strict architecture core command)
     add_bash_policy_test(CommandTextParserBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_text_parser_boundary.sh LABELS standard-strict architecture core command)
+    add_bash_policy_test(CommandTextProcessorBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_text_processor_boundary.sh LABELS standard-strict architecture core command)
     add_bash_policy_test(CommandTransformBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_transform_boundary.sh LABELS standard-strict architecture core command)
     add_bash_policy_test(CommandSelectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_selection_boundary.sh LABELS standard-strict architecture core command)
     add_bash_policy_test(CommandSceneToolsBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_scene_tools_boundary.sh LABELS standard-strict architecture core command)
