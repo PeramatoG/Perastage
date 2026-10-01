@@ -44,6 +44,15 @@ public:
     // Serialize an isolated canonical scene snapshot without modifying live project state.
     bool ExportCanonicalSnapshotToBuffer(const MvrScene& scene,
                                          std::vector<uint8_t>& outBytes);
+    // Serialize an isolated canonical scene snapshot directly to a file.
+    bool ExportCanonicalSnapshotToFile(const MvrScene& scene,
+                                       const std::string& filePath);
+    // Serialize an isolated scene to a file with captured export behavior.
+    bool ExportCanonicalSnapshotToFile(const MvrScene& scene,
+                                       const std::string& filePath,
+                                       const MvrExportOptions& options) {
+        return SerializeSnapshotToFile(scene, filePath, options);
+    }
     // Serialize an isolated canonical scene with captured export behavior.
     bool ExportCanonicalSnapshotToBuffer(const MvrScene& scene,
                                          std::vector<uint8_t>& outBytes,

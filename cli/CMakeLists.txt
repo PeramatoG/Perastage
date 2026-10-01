@@ -4,6 +4,7 @@ target_sources(perastage_cli_support PRIVATE
     cli_runner.cpp cli_runner.h
     inspect_command.cpp inspect_command.h
     inspection_outcome.cpp inspection_outcome.h
+    scene_command.cpp scene_command.h
     inspection_text_formatter.cpp inspection_text_formatter.h)
 target_compile_features(perastage_cli_support PUBLIC cxx_std_20)
 target_include_directories(perastage_cli_support
@@ -17,6 +18,9 @@ target_link_libraries(perastage_cli_support PUBLIC
     perastage_inspection_mvr
     perastage_inspection_resource
     perastage_inspection_report_serialization)
+target_link_libraries(perastage_cli_support PUBLIC
+    perastage_command_serialization
+    perastage_external_scene_workflow)
 
 add_executable(perastage_cli)
 target_sources(perastage_cli PRIVATE main.cpp)

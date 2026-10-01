@@ -18,11 +18,10 @@
 #include "mvrexporter.h"
 #include "app_version.h"
 #include "build_info.h"
-#include "configmanager.h"
-#include "dummyprofilelibrary.h"
 #include "filesystem_path_utils.h"
 #include "gdtfdictionary.h"
-#include "gdtfloader.h"
+#include "gdtf_archive_reader.h"
+#include "gdtf_description_reader.h"
 #include "logger.h"
 #include "layer_service.h"
 #include "utf8_utils.h"
@@ -126,8 +125,14 @@ static bool FixtureNeedsPhysicalGdtfPatch(const Fixture &fixture,
 
   float gdtfWeightKg = 0.0f;
   float gdtfPowerW = 0.0f;
-  const bool hasGdtfProperties =
-      GetGdtfProperties(gdtfPath, gdtfWeightKg, gdtfPowerW);
+  const gdtf::ArchiveReadResult archive = gdtf::ReadGdtfArchive(gdtfPath);
+  const gdtf::GdtfDescriptionSnapshot description =
+      gdtf::ReadGdtfDescription(archive.descriptionXml);
+  const bool hasGdtfProperties = archive.Success() && description.Success();
+  if (hasGdtfProperties) {
+    gdtfWeightKg = description.weightKg;
+    gdtfPowerW = description.powerConsumptionW;
+  }
 
   bool needsPatch = false;
   if (fixture.weightKg > 0.0f &&
@@ -146,13 +151,6 @@ static bool FixtureNeedsPhysicalGdtfPatch(const Fixture &fixture,
   }
   return needsPatch;
 }
-static MvrTrussGeometryAuthority GetTrussGeometryAuthoritySetting() {
-  const float rawValue =
-      ConfigManager::Get().GetFloat("mvr_truss_geometry_authority");
-  return rawValue >= 0.5f ? MvrTrussGeometryAuthority::Gdtf
-                          : MvrTrussGeometryAuthority::MvrGeometry;
-}
-
 static std::string TrimAscii(std::string value) {
   auto isSpace = [](unsigned char c) { return std::isspace(c); };
   value.erase(value.begin(),
@@ -1431,11 +1429,6 @@ static void AppendSupportHoistInfoMetadata(tinyxml2::XMLDocument &doc,
     values.useMotorDefaults = "false";
   values.dummyProfileId = support.dummyProfileId;
   values.dummyPreset = support.dummyPreset;
-  if (values.dummyPreset.empty() && !support.dummyProfileId.empty()) {
-    const auto profile = DummyProfileLibrary::FindById(support.dummyProfileId);
-    if (profile)
-      values.dummyPreset = profile->displayName;
-  }
   values.valueSource = NormalizeHoistDataSource(support.hoistDataSource);
   values.motorNameSource = ResolveHoistFieldDataSource(
       support.motorNameSource, values.valueSource);
@@ -1493,20 +1486,6 @@ static std::string HexToCie(const std::string &hex) {
 static runtime_storage::TemporaryWorkspace CreateExportWorkspace(const std::string &kind) {
   return runtime_storage::TemporaryWorkspace(kind);
 }
-// Serialize the configured scene into a .mvr archive and collect non-fatal
-// export warnings.
-bool MvrExporter::ExportToFile(const std::string &filePath) {
-  return ExportToFile(filePath, CanonicalMvrExportOptions());
-}
-
-// Serialize the configured scene into a .mvr archive with explicit export
-// options.
-bool MvrExporter::ExportToFile(const std::string &filePath,
-                               const MvrExportOptions &options) {
-  return SerializeSnapshotToFile(ConfigManager::Get().GetScene(), filePath,
-                                 options);
-}
-
 // Serializes a private scene snapshot so validation repairs cannot affect the editor.
 bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                                           const std::string &filePath,
@@ -1524,7 +1503,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   const MvrTrussGeometryAuthority trussGeometryAuthority =
       options.trussGeometryAuthority
           ? *options.trussGeometryAuthority
-          : GetTrussGeometryAuthoritySetting();
+          : MvrTrussGeometryAuthority::MvrGeometry;
   std::unordered_set<std::string> usedSymbolUuids;
   std::unordered_map<std::string, std::string> physicalPatchArchiveByKey;
   std::unordered_map<std::string, mvr_export_resources::GdtfRewriteRequest>
@@ -2771,23 +2750,16 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   return true;
 }
 
-// Export an MVR into memory by writing a temporary file and reading it back.
-bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes) {
-  return ExportToBuffer(outBytes, CanonicalMvrExportOptions());
-}
-
-// Export an MVR into memory with explicit options by writing a temporary file
-// and reading it back.
-bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes,
-                                 const MvrExportOptions &options) {
-  return SerializeSnapshotToBuffer(ConfigManager::Get().GetScene(), outBytes,
-                                   options);
-}
-
 // Serializes an explicit canonical snapshot without touching ConfigManager.
 bool MvrExporter::ExportCanonicalSnapshotToBuffer(
     const MvrScene &scene, std::vector<uint8_t> &outBytes) {
   return SerializeSnapshotToBuffer(scene, outBytes, CanonicalMvrExportOptions());
+}
+
+// Serializes an explicit canonical snapshot directly to the requested file.
+bool MvrExporter::ExportCanonicalSnapshotToFile(const MvrScene &scene,
+                                                const std::string &filePath) {
+  return SerializeSnapshotToFile(scene, filePath, CanonicalMvrExportOptions());
 }
 
 // Serializes an isolated scene to memory through the common archive writer.

@@ -38,6 +38,58 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     perastage_mvr_import_application_read
 )
 
+add_library(perastage_mvr_export STATIC
+    ${PERASTAGE_GENERATED_BUILD_INFO_CPP}
+    ${CMAKE_SOURCE_DIR}/core/gdtf_canonicalizer.cpp
+    ${CMAKE_SOURCE_DIR}/core/gdtf_mutation_audit.cpp
+    ${CMAKE_SOURCE_DIR}/core/gdtfdictionary.cpp
+    ${CMAKE_SOURCE_DIR}/core/layer_service.cpp
+    ${CMAKE_SOURCE_DIR}/core/mvr_identity_recovery.cpp
+    ${CMAKE_SOURCE_DIR}/core/scene_transform_integrity.cpp
+    ${CMAKE_SOURCE_DIR}/core/truss_gdtf_builder.cpp
+    ${CMAKE_SOURCE_DIR}/core/geometry_bounds_resolver.cpp
+    ${CMAKE_SOURCE_DIR}/core/truss_dimension_resolution.cpp
+    ${CMAKE_SOURCE_DIR}/viewer3d/loader3ds.cpp
+    ${CMAKE_SOURCE_DIR}/viewer3d/loaderglb.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvrexporter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_export_archive_writer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_export_transport.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_export_resource_collection.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_export_gdtf_resources.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_xml_document_writer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_xml_extension_writer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_xml_scene_object_writer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_export_preparation.cpp
+)
+target_compile_features(perastage_mvr_export PUBLIC cxx_std_20)
+target_include_directories(perastage_mvr_export
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
+    PRIVATE ${CMAKE_SOURCE_DIR}/core ${CMAKE_SOURCE_DIR}/viewer3d
+            ${CMAKE_SOURCE_DIR}/third_party
+)
+target_link_libraries(perastage_mvr_export
+    PUBLIC perastage_mvr_core_support perastage_runtime_storage
+    PRIVATE perastage_gdtf_read perastage_mvr_read tinyxml2::tinyxml2
+            ${wxWidgets_LIBRARIES}
+)
+if(NOT MSVC)
+    target_compile_options(perastage_mvr_export PRIVATE -ffunction-sections)
+    target_link_options(perastage_mvr_export INTERFACE -Wl,--gc-sections)
+endif()
+
+add_library(perastage_external_scene_workflow STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/external_scene_workflow.cpp
+)
+target_compile_features(perastage_external_scene_workflow PUBLIC cxx_std_20)
+target_include_directories(perastage_external_scene_workflow
+    PUBLIC ${CMAKE_SOURCE_DIR}/core
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
+)
+target_link_libraries(perastage_external_scene_workflow PUBLIC
+    perastage_command_text_processor perastage_mvr_export perastage_mvr_read
+)
+target_link_libraries(${PROJECT_NAME} PRIVATE perastage_mvr_export)
+
 target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_parser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvrimporter.cpp
@@ -55,15 +107,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_merge_applier.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_merge_resource_rewriter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvrscenemerger.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/mvrexporter.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_export_archive_writer.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_export_transport.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_export_resource_collection.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_export_gdtf_resources.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_xml_document_writer.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_xml_extension_writer.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_xml_scene_object_writer.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_export_preparation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvrexporter_application.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/xchange/mvr_xchange_commit.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/xchange/mvr_xchange_dns_names.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/xchange/mvr_xchange_mdns_discovery.cpp

@@ -44,6 +44,18 @@ set_tests_properties(PerastageCliInspect PROPERTIES
                      LABELS "standard-strict;architecture;cli;inspection"
                      TIMEOUT 30)
 
+add_test(NAME PerastageCliScene
+         COMMAND "${Python3_EXECUTABLE}"
+                 "${CMAKE_CURRENT_SOURCE_DIR}/perastage_cli_scene_test.py"
+                 "$<TARGET_FILE:perastage_cli>")
+set_tests_properties(PerastageCliScene PROPERTIES
+                     LABELS "standard-strict;architecture;cli;mvr;command"
+                     TIMEOUT 30)
+add_test(NAME ExternalSceneWorkflowBoundary
+         COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/check_external_scene_workflow_boundary.sh")
+set_tests_properties(ExternalSceneWorkflowBoundary PROPERTIES
+                     LABELS "standard-strict;architecture;cli;mvr")
+
 add_executable(viewport_mouse_navigation_test viewport_mouse_navigation_test.cpp)
 target_include_directories(viewport_mouse_navigation_test PRIVATE ../viewer_common)
 add_test(NAME ViewportMouseNavigation COMMAND viewport_mouse_navigation_test)

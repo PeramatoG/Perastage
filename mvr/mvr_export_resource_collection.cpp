@@ -20,7 +20,6 @@
 #include "filesystem_path_utils.h"
 #include "gdtfdictionary.h"
 #include "primitive_model_resources.h"
-#include "projectutils.h"
 
 #include <algorithm>
 #include <array>
@@ -221,24 +220,9 @@ bool ResolveModelDependencyPath(const fs::path &modelPath,
   return false;
 }
 
-// Locates the established dummy fixture fallback without changing preference order.
+// Avoids application-library fallback when exporting an isolated scene.
 std::string ResolveFallbackFixtureGdtfPath() {
-  static const std::string resolved = [] {
-    const fs::path base = ProjectUtils::GetBaseLibraryPath("fixtures");
-    const std::array<fs::path, 5> candidates = {
-        base / "Dummy 1ch.gdtf",
-        base / "Perastage@Dummy_1ch@Perastage.gdtf",
-        base / "Unknown@Dummy_1ch@Perastage.gdtf",
-        base / "Generic 1ch.gdtf",
-        base / "Generic@Generic_1ch@Perastage.gdtf"};
-    for (const fs::path &path : candidates) {
-      std::error_code ec;
-      if (fs::exists(path, ec) && !ec && fs::is_regular_file(path, ec) && !ec)
-        return path.generic_string();
-    }
-    return std::string{};
-  }();
-  return resolved;
+  return {};
 }
 
 } // namespace

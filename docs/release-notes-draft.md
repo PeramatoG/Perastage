@@ -6,6 +6,12 @@ Changes since **v1.6.0**.
 
 ## New features and workflow improvements
 
+- Added a headless `perastage-cli scene` workflow for applying the existing
+  fixture/truss selection and transform commands to an explicitly supplied MVR
+  and publishing a canonical result to a separate output file. Sources are
+  never modified, existing outputs require explicit overwrite permission, and
+  failed command sequences publish no partial result.
+
 - Added a native, read-only MVR / GDTF Inspector workspace alongside the 3D,
   2D, and Layout Mode views. It now opens on a canonical snapshot of the active
   project, supports explicit refresh and external MVR/GDTF files, provides

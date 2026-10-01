@@ -57,7 +57,7 @@ bool CheckCapabilityDiscovery() {
     if (perastage::cli::Run(humanArgs, humanOut, humanErr) != 0 ||
         !humanErr.str().empty() ||
         humanOut.str().find(
-            "discovery only; development_cli does not execute") ==
+            "Semantic capabilities and current frontend exposure") ==
             std::string::npos)
       return false;
     for (const auto &descriptor : perastage::capability::Catalog())
@@ -96,6 +96,8 @@ int main() {
       "Usage: perastage-cli [--help | --version]\n"
       "       perastage-cli inspect <file> [--view <view> | --json]\n"
       "       perastage-cli capabilities [--json]\n"
+      "       perastage-cli scene <input.mvr> --output <output.mvr> --command "
+      "<text> [--command <text> ...] [--overwrite] [--json]\n"
       "\n"
       "Options:\n"
       "  -h, --help  Show this help and exit.\n"
@@ -104,7 +106,8 @@ int main() {
       "Commands:\n"
       "  capabilities  List semantic operations and current frontend "
       "exposure.\n"
-      "  inspect     Inspect a GDTF or MVR package.\n";
+      "  inspect     Inspect a GDTF or MVR package.\n"
+      "  scene       Mutate an isolated MVR and publish an explicit output.\n";
   const std::string inspectHelp =
       "Usage: perastage-cli inspect <file> [--view <view> | --json]\n\n"
       "Views:\n"

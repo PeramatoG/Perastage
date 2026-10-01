@@ -243,8 +243,10 @@ void CheckDescriptorFidelity() {
   using capability::FrontendExposure;
   using capability::OperationKind;
   const std::vector<FrontendExposure> consoleFull = {
+      {"development_cli", ExposureState::Full},
       {"embedded_console", ExposureState::Full}};
   const std::vector<FrontendExposure> consolePartial = {
+      {"development_cli", ExposureState::Partial},
       {"embedded_console", ExposureState::Partial}};
   const std::vector<FrontendExposure> desktopFull = {
       {"desktop_gui", ExposureState::Full}};
@@ -296,7 +298,12 @@ void CheckDescriptorFidelity() {
 
   for (const auto &descriptor : capability::Catalog())
     for (const auto &frontend : descriptor.frontends) {
-      assert(frontend.frontendId != "development_cli");
+      if (frontend.frontendId == "development_cli") {
+        assert(descriptor.operationId == command::selection::kClearCommandId ||
+               descriptor.operationId == command::selection::kUpdateCommandId ||
+               descriptor.operationId == command::transform::kPositionCommandId ||
+               descriptor.operationId == command::transform::kRotationCommandId);
+      }
       assert(frontend.frontendId != "ipc");
       assert(frontend.frontendId != "osc");
       assert(frontend.frontendId != "mcp");
