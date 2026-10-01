@@ -160,6 +160,12 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Completed the embedded Console frontend boundary: reusable text-command
+  ordering and execution now live in GUI-independent Command infrastructure,
+  while the Console retains its established output, selection presentation,
+  viewer refresh, and Undo behavior. Focused dependency guards and ordered
+  partial-failure coverage protect this separation across future changes.
+
 - Strengthened capability discovery contract coverage for exact operation
   inventory, argument types, frontend exposure, JSON structure, CLI output,
   cross-platform compatibility, and dependency boundaries. Capability discovery

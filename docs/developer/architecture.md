@@ -162,7 +162,15 @@ algorithms are owned by the focused Command Core transform and selection
 targets, including compatible selection-only `clear` execution. The selection
 text adapter resolves numeric Console IDs against an explicitly supplied scene.
 The embedded Console acquires project context, presents results, and refreshes
-GUI state as an adapter frontend; it no longer owns those reusable algorithms.
+GUI state as an adapter frontend; it invokes the focused GUI-independent text
+processor once per entered line and no longer owns parsing, variant dispatch,
+semantic adaptation, execution ordering, or stop decisions. The processor
+executes parsed commands against one explicit `ExecutionContext`, so selection
+from an earlier operation is immediately available to a later transform. It
+returns ordered semantic `Result` records, per-step selection snapshots, parser
+diagnostics, and an aggregate `MutationSummary`. The Console maps those neutral
+facts to the historically target-specific table/viewer presentation; Core has
+no knowledge of widgets, active GUI state, or refresh mechanics.
 The focused `perastage_command_scene_tools` target now adapts grouping and
 explicit destructive conversion operations downward to existing Core scene
 services. The shared GUI `GuiProjectMutationHost` is the application-side Undo
