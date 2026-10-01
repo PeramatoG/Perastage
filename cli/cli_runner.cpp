@@ -10,6 +10,7 @@
 #include "cli_runner.h"
 
 #include "app_version.h"
+#include "capabilities_command.h"
 #include "inspect_command.h"
 
 #include <exception>
@@ -22,12 +23,14 @@ namespace {
 constexpr std::string_view kHelp =
     "Usage: perastage-cli [--help | --version]\n"
     "       perastage-cli inspect <file> [--view <view> | --json]\n"
+    "       perastage-cli capabilities [--json]\n"
     "\n"
     "Options:\n"
     "  -h, --help  Show this help and exit.\n"
     "  --version   Show the CLI version and exit.\n"
     "\n"
     "Commands:\n"
+    "  capabilities  List semantic operations and current frontend exposure.\n"
     "  inspect     Inspect a GDTF or MVR package.\n";
 
 // Writes a stable usage diagnostic and returns the usage-error status.
@@ -56,6 +59,9 @@ int Run(std::span<const std::string_view> args, std::ostream &out,
       err << "perastage-cli: unexpected internal failure.\n";
       return 5;
     }
+  }
+  if (args.front() == "capabilities") {
+    return RunCapabilities(args.subspan(1), out, err);
   }
   if (args.size() != 1) {
     return UsageError(args[1], err);

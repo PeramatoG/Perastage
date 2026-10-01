@@ -11,6 +11,7 @@ enable_testing()
 
 add_executable(perastage_cli_runner_test perastage_cli_runner_test.cpp)
 target_link_libraries(perastage_cli_runner_test PRIVATE perastage_cli_support)
+target_include_directories(perastage_cli_runner_test PRIVATE ../third_party)
 target_compile_definitions(perastage_cli_runner_test PRIVATE
                            PERASTAGE_CLI_TEST_VERSION="${PROJECT_VERSION}")
 add_test(NAME PerastageCliRunner COMMAND perastage_cli_runner_test)
@@ -143,6 +144,23 @@ add_executable(command_contract_test command_contract_test.cpp)
 target_link_libraries(command_contract_test PRIVATE perastage_command_core)
 add_test(NAME CommandContract COMMAND command_contract_test)
 set_perastage_test_labels(CommandContract LAYER unit DOMAINS command architecture)
+
+add_executable(capability_catalog_test capability_catalog_test.cpp)
+target_include_directories(capability_catalog_test PRIVATE ../third_party)
+target_link_libraries(capability_catalog_test PRIVATE
+                      perastage_capability_serialization
+                      perastage_command_transform
+                      perastage_command_selection
+                      perastage_command_scene_tools)
+add_test(NAME CapabilityCatalog COMMAND capability_catalog_test)
+set_perastage_test_labels(CapabilityCatalog LAYER unit
+                          DOMAINS capability command query architecture)
+
+add_executable(capability_core_link_test capability_core_link_test.cpp)
+target_link_libraries(capability_core_link_test PRIVATE perastage_capability_core)
+add_test(NAME CapabilityCoreLink COMMAND capability_core_link_test)
+set_perastage_test_labels(CapabilityCoreLink LAYER unit
+                          DOMAINS capability architecture)
 
 add_executable(scene_query_test scene_query_test.cpp)
 target_link_libraries(scene_query_test PRIVATE perastage_query_core
@@ -510,6 +528,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(CommandSelectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_selection_boundary.sh LABELS standard-strict architecture core command)
     add_bash_policy_test(CommandSceneToolsBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_scene_tools_boundary.sh LABELS standard-strict architecture core command)
     add_bash_policy_test(QueryCoreBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_query_core_boundary.sh LABELS standard-strict architecture core query)
+    add_bash_policy_test(CapabilityCoreBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_capability_core_boundary.sh LABELS standard-strict architecture core capability)
     add_bash_policy_test(InspectionTargetBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_target_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_serialization_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionReportSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_report_serialization_boundary.sh LABELS standard-strict architecture core inspection gdtf mvr)

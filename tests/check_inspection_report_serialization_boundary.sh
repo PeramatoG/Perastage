@@ -72,8 +72,9 @@ if [[ "$(report_statements "$core_cmake")" != "$expected_core_configuration" ]];
   exit 1
 fi
 
-expected_cli_configuration='target_link_libraries(perastage_cli_support PUBLIC perastage_inspection_gdtf perastage_inspection_mvr perastage_inspection_resource perastage_inspection_report_serialization)'
-if [[ "$(report_statements "$cli_cmake")" != "$expected_cli_configuration" ]]; then
+cli_report_configuration="$(report_statements "$cli_cmake")"
+if [[ "$(wc -l <<<"$cli_report_configuration" | tr -d ' ')" != "1" ]] ||
+   ! rg -q '^target_link_libraries\(perastage_cli_support .*\bperastage_inspection_report_serialization\b' <<<"$cli_report_configuration"; then
   echo "CLI must consume the production report serialization target." >&2
   exit 1
 fi

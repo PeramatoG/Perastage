@@ -48,6 +48,7 @@ for every listed module.
 | `CMakePresets.json` | Canonical tracked configure/build presets for supported local development workflows. |
 | `app/` | wxWidgets application lifecycle and startup/bootstrap composition, explicitly registered by its local CMake file. |
 | `cli/` | Dedicated headless command-line entry point and independently testable grammar, explicitly owned by its local CMake file. |
+| `core/capability/` | Semantic operation descriptors, structural request-shape validation, and focused discovery serialization. |
 | `cmake/` | Dependency discovery, CMake helper scripts, generated configuration templates, and platform metadata templates. |
 | `core/` | Core logic, import helpers, dictionaries, patching, layouts, printing, persistence, and shared services. |
 | `gui/` | wxWidgets windows, dialogs, menus, panels, UI controllers, and user interaction workflows. |

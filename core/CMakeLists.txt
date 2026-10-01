@@ -47,6 +47,25 @@ add_library(perastage_command_core STATIC
 add_library(perastage_query_core STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/query/scene_query.cpp
 )
+add_library(perastage_capability_core STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/capability/capability_catalog.cpp
+)
+target_compile_features(perastage_capability_core PUBLIC cxx_std_20)
+target_include_directories(perastage_capability_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+add_library(perastage_capability_serialization STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/capability/capability_json_serializer.cpp
+)
+target_compile_features(perastage_capability_serialization PUBLIC cxx_std_20)
+target_include_directories(perastage_capability_serialization
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+    PRIVATE ${CMAKE_SOURCE_DIR}/third_party
+)
+target_link_libraries(perastage_capability_serialization PUBLIC
+    perastage_capability_core
+)
 target_compile_features(perastage_query_core PUBLIC cxx_std_20)
 target_include_directories(perastage_query_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "command/command_execution.h"
+#include "command/command_operation_ids.h"
 #include "interactive_transform_policy.h"
 #include "transform_space.h"
 
@@ -9,9 +10,6 @@
 #include <vector>
 
 namespace perastage::command::transform {
-
-inline constexpr char kPositionCommandId[] = "scene.transform.position";
-inline constexpr char kRotationCommandId[] = "scene.transform.rotation";
 
 enum class Kind { Position, Rotation };
 

@@ -1,18 +1,12 @@
 #pragma once
 
 #include "command/command_execution.h"
+#include "command/command_operation_ids.h"
 
 #include <string>
 #include <vector>
 
 namespace perastage::command::scene_tools {
-
-inline constexpr const char *kGroupCreateCommandId = "scene.group.create";
-inline constexpr const char *kGroupUngroupCommandId = "scene.group.ungroup";
-inline constexpr const char *kFixtureToSupportCommandId =
-    "scene.convert.fixture_to_support";
-inline constexpr const char *kSceneObjectsToTrussesCommandId =
-    "scene.convert.scene_objects_to_trusses";
 
 struct GroupCommand {
   scene_grouping::ObjectSelection objects;

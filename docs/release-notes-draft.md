@@ -41,6 +41,10 @@ Changes since **v1.6.0**.
   object, selection, layer, group, and fixture patch results, including one
   canonical patch-address interpretation, for future automation and headless
   integrations.
+- Added deterministic capability discovery for existing semantic Command and
+  Query operations, including argument types, effect classification, and
+  truthful frontend availability. The development CLI displays the catalog in
+  human-readable or versioned JSON form without loading or changing a project.
 - Migrated grouping, ungrouping, Fixture-to-Hoist conversion, and same-model
   SceneObject-to-Truss conversion to the shared semantic command layer. These
   actions now use one atomic Undo operation, preserve stable object identities,
@@ -155,6 +159,12 @@ Changes since **v1.6.0**.
 - Restored Windows Debug compilation of the Layout Viewer after its selection architecture update, including View2D frame lookup integration.
 
 ## Technical and packaging changes
+
+- Strengthened capability discovery contract coverage for exact operation
+  inventory, argument types, frontend exposure, JSON structure, CLI output,
+  cross-platform compatibility, and dependency boundaries. Capability discovery
+  now consumes neutral operation identifiers without linking scene mutation or
+  transaction infrastructure.
 
 - Moved Console fixture and truss selection semantics into the shared,
   GUI-independent command layer with stable UUID identities, deterministic

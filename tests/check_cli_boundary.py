@@ -23,6 +23,7 @@ FORBIDDEN_INCLUDE_BASENAMES = {
 }
 FORBIDDEN_INCLUDE_PATHS = {"localization/localization_manager.h"}
 ALLOWED_LINK_TARGETS = {
+    "perastage_capability_serialization",
     "perastage_cli_support",
     "perastage_inspection_gdtf",
     "perastage_inspection_mvr",

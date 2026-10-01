@@ -9,6 +9,11 @@
  */
 #include "cli_runner.h"
 
+#include "capability/capability_catalog.h"
+#include "capability/capability_json_serializer.h"
+#include "json.hpp"
+
+#include <array>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -40,6 +45,49 @@ bool CheckCase(const std::vector<std::string_view> &args,
   return true;
 }
 
+// Verifies both real capability discovery paths against the shared catalog.
+bool CheckCapabilityDiscovery() {
+  const std::array<std::string_view, 1> humanArgs = {"capabilities"};
+  const std::array<std::string_view, 2> jsonArgs = {"capabilities", "--json"};
+  std::string previousHuman;
+  std::string previousJson;
+  for (int repetition = 0; repetition < 2; ++repetition) {
+    std::ostringstream humanOut;
+    std::ostringstream humanErr;
+    if (perastage::cli::Run(humanArgs, humanOut, humanErr) != 0 ||
+        !humanErr.str().empty() ||
+        humanOut.str().find(
+            "discovery only; development_cli does not execute") ==
+            std::string::npos)
+      return false;
+    for (const auto &descriptor : perastage::capability::Catalog())
+      if (humanOut.str().find(descriptor.operationId) == std::string::npos)
+        return false;
+
+    std::ostringstream jsonOut;
+    std::ostringstream jsonErr;
+    if (perastage::cli::Run(jsonArgs, jsonOut, jsonErr) != 0 ||
+        !jsonErr.str().empty() ||
+        jsonOut.str() != perastage::capability::SerializeCatalogJson())
+      return false;
+    const auto json = nlohmann::json::parse(jsonOut.str());
+    if (json.at("schema_version") != 1 ||
+        json.at("operations").size() != perastage::capability::Catalog().size())
+      return false;
+    for (std::size_t index = 0; index < perastage::capability::Catalog().size();
+         ++index)
+      if (json.at("operations")[index].at("operation_id").get<std::string>() !=
+          std::string(perastage::capability::Catalog()[index].operationId))
+        return false;
+    if (repetition != 0 &&
+        (humanOut.str() != previousHuman || jsonOut.str() != previousJson))
+      return false;
+    previousHuman = humanOut.str();
+    previousJson = jsonOut.str();
+  }
+  return true;
+}
+
 } // namespace
 
 // Verifies top-level and inspect grammar with deterministic output routing.
@@ -47,12 +95,15 @@ int main() {
   const std::string help =
       "Usage: perastage-cli [--help | --version]\n"
       "       perastage-cli inspect <file> [--view <view> | --json]\n"
+      "       perastage-cli capabilities [--json]\n"
       "\n"
       "Options:\n"
       "  -h, --help  Show this help and exit.\n"
       "  --version   Show the CLI version and exit.\n"
       "\n"
       "Commands:\n"
+      "  capabilities  List semantic operations and current frontend "
+      "exposure.\n"
       "  inspect     Inspect a GDTF or MVR package.\n";
   const std::string inspectHelp =
       "Usage: perastage-cli inspect <file> [--view <view> | --json]\n\n"
@@ -72,6 +123,7 @@ int main() {
   };
 
   bool passed = true;
+  passed &= CheckCapabilityDiscovery();
   passed &= CheckCase({}, {0, help, ""});
   passed &= CheckCase({"-h"}, {0, help, ""});
   passed &= CheckCase({"--help"}, {0, help, ""});
@@ -81,6 +133,17 @@ int main() {
   passed &= CheckCase({"file.mvr"}, {2, "", usageError("file.mvr")});
   passed &= CheckCase({"--help", "extra"}, {2, "", usageError("extra")});
   passed &= CheckCase({"--version", "extra"}, {2, "", usageError("extra")});
+  passed &= CheckCase({"capabilities", "--bad"},
+                      {2, "",
+                       "perastage-cli capabilities: unknown option: --bad\nTry "
+                       "'perastage-cli capabilities --help' for usage.\n"});
+  passed &= CheckCase(
+      {"capabilities", "--help"},
+      {0,
+       "Usage: perastage-cli capabilities [--json]\n\nOptions:\n  "
+       "--json      Emit discovery schema version 1.\n  -h, --help  Show "
+       "this help and exit.\n",
+       ""});
   passed &= CheckCase({"inspect", "--help"}, {0, inspectHelp, ""});
   passed &=
       CheckCase({"inspect"},

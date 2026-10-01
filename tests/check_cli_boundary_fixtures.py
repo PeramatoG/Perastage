@@ -72,6 +72,27 @@ class CliBoundaryFixtureTests(unittest.TestCase):
         )
         self.assertTrue(check_cli_boundary.check(self.root))
 
+    def test_capability_serialization_dependency_is_accepted(self) -> None:
+        """Accept the reviewed read-only capability discovery facade."""
+        (self.root / "cli/CMakeLists.txt").write_text(
+            "add_library(perastage_cli_support STATIC)\n"
+            "target_link_libraries(perastage_cli_support PUBLIC "
+            "perastage_capability_serialization)\n"
+            "add_executable(perastage_cli)\n"
+            'set_target_properties(perastage_cli PROPERTIES OUTPUT_NAME "perastage-cli")\n',
+            encoding="utf-8",
+        )
+        self.assertEqual(check_cli_boundary.check(self.root), [])
+
+    def test_command_execution_dependency_remains_rejected(self) -> None:
+        """Reject a direct dependency on semantic Command execution."""
+        with (self.root / "cli/CMakeLists.txt").open("a", encoding="utf-8") as cmake:
+            cmake.write(
+                "target_link_libraries(perastage_cli_support PUBLIC "
+                "perastage_command_transform)\n"
+            )
+        self.assertTrue(check_cli_boundary.check(self.root))
+
 
 if __name__ == "__main__":
     unittest.main()
