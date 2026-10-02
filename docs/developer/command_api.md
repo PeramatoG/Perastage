@@ -135,6 +135,33 @@ explicit `ExecutionContext`; the loopback transport contains no scene logic.
 The application adapter returns mutations through the existing main-window
 refresh boundary and cancels pending GUI dispatch safely during shutdown.
 
+## OSC adapter
+
+The initial OSC 1.0 endpoint listens only on IPv4 `127.0.0.1`, UDP port
+`49156`. Datagrams are limited to 4096 bytes. Bundles, malformed padding,
+trailing data, and type tags outside the supported `i`, `f`, `s`, `T`, and `F`
+set are rejected. This is the focused OSC 1.0 subset required by the adapter,
+not support for every OSC 1.0 data type. The endpoint does not use Console text
+parsing and logs the existing deterministic Command JSON result after
+execution.
+
+The deliberately small address mapping is:
+
+- `/perastage/selection/clear` with no arguments;
+- `/perastage/transform/position` with OSC tags matching `,sNBsB`, where `N`
+  is `i` or `f` and each `B` is `T`, `F`, or `i`. Arguments are axis (`x`, `y`,
+  or `z`), millimetre value, relative boolean, space (`world` or `local`), and
+  group boolean. Integer booleans accept only `0` and `1`;
+- `/perastage/transform/rotation` with the same tag pattern and order, with the
+  value interpreted in degrees.
+
+Each transform message carries exactly one axis and one value. Consequently,
+OSC exposure of the semantic transform operations is partial: ranges,
+multi-axis atomic transforms, and explicit rotation pivots remain unavailable.
+Selection clear is fully exposed. Parsed messages execute directly through
+`ExecuteClear` or semantic transform `Execute`, using the active project's
+normal Undo, dirty-state, transform-policy, selection, and GUI refresh path.
+
 ## Higher-level scene tools
 
 The `perastage_command_scene_tools` target exposes four stable semantic IDs:

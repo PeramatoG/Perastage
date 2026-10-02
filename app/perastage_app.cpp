@@ -17,6 +17,7 @@
  */
 #include "perastage_app.h"
 #include "local_live_controller.h"
+#include "osc_controller.h"
 #include "build_info.h"
 #include "filesystem_path_utils.h"
 #include "gdtfloader.h"
@@ -275,6 +276,10 @@ bool MyApp::OnInit() {
   if (!local_live_controller_->Start(localLiveError))
     diagnostics::DiagnosticLogger::Warning(
         "Local live IPC unavailable: " + localLiveError);
+  osc_controller_ = std::make_unique<OscController>(*mainWindow);
+  std::string oscError;
+  if (!osc_controller_->Start(oscError))
+    diagnostics::DiagnosticLogger::Warning("OSC unavailable: " + oscError);
   startup_metrics_->mainWindowConstructionMs =
       std::chrono::duration_cast<std::chrono::milliseconds>(
           startup::Metrics::Clock::now() - mainWindowStartedAt)
@@ -455,6 +460,8 @@ std::optional<std::string> MyApp::ConsumePendingExternalOpenPath() {
 
 // Releases application-level resources before process shutdown.
 int MyApp::OnExit() {
+  if (osc_controller_)
+    osc_controller_->Stop();
   diagnostics::DiagnosticLogger::Info("Perastage shutdown started.");
   if (local_live_controller_)
     local_live_controller_->Stop();

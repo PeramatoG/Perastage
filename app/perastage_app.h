@@ -31,6 +31,7 @@
 
 class MainWindow;
 class LocalLiveController;
+class OscController;
 
 class MyApp : public wxApp {
 public:
@@ -75,6 +76,7 @@ private:
   bool localization_fallback_warning_shown_ = false;
   std::shared_ptr<startup::Metrics> startup_metrics_;
   std::unique_ptr<LocalLiveController> local_live_controller_;
+  std::unique_ptr<OscController> osc_controller_;
   startup::Metrics::Clock::time_point startup_resolution_started_at_;
 };
 

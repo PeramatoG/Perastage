@@ -200,6 +200,14 @@ target_link_libraries(local_ipc_test PRIVATE
                       perastage_mvr_scene_model)
 add_test(NAME LocalIpc COMMAND local_ipc_test)
 set_perastage_test_labels(LocalIpc LAYER integration DOMAINS cli architecture)
+
+add_executable(osc_adapter_test osc_adapter_test.cpp)
+target_link_libraries(osc_adapter_test PRIVATE
+                      perastage_osc_command_adapter
+                      perastage_mvr_scene_model)
+add_test(NAME OscAdapter COMMAND osc_adapter_test)
+set_perastage_test_labels(OscAdapter LAYER integration
+                          DOMAINS command architecture)
 set_perastage_test_labels(CapabilityCatalog LAYER unit
                           DOMAINS capability command query architecture)
 
@@ -587,6 +595,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(QueryCoreBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_query_core_boundary.sh LABELS standard-strict architecture core query)
     add_bash_policy_test(CapabilityCoreBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_capability_core_boundary.sh LABELS standard-strict architecture core capability)
     add_bash_policy_test(LocalIpcBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_local_ipc_boundary.sh LABELS standard-strict architecture cli)
+    add_bash_policy_test(OscBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_osc_boundary.sh LABELS standard-strict architecture command)
     add_bash_policy_test(InspectionTargetBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_target_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_serialization_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionReportSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_report_serialization_boundary.sh LABELS standard-strict architecture core inspection gdtf mvr)

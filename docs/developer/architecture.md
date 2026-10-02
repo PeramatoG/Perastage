@@ -192,6 +192,13 @@ refresh boundary; the transport remains independent from MVR-xchange and scene
 logic. See
 [`command_api.md`](command_api.md) for the current contract.
 
+`core/osc/` owns the separate bounded OSC 1.0 message parser, IPv4-loopback UDP
+transport, and a focused semantic Command adapter. Transport and parsing do not
+depend on scenes, GUI code, Console grammar, local IPC, or MCP. Application
+composition dispatches parsed messages to the GUI thread and uses the same
+active-project execution context, mutation host, transform policy, selection
+publication, and refresh boundary as other live commands.
+
 ## Query contract
 
 Core owns the GUI-independent, read-only scene query boundary under

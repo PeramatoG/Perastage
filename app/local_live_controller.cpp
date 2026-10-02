@@ -1,11 +1,10 @@
 #include "local_live_controller.h"
 
+#include "active_project_command_context.h"
 #include "configmanager.h"
 #include "live/live_request_executor.h"
 #include "local_ipc/local_ipc_contract.h"
 #include "mainwindow.h"
-#include "project_mutation_host.h"
-#include "selection_movement_settings.h"
 
 #include <atomic>
 #include <chrono>
@@ -81,22 +80,9 @@ LocalLiveController::DispatchOnMainThread(const std::string &wireRequest) {
 std::string
 LocalLiveController::HandleOnMainThread(const std::string &wireRequest) {
   ConfigManager &config = ConfigManager::Get();
-  scene_grouping::ObjectSelection selection{
-      config.GetSelectedFixtures(), config.GetSelectedTrusses(),
-      config.GetSelectedSupports(), config.GetSelectedSceneObjects()};
-  GuiProjectMutationHost host(config);
-  perastage::command::ExecutionContext context{config.GetScene(), selection,
-                                               host};
-  const auto policy =
-      selection_movement_settings::LoadInteractiveTransformPolicy(config);
-  const auto execution =
-      perastage::live::ExecuteRequest(wireRequest, context, policy);
-
-  config.SetSelectedFixtures(context.selection.fixtures);
-  config.SetSelectedTrusses(context.selection.trusses);
-  config.SetSelectedSupports(context.selection.supports);
-  config.SetSelectedSceneObjects(context.selection.sceneObjects);
-  if (execution.mutation.sceneChanged || execution.mutation.selectionChanged)
-    window_.RefreshAfterToolSceneUpdate();
+  ActiveProjectCommandContext activeProject(config);
+  const auto execution = perastage::live::ExecuteRequest(
+      wireRequest, activeProject.Execution(), activeProject.TransformPolicy());
+  activeProject.Publish(window_, execution.mutation);
   return execution.response;
 }

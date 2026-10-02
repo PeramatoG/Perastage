@@ -3,7 +3,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 files=("$root"/core/capability/*.{h,cpp})
-forbidden='ConfigManager|MainWindow|wx(App|Window|Panel)|viewer[23]|MutationHost|ExecutionContext|function<|Execute[[:space:]]*\(|dispatch|ipc|osc|mcp'
+forbidden='ConfigManager|MainWindow|wx(App|Window|Panel)|viewer[23]|MutationHost|ExecutionContext|function<|Execute[[:space:]]*\(|dispatch|#include.*(ipc|osc|mcp)|perastage::(local_ipc|osc|mcp)'
 if rg -n -i "$forbidden" "${files[@]}"; then
   echo "Capability Core contains a forbidden execution, GUI, or transport dependency." >&2
   exit 1

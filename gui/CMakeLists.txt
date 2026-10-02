@@ -182,6 +182,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
+    perastage_osc_command_adapter
+    perastage_osc_transport
     perastage_local_ipc
     perastage_live_request_executor
     perastage_query_core
