@@ -96,6 +96,7 @@ int main() {
       "Usage: perastage-cli [--help | --version]\n"
       "       perastage-cli inspect <file> [--view <view> | --json]\n"
       "       perastage-cli capabilities [--json]\n"
+      "       perastage-cli live <command <text> | query <id>> [--port <port>]\n"
       "       perastage-cli scene <input.mvr> --output <output.mvr> --command "
       "<text> [--command <text> ...] [--overwrite] [--json]\n"
       "\n"
@@ -107,6 +108,7 @@ int main() {
       "  capabilities  List semantic operations and current frontend "
       "exposure.\n"
       "  inspect     Inspect a GDTF or MVR package.\n"
+      "  live        Invoke supported operations on the running local app.\n"
       "  scene       Mutate an isolated MVR and publish an explicit output.\n";
   const std::string inspectHelp =
       "Usage: perastage-cli inspect <file> [--view <view> | --json]\n\n"

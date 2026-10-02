@@ -10,6 +10,7 @@ import sys
 HELP = """Usage: perastage-cli [--help | --version]
        perastage-cli inspect <file> [--view <view> | --json]
        perastage-cli capabilities [--json]
+       perastage-cli live <command <text> | query <id>> [--port <port>]
        perastage-cli scene <input.mvr> --output <output.mvr> --command <text> [--command <text> ...] [--overwrite] [--json]
 
 Options:
@@ -19,6 +20,7 @@ Options:
 Commands:
   capabilities  List semantic operations and current frontend exposure.
   inspect     Inspect a GDTF or MVR package.
+  live        Invoke supported operations on the running local app.
   scene       Mutate an isolated MVR and publish an explicit output.
 """
 

@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "perastage_app.h"
+#include "local_live_controller.h"
 #include "build_info.h"
 #include "filesystem_path_utils.h"
 #include "gdtfloader.h"
@@ -182,6 +183,11 @@ void ConfigureWindowsDebugHeapLeakCheck() {
 #endif
 } // namespace
 
+// Constructs application-owned services where their concrete types are complete.
+MyApp::MyApp() = default;
+
+// Destroys application-owned services where their concrete types are complete.
+MyApp::~MyApp() = default;
 
 // Initializes the application, creates the main window, and routes startup open requests.
 bool MyApp::OnInit() {
@@ -264,6 +270,11 @@ bool MyApp::OnInit() {
   MainWindow *mainWindow =
       new MainWindow(app::kName, nullptr, startup_metrics_);
   SetTopWindow(mainWindow);
+  local_live_controller_ = std::make_unique<LocalLiveController>(*mainWindow);
+  std::string localLiveError;
+  if (!local_live_controller_->Start(localLiveError))
+    diagnostics::DiagnosticLogger::Warning(
+        "Local live IPC unavailable: " + localLiveError);
   startup_metrics_->mainWindowConstructionMs =
       std::chrono::duration_cast<std::chrono::milliseconds>(
           startup::Metrics::Clock::now() - mainWindowStartedAt)
@@ -445,6 +456,8 @@ std::optional<std::string> MyApp::ConsumePendingExternalOpenPath() {
 // Releases application-level resources before process shutdown.
 int MyApp::OnExit() {
   diagnostics::DiagnosticLogger::Info("Perastage shutdown started.");
+  if (local_live_controller_)
+    local_live_controller_->Stop();
   ShutdownGdtfCache();
   diagnostics::CrashHandler::PrepareForRuntimeTeardown();
 #if defined(_MSC_VER) && defined(_DEBUG)

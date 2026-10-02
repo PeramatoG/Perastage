@@ -58,6 +58,18 @@ add_library(perastage_command_core STATIC
 add_library(perastage_query_core STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/query/scene_query.cpp
 )
+add_library(perastage_local_ipc STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/local_ipc/local_ipc_contract.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/local_ipc/local_ipc_transport.cpp
+)
+target_compile_features(perastage_local_ipc PUBLIC cxx_std_20)
+target_include_directories(perastage_local_ipc
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+    PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
+if(WIN32)
+  target_link_libraries(perastage_local_ipc PUBLIC ws2_32)
+endif()
+
 add_library(perastage_capability_core STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/capability/capability_catalog.cpp
 )
@@ -181,6 +193,21 @@ target_include_directories(perastage_command_serialization
 )
 target_link_libraries(perastage_command_serialization
     PUBLIC perastage_command_core
+)
+
+add_library(perastage_live_request_executor STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/live/live_request_executor.cpp
+)
+target_compile_features(perastage_live_request_executor PUBLIC cxx_std_20)
+target_include_directories(perastage_live_request_executor
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
+    PRIVATE ${CMAKE_SOURCE_DIR}/third_party
+)
+target_link_libraries(perastage_live_request_executor PUBLIC
+    perastage_local_ipc
+    perastage_query_core
+    perastage_command_serialization
+    perastage_command_text_processor
 )
 
 file(READ "${CMAKE_SOURCE_DIR}/resources/standards/gdtf/1.2/gdtf.xsd"

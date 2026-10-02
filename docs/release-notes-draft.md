@@ -6,6 +6,14 @@ Changes since **v1.6.0**.
 
 ## New features and workflow improvements
 
+- Added the first local live connection between `perastage-cli` and a running
+  Perastage instance. Supported Console commands now operate on the active
+  project with normal validation, Undo, dirty-state, selection, and refresh
+  behavior, while summary and selection queries return structured results over
+  a bounded loopback-only connection. Shutdown now safely cancels pending GUI
+  dispatches, and live operation failures use the documented general command
+  failure exit status consistently across platforms.
+
 - Added a headless `perastage-cli scene` workflow for applying the existing
   fixture/truss selection and transform commands to an explicitly supplied MVR
   and publishing a canonical result to a separate output file. Sources are
@@ -174,6 +182,12 @@ Changes since **v1.6.0**.
 - Restored Windows Debug compilation of the Layout Viewer after its selection architecture update, including View2D frame lookup integration.
 
 ## Technical and packaging changes
+
+- Declared the local live request executor's direct JSON include ownership and
+  kept application-owned live-controller construction behind its implementation
+  boundary, while architecture checks now recognize only the neutral local IPC
+  client edge from the development CLI. Debug builds remain reliable across
+  Windows, Linux, and macOS toolchains.
 
 - Completed the embedded Console frontend boundary: reusable text-command
   ordering and execution now live in GUI-independent Command infrastructure,

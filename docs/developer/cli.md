@@ -23,6 +23,8 @@ perastage-cli inspect <file> --view xml
 perastage-cli inspect <file> --json
 perastage-cli capabilities [--json]
 perastage-cli scene <input.mvr> --output <output.mvr> --command <text> [--command <text> ...] [--overwrite] [--json]
+perastage-cli live command <text> [--port <port>]
+perastage-cli live query <scene.summary|scene.selection.get> [--port <port>]
 ```
 
 The `scene` command is the first external mutation workflow. Its input is a
@@ -42,7 +44,19 @@ Unlike the embedded Console, which mutates the active GUI project and records
 application Undo state, this workflow uses an isolated headless scene and has
 no persistent interactive Undo stack. It does report dirty semantic mutations
 through the normal Command transaction contract. It neither attaches to nor
-controls a running Perastage process; live-project IPC belongs to FRONT-515.
+controls a running Perastage process.
+
+`live` connects to an already-running Perastage instance using bounded,
+newline-framed JSON schema version 1 over IPv4 TCP bound strictly to
+`127.0.0.1`; the default port is `49155`. Commands use the existing Console
+text adapter and Command transaction, Undo, validation, dirty-state, and
+frontend refresh boundaries against the active project and selection. The
+initial query surface contains only `scene.summary` and `scene.selection.get`.
+Unsupported operations receive a structured error. The endpoint provides no
+discovery, LAN listener, remote access, filesystem, shell, MVR-xchange, OSC,
+MCP, or TLS surface. Transport, protocol, unsupported-operation, and semantic
+command failures return exit code `4`; code `3` remains reserved for fatal
+inspection input.
 
 `inspect` accepts exactly one filesystem input with a case-insensitive `.gdtf`
 or `.mvr` extension. Its default view is `summary`. `--json` and `--view` are
@@ -162,7 +176,7 @@ No CLI formatter parses package or XML semantics.
 | `1` | Inspection completed with non-fatal warning or error findings, including compatibility findings. |
 | `2` | Malformed CLI usage. |
 | `3` | A supported input could not be usefully inspected because of fatal input, package, or XML failure. |
-| `4` | Unsupported inspection input, or a scene load/command/export/publication failure. |
+| `4` | Unsupported inspection/live input, or a scene/live command/export/publication failure. |
 | `5` | Unexpected internal CLI failure. |
 
 Requested data (human views, exact XML, and JSON) goes to standard output.

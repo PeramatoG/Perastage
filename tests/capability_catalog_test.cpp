@@ -244,10 +244,12 @@ void CheckDescriptorFidelity() {
   using capability::OperationKind;
   const std::vector<FrontendExposure> consoleFull = {
       {"development_cli", ExposureState::Full},
-      {"embedded_console", ExposureState::Full}};
+      {"embedded_console", ExposureState::Full},
+      {"local_live_cli", ExposureState::Full}};
   const std::vector<FrontendExposure> consolePartial = {
       {"development_cli", ExposureState::Partial},
-      {"embedded_console", ExposureState::Partial}};
+      {"embedded_console", ExposureState::Partial},
+      {"local_live_cli", ExposureState::Partial}};
   const std::vector<FrontendExposure> desktopFull = {
       {"desktop_gui", ExposureState::Full}};
 
@@ -289,8 +291,14 @@ void CheckDescriptorFidelity() {
 
   for (std::string_view id :
        {query::kGroupsQueryId, query::kLayersQueryId, query::kObjectsQueryId,
-        query::kPatchQueryId, query::kSelectionQueryId, query::kSummaryQueryId})
+        query::kPatchQueryId})
     CheckDescriptor(id, OperationKind::Query, Effect::ReadOnly, {}, {});
+  const std::vector<FrontendExposure> liveFull = {
+      {"local_live_cli", ExposureState::Full}};
+  CheckDescriptor(query::kSelectionQueryId, OperationKind::Query,
+                  Effect::ReadOnly, {}, liveFull);
+  CheckDescriptor(query::kSummaryQueryId, OperationKind::Query,
+                  Effect::ReadOnly, {}, liveFull);
   CheckDescriptor(query::kObjectQueryId, OperationKind::Query, Effect::ReadOnly,
                   {{"object_kind", ArgumentType::String, true},
                    {"object_uuid", ArgumentType::String, true}},

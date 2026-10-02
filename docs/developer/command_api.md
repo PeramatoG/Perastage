@@ -128,8 +128,12 @@ owns an isolated scene read from an explicitly named MVR, uses a headless
 `ProjectMutationHost` with no persistent Undo stack, and publishes only to a
 different, explicitly named output MVR after every command succeeds. Both
 contexts use this same text processor and typed selection/transform Commands.
-Live control of an already-running Perastage project is not implemented; that
-work remains reserved for FRONT-515.
+The local live CLI adapter executes this same text processor against the active
+application scene and selection through `GuiProjectMutationHost`. Its dedicated
+GUI-independent live-request executor composes the versioned envelope with an
+explicit `ExecutionContext`; the loopback transport contains no scene logic.
+The application adapter returns mutations through the existing main-window
+refresh boundary and cancels pending GUI dispatch safely during shutdown.
 
 ## Higher-level scene tools
 
