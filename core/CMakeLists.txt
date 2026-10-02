@@ -199,8 +199,9 @@ add_library(perastage_live_request_executor STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/live/live_request_executor.cpp
 )
 target_compile_features(perastage_live_request_executor PUBLIC cxx_std_20)
-target_include_directories(perastage_live_request_executor PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
+target_include_directories(perastage_live_request_executor
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
+    PRIVATE ${CMAKE_SOURCE_DIR}/third_party
 )
 target_link_libraries(perastage_live_request_executor PUBLIC
     perastage_local_ipc

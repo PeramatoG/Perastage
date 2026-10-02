@@ -183,6 +183,9 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Declared the local live request executor's direct JSON include ownership so
+  Debug builds remain reliable across Windows, Linux, and macOS toolchains.
+
 - Completed the embedded Console frontend boundary: reusable text-command
   ordering and execution now live in GUI-independent Command infrastructure,
   while the Console retains its established output, selection presentation,
