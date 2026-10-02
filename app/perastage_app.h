@@ -34,6 +34,7 @@ class LocalLiveController;
 
 class MyApp : public wxApp {
 public:
+  ~MyApp() override;
   virtual bool OnInit() override;
   int OnExit() override;
   int FilterEvent(wxEvent &event) override;

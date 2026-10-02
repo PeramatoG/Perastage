@@ -194,7 +194,10 @@ add_test(NAME CapabilityCatalog COMMAND capability_catalog_test)
 
 add_executable(local_ipc_test local_ipc_test.cpp)
 target_include_directories(local_ipc_test PRIVATE ../third_party)
-target_link_libraries(local_ipc_test PRIVATE perastage_local_ipc)
+target_link_libraries(local_ipc_test PRIVATE
+                      perastage_cli_support
+                      perastage_live_request_executor
+                      perastage_mvr_scene_model)
 add_test(NAME LocalIpc COMMAND local_ipc_test)
 set_perastage_test_labels(LocalIpc LAYER integration DOMAINS cli architecture)
 set_perastage_test_labels(CapabilityCatalog LAYER unit

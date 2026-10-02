@@ -130,8 +130,10 @@ different, explicitly named output MVR after every command succeeds. Both
 contexts use this same text processor and typed selection/transform Commands.
 The local live CLI adapter executes this same text processor against the active
 application scene and selection through `GuiProjectMutationHost`. Its dedicated
-loopback transport contains no scene logic, and the application adapter returns
-mutations through the existing main-window refresh boundary.
+GUI-independent live-request executor composes the versioned envelope with an
+explicit `ExecutionContext`; the loopback transport contains no scene logic.
+The application adapter returns mutations through the existing main-window
+refresh boundary and cancels pending GUI dispatch safely during shutdown.
 
 ## Higher-level scene tools
 

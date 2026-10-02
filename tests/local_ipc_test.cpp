@@ -1,49 +1,113 @@
-#include "local_ipc/local_ipc_contract.h"
-#include "local_ipc/local_ipc_transport.h"
 #include "json.hpp"
+#include "live/live_request_executor.h"
+#include "live_command.h"
+#include "local_ipc/local_ipc_transport.h"
+#include "matrixutils.h"
+#include "mvrscene.h"
 
+#include <array>
 #include <cassert>
-#include <string>
+#include <cmath>
+#include <sstream>
+#include <stdexcept>
 
-// Verifies contract errors, lifecycle, loopback exchange, and shared handler state.
+namespace {
+
+class RecordingHost final : public perastage::command::ProjectMutationHost {
+public:
+  // Records publication through the real semantic mutation transaction.
+  perastage::command::MutationPublication
+  CommitMutation(const MvrScene &, const scene_grouping::ObjectSelection &,
+                 const std::string &) override {
+    ++publications;
+    return {true, true};
+  }
+
+  int publications = 0;
+};
+
+// Builds a real live request using the public schema.
+std::string Request(const std::string &id, const std::string &operation,
+                    const std::string &value) {
+  return nlohmann::ordered_json{{"schema_version", 1},
+                                {"request_id", id},
+                                {"operation", operation},
+                                {"value", value}}
+      .dump();
+}
+
+} // namespace
+
+// Verifies real semantic execution and CLI round trips share one live scene.
 int main() {
-  using namespace perastage::local_ipc;
-  Request parsed;
-  std::string errorResponse;
-  assert(!ParseRequest("{}", parsed, errorResponse));
-  assert(nlohmann::json::parse(errorResponse)["error"]["code"] ==
-         "unsupported_version");
+  MvrScene scene;
+  Fixture fixture;
+  fixture.uuid = "fixture-a";
+  fixture.fixtureId = 1;
+  fixture.transform = MatrixUtils::Identity();
+  scene.fixtures.emplace(fixture.uuid, fixture);
+  scene_grouping::ObjectSelection selection;
+  RecordingHost host;
+  perastage::command::ExecutionContext context{scene, selection, host};
+  scene_grouping::InteractiveTransformPolicy policy;
 
-  int liveValue = 0;
-  Server server;
-  std::string error;
+  perastage::local_ipc::Server server;
+  std::string transportError;
   assert(server.Start(
       0,
       [&](const std::string &wire) {
-        Request request;
-        std::string parseError;
-        if (!ParseRequest(wire, request, parseError))
-          return parseError;
-        if (request.operation == "command") {
-          liveValue = std::stoi(request.value);
-          return SuccessResponse(request.requestId, R"({"changed":true})");
-        }
-        if (request.operation == "query")
-          return SuccessResponse(request.requestId,
-                                 "{\"value\":" + std::to_string(liveValue) + "}");
-        return ErrorResponse(request.requestId, "unsupported_operation", "Unsupported.");
-      }, error));
-  assert(server.Port() != 0);
+        return perastage::live::ExecuteRequest(wire, context, policy).response;
+      },
+      transportError));
 
-  std::string response;
-  assert(Exchange(server.Port(),
-                  R"({"schema_version":1,"request_id":"mutate","operation":"command","value":"42"})",
-                  response, error));
-  assert(nlohmann::json::parse(response)["ok"] == true);
-  assert(Exchange(server.Port(),
-                  R"({"schema_version":1,"request_id":"query","operation":"query","value":"state"})",
-                  response, error));
-  assert(nlohmann::json::parse(response)["result"]["value"] == 42);
+  const std::string port = std::to_string(server.Port());
+  std::ostringstream commandOut;
+  std::ostringstream commandErr;
+  const std::array<std::string_view, 4> commandArgs = {"command", "f 1 pos x 2",
+                                                       "--port", port};
+  assert(perastage::cli::RunLive(commandArgs, commandOut, commandErr) == 0);
+  assert(commandErr.str().empty());
+  assert(host.publications == 1);
+  assert(std::fabs(scene.fixtures.at(fixture.uuid).transform.o[0] - 2000.0f) <
+         0.01f);
+
+  std::ostringstream queryOut;
+  std::ostringstream queryErr;
+  const std::array<std::string_view, 4> queryArgs = {
+      "query", "scene.selection.get", "--port", port};
+  assert(perastage::cli::RunLive(queryArgs, queryOut, queryErr) == 0);
+  const auto query = nlohmann::json::parse(queryOut.str());
+  assert(query["result"]["objects"].size() == 1);
+  assert(query["result"]["objects"][0]["uuid"] == fixture.uuid);
+
+  std::ostringstream rejectedOut;
+  std::ostringstream rejectedErr;
+  const std::array<std::string_view, 4> rejectedArgs = {
+      "query", "scene.objects.list", "--port", port};
+  assert(perastage::cli::RunLive(rejectedArgs, rejectedOut, rejectedErr) == 4);
+
+  std::ostringstream failedCommandOut;
+  std::ostringstream failedCommandErr;
+  const std::array<std::string_view, 4> failedCommandArgs = {
+      "command", "unknown", "--port", port};
+  assert(perastage::cli::RunLive(failedCommandArgs, failedCommandOut,
+                                 failedCommandErr) == 4);
+
   server.Stop();
+
+  perastage::local_ipc::Server throwingServer;
+  assert(throwingServer.Start(
+      0,
+      [](const std::string &) -> std::string {
+        throw std::runtime_error("handler failure");
+      },
+      transportError));
+  std::string failureResponse;
+  assert(perastage::local_ipc::Exchange(
+      throwingServer.Port(), Request("failure", "query", "scene.summary"),
+      failureResponse, transportError));
+  assert(nlohmann::json::parse(failureResponse)["error"]["code"] ==
+         "internal_error");
+  throwingServer.Stop();
   return 0;
 }

@@ -1,4 +1,5 @@
 #include "local_ipc/local_ipc_transport.h"
+#include "local_ipc/local_ipc_contract.h"
 
 #include <array>
 #include <cstring>
@@ -81,7 +82,8 @@ bool ReceiveFrame(std::intptr_t socket, std::string &frame) {
   frame.clear();
   std::array<char, 4096> buffer{};
   while (frame.size() <= kMaximumMessageBytes) {
-    const int count = recv(socket, buffer.data(), static_cast<int>(buffer.size()), 0);
+    const int count =
+        recv(socket, buffer.data(), static_cast<int>(buffer.size()), 0);
     if (count <= 0)
       return false;
     frame.append(buffer.data(), static_cast<std::size_t>(count));
@@ -120,7 +122,8 @@ bool Server::Start(std::uint16_t port, RequestHandler handler,
   address.sin_port = htons(port);
   inet_pton(AF_INET, "127.0.0.1", &address.sin_addr);
   if (bind(listenSocket_, reinterpret_cast<sockaddr *>(&address),
-           sizeof(address)) != 0 || listen(listenSocket_, 4) != 0) {
+           sizeof(address)) != 0 ||
+      listen(listenSocket_, 4) != 0) {
     CloseSocket(listenSocket_);
     listenSocket_ = kInvalidSocket;
     error = "loopback_bind_failed";
@@ -172,10 +175,21 @@ void Server::Run() {
     SetSocketTimeout(connection);
     std::string request;
     std::string response;
-    if (ReceiveFrame(connection, request))
-      response = handler_(request);
-    else
-      response = R"({"schema_version":1,"ok":false,"error":{"code":"invalid_frame","message":"Request must be one newline-terminated frame of at most 65536 bytes."}})";
+    if (ReceiveFrame(connection, request)) {
+      try {
+        response = handler_(request);
+      } catch (...) {
+        Request parsedRequest;
+        std::string ignoredError;
+        ParseRequest(request, parsedRequest, ignoredError);
+        response = ErrorResponse(
+            parsedRequest.requestId, "internal_error",
+            "The local live request handler failed unexpectedly.");
+      }
+    } else {
+      response =
+          R"({"schema_version":1,"ok":false,"error":{"code":"invalid_frame","message":"Request must be one newline-terminated frame of at most 65536 bytes."}})";
+    }
     response.push_back('\n');
     SendAll(connection, response);
     CloseSocket(connection);

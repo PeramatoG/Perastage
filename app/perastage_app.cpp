@@ -183,6 +183,8 @@ void ConfigureWindowsDebugHeapLeakCheck() {
 #endif
 } // namespace
 
+// Destroys application-owned services where their concrete types are complete.
+MyApp::~MyApp() = default;
 
 // Initializes the application, creates the main window, and routes startup open requests.
 bool MyApp::OnInit() {

@@ -10,7 +10,9 @@ Changes since **v1.6.0**.
   Perastage instance. Supported Console commands now operate on the active
   project with normal validation, Undo, dirty-state, selection, and refresh
   behavior, while summary and selection queries return structured results over
-  a bounded loopback-only connection.
+  a bounded loopback-only connection. Shutdown now safely cancels pending GUI
+  dispatches, and live operation failures use the documented general command
+  failure exit status consistently across platforms.
 
 - Added a headless `perastage-cli scene` workflow for applying the existing
   fixture/truss selection and transform commands to an explicitly supplied MVR
