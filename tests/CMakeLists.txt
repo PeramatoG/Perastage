@@ -43,8 +43,7 @@ target_include_directories(external_scene_command_equivalence_test PRIVATE
 target_link_libraries(external_scene_command_equivalence_test PRIVATE
                       perastage_external_scene_workflow
                       perastage_command_text_processor
-                      perastage_mvr_read
-                      ${wxWidgets_LIBRARIES})
+                      perastage_mvr_read)
 add_test(NAME ExternalSceneCommandEquivalence
          COMMAND external_scene_command_equivalence_test)
 set_tests_properties(ExternalSceneCommandEquivalence PROPERTIES
