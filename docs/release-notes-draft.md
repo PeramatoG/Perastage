@@ -10,6 +10,8 @@ Changes since **v1.6.0**.
   applying explicit position or rotation changes. It is restricted to the
   local computer and uses the same validation, transform policy, Undo,
   dirty-state, selection, and refresh behavior as normal Perastage commands.
+  Boolean controls interoperate with OSC senders using either native boolean
+  tags or integer zero/one values.
 
 - Added the first local live connection between `perastage-cli` and a running
   Perastage instance. Supported Console commands now operate on the active

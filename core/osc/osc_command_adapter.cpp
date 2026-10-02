@@ -18,15 +18,28 @@ command::Result Invalid(const std::string &code, const std::string &message) {
   return result;
 }
 
+// Reads the adapter's OSC boolean subset from T/F or int32 zero/one.
+bool ReadBoolean(const Argument &argument, bool &value) {
+  if (const auto *boolean = std::get_if<bool>(&argument)) {
+    value = *boolean;
+    return true;
+  }
+  const auto *integer = std::get_if<std::int32_t>(&argument);
+  if (!integer || (*integer != 0 && *integer != 1))
+    return false;
+  value = *integer == 1;
+  return true;
+}
+
 // Converts the explicit OSC transform tuple into a semantic component.
 bool ReadTransform(const Message &message,
                    command::transform::Component &component) {
   if (message.arguments.size() != 5)
     return false;
   const auto *axis = std::get_if<std::string>(&message.arguments[0]);
-  const auto *relative = std::get_if<bool>(&message.arguments[2]);
   const auto *space = std::get_if<std::string>(&message.arguments[3]);
-  const auto *group = std::get_if<bool>(&message.arguments[4]);
+  bool relative = false;
+  bool group = false;
   double value = 0.0;
   if (const auto *floating = std::get_if<float>(&message.arguments[1]))
     value = *floating;
@@ -35,7 +48,8 @@ bool ReadTransform(const Message &message,
     value = *integer;
   else
     return false;
-  if (!axis || !relative || !space || !group || !std::isfinite(value))
+  if (!axis || !space || !ReadBoolean(message.arguments[2], relative) ||
+      !ReadBoolean(message.arguments[4], group) || !std::isfinite(value))
     return false;
   if (*axis == "x")
     component.axis = 0;
@@ -52,8 +66,8 @@ bool ReadTransform(const Message &message,
   else
     return false;
   component.values = {value};
-  component.relative = *relative;
-  component.group = *group;
+  component.relative = relative;
+  component.group = group;
   return true;
 }
 
@@ -81,8 +95,9 @@ ExecuteMessage(const Message &message, command::ExecutionContext &context,
   command::transform::Component component;
   if (!ReadTransform(message, component))
     return Invalid("osc.invalid_arguments",
-                   "Transform arguments must be axis, numeric value, boolean "
-                   "relative, world/local, and boolean group.");
+                   "Transform arguments must be axis, int32 or float32 value, "
+                   "T/F or int32 0/1 relative, world/local, and T/F or int32 "
+                   "0/1 group.");
   command::transform::Command transform{kind, {component}, std::nullopt};
   return command::transform::Execute(transform, context, policy);
 }

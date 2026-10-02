@@ -140,16 +140,18 @@ refresh boundary and cancels pending GUI dispatch safely during shutdown.
 The initial OSC 1.0 endpoint listens only on IPv4 `127.0.0.1`, UDP port
 `49156`. Datagrams are limited to 4096 bytes. Bundles, malformed padding,
 trailing data, and type tags outside the supported `i`, `f`, `s`, `T`, and `F`
-set are rejected. The endpoint does not use Console text parsing and logs the
-existing deterministic Command JSON result after execution.
+set are rejected. This is the focused OSC 1.0 subset required by the adapter,
+not support for every OSC 1.0 data type. The endpoint does not use Console text
+parsing and logs the existing deterministic Command JSON result after
+execution.
 
 The deliberately small address mapping is:
 
 - `/perastage/selection/clear` with no arguments;
-- `/perastage/transform/position` with OSC tags matching `,sNBsB` (where `N`
-  is `i` or `f` and each `B` is `T` or `F`) in the order axis
-  (`x`, `y`, or `z`), millimetre value, relative boolean, space (`world` or
-  `local`), and group boolean;
+- `/perastage/transform/position` with OSC tags matching `,sNBsB`, where `N`
+  is `i` or `f` and each `B` is `T`, `F`, or `i`. Arguments are axis (`x`, `y`,
+  or `z`), millimetre value, relative boolean, space (`world` or `local`), and
+  group boolean. Integer booleans accept only `0` and `1`;
 - `/perastage/transform/rotation` with the same tag pattern and order, with the
   value interpreted in degrees.
 
