@@ -27,8 +27,7 @@ int RunCapabilities(std::span<const std::string_view> args, std::ostream &out,
     out << capability::SerializeCatalogJson();
     return 0;
   }
-  out << "Semantic capabilities (discovery only; development_cli does not "
-         "execute them):\n";
+  out << "Semantic capabilities and current frontend exposure:\n";
   for (const capability::Descriptor &descriptor : capability::Catalog()) {
     out << descriptor.operationId << "  " << capability::Token(descriptor.kind)
         << "  " << capability::Token(descriptor.effect) << "\n  "

@@ -6,7 +6,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CMAKE = ROOT / "tests/CMakeLists.txt"
-DIRECT_SHELL_TEST = re.compile(r"add_test\s*\([^)]*COMMAND\s+[^)]*\.sh(?:\s|\))", re.DOTALL)
+DIRECT_SHELL_TEST = re.compile(
+    r"add_test\s*\([^)]*COMMAND\s+(?:[\"']?(?:bash|sh)[\"']?|[^)]*\.sh[\"']?)(?:\s|\))",
+    re.DOTALL,
+)
 
 
 def main() -> int:

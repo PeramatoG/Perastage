@@ -91,7 +91,9 @@ bool ShouldCanonicalizeAsGdtf(const ResourceEntry &entry);
 
 class ResourceCollection {
 public:
-  ResourceCollection(std::string sceneBasePath, DiagnosticSink diagnosticSink,
+  ResourceCollection(std::string sceneBasePath,
+                     std::filesystem::path fixtureFallbackGdtfPath,
+                     DiagnosticSink diagnosticSink,
                      InformationalLogSink informationalLogSink);
   ~ResourceCollection();
 
@@ -128,7 +130,6 @@ public:
   static std::string SanitizeArchiveFileName(const std::string &input,
                                              const std::string &fallback);
   static std::string NormalizeArchiveEntryPath(std::string path);
-  static std::string ResolveFallbackFixtureGdtfPath();
   std::string ResolveSourcePath(const std::string &rawSource) const;
   std::string BuildSourceIdentity(const std::string &sourcePath) const;
 
@@ -140,6 +141,7 @@ private:
                                  const std::string &modelArchivePath);
 
   std::string m_sceneBasePath;
+  std::filesystem::path m_fixtureFallbackGdtfPath;
   DiagnosticSink m_diagnosticSink;
   InformationalLogSink m_informationalLogSink;
   ResourcePlan m_plan;

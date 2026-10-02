@@ -19,6 +19,7 @@
 
 #include "mvr_export_options.h"
 #include "mvr_export_diagnostic.h"
+#include "mvr_export_environment.h"
 
 #include <cstdint>
 #include <string>
@@ -44,11 +45,22 @@ public:
     // Serialize an isolated canonical scene snapshot without modifying live project state.
     bool ExportCanonicalSnapshotToBuffer(const MvrScene& scene,
                                          std::vector<uint8_t>& outBytes);
+    // Serialize an isolated canonical scene snapshot directly to a file.
+    bool ExportCanonicalSnapshotToFile(const MvrScene& scene,
+                                       const std::string& filePath);
+    // Serialize an isolated scene to a file with captured export behavior.
+    bool ExportCanonicalSnapshotToFile(const MvrScene& scene,
+                                       const std::string& filePath,
+                                       const MvrExportOptions& options,
+                                       const MvrExportEnvironment& environment = {}) {
+        return SerializeSnapshotToFile(scene, filePath, options, environment);
+    }
     // Serialize an isolated canonical scene with captured export behavior.
     bool ExportCanonicalSnapshotToBuffer(const MvrScene& scene,
                                          std::vector<uint8_t>& outBytes,
-                                         const MvrExportOptions& options) {
-        return SerializeSnapshotToBuffer(scene, outBytes, options);
+                                         const MvrExportOptions& options,
+                                         const MvrExportEnvironment& environment = {}) {
+        return SerializeSnapshotToBuffer(scene, outBytes, options, environment);
     }
     // Return structured diagnostics collected during the most recent export.
     const std::vector<MvrExportDiagnostic>& GetExportDiagnostics() const;
@@ -59,11 +71,13 @@ private:
     // Serialize a private scene copy with an explicit canonical or compatibility policy.
     bool SerializeSnapshotToFile(const MvrScene& scene,
                                  const std::string& filePath,
-                                 const MvrExportOptions& options);
+                                 const MvrExportOptions& options,
+                                 const MvrExportEnvironment& environment = {});
     // Serialize a private scene copy to memory without consulting GUI state.
     bool SerializeSnapshotToBuffer(const MvrScene& scene,
                                    std::vector<uint8_t>& outBytes,
-                                   const MvrExportOptions& options);
+                                   const MvrExportOptions& options,
+                                   const MvrExportEnvironment& environment = {});
     // Records and logs one structured diagnostic.
     void AddDiagnostic(MvrExportDiagnostic diagnostic);
     std::vector<MvrExportDiagnostic> m_exportDiagnostics;

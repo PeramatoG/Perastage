@@ -121,10 +121,15 @@ project selection snapshot and publishes it through `PushUndoSnapshot`; it
 does not refresh GUI state. Frontends use `MutationSummary::sceneChanged` to
 decide whether to refresh tables or viewers.
 
-The public `perastage-cli` remains read-only. CMD-430 now provides stable
-selectors; external mutation remains deferred until FRONT-510 defines explicit
-project/file input and output ownership. The semantic executor itself is
-headless and does not depend on that future frontend.
+There are two Command mutation contexts. The embedded Console obtains the
+active GUI scene and publishes each semantic mutation through application Undo
+and dirty-state services. The external `perastage-cli scene` workflow instead
+owns an isolated scene read from an explicitly named MVR, uses a headless
+`ProjectMutationHost` with no persistent Undo stack, and publishes only to a
+different, explicitly named output MVR after every command succeeds. Both
+contexts use this same text processor and typed selection/transform Commands.
+Live control of an already-running Perastage project is not implemented; that
+work remains reserved for FRONT-515.
 
 ## Higher-level scene tools
 

@@ -117,7 +117,7 @@ int main() {
   std::vector<MvrExportDiagnostic> diagnostics;
   std::vector<std::string> logs;
   auto collection = std::make_unique<ResourceCollection>(
-      root.string(),
+      root.string(), fs::path{},
       [&](MvrExportDiagnostic diagnostic) {
         diagnostics.push_back(std::move(diagnostic));
       },
@@ -148,6 +148,59 @@ int main() {
   Expect(ResourceCollection::NormalizeArchiveEntryPath("./\\models/test.glb") ==
              "models/test.glb",
          "archive path normalization changed", failures);
+
+  const fs::path explicitFallback = root / "explicit-fallback.gdtf";
+  tests::gdtf::BuildMinimalValidFixture().WriteArchive(explicitFallback);
+  std::vector<MvrExportDiagnostic> fallbackDiagnostics;
+  ResourceCollection fallbackCollection(
+      root.string(), explicitFallback,
+      [&](MvrExportDiagnostic diagnostic) {
+        fallbackDiagnostics.push_back(std::move(diagnostic));
+      },
+      {});
+  const std::string fallbackArchive = fallbackCollection.RegisterGdtfResource(
+      "fallback-fixture", (root / "missing-fixture.gdtf").string(),
+      "fallback.gdtf");
+  const ResourcePlan fallbackPlan =
+      fallbackCollection.Finalize({fallbackArchive});
+  const ResourceEntry *fallbackEntry =
+      FindEntry(fallbackPlan, fallbackArchive);
+  Expect(fallbackEntry &&
+             fallbackEntry->provenance ==
+                 ResourceProvenance::CompatibilityFallback &&
+             PathsReferToSameFile(fallbackEntry->sourcePath, explicitFallback),
+         "explicit fixture fallback was not retained with fallback provenance",
+         failures);
+  Expect(std::any_of(fallbackDiagnostics.begin(), fallbackDiagnostics.end(),
+                     [](const MvrExportDiagnostic &diagnostic) {
+                       return diagnostic.code ==
+                              MvrExportDiagnosticCode::GdtfFallbackUsed;
+                     }),
+         "explicit fixture fallback diagnostic was not emitted", failures);
+
+  std::vector<MvrExportDiagnostic> neutralDiagnostics;
+  ResourceCollection neutralCollection(
+      root.string(), fs::path{},
+      [&](MvrExportDiagnostic diagnostic) {
+        neutralDiagnostics.push_back(std::move(diagnostic));
+      },
+      {});
+  const std::string neutralArchive = neutralCollection.RegisterGdtfResource(
+      "neutral-fixture", (root / "missing-neutral.gdtf").string(),
+      "neutral.gdtf");
+  const ResourcePlan neutralPlan = neutralCollection.Finalize({neutralArchive});
+  const ResourceEntry *neutralEntry = FindEntry(neutralPlan, neutralArchive);
+  Expect(neutralEntry &&
+             neutralEntry->provenance == ResourceProvenance::StandardPreserved &&
+             !PathsReferToSameFile(neutralEntry->sourcePath, explicitFallback),
+         "neutral collection discovered an implicit fixture fallback",
+         failures);
+  Expect(std::none_of(neutralDiagnostics.begin(), neutralDiagnostics.end(),
+                      [](const MvrExportDiagnostic &diagnostic) {
+                        return diagnostic.code ==
+                               MvrExportDiagnosticCode::GdtfFallbackUsed;
+                      }),
+         "neutral collection emitted an implicit fallback diagnostic", failures);
 
   const ResourceEntry archiveGdtf{root / "source.gdtf", "fixture.gdtf",
                                   ResourceKind::Gdtf,
@@ -302,7 +355,7 @@ int main() {
 
   std::vector<MvrExportDiagnostic> failureDiagnostics;
   auto failingCollection = std::make_unique<ResourceCollection>(
-      root.string(),
+      root.string(), fs::path{},
       [&](MvrExportDiagnostic diagnostic) {
         failureDiagnostics.push_back(std::move(diagnostic));
       },

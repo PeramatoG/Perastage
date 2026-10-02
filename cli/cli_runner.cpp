@@ -12,6 +12,7 @@
 #include "app_version.h"
 #include "capabilities_command.h"
 #include "inspect_command.h"
+#include "scene_command.h"
 
 #include <exception>
 #include <ostream>
@@ -24,6 +25,8 @@ constexpr std::string_view kHelp =
     "Usage: perastage-cli [--help | --version]\n"
     "       perastage-cli inspect <file> [--view <view> | --json]\n"
     "       perastage-cli capabilities [--json]\n"
+    "       perastage-cli scene <input.mvr> --output <output.mvr> --command "
+    "<text> [--command <text> ...] [--overwrite] [--json]\n"
     "\n"
     "Options:\n"
     "  -h, --help  Show this help and exit.\n"
@@ -31,7 +34,8 @@ constexpr std::string_view kHelp =
     "\n"
     "Commands:\n"
     "  capabilities  List semantic operations and current frontend exposure.\n"
-    "  inspect     Inspect a GDTF or MVR package.\n";
+    "  inspect     Inspect a GDTF or MVR package.\n"
+    "  scene       Mutate an isolated MVR and publish an explicit output.\n";
 
 // Writes a stable usage diagnostic and returns the usage-error status.
 int UsageError(std::string_view argument, std::ostream &err) {
@@ -62,6 +66,14 @@ int Run(std::span<const std::string_view> args, std::ostream &out,
   }
   if (args.front() == "capabilities") {
     return RunCapabilities(args.subspan(1), out, err);
+  }
+  if (args.front() == "scene") {
+    try {
+      return RunScene(args.subspan(1), out, err);
+    } catch (const std::exception &) {
+      err << "perastage-cli: unexpected internal failure.\n";
+      return 5;
+    }
   }
   if (args.size() != 1) {
     return UsageError(args[1], err);

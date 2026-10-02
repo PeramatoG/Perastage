@@ -10,6 +10,7 @@ import sys
 HELP = """Usage: perastage-cli [--help | --version]
        perastage-cli inspect <file> [--view <view> | --json]
        perastage-cli capabilities [--json]
+       perastage-cli scene <input.mvr> --output <output.mvr> --command <text> [--command <text> ...] [--overwrite] [--json]
 
 Options:
   -h, --help  Show this help and exit.
@@ -18,6 +19,7 @@ Options:
 Commands:
   capabilities  List semantic operations and current frontend exposure.
   inspect     Inspect a GDTF or MVR package.
+  scene       Mutate an isolated MVR and publish an explicit output.
 """
 
 CAPABILITIES_HELP = """Usage: perastage-cli capabilities [--json]
@@ -67,8 +69,8 @@ def check_capabilities(binary: str) -> None:
     human = run(binary, ["capabilities"])
     if human.returncode != 0 or human.stderr:
         raise AssertionError(f"human capability discovery failed: {human!r}")
-    if "discovery only; development_cli does not execute" not in human.stdout:
-        raise AssertionError("human discovery does not state its non-execution scope")
+    if "Semantic capabilities and current frontend exposure" not in human.stdout:
+        raise AssertionError("human discovery does not state frontend exposure")
     for operation_id in CAPABILITY_IDS:
         if operation_id not in human.stdout:
             raise AssertionError(f"human discovery omitted {operation_id}")
@@ -83,10 +85,19 @@ def check_capabilities(binary: str) -> None:
     operation_ids = [operation.get("operation_id") for operation in operations]
     if operation_ids != CAPABILITY_IDS or operation_ids != sorted(operation_ids):
         raise AssertionError(f"unexpected capability inventory: {operation_ids!r}")
+    executable = {
+        "scene.selection.clear": "full",
+        "scene.selection.update": "partial",
+        "scene.transform.position": "full",
+        "scene.transform.rotation": "full",
+    }
     for operation in operations:
-        frontends = operation.get("frontend_exposure", [])
-        if any(frontend.get("id") == "development_cli" for frontend in frontends):
-            raise AssertionError("development CLI must not claim operation execution")
+        cli_exposure = [frontend.get("state") for frontend in
+                        operation.get("frontend_exposure", [])
+                        if frontend.get("id") == "development_cli"]
+        expected = executable.get(operation.get("operation_id"))
+        if cli_exposure != ([expected] if expected else []):
+            raise AssertionError("development CLI exposure is not truthful")
 
 
 def main() -> int:

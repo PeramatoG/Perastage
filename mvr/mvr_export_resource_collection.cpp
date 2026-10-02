@@ -18,9 +18,8 @@
 #include "mvr_export_resource_collection.h"
 
 #include "filesystem_path_utils.h"
-#include "gdtfdictionary.h"
+#include "gdtf_filename_policy.h"
 #include "primitive_model_resources.h"
-#include "projectutils.h"
 
 #include <algorithm>
 #include <array>
@@ -221,35 +220,17 @@ bool ResolveModelDependencyPath(const fs::path &modelPath,
   return false;
 }
 
-// Locates the established dummy fixture fallback without changing preference order.
-std::string ResolveFallbackFixtureGdtfPath() {
-  static const std::string resolved = [] {
-    const fs::path base = ProjectUtils::GetBaseLibraryPath("fixtures");
-    const std::array<fs::path, 5> candidates = {
-        base / "Dummy 1ch.gdtf",
-        base / "Perastage@Dummy_1ch@Perastage.gdtf",
-        base / "Unknown@Dummy_1ch@Perastage.gdtf",
-        base / "Generic 1ch.gdtf",
-        base / "Generic@Generic_1ch@Perastage.gdtf"};
-    for (const fs::path &path : candidates) {
-      std::error_code ec;
-      if (fs::exists(path, ec) && !ec && fs::is_regular_file(path, ec) && !ec)
-        return path.generic_string();
-    }
-    return std::string{};
-  }();
-  return resolved;
-}
-
 } // namespace
 
 namespace mvr_export_resources {
 
 // Initializes collection and reserves a temporary workspace for primitive models.
 ResourceCollection::ResourceCollection(std::string sceneBasePath,
+                                       fs::path fixtureFallbackGdtfPath,
                                        DiagnosticSink diagnosticSink,
                                        InformationalLogSink informationalLogSink)
     : m_sceneBasePath(std::move(sceneBasePath)),
+      m_fixtureFallbackGdtfPath(std::move(fixtureFallbackGdtfPath)),
       m_diagnosticSink(std::move(diagnosticSink)),
       m_informationalLogSink(std::move(informationalLogSink)) {
   runtime_storage::TemporaryWorkspace workspace("mvr-export-primitives");
@@ -288,11 +269,6 @@ std::string ResourceCollection::NormalizeArchiveEntryPath(std::string path) {
   while (path.rfind("./", 0) == 0) path.erase(0, 2);
   while (!path.empty() && path.front() == '/') path.erase(path.begin());
   return path;
-}
-
-// Resolves the established compatibility fixture GDTF in preference order.
-std::string ResourceCollection::ResolveFallbackFixtureGdtfPath() {
-  return ::ResolveFallbackFixtureGdtfPath();
 }
 
 // Produces a stable absolute identity path relative to the scene base directory.
@@ -375,7 +351,11 @@ std::string ResourceCollection::RegisterGdtfResource(const std::string &objectUu
   std::string resolved = ResolveExistingResourceSourcePath(rawGdtfPath);
   ResourceProvenance provenance = ResourceProvenance::StandardPreserved;
   if (resolved.empty() && allowFallback) {
-    resolved = ResolveFallbackFixtureGdtfPath();
+    std::error_code fallbackError;
+    if (!m_fixtureFallbackGdtfPath.empty() &&
+        fs::is_regular_file(m_fixtureFallbackGdtfPath, fallbackError) &&
+        !fallbackError)
+      resolved = m_fixtureFallbackGdtfPath.generic_string();
     if (!resolved.empty()) {
       provenance = ResourceProvenance::CompatibilityFallback;
       if (m_diagnosticSink) m_diagnosticSink({MvrExportDiagnosticCode::GdtfFallbackUsed,
@@ -396,8 +376,10 @@ std::string ResourceCollection::RegisterGdtfResource(const std::string &objectUu
   const std::string source = resolved.empty() ? rawGdtfPath : resolved;
   std::string fileName = preferredName;
   if (!usePreferredDerivativeName && ToLowerAscii(PathUtils::PathFromUtf8(rawGdtfPath).extension().string()) == ".gdtf" &&
-      !GdtfDictionary::IsPerastageNamedGdtfFile(rawGdtfPath))
-    fileName = GdtfDictionary::BuildPerastageCanonicalGdtfFileName(source);
+      !gdtf_filename_policy::IsPerastageNamedFile(
+          PathUtils::PathFromUtf8(rawGdtfPath)))
+    fileName = gdtf_filename_policy::BuildCanonicalFileName(
+        PathUtils::PathFromUtf8(source));
   if (fileName.empty()) fileName = SanitizeArchiveFileName(rawGdtfPath, "fixture.gdtf");
   const std::string archive = RegisterResource(source, fileName, ResourceKind::Gdtf, provenance, allowReuseBySource);
   if (!objectUuid.empty() && !archive.empty()) m_plan.gdtfArchiveByObjectUuid[objectUuid] = archive;

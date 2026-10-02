@@ -21,7 +21,28 @@ perastage-cli inspect <file> --view resources
 perastage-cli inspect <file> --view diagnostics
 perastage-cli inspect <file> --view xml
 perastage-cli inspect <file> --json
+perastage-cli capabilities [--json]
+perastage-cli scene <input.mvr> --output <output.mvr> --command <text> [--command <text> ...] [--overwrite] [--json]
 ```
+
+The `scene` command is the first external mutation workflow. Its input is a
+read-only MVR container and its output is mandatory, explicit, and must resolve
+to a different file. An existing output is rejected unless `--overwrite` is
+present. Repeated commands execute in source order through the shared Console
+text processor; only fixture/truss selection, `clear`, and position/rotation
+transforms currently form this surface. A parse, validation, execution,
+resource, serialization, or publication failure leaves both the source and any
+pre-existing output unchanged. Successful output uses the production canonical
+MVR preparation, resource collection, XML serialization, and archive writer.
+Application-owned exporters explicitly supply their resolved fixture fallback
+through `MvrExportEnvironment`; the neutral CLI export supplies no fallback and
+never searches Perastage's installed or user fixture libraries.
+
+Unlike the embedded Console, which mutates the active GUI project and records
+application Undo state, this workflow uses an isolated headless scene and has
+no persistent interactive Undo stack. It does report dirty semantic mutations
+through the normal Command transaction contract. It neither attaches to nor
+controls a running Perastage process; live-project IPC belongs to FRONT-515.
 
 `inspect` accepts exactly one filesystem input with a case-insensitive `.gdtf`
 or `.mvr` extension. Its default view is `summary`. `--json` and `--view` are
@@ -137,11 +158,11 @@ No CLI formatter parses package or XML semantics.
 
 | Code | Meaning |
 | --- | --- |
-| `0` | Successful clean inspection or successful help/version command; information-only findings are clean. |
+| `0` | Successful clean inspection, scene publication, or help/version command; information-only findings are clean. |
 | `1` | Inspection completed with non-fatal warning or error findings, including compatibility findings. |
 | `2` | Malformed CLI usage. |
 | `3` | A supported input could not be usefully inspected because of fatal input, package, or XML failure. |
-| `4` | Unsupported input extension/type. |
+| `4` | Unsupported inspection input, or a scene load/command/export/publication failure. |
 | `5` | Unexpected internal CLI failure. |
 
 Requested data (human views, exact XML, and JSON) goes to standard output.
@@ -159,7 +180,10 @@ testable standard-C++ runner. CLI sources depend only on public Core inspection
 headers and link the focused GDTF, MVR, resource, and report-serialization
 inspection targets. The semantic work stays in Inspection Core, including its private or
 transitive reader dependencies. CLI code does not include or directly call MVR
-or GDTF reader implementations.
+or GDTF reader implementations. The neutral external-scene workflow composes
+the acquired-package reader, shared Command text processor, headless mutation
+host, and canonical MVR exporter; CLI code owns only grammar, output policy,
+and result formatting.
 
 The command starts no `wxApp`, creates no window, and initializes no App, GUI,
 viewer, ConfigManager, localization, project state, networking, library, or

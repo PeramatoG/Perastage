@@ -18,6 +18,37 @@ add_test(NAME PerastageCliRunner COMMAND perastage_cli_runner_test)
 set_tests_properties(PerastageCliRunner PROPERTIES
                      LABELS "standard-strict;architecture;cli")
 
+add_executable(gdtf_filename_policy_test gdtf_filename_policy_test.cpp
+               support/gdtf_test_fixture_builder.cpp)
+target_include_directories(gdtf_filename_policy_test PRIVATE
+                           ../core support)
+target_link_libraries(gdtf_filename_policy_test PRIVATE
+                      perastage_gdtf_filename_policy)
+add_test(NAME GdtfFilenamePolicy COMMAND gdtf_filename_policy_test)
+set_tests_properties(GdtfFilenamePolicy PROPERTIES
+                     LABELS "standard-strict;unit;gdtf;architecture")
+
+add_executable(layer_validation_test layer_validation_test.cpp)
+target_include_directories(layer_validation_test PRIVATE ../core ../models)
+target_link_libraries(layer_validation_test PRIVATE perastage_layer_validation)
+add_test(NAME LayerValidation COMMAND layer_validation_test)
+set_tests_properties(LayerValidation PROPERTIES
+                     LABELS "standard-strict;unit;layers;architecture")
+
+add_executable(external_scene_command_equivalence_test
+               external_scene_command_equivalence_test.cpp
+               support/gdtf_test_fixture_builder.cpp)
+target_include_directories(external_scene_command_equivalence_test PRIVATE
+                           ../core ../models ../mvr support)
+target_link_libraries(external_scene_command_equivalence_test PRIVATE
+                      perastage_external_scene_workflow
+                      perastage_command_text_processor
+                      perastage_mvr_read)
+add_test(NAME ExternalSceneCommandEquivalence
+         COMMAND external_scene_command_equivalence_test)
+set_tests_properties(ExternalSceneCommandEquivalence PROPERTIES
+                     LABELS "standard-strict;architecture;cli;command;mvr")
+
 add_executable(perastage_cli_inspection_presentation_test
                cli_inspection_presentation_test.cpp)
 target_include_directories(perastage_cli_inspection_presentation_test PRIVATE
@@ -44,6 +75,13 @@ set_tests_properties(PerastageCliInspect PROPERTIES
                      LABELS "standard-strict;architecture;cli;inspection"
                      TIMEOUT 30)
 
+add_test(NAME PerastageCliScene
+         COMMAND "${Python3_EXECUTABLE}"
+                 "${CMAKE_CURRENT_SOURCE_DIR}/perastage_cli_scene_test.py"
+                 "$<TARGET_FILE:perastage_cli>")
+set_tests_properties(PerastageCliScene PROPERTIES
+                     LABELS "standard-strict;architecture;cli;mvr;command"
+                     TIMEOUT 30)
 add_executable(viewport_mouse_navigation_test viewport_mouse_navigation_test.cpp)
 target_include_directories(viewport_mouse_navigation_test PRIVATE ../viewer_common)
 add_test(NAME ViewportMouseNavigation COMMAND viewport_mouse_navigation_test)
@@ -529,6 +567,7 @@ target_link_libraries(perastage_test_required_fixture_svg PUBLIC
 perastage_resolve_git_bash(RESOLVED_BASH_EXECUTABLE REQUIRED_FOR_TESTING)
 set(BASH_EXECUTABLE "${RESOLVED_BASH_EXECUTABLE}" CACHE FILEPATH "Resolved shell for repository policy tests" FORCE)
 if(BASH_EXECUTABLE)
+    add_bash_policy_test(ExternalSceneWorkflowBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_external_scene_workflow_boundary.sh LABELS standard-strict architecture cli mvr)
     add_bash_policy_test(InspectionContractBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_contract_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(CommandCoreBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_core_boundary.sh LABELS standard-strict architecture core command)
     add_bash_policy_test(CommandTextParserBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_text_parser_boundary.sh LABELS standard-strict architecture core command)
@@ -1545,7 +1584,7 @@ set(PERASTAGE_TEST_MVR_ROUNDTRIP_SOURCES
     ../mvr/mvr_xml_document_writer.cpp
     ../mvr/mvr_xml_extension_writer.cpp
     ../mvr/mvr_xml_scene_object_writer.cpp
-    ../mvr/mvrexporter.cpp
+    ../mvr/mvrexporter.cpp ../mvr/mvrexporter_application.cpp
     ../mvr/mvrimporter.cpp
     ../mvr/primitive_model_resources.cpp
     ../viewer2d/fixture_label_overrides.cpp
@@ -1614,7 +1653,7 @@ add_executable(mvr_project_fixture_metadata_contracts_test
 
 
                ../core/fixture_visual_color.cpp ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
-               ../viewer2d/fixture_label_overrides.cpp ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
+               ../viewer2d/fixture_label_overrides.cpp ../mvr/mvrexporter.cpp ../mvr/mvrexporter_application.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
                ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
@@ -1721,7 +1760,7 @@ add_executable(rider_truss_dictionary_normalization_test
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvrexporter_application.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
                ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
@@ -1810,7 +1849,7 @@ add_executable(mvr_perastage_metadata_recovery_test
 
                ../core/fixture_visual_color.cpp ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvrexporter_application.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
                ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
@@ -1905,7 +1944,7 @@ add_executable(mvr_sceneobject_symbol_identity_test mvr_sceneobject_symbol_ident
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvrexporter_application.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
                ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
@@ -2055,7 +2094,7 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvrexporter_application.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
                ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
@@ -2577,7 +2616,7 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvrexporter_application.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
                ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
@@ -2604,7 +2643,7 @@ add_test(NAME SymbolFixtureApplyPresentation
 add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
-               ../mvr/mvrexporter.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvrexporter_application.cpp ../mvr/mvr_export_archive_writer.cpp ../mvr/mvr_export_transport.cpp ../mvr/mvr_export_resource_collection.cpp ../mvr/mvr_export_gdtf_resources.cpp ../mvr/mvr_export_preparation.cpp
                ../mvr/mvr_xml_document_writer.cpp ../mvr/mvr_xml_scene_object_writer.cpp ../mvr/mvr_xml_extension_writer.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
@@ -3591,6 +3630,50 @@ foreach(PERASTAGE_DICTIONARY_TEST IN LISTS
                        ../core/gdtf_canonicalizer.cpp)
     endif()
     target_link_libraries(${PERASTAGE_DICTIONARY_TEST} PRIVATE perastage_uuid)
+endforeach()
+
+# Supplies the neutral production GDTF reader to direct-source exporter tests.
+get_property(PERASTAGE_MVR_EXPORT_TEST_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(PERASTAGE_MVR_EXPORT_TEST IN LISTS PERASTAGE_MVR_EXPORT_TEST_TARGETS)
+    get_target_property(PERASTAGE_MVR_EXPORT_TEST_SOURCES
+                        ${PERASTAGE_MVR_EXPORT_TEST} SOURCES)
+    if("../mvr/mvrexporter.cpp" IN_LIST PERASTAGE_MVR_EXPORT_TEST_SOURCES)
+        target_link_libraries(${PERASTAGE_MVR_EXPORT_TEST} PRIVATE
+                              perastage_gdtf_filename_policy
+                              perastage_gdtf_read
+                              perastage_layer_validation)
+    endif()
+endforeach()
+foreach(PERASTAGE_MVR_ROUNDTRIP_CONSUMER IN ITEMS
+        save_load_roundtrip_test
+        mvr_importer_archive_characterization_test
+        project_support_userdata_roundtrip_test
+        truss_path_encoding_regression_test
+        mvr_dmx_address_test
+        mvr_support_userdata_roundtrip_test
+        mvr_layer_appearance_userdata_test
+        mvr_fixture_category_roundtrip_test
+        mvr_truss_roundtrip_structure_test
+        mvr_exporter_compliance_test)
+    target_link_libraries(${PERASTAGE_MVR_ROUNDTRIP_CONSUMER} PRIVATE
+                          perastage_gdtf_filename_policy
+                          perastage_gdtf_read
+                          perastage_layer_validation)
+endforeach()
+
+# Supplies extracted neutral helpers to direct-source application service tests.
+get_property(PERASTAGE_NEUTRAL_HELPER_TEST_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(PERASTAGE_NEUTRAL_HELPER_TEST IN LISTS PERASTAGE_NEUTRAL_HELPER_TEST_TARGETS)
+    get_target_property(PERASTAGE_NEUTRAL_HELPER_TEST_SOURCES
+                        ${PERASTAGE_NEUTRAL_HELPER_TEST} SOURCES)
+    if("../core/gdtfdictionary.cpp" IN_LIST PERASTAGE_NEUTRAL_HELPER_TEST_SOURCES)
+        target_link_libraries(${PERASTAGE_NEUTRAL_HELPER_TEST} PRIVATE
+                              perastage_gdtf_filename_policy)
+    endif()
+    if("../core/layer_service.cpp" IN_LIST PERASTAGE_NEUTRAL_HELPER_TEST_SOURCES)
+        target_link_libraries(${PERASTAGE_NEUTRAL_HELPER_TEST} PRIVATE
+                              perastage_layer_validation)
+    endif()
 endforeach()
 
 # Guards the explicit dictionary publication dependency inventory against drift.

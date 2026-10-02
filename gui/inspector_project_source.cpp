@@ -2,6 +2,7 @@
 
 #include "guiconfigservices.h"
 #include "mvrexporter.h"
+#include "mvr_export_application_environment.h"
 
 #include <cstdlib>
 
@@ -23,6 +24,7 @@ CurrentProjectSnapshotInput CurrentProjectInspector::CaptureInput() const {
       authority && std::strtof(authority->c_str(), nullptr) >= 0.5f
           ? MvrTrussGeometryAuthority::Gdtf
           : MvrTrussGeometryAuthority::MvrGeometry;
+  input.environment = ResolveApplicationMvrExportEnvironment();
   return input;
 }
 
@@ -32,7 +34,8 @@ std::optional<std::vector<std::uint8_t>> CurrentProjectInspector::Serialize(
   std::vector<std::uint8_t> bytes;
   MvrExporter exporter;
   if (!input.scene || !exporter.ExportCanonicalSnapshotToBuffer(
-                          *input.scene, bytes, input.options))
+                          *input.scene, bytes, input.options,
+                          input.environment))
     return std::nullopt;
   return bytes;
 }

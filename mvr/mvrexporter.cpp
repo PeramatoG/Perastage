@@ -18,13 +18,12 @@
 #include "mvrexporter.h"
 #include "app_version.h"
 #include "build_info.h"
-#include "configmanager.h"
-#include "dummyprofilelibrary.h"
 #include "filesystem_path_utils.h"
-#include "gdtfdictionary.h"
-#include "gdtfloader.h"
+#include "gdtf_filename_policy.h"
+#include "gdtf_archive_reader.h"
+#include "gdtf_description_reader.h"
 #include "logger.h"
-#include "layer_service.h"
+#include "layer_validation.h"
 #include "utf8_utils.h"
 #include "matrixutils.h"
 #include "mvr_preferences.h"
@@ -37,7 +36,6 @@
 #include "mvr_xml_scene_object_writer.h"
 #include "primitive_model_resources.h"
 #include "runtime_storage.h"
-#include "projectutils.h"
 #include "support.h"
 #include "truss_gdtf_builder.h"
 #include "uuidutils.h"
@@ -126,8 +124,14 @@ static bool FixtureNeedsPhysicalGdtfPatch(const Fixture &fixture,
 
   float gdtfWeightKg = 0.0f;
   float gdtfPowerW = 0.0f;
-  const bool hasGdtfProperties =
-      GetGdtfProperties(gdtfPath, gdtfWeightKg, gdtfPowerW);
+  const gdtf::ArchiveReadResult archive = gdtf::ReadGdtfArchive(gdtfPath);
+  const gdtf::GdtfDescriptionSnapshot description =
+      gdtf::ReadGdtfDescription(archive.descriptionXml);
+  const bool hasGdtfProperties = archive.Success() && description.Success();
+  if (hasGdtfProperties) {
+    gdtfWeightKg = description.weightKg;
+    gdtfPowerW = description.powerConsumptionW;
+  }
 
   bool needsPatch = false;
   if (fixture.weightKg > 0.0f &&
@@ -146,13 +150,6 @@ static bool FixtureNeedsPhysicalGdtfPatch(const Fixture &fixture,
   }
   return needsPatch;
 }
-static MvrTrussGeometryAuthority GetTrussGeometryAuthoritySetting() {
-  const float rawValue =
-      ConfigManager::Get().GetFloat("mvr_truss_geometry_authority");
-  return rawValue >= 0.5f ? MvrTrussGeometryAuthority::Gdtf
-                          : MvrTrussGeometryAuthority::MvrGeometry;
-}
-
 static std::string TrimAscii(std::string value) {
   auto isSpace = [](unsigned char c) { return std::isspace(c); };
   value.erase(value.begin(),
@@ -338,7 +335,7 @@ static std::string BuildTrussGdtfArchiveName(const Truss &truss) {
     fallbackModel = "Truss";
 
   return SanitizeArchiveFileName(
-      GdtfDictionary::BuildPerastageCanonicalGdtfFileName(
+      gdtf_filename_policy::BuildCanonicalFileName(
           truss.manufacturer, truss.model, fallbackModel),
       "Unknown@Truss@Perastage.gdtf");
 }
@@ -1431,11 +1428,6 @@ static void AppendSupportHoistInfoMetadata(tinyxml2::XMLDocument &doc,
     values.useMotorDefaults = "false";
   values.dummyProfileId = support.dummyProfileId;
   values.dummyPreset = support.dummyPreset;
-  if (values.dummyPreset.empty() && !support.dummyProfileId.empty()) {
-    const auto profile = DummyProfileLibrary::FindById(support.dummyProfileId);
-    if (profile)
-      values.dummyPreset = profile->displayName;
-  }
   values.valueSource = NormalizeHoistDataSource(support.hoistDataSource);
   values.motorNameSource = ResolveHoistFieldDataSource(
       support.motorNameSource, values.valueSource);
@@ -1493,24 +1485,11 @@ static std::string HexToCie(const std::string &hex) {
 static runtime_storage::TemporaryWorkspace CreateExportWorkspace(const std::string &kind) {
   return runtime_storage::TemporaryWorkspace(kind);
 }
-// Serialize the configured scene into a .mvr archive and collect non-fatal
-// export warnings.
-bool MvrExporter::ExportToFile(const std::string &filePath) {
-  return ExportToFile(filePath, CanonicalMvrExportOptions());
-}
-
-// Serialize the configured scene into a .mvr archive with explicit export
-// options.
-bool MvrExporter::ExportToFile(const std::string &filePath,
-                               const MvrExportOptions &options) {
-  return SerializeSnapshotToFile(ConfigManager::Get().GetScene(), filePath,
-                                 options);
-}
-
 // Serializes a private scene snapshot so validation repairs cannot affect the editor.
 bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                                           const std::string &filePath,
-                                          const MvrExportOptions &options) {
+                                          const MvrExportOptions &options,
+                                          const MvrExportEnvironment &environment) {
   m_exportDiagnostics.clear();
   m_exportWarningAdapter.clear();
   auto preparation = mvr_export_preparation::Prepare(sourceScene, options);
@@ -1524,20 +1503,28 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   const MvrTrussGeometryAuthority trussGeometryAuthority =
       options.trussGeometryAuthority
           ? *options.trussGeometryAuthority
-          : GetTrussGeometryAuthoritySetting();
+          : MvrTrussGeometryAuthority::MvrGeometry;
   std::unordered_set<std::string> usedSymbolUuids;
   std::unordered_map<std::string, std::string> physicalPatchArchiveByKey;
   std::unordered_map<std::string, mvr_export_resources::GdtfRewriteRequest>
       gdtfRewriteRequests;
   std::unordered_map<std::string, std::string> trussArchiveByTypeKey;
   mvr_export_resources::ResourceCollection resourceCollection(
-      scene.basePath,
+      scene.basePath, environment.fixtureFallbackGdtfPath.value_or(fs::path{}),
       [&](MvrExportDiagnostic diagnostic) {
         AddDiagnostic(std::move(diagnostic));
       },
       [&](const std::string &message) {
         Logger::Instance().Log(Logger::Level::Info, message);
       });
+  std::error_code fixtureFallbackError;
+  const std::string fixtureFallbackGdtf =
+      environment.fixtureFallbackGdtfPath &&
+              fs::is_regular_file(*environment.fixtureFallbackGdtfPath,
+                                  fixtureFallbackError) &&
+              !fixtureFallbackError
+          ? environment.fixtureFallbackGdtfPath->generic_string()
+          : std::string{};
 
   auto failExport = [&](const std::string &operation,
                         const std::string &entryName,
@@ -1853,8 +1840,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     }
     bool usedDummyFallbackForFixture = false;
     if (fixtureSourceGdtf.empty()) {
-      fixtureSourceGdtf = mvr_export_resources::ResourceCollection::
-          ResolveFallbackFixtureGdtfPath();
+      fixtureSourceGdtf = fixtureFallbackGdtf;
       const std::string fallbackHint =
           std::string(kDummyFallbackFixtureGdtfFileName) +
           " (legacy: " + kLegacyFallbackFixtureGdtfFileName + ")";
@@ -1893,8 +1879,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       if (!resolvedFixtureSource.empty()) {
         fixtureSourceGdtf = resolvedFixtureSource;
       } else if (!usedDummyFallbackForFixture) {
-        const std::string fallbackGdtf = mvr_export_resources::
-            ResourceCollection::ResolveFallbackFixtureGdtfPath();
+        const std::string fallbackGdtf = fixtureFallbackGdtf;
         if (!fallbackGdtf.empty()) {
           AddDiagnostic({MvrExportDiagnosticCode::GdtfFallbackUsed,
                          MvrExportDiagnosticSeverity::Warning,
@@ -2771,35 +2756,30 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   return true;
 }
 
-// Export an MVR into memory by writing a temporary file and reading it back.
-bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes) {
-  return ExportToBuffer(outBytes, CanonicalMvrExportOptions());
-}
-
-// Export an MVR into memory with explicit options by writing a temporary file
-// and reading it back.
-bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes,
-                                 const MvrExportOptions &options) {
-  return SerializeSnapshotToBuffer(ConfigManager::Get().GetScene(), outBytes,
-                                   options);
-}
-
-// Serializes an explicit canonical snapshot without touching ConfigManager.
+// Serializes an explicit canonical snapshot without consulting global state.
 bool MvrExporter::ExportCanonicalSnapshotToBuffer(
     const MvrScene &scene, std::vector<uint8_t> &outBytes) {
   return SerializeSnapshotToBuffer(scene, outBytes, CanonicalMvrExportOptions());
 }
 
+// Serializes an explicit canonical snapshot directly to the requested file.
+bool MvrExporter::ExportCanonicalSnapshotToFile(const MvrScene &scene,
+                                                const std::string &filePath) {
+  return SerializeSnapshotToFile(scene, filePath, CanonicalMvrExportOptions(),
+                                 {});
+}
+
 // Serializes an isolated scene to memory through the common archive writer.
 bool MvrExporter::SerializeSnapshotToBuffer(
     const MvrScene &scene, std::vector<uint8_t> &outBytes,
-    const MvrExportOptions &options) {
+    const MvrExportOptions &options,
+    const MvrExportEnvironment &environment) {
   outBytes.clear();
   m_exportDiagnostics.clear();
   m_exportWarningAdapter.clear();
   const mvr_export_transport::Result result = mvr_export_transport::WriteToBuffer(
       [&](const std::string &path) {
-        return SerializeSnapshotToFile(scene, path, options);
+        return SerializeSnapshotToFile(scene, path, options, environment);
       },
       outBytes);
   if (result.success)
