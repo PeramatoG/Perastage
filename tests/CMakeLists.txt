@@ -35,6 +35,21 @@ add_test(NAME LayerValidation COMMAND layer_validation_test)
 set_tests_properties(LayerValidation PROPERTIES
                      LABELS "standard-strict;unit;layers;architecture")
 
+add_executable(external_scene_command_equivalence_test
+               external_scene_command_equivalence_test.cpp
+               support/gdtf_test_fixture_builder.cpp)
+target_include_directories(external_scene_command_equivalence_test PRIVATE
+                           ../core ../models ../mvr support)
+target_link_libraries(external_scene_command_equivalence_test PRIVATE
+                      perastage_external_scene_workflow
+                      perastage_command_text_processor
+                      perastage_mvr_read
+                      ${wxWidgets_LIBRARIES})
+add_test(NAME ExternalSceneCommandEquivalence
+         COMMAND external_scene_command_equivalence_test)
+set_tests_properties(ExternalSceneCommandEquivalence PROPERTIES
+                     LABELS "standard-strict;architecture;cli;command;mvr")
+
 add_executable(perastage_cli_inspection_presentation_test
                cli_inspection_presentation_test.cpp)
 target_include_directories(perastage_cli_inspection_presentation_test PRIVATE
@@ -3636,6 +3651,7 @@ foreach(PERASTAGE_MVR_EXPORT_TEST IN LISTS PERASTAGE_MVR_EXPORT_TEST_TARGETS)
 endforeach()
 foreach(PERASTAGE_MVR_ROUNDTRIP_CONSUMER IN ITEMS
         save_load_roundtrip_test
+        mvr_importer_archive_characterization_test
         project_support_userdata_roundtrip_test
         truss_path_encoding_regression_test
         mvr_dmx_address_test

@@ -111,6 +111,26 @@ def main() -> int:
         assert run(cli, "scene", str(source), "--command", "f 1").returncode == 2
         assert run(cli, "scene", str(source), "--output", str(source),
                    "--overwrite", "--command", "f 1").returncode != 0
+        assert digest(source) == source_digest
+
+        source_alias = root / "source-alias.mvr"
+        try:
+            source_alias.symlink_to(source)
+        except OSError:
+            source_alias = None
+        if source_alias is not None:
+            assert run(cli, "scene", str(source), "--output", str(source_alias),
+                       "--overwrite", "--command", "f 1").returncode != 0
+            assert digest(source) == source_digest
+
+        uppercase_source = root / "uppercase.MVR"
+        uppercase_source.write_bytes(source.read_bytes())
+        uppercase_output = root / "uppercase-output.mvr"
+        uppercase_result = run(
+            cli, "scene", str(uppercase_source), "--output",
+            str(uppercase_output), "--command", "f 1")
+        assert uppercase_result.returncode == 0, uppercase_result.stderr
+        assert uppercase_source.read_bytes() == source.read_bytes()
 
         overwritten = run(cli, "scene", str(source), "--output", str(output),
                           "--overwrite", "--command", "f 1",

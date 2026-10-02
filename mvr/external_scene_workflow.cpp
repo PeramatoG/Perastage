@@ -6,6 +6,8 @@
 #include "mvr_read_service.h"
 #include "mvrexporter.h"
 
+#include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <fstream>
 #include <system_error>
@@ -36,6 +38,31 @@ fs::path ComparablePath(const fs::path &path) {
     return resolved;
   error.clear();
   return fs::absolute(path, error).lexically_normal();
+}
+
+// Reports whether two paths identify the same source file or normalized path.
+bool PathsIdentifySameFile(const fs::path &left, const fs::path &right) {
+  std::error_code leftError;
+  const bool leftExists = fs::exists(left, leftError);
+  std::error_code rightError;
+  const bool rightExists = fs::exists(right, rightError);
+  if (!leftError && !rightError && leftExists && rightExists) {
+    std::error_code equivalentError;
+    const bool equivalent = fs::equivalent(left, right, equivalentError);
+    if (!equivalentError)
+      return equivalent;
+  }
+  return ComparablePath(left) == ComparablePath(right);
+}
+
+// Reports whether a path has the supported MVR extension ignoring ASCII case.
+bool HasMvrExtension(const fs::path &path) {
+  std::string extension = path.extension().string();
+  std::transform(extension.begin(), extension.end(), extension.begin(),
+                 [](unsigned char character) {
+                   return static_cast<char>(std::tolower(character));
+                 });
+  return extension == ".mvr";
 }
 
 // Writes all serialized bytes before replacing any requested destination.
@@ -87,7 +114,7 @@ bool Publish(const fs::path &output, const std::vector<std::uint8_t> &bytes,
 // Runs an isolated MVR read, semantic Command sequence, and canonical publish.
 Result Execute(const Request &request) {
   Result result;
-  if (request.inputPath.extension() != ".mvr") {
+  if (!HasMvrExtension(request.inputPath)) {
     result.diagnostics.push_back("Mutation input must be an .mvr file.");
     return result;
   }
@@ -95,7 +122,7 @@ Result Execute(const Request &request) {
     result.diagnostics.push_back("An explicit output MVR is required.");
     return result;
   }
-  if (ComparablePath(request.inputPath) == ComparablePath(request.outputPath)) {
+  if (PathsIdentifySameFile(request.inputPath, request.outputPath)) {
     result.diagnostics.push_back("Input and output must be different files.");
     return result;
   }
