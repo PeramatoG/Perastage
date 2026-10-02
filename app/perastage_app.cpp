@@ -183,6 +183,9 @@ void ConfigureWindowsDebugHeapLeakCheck() {
 #endif
 } // namespace
 
+// Constructs application-owned services where their concrete types are complete.
+MyApp::MyApp() = default;
+
 // Destroys application-owned services where their concrete types are complete.
 MyApp::~MyApp() = default;
 
