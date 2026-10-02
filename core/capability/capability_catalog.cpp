@@ -87,7 +87,8 @@ const std::vector<Descriptor> &Inventory() {
        {},
        {{"development_cli", ExposureState::Full},
         {"embedded_console", ExposureState::Full},
-        {"local_live_cli", ExposureState::Full}}},
+        {"local_live_cli", ExposureState::Full},
+        {"osc", ExposureState::Full}}},
       {query::kSelectionQueryId,
        OperationKind::Query,
        "Get the current typed selection.",
@@ -123,7 +124,8 @@ const std::vector<Descriptor> &Inventory() {
        {},
        {{"development_cli", ExposureState::Full},
         {"embedded_console", ExposureState::Full},
-        {"local_live_cli", ExposureState::Full}}},
+        {"local_live_cli", ExposureState::Full},
+        {"osc", ExposureState::Partial}}},
       {command::transform::kRotationCommandId,
        OperationKind::Command,
        "Set or offset selected-object rotations.",
@@ -131,7 +133,8 @@ const std::vector<Descriptor> &Inventory() {
        {},
        {{"development_cli", ExposureState::Full},
         {"embedded_console", ExposureState::Full},
-        {"local_live_cli", ExposureState::Full}}},
+        {"local_live_cli", ExposureState::Full},
+        {"osc", ExposureState::Partial}}},
   };
   static const bool initialized = [] {
     for (Descriptor &descriptor : catalog) {

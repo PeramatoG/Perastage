@@ -6,6 +6,11 @@ Changes since **v1.6.0**.
 
 ## New features and workflow improvements
 
+- Added a small OSC 1.0 control endpoint for clearing the active selection and
+  applying explicit position or rotation changes. It is restricted to the
+  local computer and uses the same validation, transform policy, Undo,
+  dirty-state, selection, and refresh behavior as normal Perastage commands.
+
 - Added the first local live connection between `perastage-cli` and a running
   Perastage instance. Supported Console commands now operate on the active
   project with normal validation, Undo, dirty-state, selection, and refresh

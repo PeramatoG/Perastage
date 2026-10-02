@@ -242,10 +242,16 @@ void CheckDescriptorFidelity() {
   using capability::ExposureState;
   using capability::FrontendExposure;
   using capability::OperationKind;
-  const std::vector<FrontendExposure> consoleFull = {
+  const std::vector<FrontendExposure> clearExposure = {
       {"development_cli", ExposureState::Full},
       {"embedded_console", ExposureState::Full},
-      {"local_live_cli", ExposureState::Full}};
+      {"local_live_cli", ExposureState::Full},
+      {"osc", ExposureState::Full}};
+  const std::vector<FrontendExposure> transformExposure = {
+      {"development_cli", ExposureState::Full},
+      {"embedded_console", ExposureState::Full},
+      {"local_live_cli", ExposureState::Full},
+      {"osc", ExposureState::Partial}};
   const std::vector<FrontendExposure> consolePartial = {
       {"development_cli", ExposureState::Partial},
       {"embedded_console", ExposureState::Partial},
@@ -273,7 +279,7 @@ void CheckDescriptorFidelity() {
                   OperationKind::Command, Effect::Mutating, groupArguments,
                   desktopFull);
   CheckDescriptor(command::selection::kClearCommandId, OperationKind::Command,
-                  Effect::Mutating, {}, consoleFull);
+                  Effect::Mutating, {}, clearExposure);
   CheckDescriptor(command::selection::kUpdateCommandId, OperationKind::Command,
                   Effect::Mutating,
                   {{"target_kind", ArgumentType::String, true},
@@ -284,14 +290,13 @@ void CheckDescriptorFidelity() {
                   consolePartial);
   CheckDescriptor(command::transform::kPositionCommandId,
                   OperationKind::Command, Effect::Mutating,
-                  TransformArguments("_millimeters", false), consoleFull);
+                  TransformArguments("_millimeters", false), transformExposure);
   CheckDescriptor(command::transform::kRotationCommandId,
                   OperationKind::Command, Effect::Mutating,
-                  TransformArguments("_degrees", true), consoleFull);
+                  TransformArguments("_degrees", true), transformExposure);
 
-  for (std::string_view id :
-       {query::kGroupsQueryId, query::kLayersQueryId, query::kObjectsQueryId,
-        query::kPatchQueryId})
+  for (std::string_view id : {query::kGroupsQueryId, query::kLayersQueryId,
+                              query::kObjectsQueryId, query::kPatchQueryId})
     CheckDescriptor(id, OperationKind::Query, Effect::ReadOnly, {}, {});
   const std::vector<FrontendExposure> liveFull = {
       {"local_live_cli", ExposureState::Full}};
@@ -307,13 +312,18 @@ void CheckDescriptorFidelity() {
   for (const auto &descriptor : capability::Catalog())
     for (const auto &frontend : descriptor.frontends) {
       if (frontend.frontendId == "development_cli") {
-        assert(descriptor.operationId == command::selection::kClearCommandId ||
-               descriptor.operationId == command::selection::kUpdateCommandId ||
-               descriptor.operationId == command::transform::kPositionCommandId ||
-               descriptor.operationId == command::transform::kRotationCommandId);
+        assert(
+            descriptor.operationId == command::selection::kClearCommandId ||
+            descriptor.operationId == command::selection::kUpdateCommandId ||
+            descriptor.operationId == command::transform::kPositionCommandId ||
+            descriptor.operationId == command::transform::kRotationCommandId);
       }
       assert(frontend.frontendId != "ipc");
-      assert(frontend.frontendId != "osc");
+      if (frontend.frontendId == "osc")
+        assert(
+            descriptor.operationId == command::selection::kClearCommandId ||
+            descriptor.operationId == command::transform::kPositionCommandId ||
+            descriptor.operationId == command::transform::kRotationCommandId);
       assert(frontend.frontendId != "mcp");
       assert(frontend.frontendId != "remote");
       assert(frontend.frontendId != "ai");

@@ -70,6 +70,31 @@ if(WIN32)
   target_link_libraries(perastage_local_ipc PUBLIC ws2_32)
 endif()
 
+add_library(perastage_osc_transport STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/osc/osc_message.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/osc/osc_udp_transport.cpp
+)
+target_compile_features(perastage_osc_transport PUBLIC cxx_std_20)
+target_include_directories(perastage_osc_transport PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+if(WIN32)
+  target_link_libraries(perastage_osc_transport PUBLIC ws2_32)
+endif()
+
+add_library(perastage_osc_command_adapter STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/osc/osc_command_adapter.cpp
+)
+target_compile_features(perastage_osc_command_adapter PUBLIC cxx_std_20)
+target_include_directories(perastage_osc_command_adapter PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
+)
+target_link_libraries(perastage_osc_command_adapter PUBLIC
+    perastage_osc_transport
+    perastage_command_selection
+    perastage_command_transform
+)
+
 add_library(perastage_capability_core STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/capability/capability_catalog.cpp
 )

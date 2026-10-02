@@ -40,6 +40,11 @@ development CLI's isolated scene workflow and local live workflow are described
 separately so consumers can distinguish file-based execution from active-project
 execution. `perastage-cli capabilities` itself only reads the catalog.
 
+The `osc` frontend identifier is present only on the three implemented OSC
+addresses. Selection clear is `full`; position and rotation are `partial`
+because OSC accepts one explicit axis/value tuple and does not expose semantic
+ranges, multi-axis requests, or explicit pivots.
+
 The `scene.object.get` metadata names its existing typed C++ object reference as
 `object_kind` and `object_uuid`. Patch footprint resolution is host context and
 is not an argument.
