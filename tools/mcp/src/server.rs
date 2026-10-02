@@ -115,14 +115,27 @@ mod tests {
             ]
         );
         for tool in tools {
-            let read_only = tool.name == "discover_capabilities"
-                || tool.name == "inspect_gdtf"
-                || tool.name == "inspect_mvr"
-                || tool.name == "live_current_selection"
-                || tool.name == "live_scene_summary";
+            let (read_only, destructive, idempotent) = match tool.name.as_ref() {
+                "discover_capabilities"
+                | "inspect_gdtf"
+                | "inspect_mvr"
+                | "live_current_selection"
+                | "live_scene_summary" => (true, false, true),
+                "live_selection_clear" => (false, true, true),
+                "live_position_transform" | "live_rotation_transform" => (false, true, false),
+                unexpected => panic!("unexpected MCP tool: {unexpected}"),
+            };
             assert_eq!(
                 tool.annotations.as_ref().unwrap().read_only_hint,
                 Some(read_only)
+            );
+            assert_eq!(
+                tool.annotations.as_ref().unwrap().destructive_hint,
+                Some(destructive)
+            );
+            assert_eq!(
+                tool.annotations.as_ref().unwrap().idempotent_hint,
+                Some(idempotent)
             );
             assert_eq!(
                 tool.annotations.as_ref().unwrap().open_world_hint,
@@ -336,8 +349,8 @@ impl PerastageMcp {
         description = "Clear the supported current selection categories in the local Perastage application.",
         annotations(
             read_only_hint = false,
-            destructive_hint = false,
-            idempotent_hint = false,
+            destructive_hint = true,
+            idempotent_hint = true,
             open_world_hint = false
         )
     )]
@@ -352,7 +365,7 @@ impl PerastageMcp {
         description = "Apply one explicit position component to the current live selection.",
         annotations(
             read_only_hint = false,
-            destructive_hint = false,
+            destructive_hint = true,
             idempotent_hint = false,
             open_world_hint = false
         )
@@ -377,7 +390,7 @@ impl PerastageMcp {
         description = "Apply one explicit rotation component to the current live selection.",
         annotations(
             read_only_hint = false,
-            destructive_hint = false,
+            destructive_hint = true,
             idempotent_hint = false,
             open_world_hint = false
         )

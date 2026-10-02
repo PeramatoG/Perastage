@@ -246,11 +246,13 @@ void CheckDescriptorFidelity() {
       {"development_cli", ExposureState::Full},
       {"embedded_console", ExposureState::Full},
       {"local_live_cli", ExposureState::Full},
+      {"mcp", ExposureState::Full},
       {"osc", ExposureState::Full}};
   const std::vector<FrontendExposure> transformExposure = {
       {"development_cli", ExposureState::Full},
       {"embedded_console", ExposureState::Full},
       {"local_live_cli", ExposureState::Full},
+      {"mcp", ExposureState::Partial},
       {"osc", ExposureState::Partial}};
   const std::vector<FrontendExposure> consolePartial = {
       {"development_cli", ExposureState::Partial},
@@ -299,7 +301,8 @@ void CheckDescriptorFidelity() {
                               query::kObjectsQueryId, query::kPatchQueryId})
     CheckDescriptor(id, OperationKind::Query, Effect::ReadOnly, {}, {});
   const std::vector<FrontendExposure> liveFull = {
-      {"local_live_cli", ExposureState::Full}};
+      {"local_live_cli", ExposureState::Full},
+      {"mcp", ExposureState::Full}};
   CheckDescriptor(query::kSelectionQueryId, OperationKind::Query,
                   Effect::ReadOnly, {}, liveFull);
   CheckDescriptor(query::kSummaryQueryId, OperationKind::Query,
@@ -324,7 +327,13 @@ void CheckDescriptorFidelity() {
             descriptor.operationId == command::selection::kClearCommandId ||
             descriptor.operationId == command::transform::kPositionCommandId ||
             descriptor.operationId == command::transform::kRotationCommandId);
-      assert(frontend.frontendId != "mcp");
+      if (frontend.frontendId == "mcp")
+        assert(
+            descriptor.operationId == command::selection::kClearCommandId ||
+            descriptor.operationId == command::transform::kPositionCommandId ||
+            descriptor.operationId == command::transform::kRotationCommandId ||
+            descriptor.operationId == query::kSelectionQueryId ||
+            descriptor.operationId == query::kSummaryQueryId);
       assert(frontend.frontendId != "remote");
       assert(frontend.frontendId != "ai");
       assert(frontend.frontendId != "voice");

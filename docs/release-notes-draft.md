@@ -10,7 +10,9 @@ Changes since **v1.6.0**.
   inspection, live scene and selection queries, selection clearing, and
   explicit position or rotation changes. It reuses the existing command-line
   and live validation paths, preserves structured diagnostics, and exposes no
-  shell, remote HTTP, or broad destructive scene operations.
+  shell, remote HTTP, or broad destructive scene operations. Capability
+  discovery now reports the exact MCP exposure, tool safety annotations match
+  each operation's effects, and hosted validation exercises the Rust adapter.
 
 - Added a small OSC 1.0 control endpoint for clearing the active selection and
   applying explicit position or rotation changes. It is restricted to the
