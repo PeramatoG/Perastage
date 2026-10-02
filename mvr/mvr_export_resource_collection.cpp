@@ -18,7 +18,7 @@
 #include "mvr_export_resource_collection.h"
 
 #include "filesystem_path_utils.h"
-#include "gdtfdictionary.h"
+#include "gdtf_filename_policy.h"
 #include "primitive_model_resources.h"
 
 #include <algorithm>
@@ -376,8 +376,10 @@ std::string ResourceCollection::RegisterGdtfResource(const std::string &objectUu
   const std::string source = resolved.empty() ? rawGdtfPath : resolved;
   std::string fileName = preferredName;
   if (!usePreferredDerivativeName && ToLowerAscii(PathUtils::PathFromUtf8(rawGdtfPath).extension().string()) == ".gdtf" &&
-      !GdtfDictionary::IsPerastageNamedGdtfFile(rawGdtfPath))
-    fileName = GdtfDictionary::BuildPerastageCanonicalGdtfFileName(source);
+      !gdtf_filename_policy::IsPerastageNamedFile(
+          PathUtils::PathFromUtf8(rawGdtfPath)))
+    fileName = gdtf_filename_policy::BuildCanonicalFileName(
+        PathUtils::PathFromUtf8(source));
   if (fileName.empty()) fileName = SanitizeArchiveFileName(rawGdtfPath, "fixture.gdtf");
   const std::string archive = RegisterResource(source, fileName, ResourceKind::Gdtf, provenance, allowReuseBySource);
   if (!objectUuid.empty() && !archive.empty()) m_plan.gdtfArchiveByObjectUuid[objectUuid] = archive;

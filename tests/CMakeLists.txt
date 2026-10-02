@@ -18,6 +18,23 @@ add_test(NAME PerastageCliRunner COMMAND perastage_cli_runner_test)
 set_tests_properties(PerastageCliRunner PROPERTIES
                      LABELS "standard-strict;architecture;cli")
 
+add_executable(gdtf_filename_policy_test gdtf_filename_policy_test.cpp
+               support/gdtf_test_fixture_builder.cpp)
+target_include_directories(gdtf_filename_policy_test PRIVATE
+                           ../core support)
+target_link_libraries(gdtf_filename_policy_test PRIVATE
+                      perastage_gdtf_filename_policy)
+add_test(NAME GdtfFilenamePolicy COMMAND gdtf_filename_policy_test)
+set_tests_properties(GdtfFilenamePolicy PROPERTIES
+                     LABELS "standard-strict;unit;gdtf;architecture")
+
+add_executable(layer_validation_test layer_validation_test.cpp)
+target_include_directories(layer_validation_test PRIVATE ../core ../models)
+target_link_libraries(layer_validation_test PRIVATE perastage_layer_validation)
+add_test(NAME LayerValidation COMMAND layer_validation_test)
+set_tests_properties(LayerValidation PROPERTIES
+                     LABELS "standard-strict;unit;layers;architecture")
+
 add_executable(perastage_cli_inspection_presentation_test
                cli_inspection_presentation_test.cpp)
 target_include_directories(perastage_cli_inspection_presentation_test PRIVATE
@@ -3612,7 +3629,9 @@ foreach(PERASTAGE_MVR_EXPORT_TEST IN LISTS PERASTAGE_MVR_EXPORT_TEST_TARGETS)
                         ${PERASTAGE_MVR_EXPORT_TEST} SOURCES)
     if("../mvr/mvrexporter.cpp" IN_LIST PERASTAGE_MVR_EXPORT_TEST_SOURCES)
         target_link_libraries(${PERASTAGE_MVR_EXPORT_TEST} PRIVATE
-                              perastage_gdtf_read)
+                              perastage_gdtf_filename_policy
+                              perastage_gdtf_read
+                              perastage_layer_validation)
     endif()
 endforeach()
 foreach(PERASTAGE_MVR_ROUNDTRIP_CONSUMER IN ITEMS
@@ -3626,7 +3645,24 @@ foreach(PERASTAGE_MVR_ROUNDTRIP_CONSUMER IN ITEMS
         mvr_truss_roundtrip_structure_test
         mvr_exporter_compliance_test)
     target_link_libraries(${PERASTAGE_MVR_ROUNDTRIP_CONSUMER} PRIVATE
-                          perastage_gdtf_read)
+                          perastage_gdtf_filename_policy
+                          perastage_gdtf_read
+                          perastage_layer_validation)
+endforeach()
+
+# Supplies extracted neutral helpers to direct-source application service tests.
+get_property(PERASTAGE_NEUTRAL_HELPER_TEST_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(PERASTAGE_NEUTRAL_HELPER_TEST IN LISTS PERASTAGE_NEUTRAL_HELPER_TEST_TARGETS)
+    get_target_property(PERASTAGE_NEUTRAL_HELPER_TEST_SOURCES
+                        ${PERASTAGE_NEUTRAL_HELPER_TEST} SOURCES)
+    if("../core/gdtfdictionary.cpp" IN_LIST PERASTAGE_NEUTRAL_HELPER_TEST_SOURCES)
+        target_link_libraries(${PERASTAGE_NEUTRAL_HELPER_TEST} PRIVATE
+                              perastage_gdtf_filename_policy)
+    endif()
+    if("../core/layer_service.cpp" IN_LIST PERASTAGE_NEUTRAL_HELPER_TEST_SOURCES)
+        target_link_libraries(${PERASTAGE_NEUTRAL_HELPER_TEST} PRIVATE
+                              perastage_layer_validation)
+    endif()
 endforeach()
 
 # Guards the explicit dictionary publication dependency inventory against drift.

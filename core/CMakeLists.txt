@@ -4,6 +4,17 @@ add_library(perastage_mvr_core_support STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_grouping.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/utf8_utils.cpp
 )
+
+add_library(perastage_layer_validation STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/layer_validation.cpp
+)
+target_compile_features(perastage_layer_validation PUBLIC cxx_std_20)
+target_include_directories(perastage_layer_validation PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
+)
+target_link_libraries(perastage_layer_validation PUBLIC
+    perastage_mvr_core_support
+)
 target_compile_features(perastage_mvr_core_support PUBLIC cxx_std_20)
 target_include_directories(perastage_mvr_core_support
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
@@ -359,10 +370,23 @@ target_link_libraries(perastage_inspection_report_serialization
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
+    perastage_layer_validation
     perastage_gdtf_read
     perastage_runtime_storage
     perastage_scene_node_operations
 )
+
+add_library(perastage_gdtf_filename_policy STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_filename_policy.cpp
+)
+target_compile_features(perastage_gdtf_filename_policy PUBLIC cxx_std_20)
+target_include_directories(perastage_gdtf_filename_policy PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_link_libraries(perastage_gdtf_filename_policy PUBLIC
+    perastage_gdtf_read
+)
+target_link_libraries(${PROJECT_NAME} PRIVATE perastage_gdtf_filename_policy)
 
 target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/geometry_bounds_resolver.cpp

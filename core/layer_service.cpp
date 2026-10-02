@@ -317,29 +317,6 @@ LayerResult SetCurrentLayer(ConfigManager &config, const std::string &uuid) {
   return result;
 }
 
-// Validates layer UUIDs, names, colors, and duplicate canonical names.
-LayerResult ValidateSceneLayers(const MvrScene &scene) {
-  std::set<std::string> names;
-  std::set<std::string> uuids;
-  for (const auto &[uuid, layer] : scene.layers) {
-    if (CanonicalizeUuid(uuid).empty())
-      return {LayerStatus::InvalidUuid, "Layer UUID is malformed", uuid,
-              layer.name};
-    if (!uuids.insert(uuid).second)
-      return {LayerStatus::InvalidUuid, "Layer UUID is duplicated", uuid,
-              layer.name};
-    if (!IsValidUtf8(layer.name))
-      return {LayerStatus::InvalidUtf8, "Layer name is not valid UTF-8", uuid};
-    if (!IsCanonicalColor(layer.color))
-      return {LayerStatus::InvalidColor, "Layer color is invalid", uuid,
-              layer.name};
-    if (!names.insert(TrimLayerName(layer.name)).second)
-      return {LayerStatus::DuplicateName, "Layer name is duplicated", uuid,
-              layer.name};
-  }
-  return {};
-}
-
 // Repairs known legacy Windows-1252 layer-name corruption without merging valid layers.
 LayerResult ReconcileLegacyLayers(MvrScene &scene) {
   struct RepairCandidate {
@@ -392,21 +369,6 @@ LayerResult ReconcileLegacyLayers(MvrScene &scene) {
     return validation;
   return {repaired ? LayerStatus::Success : LayerStatus::NoChange,
           repaired ? "Legacy layer data repaired" : "No legacy repairs needed"};
-}
-
-// Converts a layer status to a user-facing English diagnostic.
-std::string StatusMessage(LayerStatus status) {
-  switch (status) {
-  case LayerStatus::Success: return "Layer operation succeeded.";
-  case LayerStatus::NoChange: return "Layer operation made no changes.";
-  case LayerStatus::ValidationFailure: return "Layer data is not valid.";
-  case LayerStatus::NotFound: return "Layer was not found.";
-  case LayerStatus::DuplicateName: return "Layer name already exists.";
-  case LayerStatus::InvalidUtf8: return "Layer text is not valid UTF-8.";
-  case LayerStatus::InvalidUuid: return "Layer UUID is not valid.";
-  case LayerStatus::InvalidColor: return "Layer color is not valid.";
-  }
-  return "Layer operation failed.";
 }
 
 } // namespace layerdomain

@@ -19,11 +19,11 @@
 #include "app_version.h"
 #include "build_info.h"
 #include "filesystem_path_utils.h"
-#include "gdtfdictionary.h"
+#include "gdtf_filename_policy.h"
 #include "gdtf_archive_reader.h"
 #include "gdtf_description_reader.h"
 #include "logger.h"
-#include "layer_service.h"
+#include "layer_validation.h"
 #include "utf8_utils.h"
 #include "matrixutils.h"
 #include "mvr_preferences.h"
@@ -36,7 +36,6 @@
 #include "mvr_xml_scene_object_writer.h"
 #include "primitive_model_resources.h"
 #include "runtime_storage.h"
-#include "projectutils.h"
 #include "support.h"
 #include "truss_gdtf_builder.h"
 #include "uuidutils.h"
@@ -336,7 +335,7 @@ static std::string BuildTrussGdtfArchiveName(const Truss &truss) {
     fallbackModel = "Truss";
 
   return SanitizeArchiveFileName(
-      GdtfDictionary::BuildPerastageCanonicalGdtfFileName(
+      gdtf_filename_policy::BuildCanonicalFileName(
           truss.manufacturer, truss.model, fallbackModel),
       "Unknown@Truss@Perastage.gdtf");
 }

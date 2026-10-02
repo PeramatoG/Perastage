@@ -23,6 +23,7 @@
 #include "dictionary_json_contract.h"
 #include "file_import_utils.h"
 #include "filesystem_path_utils.h"
+#include "gdtf_filename_policy.h"
 #include "json.hpp"
 #include "logger.h"
 #include "projectutils.h"
@@ -33,10 +34,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <tinyxml2.h>
 #include <vector>
-#include <wx/wfstream.h>
-#include <wx/zipstrm.h>
 
 namespace fs = std::filesystem;
 
@@ -245,107 +243,6 @@ bool IsDummy1ChFallbackPath(const std::string &gdtfPath) {
          normalizedFileName == "perastagedummy1chperastage.gdtf" ||
          normalizedFileName == "unknowndummy1chperastage.gdtf" ||
          normalizedFileName == "genericgeneric1chperastage.gdtf";
-}
-
-// Returns true when the filename optional-comment segment marks a
-// Perastage-authored GDTF.
-bool IsPerastageNamedGdtfFilePath(const std::filesystem::path &path) {
-  const std::string stem = path.stem().string();
-  const size_t firstAt = stem.find('@');
-  if (firstAt == std::string::npos)
-    return false;
-  const size_t secondAt = stem.find('@', firstAt + 1);
-  if (secondAt == std::string::npos)
-    return false;
-  const std::string comment = stem.substr(secondAt + 1);
-  std::string normalized = NormalizeAsciiKey(comment);
-  return normalized == "perastage";
-}
-
-// Loads manufacturer and fixture type from a GDTF description.xml payload when
-// available.
-bool TryReadGdtfIdentityFromDescription(const std::filesystem::path &sourcePath,
-                                        std::string &manufacturerOut,
-                                        std::string &fixtureTypeOut) {
-  manufacturerOut.clear();
-  fixtureTypeOut.clear();
-  std::error_code ec;
-  if (!fs::exists(sourcePath, ec) || ec)
-    return false;
-  wxFileInputStream input(wxString::FromUTF8(sourcePath.string()));
-  if (!input.IsOk())
-    return false;
-
-  wxZipInputStream zipInput(input);
-  std::unique_ptr<wxZipEntry> entry;
-  std::string descriptionXml;
-  while ((entry.reset(zipInput.GetNextEntry())), entry) {
-    const fs::path entryPath(entry->GetName().ToStdString());
-    if (NormalizeAsciiKey(entryPath.filename().string()) != "description.xml")
-      continue;
-    char buffer[4096];
-    while (true) {
-      zipInput.Read(buffer, sizeof(buffer));
-      const size_t count = zipInput.LastRead();
-      if (count == 0)
-        break;
-      descriptionXml.append(buffer, buffer + count);
-    }
-    break;
-  }
-  if (descriptionXml.empty())
-    return false;
-
-  tinyxml2::XMLDocument doc;
-  if (doc.Parse(descriptionXml.c_str(), descriptionXml.size()) !=
-      tinyxml2::XML_SUCCESS)
-    return false;
-
-  tinyxml2::XMLElement *root = doc.FirstChildElement("GDTF");
-  tinyxml2::XMLElement *fixtureType =
-      root ? root->FirstChildElement("FixtureType")
-           : doc.FirstChildElement("FixtureType");
-  if (!fixtureType)
-    return false;
-
-  const char *manufacturer = fixtureType->Attribute("Manufacturer");
-  const char *fixtureName = fixtureType->Attribute("Name");
-  manufacturerOut = TrimAsciiWhitespace(manufacturer ? manufacturer : "");
-  fixtureTypeOut = TrimAsciiWhitespace(fixtureName ? fixtureName : "");
-  return !manufacturerOut.empty() || !fixtureTypeOut.empty();
-}
-
-// Builds a canonical Perastage export filename from identity values.
-std::string BuildPerastageCanonicalGdtfFileNameFromIdentity(
-    std::string manufacturerName, std::string fixtureTypeName,
-    const std::string &fallbackStem) {
-  if (manufacturerName.empty())
-    manufacturerName = "Unknown";
-  if (fixtureTypeName.empty())
-    fixtureTypeName = fallbackStem;
-
-  std::replace(manufacturerName.begin(), manufacturerName.end(), '@', '_');
-  std::replace(manufacturerName.begin(), manufacturerName.end(), ' ', '_');
-  std::replace(fixtureTypeName.begin(), fixtureTypeName.end(), '@', '_');
-  std::replace(fixtureTypeName.begin(), fixtureTypeName.end(), ' ', '_');
-  manufacturerName = TrimAsciiWhitespace(manufacturerName);
-  fixtureTypeName = TrimAsciiWhitespace(fixtureTypeName);
-  if (manufacturerName.empty())
-    manufacturerName = "Unknown";
-  if (fixtureTypeName.empty())
-    fixtureTypeName = "Fixture";
-  return manufacturerName + "@" + fixtureTypeName + "@Perastage.gdtf";
-}
-
-// Builds a canonical Perastage export filename using parsed GDTF identity values.
-std::string
-BuildPerastageCanonicalGdtfFileName(const std::filesystem::path &sourcePath) {
-  std::string manufacturerName;
-  std::string fixtureTypeName;
-  TryReadGdtfIdentityFromDescription(sourcePath, manufacturerName,
-                                     fixtureTypeName);
-  return BuildPerastageCanonicalGdtfFileNameFromIdentity(
-      manufacturerName, fixtureTypeName, sourcePath.stem().string());
 }
 
 std::optional<std::string>
@@ -1071,22 +968,24 @@ void UpdateDictionaryEntry(const std::string &type, const Entry &entry) {
 
 // Builds the canonical @Perastage derivative filename for a GDTF file.
 std::string BuildPerastageCanonicalGdtfFileName(const std::string &gdtfPath) {
-  return BuildPerastageCanonicalGdtfFileName(PathUtils::PathFromUtf8(gdtfPath));
+  return gdtf_filename_policy::BuildCanonicalFileName(
+      PathUtils::PathFromUtf8(gdtfPath));
 }
 
 // Builds the canonical @Perastage derivative filename from explicit identity values.
 std::string BuildPerastageCanonicalGdtfFileName(
     const std::string &manufacturer, const std::string &model,
     const std::string &fallbackStem) {
-  return BuildPerastageCanonicalGdtfFileNameFromIdentity(
-      TrimAsciiWhitespace(manufacturer), TrimAsciiWhitespace(model), fallbackStem);
+  return gdtf_filename_policy::BuildCanonicalFileName(
+      manufacturer, model, fallbackStem);
 }
 
 // Returns true when a GDTF path already has canonical Perastage derivative naming.
 bool IsPerastageNamedGdtfFile(const std::string &gdtfPath) {
   if (gdtfPath.empty())
     return false;
-  return IsPerastageNamedGdtfFilePath(PathUtils::PathFromUtf8(gdtfPath));
+  return gdtf_filename_policy::IsPerastageNamedFile(
+      PathUtils::PathFromUtf8(gdtfPath));
 }
 
 // Creates or refreshes a stable @Perastage derivative for a library-owned GDTF.
@@ -1117,7 +1016,7 @@ std::optional<Entry> CreateOrUpdatePerastageLibraryDerivative(
     return std::nullopt;
 
   const fs::path destinationName =
-      IsPerastageNamedGdtfFilePath(src)
+      gdtf_filename_policy::IsPerastageNamedFile(src)
           ? src.filename()
           : fs::path(BuildPerastageCanonicalGdtfFileName(src.string()));
   static std::atomic<unsigned long long> nextCanonicalCopyId{0};

@@ -42,8 +42,6 @@ add_library(perastage_mvr_export STATIC
     ${PERASTAGE_GENERATED_BUILD_INFO_CPP}
     ${CMAKE_SOURCE_DIR}/core/gdtf_canonicalizer.cpp
     ${CMAKE_SOURCE_DIR}/core/gdtf_mutation_audit.cpp
-    ${CMAKE_SOURCE_DIR}/core/gdtfdictionary.cpp
-    ${CMAKE_SOURCE_DIR}/core/layer_service.cpp
     ${CMAKE_SOURCE_DIR}/core/mvr_identity_recovery.cpp
     ${CMAKE_SOURCE_DIR}/core/scene_transform_integrity.cpp
     ${CMAKE_SOURCE_DIR}/core/truss_gdtf_builder.cpp
@@ -69,13 +67,10 @@ target_include_directories(perastage_mvr_export
 )
 target_link_libraries(perastage_mvr_export
     PUBLIC perastage_mvr_core_support perastage_runtime_storage
-    PRIVATE perastage_gdtf_read perastage_mvr_read tinyxml2::tinyxml2
+    PRIVATE perastage_gdtf_filename_policy perastage_gdtf_read
+            perastage_layer_validation perastage_mvr_read tinyxml2::tinyxml2
             ${wxWidgets_LIBRARIES}
 )
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    target_compile_options(perastage_mvr_export PRIVATE -ffunction-sections)
-    target_link_options(perastage_mvr_export INTERFACE -Wl,--gc-sections)
-endif()
 
 add_library(perastage_external_scene_workflow STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/external_scene_workflow.cpp
