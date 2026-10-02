@@ -66,7 +66,9 @@ namespace gui {
 class FixtureSymbolPreparationService;
 }
 enum class Viewer2DView;
-
+namespace scene_grouping {
+struct ObjectSelection;
+} // namespace scene_grouping
 
 // Main application window for GUI components
 class MainWindow : public wxFrame {
@@ -114,6 +116,8 @@ public:
   void CompleteManualFixtureSymbolPreparation(const std::string &fixtureUuid,
                                                bool applied);
   void RefreshAfterToolSceneUpdate();
+  void RefreshAfterToolSceneUpdate(
+      const scene_grouping::ObjectSelection &selection);
   void NotifySceneVisualContentChanged();
   void UpdateHighlightedWorldPositionInStatusBar(
       const std::optional<std::array<float, 3>> &positionMeters);

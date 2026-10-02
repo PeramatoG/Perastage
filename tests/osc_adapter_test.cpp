@@ -213,6 +213,7 @@ void CheckTransformWireForms() {
                                                native.policy);
   assert(result.Success() && result.mutation.sceneChanged);
   assert(native.host.publications == 1);
+  assert(native.selection.fixtures == std::vector<std::string>{"fixture-a"});
   assert(std::fabs(native.scene.fixtures.at("fixture-a").transform.o[0] -
                    1250.0f) < 0.01f);
 

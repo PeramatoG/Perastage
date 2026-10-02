@@ -120,6 +120,10 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
+- Preserved fixture, truss, support, and scene-object selections in tables and
+  both viewports after live CLI or OSC scene transforms, while explicit clear
+  commands continue to remove the selection.
+
 - Restored GCC 11 compilation of the asynchronous update check while
   preserving its existing background-check and busy-dialog behavior.
 

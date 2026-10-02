@@ -70,6 +70,10 @@ int main() {
   assert(host.publications == 1);
   assert(std::fabs(scene.fixtures.at(fixture.uuid).transform.o[0] - 2000.0f) <
          0.01f);
+  assert(selection.fixtures == std::vector<std::string>{fixture.uuid});
+  assert(selection.trusses.empty());
+  assert(selection.supports.empty());
+  assert(selection.sceneObjects.empty());
 
   std::ostringstream queryOut;
   std::ostringstream queryErr;
@@ -79,6 +83,17 @@ int main() {
   const auto query = nlohmann::json::parse(queryOut.str());
   assert(query["result"]["objects"].size() == 1);
   assert(query["result"]["objects"][0]["uuid"] == fixture.uuid);
+
+  std::ostringstream clearOut;
+  std::ostringstream clearErr;
+  const std::array<std::string_view, 4> clearArgs = {"command", "clear",
+                                                     "--port", port};
+  assert(perastage::cli::RunLive(clearArgs, clearOut, clearErr) == 0);
+  assert(clearErr.str().empty());
+  assert(selection.fixtures.empty());
+  assert(selection.trusses.empty());
+  assert(selection.supports.empty());
+  assert(selection.sceneObjects.empty());
 
   std::ostringstream rejectedOut;
   std::ostringstream rejectedErr;
