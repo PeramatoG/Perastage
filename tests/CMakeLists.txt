@@ -82,11 +82,6 @@ add_test(NAME PerastageCliScene
 set_tests_properties(PerastageCliScene PROPERTIES
                      LABELS "standard-strict;architecture;cli;mvr;command"
                      TIMEOUT 30)
-add_test(NAME ExternalSceneWorkflowBoundary
-         COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/check_external_scene_workflow_boundary.sh")
-set_tests_properties(ExternalSceneWorkflowBoundary PROPERTIES
-                     LABELS "standard-strict;architecture;cli;mvr")
-
 add_executable(viewport_mouse_navigation_test viewport_mouse_navigation_test.cpp)
 target_include_directories(viewport_mouse_navigation_test PRIVATE ../viewer_common)
 add_test(NAME ViewportMouseNavigation COMMAND viewport_mouse_navigation_test)
@@ -572,6 +567,7 @@ target_link_libraries(perastage_test_required_fixture_svg PUBLIC
 perastage_resolve_git_bash(RESOLVED_BASH_EXECUTABLE REQUIRED_FOR_TESTING)
 set(BASH_EXECUTABLE "${RESOLVED_BASH_EXECUTABLE}" CACHE FILEPATH "Resolved shell for repository policy tests" FORCE)
 if(BASH_EXECUTABLE)
+    add_bash_policy_test(ExternalSceneWorkflowBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_external_scene_workflow_boundary.sh LABELS standard-strict architecture cli mvr)
     add_bash_policy_test(InspectionContractBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_contract_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(CommandCoreBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_core_boundary.sh LABELS standard-strict architecture core command)
     add_bash_policy_test(CommandTextParserBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_text_parser_boundary.sh LABELS standard-strict architecture core command)
