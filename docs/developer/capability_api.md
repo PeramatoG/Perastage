@@ -31,7 +31,7 @@ confirmation policy. Selection clear is mutating, not destructive.
 `Catalog()` returns every descriptor once in ascending operation-ID order, and
 `Find()` performs lookup without application state. Exposure uses only current
 technical frontend identifiers: `embedded_console`, `desktop_gui`,
-`development_cli`, and `local_live_cli`. `full`
+`development_cli`, `local_live_cli`, `mcp`, and `osc`. `full`
 means the frontend exposes the semantic surface; `partial` records a meaningful
 subset. Console selection update is partial because its numeric grammar selects
 fixtures and trusses while the semantic operation also accepts supports and
@@ -44,6 +44,14 @@ The `osc` frontend identifier is present only on the three implemented OSC
 addresses. Selection clear is `full`; position and rotation are `partial`
 because OSC accepts one explicit axis/value tuple and does not expose semantic
 ranges, multi-axis requests, or explicit pivots.
+
+The `mcp` frontend identifier is present only on the five semantic live
+operations exposed by the stdio MCP adapter. Scene summary, current selection,
+and selection clear are `full`. Position and rotation are `partial` because the
+adapter accepts one explicit axis/value component and does not expose semantic
+ranges, multi-axis requests, or explicit rotation pivots. MVR/GDTF inspection
+tools are process-level Inspection API adapters and are not Command or Query
+catalog entries.
 
 The `scene.object.get` metadata names its existing typed C++ object reference as
 `object_kind` and `object_uuid`. Patch footprint resolution is host context and

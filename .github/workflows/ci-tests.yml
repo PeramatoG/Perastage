@@ -103,6 +103,10 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.resolve-source.outputs.source_sha }}
+      - name: Validate standalone MCP adapter
+        run: |
+          cargo fmt --manifest-path tools/mcp/Cargo.toml --check
+          cargo test --manifest-path tools/mcp/Cargo.toml --locked
       - name: Initialize Linux performance telemetry
         continue-on-error: true
         shell: bash

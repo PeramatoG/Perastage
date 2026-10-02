@@ -54,6 +54,7 @@ Perastage/
 |   `-- CMakeLists.txt           # Explicit MVR and MVR-xchange source registration.
 |-- packaging/                   # Installer, desktop integration, and package metadata.
 |-- tests/                       # Automated tests and lightweight checks.
+|-- tools/mcp/                   # Standalone Rust stdio MCP adapter over perastage-cli.
 |-- library/                     # Packaged runtime content (fixtures, trusses, etc.).
 |-- resources/                   # Visual/platform resources (icons, fonts, .rc).
 |-- third_party/                 # Vendored third-party headers.
