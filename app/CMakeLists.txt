@@ -1,4 +1,6 @@
 target_sources(${PROJECT_NAME} PRIVATE
+    local_live_controller.cpp
+    local_live_controller.h
     perastage_app.cpp
     perastage_app.h
 )

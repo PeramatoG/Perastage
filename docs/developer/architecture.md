@@ -181,7 +181,10 @@ have neutral contracts. The focused `core/capability/` boundary describes the
 real Command and Query surfaces without dispatching them. It consumes neutral
 operation IDs and request value types without linking Command execution or
 mutation infrastructure; separate serialization provides versioned discovery
-JSON. External CLI scene mutation remains deferred. See
+JSON. `core/local_ipc/` owns a scene-agnostic, loopback-only transport and
+versioned request envelope. Application composition owns active-project access,
+GUI-thread dispatch, and routing mutations through the existing refresh
+boundary; the transport remains independent from MVR-xchange and scene logic. See
 [`command_api.md`](command_api.md) for the current contract.
 
 ## Query contract

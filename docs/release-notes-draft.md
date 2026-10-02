@@ -6,6 +6,12 @@ Changes since **v1.6.0**.
 
 ## New features and workflow improvements
 
+- Added the first local live connection between `perastage-cli` and a running
+  Perastage instance. Supported Console commands now operate on the active
+  project with normal validation, Undo, dirty-state, selection, and refresh
+  behavior, while summary and selection queries return structured results over
+  a bounded loopback-only connection.
+
 - Added a headless `perastage-cli scene` workflow for applying the existing
   fixture/truss selection and transform commands to an explicitly supplied MVR
   and publishing a canonical result to a separate output file. Sources are

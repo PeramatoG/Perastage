@@ -30,13 +30,15 @@ confirmation policy. Selection clear is mutating, not destructive.
 
 `Catalog()` returns every descriptor once in ascending operation-ID order, and
 `Find()` performs lookup without application state. Exposure uses only current
-technical frontend identifiers: `embedded_console` and `desktop_gui`. `full`
+technical frontend identifiers: `embedded_console`, `desktop_gui`,
+`development_cli`, and `local_live_cli`. `full`
 means the frontend exposes the semantic surface; `partial` records a meaningful
 subset. Console selection update is partial because its numeric grammar selects
 fixtures and trusses while the semantic operation also accepts supports and
 SceneObjects. An empty list means Core exists without a current frontend. The
-development CLI has no execution exposure; `perastage-cli capabilities` only
-reads the catalog.
+development CLI's isolated scene workflow and local live workflow are described
+separately so consumers can distinguish file-based execution from active-project
+execution. `perastage-cli capabilities` itself only reads the catalog.
 
 The `scene.object.get` metadata names its existing typed C++ object reference as
 `object_kind` and `object_uuid`. Patch footprint resolution is host context and
@@ -46,7 +48,7 @@ is not an argument.
 
 Capability metadata is distinct from embedded Console grammar such as `f`,
 `t`, `pos`, axis shorthand, and ranges. That human syntax remains in the text
-adapters. Future FRONT-510, FRONT-515, FRONT-520, and FRONT-530 adapters should
+adapters. Future adapters should
 consume this inventory rather than copy operation lists, while invoking Command
 or Query services directly for behavior. They must not turn the catalog into an
 execution registry.

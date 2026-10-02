@@ -30,6 +30,7 @@
 #include <wx/weakref.h>
 
 class MainWindow;
+class LocalLiveController;
 
 class MyApp : public wxApp {
 public:
@@ -71,6 +72,7 @@ private:
   std::deque<std::string> pending_external_open_paths_;
   bool localization_fallback_warning_shown_ = false;
   std::shared_ptr<startup::Metrics> startup_metrics_;
+  std::unique_ptr<LocalLiveController> local_live_controller_;
   startup::Metrics::Clock::time_point startup_resolution_started_at_;
 };
 

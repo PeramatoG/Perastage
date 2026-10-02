@@ -191,6 +191,12 @@ target_link_libraries(capability_catalog_test PRIVATE
                       perastage_command_selection
                       perastage_command_scene_tools)
 add_test(NAME CapabilityCatalog COMMAND capability_catalog_test)
+
+add_executable(local_ipc_test local_ipc_test.cpp)
+target_include_directories(local_ipc_test PRIVATE ../third_party)
+target_link_libraries(local_ipc_test PRIVATE perastage_local_ipc)
+add_test(NAME LocalIpc COMMAND local_ipc_test)
+set_perastage_test_labels(LocalIpc LAYER integration DOMAINS cli architecture)
 set_perastage_test_labels(CapabilityCatalog LAYER unit
                           DOMAINS capability command query architecture)
 
@@ -577,6 +583,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(CommandSceneToolsBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_scene_tools_boundary.sh LABELS standard-strict architecture core command)
     add_bash_policy_test(QueryCoreBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_query_core_boundary.sh LABELS standard-strict architecture core query)
     add_bash_policy_test(CapabilityCoreBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_capability_core_boundary.sh LABELS standard-strict architecture core capability)
+    add_bash_policy_test(LocalIpcBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_local_ipc_boundary.sh LABELS standard-strict architecture cli)
     add_bash_policy_test(InspectionTargetBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_target_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_serialization_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionReportSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_report_serialization_boundary.sh LABELS standard-strict architecture core inspection gdtf mvr)

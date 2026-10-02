@@ -182,6 +182,9 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
+    perastage_local_ipc
+    perastage_query_core
+    perastage_command_serialization
     perastage_command_text_processor
     perastage_command_scene_tools
     perastage_inspection_gdtf
