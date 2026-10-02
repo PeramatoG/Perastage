@@ -182,12 +182,14 @@ real Command and Query surfaces without dispatching them. It consumes neutral
 operation IDs and request value types without linking Command execution or
 mutation infrastructure; separate serialization provides versioned discovery
 JSON. `core/local_ipc/` owns a scene-agnostic, loopback-only transport and
-versioned request envelope. The adjacent `core/live/` adapter composes that
-envelope with existing Command text processing and the deliberately limited
-Query surface against an explicit execution context. Application composition
-owns active-project access, cancellable GUI-thread dispatch, and routing
-mutations through the existing refresh boundary; the transport remains
-independent from MVR-xchange and scene logic. See
+versioned request envelope. The development CLI may depend directly on this
+neutral transport as its local client, but not on the adjacent `core/live/`
+executor. That server-side adapter composes the envelope with existing Command
+text processing and the deliberately limited Query surface against an explicit
+execution context. Application composition owns active-project access,
+cancellable GUI-thread dispatch, and routing mutations through the existing
+refresh boundary; the transport remains independent from MVR-xchange and scene
+logic. See
 [`command_api.md`](command_api.md) for the current contract.
 
 ## Query contract

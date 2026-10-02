@@ -185,8 +185,9 @@ Changes since **v1.6.0**.
 
 - Declared the local live request executor's direct JSON include ownership and
   kept application-owned live-controller construction behind its implementation
-  boundary, so Debug builds remain reliable across Windows, Linux, and macOS
-  toolchains.
+  boundary, while architecture checks now recognize only the neutral local IPC
+  client edge from the development CLI. Debug builds remain reliable across
+  Windows, Linux, and macOS toolchains.
 
 - Completed the embedded Console frontend boundary: reusable text-command
   ordering and execution now live in GUI-independent Command infrastructure,
