@@ -48,6 +48,7 @@ for every listed module.
 | `CMakePresets.json` | Canonical tracked configure/build presets for supported local development workflows. |
 | `app/` | wxWidgets application lifecycle and startup/bootstrap composition, explicitly registered by its local CMake file. |
 | `cli/` | Dedicated headless command-line entry point and independently testable grammar, explicitly owned by its local CMake file. |
+| `tools/mcp/` | Standalone Rust stdio MCP tool adapter that consumes the stable `perastage-cli` process/JSON contract. |
 | `core/capability/` | Semantic operation descriptors, structural request-shape validation, and focused discovery serialization. |
 | `core/osc/` | Bounded OSC 1.0 message parsing, loopback UDP transport, and focused semantic Command mapping. |
 | `cmake/` | Dependency discovery, CMake helper scripts, generated configuration templates, and platform metadata templates. |

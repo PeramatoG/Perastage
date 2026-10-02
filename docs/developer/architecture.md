@@ -24,6 +24,8 @@ module's architectural responsibility.
 - `viewer_common/`: utilities shared by the 2D and 3D viewers.
 - `third_party/`: vendored third-party single-header dependencies (for example `json.hpp`, `stb_easy_font.h`).
 - `library/`: bundled runtime content (fixtures, trusses, `scene_objects`, examples).
+- `tools/mcp/`: standalone Rust stdio MCP adapter over `perastage-cli`; it is
+  outside the native application module graph.
 
 ## Third-party convention
 
@@ -198,6 +200,13 @@ depend on scenes, GUI code, Console grammar, local IPC, or MCP. Application
 composition dispatches parsed messages to the GUI thread and uses the same
 active-project execution context, mutation host, transform policy, selection
 publication, and refresh boundary as other live commands.
+
+The standalone `tools/mcp/` adapter depends in the opposite direction only at
+the process contract: it invokes `perastage-cli` with explicit argv and reads
+structured JSON and exit codes. It has no native link or source dependency on
+Core, GUI, models, MVR/GDTF parsing, OSC, or local IPC. Its initial tools map
+typed inspection, discovery, live query, selection-clear, and single-axis
+transform requests to existing CLI forms. Stdio is its sole MCP transport.
 
 ## Query contract
 

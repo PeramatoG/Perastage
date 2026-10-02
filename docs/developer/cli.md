@@ -189,6 +189,12 @@ fatal reports at code `3` can still contain valid JSON on standard output.
 
 ## Architecture and distribution
 
+The standalone Rust MCP adapter under `tools/mcp/` is a process consumer of
+this machine interface. It invokes the executable directly with argv, consumes
+JSON and exit codes, and does not link against CLI, Core, GUI, format parsing,
+or local-IPC implementation. See [MCP adapter](mcp_adapter.md) for its typed
+tool surface and stdio startup contract.
+
 `cli/main.cpp` only adapts process arguments and invokes the independently
 testable standard-C++ runner. CLI sources depend only on public Core inspection
 headers and link the focused GDTF, MVR, resource, and report-serialization

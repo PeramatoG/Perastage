@@ -41,7 +41,9 @@ architecture or repository-layout specification.
   [Storage Policy](storage_policy.md), and
   [Text-to-scene Rules](text_to_scene_rules.md).
 - **Command line:** the [Developer CLI](cli.md) documents the headless executable,
-  current grammar, and development-only distribution contract.
+  current grammar, and development-only distribution contract. The standalone
+  [MCP adapter](mcp_adapter.md) documents its stdio tools bridge over that
+  stable machine interface.
 - **Semantic commands:** the [Command API contract](command_api.md) owns typed
   requests, results, headless execution context, transactional mutation, and
   versioned machine output independently of the current Console grammar.
