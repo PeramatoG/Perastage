@@ -1840,8 +1840,6 @@ void MainWindow::CompleteManualFixtureSymbolPreparation(
                                                            applied);
 }
 
-void MainWindow::RefreshAfterToolSceneUpdate() { RefreshAfterSceneChange(); }
-
 void MainWindow::RefreshAfterUnitSystemChange() {
   RefreshAfterSceneChange();
   if (layoutViewerPanel) {
