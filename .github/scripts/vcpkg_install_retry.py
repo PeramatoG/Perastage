@@ -16,6 +16,7 @@ TRANSIENT_PATTERNS = [
     re.compile(r"(?:could not|couldn't|failed to) resolve (?:host|hostname)", re.I),
     re.compile(r"(?:connection (?:reset|refused)|network is unreachable|temporarily unavailable|temporary failure|proxy.*temporary)", re.I),
     re.compile(r"(?:TLS|SSL) connection timeout", re.I),
+    re.compile(r"^[ \t]*error: Download timed out\.[ \t]*\r?$", re.I | re.M),
 ]
 PERMANENT_PATTERNS = [
     re.compile(r"\b(?:configure|configuration|compil(?:e|ation)|link(?:er|ing)?|patch|ABI|manifest|validation) (?:error|failed|failure)\b", re.I),
