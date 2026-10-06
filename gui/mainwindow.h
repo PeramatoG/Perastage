@@ -118,6 +118,8 @@ public:
   void RefreshAfterToolSceneUpdate();
   void RefreshAfterToolSceneUpdate(
       const scene_grouping::ObjectSelection &selection);
+  void RefreshAfterToolSelectionUpdate(
+      const scene_grouping::ObjectSelection &selection);
   void NotifySceneVisualContentChanged();
   void UpdateHighlightedWorldPositionInStatusBar(
       const std::optional<std::array<float, 3>> &positionMeters);

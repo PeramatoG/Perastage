@@ -88,26 +88,49 @@ GetSelection(const scene_grouping::ObjectSelection &selection) {
 // Returns all public scene descriptors ordered by kind token and UUID.
 std::vector<ObjectDescriptor> ListObjects(const MvrScene &scene) {
   std::vector<ObjectDescriptor> result;
-  for (const auto &[uuid, value] : scene.fixtures)
-    result.push_back({scene_identity::ObjectKind::Fixture, uuid,
-                      value.instanceName, value.layer, value.parentGroupUuid,
-                      value.typeName, value.gdtfSpec});
-  for (const auto &[uuid, value] : scene.trusses)
-    result.push_back({scene_identity::ObjectKind::Truss, uuid, value.name,
-                      value.layer, value.parentGroupUuid, value.model,
-                      value.gdtfSpec});
-  for (const auto &[uuid, value] : scene.supports)
-    result.push_back({scene_identity::ObjectKind::Support, uuid, value.name,
-                      value.layer, value.parentGroupUuid, value.hoistFunction,
-                      value.gdtfSpec});
-  for (const auto &[uuid, value] : scene.sceneObjects)
-    result.push_back({scene_identity::ObjectKind::SceneObject,
-                      uuid,
-                      value.name,
-                      value.layer,
-                      value.parentGroupUuid,
-                      {},
-                      value.GetPrimaryModel()});
+  for (const auto &[uuid, value] : scene.fixtures) {
+    ObjectDescriptor descriptor{
+        scene_identity::ObjectKind::Fixture, uuid, value.instanceName,
+        value.layer, value.parentGroupUuid, value.typeName, value.gdtfSpec};
+    descriptor.fixtureIdText = value.fixtureIdText;
+    descriptor.fixtureId = value.fixtureId;
+    descriptor.fixtureIdNumeric = value.fixtureIdNumeric;
+    descriptor.unitNumber = value.unitNumber;
+    descriptor.customId = value.customId;
+    descriptor.customIdType = value.customIdType;
+    descriptor.rawAddress = value.address;
+    descriptor.gdtfMode = value.gdtfMode;
+    result.push_back(std::move(descriptor));
+  }
+  for (const auto &[uuid, value] : scene.trusses) {
+    ObjectDescriptor descriptor{
+        scene_identity::ObjectKind::Truss, uuid, value.name, value.layer,
+        value.parentGroupUuid, value.model, value.gdtfSpec};
+    descriptor.unitNumber = value.unitNumber;
+    descriptor.customId = value.customId;
+    descriptor.customIdType = value.customIdType;
+    descriptor.gdtfMode = value.gdtfMode;
+    result.push_back(std::move(descriptor));
+  }
+  for (const auto &[uuid, value] : scene.supports) {
+    ObjectDescriptor descriptor{
+        scene_identity::ObjectKind::Support, uuid, value.name, value.layer,
+        value.parentGroupUuid, value.hoistFunction, value.gdtfSpec};
+    descriptor.gdtfMode = value.gdtfMode;
+    result.push_back(std::move(descriptor));
+  }
+  for (const auto &[uuid, value] : scene.sceneObjects) {
+    ObjectDescriptor descriptor{scene_identity::ObjectKind::SceneObject,
+                                uuid,
+                                value.name,
+                                value.layer,
+                                value.parentGroupUuid,
+                                {},
+                                value.GetPrimaryModel()};
+    descriptor.fixtureIdText = value.fixtureIdText;
+    descriptor.fixtureIdNumeric = value.fixtureIdNumeric;
+    result.push_back(std::move(descriptor));
+  }
   for (const auto &[uuid, value] : scene.groupObjects)
     result.push_back({scene_identity::ObjectKind::Group,
                       uuid,

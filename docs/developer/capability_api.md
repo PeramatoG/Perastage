@@ -45,17 +45,25 @@ addresses. Selection clear is `full`; position and rotation are `partial`
 because OSC accepts one explicit axis/value tuple and does not expose semantic
 ranges, multi-axis requests, or explicit pivots.
 
-The `mcp` frontend identifier is present only on the five semantic live
-operations exposed by the stdio MCP adapter. Scene summary, current selection,
-and selection clear are `full`. Position and rotation are `partial` because the
+The six live queries (`scene.summary`, `scene.selection.get`,
+`scene.objects.list`, `scene.object.get`, `scene.layers.list`, and
+`scene.groups.list`) are `full` for both `local_live_cli` and `mcp`.
+`scene.selection.update` is also `full` for these frontends: all four selectable
+kinds, replacement/preservation, and ordered add/remove operations are
+available through explicit UUID references. `scene.patch.status` has no
+frontend exposure because live execution does not provide its footprint
+resolver.
+
+MCP selection clear is `full`. Position and rotation are `partial` because the
 adapter accepts one explicit axis/value component and does not expose semantic
 ranges, multi-axis requests, or explicit rotation pivots. MVR/GDTF inspection
 tools are process-level Inspection API adapters and are not Command or Query
 catalog entries.
 
 The `scene.object.get` metadata names its existing typed C++ object reference as
-`object_kind` and `object_uuid`. Patch footprint resolution is host context and
-is not an argument.
+`object_kind` and `object_uuid`. The CLI and MCP lookup syntax projects those
+roles to `kind` and `uuid` in the live arguments object. Patch footprint
+resolution is host context and is not an argument.
 
 ## Adapter contract
 

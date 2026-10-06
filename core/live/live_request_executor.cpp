@@ -3,39 +3,13 @@
 #include "command/command_json_serializer.h"
 #include "command/command_text_processor.h"
 #include "json.hpp"
+#include "live/live_query_adapter.h"
+#include "live/live_selection_adapter.h"
 #include "local_ipc/local_ipc_contract.h"
-#include "query/scene_query.h"
 
 namespace perastage::live {
 namespace {
 using Json = nlohmann::ordered_json;
-
-// Serializes one deliberately supported live query.
-std::string ExecuteQuery(const std::string &queryId, const MvrScene &scene,
-                         const scene_grouping::ObjectSelection &selection) {
-  if (queryId == query::kSummaryQueryId) {
-    const auto summary = query::GetSummary(scene);
-    return Json{{"query_id", queryId},
-                {"mvr_version_major", summary.mvrVersionMajor},
-                {"mvr_version_minor", summary.mvrVersionMinor},
-                {"fixtures", summary.fixtures},
-                {"trusses", summary.trusses},
-                {"supports", summary.supports},
-                {"scene_objects", summary.sceneObjects},
-                {"groups", summary.groups},
-                {"layers", summary.layers}}
-        .dump();
-  }
-  if (queryId == query::kSelectionQueryId) {
-    Json objects = Json::array();
-    for (const auto &object : query::GetSelection(selection))
-      objects.push_back({{"kind", scene_identity::KindToken(object.kind)},
-                         {"uuid", object.uuid}});
-    return Json{{"query_id", queryId}, {"objects", std::move(objects)}}.dump();
-  }
-  return {};
-}
-
 } // namespace
 
 // Executes one local-live wire request against an explicitly supplied context.
@@ -47,20 +21,19 @@ ExecutionResult ExecuteRequest(
   if (!local_ipc::ParseRequest(wireRequest, request, error))
     return {std::move(error), {}};
 
-  if (request.operation == "query") {
-    const std::string result =
-        ExecuteQuery(request.value, context.scene, context.selection);
-    if (result.empty())
-      return {local_ipc::ErrorResponse(
-                  request.requestId, "unsupported_operation",
-                  "The requested query is not exposed by local live IPC."),
-              {}};
-    return {local_ipc::SuccessResponse(request.requestId, result), {}};
-  }
+  if (request.operation == "query")
+    return ExecuteQuery(request, context);
+  if (request.operation == "execute")
+    return ExecuteSelectionUpdate(request, context);
   if (request.operation != "command")
     return {local_ipc::ErrorResponse(
                 request.requestId, "unsupported_operation",
-                "Only command and query operations are supported."),
+                "Only command, query, and execute operations are supported."),
+            {}};
+  if (!request.argumentsJson.empty())
+    return {local_ipc::ErrorResponse(
+                request.requestId, "invalid_arguments",
+                "Text commands do not accept structured arguments."),
             {}};
 
   const auto execution = command::text::ProcessCommandLine(

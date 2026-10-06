@@ -10,7 +10,9 @@
 namespace perastage::local_ipc {
 
 inline constexpr std::uint16_t kDefaultPort = 49155;
+// Requests retain the original frame bound; structured responses may be larger.
 inline constexpr std::size_t kMaximumMessageBytes = 64 * 1024;
+inline constexpr std::size_t kMaximumResponseBytes = 16 * 1024 * 1024;
 
 using RequestHandler = std::function<std::string(const std::string &)>;
 

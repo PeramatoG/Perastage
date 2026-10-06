@@ -8,6 +8,8 @@ struct Request {
   std::string requestId;
   std::string operation;
   std::string value;
+  // Optional serialized JSON object; an empty string means no arguments.
+  std::string argumentsJson;
 };
 
 // Parses and validates the versioned local IPC request contract.

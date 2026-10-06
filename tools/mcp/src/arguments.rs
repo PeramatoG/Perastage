@@ -1,5 +1,5 @@
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -12,6 +12,78 @@ pub struct InspectionArgs {
 #[serde(deny_unknown_fields)]
 pub struct LiveArgs {
     /// Optional loopback live endpoint port. Omit to use the Perastage default.
+    #[serde(default)]
+    pub port: Option<u16>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ObjectKind {
+    Fixture,
+    Truss,
+    Support,
+    SceneObject,
+    Group,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SelectionObjectKind {
+    Fixture,
+    Truss,
+    Support,
+    SceneObject,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ObjectGetArgs {
+    /// Explicit kind of the scene object to read.
+    pub kind: ObjectKind,
+    /// Stable object UUID returned by live_objects_list or live_groups_list.
+    #[schemars(length(min = 1))]
+    pub uuid: String,
+    /// Optional loopback live endpoint port.
+    #[serde(default)]
+    pub port: Option<u16>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SelectionOperationKind {
+    Add,
+    Remove,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SelectionObjectReference {
+    /// Explicit selectable object kind, matching target_kind.
+    pub kind: SelectionObjectKind,
+    /// Stable object UUID returned by live_objects_list.
+    #[schemars(length(min = 1))]
+    pub uuid: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SelectionOperation {
+    /// Add or remove these explicit object references.
+    pub kind: SelectionOperationKind,
+    /// Ordered typed references. Repeated adds retain the existing order.
+    pub objects: Vec<SelectionObjectReference>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SelectionUpdateArgs {
+    /// Selection category to update. Other categories retain their selection.
+    pub target_kind: SelectionObjectKind,
+    /// False replaces this category before operations; true retains it.
+    pub preserve_existing: bool,
+    /// Ordered add/remove operations. Empty operations with false clear the category.
+    pub operations: Vec<SelectionOperation>,
+    /// Optional loopback live endpoint port.
     #[serde(default)]
     pub port: Option<u16>,
 }

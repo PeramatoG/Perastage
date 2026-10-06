@@ -83,8 +83,11 @@ behavior rather than evidence of scene-content mutation. No general scene
 reset behavior is implied.
 
 Selection and clear commands mutate neither scene resources nor transforms.
-Tables and viewers are synchronized only by the Console after each command.
-Because the Console publishes the resulting selection before executing the
+Frontend publication synchronizes tables and viewers after each command.
+Active-project selection-only publication updates all four tables and the
+2D/3D/Layout viewers without reloading scene content, persisting automatic
+fixture colors, or publishing Undo/dirty state. Because the Console publishes
+the resulting selection before executing the
 next parsed command, a transform later in the same line observes the selection
 produced by every preceding command.
 
@@ -129,11 +132,27 @@ owns an isolated scene read from an explicitly named MVR, uses a headless
 different, explicitly named output MVR after every command succeeds. Both
 contexts use this same text processor and typed selection/transform Commands.
 The local live CLI adapter executes this same text processor against the active
-application scene and selection through `GuiProjectMutationHost`. Its dedicated
-GUI-independent live-request executor composes the versioned envelope with an
-explicit `ExecutionContext`; the loopback transport contains no scene logic.
+application scene and selection through `GuiProjectMutationHost`. Typed
+`live execute scene.selection.update --args '<JSON>'` calls the semantic
+selection Command directly, with the stable arguments listed above, and
+supports fixtures, trusses, supports, and scene objects. It preserves the
+Command's validation-before-mutation behavior, ordered replace/add/remove
+semantics, and selection-only mutation summary. Typed selection does not pass
+through Console grammar.
+
+The GUI-independent live-request executor composes the versioned envelope with
+an explicit `ExecutionContext`; the loopback transport contains no scene logic.
+Schema version 1 accepts an additive optional `arguments` JSON object.
+`operation: "execute"` uses the stable operation ID in `value`; legacy
+`operation: "command"` retains text in `value`. Queries use their stable ID
+and optional structured arguments. Typed execution responses retain the
+`success`, `records`, and `parse_diagnostics` wrapper, with an empty parser
+diagnostic list for semantic execution. Invalid identities are rejected before
+selection changes and semantic failure gives CLI exit code 4.
 The application adapter returns mutations through the existing main-window
-refresh boundary and cancels pending GUI dispatch safely during shutdown.
+refresh boundary, choosing scene-content or selection-only refresh from the
+Command mutation summary, and cancels pending GUI dispatch safely during
+shutdown.
 
 ## OSC adapter
 

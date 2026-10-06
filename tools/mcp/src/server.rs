@@ -1,8 +1,12 @@
-use crate::arguments::{InspectionArgs, LiveArgs, PositionArgs, RotationArgs, TransformSpace};
+use crate::arguments::{
+    InspectionArgs, LiveArgs, ObjectGetArgs, PositionArgs, RotationArgs, SelectionObjectKind,
+    SelectionOperationKind, SelectionUpdateArgs, TransformSpace,
+};
 use crate::backend::{CliBackend, args};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::CallToolResult;
 use rmcp::{ErrorData as McpError, tool, tool_router};
+use serde::Serialize;
 use serde_json::to_value;
 use std::ffi::OsString;
 use std::sync::Arc;
@@ -50,6 +54,20 @@ impl PerastageMcp {
         }
         self.run(vec!["inspect".into(), path.into(), "--json".into()])
     }
+
+    fn live_structured(
+        &self,
+        operation: &str,
+        id: &str,
+        input: impl Serialize,
+        port: Option<u16>,
+    ) -> Result<CallToolResult, McpError> {
+        let serialized = serde_json::to_string(&input)
+            .map_err(|error| McpError::internal_error(error.to_string(), None))?;
+        let mut arguments = args(&["live", operation, id, "--args", &serialized]);
+        append_port(&mut arguments, port);
+        self.run(arguments)
+    }
 }
 
 #[cfg(test)]
@@ -78,7 +96,7 @@ mod tests {
         }
     }
 
-    fn server(success: bool) -> (PerastageMcp, Arc<Mutex<Vec<Vec<OsString>>>>) {
+    pub(super) fn server(success: bool) -> (PerastageMcp, Arc<Mutex<Vec<Vec<OsString>>>>) {
         let calls = Arc::new(Mutex::new(Vec::new()));
         let backend = RecordingBackend {
             calls: calls.clone(),
@@ -97,7 +115,7 @@ mod tests {
     }
 
     #[test]
-    fn discovery_lists_only_the_initial_typed_surface() {
+    fn discovery_lists_only_the_explicit_typed_surface() {
         let (_server, _) = server(true);
         let tools = PerastageMcp::tool_router().list_all();
         let names: Vec<_> = tools.iter().map(|tool| tool.name.as_ref()).collect();
@@ -108,10 +126,15 @@ mod tests {
                 "inspect_gdtf",
                 "inspect_mvr",
                 "live_current_selection",
+                "live_groups_list",
+                "live_layers_list",
+                "live_object_get",
+                "live_objects_list",
                 "live_position_transform",
                 "live_rotation_transform",
                 "live_scene_summary",
                 "live_selection_clear",
+                "live_selection_update",
             ]
         );
         for tool in tools {
@@ -120,7 +143,12 @@ mod tests {
                 | "inspect_gdtf"
                 | "inspect_mvr"
                 | "live_current_selection"
+                | "live_groups_list"
+                | "live_layers_list"
+                | "live_object_get"
+                | "live_objects_list"
                 | "live_scene_summary" => (true, false, true),
+                "live_selection_update" => (false, false, true),
                 "live_selection_clear" => (false, true, true),
                 "live_position_transform" | "live_rotation_transform" => (false, true, false),
                 unexpected => panic!("unexpected MCP tool: {unexpected}"),
@@ -239,6 +267,29 @@ fn append_port(arguments: &mut Vec<OsString>, port: Option<u16>) {
     }
 }
 
+#[derive(Serialize)]
+struct SelectionRequest<'a> {
+    target_kind: SelectionObjectKind,
+    preserve_existing: bool,
+    operation_kinds: Vec<SelectionOperationKind>,
+    object_kinds: Vec<SelectionObjectKind>,
+    object_uuids: Vec<&'a str>,
+}
+
+fn require_uuid(uuid: &str) -> Result<(), McpError> {
+    if uuid.is_empty() {
+        return Err(McpError::invalid_params(
+            "Object UUID must not be empty.",
+            None,
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+#[path = "server_live_tests.rs"]
+mod live_tests;
+
 fn transform_command(
     keyword: &str,
     axis: &str,
@@ -343,6 +394,115 @@ impl PerastageMcp {
         Parameters(input): Parameters<LiveArgs>,
     ) -> Result<CallToolResult, McpError> {
         self.live("query", "scene.selection.get", input.port)
+    }
+
+    #[tool(
+        description = "List deterministic object descriptors from the current local scene.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
+    fn live_objects_list(
+        &self,
+        Parameters(input): Parameters<LiveArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        self.live("query", "scene.objects.list", input.port)
+    }
+
+    #[tool(
+        description = "Read one local scene object by explicit kind and stable UUID.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
+    fn live_object_get(
+        &self,
+        Parameters(input): Parameters<ObjectGetArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        require_uuid(&input.uuid)?;
+        #[derive(Serialize)]
+        struct Lookup<'a> {
+            kind: crate::arguments::ObjectKind,
+            uuid: &'a str,
+        }
+        self.live_structured(
+            "query",
+            "scene.object.get",
+            Lookup {
+                kind: input.kind,
+                uuid: &input.uuid,
+            },
+            input.port,
+        )
+    }
+
+    #[tool(
+        description = "List deterministic layer descriptors from the current local scene.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
+    fn live_layers_list(
+        &self,
+        Parameters(input): Parameters<LiveArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        self.live("query", "scene.layers.list", input.port)
+    }
+
+    #[tool(
+        description = "List deterministic group descriptors from the current local scene.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
+    fn live_groups_list(
+        &self,
+        Parameters(input): Parameters<LiveArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        self.live("query", "scene.groups.list", input.port)
+    }
+
+    #[tool(
+        description = "Replace, add to, or remove from one local selection category using ordered typed UUID references. Set preserve_existing to false to replace or clear the category. Every reference must match target_kind. Scene content, Undo, and dirty state are retained.",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
+    fn live_selection_update(
+        &self,
+        Parameters(input): Parameters<SelectionUpdateArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let mut request = SelectionRequest {
+            target_kind: input.target_kind,
+            preserve_existing: input.preserve_existing,
+            operation_kinds: Vec::new(),
+            object_kinds: Vec::new(),
+            object_uuids: Vec::new(),
+        };
+        for operation in &input.operations {
+            for object in &operation.objects {
+                require_uuid(&object.uuid)?;
+                request.operation_kinds.push(operation.kind);
+                request.object_kinds.push(object.kind);
+                request.object_uuids.push(&object.uuid);
+            }
+        }
+        self.live_structured("execute", "scene.selection.update", request, input.port)
     }
 
     #[tool(

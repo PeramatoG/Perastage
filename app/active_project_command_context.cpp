@@ -22,6 +22,8 @@ void ActiveProjectCommandContext::Publish(
   config_.SetSelectedTrusses(selection_.trusses);
   config_.SetSelectedSupports(selection_.supports);
   config_.SetSelectedSceneObjects(selection_.sceneObjects);
-  if (mutation.sceneChanged || mutation.selectionChanged)
+  if (mutation.sceneChanged)
     window.RefreshAfterToolSceneUpdate(selection_);
+  else if (mutation.selectionChanged)
+    window.RefreshAfterToolSelectionUpdate(selection_);
 }

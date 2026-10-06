@@ -24,7 +24,8 @@ perastage-cli inspect <file> --json
 perastage-cli capabilities [--json]
 perastage-cli scene <input.mvr> --output <output.mvr> --command <text> [--command <text> ...] [--overwrite] [--json]
 perastage-cli live command <text> [--port <port>]
-perastage-cli live query <scene.summary|scene.selection.get> [--port <port>]
+perastage-cli live query <operation-id> [--args <JSON-object>] [--port <port>]
+perastage-cli live execute <operation-id> --args <JSON-object> [--port <port>]
 ```
 
 The `scene` command is the first external mutation workflow. Its input is a
@@ -48,15 +49,50 @@ controls a running Perastage process.
 
 `live` connects to an already-running Perastage instance using bounded,
 newline-framed JSON schema version 1 over IPv4 TCP bound strictly to
-`127.0.0.1`; the default port is `49155`. Commands use the existing Console
-text adapter and Command transaction, Undo, validation, dirty-state, and
-frontend refresh boundaries against the active project and selection. The
-initial query surface contains only `scene.summary` and `scene.selection.get`.
-Unsupported operations receive a structured error. The endpoint provides no
-discovery, LAN listener, remote access, filesystem, shell, MVR-xchange, OSC,
-MCP, or TLS surface. Transport, protocol, unsupported-operation, and semantic
+`127.0.0.1`; the default port is `49155`. `live command` uses the existing
+Console text adapter and Command transaction, Undo, validation, dirty-state,
+and frontend refresh boundaries against the active project and selection.
+`live execute` invokes the typed semantic `scene.selection.update` operation
+directly. It accepts every selectable category and creates no scene change,
+Undo entry, or dirty state. Application publication synchronizes tables and
+2D/3D/Layout selection without reloading scene content.
+
+The read-only live query surface is `scene.summary`, `scene.selection.get`,
+`scene.objects.list`, `scene.object.get`, `scene.layers.list`, and
+`scene.groups.list`. It reuses Query Core's deterministic descriptors, including
+stored fixture identifiers and patch addresses where applicable. Object lookup
+requires a kind and UUID; clients filter structured object lists themselves.
+The generic `--args` option accepts one JSON object and projects it into the
+optional `arguments` member of the existing schema version 1 request envelope.
+It is available for query/execute operations; legacy command text is unchanged.
+Unsupported operations receive a structured error. The endpoint remains a
+local transport. Transport, protocol, unsupported-operation, and semantic
 command failures return exit code `4`; code `3` remains reserved for fatal
 inspection input.
+
+Discover objects and look up a returned identity:
+
+```sh
+perastage-cli live query scene.objects.list
+perastage-cli live query scene.object.get --args '{"kind":"fixture","uuid":"<returned UUID>"}'
+```
+
+Replace the fixture selection, then add and remove explicit UUIDs:
+
+```sh
+perastage-cli live execute scene.selection.update --args '{"target_kind":"fixture","preserve_existing":false,"operation_kinds":["add"],"object_kinds":["fixture"],"object_uuids":["<returned UUID>"]}'
+perastage-cli live execute scene.selection.update --args '{"target_kind":"fixture","preserve_existing":true,"operation_kinds":["add","remove"],"object_kinds":["fixture","fixture"],"object_uuids":["<UUID to add>","<UUID to remove>"]}'
+```
+
+The supported selection kind tokens are `fixture`, `truss`, `support`, and
+`scene_object`. Object references must match `target_kind`; all three operation
+lists have equal length and execute in order. Replacement clears only the
+target category before applying operations. Empty lists with
+`preserve_existing: false` clear that category. Other categories retain their
+selection. Missing, empty, wrong-kind, or unknown UUIDs reject the update before
+any selection change. Groups are discoverable Query identities and are not
+selection targets. See [Query API](query_api.md), [Command API](command_api.md),
+and [MCP adapter](mcp_adapter.md) for the shared contracts.
 
 `inspect` accepts exactly one filesystem input with a case-insensitive `.gdtf`
 or `.mvr` extension. Its default view is `summary`. `--json` and `--view` are

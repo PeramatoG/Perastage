@@ -243,6 +243,19 @@ assert 'x64-linux-appimage-jammy-gcc11' in appimage_compiled_cache
 assert 'x64-linux-default' not in appimage_compiled_cache
 
 ci = (WORKFLOWS / 'ci-tests.yml').read_text()
+standalone_mcp = re.search(
+    r'^      - name: Validate standalone MCP adapter\n(.*?)(?=^      -|\Z)',
+    ci, re.MULTILINE | re.DOTALL,
+)
+assert standalone_mcp, 'Hosted Debug CI must exercise the standalone Rust MCP adapter'
+for command in [
+    'cargo fmt --manifest-path tools/mcp/Cargo.toml --check',
+    'cargo test --manifest-path tools/mcp/Cargo.toml --locked',
+]:
+    assert command in standalone_mcp.group(1), f'Hosted MCP validation is missing {command}'
+assert 'continue-on-error' not in standalone_mcp.group(1) and '|| true' not in standalone_mcp.group(1), (
+    'Hosted MCP formatting and test failures must fail CI'
+)
 for needle in ['name: CI Debug Tests', 'push:', 'pull_request:', 'workflow_call:', 'CMAKE_BUILD_TYPE=Debug', '-DBUILD_TESTING=ON', 'cancel-in-progress: true', '-host_arch=x64 -arch=x64', 'VCPKG_TARGET_TRIPLET=x64-windows']:
     assert needle in ci, f'ci-tests.yml is missing {needle}'
 assert '-DNDEBUG' in ci and 'must not compile with NDEBUG' in ci

@@ -44,6 +44,16 @@ struct ObjectDescriptor {
   std::string parentGroupUuid;
   std::string typeName;
   std::string resource;
+  // Stored identifiers are present only for model categories that own them.
+  // Zero and empty values are retained rather than interpreted as missing.
+  std::optional<std::string> fixtureIdText;
+  std::optional<int> fixtureId;
+  std::optional<int> fixtureIdNumeric;
+  std::optional<int> unitNumber;
+  std::optional<int> customId;
+  std::optional<int> customIdType;
+  std::optional<std::string> rawAddress;
+  std::optional<std::string> gdtfMode;
   bool operator==(const ObjectDescriptor &) const = default;
 };
 

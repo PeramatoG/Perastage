@@ -30,7 +30,7 @@ bool ParseRequest(const std::string &json, Request &request,
       value.value("request_id", Json()).is_string()
           ? value["request_id"].get<std::string>() : std::string{};
   if (!value.contains("schema_version") || !value["schema_version"].is_number_integer() ||
-      value["schema_version"].get<int>() != 1) {
+      value["schema_version"] != 1) {
     errorResponse = ErrorResponse(requestId, "unsupported_version",
                                   "Only schema_version 1 is supported.");
     return false;
@@ -43,11 +43,24 @@ bool ParseRequest(const std::string &json, Request &request,
     return false;
   }
   request = {requestId, value["operation"].get<std::string>(),
-             value["value"].get<std::string>()};
+             value["value"].get<std::string>(), {}};
   if (request.operation.size() > 64 || request.value.size() > 32768) {
     errorResponse = ErrorResponse(requestId, "invalid_request",
                                   "Request fields exceed their size limit.");
     return false;
+  }
+  if (value.contains("arguments")) {
+    if (!value["arguments"].is_object()) {
+      errorResponse = ErrorResponse(requestId, "invalid_request",
+                                    "arguments must be a JSON object.");
+      return false;
+    }
+    request.argumentsJson = value["arguments"].dump();
+    if (request.argumentsJson.size() > 32768) {
+      errorResponse = ErrorResponse(requestId, "invalid_request",
+                                    "Request arguments exceed their size limit.");
+      return false;
+    }
   }
   return true;
 }

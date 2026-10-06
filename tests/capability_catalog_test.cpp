@@ -254,10 +254,11 @@ void CheckDescriptorFidelity() {
       {"local_live_cli", ExposureState::Full},
       {"mcp", ExposureState::Partial},
       {"osc", ExposureState::Partial}};
-  const std::vector<FrontendExposure> consolePartial = {
+  const std::vector<FrontendExposure> selectionExposure = {
       {"development_cli", ExposureState::Partial},
       {"embedded_console", ExposureState::Partial},
-      {"local_live_cli", ExposureState::Partial}};
+      {"local_live_cli", ExposureState::Full},
+      {"mcp", ExposureState::Full}};
   const std::vector<FrontendExposure> desktopFull = {
       {"desktop_gui", ExposureState::Full}};
 
@@ -289,7 +290,7 @@ void CheckDescriptorFidelity() {
                    {"operation_kinds", ArgumentType::StringList, true},
                    {"object_kinds", ArgumentType::StringList, true},
                    {"object_uuids", ArgumentType::StringList, true}},
-                  consolePartial);
+                  selectionExposure);
   CheckDescriptor(command::transform::kPositionCommandId,
                   OperationKind::Command, Effect::Mutating,
                   TransformArguments("_millimeters", false), transformExposure);
@@ -297,12 +298,14 @@ void CheckDescriptorFidelity() {
                   OperationKind::Command, Effect::Mutating,
                   TransformArguments("_degrees", true), transformExposure);
 
-  for (std::string_view id : {query::kGroupsQueryId, query::kLayersQueryId,
-                              query::kObjectsQueryId, query::kPatchQueryId})
-    CheckDescriptor(id, OperationKind::Query, Effect::ReadOnly, {}, {});
   const std::vector<FrontendExposure> liveFull = {
       {"local_live_cli", ExposureState::Full},
       {"mcp", ExposureState::Full}};
+  for (std::string_view id : {query::kGroupsQueryId, query::kLayersQueryId,
+                              query::kObjectsQueryId})
+    CheckDescriptor(id, OperationKind::Query, Effect::ReadOnly, {}, liveFull);
+  CheckDescriptor(query::kPatchQueryId, OperationKind::Query,
+                  Effect::ReadOnly, {}, {});
   CheckDescriptor(query::kSelectionQueryId, OperationKind::Query,
                   Effect::ReadOnly, {}, liveFull);
   CheckDescriptor(query::kSummaryQueryId, OperationKind::Query,
@@ -310,7 +313,7 @@ void CheckDescriptorFidelity() {
   CheckDescriptor(query::kObjectQueryId, OperationKind::Query, Effect::ReadOnly,
                   {{"object_kind", ArgumentType::String, true},
                    {"object_uuid", ArgumentType::String, true}},
-                  {});
+                  liveFull);
 
   for (const auto &descriptor : capability::Catalog())
     for (const auto &frontend : descriptor.frontends) {
@@ -330,10 +333,15 @@ void CheckDescriptorFidelity() {
       if (frontend.frontendId == "mcp")
         assert(
             descriptor.operationId == command::selection::kClearCommandId ||
+            descriptor.operationId == command::selection::kUpdateCommandId ||
             descriptor.operationId == command::transform::kPositionCommandId ||
             descriptor.operationId == command::transform::kRotationCommandId ||
             descriptor.operationId == query::kSelectionQueryId ||
-            descriptor.operationId == query::kSummaryQueryId);
+            descriptor.operationId == query::kSummaryQueryId ||
+            descriptor.operationId == query::kObjectsQueryId ||
+            descriptor.operationId == query::kObjectQueryId ||
+            descriptor.operationId == query::kLayersQueryId ||
+            descriptor.operationId == query::kGroupsQueryId);
       assert(frontend.frontendId != "remote");
       assert(frontend.frontendId != "ai");
       assert(frontend.frontendId != "voice");

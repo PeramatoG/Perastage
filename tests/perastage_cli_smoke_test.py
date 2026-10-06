@@ -10,7 +10,7 @@ import sys
 HELP = """Usage: perastage-cli [--help | --version]
        perastage-cli inspect <file> [--view <view> | --json]
        perastage-cli capabilities [--json]
-       perastage-cli live <command <text> | query <id>> [--port <port>]
+       perastage-cli live <command <text> | query <id> | execute <id>> [--args <json>] [--port <port>]
        perastage-cli scene <input.mvr> --output <output.mvr> --command <text> [--command <text> ...] [--overwrite] [--json]
 
 Options:

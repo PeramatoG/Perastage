@@ -201,6 +201,35 @@ target_link_libraries(local_ipc_test PRIVATE
 add_test(NAME LocalIpc COMMAND local_ipc_test)
 set_perastage_test_labels(LocalIpc LAYER integration DOMAINS cli architecture)
 
+add_executable(live_scene_discovery_test live_scene_discovery_test.cpp)
+target_include_directories(live_scene_discovery_test PRIVATE ../third_party)
+target_link_libraries(live_scene_discovery_test PRIVATE
+                      perastage_live_request_executor
+                      perastage_mvr_scene_model)
+add_test(NAME LiveSceneDiscovery COMMAND live_scene_discovery_test)
+set_perastage_test_labels(LiveSceneDiscovery LAYER integration
+                          DOMAINS cli query architecture)
+
+add_executable(live_selection_test live_selection_test.cpp)
+target_include_directories(live_selection_test PRIVATE ../third_party)
+target_link_libraries(live_selection_test PRIVATE
+                      perastage_live_request_executor
+                      perastage_mvr_scene_model)
+add_test(NAME LiveSelection COMMAND live_selection_test)
+set_perastage_test_labels(LiveSelection LAYER integration
+                          DOMAINS cli command query architecture)
+
+add_executable(live_cli_request_test live_cli_request_test.cpp)
+target_include_directories(live_cli_request_test PRIVATE ../third_party)
+target_link_libraries(live_cli_request_test PRIVATE perastage_cli_support)
+add_test(NAME LiveCliRequest COMMAND live_cli_request_test)
+set_perastage_test_labels(LiveCliRequest LAYER integration
+                          DOMAINS cli architecture)
+
+add_repository_policy_test(LiveSelectionPublication ${Python3_EXECUTABLE}
+                          LABELS standard-strict architecture cli gui command
+                          ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_live_selection_publication.py)
+
 add_executable(osc_adapter_test osc_adapter_test.cpp)
 target_link_libraries(osc_adapter_test PRIVATE
                       perastage_osc_command_adapter

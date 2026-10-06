@@ -14,13 +14,21 @@ MvrScene BuildScene(bool reverse) {
   a.uuid = "fixture-a";
   a.instanceName = "A";
   a.typeName = "Wash";
+  a.gdtfSpec = "wash.gdtf";
   a.layer = "layer";
   a.address = "1.10";
   a.gdtfMode = "10";
+  a.fixtureIdText = "FOH-101";
+  a.fixtureId = 101;
+  a.fixtureIdNumeric = 201;
+  a.unitNumber = 301;
+  a.customId = 401;
+  a.customIdType = 501;
   Fixture b;
   b.uuid = "fixture-b";
   b.instanceName = "B";
   b.typeName = "Spot";
+  b.gdtfSpec = "spot.gdtf";
   b.layer = "layer";
   b.parentGroupUuid = "group-child";
   b.address = "1.15";
@@ -36,14 +44,25 @@ MvrScene BuildScene(bool reverse) {
   truss.uuid = "truss";
   truss.name = "Truss";
   truss.layer = "layer";
+  truss.model = "H30V";
+  truss.gdtfSpec = "truss.gdtf";
+  truss.gdtfMode = "Default";
+  truss.unitNumber = 11;
+  truss.customId = 12;
+  truss.customIdType = 13;
   Support support;
   support.uuid = "support";
   support.name = "Hoist";
   support.layer = "layer";
+  support.gdtfSpec = "motor.gdtf";
+  support.gdtfMode = "Motor";
   SceneObject object;
   object.uuid = "object";
   object.name = "Podium";
   object.layer = "layer";
+  object.modelFile = "podium.3ds";
+  object.fixtureIdText = "PODIUM-1";
+  object.fixtureIdNumeric = 601;
   scene.trusses.emplace(truss.uuid, truss);
   scene.supports.emplace(support.uuid, support);
   scene.sceneObjects.emplace(object.uuid, object);
@@ -99,6 +118,47 @@ int main() {
          perastage::query::ListLayers(reordered));
   assert(perastage::query::ListObjects(scene) ==
          perastage::query::ListObjects(scene));
+  const auto objects = perastage::query::ListObjects(scene);
+  assert(objects.size() == 7);
+  const auto &fixture = objects.front();
+  assert(fixture.kind == ObjectKind::Fixture && fixture.uuid == "fixture-a" &&
+         fixture.name == "A" && fixture.layerUuid == "layer" &&
+         fixture.parentGroupUuid.empty() && fixture.typeName == "Wash" &&
+         fixture.resource == "wash.gdtf");
+  assert(fixture.fixtureIdText == "FOH-101" && fixture.fixtureId == 101 &&
+         fixture.fixtureIdNumeric == 201 && fixture.unitNumber == 301 &&
+         fixture.customId == 401 && fixture.customIdType == 501 &&
+         fixture.rawAddress == "1.10" && fixture.gdtfMode == "10");
+  const auto &unassignedFixture = objects[1];
+  assert(unassignedFixture.fixtureIdText == "" &&
+         unassignedFixture.fixtureId == 0 &&
+         unassignedFixture.fixtureIdNumeric == 0 &&
+         unassignedFixture.unitNumber == 0 && unassignedFixture.customId == 0 &&
+         unassignedFixture.customIdType == 0);
+  const auto &group = objects[2];
+  assert(group.kind == ObjectKind::Group && !group.fixtureIdText &&
+         !group.fixtureId && !group.fixtureIdNumeric && !group.unitNumber &&
+         !group.customId && !group.customIdType && !group.rawAddress &&
+         !group.gdtfMode);
+  const auto &sceneObject = objects[4];
+  assert(sceneObject.kind == ObjectKind::SceneObject &&
+         sceneObject.resource == "podium.3ds" &&
+         sceneObject.fixtureIdText == "PODIUM-1" &&
+         sceneObject.fixtureIdNumeric == 601 && !sceneObject.fixtureId &&
+         !sceneObject.unitNumber && !sceneObject.customId &&
+         !sceneObject.customIdType && !sceneObject.rawAddress &&
+         !sceneObject.gdtfMode);
+  const auto &hoist = objects[5];
+  assert(hoist.kind == ObjectKind::Support && hoist.resource == "motor.gdtf" &&
+         hoist.gdtfMode == "Motor" && !hoist.fixtureIdText && !hoist.fixtureId &&
+         !hoist.fixtureIdNumeric && !hoist.unitNumber && !hoist.customId &&
+         !hoist.customIdType && !hoist.rawAddress);
+  const auto &truss = objects.back();
+  assert(truss.kind == ObjectKind::Truss && truss.typeName == "H30V" &&
+         truss.resource == "truss.gdtf" && truss.gdtfMode == "Default" &&
+         truss.unitNumber == 11 && truss.customId == 12 &&
+         truss.customIdType == 13 && !truss.fixtureIdText && !truss.fixtureId &&
+         !truss.fixtureIdNumeric && !truss.rawAddress);
 
   scene_grouping::ObjectSelection selection{
       {"fixture-b", "fixture-a"}, {"truss"}, {"support"}, {"object"}};
@@ -113,11 +173,22 @@ int main() {
   std::vector<perastage::query::Diagnostic> diagnostics;
   const auto found = perastage::query::GetObject(
       scene, {ObjectKind::Fixture, "fixture-a"}, diagnostics);
-  assert(found && found->name == "A" && diagnostics.empty());
+  assert(found && *found == fixture && diagnostics.empty());
+  for (const auto &descriptor : objects) {
+    const auto lookup = perastage::query::GetObject(
+        scene, {descriptor.kind, descriptor.uuid}, diagnostics);
+    assert(lookup && *lookup == descriptor && diagnostics.empty());
+  }
   assert(!perastage::query::GetObject(scene, {ObjectKind::Truss, "fixture-a"},
                                       diagnostics));
   assert(diagnostics.size() == 1 &&
          diagnostics.front().code == "scene.object.not_found");
+  assert(!perastage::query::GetObject(scene, {ObjectKind::Fixture, ""},
+                                      diagnostics));
+  assert(!perastage::query::GetObject(scene, {ObjectKind::Support, "missing"},
+                                      diagnostics));
+  assert(diagnostics.size() == 3 &&
+         perastage::query::ListObjects(scene) == objects);
 
   const auto layers = perastage::query::ListLayers(scene);
   assert(layers.size() == 1 && layers.front().members.size() == 4);

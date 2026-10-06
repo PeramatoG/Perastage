@@ -40,6 +40,14 @@ std::string Request(const std::string &id, const std::string &operation,
 
 // Verifies real semantic execution and CLI round trips share one live scene.
 int main() {
+  std::string rejectedRequestResponse;
+  std::string rejectedRequestError;
+  assert(!perastage::local_ipc::Exchange(
+      0, std::string(perastage::local_ipc::kMaximumMessageBytes + 1, 'x'),
+      rejectedRequestResponse, rejectedRequestError));
+  assert(rejectedRequestResponse.empty() &&
+         rejectedRequestError == "request_too_large");
+
   MvrScene scene;
   Fixture fixture;
   fixture.uuid = "fixture-a";
@@ -95,11 +103,15 @@ int main() {
   assert(selection.supports.empty());
   assert(selection.sceneObjects.empty());
 
-  std::ostringstream rejectedOut;
-  std::ostringstream rejectedErr;
-  const std::array<std::string_view, 4> rejectedArgs = {
+  std::ostringstream objectsOut;
+  std::ostringstream objectsErr;
+  const std::array<std::string_view, 4> objectsArgs = {
       "query", "scene.objects.list", "--port", port};
-  assert(perastage::cli::RunLive(rejectedArgs, rejectedOut, rejectedErr) == 4);
+  assert(perastage::cli::RunLive(objectsArgs, objectsOut, objectsErr) == 0);
+  assert(objectsErr.str().empty());
+  const auto objects = nlohmann::json::parse(objectsOut.str());
+  assert(objects["result"]["objects"].size() == 1);
+  assert(objects["result"]["objects"][0]["uuid"] == fixture.uuid);
 
   std::ostringstream failedCommandOut;
   std::ostringstream failedCommandErr;
@@ -108,7 +120,50 @@ int main() {
   assert(perastage::cli::RunLive(failedCommandArgs, failedCommandOut,
                                  failedCommandErr) == 4);
 
+  // Real discovery responses exceed the old request-sized response cap.
+  for (int index = 0; index < 250; ++index) {
+    Fixture discovered = fixture;
+    discovered.uuid = "discovered-" + std::to_string(index);
+    discovered.instanceName = "Front fixture " + std::to_string(index);
+    discovered.typeName = "Deterministic discovery type";
+    discovered.gdtfSpec = "Vendor@Discovery.gdtf";
+    discovered.address = "1.101";
+    scene.fixtures.emplace(discovered.uuid, discovered);
+  }
+  const int publicationsBeforeDiscovery = host.publications;
+  const auto selectionBeforeDiscovery = selection;
+  std::ostringstream largeOut;
+  std::ostringstream largeErr;
+  assert(perastage::cli::RunLive(objectsArgs, largeOut, largeErr) == 0);
+  assert(largeErr.str().empty());
+  assert(largeOut.str().size() > perastage::local_ipc::kMaximumMessageBytes);
+  const auto largeResponse = nlohmann::json::parse(largeOut.str());
+  assert(largeResponse["result"]["objects"].size() == 251);
+  assert(host.publications == publicationsBeforeDiscovery);
+  assert(selection.fixtures == selectionBeforeDiscovery.fixtures &&
+         selection.trusses == selectionBeforeDiscovery.trusses &&
+         selection.supports == selectionBeforeDiscovery.supports &&
+         selection.sceneObjects == selectionBeforeDiscovery.sceneObjects);
+
   server.Stop();
+
+  perastage::local_ipc::Server oversizedServer;
+  assert(oversizedServer.Start(
+      0,
+      [](const std::string &) {
+        return std::string(perastage::local_ipc::kMaximumResponseBytes + 1, 'x');
+      },
+      transportError));
+  std::string oversizedResponse;
+  assert(perastage::local_ipc::Exchange(
+      oversizedServer.Port(), Request("oversized", "query", "scene.summary"),
+      oversizedResponse, transportError));
+  const auto oversized = nlohmann::json::parse(oversizedResponse);
+  assert(oversized["ok"] == false && oversized["request_id"] == "oversized");
+  assert(oversized["error"]["code"] == "response_too_large");
+  assert(host.publications == publicationsBeforeDiscovery &&
+         scene.fixtures.size() == 251 && selection.fixtures.empty());
+  oversizedServer.Stop();
 
   perastage::local_ipc::Server throwingServer;
   assert(throwingServer.Start(
