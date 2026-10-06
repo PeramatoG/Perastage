@@ -219,6 +219,15 @@ add_test(NAME LiveSelection COMMAND live_selection_test)
 set_perastage_test_labels(LiveSelection LAYER integration
                           DOMAINS cli command query architecture)
 
+add_executable(live_transform_batch_test live_transform_batch_test.cpp)
+target_include_directories(live_transform_batch_test PRIVATE ../third_party)
+target_link_libraries(live_transform_batch_test PRIVATE
+                      perastage_live_request_executor
+                      perastage_mvr_scene_model)
+add_test(NAME LiveTransformBatch COMMAND live_transform_batch_test)
+set_perastage_test_labels(LiveTransformBatch LAYER integration
+                          DOMAINS cli command architecture)
+
 add_executable(live_cli_request_test live_cli_request_test.cpp)
 target_include_directories(live_cli_request_test PRIVATE ../third_party)
 target_link_libraries(live_cli_request_test PRIVATE perastage_cli_support)
@@ -273,6 +282,14 @@ target_link_libraries(command_transform_test PRIVATE
                       perastage_mvr_scene_model)
 add_test(NAME CommandTransform COMMAND command_transform_test)
 set_perastage_test_labels(CommandTransform LAYER unit
+                          DOMAINS command architecture)
+
+add_executable(command_transform_batch_test command_transform_batch_test.cpp)
+target_link_libraries(command_transform_batch_test PRIVATE
+                      perastage_command_transform
+                      perastage_mvr_scene_model)
+add_test(NAME CommandTransformBatch COMMAND command_transform_batch_test)
+set_perastage_test_labels(CommandTransformBatch LAYER unit
                           DOMAINS command architecture)
 
 add_executable(command_selection_test command_selection_test.cpp)

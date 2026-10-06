@@ -52,10 +52,13 @@ newline-framed JSON schema version 1 over IPv4 TCP bound strictly to
 `127.0.0.1`; the default port is `49155`. `live command` uses the existing
 Console text adapter and Command transaction, Undo, validation, dirty-state,
 and frontend refresh boundaries against the active project and selection.
-`live execute` invokes the typed semantic `scene.selection.update` operation
-directly. It accepts every selectable category and creates no scene change,
-Undo entry, or dirty state. Application publication synchronizes tables and
-2D/3D/Layout selection without reloading scene content.
+`live execute` directly invokes the allowlisted typed semantic operations
+`scene.selection.update` and `scene.transform.batch`. Selection updates accept
+every selectable category and create no scene change, Undo entry, or dirty
+state. Application publication synchronizes tables and 2D/3D/Layout selection
+without reloading scene content. Batch transforms use explicit typed UUIDs and
+preserve the existing selection; a changed batch creates one Undo entry, dirties
+the project once, and publishes scene refresh once.
 
 The read-only live query surface is `scene.summary`, `scene.selection.get`,
 `scene.objects.list`, `scene.object.get`, `scene.layers.list`, and
@@ -93,6 +96,27 @@ selection. Missing, empty, wrong-kind, or unknown UUIDs reject the update before
 any selection change. Groups are discoverable Query identities and are not
 selection targets. See [Query API](query_api.md), [Command API](command_api.md),
 and [MCP adapter](mcp_adapter.md) for the shared contracts.
+
+Apply independently calculated fixture positions and an ordered rotation in
+one atomic operation, with position values in millimeters and rotations in
+degrees:
+
+```sh
+perastage-cli live execute scene.transform.batch --args '{"target_kinds":["fixture","fixture","fixture"],"target_uuids":["<first UUID>","<second UUID>","<first UUID>"],"component_kinds":["position","position","rotation"],"axes":["x","x","z"],"values":[-1500,1500,45],"modes":["absolute","absolute","relative"],"spaces":["world","world","local"]}'
+```
+
+The seven required arrays are aligned and non-empty; each index is one
+component, and repeated targets execute in array order. Targets support
+`fixture`, `truss`, `support`, `scene_object`, and `group`. Components are
+`position` or `rotation`; axes are `x`, `y`, or `z`; modes are `absolute` or
+`relative`; spaces are `world` or `local`. Every value must be finite. A child
+UUID transforms that exact child; an explicit group retains normal descendant
+synchronization. The complete request is validated and applied to a preview
+before publication. Any failed component leaves the scene and selection
+unchanged, with no Undo or dirty state. A semantic no-op publishes nothing.
+Structured execution retains Command diagnostics in its result records and
+has an empty `parse_diagnostics` list. Batch transforms use typed arguments
+directly, and this execute surface remains limited to its two operation IDs.
 
 `inspect` accepts exactly one filesystem input with a case-insensitive `.gdtf`
 or `.mvr` extension. Its default view is `summary`. `--json` and `--view` are

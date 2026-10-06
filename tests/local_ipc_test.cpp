@@ -113,6 +113,42 @@ int main() {
   assert(objects["result"]["objects"].size() == 1);
   assert(objects["result"]["objects"][0]["uuid"] == fixture.uuid);
 
+  const int publicationsBeforeBatch = host.publications;
+  const auto batchSelection = selection;
+  nlohmann::json batchArguments = {
+      {"target_kinds", {"fixture", "fixture"}},
+      {"target_uuids", {fixture.uuid, fixture.uuid}},
+      {"component_kinds", {"position", "position"}}, {"axes", {"x", "y"}},
+      {"values", {2500, 500}}, {"modes", {"absolute", "absolute"}},
+      {"spaces", {"world", "world"}}};
+  auto runBatch = [&](int expectedExit) {
+    const std::string arguments = batchArguments.dump();
+    const std::array<std::string_view, 6> args = {
+        "execute", "scene.transform.batch", "--args", arguments, "--port", port};
+    std::ostringstream out;
+    std::ostringstream err;
+    assert(perastage::cli::RunLive(args, out, err) == expectedExit);
+    assert(err.str().empty());
+    return nlohmann::json::parse(out.str());
+  };
+  assert(runBatch(0)["result"]["success"] == true);
+  assert(host.publications == publicationsBeforeBatch + 1);
+  assert(scene.fixtures.at(fixture.uuid).transform.o[0] == 2500.0f);
+  assert(scene.fixtures.at(fixture.uuid).transform.o[1] == 500.0f);
+  assert(runBatch(0)["result"]["records"][0]["diagnostics"][0]["code"] ==
+         "scene.transform.batch.noop");
+  batchArguments["target_uuids"][1] = "missing";
+  batchArguments["values"][0] = 3000;
+  const auto failedBatch = runBatch(4);
+  assert(failedBatch["ok"] == true && failedBatch["result"]["success"] == false);
+  assert(failedBatch["result"]["records"][0]["outcome"] == "validation_error");
+  assert(host.publications == publicationsBeforeBatch + 1);
+  assert(scene.fixtures.at(fixture.uuid).transform.o[0] == 2500.0f);
+  assert(selection.fixtures == batchSelection.fixtures &&
+         selection.trusses == batchSelection.trusses &&
+         selection.supports == batchSelection.supports &&
+         selection.sceneObjects == batchSelection.sceneObjects);
+
   std::ostringstream failedCommandOut;
   std::ostringstream failedCommandErr;
   const std::array<std::string_view, 4> failedCommandArgs = {

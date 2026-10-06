@@ -1,5 +1,7 @@
 #include "command_transform.h"
 
+#include "command_transform_apply.h"
+
 #include "command/command_mutation_transaction.h"
 #include "matrixutils.h"
 #include "scene_grouping.h"
@@ -70,66 +72,6 @@ bool Validate(const Command &command, Result &result) {
     return false;
   }
   return true;
-}
-
-// Applies one position component to the already resolved effective targets.
-void ApplyPosition(
-    MvrScene &scene,
-    const std::vector<scene_grouping::SceneTransformTarget> &targets,
-    const Component &component) {
-  const double start = component.values.front();
-  const double end = component.values.back();
-  for (size_t index = 0; index < targets.size(); ++index) {
-    const double value =
-        component.values.size() == 2 && targets.size() > 1
-            ? start + (end - start) * index / (targets.size() - 1)
-            : start;
-    Matrix matrix =
-        scene_grouping::GetTargetWorldTransform(scene, targets[index]);
-    if (component.relative) {
-      std::array<float, 3> delta{};
-      delta[component.axis] = static_cast<float>(value);
-      matrix = transform_space::ApplyIncrementalTranslation(matrix, delta,
-                                                            component.space);
-    } else {
-      matrix.o[component.axis] = static_cast<float>(value);
-    }
-    scene_grouping::SetTargetWorldTransform(scene, targets[index], matrix);
-  }
-}
-
-// Applies one rotation component with the legacy Console Euler-axis mapping.
-void ApplyRotation(
-    MvrScene &scene,
-    const std::vector<scene_grouping::SceneTransformTarget> &targets,
-    const Component &component) {
-  const double start = component.values.front();
-  const double end = component.values.back();
-  const int eulerAxis = component.axis == 0 ? 2 : component.axis == 1 ? 1 : 0;
-  for (size_t index = 0; index < targets.size(); ++index) {
-    const float angle = static_cast<float>(
-        component.values.size() == 2 && targets.size() > 1
-            ? start + (end - start) * index / (targets.size() - 1)
-            : start);
-    const Matrix matrix =
-        scene_grouping::GetTargetWorldTransform(scene, targets[index]);
-    Matrix rotated;
-    if (component.relative) {
-      Matrix delta =
-          component.axis == 0   ? MatrixUtils::EulerToMatrix(0.0f, 0.0f, angle)
-          : component.axis == 1 ? MatrixUtils::EulerToMatrix(0.0f, angle, 0.0f)
-                                : MatrixUtils::EulerToMatrix(angle, 0.0f, 0.0f);
-      rotated = transform_space::ApplyIncrementalRotation(matrix, delta,
-                                                          component.space);
-    } else {
-      auto euler = MatrixUtils::MatrixToEuler(matrix);
-      euler[eulerAxis] = angle;
-      rotated = MatrixUtils::ApplyRotationPreservingScale(
-          matrix, MatrixUtils::EulerToMatrix(euler[0], euler[1], euler[2]),
-          matrix.o);
-    }
-    scene_grouping::SetTargetWorldTransform(scene, targets[index], rotated);
-  }
 }
 
 // Computes the legacy default pivot from effective target world origins.
@@ -238,10 +180,8 @@ Result Execute(const Command &command, ExecutionContext &context,
         const auto currentTargets =
             scene_grouping::BuildInteractiveTransformTargets(
                 preview, context.selection, policy);
-        if (command.kind == Kind::Position)
-          ApplyPosition(preview, currentTargets, component);
-        else
-          ApplyRotation(preview, currentTargets, component);
+        detail::ApplyComponent(preview, currentTargets, command.kind,
+                               component);
       }
     }
     if (!TargetsChanged(context.scene, preview, targets)) {

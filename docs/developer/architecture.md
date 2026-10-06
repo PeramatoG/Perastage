@@ -161,7 +161,10 @@ remain responsible for presentation refresh. The separate
 grammar and depends toward the semantic diagnostic contract; Command Core does
 not depend on human syntax. Semantic transform and typed UUID selection
 algorithms are owned by the focused Command Core transform and selection
-targets, including compatible selection-only `clear` execution. The selection
+targets, including compatible selection-only `clear` execution. Exact targeted
+batch transforms reuse the selection transforms' component helpers and existing
+hierarchy synchronization, validating and previewing ordered rows before one
+transaction publishes. The selection
 text adapter resolves numeric Console IDs against an explicitly supplied scene.
 The embedded Console acquires project context, presents results, and refreshes
 GUI state as an adapter frontend; it invokes the focused GUI-independent text
@@ -187,7 +190,7 @@ JSON. `core/local_ipc/` owns a scene-agnostic, loopback-only transport and
 versioned request envelope. The development CLI may depend directly on this
 neutral transport as its local client, but not on the adjacent `core/live/`
 executor. That server-side adapter composes the envelope with existing Command
-text processing, typed semantic selection updates, and read-only Query Core
+text processing, typed semantic selection updates and batch transforms, and read-only Query Core
 discovery against an explicit execution context. Optional structured arguments
 extend the versioned transport contract without adding scene logic to it.
 Application composition owns active-project access,
@@ -209,7 +212,9 @@ the process contract: it invokes `perastage-cli` with explicit argv and reads
 structured JSON and exit codes. It has no native link or source dependency on
 Core, GUI, models, MVR/GDTF parsing, OSC, or local IPC. Its tools map typed
 inspection, capability/scene discovery, typed UUID selection, selection-clear,
-and single-axis transform requests to stable CLI forms. Stdio is its sole MCP
+single-axis transforms, and targeted batch transform requests to stable CLI forms.
+The batch tool flattens structured targets/components to aligned typed lists;
+mutation and transform algorithms remain owned by Command Core. Stdio is its sole MCP
 transport.
 
 ## Query contract
