@@ -298,7 +298,9 @@ package kind, filesystem path or shared owned bytes, prepared resources,
 inspection result, and cache fingerprint. Source requests invalidate visible
 package interaction immediately; source generations and preview
 sub-generations independently reject stale results at the worker and GUI event
-boundaries. Shutdown joins the worker before the window is destroyed.
+boundaries. Shutdown updates its wait predicate under the worker mutex before
+notifying, so an idle worker cannot miss the wakeup. Joining happens after
+releasing that mutex and before the window is destroyed.
 
 Inspector resource presentation deliberately separates three concepts. Core's
 `ResourceKind` remains the semantic classification, Source is the textual

@@ -1,6 +1,7 @@
 #include "inspection/inspector_async_worker.h"
 
 #include <cassert>
+#include <chrono>
 #include <condition_variable>
 #include <memory>
 #include <mutex>
@@ -15,10 +16,38 @@ struct Value final : gui::inspection::InspectorAsyncPayload {
   int value;
 };
 
-// Waits for a predicate without relying on wall-clock timing.
+// Synchronizes by predicate, with a timeout to diagnose stalled worker progress.
 void Wait(std::condition_variable &condition, std::unique_lock<std::mutex> &lock,
           const auto &predicate) {
-  condition.wait(lock, predicate);
+  const bool signaled = condition.wait_for(lock, std::chrono::seconds(5), predicate);
+  assert(signaled);
+}
+
+// Exercises shutdown while idle and immediately after a task completes.
+void CheckIdleShutdown() {
+  for (const bool afterCompletion : {false, true}) {
+    for (int iteration = 0; iteration < 256; ++iteration) {
+      std::mutex mutex;
+      std::condition_variable condition;
+      bool completed = false;
+      gui::inspection::InspectorAsyncWorker worker(
+          [&](gui::inspection::InspectorTaskDomain, std::uint64_t,
+              gui::inspection::InspectorAsyncWorker::Result result) {
+            std::lock_guard lock(mutex);
+            assert(result.Success());
+            completed = true;
+            condition.notify_one();
+          });
+      if (afterCompletion) {
+        worker.Submit([](gui::inspection::InspectorStopToken)
+                          -> gui::inspection::InspectorAsyncWorker::Payload {
+          return std::make_shared<Value>(1);
+        });
+        std::unique_lock lock(mutex);
+        Wait(condition, lock, [&] { return completed; });
+      }
+    }
+  }
 }
 
 // Verifies replacement rejects a stale completion and publishes the latest.
@@ -236,6 +265,7 @@ void CheckPreviewDoesNotSupersedeSource() {
 
 // Exercises worker replacement, shutdown, failure publication, and recovery.
 int main() {
+  CheckIdleShutdown();
   CheckLatestWins();
   CheckDestruction();
   CheckPendingCancellation();

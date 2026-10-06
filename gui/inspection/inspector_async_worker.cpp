@@ -22,7 +22,11 @@ InspectorAsyncWorker::InspectorAsyncWorker(Completion completion)
 
 // Stops and joins the managed thread before its callback state is released.
 InspectorAsyncWorker::~InspectorAsyncWorker() {
-  shutdown_.store(true);
+  {
+    // Pair the shutdown predicate with the wait mutex to prevent a lost wakeup.
+    std::lock_guard lock(mutex_);
+    shutdown_.store(true);
+  }
   condition_.notify_one();
   if (thread_.joinable())
     thread_.join();
