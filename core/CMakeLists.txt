@@ -222,6 +222,8 @@ target_link_libraries(perastage_command_serialization
 
 add_library(perastage_live_request_executor STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/live/live_request_executor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/live/live_query_adapter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/live/live_selection_adapter.cpp
 )
 target_compile_features(perastage_live_request_executor PUBLIC cxx_std_20)
 target_include_directories(perastage_live_request_executor
@@ -233,6 +235,7 @@ target_link_libraries(perastage_live_request_executor PUBLIC
     perastage_query_core
     perastage_command_serialization
     perastage_command_text_processor
+    perastage_command_selection
 )
 
 file(READ "${CMAKE_SOURCE_DIR}/resources/standards/gdtf/1.2/gdtf.xsd"

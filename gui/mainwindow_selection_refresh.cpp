@@ -21,7 +21,12 @@ void MainWindow::RefreshAfterToolSceneUpdate() { RefreshAfterSceneChange(); }
 void MainWindow::RefreshAfterToolSceneUpdate(
     const scene_grouping::ObjectSelection &selection) {
   RefreshAfterSceneChange();
+  RefreshAfterToolSelectionUpdate(selection);
+}
 
+// Publishes selection to tables and viewers without refreshing scene content.
+void MainWindow::RefreshAfterToolSelectionUpdate(
+    const scene_grouping::ObjectSelection &selection) {
   ConfigManager &config = GetDefaultGuiConfigServices().LegacyConfigManager();
   config.SetSelectedFixtures(selection.fixtures);
   config.SetSelectedTrusses(selection.trusses);

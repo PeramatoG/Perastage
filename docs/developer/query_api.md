@@ -11,7 +11,7 @@ application service is part of the contract.
 |---|---|
 | `scene.summary` | MVR version and fixture, truss, support, scene-object, group, and layer counts. |
 | `scene.selection.get` | Typed UUID references from the current semantic selection. |
-| `scene.objects.list` | Stable descriptors containing kind, UUID, name, layer, parent group, and selected type/resource facts. |
+| `scene.objects.list` | Stable descriptors containing kind, UUID, name, layer, parent group, type/resource facts, and stored basic identifiers. |
 | `scene.object.get` | One descriptor matched by both kind and UUID, or `scene.object.not_found`. |
 | `scene.layers.list` | Layer identity, name, color, and resolvable typed child membership. |
 | `scene.groups.list` | Group identity, layer/parent relationship, and typed direct children. |
@@ -23,6 +23,34 @@ Layers and groups are ordered by UUID, their membership uses the object rule,
 and patch fixtures are ordered by UUID. Duplicate selection and layer
 references are collapsed. Repeated queries over unchanged state therefore
 produce identical results, independent of unordered-map insertion order.
+
+Object JSON retains `kind`, `uuid`, `name`, `layer`, `parent_group`,
+`type_name`, and `resource`. Kind tokens are `fixture`, `truss`, `support`,
+`scene_object`, and `group`. Additional optional fields project values already
+owned by each model category:
+
+| Kind | Additional fields |
+|---|---|
+| `fixture` | `fixture_id_text`, `fixture_id`, `fixture_id_numeric`, `unit_number`, `custom_id`, `custom_id_type`, `patch_address`, `gdtf_mode` |
+| `truss` | `unit_number`, `custom_id`, `custom_id_type`, `gdtf_mode` |
+| `support` | `gdtf_mode` |
+| `scene_object` | `fixture_id_text`, `fixture_id_numeric` |
+| `group` | None |
+
+Applicable fields retain stored zero and empty values; other categories omit
+them. `patch_address` is the stored string, without address parsing or range
+inference. Descriptors do not load GDTFs or derive power or weight values.
+
+## Live discovery
+
+Local-live CLI and MCP expose `scene.summary`, `scene.selection.get`,
+`scene.objects.list`, `scene.object.get`, `scene.layers.list`, and
+`scene.groups.list` through these same Query Core implementations. Object
+lookup takes an explicit `{ "kind": "fixture", "uuid": "…" }` reference.
+Missing or mismatched identities report `scene.object.not_found`. Consumers
+can filter returned structured descriptors themselves; adapters do not own
+scene lookup or filtering rules. `scene.patch.status` remains Core-only because
+live execution does not supply a footprint resolver.
 
 ## Patch diagnostics
 
@@ -61,5 +89,5 @@ surface validation only when it can bind diagnostics to the current project
 revision; it must reuse Inspection Core rather than create another validator.
 
 Query operations never mutate scene or selection state, publish Undo, mark the
-project dirty, or trigger presentation work. Human serialization and CLI,
-Console, IPC, OSC, MCP, and AI adapters remain separate frontend work.
+project dirty, or trigger presentation work. Serialization and frontend
+adaptation remain separate from Query execution.

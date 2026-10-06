@@ -78,19 +78,21 @@ bool SendAll(std::intptr_t socket, const std::string &bytes) {
 }
 
 // Reads one bounded newline-terminated frame.
-bool ReceiveFrame(std::intptr_t socket, std::string &frame) {
+bool ReceiveFrame(std::intptr_t socket, std::string &frame,
+                  std::size_t maximumBytes) {
   frame.clear();
   std::array<char, 4096> buffer{};
-  while (frame.size() <= kMaximumMessageBytes) {
+  while (frame.size() <= maximumBytes) {
     const int count =
         recv(socket, buffer.data(), static_cast<int>(buffer.size()), 0);
     if (count <= 0)
       return false;
+    const auto previousSize = frame.size();
     frame.append(buffer.data(), static_cast<std::size_t>(count));
-    const auto newline = frame.find('\n');
+    const auto newline = frame.find('\n', previousSize);
     if (newline != std::string::npos) {
       frame.resize(newline);
-      return frame.size() <= kMaximumMessageBytes;
+      return frame.size() <= maximumBytes;
     }
   }
   return false;
@@ -175,7 +177,7 @@ void Server::Run() {
     SetSocketTimeout(connection);
     std::string request;
     std::string response;
-    if (ReceiveFrame(connection, request)) {
+    if (ReceiveFrame(connection, request, kMaximumMessageBytes)) {
       try {
         response = handler_(request);
       } catch (...) {
@@ -189,6 +191,14 @@ void Server::Run() {
     } else {
       response =
           R"({"schema_version":1,"ok":false,"error":{"code":"invalid_frame","message":"Request must be one newline-terminated frame of at most 65536 bytes."}})";
+    }
+    if (response.size() > kMaximumResponseBytes) {
+      Request parsedRequest;
+      std::string ignoredError;
+      ParseRequest(request, parsedRequest, ignoredError);
+      response = ErrorResponse(
+          parsedRequest.requestId, "response_too_large",
+          "The local live response exceeds the maximum response frame size.");
     }
     response.push_back('\n');
     SendAll(connection, response);
@@ -225,7 +235,8 @@ bool Exchange(std::uint16_t port, const std::string &request,
   }
   SetSocketTimeout(socketFd);
   const bool sent = SendAll(socketFd, request + '\n');
-  const bool received = sent && ReceiveFrame(socketFd, response);
+  const bool received =
+      sent && ReceiveFrame(socketFd, response, kMaximumResponseBytes);
   CloseSocket(socketFd);
   if (!received)
     error = sent ? "response_failed" : "request_failed";
