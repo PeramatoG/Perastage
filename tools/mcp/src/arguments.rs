@@ -88,7 +88,7 @@ pub struct SelectionUpdateArgs {
     pub port: Option<u16>,
 }
 
-#[derive(Debug, Deserialize, JsonSchema)]
+#[derive(Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Axis {
     X,
@@ -106,7 +106,7 @@ impl Axis {
     }
 }
 
-#[derive(Debug, Deserialize, JsonSchema)]
+#[derive(Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TransformSpace {
     World,
@@ -144,6 +144,59 @@ pub struct RotationArgs {
     pub space: TransformSpace,
     /// Whether grouped targets rotate as a group.
     pub group: bool,
+    /// Optional loopback live endpoint port.
+    #[serde(default)]
+    pub port: Option<u16>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TransformComponentKind {
+    Position,
+    Rotation,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TransformMode {
+    Absolute,
+    Relative,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TransformComponent {
+    /// Position or rotation component to apply in request order.
+    pub kind: TransformComponentKind,
+    /// Explicit component axis.
+    pub axis: Axis,
+    /// Position in millimetres or rotation in degrees. Must be finite.
+    pub value: f64,
+    /// Absolute component or relative delta.
+    pub mode: TransformMode,
+    /// World or object-local axes; local axes affect relative operations.
+    pub space: TransformSpace,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TransformTarget {
+    /// Explicit transformable kind. Children are never promoted to a group.
+    pub kind: ObjectKind,
+    /// Stable UUID from live_objects_list or live_groups_list.
+    #[schemars(length(min = 1))]
+    pub uuid: String,
+    /// Non-empty ordered components for this exact target.
+    #[schemars(length(min = 1))]
+    pub components: Vec<TransformComponent>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct BatchTransformArgs {
+    /// Non-empty ordered targets. Repeated UUIDs retain request order.
+    #[schemars(length(min = 1))]
+    pub targets: Vec<TransformTarget>,
     /// Optional loopback live endpoint port.
     #[serde(default)]
     pub port: Option<u16>,

@@ -45,6 +45,7 @@ CAPABILITY_IDS = [
     "scene.selection.get",
     "scene.selection.update",
     "scene.summary",
+    "scene.transform.batch",
     "scene.transform.position",
     "scene.transform.rotation",
 ]
@@ -87,6 +88,29 @@ def check_capabilities(binary: str) -> None:
     operation_ids = [operation.get("operation_id") for operation in operations]
     if operation_ids != CAPABILITY_IDS or operation_ids != sorted(operation_ids):
         raise AssertionError(f"unexpected capability inventory: {operation_ids!r}")
+    batch = operations[operation_ids.index("scene.transform.batch")]
+    if batch.get("kind") != "command" or batch.get("effect") != "mutating":
+        raise AssertionError("batch transforms must be a mutating Command")
+    batch_arguments = [
+        (argument.get("id"), argument.get("type"), argument.get("required"))
+        for argument in batch.get("arguments", [])
+    ]
+    expected_batch_arguments = [
+        ("target_kinds", "string_list", True),
+        ("target_uuids", "string_list", True),
+        ("component_kinds", "string_list", True),
+        ("axes", "string_list", True),
+        ("values", "float64_list", True),
+        ("modes", "string_list", True),
+        ("spaces", "string_list", True),
+    ]
+    if batch_arguments != expected_batch_arguments:
+        raise AssertionError(f"unexpected batch argument contract: {batch_arguments!r}")
+    if batch.get("frontend_exposure") != [
+        {"id": "local_live_cli", "state": "full"},
+        {"id": "mcp", "state": "full"},
+    ]:
+        raise AssertionError("batch CLI/MCP exposure is not truthful")
     executable = {
         "scene.selection.clear": "full",
         "scene.selection.update": "partial",

@@ -1,10 +1,12 @@
 #include "live/live_request_executor.h"
 
 #include "command/command_json_serializer.h"
+#include "command/command_operation_ids.h"
 #include "command/command_text_processor.h"
 #include "json.hpp"
 #include "live/live_query_adapter.h"
 #include "live/live_selection_adapter.h"
+#include "live/live_transform_batch_adapter.h"
 #include "local_ipc/local_ipc_contract.h"
 
 namespace perastage::live {
@@ -23,8 +25,16 @@ ExecutionResult ExecuteRequest(
 
   if (request.operation == "query")
     return ExecuteQuery(request, context);
-  if (request.operation == "execute")
-    return ExecuteSelectionUpdate(request, context);
+  if (request.operation == "execute") {
+    if (request.value == command::selection::kUpdateCommandId)
+      return ExecuteSelectionUpdate(request, context);
+    if (request.value == command::transform::kBatchCommandId)
+      return ExecuteTransformBatch(request, context);
+    return {local_ipc::ErrorResponse(
+                request.requestId, "unsupported_operation",
+                "The requested semantic command is not exposed by local live IPC."),
+            {}};
+  }
   if (request.operation != "command")
     return {local_ipc::ErrorResponse(
                 request.requestId, "unsupported_operation",

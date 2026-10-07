@@ -1,6 +1,6 @@
 use crate::arguments::{
-    InspectionArgs, LiveArgs, ObjectGetArgs, PositionArgs, RotationArgs, SelectionObjectKind,
-    SelectionOperationKind, SelectionUpdateArgs, TransformSpace,
+    BatchTransformArgs, InspectionArgs, LiveArgs, ObjectGetArgs, PositionArgs, RotationArgs,
+    SelectionObjectKind, SelectionOperationKind, SelectionUpdateArgs, TransformSpace,
 };
 use crate::backend::{CliBackend, args};
 use rmcp::handler::server::wrapper::Parameters;
@@ -125,6 +125,7 @@ mod tests {
                 "discover_capabilities",
                 "inspect_gdtf",
                 "inspect_mvr",
+                "live_batch_transform",
                 "live_current_selection",
                 "live_groups_list",
                 "live_layers_list",
@@ -150,7 +151,9 @@ mod tests {
                 | "live_scene_summary" => (true, false, true),
                 "live_selection_update" => (false, false, true),
                 "live_selection_clear" => (false, true, true),
-                "live_position_transform" | "live_rotation_transform" => (false, true, false),
+                "live_batch_transform" | "live_position_transform" | "live_rotation_transform" => {
+                    (false, true, false)
+                }
                 unexpected => panic!("unexpected MCP tool: {unexpected}"),
             };
             assert_eq!(
@@ -289,6 +292,10 @@ fn require_uuid(uuid: &str) -> Result<(), McpError> {
 #[cfg(test)]
 #[path = "server_live_tests.rs"]
 mod live_tests;
+
+#[cfg(test)]
+#[path = "server_batch_tests.rs"]
+mod batch_tests;
 
 fn transform_command(
     keyword: &str,
@@ -544,6 +551,23 @@ impl PerastageMcp {
             input.group,
         )?;
         self.live("command", &command, input.port)
+    }
+
+    #[tool(
+        description = "Apply ordered position (millimetres) and rotation (degrees) components to exact typed UUID targets as one atomic scene mutation. Repeated targets retain request order. Children are never promoted to a group; explicit groups synchronize their descendants. The current selection is preserved. Every target requires components with an explicit kind, axis, value, mode, and space. Local space affects relative operations. Invalid batches apply nothing; successful changes create one Undo entry, and semantic no-ops create none.",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = true,
+            idempotent_hint = false,
+            open_world_hint = false
+        )
+    )]
+    fn live_batch_transform(
+        &self,
+        Parameters(input): Parameters<BatchTransformArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let request = crate::batch_transform::flatten(&input)?;
+        self.live_structured("execute", "scene.transform.batch", request, input.port)
     }
 
     #[tool(

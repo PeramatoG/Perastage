@@ -127,6 +127,10 @@ target_include_directories(perastage_command_core PUBLIC
 
 add_library(perastage_command_transform STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/command/command_transform.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/command/command_transform_apply.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/command/command_transform_batch.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/command/command_transform_batch_validation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/command/command_transform_batch_state.cpp
 )
 
 add_library(perastage_command_selection STATIC
@@ -224,6 +228,7 @@ add_library(perastage_live_request_executor STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/live/live_request_executor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/live/live_query_adapter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/live/live_selection_adapter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/live/live_transform_batch_adapter.cpp
 )
 target_compile_features(perastage_live_request_executor PUBLIC cxx_std_20)
 target_include_directories(perastage_live_request_executor
@@ -236,6 +241,7 @@ target_link_libraries(perastage_live_request_executor PUBLIC
     perastage_command_serialization
     perastage_command_text_processor
     perastage_command_selection
+    perastage_command_transform
 )
 
 file(READ "${CMAKE_SOURCE_DIR}/resources/standards/gdtf/1.2/gdtf.xsd"

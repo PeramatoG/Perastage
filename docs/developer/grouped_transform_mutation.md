@@ -9,6 +9,9 @@ placement and stores a local matrix for MVR hierarchy persistence.
   exact-world mutation boundary.
 - Primitive SceneObject placement and object-level scale changes use the same
   exact-world boundary; geometry-entry scale remains geometry-local.
+- `scene.transform.batch` resolves every declared kind/UUID exactly, without
+  interactive child promotion. Explicit GroupObject components reuse the same
+  descendant synchronization boundary and retain ordered child/group updates.
 - Fixture-to-Support conversion preserves UUID, world/local transforms, parent
   metadata, and changes the existing GroupObject child-reference type.
 - Table deletion uses the typed core removal service, removes parent child

@@ -108,6 +108,7 @@ std::vector<ExpectedArgument> TransformArguments(std::string_view valueSuffix,
 // Verifies the exact current Command and Query inventory.
 void CheckInventory() {
   const std::set<std::string_view> expected = {
+      command::transform::kBatchCommandId,
       command::transform::kPositionCommandId,
       command::transform::kRotationCommandId,
       command::selection::kUpdateCommandId,
@@ -301,6 +302,33 @@ void CheckDescriptorFidelity() {
   const std::vector<FrontendExposure> liveFull = {
       {"local_live_cli", ExposureState::Full},
       {"mcp", ExposureState::Full}};
+  CheckDescriptor(command::transform::kBatchCommandId, OperationKind::Command,
+                  Effect::Mutating,
+                  {{"target_kinds", ArgumentType::StringList, true},
+                   {"target_uuids", ArgumentType::StringList, true},
+                   {"component_kinds", ArgumentType::StringList, true},
+                   {"axes", ArgumentType::StringList, true},
+                   {"values", ArgumentType::Float64List, true},
+                   {"modes", ArgumentType::StringList, true},
+                   {"spaces", ArgumentType::StringList, true}},
+                  liveFull);
+  command::Request batch{command::transform::kBatchCommandId,
+                         {{"target_kinds", std::vector<std::string>{"fixture"}},
+                          {"target_uuids", std::vector<std::string>{"fixture-a"}},
+                          {"component_kinds", std::vector<std::string>{"position"}},
+                          {"axes", std::vector<std::string>{"x"}},
+                          {"values", std::vector<double>{1000.0}},
+                          {"modes", std::vector<std::string>{"absolute"}},
+                          {"spaces", std::vector<std::string>{"world"}}}};
+  CheckRequest(batch);
+  auto missingBatchValues = batch;
+  missingBatchValues.arguments.erase(missingBatchValues.arguments.begin() + 4);
+  CheckSingleIssue(missingBatchValues,
+                   capability::RequestShapeIssueKind::MissingArgument, "values");
+  auto wrongBatchValues = batch;
+  wrongBatchValues.arguments[4].value = std::vector<std::int64_t>{1000};
+  CheckSingleIssue(wrongBatchValues, capability::RequestShapeIssueKind::WrongType,
+                   "values");
   for (std::string_view id : {query::kGroupsQueryId, query::kLayersQueryId,
                               query::kObjectsQueryId})
     CheckDescriptor(id, OperationKind::Query, Effect::ReadOnly, {}, liveFull);
@@ -332,6 +360,7 @@ void CheckDescriptorFidelity() {
             descriptor.operationId == command::transform::kRotationCommandId);
       if (frontend.frontendId == "mcp")
         assert(
+            descriptor.operationId == command::transform::kBatchCommandId ||
             descriptor.operationId == command::selection::kClearCommandId ||
             descriptor.operationId == command::selection::kUpdateCommandId ||
             descriptor.operationId == command::transform::kPositionCommandId ||

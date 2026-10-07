@@ -4,6 +4,7 @@ namespace perastage::command::transform {
 
 inline constexpr char kPositionCommandId[] = "scene.transform.position";
 inline constexpr char kRotationCommandId[] = "scene.transform.rotation";
+inline constexpr char kBatchCommandId[] = "scene.transform.batch";
 
 } // namespace perastage::command::transform
 

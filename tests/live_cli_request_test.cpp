@@ -72,6 +72,18 @@ int main() {
                {{"schema_version", 1}, {"request_id", "cli-1"},
                 {"operation", "execute"}, {"value", "scene.selection.update"},
                 {"arguments", arguments}}, requests, mutex);
+  const Json batchArguments = {
+      {"target_kinds", {"fixture", "support"}},
+      {"target_uuids", {"fixture-a; clear $(printf ignored)", "support-a"}},
+      {"component_kinds", {"position", "rotation"}},
+      {"axes", {"x", "z"}}, {"values", {1250, 45.5}},
+      {"modes", {"absolute", "relative"}}, {"spaces", {"world", "local"}}};
+  const std::string batchText = batchArguments.dump();
+  CheckRequest({"execute", "scene.transform.batch", "--args", batchText,
+                "--port", port},
+               {{"schema_version", 1}, {"request_id", "cli-1"},
+                {"operation", "execute"}, {"value", "scene.transform.batch"},
+                {"arguments", batchArguments}}, requests, mutex);
   CheckRequest({"execute", "test.failure", "--args", "{}", "--port", port},
                {{"schema_version", 1}, {"request_id", "cli-1"},
                 {"operation", "execute"}, {"value", "test.failure"},
@@ -87,6 +99,7 @@ int main() {
   }
   for (const auto &args : std::vector<std::vector<std::string_view>>{
            {"execute"}, {"execute", "scene.selection.update", "--args"},
+           {"execute", "scene.transform.batch", "--port", port},
            {"query", "scene.object.get", "--args", "[1,2]", "--port", port},
            {"query", "scene.object.get", "--args", "null", "--port", port},
            {"query", "scene.object.get", "--args", "{bad}", "--port", port},

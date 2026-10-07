@@ -60,6 +60,13 @@ ranges, multi-axis requests, or explicit rotation pivots. MVR/GDTF inspection
 tools are process-level Inspection API adapters and are not Command or Query
 catalog entries.
 
+`scene.transform.batch` is mutating and `full` for `local_live_cli` and `mcp`.
+Its seven required aligned lists describe ordered exact UUID targets and
+position/rotation components. Each list is a `string_list`, except `values`,
+which is a `float64_list` in millimeters or degrees. Batch execution validates
+identity, alignment, modes, spaces, and finite values in the Command owner;
+discovery continues to validate only the generic request shape.
+
 The `scene.object.get` metadata names its existing typed C++ object reference as
 `object_kind` and `object_uuid`. The CLI and MCP lookup syntax projects those
 roles to `kind` and `uuid` in the live arguments object. Patch footprint

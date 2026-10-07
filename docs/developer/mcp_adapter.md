@@ -32,13 +32,41 @@ dirty-state handling, and GUI refresh behavior.
 | `live_selection_clear` | Mutating | `live command clear` |
 | `live_position_transform` | Mutating | Typed single-axis millimetre values translated to `pos` syntax |
 | `live_rotation_transform` | Mutating | Typed single-axis degree values translated to `rot` syntax |
+| `live_batch_transform` | Mutating | `live execute scene.transform.batch --args '<aligned typed lists>'` |
 
-Every transform requires an axis, value, relative/absolute choice, world/local
-space, and group choice. The optional port is the only endpoint setting. The
+Selection transforms require an axis, value, relative/absolute choice,
+world/local space, and group choice. Batch transforms require explicit typed
+targets and ordered components. The optional port is the only endpoint setting. The
 adapter does not supply an implicit selection, infer a transform, accept
 free-form Console text, or expose destructive conversion/grouping operations.
 Mutation requests therefore continue through the running application's normal
-live command validation and mutation publication path.
+semantic command validation and mutation publication path.
+
+`live_batch_transform` takes `targets`, an ordered non-empty array of
+`{kind, uuid, components}` entries. Each target's non-empty `components` array
+contains `{kind, axis, value, mode, space}` entries. Target kinds are `fixture`,
+`truss`, `support`, `scene_object`, and `group`; component kinds are `position`
+and `rotation`. Position values are millimetres and rotation values are
+degrees. Every component explicitly chooses an `x`, `y`, or `z` axis, an
+`absolute` or `relative` mode, and `world` or `local` space. Local axes affect
+relative operations; absolute components retain the existing transform
+semantics. Repeated targets and components retain their input order.
+
+The adapter checks non-empty target/component lists and UUIDs, typed enum
+tokens, and finite values. It flattens target components in order into
+`target_kinds`, `target_uuids`, `component_kinds`, `axes`, `values`, `modes`, and
+`spaces`, then passes that JSON as a single argv value to the allowlisted
+`scene.transform.batch` operation. It performs no scene lookup, mutation, or
+layout calculations. Object existence, kind matches, preview execution, and
+atomic publication remain owned by Perastage. The existing selection transform
+tools retain their original mappings and behavior.
+
+An explicit child target is never promoted to its parent or root group. An
+explicit `group` target uses the existing descendant synchronization behavior.
+The batch preserves the current selection. A rejected batch changes nothing;
+a successful scene change creates one Undo entry and publishes once. A
+semantic no-op creates no Undo entry or dirty state. Clients calculate any
+desired layout themselves and submit the resulting coordinates.
 
 Object lookup accepts all Query kinds, including `group`. Typed selection
 update accepts `fixture`, `truss`, `support`, and `scene_object`. Its required

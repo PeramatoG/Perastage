@@ -4,7 +4,9 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 core_cmake="$root/core/CMakeLists.txt"
 files=("$root/core/command/command_transform.h"
-       "$root/core/command/command_transform.cpp")
+       "$root/core/command/command_transform.cpp"
+       "$root"/core/command/command_transform_apply.{h,cpp}
+       "$root"/core/command/command_transform_batch*.{h,cpp})
 
 if rg -ni '#include .*?(gui/|app/|configmanager|mainwindow|viewer|tablepanel|command_text_parser)' "${files[@]}"; then
   echo "Semantic transforms must remain independent of frontends and application state." >&2
@@ -36,7 +38,7 @@ if [[ -z "$transform_configuration" ]]; then
   echo "The focused semantic transform production target is missing." >&2
   exit 1
 fi
-if rg -ni '(wxwidgets|(^|[^a-z])wx([^a-z]|$)|gui|app|mainwindow|configmanager|tablepanel|viewer2d|viewer3d|console|command_text_parser)' \
+if rg -ni '(wxwidgets|(^|[^a-z])wx([^a-z]|$)|gui|(^|[^a-z])app([^a-z]|$)|mainwindow|configmanager|tablepanel|viewer2d|viewer3d|console|command_text_parser)' \
     <<<"$transform_configuration"; then
   echo "Semantic transform target has a forbidden frontend, application, or text-parser dependency." >&2
   exit 1
@@ -67,6 +69,18 @@ command_test_configuration="$(awk '
 if rg -n '(command_transform(_text_adapter)?\.cpp|\.\./(core|models)/.*\.cpp)' \
     <<<"$command_test_configuration"; then
   echo "CommandTransform must link production targets instead of recompiling production sources." >&2
+  exit 1
+fi
+
+batch_test_configuration="$(awk '
+  /add_executable\(command_transform_batch_test([[:space:])]|$)/ { capture = 1 }
+  capture { print }
+  capture && /set_perastage_test_labels\(CommandTransformBatch/ { labels = 1 }
+  labels && /\)[[:space:]]*$/ { exit }
+' "$root/tests/CMakeLists.txt")"
+if ! rg -q 'perastage_command_transform' <<<"$batch_test_configuration" ||
+   rg -n '\.\./(core|models)/.*\.cpp' <<<"$batch_test_configuration"; then
+  echo "CommandTransformBatch must link the shared production transform target." >&2
   exit 1
 fi
 

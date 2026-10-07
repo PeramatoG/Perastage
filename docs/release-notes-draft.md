@@ -6,6 +6,12 @@ Changes since **v1.6.0**.
 
 ## New features and workflow improvements
 
+- Added targeted batch position and rotation transforms through the local live
+  CLI and the `live_batch_transform` MCP tool. Clients can update explicit
+  fixtures, trusses, supports, scene objects, and groups in one atomic Undo
+  step while preserving their selection. Invalid batches apply nothing, and
+  batches that leave the scene unchanged create no Undo or dirty state.
+
 - Added a local stdio MCP server for capability discovery, structured MVR/GDTF
   inspection, live scene and selection queries, selection clearing, and
   explicit position or rotation changes. It reuses the existing command-line
