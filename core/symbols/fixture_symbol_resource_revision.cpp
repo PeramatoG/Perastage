@@ -57,8 +57,9 @@ std::string NormalizeGdtfEntryPath(std::string path) {
 bool IsSymbolRelevantGdtfEntry(const std::string &path) {
   if (path == "description.xml")
     return true;
-  constexpr std::array<const char *, 10> prefixes = {
+  constexpr std::array<const char *, 12> prefixes = {
       "models/svg/",      "models/svg_front/", "models/svg_side/",
+      "models/svg_bottom/", "perastage/symbols/",
       "models/gltf_low/", "models/gltf/",      "models/gltf_high/",
       "models/glb/",      "models/3ds_low/",   "models/3ds/",
       "models/3ds_high/"};

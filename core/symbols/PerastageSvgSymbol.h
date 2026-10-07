@@ -1,10 +1,9 @@
 #pragma once
 
-#include <array>
 #include <string>
 #include <vector>
 
-#include "symbolcache.h"
+#include "fixture_symbol_resource_contract.h"
 
 struct PerastageSvgPoint {
   double x = 0.0;
@@ -23,6 +22,9 @@ struct PerastageSvgPolygon {
 struct PerastageSvgSymbolData {
   std::string sourcePath;
   SymbolViewKind viewKind = SymbolViewKind::Top;
+  FixtureSymbolProvenance provenance = FixtureSymbolProvenance::None;
+  FixtureSymbolResourceSet resourceSet = FixtureSymbolResourceSet::StandardGdtf;
+  bool usedViewFallback = false;
   double viewBoxWidth = 0.0;
   double viewBoxHeight = 0.0;
   double offsetXmm = 0.0;
@@ -36,23 +38,7 @@ struct PerastageSvgSymbolData {
   }
 };
 
-struct RequiredFixtureSvgViewInspection {
-  SymbolViewKind viewKind = SymbolViewKind::Top;
-  std::string archivePath;
-  bool usable = false;
-  std::string diagnostic;
-};
-
-struct RequiredFixtureSvgSetInspection {
-  std::array<RequiredFixtureSvgViewInspection, 4> views;
-  bool usable = false;
-  std::string diagnostic;
-};
-
 bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
                                     SymbolViewKind requestedView,
                                     PerastageSvgSymbolData &out,
                                     std::string *errorDetails = nullptr);
-
-bool InspectRequiredFixtureSvgSet(const std::string &gdtfPath,
-                                  RequiredFixtureSvgSetInspection &inspection);

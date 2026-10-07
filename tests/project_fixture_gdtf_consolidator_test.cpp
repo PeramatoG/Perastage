@@ -2,7 +2,9 @@
 
 #include "gdtf_test_fixture_builder.h"
 #include "mvrscene.h"
+#include "symbols/fixture_symbol_resource_contract.h"
 
+#include <array>
 #include <cassert>
 #include <filesystem>
 #include <string>
@@ -104,8 +106,144 @@ static void VerifyFingerprintAndConsolidation() {
   fs::remove_all(root);
 }
 
+// Keeps authored standard SVGs authoritative, regardless of conventional names.
+static void VerifyResourceOwnershipFingerprinting() {
+  const fs::path root = fs::temp_directory_path() /
+                        "perastage-project-gdtf-resource-ownership-test";
+  fs::remove_all(root);
+  fs::create_directories(root);
+  const std::string authoredSvg =
+      "<svg viewBox=\"0 0 10 10\"><polygon points=\"0,0 10,0 10,10\"/></svg>";
+  const std::string changedSvg =
+      "<svg viewBox=\"0 0 10 10\"><polygon points=\"0,0 8,0 8,10\"/></svg>";
+  const std::string generatedSvg =
+      "<svg data-perastage-symbol-version=\"1\" viewBox=\"0 0 10 10\">"
+      "<polygon points=\"0,0 10,0 10,10\"/></svg>";
+  const std::string changedGeneratedSvg =
+      "<svg data-perastage-symbol-version=\"1\" viewBox=\"0 0 10 10\">"
+      "<polygon points=\"0,0 8,0 8,10\"/></svg>";
+  const std::array<std::string, 3> standardPaths = {
+      "models/svg/base.svg", "models/svg_side/base.svg",
+      "models/svg_front/base.svg"};
+  const std::array<std::string, 4> internalPaths = {
+      "perastage/symbols/base/top.svg", "perastage/symbols/base/side.svg",
+      "perastage/symbols/base/front.svg", "perastage/symbols/base/bottom.svg"};
+  const auto writeAuthored = [&](const fs::path &path, int changedView,
+                                 bool legacyBottom, int internalVariant = 0) {
+    auto builder = tests::gdtf::BuildMinimalValidFixture();
+    builder.WithModelResource("base");
+    for (std::size_t index = 0; index < standardPaths.size(); ++index)
+      builder.WithArchiveEntry(standardPaths[index],
+                               static_cast<int>(index) == changedView
+                                   ? changedSvg : authoredSvg);
+    if (legacyBottom)
+      builder.WithArchiveEntry("models/svg/base_bottom.svg", authoredSvg);
+    if (internalVariant) {
+      for (const std::string &internalPath : internalPaths)
+        builder.WithArchiveEntry(internalPath, internalVariant == 1
+                                                  ? generatedSvg
+                                                  : changedGeneratedSvg);
+    }
+    builder.WriteArchive(path);
+  };
+  const fs::path authored = root / "Authored@Perastage.gdtf";
+  const fs::path authoredBottom = root / "AuthoredBottom@Perastage.gdtf";
+  const fs::path authoredWithInternal = root / "AuthoredInternal.gdtf";
+  const fs::path authoredChangedInternal = root / "AuthoredChangedInternal.gdtf";
+  writeAuthored(authored, -1, false);
+  writeAuthored(authoredBottom, -1, true);
+  writeAuthored(authoredWithInternal, -1, false, 1);
+  writeAuthored(authoredChangedInternal, -1, false, 2);
+  std::string error;
+  const std::string authoredFingerprint =
+      project_gdtf::ComputeBaseGdtfFingerprint(authored.string(), error);
+  assert(!authoredFingerprint.empty());
+  assert(authoredFingerprint == project_gdtf::ComputeBaseGdtfFingerprint(
+                                    authoredBottom.string(), error));
+  assert(authoredFingerprint == project_gdtf::ComputeBaseGdtfFingerprint(
+                                    authoredWithInternal.string(), error));
+  assert(authoredFingerprint == project_gdtf::ComputeBaseGdtfFingerprint(
+                                    authoredChangedInternal.string(), error));
+  MvrScene authoredVariants;
+  authoredVariants.basePath = root.string();
+  authoredVariants.fixtures.emplace(
+      "original", BuildFixture("original", authored.filename().string()));
+  for (std::size_t index = 0; index < standardPaths.size(); ++index) {
+    const fs::path variant = root / ("Changed@Perastage_" +
+                                    std::to_string(index) + ".gdtf");
+    writeAuthored(variant, static_cast<int>(index), false, 1);
+    assert(authoredFingerprint != project_gdtf::ComputeBaseGdtfFingerprint(
+                                      variant.string(), error));
+    const std::string uuid = "variant-" + std::to_string(index);
+    authoredVariants.fixtures.emplace(
+        uuid, BuildFixture(uuid, variant.filename().string()));
+  }
+  assert(project_gdtf::BuildConsolidationPlan(authoredVariants).groups.empty());
+
+  const fs::path noSymbols = root / "NoSymbols.gdtf";
+  const fs::path generated = root / "Generated.gdtf";
+  tests::gdtf::BuildMinimalValidFixture()
+      .WithModelResource("base")
+      .WriteArchive(noSymbols);
+  auto generatedBuilder = tests::gdtf::BuildMinimalValidFixture();
+  generatedBuilder.WithModelResource("base");
+  for (const std::string &path : internalPaths)
+    generatedBuilder.WithArchiveEntry(path, generatedSvg);
+  generatedBuilder.WriteArchive(generated);
+  assert(project_gdtf::ComputeBaseGdtfFingerprint(noSymbols.string(), error) ==
+         project_gdtf::ComputeBaseGdtfFingerprint(generated.string(), error));
+
+  // New internal resources must not hide legacy alternatives from the digest.
+  const fs::path legacy = root / "Legacy.gdtf";
+  const fs::path legacyAndInternal = root / "LegacyAndInternal.gdtf";
+  auto legacyBuilder = tests::gdtf::BuildMinimalValidFixture();
+  legacyBuilder.WithModelResource("base");
+  for (const std::string &path : standardPaths)
+    legacyBuilder.WithArchiveEntry(path, generatedSvg);
+  legacyBuilder.WithArchiveEntry("models/svg/base_bottom.svg", generatedSvg);
+  legacyBuilder.WriteArchive(legacy);
+  for (const std::string &path : internalPaths)
+    legacyBuilder.WithArchiveEntry(path, changedGeneratedSvg);
+  legacyBuilder.WithArchiveEntry("models/svg_bottom/base.svg", generatedSvg);
+  legacyBuilder.WriteArchive(legacyAndInternal);
+  FixtureSymbolResourceInspection legacyResources;
+  assert(InspectFixtureSymbolResources(legacyAndInternal.string(), legacyResources));
+  assert(legacyResources.perastageViewsUsable);
+  assert(!legacyResources.standardViewsUsable);
+  assert(legacyResources.perastageResources.size() == 9);
+  assert(project_gdtf::ComputeBaseGdtfFingerprint(legacy.string(), error) ==
+         project_gdtf::ComputeBaseGdtfFingerprint(legacyAndInternal.string(), error));
+
+  // Generated standard resources remain significant despite their provenance.
+  const fs::path generatedStandard = root / "GeneratedStandard.gdtf";
+  const fs::path changedGeneratedStandard = root / "ChangedGeneratedStandard.gdtf";
+  const auto writeGeneratedStandard = [&](const fs::path &path, bool changed) {
+    auto builder = tests::gdtf::BuildMinimalValidFixture();
+    builder.WithModelResource("base");
+    for (std::size_t index = 0; index < standardPaths.size(); ++index) {
+      std::string svg = changed && index == 0 ? changedGeneratedSvg : generatedSvg;
+      svg.insert(4, " data-perastage-resource-set=\"standard-gdtf\"");
+      builder.WithArchiveEntry(standardPaths[index], svg);
+    }
+    for (const std::string &internalPath : internalPaths)
+      builder.WithArchiveEntry(internalPath, generatedSvg);
+    builder.WriteArchive(path);
+  };
+  writeGeneratedStandard(generatedStandard, false);
+  writeGeneratedStandard(changedGeneratedStandard, true);
+  const auto standardFingerprint = project_gdtf::ComputeBaseGdtfFingerprint(
+      generatedStandard.string(), error);
+  assert(!standardFingerprint.empty());
+  assert(standardFingerprint != project_gdtf::ComputeBaseGdtfFingerprint(
+                                    noSymbols.string(), error));
+  assert(standardFingerprint != project_gdtf::ComputeBaseGdtfFingerprint(
+                                    changedGeneratedStandard.string(), error));
+  fs::remove_all(root);
+}
+
 // Runs GUI-independent project GDTF consolidation coverage.
 int main() {
   VerifyFingerprintAndConsolidation();
+  VerifyResourceOwnershipFingerprinting();
   return 0;
 }

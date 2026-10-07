@@ -7,16 +7,7 @@
 #include <unordered_map>
 
 #include "canvas2d.h"
-
-// Describes the orientation used when capturing or instancing a 2D symbol.
-enum class SymbolViewKind {
-  Top,
-  Bottom,
-  Left,
-  Right,
-  Front,
-  Back,
-};
+#include "symbols/symbol_view_kind.h"
 
 struct SymbolPoint {
   float x = 0.0f;

@@ -16,7 +16,9 @@ InspectFixtureSymbolSource(const std::string &physicalGdtfPath,
       symbol_cache::InspectFixtureSymbolAvailability(physicalGdtfPath);
   if (availability.storedSvgUsable) {
     return {FixtureSymbolSource::StoredGdtfSvg, true, false,
-            "The GDTF contains a complete usable stored SVG set."};
+            availability.resources.standardViewsUsable
+                ? "The GDTF contains usable standard Top, Side and Front SVG views."
+                : "The GDTF contains a complete usable internal Perastage SVG set."};
   }
 
   std::vector<GdtfObject> objects;

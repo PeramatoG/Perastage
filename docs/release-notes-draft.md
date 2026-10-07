@@ -71,6 +71,10 @@ Changes since **v1.6.0**.
 
 ## Compatibility, stability, and performance
 
+- Preserved manufacturer-authored GDTF Top, Side, and Front SVG resources when
+  saving generated fixture symbols. Perastage symbols now use a separate archive
+  namespace, and standard SVG availability no longer requires a Bottom view.
+
 - Restored broad Linux AppImage compatibility by building and validating the
   complete package against Ubuntu 22.04, glibc 2.35, and GCC 11, with a
   packaged-application startup check before release. The fixed ABI audit now

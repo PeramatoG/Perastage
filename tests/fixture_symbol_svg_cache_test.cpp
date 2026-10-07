@@ -1,10 +1,13 @@
 #include "symbols/fixture_symbol_svg_cache.h"
+#include "symbols/fixture_symbol_resource_revision.h"
 
 #include <cassert>
+#include <array>
 #include <filesystem>
 #include <fstream>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace {
 
@@ -92,6 +95,84 @@ void TestStructuredKeysAndSafeHandles() {
   assert(cache.GetStats().entries == 0);
   std::filesystem::remove_all(temp);
 }
+
+// Verifies provenance changes invalidate generation identity even when the
+// parsed SVG geometry remains identical.
+void TestSymbolProvenanceSemanticFingerprint() {
+  const auto entry = [](const std::string &path, const std::string &content) {
+    return symbol_cache::GdtfSemanticFingerprintEntry{
+        path, {content.begin(), content.end()}};
+  };
+  const std::string authored =
+      "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\">"
+      "<polygon points=\"0,0 10,0 10,10\"/></svg>";
+  const std::string generated =
+      "<svg xmlns=\"http://www.w3.org/2000/svg\" "
+      "data-perastage-symbol-version=\"1\" viewBox=\"0 0 10 10\">"
+      "<polygon points=\"0,0 10,0 10,10\"/></svg>";
+  std::vector<symbol_cache::GdtfSemanticFingerprintEntry> entries = {
+      entry("description.xml", "<GDTF><FixtureType/></GDTF>"),
+      entry("models/svg/base.svg", authored),
+      entry("models/svg_side/base.svg", authored),
+      entry("models/svg_front/base.svg", authored)};
+  std::string error;
+  const auto standard =
+      symbol_cache::ComputeGdtfSemanticFingerprintFromEntries(entries, error);
+  assert(!standard.empty() && error.empty());
+  for (std::size_t i = 1; i < entries.size(); ++i) {
+    entries[i].bytes.assign(generated.begin(), generated.end());
+    const auto marked =
+        symbol_cache::ComputeGdtfSemanticFingerprintFromEntries(entries, error);
+    assert(!marked.empty() && error.empty() && marked != standard);
+    entries[i].bytes.assign(authored.begin(), authored.end());
+  }
+  entries.push_back(entry("models/svg/base_bottom.svg", authored));
+  const auto withLegacyBottom =
+      symbol_cache::ComputeGdtfSemanticFingerprintFromEntries(entries, error);
+  assert(!withLegacyBottom.empty() && error.empty() &&
+         withLegacyBottom != standard);
+  entries.back().bytes.assign(generated.begin(), generated.end());
+  const auto withGeneratedBottom =
+      symbol_cache::ComputeGdtfSemanticFingerprintFromEntries(entries, error);
+  assert(!withGeneratedBottom.empty() && error.empty() &&
+         withGeneratedBottom != withLegacyBottom);
+  entries.back() = entry("models/svg_bottom/base.svg", authored);
+  const auto withLegacyBottomDirectory =
+      symbol_cache::ComputeGdtfSemanticFingerprintFromEntries(entries, error);
+  assert(!withLegacyBottomDirectory.empty() && error.empty() &&
+         withLegacyBottomDirectory != standard);
+  entries.back().bytes.assign(generated.begin(), generated.end());
+  const auto withMarkedBottomDirectory =
+      symbol_cache::ComputeGdtfSemanticFingerprintFromEntries(entries, error);
+  assert(!withMarkedBottomDirectory.empty() && error.empty() &&
+         withMarkedBottomDirectory != withLegacyBottomDirectory);
+
+  entries.pop_back();
+  constexpr std::array<const char *, 4> internalViews = {
+      "top", "side", "front", "bottom"};
+  for (const char *view : internalViews) {
+    entries.push_back(entry(std::string("perastage/symbols/base/") + view +
+                                ".svg",
+                            authored));
+    const auto internal =
+        symbol_cache::ComputeGdtfSemanticFingerprintFromEntries(entries, error);
+    assert(!internal.empty() && error.empty() && internal != standard);
+    entries.back().bytes.assign(generated.begin(), generated.end());
+    const auto markedInternal =
+        symbol_cache::ComputeGdtfSemanticFingerprintFromEntries(entries, error);
+    assert(!markedInternal.empty() && error.empty() &&
+           markedInternal != internal);
+    std::string changedContent = generated;
+    changedContent.insert(changedContent.find("viewBox"),
+                          "data-perastage-offset-x-mm=\"23\" ");
+    entries.back().bytes.assign(changedContent.begin(), changedContent.end());
+    const auto changedInternal =
+        symbol_cache::ComputeGdtfSemanticFingerprintFromEntries(entries, error);
+    assert(!changedInternal.empty() && error.empty() &&
+           changedInternal != markedInternal);
+    entries.pop_back();
+  }
+}
 } // namespace
 
 // Supplies the production loader symbol while focused tests inject their
@@ -105,5 +186,6 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &, SymbolViewKind,
 int main() {
   TestMissMutationAndInvalidation();
   TestStructuredKeysAndSafeHandles();
+  TestSymbolProvenanceSemanticFingerprint();
   return 0;
 }

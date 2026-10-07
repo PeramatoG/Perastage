@@ -9,6 +9,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -26,6 +27,8 @@
 #include "../core/gdtfdictionary.h"
 #include "../core/gdtf_mutation_audit.h"
 #include "../core/symbols/fixture_symbol_resource_revision.h"
+#include "../core/symbols/fixture_symbol_resource_contract.h"
+#include "../core/symbols/PerastageSvgSymbol.h"
 #include "../core/symbols/Symbol2D.h"
 #include "../core/wx_path_utils.h"
 #include "../gui/windows/symbol_fixture_applier.h"
@@ -52,6 +55,7 @@ std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
 
 struct ArchiveSnapshot {
   std::unordered_set<std::string> entries;
+  std::unordered_map<std::string, std::string> contents;
   std::string descriptionXml;
 };
 
@@ -70,8 +74,9 @@ ArchiveSnapshot ReadArchiveSnapshot(const fs::path &archivePath) {
         entry->GetName().ToStdString());
     assert(logicalName.ok);
     snapshot.entries.insert(logicalName.path);
+    snapshot.contents[logicalName.path] = ReadCurrentZipEntry(zip);
     if (logicalName.path == "description.xml")
-      snapshot.descriptionXml = ReadCurrentZipEntry(zip);
+      snapshot.descriptionXml = snapshot.contents.at(logicalName.path);
   }
   return snapshot;
 }
@@ -94,7 +99,7 @@ std::size_t CountSymbolMutationRevisions(const fs::path &archivePath) {
        revision; revision = revision->NextSiblingElement("Revision")) {
     const char *text = revision->Attribute("Text");
     if (text && std::string(text) ==
-                    "Applied fixture SVG symbol views (top, side, front, bottom)")
+                    "Applied Perastage fixture SVG symbol views (top, side, front, bottom)")
       ++count;
   }
   return count;
@@ -140,6 +145,43 @@ std::string MakeFixtureGdtfFromFixtureTypeXml(const std::string &fixtureTypeXml,
   zipOut.Close();
 
   return outPath;
+}
+
+// Writes authored standard views and model offsets without a Bottom extension.
+void MakeAuthoredPartialFixture(const fs::path &archivePath, bool usableTop) {
+  auto builder = tests::gdtf::BuildMinimalValidFixture();
+  builder.WithFixtureIdentity(usableTop ? "AuthoredPartial" : "InvalidAuthored",
+                              "Manufacturer",
+                              tests::gdtf::FixtureBuilder::kMinimalFixtureTypeId)
+      .WithModelResource("base");
+  std::string xml = builder.BuildDescriptionXml();
+  const std::string modelStart = "<Model Name=\"Body\"";
+  xml.insert(xml.find(modelStart) + modelStart.size(),
+             " SVGOffsetX=\"11\" SVGOffsetY=\"12\""
+             " SVGSideOffsetX=\"13\" SVGSideOffsetY=\"14\"");
+  const std::string svg =
+      "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 23 29\">"
+      "<polygon points=\"1,2 21,2 21,27\"/></svg>";
+  wxFileOutputStream output(WxPathUtils::WxStringFromFilesystemPath(archivePath));
+  assert(output.IsOk());
+  wxZipOutputStream zip(output);
+  const std::vector<std::pair<std::string, std::string>> entries = {
+      {"description.xml", xml},
+      {"models/svg/base.svg", usableTop ? svg : "<svg viewBox=\"0 0 23 29\"/>"},
+      {"models/svg_side/base.svg", svg}};
+  for (const auto &[path, bytes] : entries) {
+    zip.PutNextEntry(wxString::FromUTF8(path));
+    zip.Write(bytes.data(), bytes.size());
+  }
+  zip.Close();
+}
+
+// Reads archive bytes to prove the external source is unchanged by resolution.
+std::string ReadFileBytes(const fs::path &path) {
+  std::ifstream input(path, std::ios::binary);
+  assert(input.is_open());
+  return {std::istreambuf_iterator<char>(input),
+          std::istreambuf_iterator<char>()};
 }
 
 // Inspects symbol compatibility for a fixture path in the current scene.
@@ -340,23 +382,28 @@ int main() {
       mutatedPath, derivativeValidationError));
   assert(derivativeValidationError.empty());
 
-  assert(mutatedSnapshot.entries.find("models/svg/Body.svg") !=
+  assert(mutatedSnapshot.entries.find("perastage/symbols/Body/top.svg") !=
          mutatedSnapshot.entries.end());
-  assert(mutatedSnapshot.entries.find("models/svg/Body_bottom.svg") !=
+  assert(mutatedSnapshot.entries.find("perastage/symbols/Body/bottom.svg") !=
          mutatedSnapshot.entries.end());
-  assert(mutatedSnapshot.entries.find("models/svg_side/Body.svg") !=
+  assert(mutatedSnapshot.entries.find("perastage/symbols/Body/side.svg") !=
          mutatedSnapshot.entries.end());
-  assert(mutatedSnapshot.entries.find("models/svg_front/Body.svg") !=
+  assert(mutatedSnapshot.entries.find("perastage/symbols/Body/front.svg") !=
          mutatedSnapshot.entries.end());
+
+  assert(!mutatedSnapshot.entries.contains("models/svg/Body.svg"));
+  assert(!mutatedSnapshot.entries.contains("models/svg_side/Body.svg"));
+  assert(!mutatedSnapshot.entries.contains("models/svg_front/Body.svg"));
+  assert(!mutatedSnapshot.entries.contains("models/svg/Body_bottom.svg"));
 
   std::string rawNameError;
   const std::vector<std::string> rawNames =
       tests::archive::ReadRawCentralDirectoryEntryNames(mutatedPath, rawNameError);
   assert(rawNameError.empty());
-  for (const std::string &expectedName : {"models/svg/Body.svg",
-                                          "models/svg/Body_bottom.svg",
-                                          "models/svg_side/Body.svg",
-                                          "models/svg_front/Body.svg"}) {
+  for (const std::string &expectedName : {"perastage/symbols/Body/top.svg",
+                                          "perastage/symbols/Body/bottom.svg",
+                                          "perastage/symbols/Body/side.svg",
+                                          "perastage/symbols/Body/front.svg"}) {
     assert(std::find(rawNames.begin(), rawNames.end(), expectedName) !=
            rawNames.end());
   }
@@ -395,7 +442,7 @@ int main() {
   assert(text != nullptr);
   assert(modifiedBy != nullptr);
   assert(std::string(text) ==
-         "Applied fixture SVG symbol views (top, side, front, bottom)");
+         "Applied Perastage fixture SVG symbol views (top, side, front, bottom)");
   assert(std::string(modifiedBy).rfind("Perastage ", 0) == 0);
 
   symbol_preview::FixtureSymbolInspectionResult after{};
@@ -532,6 +579,125 @@ int main() {
              sameFileArchive.string(), fingerprintError) ==
          sameFileResult.finalSceneFingerprint);
   assert(fingerprintError.empty());
+
+  const fs::path authoredSource = project.path / "AuthoredPartial.gdtf";
+  MakeAuthoredPartialFixture(authoredSource, true);
+  const std::string authoredSourceBytes = ReadFileBytes(authoredSource);
+  const ArchiveSnapshot authoredBefore = ReadArchiveSnapshot(authoredSource);
+  Fixture authoredFixture;
+  authoredFixture.uuid = "fixture-authored-partial";
+  authoredFixture.typeName = "AuthoredPartial";
+  authoredFixture.gdtfSpec = authoredSource.filename().string();
+  scene.fixtures[authoredFixture.uuid] = authoredFixture;
+  const auto authoredBeforeInspection =
+      InspectFixturePath(authoredFixture.uuid, authoredSource.string());
+  assert(!authoredBeforeInspection.hasValidSvgSymbolSet);
+  assert(authoredBeforeInspection.requiresSymbolGeneration);
+  auto authoredSymbols = symbols;
+  authoredSymbols.front().bounds.min = {3.0f, 4.0f};
+  authoredSymbols.front().bounds.max = {103.0f, 54.0f};
+  authoredSymbols.front().strokes = {{{3.0f, 4.0f}, {103.0f, 54.0f}}};
+  const auto authoredResult = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
+      authoredSymbols, authoredFixture.uuid, projectOnlyOptions);
+  ReportUnexpectedApplyResult(authoredResult, authoredResult.success);
+  assert(authoredResult.success);
+  assert(ReadFileBytes(authoredSource) == authoredSourceBytes);
+  const ArchiveSnapshot authoredAfter = ReadArchiveSnapshot(authoredResult.finalScenePath);
+  for (const std::string &path : {"models/svg/base.svg", "models/svg_side/base.svg"})
+    assert(authoredAfter.contents.at(path) == authoredBefore.contents.at(path));
+
+  tinyxml2::XMLDocument authoredDocument;
+  assert(authoredDocument.Parse(authoredAfter.descriptionXml.c_str()) ==
+         tinyxml2::XML_SUCCESS);
+  const auto *authoredModel = authoredDocument.FirstChildElement("GDTF")
+                                  ->FirstChildElement("FixtureType")
+                                  ->FirstChildElement("Models")
+                                  ->FirstChildElement("Model");
+  assert(authoredModel->FloatAttribute("SVGOffsetX") == 11.0f);
+  assert(authoredModel->FloatAttribute("SVGOffsetY") == 12.0f);
+  assert(authoredModel->FloatAttribute("SVGSideOffsetX") == 13.0f);
+  assert(authoredModel->FloatAttribute("SVGSideOffsetY") == 14.0f);
+  FixtureSymbolResourceInspection authoredResources;
+  assert(InspectFixtureSymbolResources(authoredResult.finalScenePath, authoredResources));
+  assert(!authoredResources.standardViewsUsable);
+  assert(authoredResources.perastageViewsUsable);
+  assert(authoredResources.FindStandardView(SymbolViewKind::Top)->provenance ==
+         FixtureSymbolProvenance::AuthoredGdtf);
+  assert(authoredResources.FindStandardView(SymbolViewKind::Left)->provenance ==
+         FixtureSymbolProvenance::AuthoredGdtf);
+  assert(!authoredResources.FindStandardView(SymbolViewKind::Front)->exists);
+  assert(!authoredAfter.entries.contains("models/svg_front/base.svg"));
+  assert(!authoredAfter.entries.contains("models/svg/base_bottom.svg"));
+  for (const SymbolViewKind view : {SymbolViewKind::Top, SymbolViewKind::Left,
+                                   SymbolViewKind::Front, SymbolViewKind::Bottom}) {
+    const auto *resource = authoredResources.FindPerastageView(view);
+    assert(resource->provenance == FixtureSymbolProvenance::GeneratedPerastage);
+    assert(!resource->standardGdtf);
+    const std::string &path = resource->archivePath;
+    tinyxml2::XMLDocument generatedDocument;
+    assert(generatedDocument.Parse(authoredAfter.contents.at(path).c_str()) ==
+           tinyxml2::XML_SUCCESS);
+    assert(generatedDocument.FirstChildElement("svg")->IntAttribute(
+               kPerastageSymbolVersionAttribute) ==
+           kCurrentPerastageSymbolResourceVersion);
+  }
+
+  PerastageSvgSymbolData internalTop;
+  std::string internalTopError;
+  assert(LoadPerastageSvgSymbolFromGdtf(authoredResult.finalScenePath,
+                                      SymbolViewKind::Top, internalTop,
+                                      &internalTopError));
+  assert(internalTopError.empty());
+  assert(internalTop.sourcePath == "perastage/symbols/base/top.svg");
+  assert(internalTop.offsetXmm == -3.0);
+  assert(internalTop.offsetYmm == -4.0);
+
+  const fs::path invalidAuthoredSource = project.path / "InvalidAuthored.gdtf";
+  MakeAuthoredPartialFixture(invalidAuthoredSource, false);
+  const std::string invalidAuthoredSourceBytes = ReadFileBytes(invalidAuthoredSource);
+  Fixture invalidAuthoredFixture = authoredFixture;
+  invalidAuthoredFixture.uuid = "fixture-invalid-authored-partial";
+  invalidAuthoredFixture.typeName = "InvalidAuthored";
+  invalidAuthoredFixture.gdtfSpec = invalidAuthoredSource.filename().string();
+  scene.fixtures[invalidAuthoredFixture.uuid] = invalidAuthoredFixture;
+  const auto invalidAuthoredResult = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
+      symbols, invalidAuthoredFixture.uuid, projectOnlyOptions);
+  ReportUnexpectedApplyResult(invalidAuthoredResult, invalidAuthoredResult.success);
+  assert(invalidAuthoredResult.success);
+  assert(ReadFileBytes(invalidAuthoredSource) == invalidAuthoredSourceBytes);
+  const auto invalidAuthoredBefore = ReadArchiveSnapshot(invalidAuthoredSource);
+  const auto invalidAuthoredAfter = ReadArchiveSnapshot(invalidAuthoredResult.finalScenePath);
+  assert(invalidAuthoredAfter.contents.at("models/svg/base.svg") ==
+         invalidAuthoredBefore.contents.at("models/svg/base.svg"));
+  FixtureSymbolResourceInspection invalidAuthoredResources;
+  assert(InspectFixtureSymbolResources(invalidAuthoredResult.finalScenePath,
+                                      invalidAuthoredResources));
+  assert(!invalidAuthoredResources.FindStandardView(SymbolViewKind::Top)->usable);
+  assert(invalidAuthoredResources.FindStandardView(SymbolViewKind::Top)->provenance ==
+         FixtureSymbolProvenance::AuthoredGdtf);
+  assert(invalidAuthoredResources.perastageViewsUsable);
+
+  const fs::path standardOnlySource = project.path / "StandardViewsOnly.gdtf";
+  tests::gdtf::BuildMinimalValidFixture()
+      .WithFixtureIdentity("StandardViewsOnly", "Manufacturer",
+                           tests::gdtf::FixtureBuilder::kMinimalFixtureTypeId)
+      .WriteArchive(standardOnlySource);
+  Fixture standardOnlyFixture;
+  standardOnlyFixture.uuid = "fixture-standard-only";
+  standardOnlyFixture.typeName = "StandardViewsOnly";
+  standardOnlyFixture.gdtfSpec = standardOnlySource.filename().string();
+  scene.fixtures[standardOnlyFixture.uuid] = standardOnlyFixture;
+  std::vector<symbols::Symbol2D> standardSymbols;
+  for (const auto &symbol : symbols) {
+    if (symbol.view != symbols::SymbolView::Bottom)
+      standardSymbols.push_back(symbol);
+  }
+  const auto standardOnlyResult = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
+      standardSymbols, standardOnlyFixture.uuid, projectOnlyOptions);
+  assert(!standardOnlyResult.success);
+  assert(!standardOnlyResult.diagnostic.empty());
+  assert(scene.fixtures.at(standardOnlyFixture.uuid).gdtfSpec ==
+         standardOnlyFixture.gdtfSpec);
 
   const std::string currentVersionPath = MakeFixtureGdtfFromFixtureTypeXml(
       "<FixtureType Name=\"Current\" Manufacturer=\"Acme\" Editor=\"Vendor\">"

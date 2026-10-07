@@ -3,6 +3,7 @@
 #include "filesystem_path_utils.h"
 #include "fixture_gdtf_derivative_contract.h"
 #include "mvrscene.h"
+#include "symbols/fixture_symbol_resource_contract.h"
 
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
@@ -35,19 +36,6 @@ std::string NormalizeEntryPath(std::string path) {
   return path;
 }
 
-// Returns whether a revision is exclusively the known fixture-symbol operation.
-bool IsFixtureSymbolRevision(const tinyxml2::XMLElement *revision) {
-  const char *modifiedBy = revision ? revision->Attribute("ModifiedBy") : nullptr;
-  const char *text = revision ? revision->Attribute("Text") : nullptr;
-  if (!modifiedBy || !text)
-    return false;
-  const std::string author = modifiedBy;
-  const std::string action = text;
-  return (author == "Perastage" || author.rfind("Perastage ", 0) == 0) &&
-         action.rfind("Applied fixture SVG symbol views (", 0) == 0 &&
-         !action.empty() && action.back() == ')';
-}
-
 // Resolves the model mutated by fixture-symbol application.
 tinyxml2::XMLElement *ResolveSymbolModel(tinyxml2::XMLElement *fixtureType) {
   tinyxml2::XMLElement *models =
@@ -67,6 +55,7 @@ tinyxml2::XMLElement *ResolveSymbolModel(tinyxml2::XMLElement *fixtureType) {
 
 // Normalizes only recognized fixture-symbol mutations in description.xml.
 bool NormalizeDescription(std::vector<unsigned char> &bytes,
+                          const FixtureSymbolResourceInspection &inspection,
                           std::set<std::string> &derivedEntries,
                           std::string &errorMessage) {
   tinyxml2::XMLDocument doc;
@@ -96,15 +85,16 @@ bool NormalizeDescription(std::vector<unsigned char> &bytes,
     fixtureType->DeleteChild(audit);
   }
 
-  bool removedRevision = false;
   tinyxml2::XMLElement *revisions = fixtureType->FirstChildElement("Revisions");
   for (tinyxml2::XMLElement *revision =
            revisions ? revisions->FirstChildElement("Revision") : nullptr;
        revision;) {
     tinyxml2::XMLElement *next = revision->NextSiblingElement("Revision");
-    if (IsFixtureSymbolRevision(revision)) {
+    const char *modifiedBy = revision->Attribute("ModifiedBy");
+    const char *text = revision->Attribute("Text");
+    if (modifiedBy && text &&
+        IsPerastageFixtureSymbolRevision(modifiedBy, text)) {
       revisions->DeleteChild(revision);
-      removedRevision = true;
     }
     revision = next;
   }
@@ -112,21 +102,32 @@ bool NormalizeDescription(std::vector<unsigned char> &bytes,
     fixtureType->DeleteChild(revisions);
 
   tinyxml2::XMLElement *model = ResolveSymbolModel(fixtureType);
-  if (model) {
-    const char *file = model->Attribute("File");
-    const char *name = model->Attribute("Name");
-    const std::string base =
-        file && *file ? file : (name && *name ? name : "main");
-    derivedEntries = {NormalizeEntryPath("models/svg/" + base + ".svg"),
-                      NormalizeEntryPath("models/svg/" + base + "_bottom.svg"),
-                      NormalizeEntryPath("models/svg_front/" + base + ".svg"),
-                      NormalizeEntryPath("models/svg_side/" + base + ".svg")};
-    if (removedRevision) {
-      static constexpr const char *kOffsets[] = {
-          "SVGOffsetX", "SVGOffsetY", "SVGSideOffsetX", "SVGSideOffsetY",
-          "SVGFrontOffsetX", "SVGFrontOffsetY"};
-      for (const char *attribute : kOffsets)
-        model->DeleteAttribute(attribute);
+  for (const FixtureSymbolResource &resource : inspection.perastageResources) {
+    if (!resource.exists || !resource.PerastageOwned())
+      continue;
+    derivedEntries.insert(NormalizeEntryPath(resource.archivePath));
+    // Internal resources do not own offsets of coexisting standard SVGs.
+    const FixtureSymbolResource *standard =
+        inspection.FindStandardView(resource.viewKind);
+    if (!model ||
+        NormalizeEntryPath(resource.archivePath).rfind("perastage/symbols/", 0) == 0 ||
+        (standard && standard->exists))
+      continue;
+    const char *offsetX = nullptr;
+    const char *offsetY = nullptr;
+    if (resource.viewKind == SymbolViewKind::Top) {
+      offsetX = "SVGOffsetX";
+      offsetY = "SVGOffsetY";
+    } else if (resource.viewKind == SymbolViewKind::Left) {
+      offsetX = "SVGSideOffsetX";
+      offsetY = "SVGSideOffsetY";
+    } else if (resource.viewKind == SymbolViewKind::Front) {
+      offsetX = "SVGFrontOffsetX";
+      offsetY = "SVGFrontOffsetY";
+    }
+    if (offsetX) {
+      model->DeleteAttribute(offsetX);
+      model->DeleteAttribute(offsetY);
     }
   }
   tinyxml2::XMLPrinter printer(nullptr, true);
@@ -169,6 +170,11 @@ bool IsUnsuffixed(const std::string &spec) {
 // Computes a fingerprint that excludes only recognized Perastage symbol output.
 std::string ComputeBaseGdtfFingerprint(const std::string &path,
                                        std::string &errorMessage) {
+  FixtureSymbolResourceInspection inspection;
+  if (!InspectFixtureSymbolResources(path, inspection)) {
+    errorMessage = inspection.diagnostic;
+    return {};
+  }
   wxFileInputStream input(wxString::FromUTF8(path));
   if (!input.IsOk()) {
     errorMessage = "Could not open project GDTF.";
@@ -198,13 +204,14 @@ std::string ComputeBaseGdtfFingerprint(const std::string &path,
     return {};
   }
   std::set<std::string> derivedEntries;
-  if (!NormalizeDescription(description->second, derivedEntries, errorMessage))
+  if (!NormalizeDescription(description->second, inspection, derivedEntries,
+                            errorMessage))
     return {};
   for (const std::string &derived : derivedEntries)
     entries.erase(derived);
 
   std::uint64_t hash = 1469598103934665603ull;
-  constexpr char version[] = "gdtf-base-fnv1a64-v1\n";
+  constexpr char version[] = "gdtf-base-fnv1a64-v2\n";
   UpdateHash(hash, version, sizeof(version) - 1);
   std::uint64_t payloadSize = 0;
   for (const auto &[name, bytes] : entries) {
@@ -217,7 +224,7 @@ std::string ComputeBaseGdtfFingerprint(const std::string &path,
     payloadSize += name.size() + bytes.size();
   }
   std::ostringstream result;
-  result << "gdtfbasefnv1a64v1:" << std::hex << std::setw(16)
+  result << "gdtfbasefnv1a64v2:" << std::hex << std::setw(16)
          << std::setfill('0') << hash << ':' << std::dec << entries.size()
          << ':' << payloadSize;
   errorMessage.clear();

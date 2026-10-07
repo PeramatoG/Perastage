@@ -80,7 +80,7 @@ std::string ReadFixtureTypeId(const std::string &xml) {
   return id ? id : "";
 }
 
-// Verifies canonical derivatives require all four stored fixture-symbol views.
+// Verifies published derivatives require standard views and preserve sources.
 int main() {
   const fs::path root = fs::temp_directory_path() /
                         "perastage-fixture-derivative-contract-test";
@@ -103,6 +103,63 @@ int main() {
 
   const std::string validSvg =
       "<svg viewBox=\"0 0 10 10\"><polygon points=\"0,0 10,0 10,10\"/></svg>";
+  const fs::path authoredComplete = root / "AuthoredComplete.gdtf";
+  const fs::path authoredTop = root / "AuthoredTop.gdtf";
+  const fs::path authoredTopSide = root / "AuthoredTopSide.gdtf";
+  const fs::path authoredBase = root / "AuthoredBase.gdtf";
+  tests::gdtf::BuildMinimalValidFixture()
+      .WithModelResource("main")
+      .WithArchiveEntry("models/svg/main.svg", validSvg)
+      .WithArchiveEntry("models/svg_side/main.svg", validSvg)
+      .WithArchiveEntry("models/svg_front/main.svg", validSvg)
+      .WriteArchive(authoredComplete);
+  tests::gdtf::BuildMinimalValidFixture()
+      .WithModelResource("main")
+      .WithArchiveEntry("models/svg/main.svg", validSvg)
+      .WriteArchive(authoredTop);
+  tests::gdtf::BuildMinimalValidFixture()
+      .WithModelResource("main")
+      .WithArchiveEntry("models/svg/main.svg", validSvg)
+      .WithArchiveEntry("models/svg_side/main.svg", validSvg)
+      .WriteArchive(authoredTopSide);
+  tests::gdtf::BuildMinimalValidFixture()
+      .WithModelResource("base")
+      .WithArchiveEntry("models/svg/base.svg", validSvg)
+      .WithArchiveEntry("models/svg_side/base.svg", validSvg)
+      .WithArchiveEntry("models/svg_front/base.svg", validSvg)
+      .WithArchiveEntry("models/svg/base_bottom.svg", "<svg")
+      .WriteArchive(authoredBase);
+  const std::string authoredBytes = ReadFileBytes(authoredComplete);
+  assert(fixture_gdtf::ValidatePublishedDerivative(authoredComplete.string(),
+                                                  error));
+  assert(error.empty());
+  assert(ReadFileBytes(authoredComplete) == authoredBytes);
+  assert(!fixture_gdtf::ValidatePublishedDerivative(authoredTop.string(), error));
+  assert(!fixture_gdtf::ValidatePublishedDerivative(authoredTopSide.string(),
+                                                   error));
+  assert(fixture_gdtf::ValidatePublishedDerivative(authoredBase.string(), error));
+  assert(error.empty());
+
+  const fs::path internalComplete = root / "InternalComplete.gdtf";
+  const fs::path internalWithoutBottom = root / "InternalWithoutBottom.gdtf";
+  const std::string generatedSvg =
+      "<svg data-perastage-symbol-version=\"1\" viewBox=\"0 0 10 10\">"
+      "<polygon points=\"0,0 10,0 10,10\"/></svg>";
+  auto internalBuilder = tests::gdtf::BuildMinimalValidFixture();
+  internalBuilder.WithModelResource("main")
+      .WithArchiveEntry("perastage/symbols/main/top.svg", generatedSvg)
+      .WithArchiveEntry("perastage/symbols/main/side.svg", generatedSvg)
+      .WithArchiveEntry("perastage/symbols/main/front.svg", generatedSvg);
+  internalBuilder.WriteArchive(internalWithoutBottom);
+  internalBuilder.WithArchiveEntry("perastage/symbols/main/bottom.svg",
+                                    generatedSvg)
+      .WriteArchive(internalComplete);
+  assert(!fixture_gdtf::ValidatePublishedDerivative(
+      internalWithoutBottom.string(), error));
+  assert(fixture_gdtf::ValidatePublishedDerivative(internalComplete.string(),
+                                                  error));
+  assert(error.empty());
+
   const auto writeFourViews = [&](const fs::path &path,
                                   const std::string &frontSvg) {
     tests::gdtf::BuildMinimalValidFixture()
@@ -150,12 +207,15 @@ int main() {
 
   fixture_gdtf::PreparedDerivative successfulPreparation;
   assert(fixture_gdtf::PrepareProjectDerivative(
-      complete, project, published.filename(), successfulPreparation, error));
+      authoredComplete, project, published.filename(), successfulPreparation,
+      error));
   assert(successfulPreparation.publishedReference.find(".working") ==
          std::string::npos);
   assert(fixture_gdtf::PublishPreparedDerivative(successfulPreparation, error));
   assert(!fs::exists(successfulPreparation.workingPath));
   assert(fixture_gdtf::ValidatePublishedDerivative(published.string(), error));
+  assert(!ArchiveContainsEntry(published, "models/svg/main_bottom.svg"));
+  assert(ReadFileBytes(authoredComplete) == authoredBytes);
 
   const fs::path legacySource = root / "LegacySource.gdtf";
   const fs::path canonicalDestination = root / "Legacy@Perastage.gdtf";

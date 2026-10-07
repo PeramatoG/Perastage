@@ -34,6 +34,7 @@
 #include "gdtf_fixture_type_vocabulary.h"
 #include "symbols/fixture_symbol_availability.h"
 #include "symbols/fixture_symbol_resource_revision.h"
+#include "symbols/fixture_symbol_resource_contract.h"
 #include "symbols/PerastageSvgSymbol.h"
 #include "symbols/fixture_symbol_svg_cache.h"
 #include "windows/symbol_preview_exporter.h"
@@ -86,59 +87,6 @@ tinyxml2::XMLElement *ResolveFixtureType(tinyxml2::XMLDocument &doc) {
   if (!fixtureType)
     fixtureType = doc.FirstChildElement("FixtureType");
   return fixtureType;
-}
-
-// Resolves the preferred GDTF model using Main first and the first model as fallback.
-tinyxml2::XMLElement *ResolvePreferredModel(tinyxml2::XMLElement *fixtureType) {
-  if (!fixtureType)
-    return nullptr;
-  tinyxml2::XMLElement *models = fixtureType->FirstChildElement("Models");
-  if (!models)
-    return nullptr;
-  tinyxml2::XMLElement *targetModel = nullptr;
-  for (tinyxml2::XMLElement *model = models->FirstChildElement("Model"); model;
-       model = model->NextSiblingElement("Model")) {
-    const char *name = model->Attribute("Name");
-    if (name && std::string(name) == "Main")
-      return model;
-    if (!targetModel)
-      targetModel = model;
-  }
-  return targetModel;
-}
-
-// Resolves the model SVG basename from File, Name, or the standard main fallback.
-std::string ResolveModelSvgBasenameFromFixtureType(tinyxml2::XMLElement *fixtureType,
-                                                   std::string &errorMessage) {
-  if (!fixtureType) {
-    errorMessage = "Could not find FixtureType node in description.xml.";
-    return {};
-  }
-  tinyxml2::XMLElement *models = fixtureType->FirstChildElement("Models");
-  if (!models) {
-    errorMessage = "Could not find Models node in description.xml.";
-    return {};
-  }
-  tinyxml2::XMLElement *targetModel = ResolvePreferredModel(fixtureType);
-  if (!targetModel) {
-    errorMessage = "Could not find any Model node in description.xml.";
-    return {};
-  }
-  const char *fileAttr = targetModel->Attribute("File");
-  if (fileAttr && std::string(fileAttr).size() > 0)
-    return std::string(fileAttr);
-  const char *nameAttr = targetModel->Attribute("Name");
-  if (nameAttr && std::string(nameAttr).size() > 0)
-    return std::string(nameAttr);
-  return "main";
-}
-
-// Builds the normalized SVG paths required for a complete Perastage symbol set.
-std::unordered_set<std::string> BuildRequiredSymbolPaths(const std::string &modelSvgBase) {
-  return {NormalizeArchivePath("models/svg/" + modelSvgBase + ".svg"),
-          NormalizeArchivePath("models/svg/" + modelSvgBase + "_bottom.svg"),
-          NormalizeArchivePath("models/svg_side/" + modelSvgBase + ".svg"),
-          NormalizeArchivePath("models/svg_front/" + modelSvgBase + ".svg")};
 }
 
 // Returns whether every required SVG path is present in the scanned archive entries.
@@ -219,56 +167,6 @@ bool ReadAllBytes(wxZipInputStream &zip, std::string &out) {
   return true;
 }
 
-std::string ResolveModelSvgBasename(const fs::path &gdtfPath,
-                                    std::string &errorMessage) {
-  wxFileInputStream input(gdtfPath.string());
-  if (!input.IsOk()) {
-    errorMessage = "Could not open fixture GDTF file for reading.";
-    return {};
-  }
-
-  wxZipInputStream zipInput(input);
-  std::unique_ptr<wxZipEntry> entry;
-  std::string descriptionXml;
-  std::vector<std::string> sampleEntries;
-  bool foundCaseInsensitiveVariant = false;
-  while ((entry.reset(zipInput.GetNextEntry())), entry) {
-    if (entry->IsDir())
-      continue;
-    const std::string entryName = entry->GetName().ToStdString();
-    const std::string normalizedEntry = NormalizeArchivePath(entryName);
-    if (sampleEntries.size() < 5)
-      sampleEntries.push_back(normalizedEntry);
-
-    if (ToLowerCopy(normalizedEntry) == "description.xml")
-      foundCaseInsensitiveVariant = true;
-
-    if (!IsDescriptionXmlPath(normalizedEntry))
-      continue;
-    if (!ReadAllBytes(zipInput, descriptionXml)) {
-      errorMessage = "Could not read description.xml from the GDTF file.";
-      return {};
-    }
-    break;
-  }
-
-  if (descriptionXml.empty()) {
-    errorMessage = BuildDescriptionMissingMessage(gdtfPath, sampleEntries,
-                                                  foundCaseInsensitiveVariant);
-    return {};
-  }
-
-  tinyxml2::XMLDocument doc;
-  if (doc.Parse(descriptionXml.c_str(), descriptionXml.size()) !=
-      tinyxml2::XML_SUCCESS) {
-    errorMessage = "Could not parse description.xml from the GDTF file.";
-    return {};
-  }
-
-  tinyxml2::XMLElement *fixtureType = ResolveFixtureType(doc);
-  return ResolveModelSvgBasenameFromFixtureType(fixtureType, errorMessage);
-}
-
 const symbols::Symbol2D *FindSymbol(const std::vector<symbols::Symbol2D> &symbols,
                                     symbols::SymbolView view) {
   for (const auto &symbol : symbols) {
@@ -293,63 +191,21 @@ bool BuildSymbolPayload(const std::vector<symbols::Symbol2D> &symbols,
   if (!symbol_preview::ExportSymbolToSvgString(*symbol, out.svg, errorMessage))
     return false;
 
-  return true;
-}
-
-bool PatchDescriptionXml(const std::string &xml,
-                         const std::unordered_map<std::string, SymbolPayload> &payloads,
-                         const std::string &topPath,
-                         const std::string &sidePath,
-                         const std::string &frontPath,
-                         std::string &updatedXml,
-                         std::string &errorMessage) {
-  tinyxml2::XMLDocument doc;
-  if (doc.Parse(xml.c_str(), xml.size()) != tinyxml2::XML_SUCCESS) {
-    errorMessage = "Could not parse description.xml from the GDTF file.";
+  tinyxml2::XMLDocument document;
+  if (document.Parse(out.svg.c_str(), out.svg.size()) != tinyxml2::XML_SUCCESS ||
+      !document.FirstChildElement("svg")) {
+    errorMessage = "Could not mark the generated fixture SVG resource.";
     return false;
   }
-
-  tinyxml2::XMLElement *fixtureType = GdtfMutationAudit::EnsureFixtureType(doc);
-
-  tinyxml2::XMLElement *models = fixtureType->FirstChildElement("Models");
-  if (!models) {
-    errorMessage = "Could not find Models node in description.xml.";
-    return false;
-  }
-
-  tinyxml2::XMLElement *targetModel = nullptr;
-  for (tinyxml2::XMLElement *model = models->FirstChildElement("Model"); model;
-       model = model->NextSiblingElement("Model")) {
-    const char *name = model->Attribute("Name");
-    if (name && std::string(name) == "Main") {
-      targetModel = model;
-      break;
-    }
-    if (!targetModel)
-      targetModel = model;
-  }
-
-  if (!targetModel) {
-    errorMessage = "Could not find any Model node in description.xml.";
-    return false;
-  }
-
-  auto setOffsets = [&](const char *entryPath, const char *xAttr,
-                        const char *yAttr) {
-    auto it = payloads.find(entryPath);
-    if (it == payloads.end())
-      return;
-    targetModel->SetAttribute(xAttr, it->second.offsetX);
-    targetModel->SetAttribute(yAttr, it->second.offsetY);
-  };
-
-  setOffsets(topPath.c_str(), "SVGOffsetX", "SVGOffsetY");
-  setOffsets(sidePath.c_str(), "SVGSideOffsetX", "SVGSideOffsetY");
-  setOffsets(frontPath.c_str(), "SVGFrontOffsetX", "SVGFrontOffsetY");
-
+  document.FirstChildElement("svg")->SetAttribute(
+      kPerastageSymbolVersionAttribute, kCurrentPerastageSymbolResourceVersion);
+  document.FirstChildElement("svg")->SetAttribute(
+      kPerastageSymbolOffsetXAttribute, out.offsetX);
+  document.FirstChildElement("svg")->SetAttribute(
+      kPerastageSymbolOffsetYAttribute, out.offsetY);
   tinyxml2::XMLPrinter printer;
-  doc.Print(&printer);
-  updatedXml = printer.CStr();
+  document.Print(&printer);
+  out.svg = printer.CStr();
   return true;
 }
 
@@ -371,7 +227,7 @@ std::string BuildSymbolRevisionAction(
   appendIfApplied(bottomPath, "bottom");
 
   std::ostringstream action;
-  action << "Applied fixture SVG symbol views (";
+  action << "Applied Perastage fixture SVG symbol views (";
   for (size_t i = 0; i < appliedViews.size(); ++i) {
     if (i > 0)
       action << ", ";
@@ -503,12 +359,7 @@ GdtfRewriteResult RewriteGdtfWithProof(
     return result;
   }
 
-  std::string updatedDescription;
-  if (!PatchDescriptionXml(descriptionIt->second, payloads, topPath, sidePath,
-                           frontPath, updatedDescription, errorMessage)) {
-    result.diagnostic = errorMessage;
-    return result;
-  }
+  std::string updatedDescription = descriptionIt->second;
   if (!AppendMutationAuditMetadata(updatedDescription, payloads, topPath, sidePath,
                                    frontPath, bottomPath, errorMessage)) {
     result.diagnostic = errorMessage;
@@ -680,16 +531,19 @@ ApplySymbolsResult ApplySymbolsToFixtureGdtfWithResult(
   const std::string libraryPath = resolution.libraryPath;
 
   const std::string inspectPath = resolution.selectedPath;
-  std::string modelSvgBase = ResolveModelSvgBasename(inspectPath, errorMessage);
-  if (modelSvgBase.empty()) {
-    result.diagnostic = errorMessage;
+  FixtureSymbolResourceInspection resources;
+  if (!InspectFixtureSymbolResources(inspectPath, resources)) {
+    result.diagnostic = resources.diagnostic;
     return result;
   }
-
-  const std::string topSvgPath = "models/svg/" + modelSvgBase + ".svg";
-  const std::string sideSvgPath = "models/svg_side/" + modelSvgBase + ".svg";
-  const std::string frontSvgPath = "models/svg_front/" + modelSvgBase + ".svg";
-  const std::string bottomSvgPath = "models/svg/" + modelSvgBase + "_bottom.svg";
+  const std::string topSvgPath = BuildPerastageFixtureSymbolPath(
+      resources.modelSvgBasename, SymbolViewKind::Top);
+  const std::string sideSvgPath = BuildPerastageFixtureSymbolPath(
+      resources.modelSvgBasename, SymbolViewKind::Left);
+  const std::string frontSvgPath = BuildPerastageFixtureSymbolPath(
+      resources.modelSvgBasename, SymbolViewKind::Front);
+  const std::string bottomSvgPath = BuildPerastageFixtureSymbolPath(
+      resources.modelSvgBasename, SymbolViewKind::Bottom);
 
   std::unordered_map<std::string, SymbolPayload> payloads;
   SymbolPayload topPayload;
