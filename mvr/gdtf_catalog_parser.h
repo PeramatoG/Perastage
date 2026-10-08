@@ -11,6 +11,7 @@ struct GdtfCatalogParseResult {
   std::vector<gdtf_catalog_matcher::GdtfCatalogEntry> entries;
   std::size_t payloadBytes = 0;
   std::string payloadFingerprint;
+  std::string catalogTimestamp;
   std::size_t usableEntryCount = 0;
   bool schemaRecognized = false;
   long long parseMs = 0;
@@ -22,6 +23,13 @@ struct GdtfCatalogParseResult {
 };
 
 GdtfCatalogParseResult ParseCatalog(const std::string &payload);
+
+// Compares the public records, ignoring JSON formatting and the root marker.
+bool CatalogsEquivalent(const GdtfCatalogParseResult &left,
+                        const GdtfCatalogParseResult &right);
+bool CatalogEntriesEquivalent(
+    const std::vector<gdtf_catalog_matcher::GdtfCatalogEntry> &left,
+    const std::vector<gdtf_catalog_matcher::GdtfCatalogEntry> &right);
 
 std::vector<std::size_t> FilterCatalogEntries(
     const std::vector<gdtf_catalog_matcher::GdtfCatalogEntry> &entries,

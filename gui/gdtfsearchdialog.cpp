@@ -17,10 +17,12 @@
  */
 #include "gdtfsearchdialog.h"
 #include "columnutils.h"
+#include "gdtf_catalog_details_panel.h"
+#include <wx/splitter.h>
 #include "ui_feature_flags.h"
 #include <algorithm>
 #include <chrono>
-#include <mutex>
+#include <exception>
 #include <wx/intl.h>
 #include <wx/datetime.h>
 #include <wx/log.h>
@@ -28,45 +30,6 @@
 wxDEFINE_EVENT(EVT_GDTF_REFRESH_DONE, wxThreadEvent);
 
 namespace {
-wxString FormatTimestamp(const std::string& ts);
-
-std::mutex g_cachedCatalogMutex;
-std::string g_cachedCatalogPayload;
-std::string g_cachedCatalogFingerprint;
-std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry> g_cachedCatalogEntries;
-
-// Formats parsed mode names for the search result table.
-std::string FormatModes(
-    const std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogModeCandidate>& modes)
-{
-    std::string formatted;
-    for (const auto& mode : modes) {
-        if (!formatted.empty())
-            formatted += ", ";
-        formatted += mode.name;
-    }
-    return formatted;
-}
-
-wxString FormatTimestamp(const std::string& ts)
-{
-    if (ts.empty())
-        return {};
-
-    try {
-        long long val = std::stoll(ts);
-        if (val > 1000000000000LL)
-            val /= 1000; // milliseconds to seconds
-        wxDateTime dt(static_cast<time_t>(val));
-        return dt.FormatISOCombined(' ');
-    } catch (...) {
-        wxDateTime dt;
-        if (dt.ParseISOCombined(ts.c_str()))
-            return dt.FormatISOCombined(' ');
-    }
-    return wxString::FromUTF8(ts);
-}
-
 constexpr int kSearchDebounceMs = 180;
 constexpr size_t kDefaultPageSize = 500;
 } // namespace
@@ -80,7 +43,7 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
                                    std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry>
                                        initialParsedEntries)
     : wxDialog(parent, wxID_ANY, _("Search GDTF"), wxDefaultPosition,
-               wxSize(1000,700),
+               wxSize(1200,750),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       currentListData(listData),
       lastUpdatedAt(cachedUpdatedAt),
@@ -120,31 +83,29 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     pageSizer->AddStretchSpacer(1);
     sizer->Add(pageSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
-    resultTable = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
+    auto *splitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition,
+                                           wxDefaultSize, wxSP_LIVE_UPDATE);
+    resultTable = new wxDataViewListCtrl(splitter, wxID_ANY, wxDefaultPosition,
                                          wxDefaultSize, wxDV_ROW_LINES);
-    int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
-    resultTable->AppendTextColumn(_("Manufacturer"), wxDATAVIEW_CELL_INERT, 150,
+    const int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
+    resultTable->AppendTextColumn(_("Manufacturer"), wxDATAVIEW_CELL_INERT, 130,
                                   wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn(_("Fixture"), wxDATAVIEW_CELL_INERT, 200,
+    resultTable->AppendTextColumn(_("Fixture"), wxDATAVIEW_CELL_INERT, 190,
                                   wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn(_("Modes"), wxDATAVIEW_CELL_INERT, 60,
+    resultTable->AppendTextColumn(_("Revision"), wxDATAVIEW_CELL_INERT, 80,
                                   wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn(_("Creator"), wxDATAVIEW_CELL_INERT, 120,
+    resultTable->AppendTextColumn(_("Source"), wxDATAVIEW_CELL_INERT, 65,
                                   wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn(_("Uploader"), wxDATAVIEW_CELL_INERT, 100,
+    resultTable->AppendTextColumn(_("Last Modified"), wxDATAVIEW_CELL_INERT, 150,
                                   wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn(_("Creation Date"), wxDATAVIEW_CELL_INERT, 110,
-                                  wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn(_("Revision"), wxDATAVIEW_CELL_INERT, 90,
-                                  wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn(_("Last Modified"), wxDATAVIEW_CELL_INERT, 110,
-                                  wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn(_("Version"), wxDATAVIEW_CELL_INERT, 80,
-                                  wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn(_("Rating"), wxDATAVIEW_CELL_INERT, 60,
+    resultTable->AppendTextColumn(_("GDTF Version"), wxDATAVIEW_CELL_INERT, 100,
                                   wxALIGN_LEFT, flags);
     ColumnUtils::EnforceMinColumnWidth(resultTable);
-    sizer->Add(resultTable, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
+    detailsPanel = new GdtfCatalogDetailsPanel(splitter);
+    splitter->SetMinimumPaneSize(280);
+    splitter->SetSashGravity(0.65);
+    splitter->SplitVertically(resultTable, detailsPanel, 760);
+    sizer->Add(splitter, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
     downloadButton = new wxButton(this, wxID_OK, _("Download"));
@@ -156,7 +117,9 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
 
     SetSizer(sizer);
     SetMinSize(wxSize(800, 600));
-    SetSize(wxSize(1000, 700));
+    SetSize(wxSize(1200, 750));
+    Layout();
+    splitter->SetSashPosition(740);
 
     manufacturerCtrl->Bind(wxEVT_TEXT_ENTER, &GdtfSearchDialog::OnSearch, this);
     fixtureCtrl->Bind(wxEVT_TEXT_ENTER, &GdtfSearchDialog::OnSearch, this);
@@ -169,6 +132,8 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     nextPageButton->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnNextPage, this);
     resultTable->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
                       &GdtfSearchDialog::OnDownload, this);
+    resultTable->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
+                      &GdtfSearchDialog::OnSelectionChanged, this);
     Bind(wxEVT_SHOW, &GdtfSearchDialog::OnDialogShown, this);
     Bind(EVT_GDTF_REFRESH_DONE, &GdtfSearchDialog::OnAutoRefreshThreadEvent, this);
     Bind(wxEVT_TIMER, &GdtfSearchDialog::OnSearchDebounceTimer, this,
@@ -178,6 +143,7 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
         ParseList(currentListData);
     else
         entries = std::move(initialParsedEntries);
+    searchIndex = gdtf_catalog_browser::SearchIndex(entries);
     generalQueryCtrl->ChangeValue(wxString::FromUTF8(initialFixtureQuery));
     UpdateResults();
     UpdateStatusMessage(false);
@@ -191,55 +157,26 @@ GdtfSearchDialog::~GdtfSearchDialog()
 
 void GdtfSearchDialog::ParseList(const std::string& listData)
 {
-    const auto parseStart = std::chrono::steady_clock::now();
-    std::string fingerprint;
-    std::lock_guard<std::mutex> lock(g_cachedCatalogMutex);
-    if (listData == g_cachedCatalogPayload) {
-        entries = g_cachedCatalogEntries;
-        fingerprint = g_cachedCatalogFingerprint;
-    } else {
-        const auto parsed = mvr::gdtf_catalog_parser::ParseCatalog(listData);
-        entries = parsed.entries;
-        fingerprint = parsed.payloadFingerprint;
-        g_cachedCatalogPayload = listData;
-        g_cachedCatalogFingerprint = fingerprint;
-        g_cachedCatalogEntries = entries;
-    }
-    lastParseMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-                      std::chrono::steady_clock::now() - parseStart)
-                      .count();
-    MaybeLogVerboseCatalogTrace(
-        wxString::Format("ParseList source=%s updated_at='%s' bytes=%zu fingerprint=%s parsed_entries=%zu parse_ms=%lld",
-                         catalogSource == GdtfCatalogDisplaySource::Online ? "online" : "cache",
-                         wxString::FromUTF8(lastUpdatedAt),
-                         listData.size(), wxString::FromUTF8(fingerprint), entries.size(),
-                         static_cast<long long>(lastParseMs)));
+    const auto parsed = mvr::gdtf_catalog_parser::ParseCatalog(listData);
+    entries = parsed.entries;
+    lastParseMs = parsed.parseMs;
 }
 
-void GdtfSearchDialog::UpdateResults()
+void GdtfSearchDialog::UpdateResults(const std::string &selectedRid)
 {
     const auto filterStart = std::chrono::steady_clock::now();
     if (searchDebounceTimer.IsRunning())
         searchDebounceTimer.Stop();
 
-    const std::string previouslySelectedRid = GetSelectedId();
+    const std::string previouslySelectedRid = selectedRid.empty() ? GetSelectedId() : selectedRid;
     filteredIndices.clear();
     visible.clear();
     selectedIndex = -1;
 
-    const auto matches = mvr::gdtf_catalog_parser::FilterCatalogEntries(
-        entries, manufacturerCtrl->GetValue().ToStdString(),
-        fixtureCtrl->GetValue().ToStdString());
-    const std::string general = mvr::gdtf_catalog_matcher::NormalizeForGdtfMatch(
-        generalQueryCtrl->GetValue().ToStdString());
-    for (std::size_t index : matches) {
-        const auto& entry = entries[index];
-        const std::string identity =
-            mvr::gdtf_catalog_matcher::NormalizeForGdtfMatch(
-                entry.manufacturer + " " + entry.fixtureName);
-        if (general.empty() || identity.find(general) != std::string::npos)
-            filteredIndices.push_back(static_cast<int>(index));
-    }
+    filteredIndices = searchIndex.Search({
+        generalQueryCtrl->GetValue().ToStdString(wxConvUTF8),
+        manufacturerCtrl->GetValue().ToStdString(wxConvUTF8),
+        fixtureCtrl->GetValue().ToStdString(wxConvUTF8)});
 
     lastFilterMs = std::chrono::duration_cast<std::chrono::milliseconds>(
                        std::chrono::steady_clock::now() - filterStart)
@@ -249,7 +186,7 @@ void GdtfSearchDialog::UpdateResults()
         generalQueryCtrl->GetValue(), manufacturerCtrl->GetValue(), fixtureCtrl->GetValue(),
         filteredIndices.size(), static_cast<long long>(lastFilterMs)));
 
-    currentPage = 0;
+    currentPage = searchIndex.PageForRid(filteredIndices, previouslySelectedRid, pageSize).value_or(0);
     RenderCurrentPage(previouslySelectedRid);
 }
 
@@ -287,16 +224,10 @@ void GdtfSearchDialog::RenderCurrentPage(const std::string& previouslySelectedRi
         wxVector<wxVariant> row;
         row.push_back(wxString::FromUTF8(entry.manufacturer));
         row.push_back(wxString::FromUTF8(entry.fixtureName));
-        row.push_back(wxString::FromUTF8(FormatModes(entry.modes)));
-        row.push_back(wxString::FromUTF8(entry.creator));
-        row.push_back(wxString::FromUTF8(entry.uploader));
-        row.push_back(FormatTimestamp(entry.creationDate));
         row.push_back(wxString::FromUTF8(entry.revision));
-        row.push_back(FormatTimestamp(entry.lastModifiedUnix > 0
-                                          ? std::to_string(entry.lastModifiedUnix)
-                                          : std::string{}));
+        row.push_back(wxString::FromUTF8(entry.uploader));
+        row.push_back(GdtfCatalogDetailsPanel::FormatTimestamp(entry.lastModifiedText));
         row.push_back(wxString::FromUTF8(entry.version));
-        row.push_back(wxString::FromUTF8(entry.ratingText));
         resultTable->AppendItem(row);
 
         if (!previouslySelectedRid.empty() && entry.rid == previouslySelectedRid) {
@@ -317,6 +248,7 @@ void GdtfSearchDialog::RenderCurrentPage(const std::string& previouslySelectedRi
         "Visible results page=%zu visible=%zu render_ms=%lld",
         currentPage + 1, visible.size(), static_cast<long long>(lastRenderMs)));
     UpdatePaginationControls();
+    UpdateSelectedDetails();
 }
 
 void GdtfSearchDialog::UpdatePaginationControls()
@@ -348,6 +280,22 @@ void GdtfSearchDialog::OnNextPage(wxCommandEvent& WXUNUSED(evt))
         return;
     ++currentPage;
     RenderCurrentPage({});
+}
+
+void GdtfSearchDialog::OnSelectionChanged(wxDataViewEvent &event)
+{
+    const int row = resultTable->ItemToRow(resultTable->GetSelection());
+    selectedIndex = row >= 0 && row < static_cast<int>(visible.size()) ? visible[row] : -1;
+    UpdateSelectedDetails();
+    event.Skip();
+}
+
+void GdtfSearchDialog::UpdateSelectedDetails()
+{
+    const auto *entry = selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size())
+                            ? &entries[selectedIndex] : nullptr;
+    detailsPanel->ShowEntry(entry);
+    downloadButton->Enable(!autoRefreshInProgress && entry && entry->downloadable);
 }
 
 void GdtfSearchDialog::OnDownload(wxCommandEvent& WXUNUSED(evt))
@@ -422,20 +370,16 @@ void GdtfSearchDialog::TriggerAutoRefreshOnce()
 
     autoRefreshThread = std::thread([this, refreshFn = refreshCatalogFn]() {
         const auto refreshStart = std::chrono::steady_clock::now();
-        RefreshResult result = refreshFn();
-        result.refreshMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-                               std::chrono::steady_clock::now() - refreshStart)
-                               .count();
-        if (result.success && !result.listData.empty())
-        {
-            const auto parseStart = std::chrono::steady_clock::now();
-            const auto parsed = mvr::gdtf_catalog_parser::ParseCatalog(result.listData);
-            result.parsedEntries = parsed.entries;
-            result.payloadFingerprint = parsed.payloadFingerprint;
-            result.parseMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                 std::chrono::steady_clock::now() - parseStart)
-                                 .count();
+        RefreshResult result;
+        try {
+            result = refreshFn();
+        } catch (const std::exception &error) {
+            result.failureDetails = error.what();
+        } catch (...) {
+            result.failureDetails = "Catalog refresh failed";
         }
+        result.refreshMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                               std::chrono::steady_clock::now() - refreshStart).count();
         wxThreadEvent* event = new wxThreadEvent(EVT_GDTF_REFRESH_DONE);
         event->SetPayload(result);
         wxQueueEvent(this, event);
@@ -448,9 +392,8 @@ void GdtfSearchDialog::OnAutoRefreshThreadEvent(wxThreadEvent& evt)
         autoRefreshThread.join();
     autoRefreshInProgress = false;
     OnAutoRefreshFinished(evt.GetPayload<RefreshResult>());
-    if (downloadButton)
-        downloadButton->Enable(std::any_of(entries.begin(), entries.end(),
-            [](const auto& entry) { return entry.downloadable; }));
+    downloadButton->Enable(selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size())
+                           && entries[selectedIndex].downloadable);
 }
 
 // Applies refreshed catalog data and updates status text after the background refresh completes.
@@ -462,35 +405,27 @@ void GdtfSearchDialog::OnAutoRefreshFinished(const RefreshResult& result)
                  static_cast<long long>(lastParseMs),
                  static_cast<long long>(lastFilterMs),
                  static_cast<long long>(lastRenderMs));
-    if (result.success && !result.listData.empty() && !result.parsedEntries.empty()) {
-        currentListData = result.listData;
+    if (result.success && result.parsedCatalog && result.parsedCatalog->IsUsable()) {
+        const std::string selectedRid = GetSelectedId();
+        const bool unchanged = mvr::gdtf_catalog_parser::CatalogEntriesEquivalent(
+            entries, result.parsedCatalog->entries);
         lastUpdatedAt = result.updatedAt;
         catalogSource = result.source == GdtfCatalogDisplaySource::None
-                            ? GdtfCatalogDisplaySource::Online
-                            : result.source;
-        downloadRequiresAuthentication = false;
-
-        {
-            std::lock_guard<std::mutex> lock(g_cachedCatalogMutex);
-            g_cachedCatalogPayload = currentListData;
-            g_cachedCatalogFingerprint = result.payloadFingerprint;
-            g_cachedCatalogEntries = result.parsedEntries;
+                            ? GdtfCatalogDisplaySource::Online : result.source;
+        if (!unchanged) {
+            currentListData = result.listData;
+            entries = result.parsedCatalog->entries;
+            searchIndex = gdtf_catalog_browser::SearchIndex(entries);
+            UpdateResults(selectedRid);
         }
-        entries = result.parsedEntries;
-        UpdateResults();
         UpdateStatusMessage(false);
         return;
     }
 
     catalogSource = entries.empty() ? GdtfCatalogDisplaySource::None : GdtfCatalogDisplaySource::Cached;
-    wxString fallbackDetails = lastUpdatedAt.empty()
-        ? _("Showing cached GDTF catalog. Sign in is required to download.")
-        : wxString::Format(
-              _("Showing cached GDTF catalog (last updated: %s). Sign in is required to download."),
-              wxString::FromUTF8(lastUpdatedAt));
+    UpdateStatusMessage(false, _("Online catalog refresh failed. Cached results remain available."));
     if (!result.failureDetails.empty())
-        fallbackDetails += wxString::Format(" - %s", wxString::FromUTF8(result.failureDetails));
-    UpdateStatusMessage(false, fallbackDetails);
+        MaybeLogVerboseCatalogTrace(wxString::FromUTF8(result.failureDetails));
 
     if (entries.empty() && !result.failureDetails.empty()) {
         wxMessageBox(wxString::Format(_("Online GDTF catalog refresh failed.\n%s"),

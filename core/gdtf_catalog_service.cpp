@@ -106,6 +106,11 @@ std::optional<GdtfCatalogSnapshot> LoadCacheSnapshot(
 
   if (snapshot.lastSuccessfulRefreshAt.empty())
     snapshot.lastSuccessfulRefreshAt = snapshot.updatedAt;
+  if (root.contains("catalog_timestamp") &&
+      (root["catalog_timestamp"].is_string() || root["catalog_timestamp"].is_number()))
+    snapshot.catalogTimestamp = root["catalog_timestamp"].is_string()
+        ? root["catalog_timestamp"].get<std::string>()
+        : root["catalog_timestamp"].dump();
 
   if (snapshot.listData.empty())
     return std::nullopt;
@@ -120,8 +125,12 @@ std::optional<GdtfCatalogSnapshot> LoadCacheSnapshot(
             std::to_string(parsed.usableEntryCount));
     return std::nullopt;
   }
-  if (parsedOut)
+  if (snapshot.catalogTimestamp.empty())
+    snapshot.catalogTimestamp = parsed.catalogTimestamp;
+  if (parsedOut) {
     *parsedOut = parsed;
+    parsedOut->catalogTimestamp = snapshot.catalogTimestamp;
+  }
 
   return snapshot;
 }
@@ -152,6 +161,7 @@ bool SaveCacheSnapshot(const GdtfCatalogSnapshot &snapshot) {
   root["version"] = 2;
   root["updated_at"] = snapshot.updatedAt;
   root["last_successful_refresh_at"] = snapshot.lastSuccessfulRefreshAt;
+  root["catalog_timestamp"] = snapshot.catalogTimestamp;
   root["list_data"] = snapshot.listData;
 
   const fs::path tmpPath = MakeUniqueCacheSibling(cachePath, ".tmp.");
@@ -216,6 +226,18 @@ GdtfCatalogService::GetParsedCatalogSnapshot() const {
   return GdtfParsedCatalogSnapshot{*snapshot, std::move(parsed)};
 }
 
+bool GdtfCatalogService::IsCatalogStale(const GdtfCatalogSnapshot &snapshot,
+                                      const std::string &nowUtcIso,
+                                      long long refreshThresholdSeconds) {
+  const auto age = CacheAgeSeconds(snapshot, nowUtcIso);
+  return age < 0 || age >= refreshThresholdSeconds;
+}
+
+long long GdtfCatalogService::CacheAgeSeconds(const GdtfCatalogSnapshot &snapshot,
+                                            const std::string &nowUtcIso) {
+  return ComputeAgeSeconds(snapshot.updatedAt, nowUtcIso).value_or(-1);
+}
+
 GdtfCatalogRefreshResult GdtfCatalogService::RefreshCatalogIfStale(
     const RefreshCatalogFn &refreshCatalogFn, const std::string &nowUtcIso,
     long long refreshThresholdSeconds) const {
@@ -229,12 +251,8 @@ GdtfCatalogRefreshResult GdtfCatalogService::RefreshCatalogIfStale(
   result.source = result.snapshot ? GdtfCatalogResultSource::Cache
                                   : GdtfCatalogResultSource::None;
 
-  if (result.snapshot) {
-    const std::optional<long long> ageSeconds =
-        ComputeAgeSeconds(result.snapshot->updatedAt, nowUtcIso);
-    if (ageSeconds)
-      result.metrics.cacheAgeSeconds = *ageSeconds;
-  }
+  if (result.snapshot)
+    result.metrics.cacheAgeSeconds = CacheAgeSeconds(*result.snapshot, nowUtcIso);
 
   const bool hasFreshCache =
       result.snapshot && result.metrics.cacheAgeSeconds >= 0 &&
@@ -265,12 +283,17 @@ GdtfCatalogRefreshResult GdtfCatalogService::RefreshCatalogIfStale(
             std::to_string(parsedRefresh.usableEntryCount));
     return result;
   }
-  result.parsedCatalog = parsedRefresh;
-
   GdtfCatalogSnapshot refreshedSnapshot;
-  refreshedSnapshot.listData = refreshedListData;
+  result.metrics.catalogUnchanged = result.parsedCatalog &&
+      mvr::gdtf_catalog_parser::CatalogsEquivalent(*result.parsedCatalog, parsedRefresh);
+  refreshedSnapshot.listData = result.metrics.catalogUnchanged
+      ? result.snapshot->listData : std::move(refreshedListData);
+  if (!result.metrics.catalogUnchanged)
+    result.parsedCatalog = parsedRefresh;
   refreshedSnapshot.updatedAt = nowUtcIso;
   refreshedSnapshot.lastSuccessfulRefreshAt = nowUtcIso;
+  refreshedSnapshot.catalogTimestamp = parsedRefresh.catalogTimestamp;
+  result.parsedCatalog->catalogTimestamp = refreshedSnapshot.catalogTimestamp;
 
   if (!SaveCacheSnapshot(refreshedSnapshot))
     result.failureMessage = "Catalog cache write failed";

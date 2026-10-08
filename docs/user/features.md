@@ -157,8 +157,21 @@ Additional safeguards include:
   it creates an owned fixture-library derivative, keeps the original GDTF unchanged,
   and updates matching scene references. Save the project to persist those references.
 - GDTF Share reuses a fresh catalog cache for one hour when opening the search
-  dialog. Missing or stale caches refresh normally; a failed refresh can still use
-  an existing stale cache.
+  dialog. A cached catalog opens immediately; stale data refreshes in the
+  background while browsing and searching remain available. A failed refresh
+  keeps cached results usable. Downloads wait for an active refresh to finish
+  and may request sign-in. Without a usable cache, the normal sign-in and
+  first online load are required.
+- The GDTF Share browser has a resizable catalog list and revision details pane.
+  Select a row to see creator, dates, file size, copyable UUID/RID, and mode names
+  with DMX channel footprints without downloading a GDTF. **Source** identifies
+  `Manuf.` or `User`; **Creator** is the contributor username. Missing metadata
+  appears as a dash. **Rating** stays visible and shows `--` when no numeric
+  rating is available.
+- General catalog search matches every whitespace-separated word in any order
+  across manufacturer, fixture, UUID, revision, and mode names. For example,
+  `martin sceptron` and `sceptron martin` return the same results. Manufacturer
+  and Fixture filters narrow those matches together.
 - Dedicated tables for fixtures, trusses, hoists, and objects.
 - Fixture, truss, and hoist Hang Position cells use the shared Hang Position dialog, which lists existing MVR positions and can add, rename, or delete positions across affected rigging items when confirmed.
 - Add Fixture, Add Truss, and Add Object offer a continuous placement mode that

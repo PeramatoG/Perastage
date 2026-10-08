@@ -48,17 +48,26 @@ void RunGdtfShareDownloadWorkflow(
   const std::string nowUtc =
       WxToUtf8(wxDateTime::UNow().FormatISOCombined(' '));
 
-  std::unique_ptr<wxWindowDisabler> refreshDisabler =
-      std::make_unique<wxWindowDisabler>();
-  std::unique_ptr<wxBusyInfo> refreshOverlay =
-      std::make_unique<wxBusyInfo>("Updating GDTF catalog...");
-  wxYieldIfNeeded();
-
   GdtfShareResult initialLoginResult;
   GdtfShareResult initialCatalogResult;
   bool initialLoginAttempted = false;
-  GdtfCatalogRefreshResult catalogResult =
-      catalogService.RefreshCatalogIfStale(
+  GdtfCatalogRefreshResult catalogResult;
+  auto cachedCatalog = catalogService.GetParsedCatalogSnapshot();
+  const bool refreshCachedCatalog = cachedCatalog &&
+      GdtfCatalogService::IsCatalogStale(cachedCatalog->snapshot, nowUtc);
+  if (cachedCatalog) {
+    catalogResult.snapshot = std::move(cachedCatalog->snapshot);
+    catalogResult.parsedCatalog = std::move(cachedCatalog->parsed);
+    catalogResult.source = GdtfCatalogResultSource::Cache;
+    catalogResult.metrics.cacheHit = true;
+    catalogResult.metrics.cacheMiss = false;
+    catalogResult.metrics.cacheAgeSeconds =
+        GdtfCatalogService::CacheAgeSeconds(*catalogResult.snapshot, nowUtc);
+  } else {
+    wxWindowDisabler refreshDisabler;
+    wxBusyInfo refreshOverlay(_("Updating online catalog..."));
+    wxYieldIfNeeded();
+    catalogResult = catalogService.RefreshCatalogIfStale(
           [&](std::string &onlineListData) {
             if (!activeCredentials || activeCredentials->username.empty() ||
                 activeCredentials->password.empty()) {
@@ -81,8 +90,7 @@ void RunGdtfShareDownloadWorkflow(
           },
           nowUtc);
 
-  refreshOverlay.reset();
-  refreshDisabler.reset();
+  }
 
   bool catalogAuthenticationCancelled = false;
   if (!catalogResult.snapshot) {
@@ -226,18 +234,46 @@ void RunGdtfShareDownloadWorkflow(
         static_cast<long long>(catalogResolveElapsedMs)));
   }
 
-  std::unique_ptr<wxBusyInfo> preparingCatalogOverlay =
-      std::make_unique<wxBusyInfo>("Loading GDTF catalog...");
-  wxYieldIfNeeded();
+  GdtfSearchDialog::RefreshCatalogFn backgroundRefresh;
+  if (refreshCachedCatalog) {
+    // The worker owns its client/session and captures credentials by value.
+    // The download client and mutable GUI workflow state remain UI-owned.
+    backgroundRefresh = [credentials = activeCredentials]() {
+      GdtfSearchDialog::RefreshResult result;
+      GdtfShareClient refreshClient;
+      GdtfCatalogService service;
+      const auto refreshed = service.RefreshCatalogIfStale(
+          [&](std::string &payload) {
+            if (!credentials || credentials->username.empty() || credentials->password.empty())
+              return false;
+            const auto login = refreshClient.Login(credentials->username, credentials->password);
+            if (!login.Succeeded())
+              return false;
+            const auto catalog = refreshClient.GetCatalog();
+            payload = catalog.payload;
+            return catalog.Succeeded();
+          }, wxDateTime::UNow().FormatISOCombined(' ').ToStdString());
+      result.success = refreshed.snapshot && !refreshed.staleFallback;
+      result.failureDetails = refreshed.failureMessage;
+      if (refreshed.snapshot) {
+        result.listData = refreshed.snapshot->listData;
+        result.updatedAt = refreshed.snapshot->updatedAt;
+      }
+      result.parsedCatalog = refreshed.parsedCatalog;
+      if (result.parsedCatalog)
+        result.parseMs = result.parsedCatalog->parseMs;
+      result.source = refreshed.source == GdtfCatalogResultSource::Online
+                          ? GdtfCatalogDisplaySource::Online : GdtfCatalogDisplaySource::Cached;
+      return result;
+    };
+  }
   GdtfSearchDialog searchDlg(
-      parent, effectiveListData, effectiveUpdatedAt, nullptr,
+      parent, effectiveListData, effectiveUpdatedAt, std::move(backgroundRefresh),
       gdtfWorkflowState.catalogSource == gdtf_share_workflow::CatalogSource::Online
-          ? GdtfCatalogDisplaySource::Online
-          : (gdtfWorkflowState.catalogSource == gdtf_share_workflow::CatalogSource::Cached
-                 ? GdtfCatalogDisplaySource::Cached
-                 : GdtfCatalogDisplaySource::None),
-      !gdtfWorkflowState.sessionAuthenticated);
-  preparingCatalogOverlay.reset();
+          ? GdtfCatalogDisplaySource::Online : GdtfCatalogDisplaySource::Cached,
+      !gdtfWorkflowState.sessionAuthenticated, {},
+      catalogResult.parsedCatalog ? std::move(catalogResult.parsedCatalog->entries)
+                                  : std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry>{});
 
   const int searchDialogResult = searchDlg.ShowModal();
 

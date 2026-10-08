@@ -150,6 +150,15 @@ publication, and Viewer3D retains cache implementation. Startup argument/path
 selection may be split internally in a future focused change, but ORG-034 and
 later organization work is outside this implementation.
 
+## GDTF Share catalog browser
+
+The read-only GDTF Share browser keeps catalog parsing/domain in
+`mvr/gdtf_catalog_parser`, cache policy and the GUI-independent search/presentation
+model in Core, and widgets/background orchestration in GUI. MainWindow delegates
+through the existing download workflow. See
+[GDTF Share catalog browser](gdtf_catalog_browser.md) for metadata, TTL, and
+worker/session ownership contracts.
+
 ## Command contract
 
 Core owns the GUI-independent semantic command boundary under `core/command/`.
