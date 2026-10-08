@@ -360,6 +360,108 @@ void CheckWhiteHoleMigration(const fs::path &projectPath) {
   assert(CountSymbolMutationRevisions(repeated.finalScenePath) == originalRevisions + 1);
 }
 
+// An unsaved scene publishes only owned library resources and retains source bytes.
+void CheckUnsavedScene(const fs::path &directory) {
+  auto &scene = ConfigManager::Get().GetScene();
+  scene.basePath.clear();
+  scene.fixtures.clear();
+  const fs::path source = directory / "UnsavedExternal.gdtf";
+  MakeAuthoredPartialFixture(source, true);
+  const auto originalBytes = ReadFileBytes(source);
+  const auto originalArchive = ReadArchiveSnapshot(source);
+  Fixture fixture;
+  fixture.uuid = "unsaved-source";
+  fixture.typeName = "UnsavedExternal";
+  fixture.gdtfSpec = fs::absolute(source).string();
+  scene.fixtures[fixture.uuid] = fixture;
+  auto shared = fixture;
+  shared.uuid = "unsaved-shared";
+  shared.typeName = "AnotherAlias";
+  scene.fixtures[shared.uuid] = shared;
+  auto unrelated = fixture;
+  unrelated.uuid = "unsaved-other-source";
+  unrelated.gdtfSpec = (directory / "Other.gdtf").string();
+  scene.fixtures[unrelated.uuid] = unrelated;
+  const auto payloads = BuildSymbols();
+  const auto failed = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
+      {payloads.front()}, fixture.uuid);
+  assert(!failed.success);
+  assert(scene.basePath.empty());
+  assert(scene.fixtures.at(fixture.uuid).gdtfSpec == fixture.gdtfSpec);
+  assert(ReadFileBytes(source) == originalBytes);
+
+  const auto applied = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(payloads, fixture.uuid);
+  ReportUnexpectedApplyResult(applied, applied.success);
+  assert(applied.success && applied.libraryUpdated && applied.fixtureReferencesUpdated);
+  assert(!applied.sceneUpdated && scene.basePath.empty());
+  assert(applied.warnings.empty() && applied.diagnostic.empty());
+  assert(fs::is_regular_file(applied.finalLibraryPath));
+  assert(!fs::equivalent(source, applied.finalLibraryPath));
+  assert(scene.fixtures.at(fixture.uuid).gdtfSpec == applied.finalLibraryPath);
+  assert(scene.fixtures.at(shared.uuid).gdtfSpec == applied.finalLibraryPath);
+  assert(scene.fixtures.at(unrelated.uuid).gdtfSpec == unrelated.gdtfSpec);
+  assert(GdtfDictionary::Get(fixture.typeName)->path == applied.finalLibraryPath);
+  assert(ReadFileBytes(source) == originalBytes);
+  const auto published = ReadArchiveSnapshot(applied.finalLibraryPath);
+  for (const auto &path : {"models/svg/base.svg", "models/svg_side/base.svg"})
+    assert(published.contents.at(path) == originalArchive.contents.at(path));
+  for (const auto &attribute : {"SVGOffsetX=\"11\"", "SVGOffsetY=\"12\"",
+                                "SVGSideOffsetX=\"13\"", "SVGSideOffsetY=\"14\""})
+    assert(published.descriptionXml.find(attribute) != std::string::npos);
+  FixtureSymbolResourceInspection inspection;
+  assert(InspectFixtureSymbolResources(applied.finalLibraryPath, inspection));
+  assert(inspection.perastageViewsUsable && !inspection.standardViewsUsable);
+  for (auto view : {SymbolViewKind::Top, SymbolViewKind::Front,
+                    SymbolViewKind::Left, SymbolViewKind::Bottom}) {
+    const auto *resource = inspection.FindPerastageView(view);
+    assert(resource && resource->exists && resource->usable);
+    assert(resource->archivePath == BuildPerastageFixtureSymbolPath("base", view));
+    assert(resource->provenance == FixtureSymbolProvenance::GeneratedPerastage);
+  }
+  const auto revisionCount = CountSymbolMutationRevisions(applied.finalLibraryPath);
+  assert(revisionCount == 1);
+  const auto derivativeBytes = ReadFileBytes(applied.finalLibraryPath);
+  symbol_preview::ApplySymbolsOptions sceneOnly;
+  sceneOnly.updateLibraryCopy = false;
+  const auto repeated = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(payloads, fixture.uuid, sceneOnly);
+  assert(repeated.success && repeated.libraryUpdated && repeated.fixtureReferencesUpdated);
+  assert(!repeated.sceneUpdated && scene.basePath.empty());
+  assert(repeated.finalLibraryPath == applied.finalLibraryPath);
+  assert(repeated.finalSceneFingerprint == applied.finalSceneFingerprint);
+  assert(ReadFileBytes(repeated.finalLibraryPath) == derivativeBytes);
+  assert(CountSymbolMutationRevisions(repeated.finalLibraryPath) == revisionCount);
+  assert(ReadFileBytes(source) == originalBytes);
+}
+
+// A canonical-looking external source in dictionary storage remains immutable.
+void CheckUnsavedLibraryNameCollision(const fs::path &directory) {
+  auto &scene = ConfigManager::Get().GetScene();
+  scene.basePath.clear();
+  scene.fixtures.clear();
+  const auto dictionaryFile = directory / "fixture-symbol-dictionary.json";
+  const auto assets = directory / "fixture-symbol-dictionary_assets";
+  fs::create_directories(assets);
+  const auto staging = directory / "Collision.gdtf";
+  MakeAuthoredPartialFixture(staging, true);
+  const auto source = assets / GdtfDictionary::BuildPerastageCanonicalGdtfFileName(staging.string());
+  fs::copy_file(staging, source, fs::copy_options::overwrite_existing);
+  const auto original = ReadFileBytes(source);
+  Fixture fixture;
+  fixture.uuid = "unsaved-collision";
+  fixture.typeName = "UnsavedCollision";
+  fixture.gdtfSpec = source.string();
+  scene.fixtures[fixture.uuid] = fixture;
+  const auto result = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(BuildSymbols(), fixture.uuid);
+  assert(result.success && result.libraryUpdated);
+  assert(!fs::equivalent(source, result.finalLibraryPath));
+  assert(ReadFileBytes(source) == original);
+  const auto count = CountSymbolMutationRevisions(result.finalLibraryPath);
+  const auto repeated = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(BuildSymbols(), fixture.uuid);
+  assert(repeated.success && repeated.finalLibraryPath == result.finalLibraryPath);
+  assert(CountSymbolMutationRevisions(repeated.finalLibraryPath) == count);
+  assert(ReadFileBytes(source) == original);
+}
+
 } // namespace
 
 // Runs the symbol-to-GDTF mutation ownership and compatibility regression test.
@@ -906,6 +1008,8 @@ int main() {
   fs::remove(invalidExternalPath, ec);
   fs::remove(unknownVersionPath, ec);
   CheckWhiteHoleMigration(project.path);
+  CheckUnsavedScene(project.path);
+  CheckUnsavedLibraryNameCollision(project.path);
   cfg.Reset();
   return 0;
 }

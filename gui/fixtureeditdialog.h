@@ -21,7 +21,6 @@
 #include <wx/dataview.h>
 #include <vector>
 #include <string>
-#include <array>
 #include <filesystem>
 #include <memory>
 #include <map>
@@ -30,10 +29,10 @@
 #include "gdtf/gdtf_wheel_catalog.h"
 #include "gdtf/gdtf_resource_bitmap_cache.h"
 #include "gdtf/gdtf_wheel_inspector_panel.h"
-#include "symbols/PerastageSvgSymbol.h"
 
 class FixtureTablePanel;
 class FixturePreviewPanel;
+class FixtureSymbolComparisonPanel;
 class wxStaticBitmap;
 class wxPanel;
 class wxNotebook;
@@ -55,7 +54,6 @@ private:
     void OnCancel(wxCommandEvent& evt);
     void OnBrowse(wxCommandEvent& evt);
     void OnModeChanged(wxCommandEvent& evt);
-    void OnSymbolPreviewPaint(wxPaintEvent& evt);
     void UpdateChannels(bool markChannelCountDirty = false);
     void UpdateVisualizers();
     void UpdateMetadataSummary();
@@ -81,13 +79,10 @@ private:
     std::unique_ptr<gdtf::GdtfEditSession> gdtfEditSession;
     FixturePreviewPanel* preview = nullptr;
     wxStaticBitmap* fixtureImagePreview = nullptr;
-    wxStaticBitmap* officialSymbolPreview = nullptr;
+    FixtureSymbolComparisonPanel* symbolComparison = nullptr;
     wxSplitterWindow* contextSplitter = nullptr;
     wxSplitterWindow* visualSplitter = nullptr;
     wxNotebook* visualNotebook = nullptr;
-    std::array<wxPanel*, 3> symbolPanels{};
-    std::array<bool, 3> symbolAvailability{};
-    std::array<PerastageSvgSymbolData, 3> symbolData{};
     bool applied = false;
     std::map<gdtf::GdtfFieldId, std::string> rejectedSessionInputs;
     std::filesystem::path pendingSelectedGdtfPath;

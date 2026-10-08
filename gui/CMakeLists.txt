@@ -27,6 +27,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/scoped_single_model_capture_scene.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/symbol_physical_calibration.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/symbol_physical_calibration_core.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/windows/symbol_preview_drawing.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/fixture_symbol_comparison_panel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/windows/SymbolPreviewWindow.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/windows/symbol_fixture_apply_presentation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/windows/symbol_fixture_applier.cpp

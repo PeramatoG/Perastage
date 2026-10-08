@@ -4,6 +4,11 @@ Changes since **v1.6.0**.
 
 ## Highlights
 
+- Fixed manual fixture symbol Apply in unsaved scenes using an owned library
+  derivative while preserving original GDTF files and authored standard SVGs.
+  Symbol previews show transparency, and the Fixture Editor compares standard
+  and Perastage resources independently. GDTF Share reuses fresh catalog caches.
+
 ## New features and workflow improvements
 
 - Added targeted batch position and rotation transforms through the local live

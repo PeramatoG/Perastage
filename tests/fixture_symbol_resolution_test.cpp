@@ -1,4 +1,5 @@
 #include "symbols/fixture_symbol_availability.h"
+#include "symbols/fixture_symbol_preview_model.h"
 #include "symbols/fixture_symbol_svg_cache.h"
 #include "support/gdtf_test_fixture_builder.h"
 
@@ -218,6 +219,38 @@ void TestStandardCandidatePriority(Fixtures &fixtures) {
   Check(standardLegacy, View::Top, Purpose::StandardGdtf, "models/svg/body.svg.svg",
         Set::StandardGdtf, Provenance::GeneratedPerastage);
 }
+void TestOriginalPreviewSets(Fixtures &fixtures) {
+  const auto path = fixtures.Write("preview_sets", Fixture()
+      .WithArchiveEntry("models/svg/body.svg", kSvg)
+      .WithArchiveEntry("models/svg_front/body.svg", "<svg>")
+      .WithArchiveEntry("perastage/symbols/body/top.svg", kInternal)
+      .WithArchiveEntry("perastage/symbols/body/front.svg", kInternal)
+      .WithArchiveEntry("perastage/symbols/body/bottom.svg", kInternal));
+  const auto inspection = symbol_cache::InspectFixtureSymbolAvailability(path).resources;
+  const auto standardTop = BuildFixtureSymbolPreviewModel(inspection, Set::StandardGdtf, View::Top);
+  assert(standardTop.available && standardTop.resource.archivePath == "models/svg/body.svg");
+  const auto internalTop = BuildFixtureSymbolPreviewModel(inspection, Set::Perastage, View::Top);
+  assert(internalTop.available && internalTop.resource.archivePath == "perastage/symbols/body/top.svg");
+  const auto malformedFront = BuildFixtureSymbolPreviewModel(inspection, Set::StandardGdtf, View::Front);
+  assert(!malformedFront.available && malformedFront.resource.exists);
+  assert(malformedFront.resource.archivePath == "models/svg_front/body.svg");
+  assert(!malformedFront.resource.diagnostic.empty());
+  assert(BuildFixtureSymbolPreviewModel(inspection, Set::Perastage, View::Front).available);
+  assert(!BuildFixtureSymbolPreviewModel(inspection, Set::Perastage, View::Left).available);
+  assert(!BuildFixtureSymbolPreviewModel(inspection, Set::StandardGdtf, View::Bottom).available);
+  assert(BuildFixtureSymbolPreviewModel(inspection, Set::Perastage, View::Bottom).available);
+  const auto standardOnly = fixtures.Write("preview_standard_only", Fixture()
+      .WithArchiveEntry("models/svg/body.svg", kSvg));
+  const auto authored = symbol_cache::InspectFixtureSymbolAvailability(standardOnly).resources;
+  assert(!BuildFixtureSymbolPreviewModel(authored, Set::Perastage, View::Top).available);
+  assert(!BuildFixtureSymbolPreviewModel(authored, Set::Perastage, View::Front).available);
+  const auto legacy = fixtures.Write("preview_legacy", Fixture()
+      .WithArchiveEntry("models/svg/body.svg", kInternal));
+  const auto legacyInspection = symbol_cache::InspectFixtureSymbolAvailability(legacy).resources;
+  assert(!BuildFixtureSymbolPreviewModel(legacyInspection, Set::StandardGdtf, View::Top).available);
+  assert(BuildFixtureSymbolPreviewModel(legacyInspection, Set::Perastage, View::Top).available);
+}
+
 } // namespace
 
 int main() {
@@ -227,5 +260,6 @@ int main() {
   TestAuthoredAndCoexistence(fixtures);
   TestLegacyAndRecovery(fixtures);
   TestStandardCandidatePriority(fixtures);
+  TestOriginalPreviewSets(fixtures);
   symbol_cache::ClearFixtureSymbolRuntimeCaches();
 }

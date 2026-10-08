@@ -1,4 +1,6 @@
 #include "windows/SymbolPreviewWindow.h"
+#include "windows/symbol_preview_drawing.h"
+#include <memory>
 
 #include <algorithm>
 #include <cmath>
@@ -212,7 +214,11 @@ void SymbolPreviewWindow::OnApplySymbolToFixture(wxCommandEvent &WXUNUSED(event)
   const long icon = presentation.kind == symbol_preview::ApplySymbolsMessageKind::Warning
                         ? wxICON_WARNING
                         : wxICON_INFORMATION;
-  wxMessageBox(presentation.message, _("Apply Views to Fixture"), wxOK | icon, this);
+  const wxString message = result.success && result.libraryUpdated &&
+          result.fixtureReferencesUpdated && !result.sceneUpdated
+      ? _("Symbol views were applied to the fixture library derivative and the unsaved scene. Save the project to persist the scene references.")
+      : wxString::FromUTF8(presentation.message);
+  wxMessageBox(message, _("Apply Views to Fixture"), wxOK | icon, this);
 }
 
 void SymbolPreviewWindow::OnPaint(wxPaintEvent &WXUNUSED(event)) {
@@ -253,18 +259,15 @@ void SymbolPreviewWindow::DrawCell(wxDC &dc, const wxRect &cell,
   dc.DrawRectangle(cell);
   dc.DrawText(label, cell.GetTopLeft() + wxPoint(8, 8));
 
-  if (!symbol || !symbol->bounds.valid)
-    return;
-
   const int innerPad = 12;
   const int topLabel = 24;
   const wxRect contentRect(cell.GetX() + innerPad, cell.GetY() + topLabel,
                            std::max(1, cell.GetWidth() - innerPad * 2),
                            std::max(1, cell.GetHeight() - topLabel - innerPad));
 
-  dc.SetPen(*wxTRANSPARENT_PEN);
-  dc.SetBrush(*wxWHITE_BRUSH);
-  dc.DrawRectangle(contentRect);
+  symbol_preview::DrawTransparencyBackground(dc, contentRect);
+  if (!symbol || !symbol->bounds.valid)
+    return;
 
   const double symbolW =
       std::max(1.0, static_cast<double>(symbol->bounds.max.x - symbol->bounds.min.x));
@@ -279,33 +282,24 @@ void SymbolPreviewWindow::DrawCell(wxDC &dc, const wxRect &cell,
   const int originX = contentRect.GetX() + (contentRect.GetWidth() - drawW) / 2;
   const int originY = contentRect.GetY() + (contentRect.GetHeight() - drawH) / 2;
 
-  dc.SetPen(*wxTRANSPARENT_PEN);
-  dc.SetBrush(wxBrush(wxColour(224, 224, 224)));
-  for (const auto &polygon : symbol->fill) {
-    if (polygon.outer.size() < 3)
-      continue;
-
-    std::vector<wxPoint> pts;
-    pts.reserve(polygon.outer.size());
-    for (const auto &p : polygon.outer)
-      pts.push_back(
-          ToScreenPoint(p, symbol->bounds, scale, originX, originY));
-
-    dc.DrawPolygon(static_cast<int>(pts.size()), pts.data());
-
-    if (!polygon.holes.empty()) {
-      dc.SetBrush(*wxWHITE_BRUSH);
-      for (const auto &hole : polygon.holes) {
-        if (hole.size() < 3)
+  {
+    std::unique_ptr<wxGraphicsContext> gc(wxGraphicsContext::CreateFromUnknownDC(dc));
+    if (gc) {
+      gc->SetPen(*wxTRANSPARENT_PEN);
+      gc->SetBrush(wxBrush(wxColour(224, 224, 224)));
+      const auto transform = [&](const symbols::Point2D &point) {
+        const auto screen = ToScreenPoint(point, symbol->bounds, scale, originX, originY);
+        return wxPoint2DDouble(screen.x, screen.y);
+      };
+      for (const auto &polygon : symbol->fill) {
+        if (polygon.outer.size() < 3)
           continue;
-        std::vector<wxPoint> holePts;
-        holePts.reserve(hole.size());
-        for (const auto &p : hole)
-          holePts.push_back(
-              ToScreenPoint(p, symbol->bounds, scale, originX, originY));
-        dc.DrawPolygon(static_cast<int>(holePts.size()), holePts.data());
+        auto path = gc->CreatePath();
+        symbol_preview::AppendPreviewRing(path, polygon.outer, transform);
+        for (const auto &hole : polygon.holes)
+          symbol_preview::AppendPreviewRing(path, hole, transform);
+        gc->FillPath(path, wxODDEVEN_RULE);
       }
-      dc.SetBrush(wxBrush(wxColour(224, 224, 224)));
     }
   }
 

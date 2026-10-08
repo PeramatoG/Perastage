@@ -542,8 +542,6 @@ ApplySymbolsResult ApplySymbolsToFixtureGdtfWithResult(
     result.diagnostic = errorMessage;
     return result;
   }
-  const std::string libraryPath = resolution.libraryPath;
-
   const std::string inspectPath = resolution.selectedPath;
   FixtureSymbolResourceInspection resources;
   if (!InspectFixtureSymbolResources(inspectPath, resources)) {
@@ -591,20 +589,18 @@ ApplySymbolsResult ApplySymbolsToFixtureGdtfWithResult(
     return result;
   }
 
-  bool sceneUpdated = false;
   if (options.updateSceneCopy) {
-    if (scene.basePath.empty() || inspectPath.empty()) {
-      result.diagnostic =
-          "Could not resolve a source and project folder for the fixture derivative.";
-      return result;
-    }
     const std::string originalSpec = fixtureIt->second.gdtfSpec;
     const std::string originalType = fixtureIt->second.typeName;
     fixture_gdtf::PreparedDerivative prepared;
-    if (!fixture_gdtf::PrepareProjectDerivative(
+    const bool libraryBacked = scene.basePath.empty();
+    const bool preparedOk = libraryBacked
+        ? GdtfDictionary::PreparePerastageLibraryDerivative(originalType, inspectPath, prepared, errorMessage)
+        : fixture_gdtf::PrepareProjectDerivative(
             fs::path(inspectPath), fs::path(scene.basePath),
             GdtfDictionary::BuildPerastageCanonicalGdtfFileName(inspectPath),
-            prepared, errorMessage)) {
+            prepared, errorMessage);
+    if (!preparedOk) {
       result.diagnostic = errorMessage;
       return result;
     }
@@ -616,33 +612,45 @@ ApplySymbolsResult ApplySymbolsToFixtureGdtfWithResult(
       result.diagnostic = rewrite.diagnostic;
       return result;
     }
-    if (!fixture_gdtf::PublishPreparedDerivative(prepared, errorMessage)) {
+    if (libraryBacked) {
+      const auto derivative = GdtfDictionary::PublishPerastageLibraryDerivative(
+          originalType, prepared, fixtureIt->second.gdtfMode,
+          fixtureIt->second.category, errorMessage);
+      if (!derivative) {
+        symbol_cache::InvalidateFixtureSymbolCachesForPath(prepared.publishedPath.string());
+        result.diagnostic = errorMessage;
+        return result;
+      }
+      result.libraryUpdated = true;
+      result.finalLibraryPath = derivative->path;
+      prepared.publishedReference = derivative->path;
+    } else if (!fixture_gdtf::PublishPreparedDerivative(prepared, errorMessage)) {
       result.diagnostic = errorMessage;
       return result;
     }
     for (auto &[uuid, candidate] : fixtures) {
       (void)uuid;
       if (candidate.gdtfSpec == originalSpec &&
-          candidate.typeName == originalType)
+          (libraryBacked || candidate.typeName == originalType))
         candidate.gdtfSpec = prepared.publishedReference;
     }
     symbol_cache::InvalidateFixtureSymbolCachesForPath(
         prepared.publishedPath.string());
     symbol_cache::PublishGdtfSemanticFingerprintCache(
         prepared.publishedPath.string(), rewrite.finalSemanticFingerprint);
-    sceneUpdated = true;
-    result.sceneUpdated = true;
+    result.fixtureReferencesUpdated = true;
+    result.sceneUpdated = !libraryBacked;
     result.finalScenePath = prepared.publishedPath.string();
     result.finalSceneFingerprint = rewrite.finalSemanticFingerprint;
   }
 
-  if (options.updateSceneCopy && !sceneUpdated) {
+  if (options.updateSceneCopy && !result.fixtureReferencesUpdated) {
     errorMessage = "Could not resolve a project-owned fixture GDTF copy to update.";
     result.diagnostic = "Could not resolve a project-owned fixture GDTF copy to update.";
     return result;
   }
 
-  if (options.updateLibraryCopy) {
+  if (options.updateLibraryCopy && !result.libraryUpdated) {
     const std::string librarySource = result.sceneUpdated ? result.finalScenePath : inspectPath;
     auto derivative = GdtfDictionary::CreateOrUpdatePerastageLibraryDerivative(
         fixtureIt->second.typeName, librarySource, fixtureIt->second.gdtfMode,
@@ -676,7 +684,7 @@ ApplySymbolsResult ApplySymbolsToFixtureGdtfWithResult(
     }
   }
 
-  result.success = options.updateSceneCopy ? result.sceneUpdated : result.libraryUpdated;
+  result.success = options.updateSceneCopy ? result.fixtureReferencesUpdated : result.libraryUpdated;
   if (!result.success && result.diagnostic.empty())
     result.diagnostic = "The requested fixture GDTF persistence operation failed.";
   return result;

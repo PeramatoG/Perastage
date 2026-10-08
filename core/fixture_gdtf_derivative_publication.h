@@ -16,6 +16,13 @@ bool PublishCanonicalGdtfCopy(const std::filesystem::path &sourcePath,
                               const std::filesystem::path &publishedPath,
                               std::string &errorMessage);
 
+// Prepares a private copy for an explicitly owned publication target.
+bool PrepareOwnedDerivative(const std::filesystem::path &sourcePath,
+                            const std::filesystem::path &publishedPath,
+                            const std::string &publishedReference,
+                            PreparedDerivative &prepared,
+                            std::string &errorMessage);
+
 // Prepares a private working copy and its eventual project publication target.
 bool PrepareProjectDerivative(const std::filesystem::path &sourcePath,
                               const std::filesystem::path &projectBasePath,

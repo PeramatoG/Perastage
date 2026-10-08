@@ -120,6 +120,22 @@ resources. Missing standard views remain missing even when an internal symbol
 for the same logical view is available. Publication operates on a private
 working derivative and leaves the source GDTF immutable.
 
+For an unsaved scene, an absolute resolved source does not require a project
+folder. Application prepares a private working copy in active fixture-library
+ownership, publishes it canonically and atomically, and retargets matching
+in-memory references to its absolute owned path. It never assigns a synthetic
+`basePath`. `ApplySymbolsResult::fixtureReferencesUpdated` records this in-memory
+outcome separately from `sceneUpdated`, which means project archive persistence.
+A successful unsaved application reports library-backed success and reminds the
+user to save the project. Both symbol and semantic-revision caches are updated.
+
+The comparison preview model consumes inspection and the existing resolver,
+but accepts only a usable stored resource in the requested set and logical view.
+Rendering fallback to another set or Top is not an original-resource preview.
+Standard Bottom is always unavailable, even if internal Bottom is usable.
+Missing and malformed resources retain their own path/provenance/diagnostic
+for the editor's independent Standard GDTF and Perastage groups.
+
 Publication compares complete generated SVG payloads (including internal offset
 and version metadata) with the existing dedicated entries. It replaces only
 changed payloads and appends a symbol revision listing only changed views. The

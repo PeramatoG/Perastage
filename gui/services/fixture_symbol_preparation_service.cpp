@@ -422,7 +422,7 @@ void FixtureSymbolPreparationService::RunNextStep() {
                         : apply.diagnostic);
         return;
       }
-      work.sceneUpdated = apply.sceneUpdated;
+      work.fixtureReferencesUpdated = apply.fixtureReferencesUpdated;
       coordinator_.Complete(*currentKey_, epoch_, true);
     }
     work.stage = WorkStage::Finalizing;
@@ -430,7 +430,7 @@ void FixtureSymbolPreparationService::RunNextStep() {
     return;
   }
 
-  if (work.sceneUpdated) {
+  if (work.fixtureReferencesUpdated) {
     cfg.MarkDirty();
     window_.RefreshAfterFixtureSymbolUpdate();
   }

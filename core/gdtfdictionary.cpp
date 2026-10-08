@@ -23,6 +23,7 @@
 #include "dictionary_json_contract.h"
 #include "file_import_utils.h"
 #include "filesystem_path_utils.h"
+#include "symbols/fixture_symbol_resource_contract.h"
 #include "gdtf_filename_policy.h"
 #include "json.hpp"
 #include "logger.h"
@@ -986,6 +987,82 @@ bool IsPerastageNamedGdtfFile(const std::string &gdtfPath) {
     return false;
   return gdtf_filename_policy::IsPerastageNamedFile(
       PathUtils::PathFromUtf8(gdtfPath));
+}
+
+// Resolves active library ownership without requiring a complete source symbol set.
+bool PreparePerastageLibraryDerivative(
+    const std::string &type, const std::string &sourcePath,
+    fixture_gdtf::PreparedDerivative &prepared,
+    std::string &errorMessage) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  const fs::path dictionaryFile = GetConfiguredUserDictFile();
+  if (dictionaryFile.empty()) {
+    errorMessage = "The active fixture dictionary path is unavailable.";
+    return false;
+  }
+  const auto layout = ActiveDictionaryStorage::BuildLayout(
+      ActiveDictionaryStorage::DictionaryKind::Fixtures,
+      dictionaryFile, GetUserDictFile());
+  const fs::path source = PathUtils::PathFromUtf8(sourcePath);
+  fs::path destination = layout.ownedAssetDirectory /
+      BuildPerastageCanonicalGdtfFileName(sourcePath);
+  std::error_code ec;
+  const auto existing = Get(type);
+  FixtureSymbolResourceInspection resources;
+  const bool reuseOwned = existing &&
+      PathUtils::AreFilesystemPathsEquivalent(source, PathUtils::PathFromUtf8(existing->path), ec) &&
+      PathUtils::AreFilesystemPathsEquivalent(source.parent_path(), layout.ownedAssetDirectory, ec) &&
+      IsPerastageNamedGdtfFile(sourcePath) &&
+      InspectFixtureSymbolResources(sourcePath, resources) && resources.perastageViewsUsable;
+  if (reuseOwned) {
+    destination = layout.ownedAssetDirectory / source.filename();
+  } else if (PathUtils::AreFilesystemPathsEquivalent(source, destination, ec)) {
+    // Canonical-looking downloaded/authored files do not establish owned mutation rights.
+    const auto sourceHash = FileImportUtils::ComputeFileSha256(source);
+    if (!sourceHash) {
+      errorMessage = "Could not fingerprint the external fixture source.";
+      return false;
+    }
+    const std::string name = destination.filename().string();
+    const auto marker = name.rfind("@Perastage");
+    destination = destination.parent_path() /
+        (name.substr(0, marker) + "_symbols_" + sourceHash->substr(0, 12) +
+         name.substr(marker));
+  }
+  return fixture_gdtf::PrepareOwnedDerivative(
+      PathUtils::PathFromUtf8(sourcePath), destination,
+      PathUtils::PathToUtf8(fs::absolute(destination)), prepared, errorMessage);
+}
+
+std::optional<Entry> PublishPerastageLibraryDerivative(
+    const std::string &type, const fixture_gdtf::PreparedDerivative &prepared,
+    const std::string &mode, const std::string &category, std::string &errorMessage) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  auto dictionary = Load();
+  if (NormalizeTypeKey(type).empty() || !dictionary) {
+    errorMessage = "The fixture alias or active dictionary is unavailable.";
+    fixture_gdtf::DiscardPreparedDerivative(prepared);
+    return std::nullopt;
+  }
+  if (!fixture_gdtf::PublishPreparedDerivative(prepared, errorMessage)) {
+    fixture_gdtf::DiscardPreparedDerivative(prepared);
+    return std::nullopt;
+  }
+  Entry entry;
+  if (auto existing = FindInLoadedDictionary(*dictionary, type, false))
+    entry = *existing;
+  entry.path = PathUtils::PathToUtf8(fs::absolute(prepared.publishedPath));
+  if (!mode.empty()) entry.mode = mode;
+  if (!category.empty()) entry.category = category;
+  entry.importedAt = FileImportUtils::NowUtcIso8601();
+  // Publication canonicalizes metadata, so hash the final archive for diagnostics.
+  const auto publishedHash = FileImportUtils::ComputeFileSha256(prepared.publishedPath);
+  entry.sha256 = publishedHash.value_or(std::string());
+  const auto key = FindEquivalentTypeKey(*dictionary, NormalizeTypeKey(type));
+  (*dictionary)[key.value_or(type)] = entry;
+  if (!Save(*dictionary, &errorMessage))
+    return std::nullopt;
+  return entry;
 }
 
 // Creates or refreshes a stable @Perastage derivative for a library-owned GDTF.

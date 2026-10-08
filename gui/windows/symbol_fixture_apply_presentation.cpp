@@ -6,6 +6,13 @@ namespace symbol_preview {
 ApplySymbolsPresentation BuildApplySymbolsPresentation(
     const ApplySymbolsResult &result) {
   ApplySymbolsPresentation presentation;
+  if (result.success && result.libraryUpdated && result.fixtureReferencesUpdated &&
+      !result.sceneUpdated) {
+    presentation.kind = ApplySymbolsMessageKind::Success;
+    presentation.message =
+        "Symbol views were applied to the fixture library derivative and the unsaved scene. Save the project to persist the scene references.";
+    return presentation;
+  }
   if (!result.success || !result.sceneUpdated) {
     presentation.kind = ApplySymbolsMessageKind::Error;
     presentation.message = result.diagnostic.empty()

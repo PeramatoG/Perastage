@@ -18,6 +18,7 @@
 #pragma once
 
 #include "dictionary_import.h"
+#include "fixture_gdtf_derivative_publication.h"
 
 #include <cctype>
 #include <cstddef>
@@ -114,6 +115,15 @@ namespace GdtfDictionary {
     std::optional<Entry> CreateOrUpdatePerastageLibraryDerivative(
         const std::string& type, const std::string& gdtfPath,
         const std::string& mode = {}, const std::string& category = {});
+    // Prepares a private mutation copy in active fixture-library ownership.
+    bool PreparePerastageLibraryDerivative(
+        const std::string &type, const std::string &sourcePath,
+        fixture_gdtf::PreparedDerivative &prepared,
+        std::string &errorMessage);
+    // Atomically publishes the prepared library archive and registers its owned path.
+    std::optional<Entry> PublishPerastageLibraryDerivative(
+        const std::string &type, const fixture_gdtf::PreparedDerivative &prepared,
+        const std::string &mode, const std::string &category, std::string &errorMessage);
     struct ExternalMappingResult {
         bool success = false;
         Entry entry;

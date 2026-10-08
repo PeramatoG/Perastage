@@ -42,6 +42,13 @@ int main() {
   assert(libraryOnlyMessage.message.find("not project persistence") !=
          std::string::npos);
 
+  libraryOnly.fixtureReferencesUpdated = true;
+  const auto unsavedMessage = symbol_preview::BuildApplySymbolsPresentation(libraryOnly);
+  assert(unsavedMessage.kind == symbol_preview::ApplySymbolsMessageKind::Success);
+  assert(unsavedMessage.message.find("unsaved scene") != std::string::npos);
+  assert(unsavedMessage.message.find("Save the project") != std::string::npos);
+  assert(unsavedMessage.message.find("project fixture GDTF") == std::string::npos);
+
   const auto fallbackMessage =
       symbol_preview::BuildApplySymbolsPresentation({});
   assert(fallbackMessage.kind == symbol_preview::ApplySymbolsMessageKind::Error);
