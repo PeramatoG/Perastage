@@ -622,9 +622,11 @@ target_link_libraries(perastage_test_gdtf_archive_reader INTERFACE
 add_library(perastage_test_required_fixture_svg STATIC
             build_info_stub.cpp
             ../core/gdtf_mutation_audit.cpp
+            ../core/symbols/fixture_symbol_resource_contract.cpp
             ../core/symbols/PerastageSvgSymbol.cpp)
 target_include_directories(perastage_test_required_fixture_svg PUBLIC ../core)
 target_link_libraries(perastage_test_required_fixture_svg PUBLIC
+                      perastage_gdtf_read
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 
 perastage_resolve_git_bash(RESOLVED_BASH_EXECUTABLE REQUIRED_FOR_TESTING)
@@ -689,6 +691,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(LayoutProjectLoadCacheReset ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_project_load_cache_reset.sh)
     add_bash_policy_test(FixtureSymbolSvgCacheBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_svg_cache_boundary.sh)
     add_bash_policy_test(FixtureSymbolAvailabilityBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_availability_boundary.sh)
+    add_bash_policy_test(FixtureSymbolResourceContractBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_resource_contract_boundary.sh LABELS standard-strict architecture gdtf)
     add_bash_policy_test(FixtureSymbolSourceArchitecture ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_source_architecture.sh)
     add_bash_policy_test(FixtureSymbolCaptureIsolation ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_capture_isolation.sh)
     add_bash_policy_test(ResourceReferenceCacheKey ${CMAKE_CURRENT_SOURCE_DIR}/check_resource_reference_cache_key.sh)
@@ -2548,6 +2551,7 @@ add_executable(fixture_symbol_source_test fixture_symbol_source_test.cpp
                ../core/symbols/fixture_symbol_availability.cpp
                ../core/symbols/fixture_symbol_svg_cache.cpp
                ../core/symbols/fixture_symbol_resource_revision.cpp
+               ../core/symbols/fixture_symbol_resource_contract.cpp
                ../core/symbols/PerastageSvgSymbol.cpp
                ../core/filesystem_path_utils.cpp
                ../core/runtime_storage.cpp
@@ -3366,6 +3370,35 @@ target_link_libraries(project_fixture_gdtf_consolidator_test PRIVATE
                       perastage_test_diagnostics)
 add_test(NAME ProjectFixtureGdtfConsolidator
          COMMAND project_fixture_gdtf_consolidator_test)
+
+add_executable(fixture_symbol_resource_contract_header_compile_test
+               fixture_symbol_resource_contract_header_compile_test.cpp)
+set_property(TARGET fixture_symbol_resource_contract_header_compile_test
+             PROPERTY INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/core")
+add_test(NAME FixtureSymbolResourceContractHeaderCompile
+         COMMAND fixture_symbol_resource_contract_header_compile_test)
+set_perastage_test_labels(FixtureSymbolResourceContractHeaderCompile
+                         LAYER standard-strict DOMAINS gdtf architecture)
+
+add_executable(fixture_symbol_resource_contract_test
+               fixture_symbol_resource_contract_test.cpp
+               support/gdtf_test_fixture_builder.cpp)
+target_include_directories(fixture_symbol_resource_contract_test PRIVATE
+                           ../core support)
+target_link_libraries(fixture_symbol_resource_contract_test PRIVATE
+                      perastage_test_required_fixture_svg)
+foreach(resource_layer standard generated legacy recovery)
+    add_test(NAME FixtureSymbolResourceContract.${resource_layer}
+             COMMAND fixture_symbol_resource_contract_test ${resource_layer})
+endforeach()
+set_perastage_test_labels(FixtureSymbolResourceContract.standard
+                         LAYER standard-strict DOMAINS gdtf symbols)
+set_perastage_test_labels(FixtureSymbolResourceContract.generated
+                         LAYER perastage-extension DOMAINS gdtf symbols)
+set_perastage_test_labels(FixtureSymbolResourceContract.legacy
+                         LAYER legacy-compatibility DOMAINS gdtf symbols)
+set_perastage_test_labels(FixtureSymbolResourceContract.recovery
+                         LAYER tolerant-recovery DOMAINS gdtf symbols)
 
 add_executable(fixture_gdtf_derivative_contract_test
                fixture_gdtf_derivative_contract_test.cpp

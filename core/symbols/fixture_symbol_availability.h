@@ -11,6 +11,7 @@ struct FixtureSymbolAvailability {
   bool storedSvgUsable = false;
   bool fallbackRequired = true;
   std::string diagnostic;
+  FixtureSymbolResourceInspection resources;
 };
 
 FixtureSymbolAvailability

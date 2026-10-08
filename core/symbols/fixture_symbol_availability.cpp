@@ -4,15 +4,18 @@
 
 namespace symbol_cache {
 
-// Inspects the exact stored SVG set without treating renderer fallback as
-// availability.
+// Complete standard and internal resource sets are accepted independently.
 FixtureSymbolAvailability
 InspectFixtureSymbolAvailability(const std::string &physicalGdtfPath) {
-  RequiredFixtureSvgSetInspection inspection;
+  FixtureSymbolAvailability result;
   const bool inspected =
-      InspectRequiredFixtureSvgSet(physicalGdtfPath, inspection);
-  return {inspected && inspection.usable, !inspected || !inspection.usable,
-          inspection.diagnostic};
+      InspectFixtureSymbolResources(physicalGdtfPath, result.resources);
+  result.storedSvgUsable =
+      inspected && (result.resources.standardViewsUsable ||
+                    result.resources.perastageViewsUsable);
+  result.fallbackRequired = !result.storedSvgUsable;
+  result.diagnostic = result.resources.diagnostic;
+  return result;
 }
 
 // Loads one usable stored SVG through the shared bounded-revision runtime

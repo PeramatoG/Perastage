@@ -2,22 +2,31 @@
 
 ## Resource and publication contract
 
-An external or source GDTF remains authoritative when its exact top, bottom,
-front, and side SVG model views are parseable, have a positive view box, and
-contain usable geometry. Availability is ownership-neutral: standard GDTF
-content is usable without Perastage Editor or revision metadata.
+The [Core resource contract](fixture_symbol_resource_contract.md) describes
+each stored SVG view, its provenance, and its resource set. Standard GDTF Top,
+Side, and Front remain in their official model SVG locations. Internal
+Perastage symbols use a separate `perastage/symbols/<model>/` namespace and
+retain their four-view representation, including Bottom. Both resources can
+coexist for the same logical view. Bottom is never required for standard-view
+completeness. Authored resources named `base` or `main` remain authored.
 
-When views are missing or invalid, renderers use their existing geometry
-fallback immediately. Runtime preparation copies the source to a temporary
-working derivative, generates all four views, validates the complete archive,
-and atomically publishes the canonical `@Perastage` derivative. Fixture
-references are rebound only after publication succeeds, so a failed operation
-leaves the previous file and reference authoritative.
+When neither set is complete, renderers retain their existing per-view and
+geometry fallbacks. Runtime preparation copies the source to a temporary
+working derivative and captures all four internal views. Application writes
+only the dedicated internal namespace, including independent SVG-root offsets;
+it preserves existing standard SVG bytes and model offsets. Missing standard
+views stay missing: standard conversion and replacement are future workflows.
+A complete standard set or complete internal set can be atomically published as
+a canonical `@Perastage` derivative. Fixture references are rebound only after
+publication succeeds, leaving the source and previous reference unchanged on
+failure.
 
 `fixture_symbol_availability.*` is the GUI-independent inspection and loading
 boundary. Viewer2D/Viewer3D rendering, layout rendering and legends, PDF export,
-automatic preparation inspection, and manual apply validation use the same
-stored-SVG rules. A fallback is never reported as a stored SVG.
+automatic preparation inspection, and manual apply validation use this model.
+Runtime loading prefers usable internal resources and retains the existing
+Top fallback. It records the selected resource's set and provenance separately
+from view fallback; inspection never counts fallback as an available stored SVG.
 
 ## Runtime preparation
 

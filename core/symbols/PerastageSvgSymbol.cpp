@@ -1,6 +1,6 @@
 #include "symbols/PerastageSvgSymbol.h"
-#include "gdtf_mutation_audit.h"
-#include "gdtf_fixture_type_vocabulary.h"
+#include "gdtf_archive_reader.h"
+#include "filesystem_path_utils.h"
 #include "startup_file_access_gate.h"
 
 #include <algorithm>
@@ -8,18 +8,12 @@
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
-#include <fstream>
-#include <optional>
-#include <memory>
 #include <filesystem>
+#include <optional>
 #include <string_view>
-#include <unordered_map>
 #include <utility>
 
 #include <tinyxml2.h>
-#include <wx/wfstream.h>
-#include <wx/log.h>
-#include <wx/zipstrm.h>
 
 namespace {
 std::string NormalizeArchivePath(std::string value) {
@@ -27,87 +21,6 @@ std::string NormalizeArchivePath(std::string value) {
   while (!value.empty() && value.front() == '/')
     value.erase(value.begin());
   return value;
-}
-
-bool ReadAllBytes(wxZipInputStream &zip, std::string &out) {
-  out.clear();
-  char buffer[4096];
-  while (true) {
-    zip.Read(buffer, sizeof(buffer));
-    const size_t count = zip.LastRead();
-    if (count == 0)
-      break;
-    out.append(buffer, count);
-  }
-  return true;
-}
-
-bool IsZipSignature(const std::string &zipPath) {
-  std::ifstream input(zipPath, std::ios::binary);
-  if (!input.is_open())
-    return false;
-
-  std::array<unsigned char, 4> header{0, 0, 0, 0};
-  input.read(reinterpret_cast<char *>(header.data()),
-             static_cast<std::streamsize>(header.size()));
-  if (input.gcount() < static_cast<std::streamsize>(header.size()))
-    return false;
-
-  const bool isLocalHeader =
-      header[0] == 0x50 && header[1] == 0x4b && header[2] == 0x03 &&
-      header[3] == 0x04;
-  const bool isEmptyArchive =
-      header[0] == 0x50 && header[1] == 0x4b && header[2] == 0x05 &&
-      header[3] == 0x06;
-  const bool isSpannedArchive =
-      header[0] == 0x50 && header[1] == 0x4b && header[2] == 0x07 &&
-      header[3] == 0x08;
-  return isLocalHeader || isEmptyArchive || isSpannedArchive;
-}
-
-bool ReadZipEntries(const std::string &zipPath,
-                    std::unordered_map<std::string, std::string> &entries,
-                    std::string *errorDetails) {
-  if (zipPath.empty()) {
-    if (errorDetails)
-      *errorDetails = "GDTF path is empty.";
-    return false;
-  }
-
-  if (!IsZipSignature(zipPath)) {
-    if (errorDetails) {
-      *errorDetails = "The selected file is not a valid ZIP/GDTF archive: " +
-                      zipPath;
-    }
-    return false;
-  }
-
-  wxFileInputStream input(zipPath);
-  if (!input.IsOk()) {
-    if (errorDetails)
-      *errorDetails = "Could not open GDTF archive: " + zipPath;
-    return false;
-  }
-
-  wxZipInputStream zipInput(input);
-  std::unique_ptr<wxZipEntry> entry;
-  bool hasEntries = false;
-  while ((entry.reset(zipInput.GetNextEntry())), entry) {
-    hasEntries = true;
-    if (entry->IsDir())
-      continue;
-    std::string content;
-    if (!ReadAllBytes(zipInput, content))
-      continue;
-    entries[NormalizeArchivePath(entry->GetName().ToStdString())] =
-        std::move(content);
-  }
-
-  if (!hasEntries && errorDetails) {
-    *errorDetails = "The GDTF archive does not contain readable ZIP entries: " +
-                    zipPath;
-  }
-  return true;
 }
 
 bool EqualsNoCase(std::string_view a, std::string_view b) {
@@ -122,19 +35,8 @@ bool EqualsNoCase(std::string_view a, std::string_view b) {
   return true;
 }
 
-bool StartsWithNoCase(std::string_view value, std::string_view prefix) {
-  if (value.size() < prefix.size())
-    return false;
-  return EqualsNoCase(value.substr(0, prefix.size()), prefix);
-}
-
-bool IsPerastageModifiedByValue(const char *modifiedByValue) {
-  if (!modifiedByValue)
-    return false;
-  return StartsWithNoCase(modifiedByValue, "Perastage");
-}
-
-bool HasPerastageRevisionModifiedBy(const tinyxml2::XMLElement *fixtureType) {
+bool HasLegacySymbolRevisionForView(const tinyxml2::XMLElement *fixtureType,
+                                    SymbolViewKind view) {
   if (!fixtureType)
     return false;
   const tinyxml2::XMLElement *revisions = fixtureType->FirstChildElement("Revisions");
@@ -143,7 +45,10 @@ bool HasPerastageRevisionModifiedBy(const tinyxml2::XMLElement *fixtureType) {
   for (const tinyxml2::XMLElement *revision =
            revisions->FirstChildElement("Revision");
        revision; revision = revision->NextSiblingElement("Revision")) {
-    if (IsPerastageModifiedByValue(revision->Attribute("ModifiedBy")))
+    const char *modifiedBy = revision->Attribute("ModifiedBy");
+    const char *text = revision->Attribute("Text");
+    if (modifiedBy && text &&
+        IsPerastageFixtureSymbolRevisionForView(modifiedBy, text, view))
       return true;
   }
   return false;
@@ -602,7 +507,17 @@ void CollectSvgElements(const tinyxml2::XMLElement *node,
   }
 }
 
-bool ParseSvgData(const std::string &svgXml, PerastageSvgSymbolData &out) {
+struct SvgResourceMetadata {
+  bool marked = false;
+  bool declaredStandard = false;
+  std::string version;
+  double offsetXmm = 0.0;
+  double offsetYmm = 0.0;
+  bool offsetsUsable = true;
+};
+
+bool ParseSvgData(const std::string &svgXml, PerastageSvgSymbolData &out,
+                  SvgResourceMetadata &metadata) {
   tinyxml2::XMLDocument doc;
   if (doc.Parse(svgXml.c_str(), svgXml.size()) != tinyxml2::XML_SUCCESS)
     return false;
@@ -610,6 +525,21 @@ bool ParseSvgData(const std::string &svgXml, PerastageSvgSymbolData &out) {
   const tinyxml2::XMLElement *svg = doc.FirstChildElement("svg");
   if (!svg)
     return false;
+
+  if (const char *version = svg->Attribute(kPerastageSymbolVersionAttribute)) {
+    metadata.marked = true;
+    metadata.version = version;
+  }
+  const char *set = svg->Attribute(kPerastageSymbolResourceSetAttribute);
+  metadata.declaredStandard = metadata.marked && set &&
+                             std::string_view(set) == kStandardGdtfSymbolResourceSetValue;
+  for (const auto &[attribute, value] :
+       {std::pair{kPerastageSymbolOffsetXAttribute, &metadata.offsetXmm},
+        std::pair{kPerastageSymbolOffsetYAttribute, &metadata.offsetYmm}}) {
+    if (svg->Attribute(attribute) &&
+        svg->QueryDoubleAttribute(attribute, value) != tinyxml2::XML_SUCCESS)
+      metadata.offsetsUsable = false;
+  }
 
   std::vector<double> viewBox;
   if (!ParseDoubles(svg->Attribute("viewBox"), viewBox) || viewBox.size() < 4)
@@ -652,76 +582,304 @@ bool ReadOffset(const tinyxml2::XMLElement *model, const char *attr,
   outValue = parsed;
   return true;
 }
+
+struct SymbolArchive {
+  gdtf::ArchiveReadResult archive;
+  tinyxml2::XMLDocument description;
+  const tinyxml2::XMLElement *fixtureType = nullptr;
+  const tinyxml2::XMLElement *model = nullptr;
+};
+
+std::string ArchiveDiagnostics(
+    const std::vector<gdtf::ArchiveDiagnostic> &diagnostics) {
+  std::string result;
+  for (const auto &diagnostic : diagnostics) {
+    if (!result.empty())
+      result += " ";
+    result += diagnostic.message;
+  }
+  return result;
+}
+
+// Uses the shared immutable GDTF archive reader and the existing model resolver.
+bool ReadSymbolArchive(const std::string &path, SymbolArchive &symbolArchive,
+                       bool requireModel, std::string &diagnostic) {
+  symbolArchive.archive = gdtf::ReadGdtfArchive(PathUtils::PathFromUtf8(path));
+  if (!symbolArchive.archive.Success()) {
+    diagnostic = ArchiveDiagnostics(symbolArchive.archive.diagnostics);
+    if (diagnostic.empty())
+      diagnostic = "Could not read the GDTF archive.";
+    return false;
+  }
+  const std::string &xml = symbolArchive.archive.descriptionXml;
+  if (symbolArchive.description.Parse(xml.c_str(), xml.size()) !=
+      tinyxml2::XML_SUCCESS) {
+    diagnostic = "description.xml could not be parsed.";
+    return false;
+  }
+  symbolArchive.fixtureType = ResolveFixtureType(symbolArchive.description);
+  if (!symbolArchive.fixtureType) {
+    diagnostic = "FixtureType is missing from description.xml.";
+    return false;
+  }
+  symbolArchive.model = ResolveTargetModel(symbolArchive.fixtureType);
+  if (requireModel && !symbolArchive.model) {
+    diagnostic = "The fixture does not declare a usable Model.";
+    return false;
+  }
+  return true;
+}
+
+std::vector<std::string> BuildViewResourcePaths(
+    SymbolViewKind view, const std::vector<std::string> &baseNames) {
+  std::vector<std::string> paths;
+  for (const auto &name : baseNames) {
+    switch (view) {
+    case SymbolViewKind::Bottom:
+      paths.push_back("models/svg/" + name + "_bottom.svg");
+      paths.push_back("models/svg_bottom/" + name + ".svg");
+      break;
+    case SymbolViewKind::Front:
+      paths.push_back("models/svg_front/" + name + ".svg");
+      break;
+    case SymbolViewKind::Left:
+    case SymbolViewKind::Right:
+      paths.push_back("models/svg_side/" + name + ".svg");
+      break;
+    default:
+      paths.push_back("models/svg/" + name + ".svg");
+      break;
+    }
+  }
+  return paths;
+}
+
+// Matches only a view's own paths; filename-only reader recovery could otherwise
+// mistake an authored Top entry for an absent Side or Front entry.
+std::string ResolveStoredViewPath(const gdtf::ArchiveReadResult &archive,
+                                 const std::string &requestedPath,
+                                 bool &ambiguous) {
+  std::string compatible;
+  for (const auto &entry : archive.entries) {
+    if (entry.directory)
+      continue;
+    const std::string path = NormalizeArchivePath(entry.path);
+    if (path == requestedPath)
+      return path;
+    if (EqualsNoCase(path, requestedPath)) {
+      if (!compatible.empty())
+        ambiguous = true;
+      compatible = path;
+    }
+  }
+  return ambiguous ? std::string() : compatible;
+}
+
+void ReadViewOffsets(const tinyxml2::XMLElement *model, SymbolViewKind view,
+                     PerastageSvgSymbolData &parsed) {
+  if (view == SymbolViewKind::Front) {
+    ReadOffset(model, "SVGFrontOffsetX", parsed.offsetXmm);
+    ReadOffset(model, "SVGFrontOffsetY", parsed.offsetYmm);
+  } else if (view == SymbolViewKind::Left || view == SymbolViewKind::Right) {
+    ReadOffset(model, "SVGSideOffsetX", parsed.offsetXmm);
+    ReadOffset(model, "SVGSideOffsetY", parsed.offsetYmm);
+  } else {
+    ReadOffset(model, "SVGOffsetX", parsed.offsetXmm);
+    ReadOffset(model, "SVGOffsetY", parsed.offsetYmm);
+  }
+}
+
+struct InspectedSvgResource {
+  FixtureSymbolResource resource;
+  PerastageSvgSymbolData data;
+};
+
+// Inspects one inventoried archive entry through the shared bounded reader.
+InspectedSvgResource InspectResourcePath(const SymbolArchive &symbolArchive,
+                                        SymbolViewKind view,
+                                        const std::string &path,
+                                        bool dedicated) {
+  InspectedSvgResource inspected;
+  auto &resource = inspected.resource;
+  resource.viewKind = view;
+  resource.archivePath = path;
+  resource.standardGdtf = !dedicated && view != SymbolViewKind::Bottom;
+  resource.resourceSet = resource.standardGdtf
+                             ? FixtureSymbolResourceSet::StandardGdtf
+                             : FixtureSymbolResourceSet::Perastage;
+  bool ambiguous = false;
+  const std::string storedPath =
+      ResolveStoredViewPath(symbolArchive.archive, path, ambiguous);
+  if (storedPath.empty() && !ambiguous)
+    return inspected;
+
+  resource.exists = true;
+  resource.archivePath = storedPath.empty() ? path : storedPath;
+  const bool legacy = !dedicated &&
+                      (view == SymbolViewKind::Bottom ||
+                       HasLegacySymbolRevisionForView(symbolArchive.fixtureType, view));
+  resource.provenance = dedicated ? FixtureSymbolProvenance::GeneratedPerastage
+                                 : legacy ? FixtureSymbolProvenance::LegacyPerastage
+                                          : FixtureSymbolProvenance::AuthoredGdtf;
+  if (legacy) {
+    resource.resourceSet = FixtureSymbolResourceSet::Perastage;
+    resource.standardGdtf = false;
+  }
+  if (ambiguous) {
+    resource.diagnostic = "SVG archive path has ambiguous case matches.";
+    return inspected;
+  }
+  const auto payload = gdtf::ReadGdtfArchiveResource(
+      symbolArchive.archive.sourcePath, storedPath);
+  if (!payload.Success() || payload.filesystemFallback ||
+      payload.entryPath != storedPath) {
+    resource.diagnostic = ArchiveDiagnostics(payload.diagnostics);
+    if (resource.diagnostic.empty())
+      resource.diagnostic = "SVG archive entry is empty or unreadable.";
+    return inspected;
+  }
+
+  auto &parsed = inspected.data;
+  parsed.sourcePath = storedPath;
+  parsed.viewKind = view;
+  SvgResourceMetadata metadata;
+  const std::string xml(payload.bytes.begin(), payload.bytes.end());
+  resource.usable = ParseSvgData(xml, parsed, metadata);
+  if (!dedicated && view != SymbolViewKind::Bottom && metadata.declaredStandard) {
+    // A future converter can explicitly identify standard output independently
+    // from internal symbols or historical symbol-generation revisions.
+    resource.resourceSet = FixtureSymbolResourceSet::StandardGdtf;
+    resource.standardGdtf = true;
+    resource.provenance = FixtureSymbolProvenance::GeneratedPerastage;
+  } else if (!dedicated && metadata.marked) {
+    resource.resourceSet = FixtureSymbolResourceSet::Perastage;
+    resource.standardGdtf = false;
+    resource.provenance = FixtureSymbolProvenance::LegacyPerastage;
+  }
+  parsed.provenance = resource.provenance;
+  parsed.resourceSet = resource.resourceSet;
+  if (!resource.usable) {
+    resource.diagnostic = "SVG is malformed or contains no usable geometry.";
+    return inspected;
+  }
+  if (dedicated) {
+    parsed.offsetXmm = metadata.offsetXmm;
+    parsed.offsetYmm = metadata.offsetYmm;
+    if (!metadata.offsetsUsable || !std::isfinite(parsed.offsetXmm) ||
+        !std::isfinite(parsed.offsetYmm)) {
+      resource.usable = false;
+      resource.diagnostic = "Perastage SVG offsets must be finite.";
+      return inspected;
+    }
+    if (metadata.declaredStandard)
+      resource.diagnostic = "The Perastage namespace cannot declare a standard GDTF resource.";
+  } else {
+    ReadViewOffsets(symbolArchive.model, view, parsed);
+  }
+  if (metadata.marked &&
+      metadata.version != std::to_string(kCurrentPerastageSymbolResourceVersion)) {
+    if (!resource.diagnostic.empty())
+      resource.diagnostic += " ";
+    resource.diagnostic += "Perastage SVG resource version '" + metadata.version +
+                           "' is not supported; using compatible SVG geometry.";
+  }
+  if (storedPath != path) {
+    if (!resource.diagnostic.empty())
+      resource.diagnostic += " ";
+    resource.diagnostic += "Using a case-insensitive archive path match.";
+  }
+  return inspected;
+}
+
+// Dedicated internal resources take precedence without hiding authored or
+// legacy alternatives from inspection and consolidation.
+std::vector<InspectedSvgResource> InspectViewCandidates(
+    const SymbolArchive &symbolArchive, SymbolViewKind view,
+    const std::vector<std::string> &baseNames) {
+  std::vector<InspectedSvgResource> candidates;
+  for (const auto &base : baseNames) {
+    auto candidate = InspectResourcePath(
+        symbolArchive, view, BuildPerastageFixtureSymbolPath(base, view), true);
+    if (candidate.resource.exists)
+      candidates.push_back(std::move(candidate));
+  }
+  for (const auto &path : BuildViewResourcePaths(view, baseNames)) {
+    auto candidate = InspectResourcePath(symbolArchive, view, path, false);
+    if (candidate.resource.exists)
+      candidates.push_back(std::move(candidate));
+  }
+  return candidates;
+}
+
+bool LoadStoredView(const SymbolArchive &symbolArchive, SymbolViewKind view,
+                    const std::vector<std::string> &baseNames,
+                    PerastageSvgSymbolData &out) {
+  const auto candidates = InspectViewCandidates(symbolArchive, view, baseNames);
+  // A malformed internal entry must not suppress a usable authored view.
+  for (const auto &candidate : candidates) {
+    if (candidate.resource.usable) {
+      out = candidate.data;
+      return true;
+    }
+  }
+  return false;
+}
 } // namespace
 
-// Inspects the exact four fixture-symbol views without rendering fallbacks.
-bool InspectRequiredFixtureSvgSet(
+bool InspectFixtureSymbolResources(
     const std::string &gdtfPath,
-    RequiredFixtureSvgSetInspection &inspection) {
+    FixtureSymbolResourceInspection &inspection) {
   inspection = {};
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
-  std::unordered_map<std::string, std::string> entries;
-  std::string archiveError;
-  if (!ReadZipEntries(gdtfPath, entries, &archiveError)) {
-    inspection.diagnostic = archiveError;
+  SymbolArchive symbolArchive;
+  if (!ReadSymbolArchive(gdtfPath, symbolArchive, true, inspection.diagnostic))
     return false;
-  }
-  const auto descriptionIt = entries.find("description.xml");
-  if (descriptionIt == entries.end()) {
-    inspection.diagnostic = "description.xml was not found in the GDTF archive.";
-    return false;
-  }
-  tinyxml2::XMLDocument description;
-  if (description.Parse(descriptionIt->second.c_str(),
-                        descriptionIt->second.size()) != tinyxml2::XML_SUCCESS) {
-    inspection.diagnostic = "description.xml could not be parsed.";
-    return false;
-  }
-  const tinyxml2::XMLElement *fixtureType = ResolveFixtureType(description);
-  if (!fixtureType) {
-    inspection.diagnostic = "FixtureType is missing from description.xml.";
-    return false;
-  }
-  const tinyxml2::XMLElement *model = ResolveTargetModel(fixtureType);
-  if (!model) {
-    inspection.diagnostic = "The fixture does not declare a usable Model.";
-    return false;
-  }
-  const std::string baseName = ResolveModelSvgBasename(model);
-  if (baseName.empty()) {
-    inspection.diagnostic = "The fixture symbol model could not be resolved.";
-    return false;
-  }
-  inspection.views = {{{SymbolViewKind::Top, "models/svg/" + baseName + ".svg"},
-                       {SymbolViewKind::Bottom,
-                        "models/svg/" + baseName + "_bottom.svg"},
-                       {SymbolViewKind::Front,
-                        "models/svg_front/" + baseName + ".svg"},
-                       {SymbolViewKind::Left,
-                        "models/svg_side/" + baseName + ".svg"}}};
-  bool allUsable = true;
-  for (auto &view : inspection.views) {
-    const auto svgIt = entries.find(view.archivePath);
-    if (svgIt == entries.end()) {
-      view.diagnostic = "Required archive entry is missing.";
-      allUsable = false;
-      continue;
+  inspection.modelSvgBasename = ResolveModelSvgBasename(symbolArchive.model);
+  const auto baseNames = BuildSvgBaseNameCandidates(inspection.modelSvgBasename);
+  for (auto &internal : inspection.perastageViews) {
+    const auto view = internal.viewKind;
+    internal.archivePath = BuildPerastageFixtureSymbolPath(inspection.modelSvgBasename, view);
+    internal.diagnostic = "Perastage SVG archive entry is missing.";
+    FixtureSymbolResource *standard = nullptr;
+    for (auto &resource : inspection.standardViews) {
+      if (resource.viewKind == view)
+        standard = &resource;
     }
-    PerastageSvgSymbolData parsed;
-    parsed.sourcePath = view.archivePath;
-    parsed.viewKind = view.viewKind;
-    view.usable = ParseSvgData(svgIt->second, parsed) && parsed.IsValid();
-    if (!view.usable) {
-      view.diagnostic = "SVG is malformed or contains no usable geometry.";
-      allUsable = false;
+    if (standard) {
+      standard->archivePath = BuildViewResourcePaths(view, baseNames).front();
+      standard->diagnostic = "Standard GDTF SVG archive entry is missing.";
+    }
+    for (const auto &candidate : InspectViewCandidates(symbolArchive, view, baseNames)) {
+      const auto &resource = candidate.resource;
+      if (resource.resourceSet == FixtureSymbolResourceSet::Perastage) {
+        inspection.perastageResources.push_back(resource);
+        if (!internal.exists || (!internal.usable && resource.usable))
+          internal = resource;
+        if (standard && resource.provenance == FixtureSymbolProvenance::LegacyPerastage &&
+            !standard->exists)
+          standard->diagnostic = "The official SVG path contains a legacy Perastage symbol, not a standard resource.";
+      } else if (standard && !standard->exists) {
+        *standard = resource;
+      }
     }
   }
-  inspection.usable = allUsable;
-  if (!allUsable) {
-    for (const auto &view : inspection.views) {
-      if (!view.usable) {
-        inspection.diagnostic = "Required SVG view '" + view.archivePath +
-                                "' is not usable: " + view.diagnostic;
+  inspection.standardViewsUsable = std::all_of(
+      inspection.standardViews.begin(), inspection.standardViews.end(),
+      [](const auto &resource) { return resource.usable; });
+  inspection.perastageViewsUsable = std::all_of(
+      inspection.perastageViews.begin(), inspection.perastageViews.end(),
+      [](const auto &resource) { return resource.usable; });
+  if (!inspection.standardViewsUsable && !inspection.perastageViewsUsable) {
+    inspection.diagnostic = "Neither the standard GDTF views nor the internal Perastage views are complete.";
+    for (const auto &resource : inspection.standardViews) {
+      if (!resource.usable) {
+        inspection.diagnostic += " " + resource.archivePath + ": " + resource.diagnostic;
+        break;
+      }
+    }
+    for (const auto &resource : inspection.perastageViews) {
+      if (!resource.usable) {
+        inspection.diagnostic += " " + resource.archivePath + ": " + resource.diagnostic;
         break;
       }
     }
@@ -730,134 +888,39 @@ bool InspectRequiredFixtureSvgSet(
 }
 
 bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
-                                    SymbolViewKind requestedView,
-                                    PerastageSvgSymbolData &out,
-                                    std::string *errorDetails) {
+                                  SymbolViewKind requestedView,
+                                  PerastageSvgSymbolData &out,
+                                  std::string *errorDetails) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
-  std::unordered_map<std::string, std::string> entries;
-  if (!ReadZipEntries(gdtfPath, entries, errorDetails))
-    return false;
-
-  auto descIt = entries.find("description.xml");
-  if (descIt == entries.end()) {
+  SymbolArchive symbolArchive;
+  std::string diagnostic;
+  if (!ReadSymbolArchive(gdtfPath, symbolArchive, false, diagnostic)) {
     if (errorDetails)
-      *errorDetails = "description.xml was not found in GDTF archive: " +
-                      gdtfPath;
+      *errorDetails = diagnostic;
     return false;
   }
-
-  tinyxml2::XMLDocument description;
-  if (description.Parse(descIt->second.c_str(), descIt->second.size()) !=
-      tinyxml2::XML_SUCCESS) {
+  const auto baseNames = BuildSvgBaseNameCandidates(
+      ResolveModelSvgBasename(symbolArchive.model));
+  SymbolViewKind storedView = requestedView;
+  if (storedView == SymbolViewKind::Right)
+    storedView = SymbolViewKind::Left;
+  else if (storedView == SymbolViewKind::Back)
+    storedView = SymbolViewKind::Top;
+  bool loaded = LoadStoredView(symbolArchive, storedView, baseNames, out);
+  if (!loaded && storedView != SymbolViewKind::Top) {
+    storedView = SymbolViewKind::Top;
+    loaded = LoadStoredView(symbolArchive, storedView, baseNames, out);
+  }
+  if (!loaded) {
     if (errorDetails)
-      *errorDetails = "description.xml could not be parsed for GDTF archive: " +
-                      gdtfPath;
+      *errorDetails = "No usable SVG symbol was found in GDTF archive: " + gdtfPath;
     return false;
   }
-
-  const tinyxml2::XMLElement *fixtureType = ResolveFixtureType(description);
-  if (!fixtureType) {
-    if (errorDetails)
-      *errorDetails = "FixtureType section is missing in GDTF archive: " +
-                      gdtfPath;
-    return false;
-  }
-
-  const bool revisionModifiedByPerastage =
-      HasPerastageRevisionModifiedBy(fixtureType);
-  const char *editor = fixtureType->Attribute("Editor");
-  const bool editorIsPerastageLegacy =
-      editor && gdtf::IsLegacyPerastageEditorValue(editor);
-  const auto compatibility = GdtfMutationAudit::InspectCompatibility(fixtureType);
-  if (!compatibility.warning.empty()) {
-    wxLogWarning("GDTF symbol compatibility warning for '%s': %s",
-                 gdtfPath.c_str(), compatibility.warning.c_str());
-  }
-  const bool editorIsPerastage =
-      compatibility.mode == GdtfMutationAudit::CompatibilityMode::KnownPerastageVersion
-          ? true
-          : (compatibility.mode ==
-                     GdtfMutationAudit::CompatibilityMode::LegacyFallback
-                 ? (revisionModifiedByPerastage || editorIsPerastageLegacy)
-                 : false);
-
-  const tinyxml2::XMLElement *model = ResolveTargetModel(fixtureType);
-  const std::string baseName = ResolveModelSvgBasename(model);
-  const std::vector<std::string> baseNameCandidates =
-      BuildSvgBaseNameCandidates(baseName);
-
-  struct Candidate {
-    SymbolViewKind viewKind;
-    std::string archivePath;
-    const char *offsetXAttr;
-    const char *offsetYAttr;
-  };
-
-  std::vector<Candidate> candidates;
-  auto pushTopCandidates = [&]() {
-    for (const auto &name : baseNameCandidates)
-      candidates.push_back(
-          {SymbolViewKind::Top, "models/svg/" + name + ".svg", "SVGOffsetX",
-           "SVGOffsetY"});
-  };
-  if (requestedView == SymbolViewKind::Bottom) {
-    for (const auto &name : baseNameCandidates) {
-      candidates.push_back({SymbolViewKind::Bottom,
-                            "models/svg/" + name + "_bottom.svg",
-                            "SVGOffsetX", "SVGOffsetY"});
-      candidates.push_back({SymbolViewKind::Bottom,
-                            "models/svg_bottom/" + name + ".svg",
-                            "SVGOffsetX", "SVGOffsetY"});
-    }
-    pushTopCandidates();
-  } else if (requestedView == SymbolViewKind::Front) {
-    for (const auto &name : baseNameCandidates) {
-      candidates.push_back({SymbolViewKind::Front,
-                            "models/svg_front/" + name + ".svg",
-                            "SVGFrontOffsetX", "SVGFrontOffsetY"});
-    }
-    pushTopCandidates();
-  } else if (requestedView == SymbolViewKind::Left ||
-             requestedView == SymbolViewKind::Right) {
-    for (const auto &name : baseNameCandidates) {
-      candidates.push_back(
-          {requestedView, "models/svg_side/" + name + ".svg",
-           "SVGSideOffsetX", "SVGSideOffsetY"});
-    }
-    pushTopCandidates();
-  } else {
-    pushTopCandidates();
-  }
-
-  for (const auto &candidate : candidates) {
-    auto svgIt = entries.find(candidate.archivePath);
-    if (svgIt == entries.end())
-      continue;
-
-    PerastageSvgSymbolData parsed;
-    parsed.sourcePath = candidate.archivePath;
-    parsed.viewKind = candidate.viewKind;
-    ReadOffset(model, candidate.offsetXAttr, parsed.offsetXmm);
-    ReadOffset(model, candidate.offsetYAttr, parsed.offsetYmm);
-    if (!ParseSvgData(svgIt->second, parsed))
-      continue;
-
-    out = std::move(parsed);
-    if (errorDetails)
-      errorDetails->clear();
-    return true;
-  }
-
-  if (errorDetails) {
-    if (editorIsPerastage) {
-      *errorDetails = "No valid SVG symbol was found in GDTF archive: " +
-                      gdtfPath;
-    } else {
-      *errorDetails =
-          "No compatible SVG symbol was found in GDTF archive (Editor is not Perastage): " +
-          gdtfPath;
-    }
-  }
-
-  return false;
+  out.usedViewFallback = storedView == SymbolViewKind::Top &&
+                         requestedView != SymbolViewKind::Top;
+  if (requestedView == SymbolViewKind::Right && storedView == SymbolViewKind::Left)
+    out.viewKind = SymbolViewKind::Right;
+  if (errorDetails)
+    errorDetails->clear();
+  return true;
 }

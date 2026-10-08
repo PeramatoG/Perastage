@@ -44,8 +44,8 @@ Perastage currently mutates GDTF archives at the following integration points.
 |---|---|---|---|
 | Core document mutation | `core/gdtf_document_mutation.cpp` | `gdtf::MutateDocument(...)` | Writes `FixtureType/@Description` and `PhysicalDescriptions/Properties` (`Weight`, `PowerConsumption`), appends a standard `Revision`, canonicalizes the description, reports structured diagnostics, and publishes through a unique sibling temporary archive before atomic replacement. |
 | Viewer 3D compatibility facade | `viewer3d/gdtfloader.cpp` | `SetGdtfProperties(...)`, `MutateGdtfDocumentWithResult(...)` | Preserves the legacy public API by delegating the transaction to Core and invalidates the corresponding Viewer3D loader cache entry after successful atomic replacement. |
-| GUI symbol workflow | `gui/windows/symbol_fixture_applier.cpp` | `RewriteGdtf(...)` + `AppendMutationAuditMetadata(...)` (called by `ApplySymbolsToFixtureGdtf(...)`) | Writes/updates SVG symbol assets and model SVG offsets, appends a standard `Revision`, rewrites `.gdtf`. |
-| Project fixture editor | `core/gdtf/editor/project_fixture_gdtf_apply_adapter.cpp` + `core/fixture_gdtf_derivative_publication.cpp` | `PrepareProjectDerivative(...)`, document mutation, `PublishPreparedDerivative(...)` | Mutates a private non-canonical project working copy, validates the four-view ownership contract, and atomically publishes before fixture rebinding. Incomplete derivatives are discarded rather than published canonically. |
+| GUI symbol workflow | `gui/windows/symbol_fixture_applier.cpp` | `RewriteGdtf(...)` + `AppendMutationAuditMetadata(...)` (called by `ApplySymbolsToFixtureGdtf(...)`) | Writes/updates dedicated internal SVG assets and SVG-root offsets, preserves standard resources and model offsets, appends a standard `Revision`, and rewrites the derivative `.gdtf`. |
+| Project fixture editor | `core/gdtf/editor/project_fixture_gdtf_apply_adapter.cpp` + `core/fixture_gdtf_derivative_publication.cpp` | `PrepareProjectDerivative(...)`, document mutation, `PublishPreparedDerivative(...)` | Mutates a private non-canonical project working copy, validates a complete standard Top/Side/Front set or a separate complete internal Perastage four-view set, and atomically publishes before fixture rebinding. Internal Bottom is never required for standard-view completeness. |
 | Truss GDTF generation | `core/truss_gdtf_builder.cpp` | `BuildTrussGdtfFromInstance(...)`, `ConvertLegacyGtrussToGdtf(...)`; `gui/trusseditdialog.cpp` calls the builder when truss type fields are edited | Creates Perastage-owned truss GDTF archives with a standard `Structure` root geometry, deterministic `FixtureTypeID`, standard `Revision`, and no custom XML nodes. |
 | MVR export patching | `mvr/mvrexporter.cpp` | `CreatePatchedGdtf(...)` + export resource canonicalization | Creates temporary patched GDTF copies for export overrides (manufacturer/model/physical properties/color/dimensions), appends a standard `Revision` when patched, and canonicalizes every `.gdtf` before it is packaged. |
 | Shared audit helpers | `core/gdtf_mutation_audit.cpp` | `StampPerastageMutationMetadata(...)`, `AppendRevision(...)`, `ApplyPhysicalPropertiesWithAudit(...)` | Centralizes standard GDTF revision-appending semantics used by write flows. |
@@ -89,6 +89,7 @@ strict publication.
 - Truss GDTF files generated, completed, normalized, or modified by Perastage are exported as derived Perastage-owned copies named `Manufacturer@Model@Perastage.gdtf`; external or library source GDTF files are read as inputs and are not overwritten. When the Trusses table edit dialog changes a GDTF-specific type field for a model-only truss, Perastage creates that derived GDTF immediately and attaches it to the project while leaving MVR-only instance edits project-scoped.
 - GDTF model dimensions are written in meters. Perastage truss dimensions are stored in millimeters, so truss GDTF generation converts length, width, and height from millimeters to meters at export time.
 - Fixture SVG symbols remain stored inside their corresponding GDTF files. Project Save/Load does not own a persistent fixture-symbol manifest or generate symbols.
+- Fixture-symbol ownership is recorded per resource by the [Core resource contract](fixture_symbol_resource_contract.md). Internal generation uses the dedicated `perastage/symbols/` namespace and preserves standard SVGs and their offsets. Standard and internal resources can coexist for the same view. Model basenames and generic editor/revision metadata do not establish ownership.
 - Fixture display color is no longer persisted by mutating `description.xml` model `Color` values in place. The persisted source of truth for default color selection is the Perastage dictionary/project data layer, while `GetGdtfModelColor(...)` remains read-only for legacy fallback reads.
 
 ## 2) Exact `Revision` format used by Perastage
@@ -110,7 +111,7 @@ Canonical shape:
   <Revision
     Date="2026-04-05T10:20:30Z"
     ModifiedBy="Perastage 0.x.y"
-    Text="Applied fixture SVG symbol views (top, side, front, bottom)"
+    Text="Applied Perastage fixture SVG symbol views (top, side, front, bottom)"
     UserID="0"/>
 </Revisions>
 ```
@@ -147,7 +148,7 @@ A GDTF mutation change is accepted only if all conditions below hold:
 
 1. **Mutation correctness**
    - Target payload mutation is present (for example color/properties/SVG view assets+offsets).
-   - Fixture symbol validation requires usable top, bottom, front, and side SVG views before a stored symbol set is accepted.
+   - Fixture symbol validation accepts usable standard Top/Side/Front resources or a separate complete internal four-view set. Internal Bottom is never part of standard completeness. Internal generation neither fills missing standard resources nor replaces authored standard SVGs; future conversion/replacement is outside this contract implementation.
 2. **Revision correctness**
    - No new `<PerastageMutationAudit>` node is written.
    - A new `<Revision>` entry is appended with valid `Date`, `ModifiedBy`, `Text`, `UserID` when Perastage intentionally changes a GDTF.
@@ -164,7 +165,7 @@ A GDTF mutation change is accepted only if all conditions below hold:
 
 ### Manual checklist
 
-- [ ] Apply fixture symbol generation to a fixture and verify the `.gdtf` receives updated top, bottom, front, and side SVG entries and offsets.
+- [ ] Apply fixture symbol generation and verify the derivative receives Top/Bottom/Front/Side under `perastage/symbols/` with independent SVG-root offsets, preserving official standard resources and source archive bytes.
 - [ ] Edit fixture color via dictionary/project workflow and verify fixture color persists after reopening without mutating model `Color` in the source `.gdtf`.
 - [ ] Edit fixture physical properties and verify weight/power values persist after reopening.
 - [ ] Inspect resulting `description.xml` and verify no new `PerastageMutationAudit` node is present, `FixtureType` children follow the official order, and `Revision` attributes follow the policy format.
