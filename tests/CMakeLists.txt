@@ -498,9 +498,10 @@ set_perastage_test_labels(InspectorXmlEditor
 
 add_executable(gdtf_resource_svg_bitmap_test
                gdtf_resource_svg_bitmap_test.cpp
+               ../core/symbols/Symbol2DSvg.cpp
                ../gui/gdtf/gdtf_resource_bitmap_cache.cpp
                ../gui/gdtf/svg_preview_geometry.cpp)
-target_include_directories(gdtf_resource_svg_bitmap_test PRIVATE ../gui)
+target_include_directories(gdtf_resource_svg_bitmap_test PRIVATE ../gui ../core)
 target_link_libraries(gdtf_resource_svg_bitmap_test
                       PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME GdtfResourceSvgBitmap COMMAND gdtf_resource_svg_bitmap_test)
@@ -2652,6 +2653,7 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../core/symbols/fixture_symbol_availability.cpp
                ../core/symbols/fixture_symbol_svg_cache.cpp
                ../core/symbols/fixture_symbol_resource_revision.cpp
+               ../core/symbols/Symbol2DSvg.cpp
                ../gui/windows/symbol_preview_exporter.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
@@ -2935,6 +2937,7 @@ add_executable(fixture_symbol_baseline_test
                ../core/diagnostics/DiagnosticPaths.cpp
                ../core/filesystem_path_utils.cpp
                ../gui/tools/symbol_physical_calibration_core.cpp
+               ../core/symbols/Symbol2DSvg.cpp
                ../gui/windows/symbol_preview_exporter.cpp)
 target_compile_definitions(fixture_symbol_baseline_test PRIVATE
     FIXTURE_SYMBOL_BASELINE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/fixture_symbols")
@@ -3396,6 +3399,20 @@ add_test(NAME FixtureSymbolResourceContractHeaderCompile
          COMMAND fixture_symbol_resource_contract_header_compile_test)
 set_perastage_test_labels(FixtureSymbolResourceContractHeaderCompile
                          LAYER standard-strict DOMAINS gdtf architecture)
+
+add_executable(perastage_svg_hole_test
+               perastage_svg_hole_test.cpp
+               support/gdtf_test_fixture_builder.cpp
+               ../core/symbols/Symbol2DSvg.cpp)
+target_include_directories(perastage_svg_hole_test PRIVATE ../core support)
+target_link_libraries(perastage_svg_hole_test PRIVATE
+                      perastage_test_required_fixture_svg)
+add_test(NAME PerastageSvgHoleSemantics COMMAND perastage_svg_hole_test)
+set_perastage_test_labels(PerastageSvgHoleSemantics
+                         LAYER perastage-extension DOMAINS gdtf symbols)
+add_bash_policy_test(SymbolSvgSerializationBoundary
+                     ${CMAKE_CURRENT_SOURCE_DIR}/check_symbol_svg_serialization_boundary.sh
+                     LABELS "symbols;architecture")
 
 add_executable(fixture_symbol_resource_contract_test
                fixture_symbol_resource_contract_test.cpp

@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <charconv>
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
@@ -445,23 +446,21 @@ bool IsPointInsidePolygon(const PerastageSvgPoint &point,
 }
 
 void AssignWhitePolygonsAsHoles(
-    const std::vector<std::pair<std::vector<PerastageSvgPoint>, bool>> &rawPolygons,
+    const std::vector<std::pair<PerastageSvgPolygon, bool>> &rawPolygons,
     std::vector<PerastageSvgPolygon> &fills) {
   fills.clear();
   std::vector<double> fillAreas;
   for (const auto &entry : rawPolygons) {
-    if (entry.second || entry.first.size() < 3)
+    if (entry.second || entry.first.points.size() < 3)
       continue;
-    PerastageSvgPolygon fill{};
-    fill.points = entry.first;
-    fills.push_back(std::move(fill));
-    fillAreas.push_back(std::abs(SignedArea(entry.first)));
+    fills.push_back(entry.first);
+    fillAreas.push_back(std::abs(SignedArea(entry.first.points)));
   }
 
   for (const auto &entry : rawPolygons) {
-    if (!entry.second || entry.first.size() < 3)
+    if (!entry.second || entry.first.points.size() < 3)
       continue;
-    const PerastageSvgPoint anchor = PolygonCentroid(entry.first);
+    const PerastageSvgPoint anchor = PolygonCentroid(entry.first.points);
     size_t ownerIndex = fills.size();
     double ownerArea = 0.0;
 
@@ -478,15 +477,74 @@ void AssignWhitePolygonsAsHoles(
 
     tryAssignOwner(anchor);
     if (ownerIndex == fills.size())
-      tryAssignOwner(entry.first.front());
+      tryAssignOwner(entry.first.points.front());
     if (ownerIndex < fills.size())
-      fills[ownerIndex].holes.push_back(entry.first);
+      fills[ownerIndex].holes.push_back(entry.first.points);
   }
 }
 
-void CollectSvgElements(const tinyxml2::XMLElement *node,
-                        std::vector<std::pair<std::vector<PerastageSvgPoint>, bool>> &rawPolygons,
-                        std::vector<PerastageSvgPolyline> &strokes) {
+// Reads only the writer's absolute, explicitly closed M/L/Z polygon subpaths.
+// The first ring is the outer contour; subsequent rings are its real holes.
+bool ParseCompoundPolygonPath(const char *data, PerastageSvgPolygon &polygon) {
+  if (!data)
+    return false;
+  std::string_view remaining(data);
+  auto skipSeparators = [&] {
+    while (!remaining.empty() &&
+           (remaining.front() == ',' ||
+            std::isspace(static_cast<unsigned char>(remaining.front()))))
+      remaining.remove_prefix(1);
+  };
+  auto readNumber = [&](double &value) {
+    skipSeparators();
+    const auto result = std::from_chars(
+        remaining.data(), remaining.data() + remaining.size(), value);
+    if (result.ec != std::errc{} || !std::isfinite(value))
+      return false;
+    remaining.remove_prefix(static_cast<size_t>(result.ptr - remaining.data()));
+    return true;
+  };
+  PerastageSvgPolygon parsed;
+  while (true) {
+    skipSeparators();
+    if (remaining.empty())
+      break;
+    if (remaining.front() != 'M')
+      return false;
+    remaining.remove_prefix(1);
+    std::vector<PerastageSvgPoint> ring;
+    while (true) {
+      PerastageSvgPoint point;
+      if (!readNumber(point.x) || !readNumber(point.y))
+        return false;
+      ring.push_back(point);
+      skipSeparators();
+      if (remaining.empty())
+        return false;
+      const char command = remaining.front();
+      remaining.remove_prefix(1);
+      if (command == 'Z')
+        break;
+      if (command != 'L')
+        return false;
+    }
+    if (ring.size() < 3)
+      return false;
+    if (parsed.points.empty())
+      parsed.points = std::move(ring);
+    else
+      parsed.holes.push_back(std::move(ring));
+  }
+  if (parsed.points.empty())
+    return false;
+  polygon = std::move(parsed);
+  return true;
+}
+
+bool CollectSvgElements(
+    const tinyxml2::XMLElement *node,
+    std::vector<std::pair<PerastageSvgPolygon, bool>> &rawPolygons,
+    std::vector<PerastageSvgPolyline> &strokes, bool allowCompoundPaths) {
   for (const tinyxml2::XMLElement *element = node ? node->FirstChildElement() : nullptr;
        element; element = element->NextSiblingElement()) {
     const std::string tag = element->Name() ? element->Name() : "";
@@ -494,9 +552,16 @@ void CollectSvgElements(const tinyxml2::XMLElement *node,
       std::vector<PerastageSvgPoint> polygonPoints;
       if (ParsePointList(element->Attribute("points"), polygonPoints) &&
           polygonPoints.size() >= 3) {
-        rawPolygons.emplace_back(std::move(polygonPoints),
-                                 ElementForcesWhiteFill(element));
+        rawPolygons.emplace_back(
+            PerastageSvgPolygon{std::move(polygonPoints), {}},
+            ElementForcesWhiteFill(element));
       }
+    } else if (allowCompoundPaths && tag == "path" &&
+               element->Attribute("fill-rule", "evenodd")) {
+      PerastageSvgPolygon polygon;
+      if (!ParseCompoundPolygonPath(element->Attribute("d"), polygon))
+        return false;
+      rawPolygons.emplace_back(std::move(polygon), false);
     } else if (tag == "polyline") {
       PerastageSvgPolyline line;
       if (ParsePointList(element->Attribute("points"), line.points) &&
@@ -504,8 +569,10 @@ void CollectSvgElements(const tinyxml2::XMLElement *node,
         strokes.push_back(std::move(line));
       }
     }
-    CollectSvgElements(element, rawPolygons, strokes);
+    if (!CollectSvgElements(element, rawPolygons, strokes, allowCompoundPaths))
+      return false;
   }
+  return true;
 }
 
 struct SvgResourceMetadata {
@@ -518,7 +585,7 @@ struct SvgResourceMetadata {
 };
 
 bool ParseSvgData(const std::string &svgXml, PerastageSvgSymbolData &out,
-                  SvgResourceMetadata &metadata) {
+                  SvgResourceMetadata &metadata, bool perastageResource) {
   tinyxml2::XMLDocument doc;
   if (doc.Parse(svgXml.c_str(), svgXml.size()) != tinyxml2::XML_SUCCESS)
     return false;
@@ -551,9 +618,12 @@ bool ParseSvgData(const std::string &svgXml, PerastageSvgSymbolData &out,
   if (out.viewBoxWidth <= 0.0 || out.viewBoxHeight <= 0.0)
     return false;
 
-  std::vector<std::pair<std::vector<PerastageSvgPoint>, bool>> rawPolygons;
+  std::vector<std::pair<PerastageSvgPolygon, bool>> rawPolygons;
   out.strokes.clear();
-  CollectSvgElements(svg, rawPolygons, out.strokes);
+  // Limit the emitted path subset to positively identified Perastage content.
+  if (!CollectSvgElements(svg, rawPolygons, out.strokes,
+                          perastageResource || metadata.marked))
+    return false;
   AssignWhitePolygonsAsHoles(rawPolygons, out.fills);
 
   const std::optional<double> svgWidthMm =
@@ -745,7 +815,7 @@ InspectedSvgResource InspectResourcePath(const SymbolArchive &symbolArchive,
   parsed.viewKind = view;
   SvgResourceMetadata metadata;
   const std::string xml(payload.bytes.begin(), payload.bytes.end());
-  resource.usable = ParseSvgData(xml, parsed, metadata);
+  resource.usable = ParseSvgData(xml, parsed, metadata, dedicated || legacy);
   if (!dedicated && view != SymbolViewKind::Bottom && metadata.declaredStandard) {
     // A future converter can explicitly identify standard output independently
     // from internal symbols or historical symbol-generation revisions.
@@ -900,7 +970,8 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
   PerastageSvgSymbolData parsed;
   if (!payload.Success() || payload.filesystemFallback ||
       payload.entryPath != resolved.archivePath ||
-      !ParseSvgData(std::string(payload.bytes.begin(), payload.bytes.end()), parsed, metadata)) {
+      !ParseSvgData(std::string(payload.bytes.begin(), payload.bytes.end()), parsed,
+                    metadata, resolved.resourceSet == FixtureSymbolResourceSet::Perastage)) {
     if (errorDetails)
       *errorDetails = "The resolved SVG resource could not be loaded: " + resolved.archivePath;
     return false;

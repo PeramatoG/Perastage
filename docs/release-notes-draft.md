@@ -71,6 +71,10 @@ Changes since **v1.6.0**.
 
 ## Compatibility, stability, and performance
 
+- Generated Perastage fixture SVG symbols now use transparent holes, preserving
+  their appearance on white backgrounds and correctly revealing other backgrounds.
+  Previously generated symbols remain readable.
+
 - Preserved manufacturer-authored GDTF Top, Side, and Front SVG resources when
   saving generated fixture symbols. Perastage symbols now use a separate archive
   namespace, and standard SVG availability no longer requires a Bottom view.
