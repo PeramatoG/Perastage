@@ -10,6 +10,14 @@ InspectFixtureSymbolAvailability(const std::string &physicalGdtfPath) {
   FixtureSymbolAvailability result;
   const bool inspected =
       InspectFixtureSymbolResources(physicalGdtfPath, result.resources);
+  constexpr std::array views = {SymbolViewKind::Top, SymbolViewKind::Bottom,
+      SymbolViewKind::Left, SymbolViewKind::Right, SymbolViewKind::Front, SymbolViewKind::Back};
+  for (size_t i = 0; i < views.size(); ++i) {
+    result.standardViews[i] = ResolveFixtureSymbolView(result.resources, views[i],
+        FixtureSymbolResolutionPurpose::StandardGdtf);
+    result.internalViews[i] = ResolveFixtureSymbolView(result.resources, views[i],
+        FixtureSymbolResolutionPurpose::InternalRendering);
+  }
   result.storedSvgUsable =
       inspected && (result.resources.standardViewsUsable ||
                     result.resources.perastageViewsUsable);
@@ -22,8 +30,9 @@ InspectFixtureSymbolAvailability(const std::string &physicalGdtfPath) {
 // cache.
 std::shared_ptr<const PerastageSvgSymbolData>
 LoadUsableFixtureSymbol(const std::string &physicalGdtfPath,
-                        SymbolViewKind view, std::string *errorDetails) {
-  return GetFixtureSymbolSvgCache().LookupOrLoad({physicalGdtfPath, view},
+                        SymbolViewKind view, std::string *errorDetails,
+                        FixtureSymbolResolutionPurpose purpose) {
+  return GetFixtureSymbolSvgCache().LookupOrLoad({physicalGdtfPath, view, purpose},
                                                  errorDetails);
 }
 

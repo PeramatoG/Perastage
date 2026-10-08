@@ -623,6 +623,7 @@ add_library(perastage_test_required_fixture_svg STATIC
             build_info_stub.cpp
             ../core/gdtf_mutation_audit.cpp
             ../core/symbols/fixture_symbol_resource_contract.cpp
+            ../core/symbols/fixture_symbol_resolution.cpp
             ../core/symbols/PerastageSvgSymbol.cpp)
 target_include_directories(perastage_test_required_fixture_svg PUBLIC ../core)
 target_link_libraries(perastage_test_required_fixture_svg PUBLIC
@@ -691,6 +692,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(LayoutProjectLoadCacheReset ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_project_load_cache_reset.sh)
     add_bash_policy_test(FixtureSymbolSvgCacheBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_svg_cache_boundary.sh)
     add_bash_policy_test(FixtureSymbolAvailabilityBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_availability_boundary.sh)
+    add_bash_policy_test(FixtureSymbolResolutionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_resolution_boundary.sh LABELS standard-strict architecture core gdtf symbols)
     add_bash_policy_test(FixtureSymbolResourceContractBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_resource_contract_boundary.sh LABELS standard-strict architecture gdtf)
     add_bash_policy_test(FixtureSymbolSourceArchitecture ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_source_architecture.sh)
     add_bash_policy_test(FixtureSymbolCaptureIsolation ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_capture_isolation.sh)
@@ -2553,6 +2555,7 @@ add_executable(fixture_symbol_source_test fixture_symbol_source_test.cpp
                ../core/symbols/fixture_symbol_resource_revision.cpp
                ../core/symbols/fixture_symbol_resource_contract.cpp
                ../core/symbols/PerastageSvgSymbol.cpp
+               ../core/symbols/fixture_symbol_resolution.cpp
                ../core/filesystem_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/logger.cpp
@@ -3371,8 +3374,22 @@ target_link_libraries(project_fixture_gdtf_consolidator_test PRIVATE
 add_test(NAME ProjectFixtureGdtfConsolidator
          COMMAND project_fixture_gdtf_consolidator_test)
 
+add_executable(fixture_symbol_resolution_test
+               fixture_symbol_resolution_test.cpp
+               support/gdtf_test_fixture_builder.cpp
+               ../core/symbols/fixture_symbol_availability.cpp
+               ../core/symbols/fixture_symbol_svg_cache.cpp
+               ../core/symbols/fixture_symbol_resource_revision.cpp
+               ../core/filesystem_path_utils.cpp)
+target_link_libraries(fixture_symbol_resolution_test PRIVATE
+                      perastage_test_required_fixture_svg)
+add_test(NAME FixtureSymbolResolution COMMAND fixture_symbol_resolution_test)
+set_perastage_test_labels(FixtureSymbolResolution
+                         LAYER perastage-extension DOMAINS core gdtf symbols architecture)
+
 add_executable(fixture_symbol_resource_contract_header_compile_test
-               fixture_symbol_resource_contract_header_compile_test.cpp)
+               fixture_symbol_resource_contract_header_compile_test.cpp
+               ../core/symbols/fixture_symbol_resolution.cpp)
 set_property(TARGET fixture_symbol_resource_contract_header_compile_test
              PROPERTY INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/core")
 add_test(NAME FixtureSymbolResourceContractHeaderCompile

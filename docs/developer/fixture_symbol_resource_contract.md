@@ -61,11 +61,36 @@ when their existing SVG geometry can still be used.
 
 Availability and derivative publication accept a complete standard set or a
 complete internal set independently. Missing or malformed internal Bottom
-cannot invalidate an otherwise usable standard Top/Side/Front set. Runtime
-loading prefers a usable dedicated symbol, then a compatible legacy or standard
-resource, and retains the existing requested-view-to-Top fallback. Loaded data
-records the actual resource set and provenance plus whether a different view
-was used; a fallback does not make a missing stored view exist.
+cannot invalidate an otherwise usable standard Top/Side/Front set. Per-view
+selection is owned by the GUI-independent `fixture_symbol_resolution` service,
+which consumes `FixtureSymbolResourceInspection` without parsing archives.
+`FixtureSymbolResolutionPurpose` makes caller intent explicit:
+
+- `StandardGdtf`: usable authored standard, explicitly generated standard,
+  recognized legacy Perastage for the same view, then runtime/geometry fallback.
+  Dedicated internal content does not fill missing standard Top/Side/Front.
+- `InternalRendering`: dedicated Perastage, recognized legacy Perastage,
+  standard content for the same view, then the existing Top-view fallback or
+  runtime/geometry fallback.
+- Bottom has no standard candidate. Both purposes consider dedicated and legacy
+  Perastage Bottom; only internal rendering permits the existing Top-view fallback.
+- Right resolves the Side (`Left`) resource while loaded rendering data retains
+  Right orientation. Side compatibility does not count as a different-view fallback.
+  Internal Back requests retain Top fallback.
+
+Each result records requested and actual view, set, provenance, exact archive
+path, existence, usability, offsets, view-fallback use, a typed fallback reason,
+and diagnostics (including rejected malformed candidates). Runtime/geometry
+results have no stored path, `exists=false`, `usable=false`, and
+`RuntimeFallback` provenance; rendering remains the consumer's responsibility.
+`fixture_symbol_availability` exposes `standardViews` and `internalViews` for
+all six `SymbolViewKind` values in enum order. Its aggregate completeness flags
+retain their prior independent-set meaning; they are not computed from fallback
+results. Partial resources are available through individual resolutions.
+
+The SVG loader follows the resolver's exact path and metadata. The managed SVG
+cache includes purpose in its key and owns caching only. Consumers continue
+through availability/loading; no GUI or Viewer candidate policy is introduced.
 
 Current symbol application writes internal resources only. Existing authored
 standard SVG bytes and offsets are preserved, including unusable authored
@@ -73,14 +98,27 @@ resources. Missing standard views remain missing even when an internal symbol
 for the same logical view is available. Publication operates on a private
 working derivative and leaves the source GDTF immutable.
 
+Publication compares complete generated SVG payloads (including internal offset
+and version metadata) with the existing dedicated entries. It replaces only
+changed payloads and appends a symbol revision listing only changed views. The
+shared audit helper's explicit `RecordEffectiveChange` policy records subsequent
+real changes to the same views; other audit callers retain action deduplication. If
+all supplied payloads match, it leaves the working archive and description
+unchanged; normal validation and canonical publication still run. Reapplying
+identical symbols preserves resource inspection, description metadata and
+semantic fingerprint. Geometry or offset changes still create a revision and
+change derivative identity. Authored standard payloads and model offsets are
+never rewritten by the symbol operation.
+
+
 The model supports a future workflow that detects a missing standard view,
 derives it from an available internal symbol, converts it to the exact standard
 GDTF representation, and adds it to the derivative. Explicit generated standard
 output can be identified with `data-perastage-resource-set="standard-gdtf"`
 alongside the version marker, in the official location. Its provenance remains
-`GeneratedPerastage`, but its set is `StandardGdtf`. This PR implements the
-inspection contract for that distinction, not conversion, automatic filling,
-or authored-resource replacement. Replacing an authored standard view must be
+`GeneratedPerastage`, but its set is `StandardGdtf`. Inspection and resolution
+support that distinction without conversion, automatic filling, or
+authored-resource replacement. Replacing an authored standard view must be
 an explicit user action in any later workflow.
 
 Consolidation excludes only resources in the Perastage set and preserves

@@ -41,17 +41,24 @@ tinyxml2::XMLElement *EnsureRevisionsNode(tinyxml2::XMLElement *fixtureType,
 // Returns a standard "ModifiedBy" value that includes Perastage app version.
 std::string BuildPerastageModifiedBy();
 
+enum class RevisionPolicy {
+  SkipEquivalentAction,
+  RecordEffectiveChange,
+};
+
 // Appends a <Revision> entry under fixtureType.
 // - Date: UTC ISO8601 (generated when dateUtcIso8601 is empty)
 // - ModifiedBy: provided value, or BuildPerastageModifiedBy() when empty
 // - Text: action description
 // - UserID: defaults to 0
+// - RecordEffectiveChange is for callers that have already verified a mutation.
 void AppendRevision(tinyxml2::XMLElement *fixtureType,
                     tinyxml2::XMLDocument &doc,
                     const std::string &text,
                     const std::string &modifiedBy,
                     int userId = 0,
-                    const std::string &dateUtcIso8601 = "");
+                    const std::string &dateUtcIso8601 = "",
+                    RevisionPolicy policy = RevisionPolicy::SkipEquivalentAction);
 
 // Preserves the legacy call site while avoiding non-standard GDTF metadata.
 void StampPerastageMutationMetadata(tinyxml2::XMLElement *fixtureType,

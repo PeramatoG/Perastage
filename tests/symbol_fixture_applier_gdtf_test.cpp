@@ -98,8 +98,8 @@ std::size_t CountSymbolMutationRevisions(const fs::path &archivePath) {
            revisions->FirstChildElement("Revision");
        revision; revision = revision->NextSiblingElement("Revision")) {
     const char *text = revision->Attribute("Text");
-    if (text && std::string(text) ==
-                    "Applied Perastage fixture SVG symbol views (top, side, front, bottom)")
+    if (text && std::string(text).rfind(
+                    "Applied Perastage fixture SVG symbol views (", 0) == 0)
       ++count;
   }
   return count;
@@ -651,6 +651,81 @@ int main() {
   assert(internalTop.sourcePath == "perastage/symbols/base/top.svg");
   assert(internalTop.offsetXmm == -3.0);
   assert(internalTop.offsetYmm == -4.0);
+
+  const auto standardTop = ResolveFixtureSymbolView(authoredResources,
+      SymbolViewKind::Top, FixtureSymbolResolutionPurpose::StandardGdtf);
+  assert(standardTop.resourceSet == FixtureSymbolResourceSet::StandardGdtf);
+  assert(standardTop.offsetXmm == 11.0 && standardTop.offsetYmm == 12.0);
+  PerastageSvgSymbolData loadedStandard;
+  assert(LoadPerastageSvgSymbolFromGdtf(authoredResult.finalScenePath,
+      SymbolViewKind::Top, loadedStandard, nullptr,
+      FixtureSymbolResolutionPurpose::StandardGdtf));
+  assert(loadedStandard.sourcePath == "models/svg/base.svg");
+  assert(loadedStandard.offsetXmm == 11.0 && loadedStandard.offsetYmm == 12.0);
+
+  // Reapplication preserves every resource byte, description metadata, offsets,
+  // revision count and semantic identity, including authored standard content.
+  const auto authoredRevisions = CountSymbolMutationRevisions(authoredResult.finalScenePath);
+  const auto repeated = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
+      authoredSymbols, authoredFixture.uuid, projectOnlyOptions);
+  assert(repeated.success);
+  assert(repeated.finalSceneFingerprint == authoredResult.finalSceneFingerprint);
+  assert(ReadArchiveSnapshot(repeated.finalScenePath).contents == authoredAfter.contents);
+  assert(CountSymbolMutationRevisions(repeated.finalScenePath) == authoredRevisions);
+  FixtureSymbolResourceInspection repeatedResources;
+  assert(InspectFixtureSymbolResources(repeated.finalScenePath, repeatedResources));
+  for (const auto view : {SymbolViewKind::Top, SymbolViewKind::Left,
+                         SymbolViewKind::Front, SymbolViewKind::Bottom}) {
+    const auto *before = authoredResources.FindPerastageView(view);
+    const auto *after = repeatedResources.FindPerastageView(view);
+    assert(before->archivePath == after->archivePath);
+    assert(before->provenance == after->provenance);
+    assert(before->usable == after->usable);
+    assert(before->offsetXmm == after->offsetXmm);
+    assert(before->offsetYmm == after->offsetYmm);
+  }
+  assert(ReadFileBytes(authoredSource) == authoredSourceBytes);
+
+  auto changedSymbols = authoredSymbols;
+  changedSymbols.front().strokes.front().back().x += 1.0f;
+  const auto changed = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
+      changedSymbols, authoredFixture.uuid, projectOnlyOptions);
+  assert(changed.success);
+  assert(changed.finalSceneFingerprint != repeated.finalSceneFingerprint);
+  assert(CountSymbolMutationRevisions(changed.finalScenePath) == authoredRevisions + 1);
+  const auto changedArchive = ReadArchiveSnapshot(changed.finalScenePath);
+  assert(changedArchive.contents.at("perastage/symbols/base/top.svg") !=
+         authoredAfter.contents.at("perastage/symbols/base/top.svg"));
+  assert(changedArchive.descriptionXml.find(
+      "Applied Perastage fixture SVG symbol views (top)") != std::string::npos);
+  for (const std::string &path : {"models/svg/base.svg", "models/svg_side/base.svg"})
+    assert(changedArchive.contents.at(path) == authoredBefore.contents.at(path));
+  const auto changedAgain = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
+      changedSymbols, authoredFixture.uuid, projectOnlyOptions);
+  assert(changedAgain.success);
+  assert(changedAgain.finalSceneFingerprint == changed.finalSceneFingerprint);
+  assert(ReadArchiveSnapshot(changedAgain.finalScenePath).contents == changedArchive.contents);
+
+  // Internal offset changes are effective metadata changes even when the
+  // original generated geometry is supplied again without editing its points.
+  auto offsetSymbols = changedSymbols;
+  offsetSymbols.front().bounds.min.x -= 2.0f;
+  const auto offsetResult = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
+      offsetSymbols, authoredFixture.uuid, projectOnlyOptions);
+  assert(offsetResult.success);
+  assert(offsetResult.finalSceneFingerprint != changed.finalSceneFingerprint);
+  assert(CountSymbolMutationRevisions(offsetResult.finalScenePath) == authoredRevisions + 2);
+  FixtureSymbolResourceInspection offsetResources;
+  assert(InspectFixtureSymbolResources(offsetResult.finalScenePath, offsetResources));
+  assert(offsetResources.FindPerastageView(SymbolViewKind::Top)->offsetXmm == -1.0);
+  assert(offsetResources.FindStandardView(SymbolViewKind::Top)->offsetXmm == 11.0);
+  assert(offsetResources.FindStandardView(SymbolViewKind::Top)->offsetYmm == 12.0);
+  const auto offsetAgain = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
+      offsetSymbols, authoredFixture.uuid, projectOnlyOptions);
+  assert(offsetAgain.success);
+  assert(offsetAgain.finalSceneFingerprint == offsetResult.finalSceneFingerprint);
+  assert(CountSymbolMutationRevisions(offsetAgain.finalScenePath) == authoredRevisions + 2);
+  assert(ReadFileBytes(authoredSource) == authoredSourceBytes);
 
   const fs::path invalidAuthoredSource = project.path / "InvalidAuthored.gdtf";
   MakeAuthoredPartialFixture(invalidAuthoredSource, false);

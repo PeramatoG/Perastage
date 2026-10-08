@@ -533,6 +533,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_preparation_requests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_resource_contract.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_resource_contract.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_resolution.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_resolution.h
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/symbol_view_kind.h
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_resource_revision.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_svg_cache.cpp

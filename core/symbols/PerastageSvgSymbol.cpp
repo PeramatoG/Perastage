@@ -1,4 +1,5 @@
 #include "symbols/PerastageSvgSymbol.h"
+#include "fixture_symbol_resolution.h"
 #include "gdtf_archive_reader.h"
 #include "filesystem_path_utils.h"
 #include "startup_file_access_gate.h"
@@ -776,6 +777,8 @@ InspectedSvgResource InspectResourcePath(const SymbolArchive &symbolArchive,
   } else {
     ReadViewOffsets(symbolArchive.model, view, parsed);
   }
+  resource.offsetXmm = parsed.offsetXmm;
+  resource.offsetYmm = parsed.offsetYmm;
   if (metadata.marked &&
       metadata.version != std::to_string(kCurrentPerastageSymbolResourceVersion)) {
     if (!resource.diagnostic.empty())
@@ -811,19 +814,6 @@ std::vector<InspectedSvgResource> InspectViewCandidates(
   return candidates;
 }
 
-bool LoadStoredView(const SymbolArchive &symbolArchive, SymbolViewKind view,
-                    const std::vector<std::string> &baseNames,
-                    PerastageSvgSymbolData &out) {
-  const auto candidates = InspectViewCandidates(symbolArchive, view, baseNames);
-  // A malformed internal entry must not suppress a usable authored view.
-  for (const auto &candidate : candidates) {
-    if (candidate.resource.usable) {
-      out = candidate.data;
-      return true;
-    }
-  }
-  return false;
-}
 } // namespace
 
 bool InspectFixtureSymbolResources(
@@ -858,8 +848,10 @@ bool InspectFixtureSymbolResources(
         if (standard && resource.provenance == FixtureSymbolProvenance::LegacyPerastage &&
             !standard->exists)
           standard->diagnostic = "The official SVG path contains a legacy Perastage symbol, not a standard resource.";
-      } else if (standard && !standard->exists) {
-        *standard = resource;
+      } else {
+        inspection.standardResources.push_back(resource);
+        if (standard && (!standard->exists || (!standard->usable && resource.usable)))
+          *standard = resource;
       }
     }
   }
@@ -890,36 +882,39 @@ bool InspectFixtureSymbolResources(
 bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
                                   SymbolViewKind requestedView,
                                   PerastageSvgSymbolData &out,
-                                  std::string *errorDetails) {
+                                  std::string *errorDetails,
+                                  FixtureSymbolResolutionPurpose purpose) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
-  SymbolArchive symbolArchive;
-  std::string diagnostic;
-  if (!ReadSymbolArchive(gdtfPath, symbolArchive, false, diagnostic)) {
+  out = {};
+  FixtureSymbolResourceInspection inspection;
+  InspectFixtureSymbolResources(gdtfPath, inspection);
+  const auto resolved = ResolveFixtureSymbolView(inspection, requestedView, purpose);
+  if (!resolved.usable) {
     if (errorDetails)
-      *errorDetails = diagnostic;
+      *errorDetails = resolved.diagnostic;
     return false;
   }
-  const auto baseNames = BuildSvgBaseNameCandidates(
-      ResolveModelSvgBasename(symbolArchive.model));
-  SymbolViewKind storedView = requestedView;
-  if (storedView == SymbolViewKind::Right)
-    storedView = SymbolViewKind::Left;
-  else if (storedView == SymbolViewKind::Back)
-    storedView = SymbolViewKind::Top;
-  bool loaded = LoadStoredView(symbolArchive, storedView, baseNames, out);
-  if (!loaded && storedView != SymbolViewKind::Top) {
-    storedView = SymbolViewKind::Top;
-    loaded = LoadStoredView(symbolArchive, storedView, baseNames, out);
-  }
-  if (!loaded) {
+  const auto payload = gdtf::ReadGdtfArchiveResource(
+      PathUtils::PathFromUtf8(gdtfPath), resolved.archivePath);
+  SvgResourceMetadata metadata;
+  PerastageSvgSymbolData parsed;
+  if (!payload.Success() || payload.filesystemFallback ||
+      payload.entryPath != resolved.archivePath ||
+      !ParseSvgData(std::string(payload.bytes.begin(), payload.bytes.end()), parsed, metadata)) {
     if (errorDetails)
-      *errorDetails = "No usable SVG symbol was found in GDTF archive: " + gdtfPath;
+      *errorDetails = "The resolved SVG resource could not be loaded: " + resolved.archivePath;
     return false;
   }
-  out.usedViewFallback = storedView == SymbolViewKind::Top &&
-                         requestedView != SymbolViewKind::Top;
-  if (requestedView == SymbolViewKind::Right && storedView == SymbolViewKind::Left)
-    out.viewKind = SymbolViewKind::Right;
+  parsed.sourcePath = resolved.archivePath;
+  parsed.viewKind = requestedView == SymbolViewKind::Right &&
+                            resolved.resolvedView == SymbolViewKind::Left
+                        ? SymbolViewKind::Right : resolved.resolvedView;
+  parsed.provenance = resolved.provenance;
+  parsed.resourceSet = resolved.resourceSet;
+  parsed.offsetXmm = resolved.offsetXmm;
+  parsed.offsetYmm = resolved.offsetYmm;
+  parsed.usedViewFallback = resolved.usedViewFallback;
+  out = std::move(parsed);
   if (errorDetails)
     errorDetails->clear();
   return true;

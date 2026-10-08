@@ -255,7 +255,8 @@ bool AppendMutationAuditMetadata(std::string &descriptionXml,
   GdtfMutationAudit::AppendRevision(
       fixtureType, doc,
       BuildSymbolRevisionAction(payloads, topPath, sidePath, frontPath, bottomPath),
-      GdtfMutationAudit::BuildPerastageModifiedBy());
+      GdtfMutationAudit::BuildPerastageModifiedBy(), 0, "",
+      GdtfMutationAudit::RevisionPolicy::RecordEffectiveChange);
 
   GdtfCanonicalizer::Options canonicalOptions;
   canonicalOptions.allowFixtureTypeIdRepair = true;
@@ -359,25 +360,31 @@ GdtfRewriteResult RewriteGdtfWithProof(
     return result;
   }
 
-  std::string updatedDescription = descriptionIt->second;
-  if (!AppendMutationAuditMetadata(updatedDescription, payloads, topPath, sidePath,
-                                   frontPath, bottomPath, errorMessage)) {
-    result.diagnostic = errorMessage;
-    return result;
-  }
-
-  descriptionIt->second = std::move(updatedDescription);
+  // The serialized payload includes internal offsets and version metadata.
+  // Equal payloads therefore have no symbol mutation and must not add a revision.
+  std::unordered_map<std::string, SymbolPayload> changedPayloads;
   for (const auto &[path, payload] : payloads) {
-    const std::string normalizedPath = NormalizeArchivePath(path);
-    auto existing = std::find_if(entries.begin(), entries.end(),
-                                 [&](const auto &entry) {
-                                   return NormalizeArchivePath(entry.first) ==
-                                          normalizedPath;
-                                 });
-    if (existing != entries.end())
-      existing->second = payload.svg;
-    else
-      entries.emplace_back(normalizedPath, payload.svg);
+    const auto existing = std::find_if(entries.begin(), entries.end(),
+        [&](const auto &entry) { return NormalizeArchivePath(entry.first) == path; });
+    if (existing == entries.end() || existing->second != payload.svg)
+      changedPayloads.emplace(path, payload);
+  }
+  if (!changedPayloads.empty()) {
+    std::string updatedDescription = descriptionIt->second;
+    if (!AppendMutationAuditMetadata(updatedDescription, changedPayloads, topPath,
+                                     sidePath, frontPath, bottomPath, errorMessage)) {
+      result.diagnostic = errorMessage;
+      return result;
+    }
+    descriptionIt->second = std::move(updatedDescription);
+    for (const auto &[path, payload] : changedPayloads) {
+      auto existing = std::find_if(entries.begin(), entries.end(),
+          [&](const auto &entry) { return NormalizeArchivePath(entry.first) == path; });
+      if (existing != entries.end())
+        existing->second = payload.svg;
+      else
+        entries.emplace_back(path, payload.svg);
+    }
   }
 
   std::unordered_set<std::string> finalEntrySet;
@@ -406,6 +413,13 @@ GdtfRewriteResult RewriteGdtfWithProof(
       symbol_cache::ComputeGdtfSemanticFingerprintFromEntries(fingerprintEntries, errorMessage);
   if (result.finalSemanticFingerprint.empty()) {
     result.diagnostic = errorMessage;
+    return result;
+  }
+
+  if (changedPayloads.empty()) {
+    // Keep the working archive intact; the publication boundary still validates
+    // and canonicalizes it before replacing a project or library derivative.
+    result.success = true;
     return result;
   }
 

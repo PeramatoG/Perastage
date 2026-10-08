@@ -12,9 +12,11 @@ namespace {
 constexpr int kSvgParserFormatVersion = 1;
 
 // Builds the content-qualified lookup key without presentation labels.
-std::string BuildKey(const GdtfFileRevision &revision, SymbolViewKind view) {
+std::string BuildKey(const GdtfFileRevision &revision, SymbolViewKind view,
+                     FixtureSymbolResolutionPurpose purpose) {
   return revision.Key() + "\n" + std::to_string(static_cast<int>(view)) + "\n" +
-         std::to_string(kSvgParserFormatVersion);
+         std::to_string(kSvgParserFormatVersion) + "\n" +
+         std::to_string(static_cast<int>(purpose));
 }
 
 } // namespace
@@ -24,8 +26,9 @@ FixtureSymbolSvgCache::FixtureSymbolSvgCache(Loader loader)
     : loader_(std::move(loader)) {
   if (!loader_) {
     loader_ = [](const std::string &path, SymbolViewKind view,
-                 PerastageSvgSymbolData &data, std::string *error) {
-      return LoadPerastageSvgSymbolFromGdtf(path, view, data, error);
+                 PerastageSvgSymbolData &data, std::string *error,
+                 FixtureSymbolResolutionPurpose purpose) {
+      return LoadPerastageSvgSymbolFromGdtf(path, view, data, error, purpose);
     };
   }
 }
@@ -38,7 +41,7 @@ FixtureSymbolSvgCache::LookupOrLoad(const FixtureSymbolSvgRequest &request,
     return {};
   const GdtfFileRevision revision =
       ReadGdtfFileRevision(request.physicalGdtfPath);
-  const std::string key = BuildKey(revision, request.view);
+  const std::string key = BuildKey(revision, request.view, request.purpose);
   {
     std::lock_guard<std::mutex> lock(mutex_);
     const auto found = entries_.find(key);
@@ -53,7 +56,7 @@ FixtureSymbolSvgCache::LookupOrLoad(const FixtureSymbolSvgRequest &request,
 
   PerastageSvgSymbolData loaded;
   std::string localError;
-  if (!loader_(request.physicalGdtfPath, request.view, loaded, &localError)) {
+  if (!loader_(request.physicalGdtfPath, request.view, loaded, &localError, request.purpose)) {
     std::lock_guard<std::mutex> lock(mutex_);
     ++stats_.loadFailures;
     if (errorDetails)

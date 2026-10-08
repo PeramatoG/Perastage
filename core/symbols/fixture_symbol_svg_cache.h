@@ -13,6 +13,7 @@ namespace symbol_cache {
 struct FixtureSymbolSvgRequest {
   std::string physicalGdtfPath;
   SymbolViewKind view = SymbolViewKind::Top;
+  FixtureSymbolResolutionPurpose purpose = FixtureSymbolResolutionPurpose::InternalRendering;
 };
 
 struct FixtureSymbolSvgCacheStats {
@@ -28,7 +29,8 @@ class FixtureSymbolSvgCache {
 public:
   using SymbolHandle = std::shared_ptr<const PerastageSvgSymbolData>;
   using Loader = std::function<bool(const std::string &, SymbolViewKind,
-                                    PerastageSvgSymbolData &, std::string *)>;
+                                    PerastageSvgSymbolData &, std::string *,
+                                    FixtureSymbolResolutionPurpose)>;
 
   explicit FixtureSymbolSvgCache(Loader loader = {});
   SymbolHandle LookupOrLoad(const FixtureSymbolSvgRequest &request,
