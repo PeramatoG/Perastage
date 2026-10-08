@@ -24,8 +24,9 @@ failure.
 `fixture_symbol_availability.*` is the GUI-independent inspection and loading
 boundary. Viewer2D/Viewer3D rendering, layout rendering and legends, PDF export,
 automatic preparation inspection, and manual apply validation use this model.
-Runtime loading prefers usable internal resources and retains the existing
-Top fallback. It records the selected resource's set and provenance separately
+The shared Core resolver owns candidate order for an explicit standard or
+internal purpose. Internal runtime loading prefers usable dedicated resources
+and retains the existing Top fallback. It records the selected resource's set and provenance separately
 from view fallback; inspection never counts fallback as an available stored SVG.
 
 ## Runtime preparation
@@ -69,8 +70,9 @@ only of:
 
 1. canonical physical filesystem identity;
 2. requested `SymbolViewKind`;
-3. bounded file revision (file size and modification time); and
-4. SVG parser/schema version.
+3. explicit resolution purpose (standard GDTF or internal rendering);
+4. bounded file revision (file size and modification time); and
+5. SVG parser/schema version.
 
 Normal repeated lookups perform filesystem metadata reads but never hash or read
 the complete archive merely to establish cache identity. Failed loads are not

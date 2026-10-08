@@ -174,19 +174,21 @@ bool HasEquivalentRevision(const tinyxml2::XMLElement *fixtureType,
   return false;
 }
 
-// Appends a standard GDTF Revision unless the same Perastage revision exists.
+// Records verified effective changes even when an earlier action has the same text.
 void AppendRevision(tinyxml2::XMLElement *fixtureType,
                     tinyxml2::XMLDocument &doc,
                     const std::string &text,
                     const std::string &modifiedBy,
                     int userId,
-                    const std::string &dateUtcIso8601) {
+                    const std::string &dateUtcIso8601,
+                    RevisionPolicy policy) {
   if (!fixtureType)
     return;
 
   const std::string effectiveModifiedBy =
       modifiedBy.empty() ? BuildPerastageModifiedBy() : modifiedBy;
-  if (HasEquivalentRevision(fixtureType, text, effectiveModifiedBy, userId))
+  if (policy == RevisionPolicy::SkipEquivalentAction &&
+      HasEquivalentRevision(fixtureType, text, effectiveModifiedBy, userId))
     return;
 
   tinyxml2::XMLElement *revisions = EnsureRevisionsNode(fixtureType, doc);

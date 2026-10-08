@@ -1,7 +1,9 @@
-#include "symbols/fixture_symbol_resource_contract.h"
+#include "symbols/fixture_symbol_resolution.h"
 
 // This target has no toolkit or renderer include directories or libraries.
 int main() {
   FixtureSymbolResourceInspection resources;
-  return resources.standardViewsUsable ? 1 : 0;
+  const auto result = ResolveFixtureSymbolView(resources, SymbolViewKind::Bottom,
+      FixtureSymbolResolutionPurpose::StandardGdtf);
+  return result.usable ? 1 : 0;
 }

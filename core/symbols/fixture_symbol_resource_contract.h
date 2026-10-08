@@ -40,6 +40,8 @@ struct FixtureSymbolResource {
   FixtureSymbolResourceSet resourceSet = FixtureSymbolResourceSet::StandardGdtf;
   bool standardGdtf = true;
   std::string diagnostic;
+  double offsetXmm = 0.0;
+  double offsetYmm = 0.0;
 
   bool PerastageOwned() const {
     return provenance == FixtureSymbolProvenance::GeneratedPerastage ||
@@ -71,6 +73,8 @@ struct FixtureSymbolResourceInspection {
   std::string modelSvgBasename;
   // Includes legacy alternatives even when a dedicated resource is preferred.
   std::vector<FixtureSymbolResource> perastageResources;
+  // Retains compatible standard candidates for explicit per-view resolution.
+  std::vector<FixtureSymbolResource> standardResources;
   bool standardViewsUsable = false;
   bool perastageViewsUsable = false;
   std::string diagnostic;

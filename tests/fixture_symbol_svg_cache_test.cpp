@@ -34,7 +34,7 @@ void TestMissMutationAndInvalidation() {
   std::unordered_map<std::string, PerastageSvgSymbolData> available;
   symbol_cache::FixtureSymbolSvgCache cache(
       [&](const std::string &, SymbolViewKind view, PerastageSvgSymbolData &out,
-          std::string *) {
+          std::string *, FixtureSymbolResolutionPurpose) {
         const auto it = available.find(std::to_string(static_cast<int>(view)));
         if (it == available.end())
           return false;
@@ -63,7 +63,7 @@ void TestStructuredKeysAndSafeHandles() {
   int loads = 0;
   symbol_cache::FixtureSymbolSvgCache cache(
       [&](const std::string &, SymbolViewKind view, PerastageSvgSymbolData &out,
-          std::string *) {
+          std::string *, FixtureSymbolResolutionPurpose) {
         ++loads;
         out =
             MakeSymbol(view == SymbolViewKind::Top ? loads * 10.0 : 30.0, view);
@@ -85,10 +85,17 @@ void TestStructuredKeysAndSafeHandles() {
   assert(cache.LookupOrLoad(front)->viewBoxWidth == 30.0);
   assert(loads == 2);
 
+  auto standard = top;
+  standard.purpose = FixtureSymbolResolutionPurpose::StandardGdtf;
+  const auto standardHandle = cache.LookupOrLoad(standard);
+  assert(standardHandle != first);
+  assert(cache.LookupOrLoad(standard) == standardHandle);
+  assert(loads == 3);
+
   WriteRevision(path, "second revision");
   const auto revised = cache.LookupOrLoad(top);
-  assert(revised && revised != first && revised->viewBoxWidth == 30.0);
-  assert(loads == 3);
+  assert(revised && revised != first && revised->viewBoxWidth == 40.0);
+  assert(loads == 4);
   assert(first->viewBoxWidth == 10.0);
 
   cache.Clear();
@@ -178,7 +185,7 @@ void TestSymbolProvenanceSemanticFingerprint() {
 // Supplies the production loader symbol while focused tests inject their
 // loader.
 bool LoadPerastageSvgSymbolFromGdtf(const std::string &, SymbolViewKind,
-                                    PerastageSvgSymbolData &, std::string *) {
+                                    PerastageSvgSymbolData &, std::string *, FixtureSymbolResolutionPurpose) {
   return false;
 }
 

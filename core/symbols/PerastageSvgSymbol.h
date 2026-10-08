@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-#include "fixture_symbol_resource_contract.h"
+#include "fixture_symbol_resolution.h"
 
 struct PerastageSvgPoint {
   double x = 0.0;
@@ -41,4 +41,6 @@ struct PerastageSvgSymbolData {
 bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
                                     SymbolViewKind requestedView,
                                     PerastageSvgSymbolData &out,
-                                    std::string *errorDetails = nullptr);
+                                    std::string *errorDetails = nullptr,
+                                    FixtureSymbolResolutionPurpose purpose =
+                                        FixtureSymbolResolutionPurpose::InternalRendering);
