@@ -284,6 +284,82 @@ void ReportUnexpectedApplyResult(
   std::cerr << '\n';
 }
 
+// Migrates a generated white-mask resource once through real project publication.
+void CheckWhiteHoleMigration(const fs::path &projectPath) {
+  const fs::path source = projectPath / "WhiteHoleFixture.gdtf";
+  const std::string legacySvg =
+      "<svg xmlns='http://www.w3.org/2000/svg' version='1.1' viewBox='0 0 100 50' "
+      "data-perastage-symbol-version='1' data-perastage-offset-x-mm='0' "
+      "data-perastage-offset-y-mm='0'>"
+      "<polygon points='0,50 100,50 100,0 0,0' fill='#e0e0e0' stroke='none'/>"
+      "<polygon points='20,40 40,40 40,20 20,20' fill='#ffffff' stroke='none'/>"
+      "<polyline points='0,50 100,0' fill='none' stroke='#000000' stroke-width='2'/>"
+      "</svg>";
+  const std::string authoredSvg =
+      "<svg viewBox='0 0 100 50'><polygon points='0,0 100,0 0,50'/></svg>";
+  auto builder = tests::gdtf::BuildMinimalValidFixture();
+  builder.WithFixtureIdentity("WhiteHoleFixture", "Perastage",
+                               tests::gdtf::FixtureBuilder::kMinimalFixtureTypeId)
+      .WithPerastageGeneratedSymbols()
+      .WithModelResource("holes")
+      .WithArchiveEntry("models/svg/holes.svg", authoredSvg);
+  for (auto view : {SymbolViewKind::Top, SymbolViewKind::Bottom,
+                    SymbolViewKind::Front, SymbolViewKind::Left})
+    builder.WithArchiveEntry(BuildPerastageFixtureSymbolPath("holes", view),
+                             legacySvg);
+  builder.WriteArchive(source);
+  const auto originalBytes = ReadFileBytes(source);
+  const auto originalRevisions = CountSymbolMutationRevisions(source);
+  PerastageSvgSymbolData legacy;
+  assert(LoadPerastageSvgSymbolFromGdtf(source.string(), SymbolViewKind::Top, legacy));
+  assert(legacy.fills.size() == 1 && legacy.fills[0].holes.size() == 1);
+
+  Fixture fixture;
+  fixture.uuid = "fixture-white-hole-migration";
+  fixture.typeName = "WhiteHoleFixture";
+  fixture.gdtfSpec = source.filename().string();
+  ConfigManager::Get().GetScene().fixtures[fixture.uuid] = fixture;
+  auto payloads = BuildSymbols();
+  for (auto &symbol : payloads)
+    symbol.fill = {{{{0, 0}, {100, 0}, {100, 50}, {0, 50}},
+                    {{{20, 10}, {40, 10}, {40, 30}, {20, 30}}}}};
+  symbol_preview::ApplySymbolsOptions options;
+  options.updateLibraryCopy = false;
+  const auto migrated = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
+      payloads, fixture.uuid, options);
+  ReportUnexpectedApplyResult(migrated, migrated.success);
+  assert(migrated.success && migrated.sceneUpdated);
+  assert(ReadFileBytes(source) == originalBytes);
+  assert(CountSymbolMutationRevisions(migrated.finalScenePath) == originalRevisions + 1);
+  const auto snapshot = ReadArchiveSnapshot(migrated.finalScenePath);
+  assert(snapshot.contents.at("models/svg/holes.svg") == authoredSvg);
+  for (auto view : {SymbolViewKind::Top, SymbolViewKind::Bottom,
+                    SymbolViewKind::Front, SymbolViewKind::Left}) {
+    const auto &svg = snapshot.contents.at(BuildPerastageFixtureSymbolPath("holes", view));
+    assert(svg != legacySvg);
+    assert(svg.find("fill-rule=\"evenodd\"") != std::string::npos);
+    assert(svg.find("#ffffff") == std::string::npos);
+    PerastageSvgSymbolData parsed;
+    assert(LoadPerastageSvgSymbolFromGdtf(migrated.finalScenePath, view, parsed));
+    assert(parsed.fills.size() == 1 && parsed.fills[0].holes.size() == 1);
+    assert(parsed.fills[0].points.size() == legacy.fills[0].points.size());
+    assert(parsed.offsetXmm == 0 && parsed.offsetYmm == 0);
+    for (size_t i = 0; i < parsed.fills[0].holes[0].size(); ++i) {
+      assert(parsed.fills[0].holes[0][i].x == legacy.fills[0].holes[0][i].x);
+      assert(parsed.fills[0].holes[0][i].y == legacy.fills[0].holes[0][i].y);
+    }
+  }
+  const auto publishedBytes = ReadFileBytes(migrated.finalScenePath);
+  const auto repeated = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
+      payloads, fixture.uuid, options);
+  assert(repeated.success);
+  assert(repeated.finalScenePath == migrated.finalScenePath);
+  assert(repeated.finalSceneFingerprint == migrated.finalSceneFingerprint);
+  assert(ReadFileBytes(repeated.finalScenePath) == publishedBytes);
+  assert(ReadArchiveSnapshot(repeated.finalScenePath).contents == snapshot.contents);
+  assert(CountSymbolMutationRevisions(repeated.finalScenePath) == originalRevisions + 1);
+}
+
 } // namespace
 
 // Runs the symbol-to-GDTF mutation ownership and compatibility regression test.
@@ -829,6 +905,7 @@ int main() {
   fs::remove(externalVersionPath, ec);
   fs::remove(invalidExternalPath, ec);
   fs::remove(unknownVersionPath, ec);
+  CheckWhiteHoleMigration(project.path);
   cfg.Reset();
   return 0;
 }

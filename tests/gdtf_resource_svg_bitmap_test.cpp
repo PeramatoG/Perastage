@@ -1,8 +1,10 @@
 #include "gdtf/gdtf_resource_bitmap_cache.h"
+#include "symbols/Symbol2DSvg.h"
 #include <cassert>
 #include <cmath>
 
 #include <wx/app.h>
+#include <wx/bmpbndl.h>
 
 namespace {
 
@@ -113,6 +115,53 @@ int main() {
   const wxImage whiteImage =
       RenderSvg(cache, "white.svg", white, wxSize(100, 100));
   assert(PixelNear(whiteImage, 50, 50, 255, 255, 255));
+
+  symbols::Symbol2D holed;
+  holed.bounds = {{0, 0}, {100, 100}, true};
+  holed.fill = {{{{10, 10}, {90, 10}, {90, 90}, {10, 90}},
+                 {{{30, 30}, {70, 30}, {70, 70}, {30, 70}}}}};
+  holed.strokes = {{{10, 10}, {90, 10}}};
+  std::string generated, error;
+  assert(symbols::SerializeSymbolToSvg(holed, generated, error));
+  const std::string oldSvg =
+      "<svg xmlns='http://www.w3.org/2000/svg' version='1.1' viewBox='0 0 100 100'>"
+      "<polygon points='10,90 90,90 90,10 10,10' fill='#e0e0e0' stroke='none'/>"
+      "<polygon points='30,70 70,70 70,30 30,30' fill='#ffffff' stroke='none'/>"
+      "<polyline points='10,90 90,90' fill='none' stroke='#000000' stroke-width='2'/>"
+      "</svg>";
+  const wxImage generatedPreview =
+      RenderSvg(cache, "generated-holes.svg", generated, wxSize(100, 100));
+  const wxImage oldPreview =
+      RenderSvg(cache, "legacy-holes.svg", oldSvg, wxSize(100, 100));
+  assert(IsCheckerPixel(generatedPreview, 50, 50));
+  assert(PixelNear(oldPreview, 50, 50, 255, 255, 255));
+  assert(PixelNear(generatedPreview, 20, 20, 224, 224, 224));
+  assert(PixelNear(generatedPreview, 50, 90, 0, 0, 0));
+
+  // Compare real SVG rasterizations after composition on a white background.
+  auto rasterize = [](const std::string &svg) {
+    const auto bundle = wxBitmapBundle::FromSVG(svg.c_str(), wxSize(100, 100));
+    assert(bundle.IsOk());
+    return bundle.GetBitmap(wxSize(100, 100)).ConvertToImage();
+  };
+  const wxImage newRaster = rasterize(generated);
+  const wxImage oldRaster = rasterize(oldSvg);
+  assert(newRaster.HasAlpha() && newRaster.GetAlpha(50, 50) == 0);
+  assert(oldRaster.HasAlpha() && oldRaster.GetAlpha(50, 50) == 255);
+  for (int y = 0; y < 100; ++y) {
+    for (int x = 0; x < 100; ++x) {
+      auto onWhite = [&](const wxImage &image, unsigned char channel) {
+        const int alpha = image.GetAlpha(x, y);
+        return (channel * alpha + 255 * (255 - alpha) + 127) / 255;
+      };
+      assert(std::abs(onWhite(newRaster, newRaster.GetRed(x, y)) -
+                      onWhite(oldRaster, oldRaster.GetRed(x, y))) <= 1);
+      assert(std::abs(onWhite(newRaster, newRaster.GetGreen(x, y)) -
+                      onWhite(oldRaster, oldRaster.GetGreen(x, y))) <= 1);
+      assert(std::abs(onWhite(newRaster, newRaster.GetBlue(x, y)) -
+                      onWhite(oldRaster, oldRaster.GetBlue(x, y))) <= 1);
+    }
+  }
 
   const auto invalid = cache.GetOrCreateSvg("source", "broken.svg", "not svg",
                                             wxSize(64, 48), *wxWHITE);

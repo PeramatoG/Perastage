@@ -57,6 +57,28 @@ read compatibility with the historical model-offset attributes. Unknown
 resource-marker versions remain explicitly identifiable, with a diagnostic
 when their existing SVG geometry can still be used.
 
+## Internal SVG vector serialization
+
+`core/symbols/Symbol2DSvg.{h,cpp}` owns pure fixture-level SVG serialization.
+The GUI exporter delegates to it and retains only its file-output wrapper.
+Each `PolygonWithHoles2D` with drawable holes becomes one SVG 1.1 compound
+`path` with `fill-rule="evenodd"`: the outer ring is first, followed by each
+hole, using absolute `M`/`L` commands and an explicit `Z` for every ring.
+Hole-free regions retain their existing `polygon` representation. Gray fills,
+independent black polylines, stroke width, coordinate conversion, numeric
+formatting, bounds, and the four-view capture/vectorization pipeline are unchanged.
+
+The reader accepts this deterministic path subset for positively identified
+Perastage resources and reconstructs the outer and hole contours without
+geometric simplification or winding changes. Authored SVG recovery retains its
+existing scope. The reader also
+retains historical white-filled polygon recovery. New holes expose the actual
+background instead of painting white, while preserving appearance on white.
+Version/provenance markers, internal offsets, and archive paths remain unchanged.
+Publishing the new representation over an old generated white-hole resource is
+one effective payload change and creates one revision; applying it again changes
+neither resource bytes nor revision count. Reading alone never migrates resources.
+
 ## Inspection, application, and future standard filling
 
 Availability and derivative publication accept a complete standard set or a
