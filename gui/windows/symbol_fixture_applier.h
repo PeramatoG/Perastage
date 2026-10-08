@@ -11,6 +11,7 @@
 namespace symbol_preview {
 
 struct ApplySymbolsOptions {
+  // Binds an owned archive to the scene, using the library while the project is unsaved.
   bool updateSceneCopy = true;
   bool updateLibraryCopy = true;
   symbols::FixtureSymbolTimings *timings = nullptr;
@@ -18,7 +19,9 @@ struct ApplySymbolsOptions {
 
 struct ApplySymbolsResult {
   bool success = false;
+  // Project archive persistence and in-memory retargeting are distinct outcomes.
   bool sceneUpdated = false;
+  bool fixtureReferencesUpdated = false;
   bool libraryUpdated = false;
   std::string finalScenePath;
   std::string finalLibraryPath;

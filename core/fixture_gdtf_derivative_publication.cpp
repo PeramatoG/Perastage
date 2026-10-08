@@ -131,18 +131,35 @@ bool PrepareProjectDerivative(const std::filesystem::path &sourcePath,
     errorMessage = "A source GDTF and project folder are required to prepare a derivative.";
     return false;
   }
-  std::error_code ec;
-  const fs::path fixtureDirectory = projectBasePath / "fixtures";
-  fs::create_directories(fixtureDirectory, ec);
-  if (ec) {
-    errorMessage = "Could not create the project fixture derivative directory.";
+  const fs::path publishedPath = projectBasePath / "fixtures" / canonicalFileName.filename();
+  return PrepareOwnedDerivative(sourcePath, publishedPath,
+                                NormalizeReference((fs::path("fixtures") /
+                                    canonicalFileName.filename()).string()),
+                                prepared, errorMessage);
+}
+
+bool PrepareOwnedDerivative(const std::filesystem::path &sourcePath,
+                            const std::filesystem::path &publishedPath,
+                            const std::string &publishedReference,
+                            PreparedDerivative &prepared,
+                            std::string &errorMessage) {
+  namespace fs = std::filesystem;
+  prepared = {};
+  if (sourcePath.empty() || publishedPath.empty() || publishedReference.empty()) {
+    errorMessage = "A source and owned destination are required to prepare a derivative.";
     return false;
   }
-  prepared.publishedPath = fixtureDirectory / canonicalFileName.filename();
+  std::error_code ec;
+  fs::create_directories(publishedPath.parent_path(), ec);
+  if (ec) {
+    errorMessage = "Could not create the owned fixture derivative directory.";
+    return false;
+  }
+  prepared.publishedPath = publishedPath;
+  prepared.publishedReference = publishedReference;
   static std::atomic<unsigned long long> nextWorkingId{0};
-  prepared.workingPath = prepared.publishedPath;
-  prepared.workingPath += ".working." +
-                          std::to_string(nextWorkingId.fetch_add(1));
+  prepared.workingPath = publishedPath;
+  prepared.workingPath += ".working." + std::to_string(nextWorkingId.fetch_add(1));
   fs::copy_file(sourcePath, prepared.workingPath,
                 fs::copy_options::overwrite_existing, ec);
   if (ec) {
@@ -150,15 +167,6 @@ bool PrepareProjectDerivative(const std::filesystem::path &sourcePath,
     errorMessage = "Could not prepare the private fixture GDTF working derivative.";
     return false;
   }
-  const fs::path relative = fs::relative(prepared.publishedPath,
-                                         projectBasePath, ec);
-  if (ec) {
-    DiscardPreparedDerivative(prepared);
-    prepared = {};
-    errorMessage = "Could not create the project-relative derivative reference.";
-    return false;
-  }
-  prepared.publishedReference = NormalizeReference(relative.string());
   errorMessage.clear();
   return true;
 }

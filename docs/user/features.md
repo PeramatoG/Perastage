@@ -148,6 +148,17 @@ Additional safeguards include:
 
 ### Data tables
 
+- The Fixture Editor **Symbols** page compares **Standard GDTF** Top/Front/Side
+  with **Perastage** Top/Front/Side/Bottom as separate resource groups. Unavailable
+  or unusable views show N/A; tooltips identify the archive path, provenance,
+  and diagnostic. The generic GDTF thumbnail remains on the Preview page.
+- Manual fixture symbol previews show a checker background through transparent
+  polygon holes. **Apply views to fixture** also works before saving a new scene:
+  it creates an owned fixture-library derivative, keeps the original GDTF unchanged,
+  and updates matching scene references. Save the project to persist those references.
+- GDTF Share reuses a fresh catalog cache for one hour when opening the search
+  dialog. Missing or stale caches refresh normally; a failed refresh can still use
+  an existing stale cache.
 - Dedicated tables for fixtures, trusses, hoists, and objects.
 - Fixture, truss, and hoist Hang Position cells use the shared Hang Position dialog, which lists existing MVR positions and can add, rename, or delete positions across affected rigging items when confirmed.
 - Add Fixture, Add Truss, and Add Object offer a continuous placement mode that

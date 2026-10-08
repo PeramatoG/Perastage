@@ -79,7 +79,7 @@ void RunGdtfShareDownloadWorkflow(
             onlineListData = initialCatalogResult.payload;
             return initialCatalogResult.Succeeded() && !onlineListData.empty();
           },
-          nowUtc, 0);
+          nowUtc);
 
   refreshOverlay.reset();
   refreshDisabler.reset();
@@ -156,7 +156,7 @@ void RunGdtfShareDownloadWorkflow(
               return initialCatalogResult.Succeeded() &&
                      !onlineListData.empty();
             },
-            nowUtc, 0);
+            nowUtc);
       }
       accessAction = gdtf_share_workflow::DetermineCatalogAccessAction(
           false, gdtfWorkflowState.credentialAvailability,

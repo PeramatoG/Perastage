@@ -1,5 +1,8 @@
 #include "gdtf/gdtf_resource_bitmap_cache.h"
 #include "symbols/Symbol2DSvg.h"
+#include "windows/symbol_preview_drawing.h"
+#include <wx/dcmemory.h>
+#include <memory>
 #include <cassert>
 #include <cmath>
 
@@ -65,6 +68,30 @@ wxImage RenderSvg(GdtfResourceBitmapCache &cache, const std::string &entry,
   return result.bitmap.ConvertToImage();
 }
 
+// Real compound-path holes expose both checker colours, regardless of winding.
+void CheckNativePreviewHoles() {
+  wxBitmap bitmap(100, 100);
+  wxMemoryDC dc(bitmap);
+  symbol_preview::DrawTransparencyBackground(dc, wxRect(0, 0, 100, 100));
+  {
+    std::unique_ptr<wxGraphicsContext> gc(wxGraphicsContext::Create(dc));
+    assert(gc);
+    auto path = gc->CreatePath();
+    const std::vector<wxPoint2DDouble> outer = {{5, 5}, {95, 5}, {95, 95}, {5, 95}};
+    const std::vector<wxPoint2DDouble> hole = {{20, 20}, {70, 20}, {70, 70}, {20, 70}};
+    const auto transform = [](const auto &point) { return point; };
+    symbol_preview::AppendPreviewRing(path, outer, transform);
+    symbol_preview::AppendPreviewRing(path, hole, transform);
+    gc->SetBrush(wxBrush(wxColour(224, 224, 224)));
+    gc->FillPath(path, wxODDEVEN_RULE);
+  }
+  dc.SelectObject(wxNullBitmap);
+  const auto image = bitmap.ConvertToImage();
+  assert(PixelNear(image, 15, 15, 224, 224, 224));
+  assert(PixelNear(image, 25, 25, 255, 255, 255));
+  assert(PixelNear(image, 35, 25, 244, 244, 244));
+}
+
 } // namespace
 
 // Verifies SVG fitting, alpha composition, authored white, and safe failures.
@@ -72,6 +99,7 @@ int main() {
   AppScope app;
   if (!app.IsOk())
     return 77;
+  CheckNativePreviewHoles();
   GdtfResourceBitmapCache cache;
 
   const std::string portrait =

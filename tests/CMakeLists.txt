@@ -498,6 +498,7 @@ set_perastage_test_labels(InspectorXmlEditor
 
 add_executable(gdtf_resource_svg_bitmap_test
                gdtf_resource_svg_bitmap_test.cpp
+               ../gui/windows/symbol_preview_drawing.cpp
                ../core/symbols/Symbol2DSvg.cpp
                ../gui/gdtf/gdtf_resource_bitmap_cache.cpp
                ../gui/gdtf/svg_preview_geometry.cpp)
@@ -693,6 +694,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(LayoutProjectLoadCacheReset ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_project_load_cache_reset.sh)
     add_bash_policy_test(FixtureSymbolSvgCacheBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_svg_cache_boundary.sh)
     add_bash_policy_test(FixtureSymbolAvailabilityBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_availability_boundary.sh)
+    add_bash_policy_test(FixtureSymbolPreviewBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_preview_boundary.sh LABELS perastage-extension architecture gui symbols)
     add_bash_policy_test(FixtureSymbolResolutionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_resolution_boundary.sh LABELS standard-strict architecture core gdtf symbols)
     add_bash_policy_test(FixtureSymbolResourceContractBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_resource_contract_boundary.sh LABELS standard-strict architecture gdtf)
     add_bash_policy_test(FixtureSymbolSourceArchitecture ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_source_architecture.sh)
@@ -2707,6 +2709,17 @@ target_link_libraries(symbol_fixture_applier_gdtf_test PRIVATE
 add_test(NAME SymbolFixtureApplierGdtfMutation COMMAND symbol_fixture_applier_gdtf_test)
 set_library_env(SymbolFixtureApplierGdtfMutation)
 
+add_executable(gdtf_catalog_cache_test
+               gdtf_catalog_cache_test.cpp
+               ../core/gdtf_catalog_service.cpp
+               ../core/logger.cpp
+               ../mvr/gdtf_catalog_parser.cpp)
+target_include_directories(gdtf_catalog_cache_test PRIVATE ../core ../third_party)
+target_link_libraries(gdtf_catalog_cache_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME GdtfCatalogCache COMMAND gdtf_catalog_cache_test)
+set_perastage_test_labels(GdtfCatalogCache
+                         LAYER standard-strict DOMAINS core gdtf)
+
 add_executable(symbol_fixture_apply_presentation_test
                symbol_fixture_apply_presentation_test.cpp
                ../gui/windows/symbol_fixture_apply_presentation.cpp)
@@ -3379,6 +3392,7 @@ add_test(NAME ProjectFixtureGdtfConsolidator
 
 add_executable(fixture_symbol_resolution_test
                fixture_symbol_resolution_test.cpp
+               ../core/symbols/fixture_symbol_preview_model.cpp
                support/gdtf_test_fixture_builder.cpp
                ../core/symbols/fixture_symbol_availability.cpp
                ../core/symbols/fixture_symbol_svg_cache.cpp
