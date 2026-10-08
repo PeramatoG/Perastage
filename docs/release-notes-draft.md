@@ -15,6 +15,7 @@ Changes since **v1.6.0**.
   stale refresh, word-order-independent search including UUID/revision/modes,
   and a resizable list with revision metadata and DMX mode details. Fresh
   caches still use the one-hour TTL; failed refreshes retain cached results.
+  The Rating field stays visible and shows `--` for unrated catalog entries.
 
 - Added targeted batch position and rotation transforms through the local live
   CLI and the `live_batch_transform` MCP tool. Clients can update explicit

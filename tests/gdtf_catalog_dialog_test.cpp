@@ -145,6 +145,32 @@ int main() {
     fresh.Show();
     wxTheApp->Yield(true);
     assert(fresh.FindWindow(wxID_OK)->IsEnabled());
+    auto *details = FindChild<GdtfCatalogDetailsPanel>(fresh);
+    wxStaticText *ratingLabel = nullptr, *ratingValue = nullptr;
+    for (auto *child : details->GetChildren()) {
+      if (auto *text = dynamic_cast<wxStaticText *>(child)) {
+        if (text->GetLabel() == "Rating")
+          ratingLabel = text;
+        else if (ratingLabel && !ratingValue)
+          ratingValue = text;
+      }
+    }
+    assert(ratingLabel && ratingValue);
+    auto entry = parsed.entries.front();
+    const auto panelMinimum = details->GetSizer()->GetMinSize();
+    // Switching rated/unrated rows must retain both the label and layout space.
+    for (const auto &rating : {"4.5", "N/A", "", "0"}) {
+      entry.ratingText = rating;
+      details->ShowEntry(&entry);
+      assert(ratingLabel->IsShown() && ratingValue->IsShown());
+      const wxString expected = rating == std::string("4.5") || rating == std::string("0")
+                                    ? wxString::FromUTF8(rating) : wxString("--");
+      assert(ratingValue->GetLabel() == expected);
+      assert(details->GetSizer()->GetMinSize() == panelMinimum);
+    }
+    details->ShowEntry(nullptr);
+    assert(ratingLabel->IsShown() && ratingValue->IsShown());
+    assert(ratingValue->GetLabel() == "--");
     fresh.Hide();
   }
   RunRefresh(false, false);

@@ -166,7 +166,8 @@ Additional safeguards include:
   Select a row to see creator, dates, file size, copyable UUID/RID, and mode names
   with DMX channel footprints without downloading a GDTF. **Source** identifies
   `Manuf.` or `User`; **Creator** is the contributor username. Missing metadata
-  appears as a dash and unavailable ratings are omitted.
+  appears as a dash. **Rating** stays visible and shows `--` when no numeric
+  rating is available.
 - General catalog search matches every whitespace-separated word in any order
   across manufacturer, fixture, UUID, revision, and mode names. For example,
   `martin sceptron` and `sceptron martin` return the same results. Manufacturer

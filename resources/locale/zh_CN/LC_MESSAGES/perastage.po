@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-08 18:21+0000\n"
+"POT-Creation-Date: 2026-10-08 18:54+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -462,7 +462,7 @@ msgstr "名称"
 
 #: gui/dictionaryeditdialog.cpp:517
 #: gui/fixturetable/fixture_table_columns.cpp:15
-#: gui/gdtf/gdtf_modes_panel.cpp:201 gui/gdtf_catalog_details_panel.cpp:53
+#: gui/gdtf/gdtf_modes_panel.cpp:201 gui/gdtf_catalog_details_panel.cpp:51
 #: gui/rider_fixture_resolution_dialog.cpp:111
 msgid "Mode"
 msgstr "模式"
@@ -1515,25 +1515,29 @@ msgstr "最后修改"
 msgid "File size"
 msgstr "文件大小"
 
-#: gui/gdtf_catalog_details_panel.cpp:46
+#: gui/gdtf_catalog_details_panel.cpp:44
 msgid "UUID"
 msgstr "UUID"
 
-#: gui/gdtf_catalog_details_panel.cpp:47
+#: gui/gdtf_catalog_details_panel.cpp:45
 msgid "RID"
 msgstr "RID"
 
-#: gui/gdtf_catalog_details_panel.cpp:48
+#: gui/gdtf_catalog_details_panel.cpp:46
 msgid "Rating"
 msgstr "评分"
 
-#: gui/gdtf_catalog_details_panel.cpp:50
+#: gui/gdtf_catalog_details_panel.cpp:48
 msgid "Modes"
 msgstr "模式"
 
-#: gui/gdtf_catalog_details_panel.cpp:54
+#: gui/gdtf_catalog_details_panel.cpp:52
 msgid "DMX channels"
 msgstr "DMX 通道数"
+
+#: gui/gdtf_catalog_details_panel.cpp:89
+msgid "--"
+msgstr "--"
 
 #: gui/gdtf_share_download_workflow.cpp:68 gui/gdtfsearchdialog.cpp:455
 msgid "Updating online catalog..."

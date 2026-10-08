@@ -11,7 +11,8 @@ string and file size as optional bytes alongside existing revision, identity,
 source, creator, dates, rating, and mode/DMX footprint records. Numeric/string
 fields, null UUIDs, unavailable ratings, nested arrays, and legacy field aliases
 remain supported. Invalid/absent sizes stay absent. Rating text is preserved
-even when it is `N/A`; only meaningful numeric ratings appear in details.
+even when it is `N/A`; the Rating row stays visible, showing meaningful numeric
+values or `--` for missing/unavailable ratings and empty selections.
 
 `core/gdtf_catalog_service` owns validated cache snapshots. Cache version 2
 keeps `list_data` and adds optional `catalog_timestamp`; older versions and

@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-08 18:21+0000\n"
+"POT-Creation-Date: 2026-10-08 18:54+0000\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -472,7 +472,7 @@ msgstr "Nombre"
 
 #: gui/dictionaryeditdialog.cpp:517
 #: gui/fixturetable/fixture_table_columns.cpp:15
-#: gui/gdtf/gdtf_modes_panel.cpp:201 gui/gdtf_catalog_details_panel.cpp:53
+#: gui/gdtf/gdtf_modes_panel.cpp:201 gui/gdtf_catalog_details_panel.cpp:51
 #: gui/rider_fixture_resolution_dialog.cpp:111
 msgid "Mode"
 msgstr "Modo"
@@ -1544,25 +1544,29 @@ msgstr "Última modificación"
 msgid "File size"
 msgstr "Tamaño del archivo"
 
-#: gui/gdtf_catalog_details_panel.cpp:46
+#: gui/gdtf_catalog_details_panel.cpp:44
 msgid "UUID"
 msgstr "UUID"
 
-#: gui/gdtf_catalog_details_panel.cpp:47
+#: gui/gdtf_catalog_details_panel.cpp:45
 msgid "RID"
 msgstr "RID"
 
-#: gui/gdtf_catalog_details_panel.cpp:48
+#: gui/gdtf_catalog_details_panel.cpp:46
 msgid "Rating"
 msgstr "Valoración"
 
-#: gui/gdtf_catalog_details_panel.cpp:50
+#: gui/gdtf_catalog_details_panel.cpp:48
 msgid "Modes"
 msgstr "Modos"
 
-#: gui/gdtf_catalog_details_panel.cpp:54
+#: gui/gdtf_catalog_details_panel.cpp:52
 msgid "DMX channels"
 msgstr "Canales DMX"
+
+#: gui/gdtf_catalog_details_panel.cpp:89
+msgid "--"
+msgstr "--"
 
 #: gui/gdtf_share_download_workflow.cpp:68 gui/gdtfsearchdialog.cpp:455
 msgid "Updating online catalog..."
@@ -1801,7 +1805,9 @@ msgstr ""
 
 #: gui/gdtfsearchdialog.cpp:426
 msgid "Online catalog refresh failed. Cached results remain available."
-msgstr "No se pudo actualizar el catálogo en línea. Los resultados en caché siguen disponibles."
+msgstr ""
+"No se pudo actualizar el catálogo en línea. Los resultados en caché siguen "
+"disponibles."
 
 #: gui/gdtfsearchdialog.cpp:431
 #, c-format

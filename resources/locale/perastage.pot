@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.6.116\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-08 18:21+0000\n"
+"POT-Creation-Date: 2026-10-08 18:54+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -422,7 +422,7 @@ msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:517
 #: gui/fixturetable/fixture_table_columns.cpp:15
-#: gui/gdtf/gdtf_modes_panel.cpp:201 gui/gdtf_catalog_details_panel.cpp:53
+#: gui/gdtf/gdtf_modes_panel.cpp:201 gui/gdtf_catalog_details_panel.cpp:51
 #: gui/rider_fixture_resolution_dialog.cpp:111
 msgid "Mode"
 msgstr ""
@@ -1408,24 +1408,28 @@ msgstr ""
 msgid "File size"
 msgstr ""
 
-#: gui/gdtf_catalog_details_panel.cpp:46
+#: gui/gdtf_catalog_details_panel.cpp:44
 msgid "UUID"
 msgstr ""
 
-#: gui/gdtf_catalog_details_panel.cpp:47
+#: gui/gdtf_catalog_details_panel.cpp:45
 msgid "RID"
 msgstr ""
 
-#: gui/gdtf_catalog_details_panel.cpp:48
+#: gui/gdtf_catalog_details_panel.cpp:46
 msgid "Rating"
 msgstr ""
 
-#: gui/gdtf_catalog_details_panel.cpp:50
+#: gui/gdtf_catalog_details_panel.cpp:48
 msgid "Modes"
 msgstr ""
 
-#: gui/gdtf_catalog_details_panel.cpp:54
+#: gui/gdtf_catalog_details_panel.cpp:52
 msgid "DMX channels"
+msgstr ""
+
+#: gui/gdtf_catalog_details_panel.cpp:89
+msgid "--"
 msgstr ""
 
 #: gui/gdtf_share_download_workflow.cpp:68 gui/gdtfsearchdialog.cpp:455

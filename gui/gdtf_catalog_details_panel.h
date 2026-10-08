@@ -18,7 +18,6 @@ private:
   std::array<wxStaticText *, 9> values{};
   wxTextCtrl *uuidValue = nullptr;
   wxTextCtrl *ridValue = nullptr;
-  wxStaticText *ratingLabel = nullptr;
   wxStaticText *ratingValue = nullptr;
   wxDataViewListCtrl *modes = nullptr;
 };

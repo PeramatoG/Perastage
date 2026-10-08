@@ -23,15 +23,13 @@ GdtfCatalogDetailsPanel::GdtfCatalogDetailsPanel(wxWindow *parent)
       _("Manufacturer"), _("Fixture"), _("Revision"), _("GDTF Version"),
       _("Source"), _("Creator"), _("Created"), _("Last Modified"),
       _("File size")};
-  const auto addField = [&](const wxString &label, wxStaticText **labelOut = nullptr) {
+  const auto addField = [&](const wxString &label) {
     auto *caption = new wxStaticText(this, wxID_ANY, label);
     auto *value = new wxStaticText(this, wxID_ANY, {}, wxDefaultPosition,
                                     wxDefaultSize, wxST_ELLIPSIZE_END);
     value->SetMinSize(wxSize(140, -1));
     grid->Add(caption, 0, wxALIGN_CENTER_VERTICAL);
     grid->Add(value, 1, wxEXPAND);
-    if (labelOut)
-      *labelOut = caption;
     return value;
   };
   for (std::size_t index = 0; index < labels.size(); ++index)
@@ -45,7 +43,7 @@ GdtfCatalogDetailsPanel::GdtfCatalogDetailsPanel(wxWindow *parent)
   };
   uuidValue = addIdentifier(_("UUID"));
   ridValue = addIdentifier(_("RID"));
-  ratingValue = addField(_("Rating"), &ratingLabel);
+  ratingValue = addField(_("Rating"));
   sizer->Add(grid, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
   sizer->Add(new wxStaticText(this, wxID_ANY, _("Modes")), 0, wxALL, 10);
   modes = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
@@ -88,8 +86,7 @@ void GdtfCatalogDetailsPanel::ShowEntry(
   uuidValue->ChangeValue(Display({}));
   ridValue->ChangeValue(Display({}));
   modes->DeleteAllItems();
-  ratingLabel->Hide();
-  ratingValue->Hide();
+  ratingValue->SetLabel(_("--"));
   if (entry) {
     const std::array<std::string, 9> text = {
         entry->manufacturer, entry->fixtureName, entry->revision, entry->version,
@@ -106,8 +103,6 @@ void GdtfCatalogDetailsPanel::ShowEntry(
     uuidValue->ChangeValue(Display(entry->uuid));
     ridValue->ChangeValue(Display(entry->rid));
     if (const auto rating = gdtf_catalog_browser::MeaningfulRating(entry->ratingText)) {
-      ratingLabel->Show();
-      ratingValue->Show();
       ratingValue->SetLabel(wxString::FromUTF8(*rating));
     }
     for (const auto &mode : entry->modes) {
