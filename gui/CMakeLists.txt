@@ -62,6 +62,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_physical_properties_panel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_type_identity_panel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfsearchdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_details_panel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_share_message_formatter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_share_download_workflow.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_presentation.cpp

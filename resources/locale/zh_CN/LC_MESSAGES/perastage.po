@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-08 16:21+0000\n"
+"POT-Creation-Date: 2026-10-08 18:21+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -300,7 +300,7 @@ msgstr "仅导出参考"
 
 #: gui/dictionaryeditdialog.cpp:260 gui/dictionaryeditdialog.cpp:293
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
-#: gui/dictionaryeditdialog.cpp:941 gui/gdtfsearchdialog.cpp:151
+#: gui/dictionaryeditdialog.cpp:941 gui/gdtfsearchdialog.cpp:112
 #: gui/layout2dviewdialog.cpp:75 gui/layouttextdialog.cpp:149
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139 mvr/mvrimporter.cpp:757
@@ -462,7 +462,7 @@ msgstr "名称"
 
 #: gui/dictionaryeditdialog.cpp:517
 #: gui/fixturetable/fixture_table_columns.cpp:15
-#: gui/gdtf/gdtf_modes_panel.cpp:201
+#: gui/gdtf/gdtf_modes_panel.cpp:201 gui/gdtf_catalog_details_panel.cpp:53
 #: gui/rider_fixture_resolution_dialog.cpp:111
 msgid "Mode"
 msgstr "模式"
@@ -1319,8 +1319,8 @@ msgstr "无效的数值"
 #: gui/fixturetablepanel.cpp:1047 gui/fixturetablepanel.cpp:1053
 #: gui/fixturetablepanel.cpp:1061 gui/fixturetablepanel.cpp:1067
 #: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
-#: gui/gdtf_share_download_workflow.cpp:441
-#: gui/gdtf_share_download_workflow.cpp:445 gui/hoisttablepanel.cpp:894
+#: gui/gdtf_share_download_workflow.cpp:477
+#: gui/gdtf_share_download_workflow.cpp:481 gui/hoisttablepanel.cpp:894
 #: gui/hoisttablepanel.cpp:899 gui/hoisttablepanel.cpp:905
 #: gui/hoisttablepanel.cpp:912
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:280
@@ -1406,7 +1406,10 @@ msgid ""
 "Archive path: %s\n"
 "Provenance: %s\n"
 "Diagnostic: %s"
-msgstr "归档路径：%s\n来源：%s\n诊断：%s"
+msgstr ""
+"归档路径：%s\n"
+"来源：%s\n"
+"诊断：%s"
 
 #: gui/gdtf/gdtf_metadata_panel.cpp:64
 msgid "GDTF FixtureType description."
@@ -1468,18 +1471,86 @@ msgstr "轮槽"
 msgid "Slot"
 msgstr "投币口"
 
-#: gui/gdtf_share_download_workflow.cpp:109
-#: gui/gdtf_share_download_workflow.cpp:283
+#: gui/gdtf_catalog_details_panel.cpp:18
+msgid "Selected revision"
+msgstr "所选修订"
+
+#: gui/gdtf_catalog_details_panel.cpp:23 gui/gdtfsearchdialog.cpp:91
+#: gui/inspection/gdtf_inspector_details_panel.cpp:40
+#: gui/trusstablepanel.cpp:303
+msgid "Manufacturer"
+msgstr "制造商"
+
+#: gui/gdtf_catalog_details_panel.cpp:23 gui/gdtfsearchdialog.cpp:93
+msgid "Fixture"
+msgstr "灯具"
+
+#: gui/gdtf_catalog_details_panel.cpp:23 gui/gdtfsearchdialog.cpp:95
+#: gui/inspection/gdtf_inspector_details_panel.cpp:46
+msgid "Revision"
+msgstr "修订"
+
+#: gui/gdtf_catalog_details_panel.cpp:23 gui/gdtfsearchdialog.cpp:101
+msgid "GDTF Version"
+msgstr "GDTF 版本"
+
+#: gui/gdtf_catalog_details_panel.cpp:24 gui/gdtfsearchdialog.cpp:97
+#: gui/ridertextdialog.cpp:98
+msgid "Source"
+msgstr "来源"
+
+#: gui/gdtf_catalog_details_panel.cpp:24
+msgid "Creator"
+msgstr "创建者"
+
+#: gui/gdtf_catalog_details_panel.cpp:24
+msgid "Created"
+msgstr "创建时间"
+
+#: gui/gdtf_catalog_details_panel.cpp:24 gui/gdtfsearchdialog.cpp:99
+msgid "Last Modified"
+msgstr "最后修改"
+
+#: gui/gdtf_catalog_details_panel.cpp:25
+msgid "File size"
+msgstr "文件大小"
+
+#: gui/gdtf_catalog_details_panel.cpp:46
+msgid "UUID"
+msgstr "UUID"
+
+#: gui/gdtf_catalog_details_panel.cpp:47
+msgid "RID"
+msgstr "RID"
+
+#: gui/gdtf_catalog_details_panel.cpp:48
+msgid "Rating"
+msgstr "评分"
+
+#: gui/gdtf_catalog_details_panel.cpp:50
+msgid "Modes"
+msgstr "模式"
+
+#: gui/gdtf_catalog_details_panel.cpp:54
+msgid "DMX channels"
+msgstr "DMX 通道数"
+
+#: gui/gdtf_share_download_workflow.cpp:68 gui/gdtfsearchdialog.cpp:455
+msgid "Updating online catalog..."
+msgstr "正在更新在线目录..."
+
+#: gui/gdtf_share_download_workflow.cpp:117
+#: gui/gdtf_share_download_workflow.cpp:319
 msgid "Please provide username and password."
 msgstr "请提供用户名和密码。"
 
-#: gui/gdtf_share_download_workflow.cpp:110
-#: gui/gdtf_share_download_workflow.cpp:284
-#: gui/gdtf_share_download_workflow.cpp:376
+#: gui/gdtf_share_download_workflow.cpp:118
+#: gui/gdtf_share_download_workflow.cpp:320
+#: gui/gdtf_share_download_workflow.cpp:412
 msgid "Login Error"
 msgstr "错误"
 
-#: gui/gdtf_share_download_workflow.cpp:148
+#: gui/gdtf_share_download_workflow.cpp:156
 msgid ""
 "GDTF Share credentials were authenticated for this operation, but the "
 "password could not be saved securely. You may need to enter it again after "
@@ -1489,8 +1560,8 @@ msgstr ""
 "password could not be saved securely. You may need to enter it again after "
 "restart."
 
-#: gui/gdtf_share_download_workflow.cpp:149
-#: gui/gdtf_share_download_workflow.cpp:309
+#: gui/gdtf_share_download_workflow.cpp:157
+#: gui/gdtf_share_download_workflow.cpp:345
 #: gui/preferences/gdtf_credentials_panel.cpp:84
 #: gui/preferences/gdtf_credentials_panel.cpp:95
 #: gui/preferences/gdtf_credentials_panel.cpp:100
@@ -1499,65 +1570,65 @@ msgstr ""
 msgid "GDTF Share credentials"
 msgstr "GDTF Share 凭据"
 
-#: gui/gdtf_share_download_workflow.cpp:182
+#: gui/gdtf_share_download_workflow.cpp:190
 msgid ""
 "The GDTF catalog could not be loaded. Check your Internet connection and "
 "GDTF Share credentials."
 msgstr "无法加载 GDTF 目录。检查您的互联网连接和 GDTF 共享凭据。"
 
-#: gui/gdtf_share_download_workflow.cpp:183
+#: gui/gdtf_share_download_workflow.cpp:191
 #: gui/rider_fixture_resolution_dialog.cpp:356
 msgid "GDTF catalog unavailable"
 msgstr "没有可用的 GDTF 目录。"
 
-#: gui/gdtf_share_download_workflow.cpp:299
+#: gui/gdtf_share_download_workflow.cpp:335
 msgid ""
 "This build does not include secure password storage. The username was saved, "
 "but the password must be entered again after restart."
 msgstr "此构建未包含安全密码存储支持。用户名已保存，但重启后必须重新输入密码。"
 
-#: gui/gdtf_share_download_workflow.cpp:301
+#: gui/gdtf_share_download_workflow.cpp:337
 msgid ""
 "The native secure password store is unavailable. The username was saved, but "
 "the password must be entered again after restart."
 msgstr "原生安全密码存储不可用。用户名已保存，但重启后必须重新输入密码。"
 
-#: gui/gdtf_share_download_workflow.cpp:304
+#: gui/gdtf_share_download_workflow.cpp:340
 msgid ""
 "GDTF Share credentials were authenticated for this operation, but the non-"
 "secret username metadata could not be saved."
 msgstr ""
 "GDTF Share 凭据已通过本次操作的身份验证，但无法保存非机密用户名元数据。"
 
-#: gui/gdtf_share_download_workflow.cpp:306
+#: gui/gdtf_share_download_workflow.cpp:342
 #, c-format
 msgid ""
 "GDTF Share credentials were authenticated for this operation, but the "
 "password was not saved (%s)."
 msgstr "GDTF Share 凭据已通过本次操作的身份验证，但未保存密码（%s）。"
 
-#: gui/gdtf_share_download_workflow.cpp:338
+#: gui/gdtf_share_download_workflow.cpp:374
 msgid "Logging in to GDTF Share..."
 msgstr "正在登录 GDTF 共享..."
 
-#: gui/gdtf_share_download_workflow.cpp:395
+#: gui/gdtf_share_download_workflow.cpp:431
 msgid "Save GDTF file"
 msgstr "保存 GDTF 文件"
 
-#: gui/gdtf_share_download_workflow.cpp:405
+#: gui/gdtf_share_download_workflow.cpp:441
 msgid "Downloading GDTF from GDTF Share..."
 msgstr "正在从 GDTF 共享下载 GDTF..."
 
-#: gui/gdtf_share_download_workflow.cpp:432
+#: gui/gdtf_share_download_workflow.cpp:468
 msgid "GDTF downloaded successfully. Do you want to add it to the project now?"
 msgstr "GDTF 下载成功。您现在想将其添加到项目中吗？"
 
-#: gui/gdtf_share_download_workflow.cpp:434
+#: gui/gdtf_share_download_workflow.cpp:470
 #: gui/mvr_export_result_dialog.cpp:158 mvr/mvrimporter.cpp:1282
 msgid "Success"
 msgstr "成功"
 
-#: gui/gdtf_share_download_workflow.cpp:445
+#: gui/gdtf_share_download_workflow.cpp:481
 msgid "Download information missing."
 msgstr "已下载并分配"
 
@@ -1640,106 +1711,55 @@ msgstr "GDTF Share 登录失败。"
 msgid "GDTF Share download failed."
 msgstr "GDTF Share 下载失败。"
 
-#: gui/gdtfsearchdialog.cpp:82
+#: gui/gdtfsearchdialog.cpp:45
 #: tests/localization_catalog_integration_test.cpp:203
 msgid "Search GDTF"
 msgstr "搜索 GDTF"
 
-#: gui/gdtfsearchdialog.cpp:96
+#: gui/gdtfsearchdialog.cpp:59
 msgid "Search:"
 msgstr "搜索 GDTF"
 
-#: gui/gdtfsearchdialog.cpp:100
-#: gui/inspection/inspector_workspace_panel.cpp:859
+#: gui/gdtfsearchdialog.cpp:63 gui/inspection/inspector_workspace_panel.cpp:859
 #: tests/localization_catalog_integration_test.cpp:205
 msgid "Manufacturer:"
 msgstr "制造商："
 
-#: gui/gdtfsearchdialog.cpp:104
+#: gui/gdtfsearchdialog.cpp:67
 msgid "Fixture:"
 msgstr "灯具："
 
-#: gui/gdtfsearchdialog.cpp:114
+#: gui/gdtfsearchdialog.cpp:77
 msgid "< Prev"
 msgstr "< 上一页"
 
-#: gui/gdtfsearchdialog.cpp:115
+#: gui/gdtfsearchdialog.cpp:78
 msgid "Next >"
 msgstr "下一页 >"
 
-#: gui/gdtfsearchdialog.cpp:116
+#: gui/gdtfsearchdialog.cpp:79
 msgid "Page 1/1"
 msgstr "第 1/1 页"
 
-#: gui/gdtfsearchdialog.cpp:126
-#: gui/inspection/gdtf_inspector_details_panel.cpp:40
-#: gui/trusstablepanel.cpp:303
-msgid "Manufacturer"
-msgstr "制造商"
-
-#: gui/gdtfsearchdialog.cpp:128
-msgid "Fixture"
-msgstr "灯具"
-
-#: gui/gdtfsearchdialog.cpp:130
-msgid "Modes"
-msgstr "模式"
-
-#: gui/gdtfsearchdialog.cpp:132
-msgid "Creator"
-msgstr "创建者"
-
-#: gui/gdtfsearchdialog.cpp:134
-msgid "Uploader"
-msgstr "上传者"
-
-#: gui/gdtfsearchdialog.cpp:136
-msgid "Creation Date"
-msgstr "创建日期"
-
-#: gui/gdtfsearchdialog.cpp:138
-#: gui/inspection/gdtf_inspector_details_panel.cpp:46
-msgid "Revision"
-msgstr "修订"
-
-#: gui/gdtfsearchdialog.cpp:140
-msgid "Last Modified"
-msgstr "最后修改"
-
-#: gui/gdtfsearchdialog.cpp:142
-msgid "Version"
-msgstr "版本"
-
-#: gui/gdtfsearchdialog.cpp:144
-msgid "Rating"
-msgstr "评分"
-
-#: gui/gdtfsearchdialog.cpp:150
+#: gui/gdtfsearchdialog.cpp:111
 #: tests/localization_catalog_integration_test.cpp:207
 msgid "Download"
 msgstr "下载"
 
-#: gui/gdtfsearchdialog.cpp:331
+#: gui/gdtfsearchdialog.cpp:263
 #, c-format
 msgid "Page %zu/%zu (%zu results)"
 msgstr "第 %zu/%zu 页（%zu 个结果）"
 
-#: gui/gdtfsearchdialog.cpp:362
+#: gui/gdtfsearchdialog.cpp:310
 msgid "This catalog row has no downloadable revision identifier."
 msgstr "此目录行没有可下载的修订标识符。"
 
-#: gui/gdtfsearchdialog.cpp:487 gui/gdtfsearchdialog.cpp:541
-msgid "Showing cached GDTF catalog. Sign in is required to download."
-msgstr "正在显示缓存的 GDTF 目录。下载需要登录。"
+#: gui/gdtfsearchdialog.cpp:426
+msgid "Online catalog refresh failed. Cached results remain available."
+msgstr "在线目录刷新失败。缓存结果仍可使用。"
 
-#: gui/gdtfsearchdialog.cpp:489 gui/gdtfsearchdialog.cpp:544
-#, c-format
-msgid ""
-"Showing cached GDTF catalog (last updated: %s). Sign in is required to "
-"download."
-msgstr "正在显示缓存的 GDTF 目录（最后更新：%s）。下载需要登录。"
-
-#: gui/gdtfsearchdialog.cpp:496
+#: gui/gdtfsearchdialog.cpp:431
 #, c-format
 msgid ""
 "Online GDTF catalog refresh failed.\n"
@@ -1748,32 +1768,39 @@ msgstr ""
 "在线 GDTF 目录刷新失败。\n"
 "%s"
 
-#: gui/gdtfsearchdialog.cpp:498
+#: gui/gdtfsearchdialog.cpp:433
 msgid "GDTF catalog refresh"
 msgstr "刷新 GDTF 目录"
 
-#: gui/gdtfsearchdialog.cpp:506
+#: gui/gdtfsearchdialog.cpp:441
 msgid ""
 "Please wait for the online catalog refresh to finish before downloading."
 msgstr "请等待在线目录刷新完成后再下载。"
 
-#: gui/gdtfsearchdialog.cpp:520
-msgid "Updating online catalog..."
-msgstr "正在更新在线目录..."
-
-#: gui/gdtfsearchdialog.cpp:530
+#: gui/gdtfsearchdialog.cpp:465
 msgid "Showing online GDTF catalog."
 msgstr "正在显示在线 GDTF 目录。"
 
-#: gui/gdtfsearchdialog.cpp:535
+#: gui/gdtfsearchdialog.cpp:470
 msgid "No GDTF catalog is available."
 msgstr "没有可用的 GDTF 目录。"
 
-#: gui/gdtfsearchdialog.cpp:550
+#: gui/gdtfsearchdialog.cpp:476
+msgid "Showing cached GDTF catalog. Sign in is required to download."
+msgstr "正在显示缓存的 GDTF 目录。下载需要登录。"
+
+#: gui/gdtfsearchdialog.cpp:479
+#, c-format
+msgid ""
+"Showing cached GDTF catalog (last updated: %s). Sign in is required to "
+"download."
+msgstr "正在显示缓存的 GDTF 目录（最后更新：%s）。下载需要登录。"
+
+#: gui/gdtfsearchdialog.cpp:485
 msgid "Showing cached GDTF catalog."
 msgstr "正在显示缓存的 GDTF 目录。"
 
-#: gui/gdtfsearchdialog.cpp:553
+#: gui/gdtfsearchdialog.cpp:488
 #, c-format
 msgid "Showing cached GDTF catalog (last updated: %s)."
 msgstr "正在显示缓存的 GDTF 目录（最后更新：%s）。"
@@ -4757,10 +4784,6 @@ msgid ""
 "the scene."
 msgstr "粘贴 Rider 内容或加载 .txt/.pdf 文件，然后在创建场景前进行整理。"
 
-#: gui/ridertextdialog.cpp:98
-msgid "Source"
-msgstr "来源"
-
 #: gui/ridertextdialog.cpp:103
 msgid "Load rider..."
 msgstr "加载 Rider..."
@@ -5162,7 +5185,8 @@ msgstr "将视图应用到夹具"
 msgid ""
 "Symbol views were applied to the fixture library derivative and the unsaved "
 "scene. Save the project to persist the scene references."
-msgstr "符号视图已应用到灯具库派生文件和未保存的场景。请保存项目以保留场景中的引用。"
+msgstr ""
+"符号视图已应用到灯具库派生文件和未保存的场景。请保存项目以保留场景中的引用。"
 
 #: mvr/mvrimporter.cpp:318
 msgid "Resolve GDTF source conflicts"
@@ -5481,6 +5505,12 @@ msgstr "渲染模式"
 #: viewer3d/viewer3dpanel.cpp:2285
 msgid "Export image..."
 msgstr "导出灯具..."
+
+#~ msgid "Uploader"
+#~ msgstr "上传者"
+
+#~ msgid "Creation Date"
+#~ msgstr "创建日期"
 
 #~ msgid "Official GDTF SVG thumbnail resource."
 #~ msgstr "官方 GDTF SVG 缩略图资源。"

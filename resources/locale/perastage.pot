@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Perastage 1.6.115\n"
+"Project-Id-Version: Perastage 1.6.116\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-08 16:26+0000\n"
+"POT-Creation-Date: 2026-10-08 18:21+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -289,7 +289,7 @@ msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:260 gui/dictionaryeditdialog.cpp:293
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
-#: gui/dictionaryeditdialog.cpp:941 gui/gdtfsearchdialog.cpp:151
+#: gui/dictionaryeditdialog.cpp:941 gui/gdtfsearchdialog.cpp:112
 #: gui/layout2dviewdialog.cpp:75 gui/layouttextdialog.cpp:149
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139 mvr/mvrimporter.cpp:757
@@ -422,7 +422,7 @@ msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:517
 #: gui/fixturetable/fixture_table_columns.cpp:15
-#: gui/gdtf/gdtf_modes_panel.cpp:201
+#: gui/gdtf/gdtf_modes_panel.cpp:201 gui/gdtf_catalog_details_panel.cpp:53
 #: gui/rider_fixture_resolution_dialog.cpp:111
 msgid "Mode"
 msgstr ""
@@ -1215,8 +1215,8 @@ msgstr ""
 #: gui/fixturetablepanel.cpp:1047 gui/fixturetablepanel.cpp:1053
 #: gui/fixturetablepanel.cpp:1061 gui/fixturetablepanel.cpp:1067
 #: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
-#: gui/gdtf_share_download_workflow.cpp:441
-#: gui/gdtf_share_download_workflow.cpp:445 gui/hoisttablepanel.cpp:894
+#: gui/gdtf_share_download_workflow.cpp:477
+#: gui/gdtf_share_download_workflow.cpp:481 gui/hoisttablepanel.cpp:894
 #: gui/hoisttablepanel.cpp:899 gui/hoisttablepanel.cpp:905
 #: gui/hoisttablepanel.cpp:912
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:280
@@ -1364,26 +1364,94 @@ msgstr ""
 msgid "Slot"
 msgstr ""
 
-#: gui/gdtf_share_download_workflow.cpp:109
-#: gui/gdtf_share_download_workflow.cpp:283
+#: gui/gdtf_catalog_details_panel.cpp:18
+msgid "Selected revision"
+msgstr ""
+
+#: gui/gdtf_catalog_details_panel.cpp:23 gui/gdtfsearchdialog.cpp:91
+#: gui/inspection/gdtf_inspector_details_panel.cpp:40
+#: gui/trusstablepanel.cpp:303
+msgid "Manufacturer"
+msgstr ""
+
+#: gui/gdtf_catalog_details_panel.cpp:23 gui/gdtfsearchdialog.cpp:93
+msgid "Fixture"
+msgstr ""
+
+#: gui/gdtf_catalog_details_panel.cpp:23 gui/gdtfsearchdialog.cpp:95
+#: gui/inspection/gdtf_inspector_details_panel.cpp:46
+msgid "Revision"
+msgstr ""
+
+#: gui/gdtf_catalog_details_panel.cpp:23 gui/gdtfsearchdialog.cpp:101
+msgid "GDTF Version"
+msgstr ""
+
+#: gui/gdtf_catalog_details_panel.cpp:24 gui/gdtfsearchdialog.cpp:97
+#: gui/ridertextdialog.cpp:98
+msgid "Source"
+msgstr ""
+
+#: gui/gdtf_catalog_details_panel.cpp:24
+msgid "Creator"
+msgstr ""
+
+#: gui/gdtf_catalog_details_panel.cpp:24
+msgid "Created"
+msgstr ""
+
+#: gui/gdtf_catalog_details_panel.cpp:24 gui/gdtfsearchdialog.cpp:99
+msgid "Last Modified"
+msgstr ""
+
+#: gui/gdtf_catalog_details_panel.cpp:25
+msgid "File size"
+msgstr ""
+
+#: gui/gdtf_catalog_details_panel.cpp:46
+msgid "UUID"
+msgstr ""
+
+#: gui/gdtf_catalog_details_panel.cpp:47
+msgid "RID"
+msgstr ""
+
+#: gui/gdtf_catalog_details_panel.cpp:48
+msgid "Rating"
+msgstr ""
+
+#: gui/gdtf_catalog_details_panel.cpp:50
+msgid "Modes"
+msgstr ""
+
+#: gui/gdtf_catalog_details_panel.cpp:54
+msgid "DMX channels"
+msgstr ""
+
+#: gui/gdtf_share_download_workflow.cpp:68 gui/gdtfsearchdialog.cpp:455
+msgid "Updating online catalog..."
+msgstr ""
+
+#: gui/gdtf_share_download_workflow.cpp:117
+#: gui/gdtf_share_download_workflow.cpp:319
 msgid "Please provide username and password."
 msgstr ""
 
-#: gui/gdtf_share_download_workflow.cpp:110
-#: gui/gdtf_share_download_workflow.cpp:284
-#: gui/gdtf_share_download_workflow.cpp:376
+#: gui/gdtf_share_download_workflow.cpp:118
+#: gui/gdtf_share_download_workflow.cpp:320
+#: gui/gdtf_share_download_workflow.cpp:412
 msgid "Login Error"
 msgstr ""
 
-#: gui/gdtf_share_download_workflow.cpp:148
+#: gui/gdtf_share_download_workflow.cpp:156
 msgid ""
 "GDTF Share credentials were authenticated for this operation, but the "
 "password could not be saved securely. You may need to enter it again after "
 "restart."
 msgstr ""
 
-#: gui/gdtf_share_download_workflow.cpp:149
-#: gui/gdtf_share_download_workflow.cpp:309
+#: gui/gdtf_share_download_workflow.cpp:157
+#: gui/gdtf_share_download_workflow.cpp:345
 #: gui/preferences/gdtf_credentials_panel.cpp:84
 #: gui/preferences/gdtf_credentials_panel.cpp:95
 #: gui/preferences/gdtf_credentials_panel.cpp:100
@@ -1392,64 +1460,64 @@ msgstr ""
 msgid "GDTF Share credentials"
 msgstr ""
 
-#: gui/gdtf_share_download_workflow.cpp:182
+#: gui/gdtf_share_download_workflow.cpp:190
 msgid ""
 "The GDTF catalog could not be loaded. Check your Internet connection and "
 "GDTF Share credentials."
 msgstr ""
 
-#: gui/gdtf_share_download_workflow.cpp:183
+#: gui/gdtf_share_download_workflow.cpp:191
 #: gui/rider_fixture_resolution_dialog.cpp:356
 msgid "GDTF catalog unavailable"
 msgstr ""
 
-#: gui/gdtf_share_download_workflow.cpp:299
+#: gui/gdtf_share_download_workflow.cpp:335
 msgid ""
 "This build does not include secure password storage. The username was saved, "
 "but the password must be entered again after restart."
 msgstr ""
 
-#: gui/gdtf_share_download_workflow.cpp:301
+#: gui/gdtf_share_download_workflow.cpp:337
 msgid ""
 "The native secure password store is unavailable. The username was saved, but "
 "the password must be entered again after restart."
 msgstr ""
 
-#: gui/gdtf_share_download_workflow.cpp:304
+#: gui/gdtf_share_download_workflow.cpp:340
 msgid ""
 "GDTF Share credentials were authenticated for this operation, but the non-"
 "secret username metadata could not be saved."
 msgstr ""
 
-#: gui/gdtf_share_download_workflow.cpp:306
+#: gui/gdtf_share_download_workflow.cpp:342
 #, c-format
 msgid ""
 "GDTF Share credentials were authenticated for this operation, but the "
 "password was not saved (%s)."
 msgstr ""
 
-#: gui/gdtf_share_download_workflow.cpp:338
+#: gui/gdtf_share_download_workflow.cpp:374
 msgid "Logging in to GDTF Share..."
 msgstr ""
 
-#: gui/gdtf_share_download_workflow.cpp:395
+#: gui/gdtf_share_download_workflow.cpp:431
 msgid "Save GDTF file"
 msgstr ""
 
-#: gui/gdtf_share_download_workflow.cpp:405
+#: gui/gdtf_share_download_workflow.cpp:441
 msgid "Downloading GDTF from GDTF Share..."
 msgstr ""
 
-#: gui/gdtf_share_download_workflow.cpp:432
+#: gui/gdtf_share_download_workflow.cpp:468
 msgid "GDTF downloaded successfully. Do you want to add it to the project now?"
 msgstr ""
 
-#: gui/gdtf_share_download_workflow.cpp:434
+#: gui/gdtf_share_download_workflow.cpp:470
 #: gui/mvr_export_result_dialog.cpp:158 mvr/mvrimporter.cpp:1282
 msgid "Success"
 msgstr ""
 
-#: gui/gdtf_share_download_workflow.cpp:445
+#: gui/gdtf_share_download_workflow.cpp:481
 msgid "Download information missing."
 msgstr ""
 
@@ -1532,138 +1600,94 @@ msgstr ""
 msgid "GDTF Share download failed."
 msgstr ""
 
-#: gui/gdtfsearchdialog.cpp:82
+#: gui/gdtfsearchdialog.cpp:45
 #: tests/localization_catalog_integration_test.cpp:203
 msgid "Search GDTF"
 msgstr ""
 
-#: gui/gdtfsearchdialog.cpp:96
+#: gui/gdtfsearchdialog.cpp:59
 msgid "Search:"
 msgstr ""
 
-#: gui/gdtfsearchdialog.cpp:100
-#: gui/inspection/inspector_workspace_panel.cpp:859
+#: gui/gdtfsearchdialog.cpp:63 gui/inspection/inspector_workspace_panel.cpp:859
 #: tests/localization_catalog_integration_test.cpp:205
 msgid "Manufacturer:"
 msgstr ""
 
-#: gui/gdtfsearchdialog.cpp:104
+#: gui/gdtfsearchdialog.cpp:67
 msgid "Fixture:"
 msgstr ""
 
-#: gui/gdtfsearchdialog.cpp:114
+#: gui/gdtfsearchdialog.cpp:77
 msgid "< Prev"
 msgstr ""
 
-#: gui/gdtfsearchdialog.cpp:115
+#: gui/gdtfsearchdialog.cpp:78
 msgid "Next >"
 msgstr ""
 
-#: gui/gdtfsearchdialog.cpp:116
+#: gui/gdtfsearchdialog.cpp:79
 msgid "Page 1/1"
 msgstr ""
 
-#: gui/gdtfsearchdialog.cpp:126
-#: gui/inspection/gdtf_inspector_details_panel.cpp:40
-#: gui/trusstablepanel.cpp:303
-msgid "Manufacturer"
-msgstr ""
-
-#: gui/gdtfsearchdialog.cpp:128
-msgid "Fixture"
-msgstr ""
-
-#: gui/gdtfsearchdialog.cpp:130
-msgid "Modes"
-msgstr ""
-
-#: gui/gdtfsearchdialog.cpp:132
-msgid "Creator"
-msgstr ""
-
-#: gui/gdtfsearchdialog.cpp:134
-msgid "Uploader"
-msgstr ""
-
-#: gui/gdtfsearchdialog.cpp:136
-msgid "Creation Date"
-msgstr ""
-
-#: gui/gdtfsearchdialog.cpp:138
-#: gui/inspection/gdtf_inspector_details_panel.cpp:46
-msgid "Revision"
-msgstr ""
-
-#: gui/gdtfsearchdialog.cpp:140
-msgid "Last Modified"
-msgstr ""
-
-#: gui/gdtfsearchdialog.cpp:142
-msgid "Version"
-msgstr ""
-
-#: gui/gdtfsearchdialog.cpp:144
-msgid "Rating"
-msgstr ""
-
-#: gui/gdtfsearchdialog.cpp:150
+#: gui/gdtfsearchdialog.cpp:111
 #: tests/localization_catalog_integration_test.cpp:207
 msgid "Download"
 msgstr ""
 
-#: gui/gdtfsearchdialog.cpp:331
+#: gui/gdtfsearchdialog.cpp:263
 #, c-format
 msgid "Page %zu/%zu (%zu results)"
 msgstr ""
 
-#: gui/gdtfsearchdialog.cpp:362
+#: gui/gdtfsearchdialog.cpp:310
 msgid "This catalog row has no downloadable revision identifier."
 msgstr ""
 
-#: gui/gdtfsearchdialog.cpp:487 gui/gdtfsearchdialog.cpp:541
-msgid "Showing cached GDTF catalog. Sign in is required to download."
+#: gui/gdtfsearchdialog.cpp:426
+msgid "Online catalog refresh failed. Cached results remain available."
 msgstr ""
 
-#: gui/gdtfsearchdialog.cpp:489 gui/gdtfsearchdialog.cpp:544
-#, c-format
-msgid ""
-"Showing cached GDTF catalog (last updated: %s). Sign in is required to "
-"download."
-msgstr ""
-
-#: gui/gdtfsearchdialog.cpp:496
+#: gui/gdtfsearchdialog.cpp:431
 #, c-format
 msgid ""
 "Online GDTF catalog refresh failed.\n"
 "%s"
 msgstr ""
 
-#: gui/gdtfsearchdialog.cpp:498
+#: gui/gdtfsearchdialog.cpp:433
 msgid "GDTF catalog refresh"
 msgstr ""
 
-#: gui/gdtfsearchdialog.cpp:506
+#: gui/gdtfsearchdialog.cpp:441
 msgid ""
 "Please wait for the online catalog refresh to finish before downloading."
 msgstr ""
 
-#: gui/gdtfsearchdialog.cpp:520
-msgid "Updating online catalog..."
-msgstr ""
-
-#: gui/gdtfsearchdialog.cpp:530
+#: gui/gdtfsearchdialog.cpp:465
 msgid "Showing online GDTF catalog."
 msgstr ""
 
-#: gui/gdtfsearchdialog.cpp:535
+#: gui/gdtfsearchdialog.cpp:470
 msgid "No GDTF catalog is available."
 msgstr ""
 
-#: gui/gdtfsearchdialog.cpp:550
+#: gui/gdtfsearchdialog.cpp:476
+msgid "Showing cached GDTF catalog. Sign in is required to download."
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:479
+#, c-format
+msgid ""
+"Showing cached GDTF catalog (last updated: %s). Sign in is required to "
+"download."
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:485
 msgid "Showing cached GDTF catalog."
 msgstr ""
 
-#: gui/gdtfsearchdialog.cpp:553
+#: gui/gdtfsearchdialog.cpp:488
 #, c-format
 msgid "Showing cached GDTF catalog (last updated: %s)."
 msgstr ""
@@ -4613,10 +4637,6 @@ msgstr ""
 msgid ""
 "Paste rider content or load a .txt/.pdf file, then refine before creating "
 "the scene."
-msgstr ""
-
-#: gui/ridertextdialog.cpp:98
-msgid "Source"
 msgstr ""
 
 #: gui/ridertextdialog.cpp:103

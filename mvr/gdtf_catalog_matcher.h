@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -55,6 +56,8 @@ struct GdtfCatalogEntry {
   std::string revision;
   std::string version;
   std::string ratingText;
+  std::optional<long long> fileSizeBytes;
+  std::string lastModifiedText;
   bool downloadable = false;
   std::string downloadabilityReason;
 };

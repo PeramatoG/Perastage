@@ -25,6 +25,9 @@
 #include <vector>
 #include "../mvr/gdtf_catalog_matcher.h"
 #include "../mvr/gdtf_catalog_parser.h"
+#include "gdtf_catalog_browser_model.h"
+
+class GdtfCatalogDetailsPanel;
 
 enum class GdtfCatalogDisplaySource {
     None,
@@ -38,8 +41,7 @@ public:
         bool success = false;
         std::string listData;
         std::string updatedAt;
-        std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry> parsedEntries;
-        std::string payloadFingerprint;
+        std::optional<mvr::gdtf_catalog_parser::GdtfCatalogParseResult> parsedCatalog;
         std::string failureDetails;
         long long refreshMs = 0;
         long long parseMs = 0;
@@ -64,7 +66,9 @@ public:
     std::string GetCurrentListData() const;
 private:
     void ParseList(const std::string& listData);
-    void UpdateResults();
+    void UpdateResults(const std::string &selectedRid = {});
+    void OnSelectionChanged(wxDataViewEvent &event);
+    void UpdateSelectedDetails();
     void RenderCurrentPage(const std::string& previouslySelectedRid);
     void UpdatePaginationControls();
     void OnSearch(wxCommandEvent& evt);
@@ -85,13 +89,15 @@ private:
     wxTextCtrl* fixtureCtrl = nullptr;
     wxTextCtrl* generalQueryCtrl = nullptr;
     wxDataViewListCtrl* resultTable = nullptr;
+    GdtfCatalogDetailsPanel *detailsPanel = nullptr;
+    gdtf_catalog_browser::SearchIndex searchIndex;
     wxStaticText* statusLabel = nullptr;
     wxButton* prevPageButton = nullptr;
     wxButton* nextPageButton = nullptr;
     wxStaticText* pageInfoLabel = nullptr;
     wxButton* downloadButton = nullptr;
     std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry> entries;
-    std::vector<int> filteredIndices;
+    std::vector<std::size_t> filteredIndices;
     std::vector<int> visible;
     size_t currentPage = 0;
     size_t pageSize = 500;

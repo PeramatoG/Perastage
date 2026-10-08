@@ -2720,6 +2720,32 @@ add_test(NAME GdtfCatalogCache COMMAND gdtf_catalog_cache_test)
 set_perastage_test_labels(GdtfCatalogCache
                          LAYER standard-strict DOMAINS core gdtf)
 
+add_executable(gdtf_catalog_browser_model_test
+               gdtf_catalog_browser_model_test.cpp
+               ../core/gdtf_catalog_browser_model.cpp
+               ../mvr/gdtf_catalog_parser.cpp)
+target_include_directories(gdtf_catalog_browser_model_test PRIVATE ../core ../third_party)
+add_test(NAME GdtfCatalogBrowserModel COMMAND gdtf_catalog_browser_model_test)
+set_perastage_test_labels(GdtfCatalogBrowserModel
+                         LAYER standard-strict DOMAINS core gdtf)
+
+add_executable(gdtf_catalog_dialog_test
+               gdtf_catalog_dialog_test.cpp
+               ../gui/gdtfsearchdialog.cpp
+               ../gui/gdtf_catalog_details_panel.cpp
+               ../core/gdtf_catalog_browser_model.cpp
+               ../mvr/gdtf_catalog_parser.cpp)
+target_include_directories(gdtf_catalog_dialog_test PRIVATE ../gui ../core ../third_party)
+target_link_libraries(gdtf_catalog_dialog_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME GdtfCatalogDialog COMMAND gdtf_catalog_dialog_test)
+set_tests_properties(GdtfCatalogDialog PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 30)
+set_perastage_test_labels(GdtfCatalogDialog
+                         LAYER standard-strict DOMAINS gui gdtf)
+
+add_bash_policy_test(GdtfCatalogBrowserBoundary
+                    ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_catalog_browser_boundary.sh
+                    LABELS standard-strict architecture core gui gdtf)
+
 add_executable(symbol_fixture_apply_presentation_test
                symbol_fixture_apply_presentation_test.cpp
                ../gui/windows/symbol_fixture_apply_presentation.cpp)

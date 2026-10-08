@@ -9,6 +9,7 @@ struct GdtfCatalogSnapshot {
   std::string listData;
   std::string updatedAt;
   std::string lastSuccessfulRefreshAt;
+  std::string catalogTimestamp;
 };
 
 struct GdtfCatalogRefreshMetrics {
@@ -16,6 +17,7 @@ struct GdtfCatalogRefreshMetrics {
   bool cacheMiss = true;
   bool refreshAttempted = false;
   bool refreshSucceeded = false;
+  bool catalogUnchanged = false;
   long long cacheAgeSeconds = -1;
 };
 
@@ -45,6 +47,12 @@ public:
 
   std::optional<GdtfCatalogSnapshot> GetCatalogSnapshot() const;
   std::optional<GdtfParsedCatalogSnapshot> GetParsedCatalogSnapshot() const;
+
+  static bool IsCatalogStale(const GdtfCatalogSnapshot &snapshot,
+                             const std::string &nowUtcIso,
+                             long long refreshThresholdSeconds = 3600);
+  static long long CacheAgeSeconds(const GdtfCatalogSnapshot &snapshot,
+                                   const std::string &nowUtcIso);
 
   GdtfCatalogRefreshResult
   RefreshCatalogIfStale(const RefreshCatalogFn &refreshCatalogFn,

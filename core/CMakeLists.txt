@@ -476,6 +476,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_metadata_summary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_dmx_inspector.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_service.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_browser_model.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_download_workflow.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_download_filename.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_canonicalizer.cpp
