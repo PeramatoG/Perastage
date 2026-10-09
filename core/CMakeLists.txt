@@ -5,6 +5,18 @@ add_library(perastage_mvr_core_support STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utf8_utils.cpp
 )
 
+add_library(perastage_project_fixture_symbols STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/project_fixture_symbols.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/project_fixture_symbol_migration.cpp
+)
+target_compile_features(perastage_project_fixture_symbols PUBLIC cxx_std_20)
+target_include_directories(perastage_project_fixture_symbols PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
+    PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
+target_link_libraries(perastage_project_fixture_symbols PUBLIC perastage_uuid
+    PRIVATE tinyxml2::tinyxml2 perastage_gdtf_read ${_wx_base_libs})
+target_link_libraries(${PROJECT_NAME} PRIVATE perastage_project_fixture_symbols)
+
 add_library(perastage_layer_validation STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/layer_validation.cpp
 )
@@ -482,6 +494,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_canonicalizer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_document_mutation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_mutation_audit.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_mutation_policy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/gdtf_edit_session.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/gdtf_editable_values.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/gdtf_editor_context.cpp
@@ -540,6 +553,11 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/symbol_view_kind.h
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_resource_revision.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_svg_cache.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/project_fixture_symbol_runtime.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_application.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_state.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/standard_gdtf_svg.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/standard_gdtf_completion.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/SymbolGeometrySimplifier.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/Symbol2DSvg.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/Symbol2DSvg.h
@@ -573,3 +591,16 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts
     ${CMAKE_CURRENT_SOURCE_DIR}/print
 )
+
+add_library(perastage_gdtf_publication_resources STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_publication_resources.cpp
+)
+target_compile_features(perastage_gdtf_publication_resources PUBLIC cxx_std_20)
+target_include_directories(perastage_gdtf_publication_resources PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_link_libraries(perastage_gdtf_publication_resources
+    PUBLIC perastage_gdtf_read
+    PRIVATE tinyxml2::tinyxml2
+)
+target_link_libraries(${PROJECT_NAME} PRIVATE perastage_gdtf_publication_resources)

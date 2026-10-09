@@ -151,12 +151,19 @@ void TestLegacyAndRecovery(Fixtures &fixtures) {
   const auto legacy = fixtures.Write("legacy", Fixture()
       .WithArchiveEntry("models/svg/body.svg", marked)
       .WithArchiveEntry("models/svg_bottom/body.svg", kSvg));
-  for (const auto purpose : {Purpose::StandardGdtf, Purpose::InternalRendering}) {
-    Check(legacy, View::Top, purpose, "models/svg/body.svg",
+  {
+    Check(legacy, View::Top, Purpose::InternalRendering, "models/svg/body.svg",
           Set::Perastage, Provenance::LegacyPerastage, Reason::LegacyResource);
-    Check(legacy, View::Bottom, purpose, "models/svg_bottom/body.svg",
-          Set::Perastage, Provenance::LegacyPerastage, Reason::LegacyResource, View::Bottom);
+    Check(legacy, View::Bottom, Purpose::InternalRendering, "models/svg_bottom/body.svg",
+          Set::Perastage, Provenance::AuthoredGdtf, Reason::LegacyResource, View::Bottom);
   }
+  CheckRuntime(legacy, View::Top, Purpose::StandardGdtf);
+  CheckRuntime(legacy, View::Bottom, Purpose::StandardGdtf);
+  const auto legacyAvailability = symbol_cache::InspectFixtureSymbolAvailability(legacy);
+  const auto unmarkedBottom = legacyAvailability.resources.FindPerastageView(View::Bottom);
+  // A historical filename allows compatibility rendering but does not prove
+  // Perastage ownership of an otherwise unmarked authored payload.
+  assert(unmarkedBottom && !unmarkedBottom->PerastageOwned());
   const auto malformed = fixtures.Write("malformed_internal", Fixture()
       .WithArchiveEntry("models/svg/body.svg", kSvg)
       .WithArchiveEntry("perastage/symbols/body/top.svg", "<svg>"));
@@ -174,19 +181,18 @@ void TestLegacyAndRecovery(Fixtures &fixtures) {
       .WithArchiveEntry("perastage/symbols/body/top.svg", kInternal)
       .WithArchiveEntry("models/svg_bottom/body.svg", kSvg)
       .WithArchiveEntry("perastage/symbols/body/bottom.svg", kInternal));
-  Check(dedicatedLegacy, View::Top, Purpose::StandardGdtf, "models/svg/body.svg",
-        Set::Perastage, Provenance::LegacyPerastage, Reason::LegacyResource);
+  CheckRuntime(dedicatedLegacy, View::Top, Purpose::StandardGdtf);
   Check(dedicatedLegacy, View::Top, Purpose::InternalRendering,
         "perastage/symbols/body/top.svg", Set::Perastage, Provenance::GeneratedPerastage);
-  for (const auto purpose : {Purpose::StandardGdtf, Purpose::InternalRendering})
-    Check(dedicatedLegacy, View::Bottom, purpose, "perastage/symbols/body/bottom.svg",
+  CheckRuntime(dedicatedLegacy, View::Bottom, Purpose::StandardGdtf);
+  Check(dedicatedLegacy, View::Bottom, Purpose::InternalRendering, "perastage/symbols/body/bottom.svg",
           Set::Perastage, Provenance::GeneratedPerastage, Reason::None, View::Bottom);
   const auto malformedBottom = fixtures.Write("malformed_bottom", Fixture()
       .WithArchiveEntry("models/svg_bottom/body.svg", kSvg)
       .WithArchiveEntry("perastage/symbols/body/bottom.svg", "<svg>"));
-  for (const auto purpose : {Purpose::StandardGdtf, Purpose::InternalRendering})
-    Check(malformedBottom, View::Bottom, purpose, "models/svg_bottom/body.svg",
-          Set::Perastage, Provenance::LegacyPerastage, Reason::LegacyResource, View::Bottom);
+  CheckRuntime(malformedBottom, View::Bottom, Purpose::StandardGdtf);
+  Check(malformedBottom, View::Bottom, Purpose::InternalRendering, "models/svg_bottom/body.svg",
+          Set::Perastage, Provenance::AuthoredGdtf, Reason::LegacyResource, View::Bottom);
   const auto empty = fixtures.Write("empty", Fixture());
   CheckRuntime(empty, View::Bottom, Purpose::InternalRendering);
   CheckRuntime(empty, View::Right, Purpose::InternalRendering);

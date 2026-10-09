@@ -20,7 +20,8 @@
 #include "tools/symbol_physical_calibration.h"
 #include "fixture_symbol_source.h"
 #include "viewer2doffscreenrenderer.h"
-#include "windows/symbol_fixture_applier.h"
+#include "gdtf_mutation_policy.h"
+#include "symbols/fixture_symbol_application.h"
 
 namespace gui {
 namespace {
@@ -99,28 +100,49 @@ void FixtureSymbolPreparationService::Request(
     if (manualKey == key)
       return;
   }
-  const auto source = symbols::InspectFixtureSymbolSource(
-      key.effectiveGdtfPath, key.exactGdtfMode);
-  if (source.source == symbols::FixtureSymbolSource::StoredGdtfSvg) {
-    diagnostics::DiagnosticLogger::Info(
-        "Fixture symbol preparation skipped because required SVGs are valid for resource '" +
-        key.effectiveGdtfPath + "' mode '" + key.exactGdtfMode + "'.");
-    return;
-  }
-  if (source.source == symbols::FixtureSymbolSource::PerastageFallback) {
-    if (fallbackDiagnostics_.insert(key).second) {
-      diagnostics::DiagnosticLogger::Info(
-          "Fixture symbol generation skipped for resource '" +
-          key.effectiveGdtfPath + "' mode '" + key.exactGdtfMode +
-          "': " + source.diagnostic);
-    }
-    return;
-  }
   const std::string fixtureUuid = FindFixtureUuid(key);
   if (fixtureUuid.empty())
     return;
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  const auto inherited = symbols::InheritFixtureProjectSymbols(
+      cfg.GetScene(), cfg.GetProjectFixtureSymbols(), fixtureUuid);
+  if (inherited.projectSymbolsUpdated) {
+    cfg.MarkDirty();
+    window_.RefreshAfterFixtureSymbolUpdate();
+  }
+  for (const auto &warning : inherited.warnings)
+    diagnostics::DiagnosticLogger::Warning(warning);
+  const auto &fixture = cfg.GetScene().fixtures.at(fixtureUuid);
+  const auto policy = gdtf::ReadMutationPolicy(GetDefaultGuiConfigServices().Preferences());
+  if (!symbols::NeedsAutomaticFixtureSymbolPreparation(
+          fixture, cfg.GetProjectFixtureSymbols(), key.effectiveGdtfPath, policy))
+    return;
+  if (fallbackDiagnostics_.contains(key))
+    return;
+  tools::FixtureGeometryBounds bounds;
+  std::string geometryDiagnostic;
+  if (!tools::ComputeFixtureGeometryBoundsMm(key.effectiveGdtfPath,
+                                            key.exactGdtfMode, bounds,
+                                            geometryDiagnostic)) {
+    const auto placeholder = symbols::ApplyRuntimeFixtureSymbolPlaceholder(
+        cfg.GetScene(), cfg.GetProjectFixtureSymbols(), fixtureUuid,
+        key.effectiveGdtfPath);
+    if (placeholder.projectSymbolsUpdated) {
+      cfg.MarkDirty();
+      window_.RefreshAfterFixtureSymbolUpdate();
+    }
+    if (!placeholder.success)
+      diagnostics::DiagnosticLogger::Warning(placeholder.diagnostic);
+    if (fallbackDiagnostics_.insert(key).second) {
+      diagnostics::DiagnosticLogger::Info(
+          "Fixture geometry is unavailable; the current symbol representation is retained. "
+          "Standard completion was skipped: " + geometryDiagnostic);
+    }
+    return;
+  }
   if (coordinator_.Request(key, key.effectiveGdtfPath, priority)) {
     work_[key].fixtureUuid = fixtureUuid;
+    work_[key].bounds = bounds;
     const auto &fixture = GetDefaultGuiConfigServices()
                               .LegacyConfigManager()
                               .GetScene()
@@ -170,7 +192,7 @@ void FixtureSymbolPreparationService::PromoteManualFixture(
       "Fixture symbol automatic work paused for manual preview.");
 }
 
-// Resumes automatic eligibility when a manual preview ends without publication.
+// Rechecks standard completion independently of the retained project override.
 void FixtureSymbolPreparationService::CompleteManualFixture(
     const std::string &fixtureUuid, bool applied) {
   const auto manualIt = manualWork_.find(fixtureUuid);
@@ -181,8 +203,8 @@ void FixtureSymbolPreparationService::CompleteManualFixture(
   if (!applied) {
     diagnostics::DiagnosticLogger::Info(
         "Fixture symbol manual preview ended without apply; automatic work is eligible again.");
-    Request(key.effectiveGdtfPath, key.exactGdtfMode);
   }
+  Request(key.effectiveGdtfPath, key.exactGdtfMode);
 }
 
 // Scans unique resolved resources and exact modes after project stabilization.
@@ -225,6 +247,16 @@ void FixtureSymbolPreparationService::OnIdle(wxIdleEvent &event) {
             fixtureIt->second.gdtfMode};
         if (scanKeys_.insert(key).second)
           Request(key.effectiveGdtfPath, key.exactGdtfMode);
+      } else {
+        ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+        const auto placeholder = symbols::ApplyRuntimeFixtureSymbolPlaceholder(
+            cfg.GetScene(), cfg.GetProjectFixtureSymbols(), fixtureUuid, "");
+        if (placeholder.projectSymbolsUpdated) {
+          cfg.MarkDirty();
+          window_.RefreshAfterFixtureSymbolUpdate();
+          diagnostics::DiagnosticLogger::Info(
+              "The unavailable fixture definition uses a retained project visual placeholder.");
+        }
       }
     }
     if (!scanFixtureUuids_.empty())
@@ -255,16 +287,11 @@ void FixtureSymbolPreparationService::RunNextStep() {
           fixtures::ResolveFixtureGdtfDeterministic(fixtureIt->second, scene,
                                                     resolution, resolutionError,
                                                     "symbol-reinspect")) {
-        const auto source = symbols::InspectFixtureSymbolSource(
-            resolution.selectedPath, currentKey_->exactGdtfMode);
-        if (source.source !=
-            symbols::FixtureSymbolSource::RenderableGdtfGeometry) {
-          if (source.source == symbols::FixtureSymbolSource::PerastageFallback &&
-              fallbackDiagnostics_.insert(*currentKey_).second) {
-            diagnostics::DiagnosticLogger::Info(
-                "Fixture symbol generation skipped during reinspection: " +
-                source.diagnostic);
-          }
+        if (!symbols::NeedsAutomaticFixtureSymbolPreparation(
+                fixtureIt->second,
+                GetDefaultGuiConfigServices().LegacyConfigManager().GetProjectFixtureSymbols(),
+                resolution.selectedPath,
+                gdtf::ReadMutationPolicy(GetDefaultGuiConfigServices().Preferences()))) {
           coordinator_.Skip(*currentKey_, epoch_);
           work_.erase(*currentKey_);
           currentKey_.reset();
@@ -410,27 +437,27 @@ void FixtureSymbolPreparationService::RunNextStep() {
       Request(staleKey.effectiveGdtfPath, staleKey.exactGdtfMode);
       return;
     }
-    if (symbol_cache::InspectFixtureSymbolAvailability(
-            currentKey_->effectiveGdtfPath).storedSvgUsable) {
-      coordinator_.Complete(*currentKey_, epoch_, true);
-    } else {
-      const auto apply = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
-          work.processedSymbols, work.fixtureUuid);
-      if (!coordinator_.IsCurrent(epoch_) || !apply.success) {
-        FailCurrent(apply.diagnostic.empty()
-                        ? "Fixture symbol publication was rejected as stale."
-                        : apply.diagnostic);
-        return;
-      }
-      work.fixtureReferencesUpdated = apply.fixtureReferencesUpdated;
-      coordinator_.Complete(*currentKey_, epoch_, true);
+    const auto applied = symbols::PrepareFixtureSymbols(
+        cfg.GetScene(), cfg.GetProjectFixtureSymbols(), work.fixtureUuid,
+        currentKey_->effectiveGdtfPath, work.processedSymbols,
+        gdtf::ReadMutationPolicy(GetDefaultGuiConfigServices().Preferences()));
+    if (!coordinator_.IsCurrent(epoch_) || !applied.success) {
+      FailCurrent(applied.diagnostic.empty()
+                      ? "Fixture symbol application was rejected as stale."
+                      : applied.diagnostic);
+      return;
     }
+    for (const auto &warning : applied.warnings)
+      diagnostics::DiagnosticLogger::Warning("Fixture standard completion: " + warning);
+    work.fixtureReferencesUpdated = applied.fixtureReferencesUpdated;
+    work.projectSymbolsUpdated = applied.projectSymbolsUpdated;
+    coordinator_.Complete(*currentKey_, epoch_, true);
     work.stage = WorkStage::Finalizing;
     ScheduleNextStep();
     return;
   }
 
-  if (work.fixtureReferencesUpdated) {
+  if (work.fixtureReferencesUpdated || work.projectSymbolsUpdated) {
     cfg.MarkDirty();
     window_.RefreshAfterFixtureSymbolUpdate();
   }

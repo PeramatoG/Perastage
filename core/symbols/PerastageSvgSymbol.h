@@ -44,3 +44,11 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
                                     std::string *errorDetails = nullptr,
                                     FixtureSymbolResolutionPurpose purpose =
                                         FixtureSymbolResolutionPurpose::InternalRendering);
+
+// Parses authoritative PSTG bytes without a GDTF archive or generator access.
+bool ParsePerastageProjectSvgSymbol(const std::string &svg,
+                                    PerastageSvgSymbolData &out,
+                                    std::string *errorDetails = nullptr);
+
+bool ParseFixtureSymbolSvg(const std::string &svg, PerastageSvgSymbolData &out,
+                           std::string *errorDetails = nullptr);

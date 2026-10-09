@@ -6,27 +6,13 @@
 #include "fixture.h"
 #include "mvrscene.h"
 #include "symbols/Symbol2D.h"
-#include "symbols/FixtureSymbolDiagnostics.h"
 
 namespace symbol_preview {
 
-struct ApplySymbolsOptions {
-  // Binds an owned archive to the scene, using the library while the project is unsaved.
-  bool updateSceneCopy = true;
-  bool updateLibraryCopy = true;
-  symbols::FixtureSymbolTimings *timings = nullptr;
-};
-
 struct ApplySymbolsResult {
   bool success = false;
-  // Project archive persistence and in-memory retargeting are distinct outcomes.
-  bool sceneUpdated = false;
-  bool fixtureReferencesUpdated = false;
-  bool libraryUpdated = false;
-  std::string finalScenePath;
-  std::string finalLibraryPath;
-  std::string finalSceneFingerprint;
-  std::vector<std::string> warnings;
+  bool projectSymbolsUpdated = false;
+  bool unsavedProject = false;
   std::string diagnostic;
 };
 
@@ -45,22 +31,9 @@ bool InspectFixtureSymbolState(const Fixture &fixture,
                                FixtureSymbolInspectionResult &result,
                                std::string &errorMessage);
 
-// Applies generated SVG views through a boolean contract that cannot report warnings.
-// This mutation path must comply with docs/developer/gdtf_mutation_policy.md
-// (Perastage audit metadata, revision stamping, and compatibility fallback).
-bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
-                               const std::string &fixtureUuid,
-                               std::string &errorMessage,
-                               const ApplySymbolsOptions &options = {});
-
-// Applies generated SVG views and reports each requested persistence outcome.
-ApplySymbolsResult ApplySymbolsToFixtureGdtfWithResult(
+// Manual Apply makes an authoritative project override, including before Save.
+ApplySymbolsResult ApplySymbolsToFixtureProjectWithResult(
     const std::vector<symbols::Symbol2D> &symbols,
-    const std::string &fixtureUuid,
-    const ApplySymbolsOptions &options = {});
-
-bool SyncFixtureGdtfToLibrary(const Fixture &fixture,
-                              const MvrScene &scene,
-                              std::string &errorMessage);
+    const std::string &fixtureUuid);
 
 } // namespace symbol_preview

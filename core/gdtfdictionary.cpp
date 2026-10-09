@@ -1013,11 +1013,12 @@ bool PreparePerastageLibraryDerivative(
       PathUtils::AreFilesystemPathsEquivalent(source, PathUtils::PathFromUtf8(existing->path), ec) &&
       PathUtils::AreFilesystemPathsEquivalent(source.parent_path(), layout.ownedAssetDirectory, ec) &&
       IsPerastageNamedGdtfFile(sourcePath) &&
-      InspectFixtureSymbolResources(sourcePath, resources) && resources.perastageViewsUsable;
+      (fixture_gdtf::HasPerastageStandardSvgRevision(source) ||
+       (InspectFixtureSymbolResources(sourcePath, resources) && resources.perastageViewsUsable));
   if (reuseOwned) {
     destination = layout.ownedAssetDirectory / source.filename();
-  } else if (PathUtils::AreFilesystemPathsEquivalent(source, destination, ec)) {
-    // Canonical-looking downloaded/authored files do not establish owned mutation rights.
+  } else if (fs::exists(destination, ec)) {
+    // A filename alone cannot establish ownership of an occupied library asset.
     const auto sourceHash = FileImportUtils::ComputeFileSha256(source);
     if (!sourceHash) {
       errorMessage = "Could not fingerprint the external fixture source.";
@@ -1025,9 +1026,27 @@ bool PreparePerastageLibraryDerivative(
     }
     const std::string name = destination.filename().string();
     const auto marker = name.rfind("@Perastage");
-    destination = destination.parent_path() /
-        (name.substr(0, marker) + "_symbols_" + sourceHash->substr(0, 12) +
-         name.substr(marker));
+    bool allocated = false;
+    for (unsigned index = 0; index < 1024; ++index) {
+      const auto candidate = destination.parent_path() /
+          (name.substr(0, marker) + "_symbols_" + sourceHash->substr(0, 12) +
+           (index ? "_" + std::to_string(index + 1) : "") + name.substr(marker));
+      if (!fs::exists(candidate, ec) && !ec) {
+        destination = candidate;
+        allocated = true;
+        break;
+      }
+      if (ec)
+        break;
+    }
+    if (!allocated) {
+      errorMessage = "Could not allocate a distinct fixture library derivative.";
+      return false;
+    }
+  }
+  if (ec) {
+    errorMessage = "Could not inspect the fixture library publication destination.";
+    return false;
   }
   return fixture_gdtf::PrepareOwnedDerivative(
       PathUtils::PathFromUtf8(sourcePath), destination,
@@ -1080,14 +1099,7 @@ std::optional<Entry> CreateOrUpdatePerastageLibraryDerivative(
   const fs::path src = PathUtils::PathFromUtf8(gdtfPath);
   if (!fs::exists(src))
     return std::nullopt;
-  std::string derivativeError;
-  if (!fixture_gdtf::ValidatePublishedDerivative(gdtfPath, derivativeError)) {
-    Logger::Instance().Log(
-        Logger::Level::Warn,
-        "Refused to publish incomplete Perastage fixture derivative '" +
-            src.filename().string() + "': " + derivativeError);
-    return std::nullopt;
-  }
+  // Legacy input is sanitized and validated by shared derivative publication.
   const fs::path file = GetConfiguredUserDictFile();
   if (file.empty())
     return std::nullopt;

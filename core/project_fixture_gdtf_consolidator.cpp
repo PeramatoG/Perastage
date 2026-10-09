@@ -1,7 +1,7 @@
 #include "project_fixture_gdtf_consolidator.h"
 
 #include "filesystem_path_utils.h"
-#include "fixture_gdtf_derivative_contract.h"
+#include "symbols/project_fixture_symbol_migration.h"
 #include "mvrscene.h"
 #include "symbols/fixture_symbol_resource_contract.h"
 
@@ -266,11 +266,10 @@ ConsolidationPlan BuildConsolidationPlan(const MvrScene &scene) {
           fs::path(candidate.spec).filename().string() + "' reason='" +
           error + "'");
     }
-    std::string contractError;
-    candidate.validSymbols =
-        !candidate.fingerprint.empty() &&
-        fixture_gdtf::ValidatePublishedDerivative(candidate.path,
-                                                  contractError);
+    FixtureSymbolResourceInspection resources;
+    candidate.validSymbols = !candidate.fingerprint.empty() &&
+        InspectFixtureSymbolResources(candidate.path, resources) &&
+        (resources.standardViewsUsable || resources.perastageViewsUsable);
   }
   std::map<std::string, std::vector<Candidate *>> groups;
   for (auto &[key, candidate] : candidates) {
@@ -320,7 +319,8 @@ ConsolidationPlan BuildConsolidationPlan(const MvrScene &scene) {
 
 // Applies a fully validated plan atomically to fixture GDTF references.
 bool ApplyConsolidationPlan(MvrScene &scene, const ConsolidationPlan &plan,
-                            std::string &errorMessage) {
+                            std::string &errorMessage,
+                            symbols::ProjectFixtureSymbolStore *symbolStore) {
   for (const ConsolidationGroup &group : plan.groups) {
     for (const Rebind &rebind : group.rebindings) {
       const auto fixture = scene.fixtures.find(rebind.fixtureUuid);
@@ -331,6 +331,9 @@ bool ApplyConsolidationPlan(MvrScene &scene, const ConsolidationPlan &plan,
       }
     }
   }
+  if (symbolStore && !symbols::MaterializeLegacyFixtureSymbols(
+          scene, *symbolStore, "", errorMessage))
+    return false;
   for (const ConsolidationGroup &group : plan.groups)
     for (const Rebind &rebind : group.rebindings)
       scene.fixtures.at(rebind.fixtureUuid).gdtfSpec = rebind.newGdtfSpec;

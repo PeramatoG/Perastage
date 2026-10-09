@@ -172,6 +172,17 @@ void CheckLegacyAndMalformedPaths() {
   assert(parsed.provenance == FixtureSymbolProvenance::AuthoredGdtf);
   assert(parsed.fills.size() == 1 && parsed.fills[0].holes.empty());
 
+  // New standard SVG compound paths need no private ownership marker to render
+  // their holes, and inspection/loading must accept the same authored bytes.
+  tests::gdtf::BuildMinimalValidFixture().WithModelResource("main")
+      .WithArchiveEntry("models/svg/main.svg", Serialize(MakeSymbol(2)))
+      .WriteArchive(archive.path);
+  assert(LoadPerastageSvgSymbolFromGdtf(
+      archive.path.string(), SymbolViewKind::Top, parsed, nullptr,
+      FixtureSymbolResolutionPurpose::StandardGdtf));
+  assert(parsed.provenance == FixtureSymbolProvenance::AuthoredGdtf);
+  assert(parsed.fills.size() == 1 && parsed.fills[0].holes.size() == 2);
+
   // Malformed emitted-subset paths must not become partial, usable symbols.
   for (const char *data : {"", "M 0,0 L 10,0 Z", "M 0,0 L 10,0 L 0,10",
                            "M 0,0 C 10,0 0,10 0,0 Z",

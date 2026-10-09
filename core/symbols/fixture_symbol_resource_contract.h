@@ -20,13 +20,15 @@ inline constexpr int kCurrentPerastageSymbolResourceVersion = 1;
 
 enum class FixtureSymbolResourceSet {
   StandardGdtf,
-  Perastage,
+  InternalRendering,
+  Perastage = InternalRendering, // Legacy source-compatible spelling.
 };
 
 enum class FixtureSymbolProvenance {
   None,
   AuthoredGdtf,
   GeneratedPerastage,
+  ProjectUserOverride,
   LegacyPerastage,
   RuntimeFallback,
 };
@@ -45,6 +47,7 @@ struct FixtureSymbolResource {
 
   bool PerastageOwned() const {
     return provenance == FixtureSymbolProvenance::GeneratedPerastage ||
+           provenance == FixtureSymbolProvenance::ProjectUserOverride ||
            provenance == FixtureSymbolProvenance::LegacyPerastage;
   }
 };
@@ -106,8 +109,7 @@ bool InspectFixtureSymbolResources(
     const std::string &gdtfPath,
     FixtureSymbolResourceInspection &inspection);
 
-// New internal symbols use this namespace, including when legacy resources are
-// available at an official GDTF path.
+// Legacy read-only lookup. New internal symbols belong to PSTG project storage.
 std::string BuildPerastageFixtureSymbolPath(std::string_view modelSvgBasename,
                                            SymbolViewKind view);
 
@@ -117,3 +119,16 @@ bool IsPerastageFixtureSymbolRevision(std::string_view modifiedBy,
 bool IsPerastageFixtureSymbolRevisionForView(std::string_view modifiedBy,
                                             std::string_view text,
                                             SymbolViewKind view);
+
+// Recognizes exact standard completion/explicit replacement audit actions.
+// This establishes derivative mutation provenance, not project-symbol ownership.
+bool IsPerastageStandardSvgMutationRevision(std::string_view modifiedBy,
+                                           std::string_view text);
+bool IsPerastageStandardSvgMutationRevisionForView(std::string_view modifiedBy,
+                                                  std::string_view text,
+                                                  SymbolViewKind view);
+
+// Positive publication cleanup supersedes legacy ownership at official paths.
+// SVG ownership markers themselves remain authoritative compatibility evidence.
+bool IsPerastageStandardSvgCleanupRevision(std::string_view modifiedBy,
+                                          std::string_view text);

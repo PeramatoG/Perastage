@@ -43,6 +43,7 @@
 #include "layout_pdf_symbol_usage.h"
 #include "pdf_draw_commands.h"
 #include "pdf_font_metrics.h"
+#include "pdf_fixture_symbol_source.h"
 #include "pdf_objects.h"
 #include "symbols/fixture_symbol_availability.h"
 #include "viewer2dcommandrenderer.h"
@@ -74,17 +75,7 @@ static bool ShouldTraceLabelOrder() {
   return enabled;
 }
 
-// Returns whether a legend symbol key can be lazily loaded as a GDTF SVG.
-bool ShouldLoadLegendSvgFromKey(const std::string &symbolKey) {
-  if (symbolKey.empty())
-    return false;
-
-  std::filesystem::path symbolPath(symbolKey);
-  std::string extension = symbolPath.extension().string();
-  std::transform(extension.begin(), extension.end(), extension.begin(),
-                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-  return extension == ".gdtf";
-}
+using viewer2d::pdf::ShouldLoadLegendSvgFromKey;
 // Converts an optional legend hex color into normalized RGB values.
 std::array<double, 3> ResolveLegendSvgFillRgb(
     const std::optional<std::string> &hexColor) {
@@ -992,7 +983,7 @@ Viewer2DExportResult ExportLayoutToPdf(
                            SymbolViewKind viewKind)
       -> const PerastageSvgSymbolData * {
     const std::string &loadPath =
-        ShouldLoadLegendSvgFromKey(resolvedGdtfPath) ? resolvedGdtfPath : symbolKey;
+        viewer2d::pdf::ResolveLegendFixtureSymbolSource(symbolKey, resolvedGdtfPath);
     if (!ShouldLoadLegendSvgFromKey(loadPath))
       return nullptr;
     LegendSvgCacheKey cacheKey{loadPath, viewKind};

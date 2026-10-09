@@ -19,6 +19,8 @@ struct FixtureSymbolAvailability {
   std::array<FixtureSymbolResolution, 6> internalViews;
 };
 
+// Accepts a resolved GDTF path or a Core-issued PSTG project symbol source token.
+// Project tokens are never normalized or interpreted as filesystem paths.
 FixtureSymbolAvailability
 InspectFixtureSymbolAvailability(const std::string &physicalGdtfPath);
 std::shared_ptr<const PerastageSvgSymbolData>

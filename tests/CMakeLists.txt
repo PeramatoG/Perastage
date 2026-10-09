@@ -697,6 +697,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(FixtureSymbolPreviewBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_preview_boundary.sh LABELS perastage-extension architecture gui symbols)
     add_bash_policy_test(FixtureSymbolResolutionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_resolution_boundary.sh LABELS standard-strict architecture core gdtf symbols)
     add_bash_policy_test(FixtureSymbolResourceContractBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_resource_contract_boundary.sh LABELS standard-strict architecture gdtf)
+    add_bash_policy_test(FixtureSymbolOwnership ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_ownership.sh LABELS standard-strict architecture core gdtf symbols)
     add_bash_policy_test(FixtureSymbolSourceArchitecture ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_source_architecture.sh)
     add_bash_policy_test(FixtureSymbolCaptureIsolation ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_capture_isolation.sh)
     add_bash_policy_test(ResourceReferenceCacheKey ${CMAKE_CURRENT_SOURCE_DIR}/check_resource_reference_cache_key.sh)
@@ -2649,6 +2650,12 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
                ../gui/windows/symbol_fixture_applier.cpp
+               ../core/symbols/fixture_symbol_application.cpp
+               ../core/symbols/fixture_symbol_state.cpp
+               ../core/symbols/standard_gdtf_completion.cpp
+               ../core/symbols/standard_gdtf_svg.cpp
+               ../core/gdtf_mutation_policy.cpp
+               ../core/gdtf/editor/gdtf_document.cpp
                ../gui/fixtures/fixture_gdtf_resolution.cpp
                ../core/fixture_gdtf_derivative_publication.cpp
                ../core/fixture_gdtf_derivative_contract.cpp
@@ -2808,6 +2815,7 @@ set_library_env(MvrPatchedGdtfExportMutation)
 
 add_executable(user_preferences_store_test
                user_preferences_store_test.cpp
+               ../core/gdtf_mutation_policy.cpp
                ../core/configservices.cpp)
 target_include_directories(user_preferences_store_test PRIVATE ../core ../third_party ../models)
 target_link_libraries(user_preferences_store_test PRIVATE ${wxWidgets_LIBRARIES})
@@ -2927,6 +2935,19 @@ add_executable(project_session_io_test
 target_include_directories(project_session_io_test PRIVATE ../core ../third_party ../models)
 target_link_libraries(project_session_io_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME ProjectSessionIO COMMAND project_session_io_test)
+
+add_executable(project_fixture_symbols_test
+               project_fixture_symbols_test.cpp
+               support/gdtf_test_fixture_builder.cpp
+               ../core/configservices.cpp)
+target_include_directories(project_fixture_symbols_test PRIVATE
+                           ../core ../third_party ../models)
+target_link_libraries(project_fixture_symbols_test PRIVATE
+                      ${wxWidgets_LIBRARIES} perastage_project_fixture_symbols
+                      perastage_test_required_fixture_svg)
+add_test(NAME ProjectFixtureSymbols COMMAND project_fixture_symbols_test)
+set_perastage_test_labels(ProjectFixtureSymbols
+                          LAYER perastage-extension DOMAINS core project symbols zip)
 
 add_executable(startup_profile_test
                startup_profile_test.cpp
@@ -3410,6 +3431,7 @@ add_executable(project_fixture_gdtf_consolidator_test
 target_include_directories(project_fixture_gdtf_consolidator_test PRIVATE
                            ../core ../models support)
 target_link_libraries(project_fixture_gdtf_consolidator_test PRIVATE
+                      perastage_project_fixture_symbols
                       perastage_test_required_fixture_svg
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2
                       perastage_test_diagnostics)
@@ -3427,6 +3449,35 @@ add_executable(fixture_symbol_resolution_test
 target_link_libraries(fixture_symbol_resolution_test PRIVATE
                       perastage_test_required_fixture_svg)
 add_test(NAME FixtureSymbolResolution COMMAND fixture_symbol_resolution_test)
+add_library(perastage_test_project_symbol_runtime STATIC
+            ../core/symbols/project_fixture_symbol_runtime.cpp)
+target_include_directories(perastage_test_project_symbol_runtime PUBLIC ../core ../models)
+target_link_libraries(perastage_test_project_symbol_runtime PUBLIC
+                     perastage_project_fixture_symbols perastage_test_required_fixture_svg)
+foreach(project_symbol_consumer IN ITEMS fixture_symbol_source_test
+        symbol_fixture_applier_gdtf_test fixture_symbol_resolution_test)
+    target_link_libraries(${project_symbol_consumer} PRIVATE perastage_test_project_symbol_runtime)
+endforeach()
+add_executable(project_fixture_symbol_runtime_test
+               project_fixture_symbol_runtime_test.cpp
+               ../core/symbols/fixture_symbol_availability.cpp
+               ../core/symbols/fixture_symbol_svg_cache.cpp
+               ../core/symbols/fixture_symbol_resource_revision.cpp
+               ../core/symbols/fixture_symbol_preview_model.cpp
+               ../core/filesystem_path_utils.cpp)
+target_include_directories(project_fixture_symbol_runtime_test PRIVATE ../viewer2d)
+target_link_libraries(project_fixture_symbol_runtime_test PRIVATE
+                     perastage_test_project_symbol_runtime)
+add_test(NAME ProjectFixtureSymbolRuntime COMMAND project_fixture_symbol_runtime_test)
+find_package(Threads REQUIRED)
+add_executable(project_fixture_symbol_read_context_test
+               project_fixture_symbol_read_context_test.cpp)
+target_link_libraries(project_fixture_symbol_read_context_test PRIVATE
+                     perastage_test_project_symbol_runtime Threads::Threads)
+add_test(NAME ProjectFixtureSymbolReadContext
+         COMMAND project_fixture_symbol_read_context_test)
+set_perastage_test_labels(ProjectFixtureSymbolReadContext
+                         LAYER perastage-extension DOMAINS core symbols architecture)
 set_perastage_test_labels(FixtureSymbolResolution
                          LAYER perastage-extension DOMAINS core gdtf symbols architecture)
 
@@ -3490,6 +3541,27 @@ target_link_libraries(fixture_gdtf_derivative_contract_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME FixtureGdtfDerivativeContract
          COMMAND fixture_gdtf_derivative_contract_test)
+target_link_libraries(fixture_gdtf_derivative_contract_test PRIVATE
+                      perastage_gdtf_publication_resources)
+
+add_executable(standard_gdtf_completion_test
+               standard_gdtf_completion_test.cpp
+               support/gdtf_test_fixture_builder.cpp
+               ../core/symbols/standard_gdtf_svg.cpp
+               ../core/symbols/standard_gdtf_completion.cpp
+               ../core/symbols/Symbol2DSvg.cpp
+               ../core/fixture_gdtf_derivative_contract.cpp
+               ../core/fixture_gdtf_derivative_publication.cpp
+               ../core/gdtf_canonicalizer.cpp)
+target_include_directories(standard_gdtf_completion_test PRIVATE ../core support)
+target_link_libraries(standard_gdtf_completion_test PRIVATE
+                      perastage_test_required_fixture_svg
+                      perastage_gdtf_publication_resources
+                      perastage_inspection_validation perastage_uuid
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME StandardGdtfSvgCompletion COMMAND standard_gdtf_completion_test)
+set_perastage_test_labels(StandardGdtfSvgCompletion
+                         LAYER standard-strict DOMAINS core gdtf symbols zip)
 
 add_executable(fixture_symbol_preparation_coordinator_test
                fixture_symbol_preparation_coordinator_test.cpp
@@ -3839,6 +3911,15 @@ get_property(PERASTAGE_NEUTRAL_HELPER_TEST_TARGETS DIRECTORY PROPERTY BUILDSYSTE
 foreach(PERASTAGE_NEUTRAL_HELPER_TEST IN LISTS PERASTAGE_NEUTRAL_HELPER_TEST_TARGETS)
     get_target_property(PERASTAGE_NEUTRAL_HELPER_TEST_SOURCES
                         ${PERASTAGE_NEUTRAL_HELPER_TEST} SOURCES)
+    if("../core/configservices.cpp" IN_LIST PERASTAGE_NEUTRAL_HELPER_TEST_SOURCES)
+        target_link_libraries(${PERASTAGE_NEUTRAL_HELPER_TEST} PRIVATE
+                              perastage_project_fixture_symbols)
+    endif()
+    if("../core/gdtf_document_mutation.cpp" IN_LIST PERASTAGE_NEUTRAL_HELPER_TEST_SOURCES OR
+       "$<TARGET_OBJECTS:perastage_test_gdtfloader_objects>" IN_LIST PERASTAGE_NEUTRAL_HELPER_TEST_SOURCES)
+        target_link_libraries(${PERASTAGE_NEUTRAL_HELPER_TEST} PRIVATE
+                              perastage_gdtf_publication_resources)
+    endif()
     if("../core/gdtfdictionary.cpp" IN_LIST PERASTAGE_NEUTRAL_HELPER_TEST_SOURCES)
         target_link_libraries(${PERASTAGE_NEUTRAL_HELPER_TEST} PRIVATE
                               perastage_gdtf_filename_policy)
@@ -3859,5 +3940,18 @@ foreach(PERASTAGE_DECLARED_TEST IN LISTS PERASTAGE_DECLARED_TEST_TARGETS)
            PERASTAGE_GDTF_DICTIONARY_PUBLICATION_TEST_TARGETS)
         message(FATAL_ERROR
                 "${PERASTAGE_DECLARED_TEST} is missing dictionary publication dependencies")
+    endif()
+endforeach()
+
+# Intentional derivative publication shares private-resource cleanup.
+get_property(PERASTAGE_PUBLICATION_TEST_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(PERASTAGE_PUBLICATION_TEST_TARGET IN LISTS PERASTAGE_PUBLICATION_TEST_TARGETS)
+    get_target_property(PERASTAGE_PUBLICATION_TEST_SOURCES
+                        ${PERASTAGE_PUBLICATION_TEST_TARGET} SOURCES)
+    if(PERASTAGE_PUBLICATION_TEST_SOURCES AND
+       "../core/fixture_gdtf_derivative_publication.cpp" IN_LIST PERASTAGE_PUBLICATION_TEST_SOURCES)
+        target_link_libraries(${PERASTAGE_PUBLICATION_TEST_TARGET} PRIVATE
+                              perastage_gdtf_publication_resources
+                              perastage_gdtf_filename_policy)
     endif()
 endforeach()

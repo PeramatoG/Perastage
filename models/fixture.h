@@ -39,6 +39,8 @@ struct Fixture {
   std::string
       requestedFixtureName; // Original MVR fixture name used for matching
     std::string gdtfSpec;         // GDTF file name
+    // Explicit PSTG-only definition binding; never serialized into scene.mvr.
+    std::string projectSymbolDefinitionId;
   std::string originalMvrGdtfSpec; // Original MVR GDTF archive reference
                                    // preserved for safe restore/export
     std::string gdtfMode;         // GDTF mode name (optional)

@@ -851,7 +851,7 @@ void FixtureEditDialog::OnModeChanged(wxCommandEvent &) {
 void FixtureEditDialog::UpdateVisualizers() {
   const std::string path = PathUtils::PathToUtf8(GetActiveResolvedGdtfPath());
   if (symbolComparison)
-    symbolComparison->SetArchivePath(path);
+    symbolComparison->SetArchivePath(path, panel && row >= 0 && static_cast<size_t>(row) < panel->rowUuids.size() ? panel->rowUuids[row] : "");
 
   if (fixtureImagePreview) {
     wxBitmap image;

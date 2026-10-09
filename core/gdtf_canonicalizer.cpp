@@ -386,6 +386,13 @@ Result CanonicalizeArchive(const fs::path &sourcePath, const fs::path &destinati
 Result RewriteArchiveDescription(const fs::path &sourcePath,
                                  const fs::path &destinationPath,
                                  const DescriptionMutator &mutator) {
+  return RewriteArchiveResources(sourcePath, destinationPath, {}, mutator);
+}
+
+Result RewriteArchiveResources(const fs::path &sourcePath,
+                               const fs::path &destinationPath,
+                               const std::vector<ResourceMutation> &resources,
+                               const DescriptionMutator &mutator) {
   Result result;
   std::vector<ZipEntryData> entries;
   if (!ReadZipEntries(sourcePath, entries, result))
@@ -405,6 +412,25 @@ Result RewriteArchiveDescription(const fs::path &sourcePath,
     return result;
   description->name = "description.xml";
   description->bytes = PrintDocument(document);
+  for (const auto &resource : resources) {
+    const std::string path = NormalizeArchivePath(resource.archivePath);
+    bool unsafe = path.empty() || Lower(path) == "description.xml" ||
+                  path != resource.archivePath || path.find(':') != std::string::npos;
+    std::istringstream segments(path);
+    std::string segment;
+    while (std::getline(segments, segment, '/'))
+      unsafe = unsafe || segment.empty() || segment == "." || segment == "..";
+    unsafe = unsafe || path.ends_with('/');
+    if (unsafe) {
+      result.errors.push_back("An unsafe resource mutation path was rejected.");
+      return result;
+    }
+    entries.erase(std::remove_if(entries.begin(), entries.end(), [&](const auto &entry) {
+      return entry.name == path;
+    }), entries.end());
+    if (resource.bytes)
+      entries.push_back({path, *resource.bytes});
+  }
   if (!WriteZipEntries(destinationPath, entries, result))
     return result;
   result.changed = true;

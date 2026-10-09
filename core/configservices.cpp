@@ -3,6 +3,7 @@
 #include "apppaths.h"
 #include "logger.h"
 #include "startup_profile.h"
+#include "project_resource_load_transaction.h"
 
 #include "json.hpp"
 
@@ -582,7 +583,8 @@ void HistoryManager::PushUndoState(
     const std::string &description,
     const std::optional<std::string> &layoutsCollection,
     const LayerVisibilityState *layerState,
-    const std::optional<std::string> &fixtureLabelOverrides) {
+    const std::optional<std::string> &fixtureLabelOverrides,
+    const symbols::ProjectFixtureSymbolStore *fixtureSymbols) {
   Snapshot snap{scene,
                 selection.GetSelectedFixtures(),
                 selection.GetSelectedTrusses(),
@@ -592,7 +594,8 @@ void HistoryManager::PushUndoState(
                 layoutsCollection,
                 fixtureLabelOverrides,
                 layerState ? layerState->GetHiddenLayers() : std::unordered_set<std::string>{},
-                layerState ? layerState->GetCurrentLayer() : std::string{}};
+                layerState ? layerState->GetCurrentLayer() : std::string{},
+                fixtureSymbols ? *fixtureSymbols : symbols::ProjectFixtureSymbolStore{}};
   undoStack.push_back(std::move(snap));
   if (undoStack.size() > maxHistory)
     undoStack.erase(undoStack.begin());
@@ -607,7 +610,8 @@ std::string HistoryManager::Undo(
     MvrScene &scene, SelectionState &selection,
     std::optional<std::string> *layoutsCollection,
     LayerVisibilityState *layerState,
-    std::optional<std::string> *fixtureLabelOverrides) {
+    std::optional<std::string> *fixtureLabelOverrides,
+    symbols::ProjectFixtureSymbolStore *fixtureSymbols) {
   if (undoStack.empty())
     return {};
   const Snapshot snap = undoStack.back();
@@ -621,8 +625,11 @@ std::string HistoryManager::Undo(
                        fixtureLabelOverrides ? *fixtureLabelOverrides
                                              : snap.fixtureLabelOverrides,
                        layerState ? layerState->GetHiddenLayers() : std::unordered_set<std::string>{},
-                       layerState ? layerState->GetCurrentLayer() : std::string{}});
+                       layerState ? layerState->GetCurrentLayer() : std::string{},
+                       fixtureSymbols ? *fixtureSymbols : symbols::ProjectFixtureSymbolStore{}});
   scene = snap.scene;
+  if (fixtureSymbols)
+    *fixtureSymbols = snap.fixtureSymbols;
   if (layoutsCollection)
     *layoutsCollection = snap.layoutsCollection;
   if (fixtureLabelOverrides)
@@ -644,7 +651,8 @@ std::string HistoryManager::Redo(
     MvrScene &scene, SelectionState &selection,
     std::optional<std::string> *layoutsCollection,
     LayerVisibilityState *layerState,
-    std::optional<std::string> *fixtureLabelOverrides) {
+    std::optional<std::string> *fixtureLabelOverrides,
+    symbols::ProjectFixtureSymbolStore *fixtureSymbols) {
   if (redoStack.empty())
     return {};
   const Snapshot snap = redoStack.back();
@@ -658,8 +666,11 @@ std::string HistoryManager::Redo(
                        fixtureLabelOverrides ? *fixtureLabelOverrides
                                              : snap.fixtureLabelOverrides,
                        layerState ? layerState->GetHiddenLayers() : std::unordered_set<std::string>{},
-                       layerState ? layerState->GetCurrentLayer() : std::string{}});
+                       layerState ? layerState->GetCurrentLayer() : std::string{},
+                       fixtureSymbols ? *fixtureSymbols : symbols::ProjectFixtureSymbolStore{}});
   scene = snap.scene;
+  if (fixtureSymbols)
+    *fixtureSymbols = snap.fixtureSymbols;
   if (layoutsCollection)
     *layoutsCollection = snap.layoutsCollection;
   if (fixtureLabelOverrides)
@@ -902,15 +913,22 @@ bool ProjectSession::SaveProject(
 
   const auto resourcesStart = std::chrono::steady_clock::now();
   std::vector<ArchiveResource> resourceEntries;
+  std::string symbolError;
+  if (!fixtureSymbols.CollectArchiveResources(scene, resourceEntries, symbolError))
+    return LogProjectSaveFailure("CollectRequiredSymbols", symbolError);
   if (collectResources) {
     std::string resourceError;
     try {
-      if (!collectResources(sceneBytes, resourceEntries, resourceError)) {
+      std::vector<ArchiveResource> additionalResources;
+      if (!collectResources(sceneBytes, additionalResources, resourceError)) {
         return LogProjectSaveFailure(
             "CollectRequiredResources",
             resourceError.empty() ? "transactional resource collection failed"
                                   : resourceError);
       }
+      resourceEntries.insert(resourceEntries.end(),
+                             std::make_move_iterator(additionalResources.begin()),
+                             std::make_move_iterator(additionalResources.end()));
     } catch (const std::exception &e) {
       return LogProjectSaveFailure("CollectRequiredResources", e.what());
     } catch (...) {
@@ -1061,8 +1079,14 @@ bool ProjectSession::LoadProject(const std::string &path,
                                  size_t sceneMemoryLimitBytes) {
   if (!loadConfig || !loadScene)
     return false;
-  loadedArchiveResources.clear();
-  loadedCacheValidationContext = {};
+  ProjectResourceLoadTransaction loadTransaction(
+      extractedResourceDirectory, loadedArchiveResources,
+      loadedCacheValidationContext, scene, fixtureSymbols);
+  const auto finishLoad = [&loadTransaction](bool ok) {
+    if (ok)
+      loadTransaction.Commit();
+    return ok;
+  };
   std::vector<project_cache::NamedPayloadFingerprint>
       layoutResourceFingerprints;
   project_cache::FingerprintAccumulator scenePackageFingerprint;
@@ -1097,7 +1121,10 @@ bool ProjectSession::LoadProject(const std::string &path,
       payload.logicalName = fs::path(path).filename().string();
       payload.bytes.assign(std::istreambuf_iterator<char>(configIn),
                            std::istreambuf_iterator<char>());
-      return loadConfig(payload);
+      const bool loaded = loadConfig(payload);
+      if (loaded)
+        fixtureSymbols.Clear();
+      return finishLoad(loaded);
     }
     return false;
   }
@@ -1120,6 +1147,7 @@ bool ProjectSession::LoadProject(const std::string &path,
   bool hasMvrSceneXml = false;
   int extractedRelevantEntries = 0;
   size_t transferredCacheBytes = 0;
+  size_t transferredSymbolBytes = 0;
 
   while ((entry.reset(zip.GetNextEntry())), entry) {
     if (entry->IsDir())
@@ -1139,6 +1167,25 @@ bool ProjectSession::LoadProject(const std::string &path,
         layoutResourceFingerprints.push_back(
             {fs::path(entryName).generic_string(),
              resourceFingerprint.Finish()});
+      } else if (entryName.starts_with(symbols::kProjectFixtureSymbolResourceRoot)) {
+        if (!IsSafeArchiveRelativePath(entryName))
+          return false;
+        constexpr size_t kMaxSymbolEntryBytes = 16 * 1024 * 1024;
+        constexpr size_t kMaxSymbolArchiveBytes = 128 * 1024 * 1024;
+        std::vector<std::uint8_t> bytes;
+        std::array<char, 4096> buffer{};
+        while (true) {
+          zip.Read(buffer.data(), buffer.size());
+          const size_t count = zip.LastRead();
+          if (count == 0)
+            break;
+          if (bytes.size() + count > kMaxSymbolEntryBytes ||
+              transferredSymbolBytes + bytes.size() + count > kMaxSymbolArchiveBytes)
+            return false;
+          bytes.insert(bytes.end(), buffer.begin(), buffer.begin() + count);
+        }
+        transferredSymbolBytes += bytes.size();
+        loadedArchiveResources.push_back({entryName, std::move(bytes), true});
       } else if (entryName.rfind("resources/layout_view_cache/", 0) == 0 &&
                  IsSafeArchiveRelativePath(entryName)) {
         constexpr size_t kMaxTransferredCacheEntryBytes = 8 * 1024 * 1024;
@@ -1241,22 +1288,26 @@ bool ProjectSession::LoadProject(const std::string &path,
         scenePackageFingerprint.Finish();
     loadedCacheValidationContext.scenePackageCovered = true;
   }
-  loadedCacheValidationContext.packagedLayoutResourceFingerprint =
-      project_cache::AggregateNamedPayloadFingerprints(
-          std::move(layoutResourceFingerprints));
-  loadedCacheValidationContext.packagedLayoutResourcesCovered = true;
-
   if (configPayload.bytes.empty() && scenePayload.bytes.empty() &&
       scenePayload.spillPath.empty()) {
     if (hasMvrSceneXml) {
       ProjectScenePayload payload;
       payload.logicalName = fs::path(path).filename().string();
       payload.spillPath = path;
-      return loadScene(payload);
+      const bool loaded = loadScene(payload);
+      if (loaded)
+        fixtureSymbols.Clear();
+      return finishLoad(loaded);
     }
     return false;
   }
 
+  symbols::ProjectFixtureSymbolStore restoredSymbols;
+  std::string symbolLoadError;
+  if (!restoredSymbols.LoadArchiveResources(loadedArchiveResources, symbolLoadError)) {
+    Logger::Instance().Log(Logger::Level::Error, symbolLoadError);
+    return false;
+  }
   bool ok = true;
   if (!scenePayload.bytes.empty() || !scenePayload.spillPath.empty()) {
     reportProgress("Importing project scene...");
@@ -1296,7 +1347,24 @@ bool ProjectSession::LoadProject(const std::string &path,
             std::chrono::steady_clock::now() - archiveStartedAt)
             .count();
   }
-  return ok;
+  if (ok && !restoredSymbols.RestoreFixtureBindings(scene, symbolLoadError)) {
+    Logger::Instance().Log(Logger::Level::Error, symbolLoadError);
+    return false;
+  }
+  if (ok) {
+    if (!restoredSymbols.AppendReferencedResourceFingerprints(
+            scene, layoutResourceFingerprints, symbolLoadError,
+            &loadedArchiveResources)) {
+      Logger::Instance().Log(Logger::Level::Error, symbolLoadError);
+      return false;
+    }
+    loadedCacheValidationContext.packagedLayoutResourceFingerprint =
+        project_cache::AggregateNamedPayloadFingerprints(
+            std::move(layoutResourceFingerprints));
+    loadedCacheValidationContext.packagedLayoutResourcesCovered = true;
+    fixtureSymbols = std::move(restoredSymbols);
+  }
+  return finishLoad(ok);
 }
 
 // Returns optional project-owned resources captured during the primary archive traversal.

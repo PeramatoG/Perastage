@@ -25,6 +25,7 @@ wxDECLARE_EVENT(EVT_UI_UNITS_CHANGED, wxCommandEvent);
 wxDECLARE_EVENT(EVT_UI_PREFERENCES_APPLIED, wxCommandEvent);
 
 class GdtfCredentialsPanel;
+class GdtfMutationPolicyPanel;
 
 class PreferencesDialog : public wxDialog {
 public:
@@ -75,4 +76,5 @@ private:
   localization::AppLanguage lastRestartNoticeLanguage =
       localization::DefaultAppLanguage();
   GdtfCredentialsPanel *gdtfCredentialsPanel = nullptr;
+  GdtfMutationPolicyPanel *gdtfMutationPolicyPanel = nullptr;
 };

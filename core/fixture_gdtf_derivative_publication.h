@@ -1,7 +1,10 @@
 #pragma once
 
+#include "gdtf_publication_resources.h"
+
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace fixture_gdtf {
 
@@ -10,6 +13,9 @@ struct PreparedDerivative {
   std::filesystem::path publishedPath;
   std::string publishedReference;
 };
+
+// Exact standard mutation revisions establish provenance without SVG markers.
+bool HasPerastageStandardSvgRevision(const std::filesystem::path &sourcePath);
 
 // Canonicalizes a source archive through a private copy and atomically publishes it.
 bool PublishCanonicalGdtfCopy(const std::filesystem::path &sourcePath,

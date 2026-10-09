@@ -40,6 +40,7 @@
 #include "scenedatamanager.h"
 #include "symbols/fixture_symbol_availability.h"
 #include "symbols/fixture_symbol_preparation_requests.h"
+#include "symbols/project_fixture_symbol_runtime.h"
 #include "universe_color.h"
 #include "viewer3dcontroller.h"
 #include <meshoptimizer.h>
@@ -65,6 +66,9 @@ std::string NormalizeModelKeyPath(const std::string &path) {
 
 std::string BuildFixtureSymbolModelKey(const Fixture &fixture,
                                        const std::string &resolvedGdtfPath) {
+  if (const auto projectSource = symbols::BuildProjectFixtureSymbolSource(fixture);
+      !projectSource.empty())
+    return projectSource;
   std::string modelKey = NormalizeModelKeyPath(resolvedGdtfPath);
   if (modelKey.empty() && !fixture.typeName.empty())
     modelKey = fixture.typeName;
@@ -862,7 +866,8 @@ void OpaqueFixturePass::Render(
     const std::string normalizedGdtfPath = NormalizeModelKeyPath(gdtfPath);
     const std::string modelKey =
         BuildFixtureSymbolModelKey(f, normalizedGdtfPath);
-    const std::string svgSourcePath = normalizedGdtfPath;
+    const std::string svgSourcePath = symbols::IsProjectFixtureSymbolSource(modelKey)
+                                          ? modelKey : normalizedGdtfPath;
 
     const std::string resourceKey =
         BuildGdtfResourceKey(gdtfPath, f.gdtfMode);
@@ -937,7 +942,8 @@ void OpaqueFixturePass::Render(
                       svgDefinition)) {
                 return svgDefinition;
               }
-              if (!svgSourcePath.empty())
+              if (!svgSourcePath.empty() &&
+                  !symbols::IsProjectFixtureSymbolSource(svgSourcePath))
                 symbols::RequestFixtureSymbolPreparation(svgSourcePath,
                                                          f.gdtfMode);
 

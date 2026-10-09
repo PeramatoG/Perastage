@@ -2,45 +2,18 @@
 
 namespace symbol_preview {
 
-// Formats fixture-symbol persistence outcomes without overstating archive ownership.
 ApplySymbolsPresentation BuildApplySymbolsPresentation(
     const ApplySymbolsResult &result) {
   ApplySymbolsPresentation presentation;
-  if (result.success && result.libraryUpdated && result.fixtureReferencesUpdated &&
-      !result.sceneUpdated) {
-    presentation.kind = ApplySymbolsMessageKind::Success;
-    presentation.message =
-        "Symbol views were applied to the fixture library derivative and the unsaved scene. Save the project to persist the scene references.";
-    return presentation;
-  }
-  if (!result.success || !result.sceneUpdated) {
-    presentation.kind = ApplySymbolsMessageKind::Error;
+  if (!result.success || !result.projectSymbolsUpdated) {
     presentation.message = result.diagnostic.empty()
-                               ? "The project fixture GDTF was not updated."
-                               : result.diagnostic;
-    if (result.libraryUpdated)
-      presentation.message += " The library-only update was not project persistence.";
+        ? "The project fixture symbol was not updated." : result.diagnostic;
     return presentation;
   }
-
-  if (result.libraryUpdated) {
-    presentation.kind = ApplySymbolsMessageKind::Success;
-    presentation.message =
-        "Symbol views were applied to the project fixture GDTF and the fixture library derivative.";
-    return presentation;
-  }
-
-  presentation.kind = result.warnings.empty() ? ApplySymbolsMessageKind::Success
-                                               : ApplySymbolsMessageKind::Warning;
-  presentation.message = "Symbol views were applied to the project fixture GDTF.";
-  if (!result.warnings.empty()) {
-    presentation.message += " Fixture library synchronization failed: ";
-    for (std::size_t i = 0; i < result.warnings.size(); ++i) {
-      if (i > 0)
-        presentation.message += " | ";
-      presentation.message += result.warnings[i];
-    }
-  }
+  presentation.kind = ApplySymbolsMessageKind::Success;
+  presentation.message = result.unsavedProject
+      ? "Symbol views were applied to the unsaved project. Save the project to persist the symbol override."
+      : "Symbol views were applied to the project. Save the project to persist the symbol override.";
   return presentation;
 }
 

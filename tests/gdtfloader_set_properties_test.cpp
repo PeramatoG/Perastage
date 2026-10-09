@@ -215,6 +215,38 @@ void VerifyNonFiniteFloatRejected(float value) {
   fs::remove(gdtfPath, ec);
 }
 
+// Every intentional publication keeps project/private resources out of GDTF.
+void VerifyPhysicalMutationStandardizesLegacySymbols() {
+  const auto path = fs::temp_directory_path() / "perastage-physical-legacy-symbols.gdtf";
+  const std::string authored = "<svg viewBox=\"0 0 10 10\"><polygon points=\"0,0 10,0 10,10\"/></svg>";
+  const std::string legacy = "<svg data-perastage-symbol-version=\"1\" viewBox=\"0 0 10 10\"><polygon points=\"0,0 10,0 10,10\"/></svg>";
+  tests::gdtf::BuildMinimalValidFixture().WithModelResource("main")
+      .WithArchiveEntry("perastage/symbols/main/top.svg", legacy)
+      .WithArchiveEntry("models/svg/main.svg", legacy)
+      .WithArchiveEntry("models/svg/main_bottom.svg", legacy)
+      .WithArchiveEntry("models/svg_front/main.svg", authored).WriteArchive(path);
+  const auto original = ReadFileBytes(path);
+  GdtfDocumentMutationRequest request;
+  assert(MutateGdtfDocumentWithResult(path.string(), request, "Perastage Tests").success);
+  assert(ReadFileBytes(path) == original);
+  request.weightSet = true;
+  request.weightKg = 5.5f;
+  const auto mutation = MutateGdtfDocumentWithResult(path.string(), request, "Perastage Tests");
+  assert(mutation.success && mutation.atomicReplacementCompleted);
+  const auto entries = ReadArchiveEntries(path);
+  assert(!entries.contains("perastage/symbols/main/top.svg"));
+  assert(!entries.contains("models/svg/main_bottom.svg"));
+  assert(entries.at("models/svg/main.svg").find("data-perastage-") == std::string::npos);
+  assert(entries.at("models/svg_front/main.svg") == authored);
+  assert(entries.at("description.xml").find("standardized legacy private symbol resources") != std::string::npos);
+  tests::gdtf::BuildMinimalValidFixture()
+      .WithArchiveEntry("models/svg/main.svg", "<svg data-perastage-symbol-version=\"1\"").WriteArchive(path);
+  const auto invalidOriginal = ReadFileBytes(path);
+  assert(!MutateGdtfDocumentWithResult(path.string(), request, "Perastage Tests").success);
+  assert(ReadFileBytes(path) == invalidOriginal);
+  fs::remove(path);
+}
+
 } // namespace
 
 // Runs the GDTF property mutation publication regression test.
@@ -223,6 +255,7 @@ int main() {
   assert(initializer.IsOk());
 
   VerifyInjectedPublicationFailurePreservesOriginal();
+  VerifyPhysicalMutationStandardizesLegacySymbols();
   VerifyFiniteFloatSerialization(0.0f);
   VerifyFiniteFloatSerialization(-42.5f);
   VerifyFiniteFloatSerialization(12.345f);

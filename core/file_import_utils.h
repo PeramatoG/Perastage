@@ -163,6 +163,12 @@ inline std::string FinalizeSha256(Sha256State &state) {
 
 } // namespace detail
 
+inline std::string ComputeBytesSha256(const void *bytes, size_t size) {
+  detail::Sha256State state;
+  detail::UpdateSha256(state, static_cast<const uint8_t *>(bytes), size);
+  return detail::FinalizeSha256(state);
+}
+
 inline std::optional<std::string>
 ComputeFileSha256(const std::filesystem::path &path) {
   std::ifstream in(path, std::ios::binary);
