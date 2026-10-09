@@ -3915,6 +3915,11 @@ foreach(PERASTAGE_NEUTRAL_HELPER_TEST IN LISTS PERASTAGE_NEUTRAL_HELPER_TEST_TAR
         target_link_libraries(${PERASTAGE_NEUTRAL_HELPER_TEST} PRIVATE
                               perastage_project_fixture_symbols)
     endif()
+    if("../core/configmanager.cpp" IN_LIST PERASTAGE_NEUTRAL_HELPER_TEST_SOURCES OR
+       "$<TARGET_OBJECTS:perastage_test_rider_import_objects>" IN_LIST PERASTAGE_NEUTRAL_HELPER_TEST_SOURCES)
+        target_link_libraries(${PERASTAGE_NEUTRAL_HELPER_TEST} PRIVATE
+                              perastage_test_required_fixture_svg)
+    endif()
     if("../core/gdtf_document_mutation.cpp" IN_LIST PERASTAGE_NEUTRAL_HELPER_TEST_SOURCES OR
        "$<TARGET_OBJECTS:perastage_test_gdtfloader_objects>" IN_LIST PERASTAGE_NEUTRAL_HELPER_TEST_SOURCES)
         target_link_libraries(${PERASTAGE_NEUTRAL_HELPER_TEST} PRIVATE
