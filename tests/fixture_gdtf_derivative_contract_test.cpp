@@ -1,5 +1,6 @@
 #include "fixture_gdtf_derivative_contract.h"
 #include "fixture_gdtf_derivative_publication.h"
+#include "gdtf_canonicalizer.h"
 #include "gdtf_mutation_audit.h"
 #include "inspection/xml_schema_validation.h"
 
