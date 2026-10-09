@@ -1,5 +1,7 @@
 #include "fixture_gdtf_derivative_contract.h"
 #include "fixture_gdtf_derivative_publication.h"
+#include "gdtf_canonicalizer.h"
+#include "gdtf_mutation_audit.h"
 #include "inspection/xml_schema_validation.h"
 
 #include "gdtf_test_fixture_builder.h"
@@ -80,7 +82,24 @@ std::string ReadFixtureTypeId(const std::string &xml) {
   return id ? id : "";
 }
 
-// Verifies published derivatives require standard views and preserve sources.
+// Historical unmarked Bottom has positive ownership only with its exact audit.
+void AddLegacySymbolRevision(const fs::path &path) {
+  fs::path revised = path;
+  revised += ".legacy-evidence";
+  const auto result = GdtfCanonicalizer::RewriteArchiveDescription(
+      path, revised, [](tinyxml2::XMLDocument &document) {
+        auto *fixture = GdtfMutationAudit::EnsureFixtureType(document);
+        GdtfMutationAudit::AppendRevision(
+            fixture, document, "Applied fixture SVG symbol views (top, side, front, bottom)",
+            "Perastage 1.5");
+        return true;
+      });
+  assert(result.success);
+  fs::copy_file(revised, path, fs::copy_options::overwrite_existing);
+  fs::remove(revised);
+}
+
+// Publication ownership is independent of optional standard SVG completeness.
 int main() {
   const fs::path root = fs::temp_directory_path() /
                         "perastage-fixture-derivative-contract-test";
@@ -96,10 +115,10 @@ int main() {
       .WithPerastageGeneratedSymbols()
       .WriteArchive(complete);
   std::string error;
-  assert(!fixture_gdtf::ValidatePublishedDerivative(incomplete.string(), error));
-  assert(!error.empty());
-  assert(fixture_gdtf::ValidatePublishedDerivative(complete.string(), error));
+  assert(fixture_gdtf::ValidatePublishedDerivative(incomplete.string(), error));
   assert(error.empty());
+  assert(!fixture_gdtf::ValidatePublishedDerivative(complete.string(), error));
+  assert(!error.empty());
 
   const std::string validSvg =
       "<svg viewBox=\"0 0 10 10\"><polygon points=\"0,0 10,0 10,10\"/></svg>";
@@ -134,8 +153,8 @@ int main() {
                                                   error));
   assert(error.empty());
   assert(ReadFileBytes(authoredComplete) == authoredBytes);
-  assert(!fixture_gdtf::ValidatePublishedDerivative(authoredTop.string(), error));
-  assert(!fixture_gdtf::ValidatePublishedDerivative(authoredTopSide.string(),
+  assert(fixture_gdtf::ValidatePublishedDerivative(authoredTop.string(), error));
+  assert(fixture_gdtf::ValidatePublishedDerivative(authoredTopSide.string(),
                                                    error));
   assert(fixture_gdtf::ValidatePublishedDerivative(authoredBase.string(), error));
   assert(error.empty());
@@ -156,9 +175,9 @@ int main() {
       .WriteArchive(internalComplete);
   assert(!fixture_gdtf::ValidatePublishedDerivative(
       internalWithoutBottom.string(), error));
-  assert(fixture_gdtf::ValidatePublishedDerivative(internalComplete.string(),
+  assert(!fixture_gdtf::ValidatePublishedDerivative(internalComplete.string(),
                                                   error));
-  assert(error.empty());
+  assert(!error.empty());
 
   const auto writeFourViews = [&](const fs::path &path,
                                   const std::string &frontSvg) {
@@ -177,14 +196,15 @@ int main() {
   writeFourViews(zeroViewBox,
                  "<svg viewBox=\"0 0 0 10\"><path d=\"M0 0 L1 1\"/></svg>");
   writeFourViews(emptyGeometry, "<svg viewBox=\"0 0 10 10\"/>");
-  assert(!fixture_gdtf::ValidatePublishedDerivative(malformed.string(), error));
-  assert(!fixture_gdtf::ValidatePublishedDerivative(zeroViewBox.string(), error));
-  assert(!fixture_gdtf::ValidatePublishedDerivative(emptyGeometry.string(), error));
+  // An unrelated intentional edit must not silently repair authored invalid SVGs.
+  assert(fixture_gdtf::ValidatePublishedDerivative(malformed.string(), error));
+  assert(fixture_gdtf::ValidatePublishedDerivative(zeroViewBox.string(), error));
+  assert(fixture_gdtf::ValidatePublishedDerivative(emptyGeometry.string(), error));
 
   const fs::path missingModel = root / "MissingModel.gdtf";
   tests::gdtf::WriteMissingMandatorySectionsArchive(missingModel);
   assert(!fixture_gdtf::ValidatePublishedDerivative(missingModel.string(), error));
-  assert(error.find("Model") != std::string::npos);
+  assert(error.find("required") != std::string::npos);
 
   const fs::path project = root / "project";
   fs::create_directories(project / "fixtures");
@@ -194,7 +214,7 @@ int main() {
 
   fixture_gdtf::PreparedDerivative failedPreparation;
   assert(fixture_gdtf::PrepareProjectDerivative(
-      incomplete, project, published.filename(), failedPreparation, error));
+      missingModel, project, published.filename(), failedPreparation, error));
   assert(fs::exists(failedPreparation.workingPath));
   assert(!fixture_gdtf::PublishPreparedDerivative(failedPreparation, error));
   assert(!error.empty());
@@ -213,8 +233,12 @@ int main() {
          std::string::npos);
   assert(fixture_gdtf::PublishPreparedDerivative(successfulPreparation, error));
   assert(!fs::exists(successfulPreparation.workingPath));
-  assert(fixture_gdtf::ValidatePublishedDerivative(published.string(), error));
-  assert(!ArchiveContainsEntry(published, "models/svg/main_bottom.svg"));
+  assert(successfulPreparation.publishedPath != published);
+  assert(fixture_gdtf::ValidatePublishedDerivative(
+      successfulPreparation.publishedPath.string(), error));
+  assert(!ArchiveContainsEntry(successfulPreparation.publishedPath,
+                                "models/svg/main_bottom.svg"));
+  assert(ReadFileBytes(published) == previousBytes);
   assert(ReadFileBytes(authoredComplete) == authoredBytes);
 
   const fs::path legacySource = root / "LegacySource.gdtf";
@@ -225,6 +249,7 @@ int main() {
       .WithEditor("PERASTAGE 1.5")
       .WithArchiveEntry("wheels/open.png", "wheel-resource")
       .WriteArchive(legacySource);
+  AddLegacySymbolRevision(legacySource);
   const std::string originalLegacyBytes = ReadFileBytes(legacySource);
   assert(!fixture_gdtf::PublishCanonicalGdtfCopy(legacySource, legacySource,
                                                   error));
@@ -264,6 +289,7 @@ int main() {
       .WithModelResource("main")
       .WithPerastageGeneratedSymbols()
       .WriteArchive(placeholderSource);
+  AddLegacySymbolRevision(placeholderSource);
   const std::string originalPlaceholderBytes = ReadFileBytes(placeholderSource);
   assert(fixture_gdtf::PublishCanonicalGdtfCopy(
       placeholderSource, placeholderFirst, error));
@@ -286,6 +312,7 @@ int main() {
       .WithModelResource("main")
       .WithPerastageGeneratedSymbols()
       .WriteArchive(invalidIdSource);
+  AddLegacySymbolRevision(invalidIdSource);
   const std::string originalInvalidIdBytes = ReadFileBytes(invalidIdSource);
   assert(!fixture_gdtf::PublishCanonicalGdtfCopy(
       invalidIdSource, invalidIdDestination, error));
@@ -299,6 +326,7 @@ int main() {
       .WithPerastageGeneratedSymbols()
       .WithFixtureTypeExtensionAttribute("VendorData", "keep")
       .WriteArchive(unknownSource);
+  AddLegacySymbolRevision(unknownSource);
   const std::string originalUnknownBytes = ReadFileBytes(unknownSource);
   std::ofstream(refusedDestination, std::ios::binary) << "previous-destination";
   assert(!fixture_gdtf::PublishCanonicalGdtfCopy(

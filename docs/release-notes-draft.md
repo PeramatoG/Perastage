@@ -4,12 +4,19 @@ Changes since **v1.6.0**.
 
 ## Highlights
 
-- Fixed manual fixture symbol Apply in unsaved scenes using an owned library
-  derivative while preserving original GDTF files and authored standard SVGs.
-  Symbol previews show transparency, and the Fixture Editor compares standard
-  and Perastage resources independently. GDTF Share reuses fresh catalog caches.
+- Moved Perastage fixture symbols and manual overrides into self-contained PSTG
+  project resources, including Apply in unsaved scenes. Standard GDTF completion
+  now uses official Top/Side/Front resources in audited derivatives and preserves
+  existing authored views. Symbol previews show transparency, and the Fixture
+  Editor compares standard and project resources independently.
 
 ## New features and workflow improvements
+
+- Added **GDTF definition completion** in Preferences. The default **Complete
+  and improve GDTF definitions** can add missing standard SVG views; **Preserve
+  imported GDTF definitions** disables automatic completion while retaining
+  project symbols and scene editing. Existing unusable views require explicit
+  repair rather than being silently replaced.
 
 - Improved the GDTF Share browser with immediate cached opening, background
   stale refresh, word-order-independent search including UUID/revision/modes,
@@ -86,9 +93,17 @@ Changes since **v1.6.0**.
   their appearance on white backgrounds and correctly revealing other backgrounds.
   Previously generated symbols remain readable.
 
-- Preserved manufacturer-authored GDTF Top, Side, and Front SVG resources when
-  saving generated fixture symbols. Perastage symbols now use a separate archive
-  namespace, and standard SVG availability no longer requires a Bottom view.
+- Preserved manufacturer-authored GDTF Top, Side, and Front SVG resources.
+  Perastage Top/Front/Side/Bottom bundles now persist exact SVG bytes, offsets,
+  provenance, and explicit fixture bindings in deduplicated PSTG resources
+  outside `scene.mvr`. Only referenced bundles are saved; reopening does not
+  regenerate valid stored symbols or treat user overrides as disposable caches.
+  Layout cache validation and Undo/Redo follow symbol changes; background PDF
+  export retains the symbol representation captured when it started.
+- Retained read compatibility with historical private GDTF symbols and Bottom
+  extensions. Recognized legacy symbols can migrate to PSTG without rewriting
+  their external source on open. New GDTF output contains no private symbol
+  namespace or ownership markers, and standard completeness requires no Bottom.
 
 - Restored broad Linux AppImage compatibility by building and validating the
   complete package against Ubuntu 22.04, glibc 2.35, and GCC 11, with a

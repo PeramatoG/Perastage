@@ -4,6 +4,7 @@
 #include <vector>
 
 class MvrScene;
+namespace symbols { class ProjectFixtureSymbolStore; }
 
 namespace project_gdtf {
 
@@ -36,6 +37,7 @@ ConsolidationPlan BuildConsolidationPlan(const MvrScene &scene);
 
 // Applies a fully validated plan atomically to fixture GDTF references.
 bool ApplyConsolidationPlan(MvrScene &scene, const ConsolidationPlan &plan,
-                            std::string &errorMessage);
+                            std::string &errorMessage,
+                            symbols::ProjectFixtureSymbolStore *symbolStore = nullptr);
 
 } // namespace project_gdtf

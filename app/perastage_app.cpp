@@ -24,6 +24,7 @@
 #include "localization/localization_manager.h"
 #include "app_version.h"
 #include "configmanager.h"
+#include "symbols/project_fixture_symbol_runtime.h"
 #include "diagnostics/CrashHandler.h"
 #include "diagnostics/DiagnosticLogger.h"
 #include "mainwindow.h"
@@ -246,6 +247,8 @@ bool MyApp::OnInit() {
   // Load preferences before UI localization; localization preserves LC_NUMERIC for technical data.
   const auto userConfigStartedAt = startup::Metrics::Clock::now();
   ConfigManager &config = ConfigManager::Get();
+  symbols::InstallProjectFixtureSymbolProvider(
+      [] { return &ConfigManager::Get().GetProjectFixtureSymbols(); });
   const std::string configuredLanguageCode =
       config.GetValue(localization::kUiLanguageConfigKey).value_or("");
   const localization::AppLanguage requestedLanguage =
@@ -460,6 +463,7 @@ std::optional<std::string> MyApp::ConsumePendingExternalOpenPath() {
 
 // Releases application-level resources before process shutdown.
 int MyApp::OnExit() {
+  symbols::InstallProjectFixtureSymbolProvider({});
   if (osc_controller_)
     osc_controller_->Stop();
   diagnostics::DiagnosticLogger::Info("Perastage shutdown started.");

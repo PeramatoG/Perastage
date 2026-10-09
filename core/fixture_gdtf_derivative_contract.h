@@ -4,8 +4,9 @@
 
 namespace fixture_gdtf {
 
-// Accepts complete standard Top/Side/Front or internal Perastage four-view sets.
-// Bottom belongs only to the internal Perastage set.
+// Validates exchange-resource ownership independently of SVG completeness.
+// Authored unusable SVGs may remain unchanged while other missing views are added.
+// Legacy private extensions are readable inputs, never valid publication output.
 bool ValidatePublishedDerivative(const std::string &path,
                                  std::string &errorMessage);
 

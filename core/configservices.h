@@ -14,6 +14,8 @@
 namespace startup { struct Metrics; }
 #include "mvrscene.h"
 #include "project_cache_validation.h"
+#include "project_archive_resource.h"
+#include "symbols/project_fixture_symbols.h"
 
 inline constexpr const char *DEFAULT_LAYER_NAME = "No Layer";
 
@@ -99,6 +101,7 @@ public:
     std::optional<std::string> fixtureLabelOverrides;
     std::unordered_set<std::string> hiddenLayers;
     std::string currentLayer;
+    symbols::ProjectFixtureSymbolStore fixtureSymbols;
   };
 
   void PushUndoState(const MvrScene &scene, const SelectionState &selection,
@@ -107,17 +110,20 @@ public:
                          std::nullopt,
                      const LayerVisibilityState *layerState = nullptr,
                      const std::optional<std::string> &fixtureLabelOverrides =
-                         std::nullopt);
+                         std::nullopt,
+                     const symbols::ProjectFixtureSymbolStore *fixtureSymbols = nullptr);
   bool CanUndo() const;
   bool CanRedo() const;
   std::string Undo(MvrScene &scene, SelectionState &selection,
                    std::optional<std::string> *layoutsCollection = nullptr,
                    LayerVisibilityState *layerState = nullptr,
-                   std::optional<std::string> *fixtureLabelOverrides = nullptr);
+                   std::optional<std::string> *fixtureLabelOverrides = nullptr,
+                   symbols::ProjectFixtureSymbolStore *fixtureSymbols = nullptr);
   std::string Redo(MvrScene &scene, SelectionState &selection,
                    std::optional<std::string> *layoutsCollection = nullptr,
                    LayerVisibilityState *layerState = nullptr,
-                   std::optional<std::string> *fixtureLabelOverrides = nullptr);
+                   std::optional<std::string> *fixtureLabelOverrides = nullptr,
+                   symbols::ProjectFixtureSymbolStore *fixtureSymbols = nullptr);
   void ClearHistory();
 
 private:
@@ -175,11 +181,7 @@ public:
       std::function<bool(const ProjectConfigPayload &payload)>;
   using LoadScenePayloadFn =
       std::function<bool(const ProjectScenePayload &payload)>;
-  struct ArchiveResource {
-    std::string entryName;
-    std::vector<std::uint8_t> bytes;
-    bool required = false;
-  };
+  using ArchiveResource = ProjectArchiveResource;
 
   using LoadProgressFn =
       std::function<void(const std::string &stage, int completed, int total)>;
@@ -191,6 +193,8 @@ public:
 
   MvrScene &GetScene();
   const MvrScene &GetScene() const;
+  symbols::ProjectFixtureSymbolStore &GetFixtureSymbols() { return fixtureSymbols; }
+  const symbols::ProjectFixtureSymbolStore &GetFixtureSymbols() const { return fixtureSymbols; }
 
   bool SaveProject(const std::string &path, const SaveConfigFn &saveConfig,
                    const SaveSceneFn &saveScene) const;
@@ -232,6 +236,7 @@ private:
   bool CreateExtractedResourceDirectory();
 
   MvrScene scene;
+  symbols::ProjectFixtureSymbolStore fixtureSymbols;
   std::string extractedResourceDirectory;
   std::vector<ArchiveResource> loadedArchiveResources;
   project_cache::ValidationContext loadedCacheValidationContext;

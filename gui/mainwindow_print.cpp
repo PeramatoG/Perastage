@@ -43,6 +43,7 @@
 #include "Viewer2DPrintSettings.h"
 #include "print_diagnostics.h"
 #include "sceneobjecttablepanel.h"
+#include "symbols/project_fixture_symbol_runtime.h"
 #include "tableprinter.h"
 #include "trusstablepanel.h"
 #include "viewer2dpanel.h"
@@ -431,6 +432,9 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   const bool includeGrid = true;
   std::vector<layouts::Layout2DViewDefinition> layoutViews =
       layout->view2dViews;
+  auto projectSymbols =
+      std::make_shared<const symbols::ProjectFixtureSymbolStore>(
+          cfg.GetProjectFixtureSymbols());
   std::vector<LayoutLegendExportData> layoutLegends;
   layoutLegends.reserve(layout->legendViews.size());
   std::vector<LayoutEventTableExportData> layoutTables;
@@ -497,7 +501,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
       [this, captureNext, exportViews, layoutViews, offscreenRenderer,
        capturePanel, cfgPtr, useSimplifiedFootprints, includeGrid, scaleX,
        scaleY, outputPageW, outputPageH, outputLandscape, exportLegends,
-       exportTables, exportTexts, exportImages, outputPathWx](size_t index) mutable {
+       exportTables, exportTexts, exportImages, outputPathWx,
+       projectSymbols](size_t index) mutable {
         if (index >= layoutViews.size()) {
           Viewer2DPrintOptions opts;
           opts.pageWidthPt = outputPageW;
@@ -529,7 +534,9 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
                        tables = std::move(tablesToExport),
                        texts = std::move(textsToExport),
                        images = std::move(imagesToExport), outputPath,
-                       outputPathDisplay]() {
+                       outputPathDisplay, projectSymbols]() {
+            symbols::ScopedProjectFixtureSymbolReadContext symbolReadContext(
+                projectSymbols);
             Viewer2DExportResult res =
                 ExportLayoutToPdf(views, legends, tables, texts, images, opts,
                                   outputPath);

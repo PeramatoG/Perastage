@@ -11,6 +11,9 @@ struct PreparedDerivative {
   std::string publishedReference;
 };
 
+// Exact standard mutation revisions establish provenance without SVG markers.
+bool HasPerastageStandardSvgRevision(const std::filesystem::path &sourcePath);
+
 // Canonicalizes a source archive through a private copy and atomically publishes it.
 bool PublishCanonicalGdtfCopy(const std::filesystem::path &sourcePath,
                               const std::filesystem::path &publishedPath,

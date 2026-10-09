@@ -920,6 +920,7 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
   if (!cfg.CanUndo())
     return;
   std::string action = cfg.Undo();
+  NotifySceneVisualContentChanged();
   if (consolePanel)
     consolePanel->AppendMessage(action.empty() ? "Undo" : "Undo " + action);
   if (fixturePanel) {
@@ -978,6 +979,7 @@ void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
   if (!cfg.CanRedo())
     return;
   std::string action = cfg.Redo();
+  NotifySceneVisualContentChanged();
   if (consolePanel)
     consolePanel->AppendMessage(action.empty() ? "Redo" : "Redo " + action);
   if (fixturePanel) {

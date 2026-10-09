@@ -39,22 +39,32 @@ const FixtureSymbolResource *SelectView(
     const FixtureSymbolResourceInspection &inspection, SymbolViewKind view,
     FixtureSymbolResolutionPurpose purpose, FixtureSymbolFallbackReason &reason) {
   const bool internal = purpose == FixtureSymbolResolutionPurpose::InternalRendering;
-  if (!internal && view != SymbolViewKind::Bottom) {
-    if (const auto *resource = StandardCandidate(inspection, view))
-      return resource;
-  }
-  if (internal || view == SymbolViewKind::Bottom) {
-    if (const auto *resource = FindCandidate(inspection, view,
-        FixtureSymbolResourceSet::Perastage,
-        FixtureSymbolProvenance::GeneratedPerastage))
-      return resource;
-  }
+  if (!internal)
+    return view == SymbolViewKind::Bottom ? nullptr : StandardCandidate(inspection, view);
+  if (const auto *resource = FindCandidate(inspection, view,
+      FixtureSymbolResourceSet::InternalRendering,
+      FixtureSymbolProvenance::ProjectUserOverride))
+    return resource;
+  if (const auto *resource = FindCandidate(inspection, view,
+      FixtureSymbolResourceSet::InternalRendering,
+      FixtureSymbolProvenance::GeneratedPerastage))
+    return resource;
   if (const auto *resource = FindCandidate(inspection, view,
       FixtureSymbolResourceSet::Perastage, FixtureSymbolProvenance::LegacyPerastage)) {
     reason = FixtureSymbolFallbackReason::LegacyResource;
     return resource;
   }
-  if (internal && view != SymbolViewKind::Bottom) {
+  // Historical Bottom paths remain readable without claiming ownership of
+  // unknown authored bytes; only marked/revision-identified input is migrated.
+  if (view == SymbolViewKind::Bottom) {
+    if (const auto *resource = FindCandidate(inspection, view,
+        FixtureSymbolResourceSet::InternalRendering,
+        FixtureSymbolProvenance::AuthoredGdtf)) {
+      reason = FixtureSymbolFallbackReason::LegacyResource;
+      return resource;
+    }
+  }
+  if (view != SymbolViewKind::Bottom) {
     if (const auto *resource = StandardCandidate(inspection, view)) {
       reason = FixtureSymbolFallbackReason::StandardRenderingResource;
       return resource;
@@ -127,7 +137,9 @@ FixtureSymbolResolution ResolveFixtureSymbolView(
   result.offsetYmm = resource->offsetYmm;
   AppendDiagnostic(result.diagnostic, resource->diagnostic);
   if (result.fallbackReason == FixtureSymbolFallbackReason::LegacyResource)
-    AppendDiagnostic(result.diagnostic, "Using a recognized legacy Perastage resource.");
+    AppendDiagnostic(result.diagnostic, resource->PerastageOwned()
+        ? "Using a recognized legacy Perastage resource."
+        : "Using a historical Bottom SVG compatibility resource without an ownership claim.");
   else if (result.fallbackReason == FixtureSymbolFallbackReason::StandardRenderingResource)
     AppendDiagnostic(result.diagnostic, "Using a standard GDTF resource for internal rendering.");
   if (requestedView == SymbolViewKind::Right && result.resolvedView == SymbolViewKind::Left) {

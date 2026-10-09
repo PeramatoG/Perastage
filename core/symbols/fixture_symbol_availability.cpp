@@ -1,6 +1,7 @@
 #include "fixture_symbol_availability.h"
 
 #include "fixture_symbol_svg_cache.h"
+#include "project_fixture_symbol_runtime.h"
 
 namespace symbol_cache {
 
@@ -9,7 +10,9 @@ FixtureSymbolAvailability
 InspectFixtureSymbolAvailability(const std::string &physicalGdtfPath) {
   FixtureSymbolAvailability result;
   const bool inspected =
-      InspectFixtureSymbolResources(physicalGdtfPath, result.resources);
+      symbols::IsProjectFixtureSymbolSource(physicalGdtfPath)
+          ? symbols::InspectProjectFixtureSymbolSource(physicalGdtfPath, result.resources)
+          : InspectFixtureSymbolResources(physicalGdtfPath, result.resources);
   constexpr std::array views = {SymbolViewKind::Top, SymbolViewKind::Bottom,
       SymbolViewKind::Left, SymbolViewKind::Right, SymbolViewKind::Front, SymbolViewKind::Back};
   for (size_t i = 0; i < views.size(); ++i) {
@@ -32,6 +35,14 @@ std::shared_ptr<const PerastageSvgSymbolData>
 LoadUsableFixtureSymbol(const std::string &physicalGdtfPath,
                         SymbolViewKind view, std::string *errorDetails,
                         FixtureSymbolResolutionPurpose purpose) {
+  if (symbols::IsProjectFixtureSymbolSource(physicalGdtfPath)) {
+    if (purpose == FixtureSymbolResolutionPurpose::StandardGdtf) {
+      if (errorDetails)
+        *errorDetails = "Project fixture symbols are not standard GDTF resources.";
+      return {};
+    }
+    return symbols::LoadProjectFixtureSymbolSource(physicalGdtfPath, view, errorDetails);
+  }
   return GetFixtureSymbolSvgCache().LookupOrLoad({physicalGdtfPath, view, purpose},
                                                  errorDetails);
 }

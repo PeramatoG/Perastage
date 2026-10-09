@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <filesystem>
 #include <optional>
 #include <unordered_map>
 
@@ -13,10 +12,11 @@
 #include "guiconfigservices.h"
 #include "legendutils.h"
 #include "symbols/fixture_symbol_availability.h"
+#include "symbols/fixture_symbol_lookup_source.h"
+#include "symbols/project_fixture_symbol_runtime.h"
 #include "viewer2dcommandrenderer.h"
 
 namespace {
-namespace fs = std::filesystem;
 constexpr bool kDisableFallbackSymbolRenderingForDebug = false;
 
 struct SvgLookupKey {
@@ -109,59 +109,24 @@ Transform2D BuildSvgToSymbolTransform(const PerastageSvgSymbolData &svg,
   return transform;
 }
 
-std::string NormalizePathSeparators(const std::string &path) {
-  std::string out = path;
-  const char sep = static_cast<char>(fs::path::preferred_separator);
-  std::replace(out.begin(), out.end(), '\\', sep);
-  return out;
-}
-
-std::string NormalizeModelPath(const std::string &path) {
-  if (path.empty())
-    return {};
-  fs::path normalized(path);
-  normalized = normalized.lexically_normal();
-  return NormalizePathSeparators(normalized.string());
-}
-
 std::string ResolveSvgLookupModelKey(
     const std::string &modelKey, const std::string &sourceKey,
     std::unordered_map<std::string, std::string> &resolvedModelKeyCache) {
+  if (symbols::IsProjectFixtureSymbolSource(modelKey) ||
+      symbols::IsFixtureSymbolPathKey(modelKey))
+    return modelKey;
   const std::string cacheLookupKey = sourceKey.empty() ? modelKey
                                                         : (sourceKey + "\n" + modelKey);
   auto it = resolvedModelKeyCache.find(cacheLookupKey);
   if (it != resolvedModelKeyCache.end())
     return it->second;
 
-  std::string resolved = modelKey;
-  const std::string normalizedModel = NormalizeModelPath(modelKey);
-
   const auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const auto &scene = cfg.GetScene();
-  if (!sourceKey.empty()) {
-    for (const auto &entry : scene.fixtures) {
-      const Fixture &fixture = entry.second;
-      if (fixture.typeName == sourceKey) {
-        resolved = BuildFixtureSymbolKey(fixture, scene.basePath);
-        break;
-      }
-    }
-  }
-
-  for (const auto &entry : scene.fixtures) {
-    const Fixture &fixture = entry.second;
-    const std::string fixtureSpec = NormalizeModelPath(fixture.gdtfSpec);
-    if (!resolved.empty() && resolved != modelKey)
-      break;
-    if (!fixtureSpec.empty() && fixtureSpec == normalizedModel) {
-      resolved = BuildFixtureSymbolKey(fixture, scene.basePath);
-      break;
-    }
-    if (!fixture.typeName.empty() && fixture.typeName == modelKey) {
-      resolved = BuildFixtureSymbolKey(fixture, scene.basePath);
-      break;
-    }
-  }
+  const auto resolved = symbols::ResolveFixtureSymbolLookupSource(
+      modelKey, sourceKey, scene, [&](const Fixture &fixture) {
+        return BuildFixtureGdtfSymbolKey(fixture, scene.basePath);
+      });
 
   resolvedModelKeyCache.emplace(cacheLookupKey, resolved);
   return resolved;

@@ -4,7 +4,7 @@
 
 The baseline in `tests/fixtures/fixture_symbols/` freezes the current top,
 bottom, front, and left-side symbol structure. Each text file records the view
-identity, calibrated bounds and dimensions, GDTF offsets (the bounds minimum),
+identity, calibrated bounds and dimensions, calibration offsets (the bounds minimum),
 stroke width, ordered fill polygons and holes, ordered strokes, and the complete
 serialized SVG including its `viewBox` and translated coordinates.
 
@@ -64,12 +64,10 @@ order:
 
 `FixtureSymbolTimings` is an optional, independently owned model based on
 `std::chrono::steady_clock`. Disabled collection does not read the clock inside
-phase scopes. Debug output is one compact record per automatically processed
-fixture type and always lists these phases in order:
-
-The automatic GUI flow enables diagnostics by default in Debug builds. Release
-and other `NDEBUG` builds create a disabled timing sink, do not read the clock in
-phase scopes, and do not format or submit a debug log record.
+phase scopes. The formatting contract produces one compact fixture work record with the
+following stable phase order. Collection is optional; disabled sinks do not
+read clocks inside phase scopes or submit a timing record. The helper does not
+own preparation, project persistence, or GDTF completion policy.
 
 - `resolve`: deterministic GDTF path resolution.
 - `fingerprint`: source-content hashing and cache validation-request assembly.
@@ -80,8 +78,9 @@ phase scopes, and do not format or submit a debug log record.
 - `vectorization`: `Symbol2DImageBuilder` conversion and existing geometry
   simplification.
 - `calibration`: physical-unit calibration after capture.
-- `archive_rewrite`: archive read, metadata/SVG mutation, canonical temporary
-  write, and atomic replacement.
+- `archive_rewrite`: the retained diagnostic field for intentional standard
+  GDTF resource mutation and canonical atomic publication. Project-symbol Apply
+  stores PSTG data independently and never rewrites GDTF.
 - `validation`: exact stored-view inspection before a runtime skip, plus
   post-replacement entry and semantic-fingerprint validation. Repeated scopes
   accumulate for generated work.
@@ -93,7 +92,7 @@ time for the fixture work record and can therefore exceed the phase sum.
 
 A stored-SVG-valid **skipped** job contains resolve and exact-view validation;
 an inspection skip also contains inspect. A **generated** job contains all applicable phases,
-including bounds through refresh and persistence phases. A **failed** job keeps
+including bounds through refresh and any separately requested publication phases. A **failed** job keeps
 every phase completed before its failure; later phases remain absent. Outcomes
 are deliberately limited to `skipped`, `generated`, and `failed` by the current
 contract.

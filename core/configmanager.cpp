@@ -16,6 +16,8 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "configmanager.h"
+#include "symbols/project_fixture_symbol_migration.h"
+#include "projectutils.h"
 #include "json.hpp"
 #include "LayoutManager.h"
 #include "LayoutImageResourceRegistry.h"
@@ -69,7 +71,8 @@ std::vector<RestoredUserPreference> CaptureUserInteractionPreferences(
            user_navigation_preferences::kVerticalOrbitInversionConfigKey))},
       {user_navigation_preferences::kHorizontalOrbitInversionConfigKey.data(),
        config.GetValue(std::string(
-           user_navigation_preferences::kHorizontalOrbitInversionConfigKey))}};
+           user_navigation_preferences::kHorizontalOrbitInversionConfigKey))},
+      {"gdtf_mutation_policy", config.GetValue("gdtf_mutation_policy")}};
 }
 
 // Restores user-level interaction preferences after project config loading.
@@ -287,6 +290,8 @@ ConfigManager::ConfigManager() {
     SetValue("rider_layer_mode", "position");
   if (!HasKey("viewer3d_render_style"))
     SetValue("viewer3d_render_style", "standard");
+  if (!HasKey("gdtf_mutation_policy"))
+    SetValue("gdtf_mutation_policy", "complete_and_improve");
   if (!HasKey("fixture_print_columns"))
     SetFixturePrintColumns({"position", "id", "type"});
   if (!HasKey("truss_print_columns"))
@@ -529,6 +534,10 @@ void ConfigManager::SetProjectArchiveResourceProvider(
 // Saves the current project state as a packaged archive with config, scene content, and used resources.
 bool ConfigManager::SaveProject(const std::string &path) {
   lastProjectSaveError.clear();
+  if (!symbols::MaterializeLegacyFixtureSymbols(GetScene(),
+          GetProjectFixtureSymbols(), ProjectUtils::GetDefaultLibraryPath("fixtures"),
+          lastProjectSaveError))
+    return false;
   layouts::LayoutManager::Get().PrepareImageResourcesForSave();
   layouts::LayoutManager::Get().SaveToConfig(*this);
   SetValue(kHiddenLayersConfigKey,
@@ -582,25 +591,27 @@ bool ConfigManager::SaveProject(const std::string &path) {
           const std::vector<std::uint8_t> &sceneBytes,
           std::vector<ProjectSession::ArchiveResource> &resources,
           std::string &errorMessage) {
-        (void)errorMessage;
         project_cache::ValidationContext validationContext;
         validationContext.scenePackageFingerprint =
             project_cache::FingerprintBytes(sceneBytes.data(),
                                             sceneBytes.size());
         validationContext.scenePackageCovered = true;
         std::vector<project_cache::NamedPayloadFingerprint>
-            layoutResourceFingerprints;
+            renderingResourceFingerprints;
         for (const auto &entry :
              layouts::LayoutImageResourceRegistry::Get().UsedResources()) {
           resources.push_back({entry.archivePath, entry.bytes});
-          layoutResourceFingerprints.push_back(
+          renderingResourceFingerprints.push_back(
               {std::filesystem::path(entry.archivePath).generic_string(),
                project_cache::FingerprintBytes(entry.bytes.data(),
                                                entry.bytes.size())});
         }
+        if (!GetProjectFixtureSymbols().AppendReferencedResourceFingerprints(
+                GetScene(), renderingResourceFingerprints, errorMessage))
+          return false;
         validationContext.packagedLayoutResourceFingerprint =
             project_cache::AggregateNamedPayloadFingerprints(
-                std::move(layoutResourceFingerprints));
+                std::move(renderingResourceFingerprints));
         validationContext.packagedLayoutResourcesCovered = true;
         if (projectArchiveResourceProvider) {
           try {
@@ -623,6 +634,7 @@ bool ConfigManager::SaveProject(const std::string &path) {
         return true;
       });
   if (ok) {
+    projectSession.GetFixtureSymbols().PruneUnreferenced(GetScene());
     projectSession.MarkSaved();
   } else {
     lastProjectSaveError =
@@ -639,6 +651,12 @@ const std::string &ConfigManager::GetLastProjectSaveError() const {
 // Loads a project package and restores project configuration and scene data.
 bool ConfigManager::LoadProject(const std::string &path,
                                 LoadProjectProgressCallback progressCallback) {
+  const MvrScene previousScene = GetScene();
+  const UserPreferencesStore previousPreferences = preferencesStore;
+  const auto previousSymbols = GetProjectFixtureSymbols();
+  const auto previousDirtyState = CaptureDirtyState();
+  const auto previousLayouts = layouts::LayoutManager::Get();
+  const auto previousLayoutResources = layouts::LayoutImageResourceRegistry::Get();
   const bool hasUserView2dDarkMode = HasKey("view2d_dark_mode");
   const float userView2dDarkMode = GetFloat("view2d_dark_mode");
   const auto userInteractionPreferences =
@@ -719,7 +737,23 @@ bool ConfigManager::LoadProject(const std::string &path,
     selectionState.Clear();
     projectSession.ResetDirty();
   }
+  if (!ok) {
+    projectSession.GetScene() = previousScene;
+    preferencesStore = previousPreferences;
+    GetProjectFixtureSymbols() = previousSymbols;
+    layouts::LayoutManager::Get() = previousLayouts;
+    layouts::LayoutImageResourceRegistry::Get() = previousLayoutResources;
+    RestoreDirtyState(previousDirtyState);
+  }
   return ok;
+}
+
+symbols::ProjectFixtureSymbolStore &ConfigManager::GetProjectFixtureSymbols() {
+  return projectSession.GetFixtureSymbols();
+}
+
+const symbols::ProjectFixtureSymbolStore &ConfigManager::GetProjectFixtureSymbols() const {
+  return projectSession.GetFixtureSymbols();
 }
 
 // Returns optional resources transferred by the most recent primary project archive load.
@@ -745,6 +779,7 @@ void ConfigManager::Reset() {
   RevisionGuard guard(*this);
   preferencesStore.ClearValues();
   projectSession.GetScene().Clear();
+  projectSession.GetFixtureSymbols().Clear();
   if (!HasKey("ui_distance_unit_system"))
     SetValue("ui_distance_unit_system", "metric");
   if (!HasKey("ui_weight_unit_system"))
@@ -753,6 +788,8 @@ void ConfigManager::Reset() {
     SetValue("rider_autopatch", "1");
   if (!HasKey("viewer3d_render_style"))
     SetValue("viewer3d_render_style", "standard");
+  if (!HasKey("gdtf_mutation_policy"))
+    SetValue("gdtf_mutation_policy", "complete_and_improve");
   ApplyDefaults();
   layouts::LayoutManager::Get().ResetToDefault(*this);
   selectionState.Clear();
@@ -777,7 +814,8 @@ void ConfigManager::PushUndoState(const std::string &description) {
   historyManager.PushUndoState(projectSession.GetScene(), selectionState,
                                description, GetValue(kLayoutsConfigKey),
                                &layerVisibilityState,
-                               GetValue(project_identity::kFixtureLabelOverridesConfigKey));
+                               GetValue(project_identity::kFixtureLabelOverridesConfigKey),
+                               &GetProjectFixtureSymbols());
   projectSession.Touch();
 }
 
@@ -788,7 +826,8 @@ void ConfigManager::PushUndoSnapshot(
     const std::string &description) {
   historyManager.PushUndoState(scene, selection, description,
                                GetValue(kLayoutsConfigKey),
-                               &layerVisibilityState, fixtureLabelOverrides);
+                               &layerVisibilityState, fixtureLabelOverrides,
+                               &GetProjectFixtureSymbols());
   projectSession.Touch();
 }
 
@@ -805,7 +844,7 @@ std::string ConfigManager::Undo() {
   std::string action =
       historyManager.Undo(projectSession.GetScene(), selectionState,
                           &layoutsCollection, &layerVisibilityState,
-                          &fixtureLabelOverrides);
+                          &fixtureLabelOverrides, &GetProjectFixtureSymbols());
   if (fixtureLabelOverrides)
     SetValue(project_identity::kFixtureLabelOverridesConfigKey,
              *fixtureLabelOverrides);
@@ -831,7 +870,7 @@ std::string ConfigManager::Redo() {
   std::string action =
       historyManager.Redo(projectSession.GetScene(), selectionState,
                           &layoutsCollection, &layerVisibilityState,
-                          &fixtureLabelOverrides);
+                          &fixtureLabelOverrides, &GetProjectFixtureSymbols());
   if (fixtureLabelOverrides)
     SetValue(project_identity::kFixtureLabelOverridesConfigKey,
              *fixtureLabelOverrides);

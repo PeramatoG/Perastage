@@ -173,7 +173,7 @@ bool ConsolidateLoadedProjectGdtfs(ConfigManager &cfg) {
       project_gdtf::BuildConsolidationPlan(cfg.GetScene());
   std::string errorMessage;
   if (!project_gdtf::ApplyConsolidationPlan(cfg.GetScene(), plan,
-                                            errorMessage)) {
+                         errorMessage, &cfg.GetProjectFixtureSymbols())) {
     wxLogWarning("Project GDTF consolidation was not applied: %s",
                  errorMessage.c_str());
     return false;
@@ -315,7 +315,7 @@ const std::vector<std::string> &GetPreferencesDialogConfigKeys() {
   static const std::vector<std::string> kKeys = {
       "rider_autopatch",         "rider_layer_mode",
       "ui_distance_unit_system", "ui_weight_unit_system",
-      "app_update_startup_mode", "viewer3d_render_style",
+      "app_update_startup_mode", "viewer3d_render_style", "gdtf_mutation_policy",
       "viewer3d_invert_orbit",   "viewer3d_invert_orbit_horizontal",
       "rider_lx1_height",
       "rider_lx2_height",        "rider_lx3_height",

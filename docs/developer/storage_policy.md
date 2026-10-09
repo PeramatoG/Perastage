@@ -6,6 +6,14 @@ Perastage separates persistent user data from runtime artifacts so imports, expo
 
 Project files, user dictionaries, fixture libraries, downloaded fixture assets, preferences, and user-selected source files remain in the existing Perastage user-data and project locations. Runtime cleanup must never delete these paths.
 
+Perastage fixture symbols and user overrides are authoritative project data,
+owned by `core/symbols/project_fixture_symbols.*`. Unsaved projects keep them
+in project/session state; Save packages referenced, deduplicated bundles in
+PSTG `resources/fixture_symbols/` through transactional additional resources.
+They stay outside `scene.mvr` and GDTF archives. A disposable runtime cache is
+never their sole owner. See the [fixture-symbol resource contract](fixture_symbol_resource_contract.md)
+for schema, binding, exact-byte persistence, and transactional load validation.
+
 ## Runtime root layout
 
 New runtime artifacts are created below the Perastage-owned system temporary root:

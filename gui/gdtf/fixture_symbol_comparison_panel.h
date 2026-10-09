@@ -9,7 +9,7 @@
 class FixtureSymbolComparisonPanel : public wxPanel {
 public:
   explicit FixtureSymbolComparisonPanel(wxWindow *parent);
-  void SetArchivePath(const std::string &path);
+  void SetArchivePath(const std::string &path, const std::string &fixtureUuid = {});
 private:
   struct Preview {
     wxPanel *panel = nullptr;

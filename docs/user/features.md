@@ -154,8 +154,15 @@ Additional safeguards include:
   and diagnostic. The generic GDTF thumbnail remains on the Preview page.
 - Manual fixture symbol previews show a checker background through transparent
   polygon holes. **Apply views to fixture** also works before saving a new scene:
-  it creates an owned fixture-library derivative, keeps the original GDTF unchanged,
-  and updates matching scene references. Save the project to persist those references.
+  it stores a project symbol override for the matching fixture definition and mode
+  while keeping the GDTF unchanged. Save the project to persist the exact
+  Top/Front/Side/Bottom representation; reopening uses those stored views without
+  requiring the original external GDTF or regenerating them.
+- **Preferences > GDTF > GDTF definition completion** defaults to completing
+  missing standard Top/Side/Front views in audited `@Perastage.gdtf` derivatives.
+  Existing authored and unusable views are preserved. **Preserve imported GDTF
+  definitions** disables automatic completion while retaining project symbols
+  and scene editing. Project symbols stay outside MVR and embedded GDTFs.
 - GDTF Share reuses a fresh catalog cache for one hour when opening the search
   dialog. A cached catalog opens immediately; stale data refreshes in the
   background while browsing and searching remain available. A failed refresh

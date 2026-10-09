@@ -1,89 +1,105 @@
-# Fixture GDTF derivative ownership
+# Fixture GDTF derivative and project-symbol identity
 
-## Published derivative contract
+## Separate identities and owners
 
-`Manufacturer@FixtureType@Perastage.gdtf` is a Perastage ownership convention,
-not an official GDTF semantic. A file may use that canonical name only after it
-contains exact, parseable top, bottom, front, and side SVG fixture views with a
-positive view box and usable geometry. Publication validates that ownership-neutral
-contract before the library dictionary accepts the derivative. External GDTFs that
-already meet the contract remain authoritative regardless of their Editor metadata;
-Perastage ownership is retained separately for audit and mutation policy.
-Failed finalization leaves the previous source or published derivative intact.
-Perastage-authored changes continue to use standard GDTF fields and Revisions;
-no proprietary GDTF or MVR XML is introduced.
+`Manufacturer@FixtureType@Perastage.gdtf` is a Perastage derivative naming
+convention, not an official GDTF semantic. The
+[GDTF symbol ownership and mutation contract](gdtf_symbol_ownership_and_mutation_contract.md)
+separates standards-compliant device definitions from project presentation.
+GDTF 1.2 owns standard Top/Side/Front resources and official model offsets;
+PSTG owns Perastage Top/Front/Side/Bottom symbols and user overrides. A project
+symbol is not evidence that a GDTF is complete or Perastage-owned.
 
-Symbol generation first copies the selected source to a non-canonical `.working`
-archive in the project fixture directory. The existing archive rewriter applies all
-four SVG views to that file, validates the published derivative contract, and only
-then atomically replaces the canonical project archive. `Fixture.gdtfSpec` is rebound
-after publication, including every fixture of the same source/type family. Any failure
-before publication removes the working file where safe and leaves both the previous
-archive and all fixture references unchanged.
+Core prepares intentional GDTF changes in private working storage, applies
+standard mutations and revisions, canonicalizes, and atomically publishes the
+derivative before rebinding fixtures. Valid external FixtureTypeID values are
+preserved. Shared publication rejects invalid structure without replacing an
+existing destination. Missing standard views may be completed when policy
+permits; existing usable or unusable views are never automatically replaced.
+Project-symbol Apply does not create or rewrite a GDTF derivative.
 
-During a project edit, `Fixture.gdtfSpec` and its successfully published project-owned
-file are authoritative. Library synchronization is secondary: its failure is a
-warning and cannot roll back a valid project result. Successful publication invalidates
-the runtime parsed-SVG cache by physical path.
-
-The project fixture GDTF editor uses the same boundary. A derivative edit is applied
-to private working storage, then the four-view contract is validated before atomic
-project publication. Incomplete external GDTFs remain unchanged and produce an
-actionable diagnostic; the editor never uses the active library dictionary as scratch
-storage and never exposes a `.working` reference to project fixtures.
+During a project GDTF edit, the successfully published project definition and
+`Fixture.gdtfSpec` are authoritative. Library synchronization is secondary; its
+failure is a warning and cannot roll back a valid project result. Successful
+publication invalidates the parsed-SVG cache and triggers viewer refresh.
+Private `.working` references are never attached to fixtures. Project internal
+symbols remain independent from physical-property edits and derivative validation.
 
 ## Replacement identity
 
-Imported source identity, selected replacement identity, project ownership, and the
-user-facing fixture label remain separate. Within one import transaction, an explicit
-GDTF Share RID plus exact compatible mode proves that different source aliases chose
-the same replacement. The download is reused and affected fixtures share one project
-reference. Similar names alone never prove equivalence.
+Imported source identity, selected replacement identity, project ownership, and
+the user-facing fixture label remain separate. Within one import transaction,
+an explicit GDTF Share RID plus exact compatible mode proves that different
+source aliases chose the same replacement. Downloads are reused and affected
+fixtures share one project reference. Similar names alone never prove equivalence.
 
-## Startup and persistence
+Project symbol bindings are explicit fixture-UUID to definition-ID to
+content-ID mappings, persisted by `core/symbols/project_fixture_symbols.*`.
+Generated fallback and user override kinds, source FixtureTypeID/fingerprint,
+generator/schema versions, view offsets, optional per-view archive/provenance
+metadata, and exact SVG bytes are retained.
+Newly inserted instances inherit only an unambiguous content identity shared
+by all bound fixtures with the same nonempty exact source reference and mode;
+conflicting overrides remain untouched and diagnostic. Identical bundles share
+content-addressed payloads. Only definitions referenced
+by the current scene are packaged. See the [resource contract](fixture_symbol_resource_contract.md)
+for the archive layout and schema.
 
-Current projects store `gdtf_derivative_contract_version = 1` in project `config.json`.
-They load their referenced SVGs directly and perform no whole-scene symbol generation
-or persistent symbol-manifest validation. Project Save serializes the scene and exact
-referenced resources without generating or repairing symbols and does not write
-`perastage_symbol_cache_manifest.json`.
+## Startup, persistence, and legacy input
 
-Projects without the contract version run one bounded legacy migration over unique
-referenced GDTFs. The migration may unify historical numbered copies only when their
-authoritative base content and exact mode match after removing the narrowly recognized
-legacy Perastage symbol outputs. Unsupported or ambiguous resources remain untouched,
-keep the migration incomplete, and never prevent Save. Successful migration marks the
-project dirty and records contract version 1 for subsequent opens.
+Project Save serializes the scene and referenced project bundles through
+`ProjectSession::ArchiveResource`. It does not generate symbols or wait for
+preparation. Project symbols reside outside `scene.mvr` and are not exported as
+private MVR files or embedded GDTF resources. Load restores exact project
+presentation without requiring a global cache, original external GDTF, or a
+matching generator version. Corrupt indexed bundles fail loading transactionally
+before active scene/config callbacks, preserving the previous project.
 
-The parsed SVG runtime cache remains independent persistence-free infrastructure. It
-keys stored presentation data by physical resource and view and is invalidated after
-internal derivative replacement or cleared at project lifecycle transitions.
+`gdtf_derivative_contract_version = 1` remains the historical derivative migration
+marker, separate from the versioned PSTG project-symbol schema. Projects without
+that marker retain the bounded legacy migration over unique referenced GDTFs.
+Historical numbered copies may be unified only when authoritative base content
+and exact mode agree after removing narrowly recognized legacy symbol output.
+Unsupported or ambiguous resources stay untouched and do not prevent Save.
 
-Automatic preparation uses runtime-only work identities made from the deterministically
-resolved physical GDTF path and the exact GDTF mode. Repeated fixture and renderer
-requests coalesce, while distinct exact modes remain distinct work. Publication to a
-shared canonical derivative is serialized. A project epoch rejects callbacks and
-publication from replaced or closed projects.
+Recognized legacy private symbols, Bottom extensions, and positively identified
+old generated standard-location resources remain read-only inputs. On Save, before legacy GDTF reference consolidation, and before automatic
+standard completion retargets references,
+a compatible internal representation is materialized as project-owned
+resources without rewriting the external source on open. Unknown authored SVGs
+are not claimed by basename, generic editor metadata, or unrelated revisions.
+Overwritten original manufacturer bytes require a clean authoritative source;
+Perastage does not reconstruct them speculatively. Intentional derived publication
+removes recognized private compatibility output through the shared Core policy.
+Unchanged legacy input can remain embedded under the existing canonical MVR
+preservation policy; the migration adds no new private files to that GDTF.
 
-Capture progress is cooperative between fixture jobs: each fixture's four render views
-form one atomic GUI-thread operation, and CPU processing and transactional publication
-are explicit later states.
-Missing or invalid SVGs continue to use rendered geometry immediately. Preparation
-does not wait in Save, Load, MVR import/export, print, layout, or PDF operations and no
-queue state or symbol manifest is persisted.
+## Runtime preparation
 
-The MainWindow-owned preparation service starts a new epoch for New, Open, MVR scene
-replacement, and Close. It posts the initial unique-resource scan only after project
-setup returns to the wx event loop. Renderers report a missing symbol through a
-GUI-independent runtime callback; they continue drawing fallback geometry while the
-service captures warm-up, Front, Top, Side, and Bottom without an intervening event-loop
-yield. The service rechecks
-the resolved physical resource and exact mode before processing and publication.
-Successful transactional apply invalidates the existing symbol caches and refreshes
-the affected viewers, including 3D resource synchronization for the rebound GDTF,
-without reopening the project. Pure image/vector processing runs on one managed worker;
-GUI capture, publication, rebinding, and refresh remain on cooperative GUI idle slices.
-Manual preview generation cancels
-matching automatic work before using the same canonical full-capture operation; Apply
-remains an explicit preview action. A
-manual preview that closes or fails without applying restores automatic eligibility.
+The preparation service keys work by resolved physical GDTF path and exact
+mode; duplicate requests coalesce and distinct modes remain distinct. A project
+epoch rejects callbacks from replaced or closed projects. Each four-view
+capture is one atomic GUI-thread operation. CPU processing and later project
+application/standard publication are cooperative stages. Jobs recheck source
+fingerprints before application.
+
+Persisted project symbols are authoritative and are not regenerated merely
+because the generator changed. Manual Apply stores a `UserOverride`; automatic
+work stores `GeneratedFallback` only when an internal representation is needed.
+Automatic standard completion separately consults the configured mutation policy
+and never replaces existing resources. Source changes or explicit regeneration
+must follow the product workflow rather than silently discarding an override.
+
+Renderers continue to draw standard/geometry fallback immediately while work is
+pending. Save, Load, MVR import/export, print, layout, and PDF do not wait for
+queue completion. The runtime parsed-SVG cache remains disposable and independent
+from project storage; project lifecycle transitions clear it, and physical
+standard derivative replacement invalidates the changed resource path.
+
+Project symbol tokens include immutable definition/content identity and
+participate in live layout frame hashes. Apply and Undo/Redo invalidate layout
+visual content. Saved layout cache validation includes the exact referenced
+PSTG symbol resources together with packaged layout images, independently from
+the `scene.mvr` fingerprint. Background PDF workers read an immutable captured
+store through the scoped Core read context, preserving the selected definition
+when the active project or its overrides change.

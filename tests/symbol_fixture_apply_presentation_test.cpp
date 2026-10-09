@@ -3,55 +3,34 @@
 
 #include "../gui/windows/symbol_fixture_apply_presentation.h"
 
-// Verifies that apply-result messages preserve project and library ownership semantics.
 int main() {
-  symbol_preview::ApplySymbolsResult complete;
-  complete.success = true;
-  complete.sceneUpdated = true;
-  complete.libraryUpdated = true;
-  const auto completeMessage =
-      symbol_preview::BuildApplySymbolsPresentation(complete);
-  assert(completeMessage.kind == symbol_preview::ApplySymbolsMessageKind::Success);
-  assert(completeMessage.message.find("project fixture GDTF") != std::string::npos);
-  assert(completeMessage.message.find("library derivative") != std::string::npos);
+  symbol_preview::ApplySymbolsResult saved;
+  saved.success = true;
+  saved.projectSymbolsUpdated = true;
+  const auto savedMessage = symbol_preview::BuildApplySymbolsPresentation(saved);
+  assert(savedMessage.kind == symbol_preview::ApplySymbolsMessageKind::Success);
+  assert(savedMessage.message.find("applied to the project") != std::string::npos);
+  assert(savedMessage.message.find("persist the symbol override") != std::string::npos);
+  assert(savedMessage.message.find("GDTF") == std::string::npos);
 
-  symbol_preview::ApplySymbolsResult warning = complete;
-  warning.libraryUpdated = false;
-  warning.warnings = {"dictionary storage is unavailable"};
-  const auto warningMessage =
-      symbol_preview::BuildApplySymbolsPresentation(warning);
-  assert(warningMessage.kind == symbol_preview::ApplySymbolsMessageKind::Warning);
-  assert(warningMessage.message.find("project fixture GDTF") != std::string::npos);
-  assert(warningMessage.message.find("synchronization failed") != std::string::npos);
-  assert(warningMessage.message.find("and the fixture library derivative") ==
-         std::string::npos);
+  auto unsaved = saved;
+  unsaved.unsavedProject = true;
+  const auto unsavedMessage = symbol_preview::BuildApplySymbolsPresentation(unsaved);
+  assert(unsavedMessage.kind == symbol_preview::ApplySymbolsMessageKind::Success);
+  assert(unsavedMessage.message.find("unsaved project") != std::string::npos);
+  assert(unsavedMessage.message.find("Save the project") != std::string::npos);
+  assert(unsavedMessage.message.find("library") == std::string::npos);
 
   symbol_preview::ApplySymbolsResult failure;
-  failure.diagnostic = "scene replacement failed";
-  const auto failureMessage =
-      symbol_preview::BuildApplySymbolsPresentation(failure);
+  failure.diagnostic = "The selected fixture no longer exists.";
+  const auto failureMessage = symbol_preview::BuildApplySymbolsPresentation(failure);
   assert(failureMessage.kind == symbol_preview::ApplySymbolsMessageKind::Error);
   assert(failureMessage.message == failure.diagnostic);
 
-  symbol_preview::ApplySymbolsResult libraryOnly;
-  libraryOnly.success = true;
-  libraryOnly.libraryUpdated = true;
-  const auto libraryOnlyMessage =
-      symbol_preview::BuildApplySymbolsPresentation(libraryOnly);
-  assert(libraryOnlyMessage.kind == symbol_preview::ApplySymbolsMessageKind::Error);
-  assert(libraryOnlyMessage.message.find("not project persistence") !=
-         std::string::npos);
-
-  libraryOnly.fixtureReferencesUpdated = true;
-  const auto unsavedMessage = symbol_preview::BuildApplySymbolsPresentation(libraryOnly);
-  assert(unsavedMessage.kind == symbol_preview::ApplySymbolsMessageKind::Success);
-  assert(unsavedMessage.message.find("unsaved scene") != std::string::npos);
-  assert(unsavedMessage.message.find("Save the project") != std::string::npos);
-  assert(unsavedMessage.message.find("project fixture GDTF") == std::string::npos);
-
-  const auto fallbackMessage =
-      symbol_preview::BuildApplySymbolsPresentation({});
-  assert(fallbackMessage.kind == symbol_preview::ApplySymbolsMessageKind::Error);
-  assert(!fallbackMessage.message.empty());
+  auto noUpdate = saved;
+  noUpdate.projectSymbolsUpdated = false;
+  const auto noUpdateMessage = symbol_preview::BuildApplySymbolsPresentation(noUpdate);
+  assert(noUpdateMessage.kind == symbol_preview::ApplySymbolsMessageKind::Error);
+  assert(!noUpdateMessage.message.empty());
   return 0;
 }

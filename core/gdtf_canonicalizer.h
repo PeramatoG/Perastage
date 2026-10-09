@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -26,6 +27,12 @@ struct Options {
 using DescriptionMutator =
     std::function<bool(tinyxml2::XMLDocument &document)>;
 
+struct ResourceMutation {
+  std::string archivePath;
+  // Absent bytes remove an existing resource; present bytes add or replace it.
+  std::optional<std::string> bytes;
+};
+
 // Canonicalizes a parsed GDTF description.xml document in memory.
 Result CanonicalizeDescription(tinyxml2::XMLDocument &doc,
                                const Options &options = {});
@@ -43,6 +50,13 @@ Result CanonicalizeArchive(const std::filesystem::path &sourcePath,
 Result RewriteArchiveDescription(const std::filesystem::path &sourcePath,
                                  const std::filesystem::path &destinationPath,
                                  const DescriptionMutator &mutator);
+
+// Applies explicit resource changes and one description mutation to a copy.
+// This helper does not choose ownership, completion, or replacement policy.
+Result RewriteArchiveResources(const std::filesystem::path &sourcePath,
+                               const std::filesystem::path &destinationPath,
+                               const std::vector<ResourceMutation> &resources,
+                               const DescriptionMutator &mutator);
 
 // Validates a GDTF archive against Perastage export rules.
 Result ValidateArchive(const std::filesystem::path &sourcePath,

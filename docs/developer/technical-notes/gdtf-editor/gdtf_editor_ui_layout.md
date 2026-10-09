@@ -27,9 +27,13 @@ The Fixture GDTF section order is configured with typed placements:
 The visual resources are native notebook tabs:
 
 - `Preview`: 3D Preview in the upper area and Fixture Image below it.
-- `Symbols`: the official GDTF SVG thumbnail resource, when available, above the three Perastage-generated Top, Front, and Side symbol views with equal vertical area for the official and generated symbol regions.
+- `Symbols`: independent Standard GDTF Top/Front/Side and Perastage project Top/Front/Side/Bottom groups. Missing or unusable resources show N/A with source/provenance diagnostics. The comparison panel is presentation-only and consumes Core inspection/loading.
 
-The GDTF specification defines the optional `FixtureType` `Thumbnail` resource as a file in the archive root, with `.png` for raster images or `.svg` for vector graphics. The Symbols tab uses that root-level SVG resource as the official symbol preview when present. Switching tabs does not parse GDTF data or recreate the underlying resources.
+The optional GDTF `FixtureType` `Thumbnail` is a root-level `.png` or `.svg`
+resource and remains on the Preview page; it is independent from model symbol
+views. Manual symbol Apply updates a project override in PSTG, including unsaved
+scenes, rather than rewriting GDTF. Switching tabs does not mutate or recreate
+resources. See the [fixture symbol resource contract](../../fixture_symbol_resource_contract.md).
 
 ## Truss Edit layout
 

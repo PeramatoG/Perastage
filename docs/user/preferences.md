@@ -18,6 +18,22 @@ Current user-facing preferences include:
 - GDTF-related options affect fixture profile handling and lookup behavior.
 - Preferences help keep the app aligned with your workflow without changing scene data intent.
 
+## GDTF definition completion
+
+The **GDTF** tab offers two policies under **GDTF definition completion**:
+
+- **Complete and improve GDTF definitions (recommended)** is the default.
+  Perastage may generate missing standard Top, Side, and Front SVG views from
+  available geometry and publish an audited `@Perastage.gdtf` derivative.
+  Existing views are preserved, including unusable views that need explicit repair.
+- **Preserve imported GDTF definitions** disables automatic completion.
+
+Both policies keep normal scene editing, explicit GDTF edits, and Perastage
+project symbols available. Manually applying Perastage views stores a project
+override in `.pstg`; it does not replace authored GDTF views. Save the project
+to preserve generated symbols and overrides, including symbols applied before
+the scene has first been saved.
+
 ## MVR Import / Export
 
 The **MVR Import / Export** tab is the location for MVR-related import and export preferences. The current export setting controls how truss geometry is written when exporting MVR files.

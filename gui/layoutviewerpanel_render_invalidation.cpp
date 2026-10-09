@@ -21,6 +21,7 @@
 
 #include "configmanager.h"
 #include "guiconfigservices.h"
+#include "symbols/project_fixture_symbol_runtime.h"
 
 namespace {
 constexpr int kLayoutFixtureSymbolProjectionVersion = 2;
@@ -73,6 +74,7 @@ size_t HashFixtureValue(const Fixture &fixture) {
   HashCombine(hash, std::hash<std::string>{}(fixture.typeName));
   HashCombine(hash, std::hash<std::string>{}(fixture.gdtfSpec));
   HashCombine(hash, std::hash<std::string>{}(fixture.gdtfMode));
+  HashCombine(hash, std::hash<std::string>{}(symbols::BuildProjectFixtureSymbolSource(fixture)));
   HashCombine(hash, std::hash<std::string>{}(fixture.visualColorHex));
   HashCombine(hash, HashMatrixValue(fixture.transform));
   return hash;

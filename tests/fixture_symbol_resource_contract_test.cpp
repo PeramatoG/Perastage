@@ -310,7 +310,7 @@ void CheckLegacyCases(Fixtures &fixtures) {
   const auto bottomInspection = fixtures.Inspect(bottomPath);
   CheckAuthoredStandardViews(bottomInspection, "manufacturer_body");
   CheckResource(bottomInspection, "manufacturer_body", SymbolViewKind::Bottom,
-                true, FixtureSymbolProvenance::LegacyPerastage, true, false,
+                true, FixtureSymbolProvenance::AuthoredGdtf, true, false,
                 ResourcePath("manufacturer_body", SymbolViewKind::Bottom));
 
   const auto legacyPath = fixtures.Path("legacy_applied_views");
@@ -368,7 +368,7 @@ void CheckRecoveryCases(Fixtures &fixtures) {
   const auto optional = fixtures.Inspect(malformedBottom);
   CheckAuthoredStandardViews(optional, "base");
   CheckResource(optional, "base", SymbolViewKind::Bottom, true,
-                FixtureSymbolProvenance::LegacyPerastage, false, false,
+                FixtureSymbolProvenance::AuthoredGdtf, false, false,
                 ResourcePath("base", SymbolViewKind::Bottom));
 
   std::string badOffsetSvg = MarkedSvg();

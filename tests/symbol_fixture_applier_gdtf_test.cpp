@@ -1,1015 +1,523 @@
 /*
  * This file is part of Perastage.
  */
-#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
+#include <map>
 #include <memory>
 #include <string>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
-#include <tinyxml2.h>
-#include <wx/filename.h>
 #include <wx/init.h>
+#include <wx/mstream.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
 #include "support/archive_entry_test_utils.h"
 #include "support/gdtf_test_fixture_builder.h"
-
 #include "../core/configmanager.h"
-#include "../core/fixture_gdtf_derivative_contract.h"
 #include "../core/gdtfdictionary.h"
-#include "../core/gdtf_mutation_audit.h"
-#include "../core/symbols/fixture_symbol_resource_revision.h"
+#include "../core/symbols/fixture_symbol_application.h"
+#include "../core/symbols/fixture_symbol_availability.h"
 #include "../core/symbols/fixture_symbol_resource_contract.h"
-#include "../core/symbols/PerastageSvgSymbol.h"
-#include "../core/symbols/Symbol2D.h"
+#include "../core/symbols/project_fixture_symbols.h"
+#include "../core/symbols/standard_gdtf_completion.h"
 #include "../core/wx_path_utils.h"
 #include "../gui/windows/symbol_fixture_applier.h"
-#include "../models/fixture.h"
-#include "../viewer3d/gdtfloader.h"
 
 namespace fs = std::filesystem;
-
 namespace {
+constexpr const char *kSelected = "10000000-0000-4000-8000-000000000001";
+constexpr const char *kShared = "10000000-0000-4000-8000-000000000002";
+constexpr const char *kOtherMode = "10000000-0000-4000-8000-000000000003";
+constexpr const char *kGenerated = "10000000-0000-4000-8000-000000000004";
+constexpr const char *kPlaceholder = "10000000-0000-4000-8000-000000000005";
 
-// Reads the current ZIP entry contents as bytes.
-std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
-  std::string content;
-  char buffer[4096];
-  while (true) {
-    zip.Read(buffer, sizeof(buffer));
-    const size_t bytes = zip.LastRead();
-    if (bytes == 0)
-      break;
-    content.append(buffer, bytes);
+struct ScopedFixtureDictionary {
+  std::string previous = GdtfDictionary::GetActiveDictionaryFilePath();
+  bool changed = false;
+  ~ScopedFixtureDictionary() {
+    if (changed) {
+      std::string error;
+      assert(GdtfDictionary::SetActiveDictionaryFilePath(previous, &error));
+    }
   }
-  return content;
-}
-
-struct ArchiveSnapshot {
-  std::unordered_set<std::string> entries;
-  std::unordered_map<std::string, std::string> contents;
-  std::string descriptionXml;
+  void Activate(const fs::path &path) {
+    std::string error;
+    assert(GdtfDictionary::CreateEmptyDictionaryFile(path.string(), &error));
+    assert(GdtfDictionary::SetActiveDictionaryFilePath(path.string(), &error));
+    changed = true;
+  }
 };
 
-// Reads archive data while keeping all wxWidgets stream lifetimes inside the helper.
-ArchiveSnapshot ReadArchiveSnapshot(const fs::path &archivePath) {
-  ArchiveSnapshot snapshot;
-  wxFileInputStream input(
-      WxPathUtils::WxStringFromFilesystemPath(archivePath));
-  assert(input.IsOk());
+struct TemporaryProject {
+  fs::path path = fs::temp_directory_path() /
+      ("perastage-project-symbol-apply-" + std::to_string(
+          std::chrono::steady_clock::now().time_since_epoch().count()));
+  TemporaryProject() { fs::create_directories(path); }
+  ~TemporaryProject() { std::error_code error; fs::remove_all(path, error); }
+};
+
+std::string ReadFile(const fs::path &path) {
+  std::ifstream stream(path, std::ios::binary);
+  assert(stream.is_open());
+  return {std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+}
+
+std::map<std::string, std::string> ReadArchive(wxInputStream &input) {
+  std::map<std::string, std::string> entries;
   wxZipInputStream zip(input);
   std::unique_ptr<wxZipEntry> entry;
   while ((entry.reset(zip.GetNextEntry())), entry) {
     if (entry->IsDir())
       continue;
-    const auto logicalName = tests::archive::NormalizePresentedArchivePath(
+    const auto normalized = tests::archive::NormalizePresentedArchivePath(
         entry->GetName().ToStdString());
-    assert(logicalName.ok);
-    snapshot.entries.insert(logicalName.path);
-    snapshot.contents[logicalName.path] = ReadCurrentZipEntry(zip);
-    if (logicalName.path == "description.xml")
-      snapshot.descriptionXml = snapshot.contents.at(logicalName.path);
+    assert(normalized.ok);
+    std::string bytes;
+    char buffer[4096];
+    do {
+      zip.Read(buffer, sizeof(buffer));
+      bytes.append(buffer, zip.LastRead());
+    } while (zip.LastRead() > 0);
+    assert(entries.emplace(normalized.path, std::move(bytes)).second);
   }
-  return snapshot;
+  return entries;
 }
 
-// Counts standard revisions created by fixture-symbol application in an archive.
-std::size_t CountSymbolMutationRevisions(const fs::path &archivePath) {
-  const ArchiveSnapshot snapshot = ReadArchiveSnapshot(archivePath);
-  tinyxml2::XMLDocument document;
-  assert(document.Parse(snapshot.descriptionXml.c_str(),
-                        snapshot.descriptionXml.size()) ==
-         tinyxml2::XML_SUCCESS);
-  const tinyxml2::XMLElement *fixtureType =
-      document.FirstChildElement("GDTF")->FirstChildElement("FixtureType");
-  const tinyxml2::XMLElement *revisions = fixtureType->FirstChildElement("Revisions");
-  std::size_t count = 0;
-  if (!revisions)
-    return count;
-  for (const tinyxml2::XMLElement *revision =
-           revisions->FirstChildElement("Revision");
-       revision; revision = revision->NextSiblingElement("Revision")) {
-    const char *text = revision->Attribute("Text");
-    if (text && std::string(text).rfind(
-                    "Applied Perastage fixture SVG symbol views (", 0) == 0)
-      ++count;
-  }
-  return count;
+std::map<std::string, std::string> ReadArchiveFile(const fs::path &path) {
+  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(path));
+  assert(input.IsOk());
+  return ReadArchive(input);
 }
 
-// Writes a canonical minimal GDTF 1.2 archive for symbol mutation tests.
-std::string MakeFixtureGdtf(const fs::path &directory) {
-  const fs::path outPath = directory / "SourceFixture.gdtf";
-  tests::gdtf::BuildMinimalValidFixture().WriteArchive(outPath);
-  return outPath.filename().string();
+std::map<std::string, std::string> ReadArchiveBytes(const std::string &bytes) {
+  wxMemoryInputStream input(bytes.data(), bytes.size());
+  return ReadArchive(input);
 }
 
-// Writes a compatibility fixture with caller-provided FixtureType XML.
-std::string MakeFixtureGdtfFromFixtureTypeXml(const std::string &fixtureTypeXml,
-                                              bool usableFront = true) {
-  wxFileName tempName(wxFileName::CreateTempFileName("gdtf_symbol_compat_"));
-  const std::string outPath = tempName.GetFullPath().ToStdString() + ".gdtf";
-  wxRemoveFile(tempName.GetFullPath());
-
-  wxFFileOutputStream fileOut(outPath);
-  assert(fileOut.IsOk());
-  wxZipOutputStream zipOut(fileOut);
-
-  zipOut.PutNextEntry("description.xml");
-  const std::string xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-                          "<GDTF DataVersion=\"1.2\">" +
-                          fixtureTypeXml + "</GDTF>";
-  zipOut.Write(xml.data(), xml.size());
-
-  const std::string symbolBody =
-      "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\">"
-      "<polygon points=\"0,0 10,0 10,10\"/></svg>";
-  zipOut.PutNextEntry("models/svg/Body.svg");
-  zipOut.Write(symbolBody.data(), symbolBody.size());
-  zipOut.PutNextEntry("models/svg/Body_bottom.svg");
-  zipOut.Write(symbolBody.data(), symbolBody.size());
-  zipOut.PutNextEntry("models/svg_side/Body.svg");
-  zipOut.Write(symbolBody.data(), symbolBody.size());
-  zipOut.PutNextEntry("models/svg_front/Body.svg");
-  const std::string frontBody =
-      usableFront ? symbolBody : "<svg viewBox=\"0 0 10 10\"/>";
-  zipOut.Write(frontBody.data(), frontBody.size());
-  zipOut.Close();
-
-  return outPath;
-}
-
-// Writes authored standard views and model offsets without a Bottom extension.
-void MakeAuthoredPartialFixture(const fs::path &archivePath, bool usableTop) {
-  auto builder = tests::gdtf::BuildMinimalValidFixture();
-  builder.WithFixtureIdentity(usableTop ? "AuthoredPartial" : "InvalidAuthored",
-                              "Manufacturer",
-                              tests::gdtf::FixtureBuilder::kMinimalFixtureTypeId)
-      .WithModelResource("base");
-  std::string xml = builder.BuildDescriptionXml();
-  const std::string modelStart = "<Model Name=\"Body\"";
-  xml.insert(xml.find(modelStart) + modelStart.size(),
-             " SVGOffsetX=\"11\" SVGOffsetY=\"12\""
-             " SVGSideOffsetX=\"13\" SVGSideOffsetY=\"14\"");
-  const std::string svg =
-      "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 23 29\">"
-      "<polygon points=\"1,2 21,2 21,27\"/></svg>";
-  wxFileOutputStream output(WxPathUtils::WxStringFromFilesystemPath(archivePath));
-  assert(output.IsOk());
-  wxZipOutputStream zip(output);
-  const std::vector<std::pair<std::string, std::string>> entries = {
-      {"description.xml", xml},
-      {"models/svg/base.svg", usableTop ? svg : "<svg viewBox=\"0 0 23 29\"/>"},
-      {"models/svg_side/base.svg", svg}};
-  for (const auto &[path, bytes] : entries) {
-    zip.PutNextEntry(wxString::FromUTF8(path));
-    zip.Write(bytes.data(), bytes.size());
-  }
-  zip.Close();
-}
-
-// Reads archive bytes to prove the external source is unchanged by resolution.
-std::string ReadFileBytes(const fs::path &path) {
-  std::ifstream input(path, std::ios::binary);
-  assert(input.is_open());
-  return {std::istreambuf_iterator<char>(input),
-          std::istreambuf_iterator<char>()};
-}
-
-// Inspects symbol compatibility for a fixture path in the current scene.
-symbol_preview::FixtureSymbolInspectionResult InspectFixturePath(const std::string &fixtureUuid,
-                                                                 const std::string &gdtfPath) {
-  auto &cfg = ConfigManager::Get();
+Fixture MakeFixture(const char *uuid, const std::string &spec,
+                    const std::string &mode = "Default") {
   Fixture fixture;
-  fixture.uuid = fixtureUuid;
-  fixture.typeName = "SymbolFixture";
-  fixture.gdtfSpec = gdtfPath;
-  cfg.GetScene().fixtures[fixture.uuid] = fixture;
-
-  symbol_preview::FixtureSymbolInspectionResult inspection{};
-  std::string errorMessage;
-  assert(symbol_preview::InspectFixtureSymbolState(fixture, cfg.GetScene(), inspection,
-                                                   errorMessage));
-  assert(errorMessage.empty());
-  return inspection;
+  fixture.uuid = uuid;
+  fixture.typeName = "SymbolApplicationFixture";
+  fixture.gdtfSpec = spec;
+  fixture.gdtfMode = mode;
+  return fixture;
 }
 
-// Builds one simple symbol payload for each supported fixture view.
 std::vector<symbols::Symbol2D> BuildSymbols() {
-  auto makeView = [](symbols::SymbolView view) {
+  std::vector<symbols::Symbol2D> result;
+  for (const auto view : {symbols::SymbolView::Top, symbols::SymbolView::Front,
+                         symbols::SymbolView::Left, symbols::SymbolView::Bottom}) {
     symbols::Symbol2D symbol;
     symbol.view = view;
-    symbol.bounds.min = {0.0f, 0.0f};
-    symbol.bounds.max = {100.0f, 50.0f};
-    symbol.bounds.valid = true;
-    symbol.strokes.push_back({{0.0f, 0.0f}, {100.0f, 50.0f}});
-    return symbol;
-  };
-
-  return {
-      makeView(symbols::SymbolView::Top),
-      makeView(symbols::SymbolView::Bottom),
-      makeView(symbols::SymbolView::Left),
-      makeView(symbols::SymbolView::Front),
-  };
+    symbol.bounds = {{3.0f, 4.0f}, {103.0f, 54.0f}, true};
+    symbols::PolygonWithHoles2D region;
+    region.outer = {{3, 4}, {103, 4}, {103, 54}, {3, 54}};
+    region.holes.push_back({{20, 20}, {30, 20}, {30, 30}, {20, 30}});
+    symbol.fill.push_back(std::move(region));
+    symbol.strokes = {{{3, 4}, {103, 54}}};
+    result.push_back(std::move(symbol));
+  }
+  return result;
 }
 
-// Removes a temporary project directory when the test scope exits.
-class ScopedTempProject {
-public:
-  // Creates a unique temporary project directory.
-  ScopedTempProject() {
-    path = fs::temp_directory_path() /
-           (std::string("symbol_fixture_project_") +
-            std::to_string(std::chrono::system_clock::now().time_since_epoch().count()));
-    fs::create_directories(path);
-  }
-  // Removes the temporary project directory.
-  ~ScopedTempProject() {
-    std::error_code ec;
-    fs::remove_all(path, ec);
-  }
-  fs::path path;
-};
-
-// Restores the active fixture dictionary when the scenario scope exits.
-class ScopedFixtureDictionary {
-public:
-  // Captures the dictionary path that must be restored after the test.
-  ScopedFixtureDictionary()
-      : previousPath_(GdtfDictionary::GetActiveDictionaryFilePath()) {}
-
-  // Restores the captured dictionary path before temporary files are removed.
-  ~ScopedFixtureDictionary() {
-    if (!changed_)
-      return;
-    std::string errorMessage;
-    if (!GdtfDictionary::SetActiveDictionaryFilePath(previousPath_, &errorMessage))
-      std::cerr << "Could not restore fixture dictionary: " << errorMessage << '\n';
-  }
-
-  // Activates a temporary fixture dictionary for the scoped scenarios.
-  bool Activate(const fs::path &dictionaryPath, std::string &errorMessage) {
-    changed_ = GdtfDictionary::SetActiveDictionaryFilePath(
-        dictionaryPath.string(), &errorMessage);
-    return changed_;
-  }
-
-private:
-  std::string previousPath_;
-  bool changed_ = false;
-};
-
-// Reports a structured application result when an expected condition fails.
-void ReportUnexpectedApplyResult(
-    const symbol_preview::ApplySymbolsResult &result, bool expected) {
-  if (expected)
-    return;
-  std::cerr << "Apply result: success=" << result.success
-            << " sceneUpdated=" << result.sceneUpdated
-            << " libraryUpdated=" << result.libraryUpdated
-            << " diagnostic='" << result.diagnostic << "'"
-            << " scene='" << result.finalScenePath << "'"
-            << " library='" << result.finalLibraryPath << "'";
-  for (const std::string &warning : result.warnings)
-    std::cerr << " warning='" << warning << "'";
-  std::cerr << '\n';
-}
-
-// Migrates a generated white-mask resource once through real project publication.
-void CheckWhiteHoleMigration(const fs::path &projectPath) {
-  const fs::path source = projectPath / "WhiteHoleFixture.gdtf";
-  const std::string legacySvg =
-      "<svg xmlns='http://www.w3.org/2000/svg' version='1.1' viewBox='0 0 100 50' "
-      "data-perastage-symbol-version='1' data-perastage-offset-x-mm='0' "
-      "data-perastage-offset-y-mm='0'>"
-      "<polygon points='0,50 100,50 100,0 0,0' fill='#e0e0e0' stroke='none'/>"
-      "<polygon points='20,40 40,40 40,20 20,20' fill='#ffffff' stroke='none'/>"
-      "<polyline points='0,50 100,0' fill='none' stroke='#000000' stroke-width='2'/>"
-      "</svg>";
+void CheckManualApplyAndIntegratedPersistence(ConfigManager &cfg,
+                                             const fs::path &directory) {
+  cfg.Reset();
+  auto &scene = cfg.GetScene();
+  scene.basePath = directory.string();
+  const fs::path source = directory / "AuthoredFixture.gdtf";
+  const fs::path generatedSource = directory / "GeneratedFixture.gdtf";
   const std::string authoredSvg =
-      "<svg viewBox='0 0 100 50'><polygon points='0,0 100,0 0,50'/></svg>";
-  auto builder = tests::gdtf::BuildMinimalValidFixture();
-  builder.WithFixtureIdentity("WhiteHoleFixture", "Perastage",
-                               tests::gdtf::FixtureBuilder::kMinimalFixtureTypeId)
-      .WithPerastageGeneratedSymbols()
-      .WithModelResource("holes")
-      .WithArchiveEntry("models/svg/holes.svg", authoredSvg);
-  for (auto view : {SymbolViewKind::Top, SymbolViewKind::Bottom,
-                    SymbolViewKind::Front, SymbolViewKind::Left})
-    builder.WithArchiveEntry(BuildPerastageFixtureSymbolPath("holes", view),
-                             legacySvg);
-  builder.WriteArchive(source);
-  const auto originalBytes = ReadFileBytes(source);
-  const auto originalRevisions = CountSymbolMutationRevisions(source);
-  PerastageSvgSymbolData legacy;
-  assert(LoadPerastageSvgSymbolFromGdtf(source.string(), SymbolViewKind::Top, legacy));
-  assert(legacy.fills.size() == 1 && legacy.fills[0].holes.size() == 1);
+      "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\">"
+      "<polygon points=\"0,0 10,0 10,10 0,10\"/></svg>";
+  tests::gdtf::BuildMinimalValidFixture().WithModelResource("authored")
+      .WithArchiveEntry("models/svg/authored.svg", authoredSvg)
+      .WithArchiveEntry("models/svg_side/authored.svg", authoredSvg)
+      .WithArchiveEntry("models/svg_front/authored.svg", authoredSvg)
+      .WithArchiveEntry("custom/manufacturer.txt", "retained authored resource")
+      .WriteArchive(source);
+  tests::gdtf::BuildMinimalValidFixture().WithModelResource("generated")
+      .WriteArchive(generatedSource);
+  const auto sourceBytes = ReadFile(source);
+  const auto generatedSourceBytes = ReadFile(generatedSource);
+  scene.fixtures[kSelected] = MakeFixture(kSelected, source.filename().string());
+  scene.fixtures[kShared] = MakeFixture(kShared, source.filename().string());
+  scene.fixtures[kOtherMode] = MakeFixture(kOtherMode, source.filename().string(), "Other mode");
+  scene.fixtures[kGenerated] = MakeFixture(kGenerated, generatedSource.filename().string());
 
-  Fixture fixture;
-  fixture.uuid = "fixture-white-hole-migration";
-  fixture.typeName = "WhiteHoleFixture";
-  fixture.gdtfSpec = source.filename().string();
-  ConfigManager::Get().GetScene().fixtures[fixture.uuid] = fixture;
-  auto payloads = BuildSymbols();
-  for (auto &symbol : payloads)
-    symbol.fill = {{{{0, 0}, {100, 0}, {100, 50}, {0, 50}},
-                    {{{20, 10}, {40, 10}, {40, 30}, {20, 30}}}}};
-  symbol_preview::ApplySymbolsOptions options;
-  options.updateLibraryCopy = false;
-  const auto migrated = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
-      payloads, fixture.uuid, options);
-  ReportUnexpectedApplyResult(migrated, migrated.success);
-  assert(migrated.success && migrated.sceneUpdated);
-  assert(ReadFileBytes(source) == originalBytes);
-  assert(CountSymbolMutationRevisions(migrated.finalScenePath) == originalRevisions + 1);
-  const auto snapshot = ReadArchiveSnapshot(migrated.finalScenePath);
-  assert(snapshot.contents.at("models/svg/holes.svg") == authoredSvg);
-  for (auto view : {SymbolViewKind::Top, SymbolViewKind::Bottom,
-                    SymbolViewKind::Front, SymbolViewKind::Left}) {
-    const auto &svg = snapshot.contents.at(BuildPerastageFixtureSymbolPath("holes", view));
-    assert(svg != legacySvg);
-    assert(svg.find("fill-rule=\"evenodd\"") != std::string::npos);
-    assert(svg.find("#ffffff") == std::string::npos);
-    PerastageSvgSymbolData parsed;
-    assert(LoadPerastageSvgSymbolFromGdtf(migrated.finalScenePath, view, parsed));
-    assert(parsed.fills.size() == 1 && parsed.fills[0].holes.size() == 1);
-    assert(parsed.fills[0].points.size() == legacy.fills[0].points.size());
-    assert(parsed.offsetXmm == 0 && parsed.offsetYmm == 0);
-    for (size_t i = 0; i < parsed.fills[0].holes[0].size(); ++i) {
-      assert(parsed.fills[0].holes[0][i].x == legacy.fills[0].holes[0][i].x);
-      assert(parsed.fills[0].holes[0][i].y == legacy.fills[0].holes[0][i].y);
+  symbol_preview::FixtureSymbolInspectionResult inspected;
+  std::string error;
+  assert(symbol_preview::InspectFixtureSymbolState(scene.fixtures.at(kSelected),
+                                                   scene, inspected, error));
+  assert(inspected.hasValidSvgSymbolSet);
+  assert(ReadFile(source) == sourceBytes);
+  const auto symbols = BuildSymbols();
+  const auto applied = symbol_preview::ApplySymbolsToFixtureProjectWithResult(symbols, kSelected);
+  assert(applied.success && applied.projectSymbolsUpdated && !applied.unsavedProject);
+  assert(cfg.IsDirty());
+  assert(scene.fixtures.at(kSelected).gdtfSpec == source.filename().string());
+  assert(scene.fixtures.at(kSelected).projectSymbolDefinitionId ==
+         scene.fixtures.at(kShared).projectSymbolDefinitionId);
+  assert(scene.fixtures.at(kOtherMode).projectSymbolDefinitionId.empty());
+  assert(ReadFile(source) == sourceBytes);
+  auto &store = cfg.GetProjectFixtureSymbols();
+  const auto expectedOverride = *store.FindForFixture(scene.fixtures.at(kSelected));
+  assert(expectedOverride.kind == symbols::ProjectFixtureSymbolKind::UserOverride);
+  assert(expectedOverride.sourceFixtureTypeId == tests::gdtf::FixtureBuilder::kMinimalFixtureTypeId);
+  assert(!expectedOverride.sourceFingerprint.empty());
+  for (const auto &view : expectedOverride.views) {
+    assert(view.offsetXmm == -3.0 && view.offsetYmm == -4.0);
+    assert(view.svg.find("fill-rule=\"evenodd\"") != std::string::npos);
+  }
+  assert(store.BundleCount() == 1);
+
+  const auto repeated = symbol_preview::ApplySymbolsToFixtureProjectWithResult(symbols, kSelected);
+  assert(repeated.success && store.BundleCount() == 1);
+  assert(*store.FindForFixture(scene.fixtures.at(kSelected)) == expectedOverride);
+  auto changed = symbols;
+  changed.front().strokes.front().back().x -= 5;
+  const auto changedApply = symbol_preview::ApplySymbolsToFixtureProjectWithResult(changed, kSelected);
+  assert(changedApply.success && store.BundleCount() == 1);
+  assert(*store.FindForFixture(scene.fixtures.at(kSelected)) != expectedOverride);
+  cfg.Undo();
+  assert(*store.FindForFixture(scene.fixtures.at(kSelected)) == expectedOverride);
+  cfg.Redo();
+  assert(*store.FindForFixture(scene.fixtures.at(kSelected)) != expectedOverride);
+  assert(symbol_preview::ApplySymbolsToFixtureProjectWithResult(symbols, kSelected).success);
+
+  const auto automatic = symbols::PrepareFixtureSymbols(scene, store, kGenerated,
+      generatedSource.string(), symbols, gdtf::MutationPolicy::PreserveImported);
+  assert(automatic.success && automatic.projectSymbolsUpdated);
+  assert(!automatic.standardGdtfUpdated && !automatic.fixtureReferencesUpdated);
+  const auto expectedGenerated = *store.FindForFixture(scene.fixtures.at(kGenerated));
+  assert(expectedGenerated.kind == symbols::ProjectFixtureSymbolKind::GeneratedFallback);
+  assert(ReadFile(generatedSource) == generatedSourceBytes);
+  assert(!symbols::NeedsAutomaticFixtureSymbolPreparation(scene.fixtures.at(kGenerated),
+      store, generatedSource.string(), gdtf::MutationPolicy::PreserveImported));
+  const auto replacementAttempt = symbols::PrepareFixtureSymbols(scene, store, kSelected,
+      source.string(), changed, gdtf::MutationPolicy::PreserveImported);
+  assert(replacementAttempt.success && !replacementAttempt.projectSymbolsUpdated);
+  assert(*store.FindForFixture(scene.fixtures.at(kSelected)) == expectedOverride);
+
+  const fs::path project = directory / "Symbols.pstg";
+  assert(cfg.SaveProject(project.string()));
+  const auto projectEntries = ReadArchiveFile(project);
+  assert(projectEntries.contains("scene.mvr"));
+  size_t manifests = 0;
+  for (const auto &[name, bytes] : projectEntries) {
+    (void)bytes;
+    if (name.starts_with("resources/fixture_symbols/") && name.ends_with("manifest.json"))
+      ++manifests;
+  }
+  assert(manifests == 2);
+  const auto sceneEntries = ReadArchiveBytes(projectEntries.at("scene.mvr"));
+  for (const auto &[name, bytes] : sceneEntries) {
+    assert(!name.starts_with("resources/fixture_symbols/"));
+    assert(!name.starts_with("perastage/"));
+    if (fs::path(name).extension() == ".gdtf") {
+      const auto definitionEntries = ReadArchiveBytes(bytes);
+      for (const auto &[resource, content] : definitionEntries) {
+        (void)content;
+        assert(!resource.starts_with("perastage/symbols/"));
+        assert(!resource.starts_with("resources/fixture_symbols/"));
+      }
     }
   }
-  const auto publishedBytes = ReadFileBytes(migrated.finalScenePath);
-  const auto repeated = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
-      payloads, fixture.uuid, options);
-  assert(repeated.success);
-  assert(repeated.finalScenePath == migrated.finalScenePath);
-  assert(repeated.finalSceneFingerprint == migrated.finalSceneFingerprint);
-  assert(ReadFileBytes(repeated.finalScenePath) == publishedBytes);
-  assert(ReadArchiveSnapshot(repeated.finalScenePath).contents == snapshot.contents);
-  assert(CountSymbolMutationRevisions(repeated.finalScenePath) == originalRevisions + 1);
+  assert(ReadFile(source) == sourceBytes);
+  assert(ReadFile(generatedSource) == generatedSourceBytes);
+  fs::remove(source);
+  fs::remove(generatedSource);
+  cfg.Reset();
+  assert(cfg.LoadProject(project.string()));
+  const auto &loadedScene = cfg.GetScene();
+  assert(*store.FindForFixture(loadedScene.fixtures.at(kSelected)) == expectedOverride);
+  assert(*store.FindForFixture(loadedScene.fixtures.at(kGenerated)) == expectedGenerated);
+  assert(store.FindForFixture(loadedScene.fixtures.at(kShared)) ==
+         store.FindForFixture(loadedScene.fixtures.at(kSelected)));
 }
 
-// An unsaved scene publishes only owned library resources and retains source bytes.
-void CheckUnsavedScene(const fs::path &directory) {
-  auto &scene = ConfigManager::Get().GetScene();
-  scene.basePath.clear();
-  scene.fixtures.clear();
-  const fs::path source = directory / "UnsavedExternal.gdtf";
-  MakeAuthoredPartialFixture(source, true);
-  const auto originalBytes = ReadFileBytes(source);
-  const auto originalArchive = ReadArchiveSnapshot(source);
-  Fixture fixture;
-  fixture.uuid = "unsaved-source";
-  fixture.typeName = "UnsavedExternal";
-  fixture.gdtfSpec = fs::absolute(source).string();
-  scene.fixtures[fixture.uuid] = fixture;
-  auto shared = fixture;
-  shared.uuid = "unsaved-shared";
-  shared.typeName = "AnotherAlias";
-  scene.fixtures[shared.uuid] = shared;
-  auto unrelated = fixture;
-  unrelated.uuid = "unsaved-other-source";
-  unrelated.gdtfSpec = (directory / "Other.gdtf").string();
-  scene.fixtures[unrelated.uuid] = unrelated;
-  const auto payloads = BuildSymbols();
-  const auto failed = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
-      {payloads.front()}, fixture.uuid);
-  assert(!failed.success);
+void CheckUnsavedProjectAndFailures(ConfigManager &cfg, const fs::path &directory) {
+  cfg.Reset();
+  auto &scene = cfg.GetScene();
   assert(scene.basePath.empty());
-  assert(scene.fixtures.at(fixture.uuid).gdtfSpec == fixture.gdtfSpec);
-  assert(ReadFileBytes(source) == originalBytes);
+  scene.fixtures[kSelected] = MakeFixture(kSelected, (directory / "Unavailable.gdtf").string());
+  const auto symbols = BuildSymbols();
+  const auto applied = symbol_preview::ApplySymbolsToFixtureProjectWithResult(symbols, kSelected);
+  assert(applied.success && applied.projectSymbolsUpdated && applied.unsavedProject);
+  assert(scene.basePath.empty());
+  assert(!scene.fixtures.at(kSelected).projectSymbolDefinitionId.empty());
+  const auto retained = *cfg.GetProjectFixtureSymbols().FindForFixture(scene.fixtures.at(kSelected));
+  assert(retained.kind == symbols::ProjectFixtureSymbolKind::UserOverride);
+  symbol_preview::FixtureSymbolInspectionResult inspection;
+  std::string error;
+  assert(symbol_preview::InspectFixtureSymbolState(scene.fixtures.at(kSelected), scene,
+                                                   inspection, error));
+  assert(inspection.hasValidSvgSymbolSet && !inspection.requiresSymbolGeneration);
+  auto incomplete = symbols;
+  incomplete.pop_back();
+  assert(!symbol_preview::ApplySymbolsToFixtureProjectWithResult(incomplete, kSelected).success);
+  assert(*cfg.GetProjectFixtureSymbols().FindForFixture(scene.fixtures.at(kSelected)) == retained);
+  assert(!symbol_preview::ApplySymbolsToFixtureProjectWithResult(symbols, "missing-fixture").success);
+  assert(scene.basePath.empty());
 
-  const auto applied = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(payloads, fixture.uuid);
-  ReportUnexpectedApplyResult(applied, applied.success);
-  assert(applied.success && applied.libraryUpdated && applied.fixtureReferencesUpdated);
-  assert(!applied.sceneUpdated && scene.basePath.empty());
-  assert(applied.warnings.empty() && applied.diagnostic.empty());
-  assert(fs::is_regular_file(applied.finalLibraryPath));
-  assert(!fs::equivalent(source, applied.finalLibraryPath));
-  assert(scene.fixtures.at(fixture.uuid).gdtfSpec == applied.finalLibraryPath);
-  assert(scene.fixtures.at(shared.uuid).gdtfSpec == applied.finalLibraryPath);
-  assert(scene.fixtures.at(unrelated.uuid).gdtfSpec == unrelated.gdtfSpec);
-  assert(GdtfDictionary::Get(fixture.typeName)->path == applied.finalLibraryPath);
-  assert(ReadFileBytes(source) == originalBytes);
-  const auto published = ReadArchiveSnapshot(applied.finalLibraryPath);
-  for (const auto &path : {"models/svg/base.svg", "models/svg_side/base.svg"})
-    assert(published.contents.at(path) == originalArchive.contents.at(path));
-  for (const auto &attribute : {"SVGOffsetX=\"11\"", "SVGOffsetY=\"12\"",
-                                "SVGSideOffsetX=\"13\"", "SVGSideOffsetY=\"14\""})
-    assert(published.descriptionXml.find(attribute) != std::string::npos);
-  FixtureSymbolResourceInspection inspection;
-  assert(InspectFixtureSymbolResources(applied.finalLibraryPath, inspection));
-  assert(inspection.perastageViewsUsable && !inspection.standardViewsUsable);
-  for (auto view : {SymbolViewKind::Top, SymbolViewKind::Front,
-                    SymbolViewKind::Left, SymbolViewKind::Bottom}) {
-    const auto *resource = inspection.FindPerastageView(view);
-    assert(resource && resource->exists && resource->usable);
-    assert(resource->archivePath == BuildPerastageFixtureSymbolPath("base", view));
-    assert(resource->provenance == FixtureSymbolProvenance::GeneratedPerastage);
-  }
-  const auto revisionCount = CountSymbolMutationRevisions(applied.finalLibraryPath);
-  assert(revisionCount == 1);
-  const auto derivativeBytes = ReadFileBytes(applied.finalLibraryPath);
-  symbol_preview::ApplySymbolsOptions sceneOnly;
-  sceneOnly.updateLibraryCopy = false;
-  const auto repeated = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(payloads, fixture.uuid, sceneOnly);
-  assert(repeated.success && repeated.libraryUpdated && repeated.fixtureReferencesUpdated);
-  assert(!repeated.sceneUpdated && scene.basePath.empty());
-  assert(repeated.finalLibraryPath == applied.finalLibraryPath);
-  assert(repeated.finalSceneFingerprint == applied.finalSceneFingerprint);
-  assert(ReadFileBytes(repeated.finalLibraryPath) == derivativeBytes);
-  assert(CountSymbolMutationRevisions(repeated.finalLibraryPath) == revisionCount);
-  assert(ReadFileBytes(source) == originalBytes);
+  // Without a source identity, manual intent is scoped to the selected UUID.
+  scene.fixtures[kGenerated] = MakeFixture(kGenerated, "");
+  scene.fixtures[kOtherMode] = MakeFixture(kOtherMode, "");
+  assert(symbol_preview::ApplySymbolsToFixtureProjectWithResult(symbols, kGenerated).success);
+  assert(scene.fixtures.at(kOtherMode).projectSymbolDefinitionId.empty());
 }
 
-// A canonical-looking external source in dictionary storage remains immutable.
-void CheckUnsavedLibraryNameCollision(const fs::path &directory) {
-  auto &scene = ConfigManager::Get().GetScene();
-  scene.basePath.clear();
-  scene.fixtures.clear();
-  const auto dictionaryFile = directory / "fixture-symbol-dictionary.json";
-  const auto assets = directory / "fixture-symbol-dictionary_assets";
+void CheckAutomaticSafeDerivativeOwnership(ConfigManager &cfg, const fs::path &directory) {
+  cfg.Reset();
+  auto &scene = cfg.GetScene();
+  scene.basePath = directory.string();
+  const fs::path source = directory / "MissingStandard.gdtf";
+  tests::gdtf::BuildMinimalValidFixture().WithModelResource("exact-model-file")
+      .WriteArchive(source);
+  const auto before = ReadFile(source);
+  scene.fixtures[kSelected] = MakeFixture(kSelected, source.filename().string());
+  scene.fixtures[kShared] = MakeFixture(kShared, source.filename().string());
+  const auto symbols = BuildSymbols();
+  const auto completed = symbols::PrepareFixtureSymbols(scene,
+      cfg.GetProjectFixtureSymbols(), kSelected, source.string(), symbols,
+      gdtf::MutationPolicy::CompleteAndImprove);
+  assert(completed.success && completed.projectSymbolsUpdated);
+  assert(completed.standardGdtfUpdated && completed.fixtureReferencesUpdated);
+  assert(scene.fixtures.at(kSelected).gdtfSpec == scene.fixtures.at(kShared).gdtfSpec);
+  assert(scene.fixtures.at(kSelected).gdtfSpec.starts_with("fixtures/"));
+  assert(!fs::equivalent(source, completed.publishedGdtfPath));
+  assert(ReadFile(source) == before);
+  const auto exact = symbols::InspectStandardGdtfViews(completed.publishedGdtfPath);
+  assert(exact.success);
+  for (const auto &view : exact.views)
+    assert(view.state == symbols::StandardGdtfViewState::ExistingUsable);
+  const auto publicationBeforeRepeat = ReadFile(completed.publishedGdtfPath);
+  const auto repeated = symbols::PrepareFixtureSymbols(scene,
+      cfg.GetProjectFixtureSymbols(), kSelected, completed.publishedGdtfPath,
+      symbols, gdtf::MutationPolicy::CompleteAndImprove);
+  assert(repeated.success && !repeated.standardGdtfUpdated);
+  assert(!repeated.projectSymbolsUpdated && !repeated.fixtureReferencesUpdated);
+  assert(ReadFile(completed.publishedGdtfPath) == publicationBeforeRepeat);
+
+  cfg.Reset();
+  assert(scene.basePath.empty());
+  ScopedFixtureDictionary dictionary;
+  dictionary.Activate(directory / "completion-dictionary.json");
+  const fs::path assets = directory / "completion-dictionary_assets";
   fs::create_directories(assets);
-  const auto staging = directory / "Collision.gdtf";
-  MakeAuthoredPartialFixture(staging, true);
-  const auto source = assets / GdtfDictionary::BuildPerastageCanonicalGdtfFileName(staging.string());
-  fs::copy_file(staging, source, fs::copy_options::overwrite_existing);
-  const auto original = ReadFileBytes(source);
-  Fixture fixture;
-  fixture.uuid = "unsaved-collision";
-  fixture.typeName = "UnsavedCollision";
-  fixture.gdtfSpec = source.string();
-  scene.fixtures[fixture.uuid] = fixture;
-  const auto result = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(BuildSymbols(), fixture.uuid);
-  assert(result.success && result.libraryUpdated);
-  assert(!fs::equivalent(source, result.finalLibraryPath));
-  assert(ReadFileBytes(source) == original);
-  const auto count = CountSymbolMutationRevisions(result.finalLibraryPath);
-  const auto repeated = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(BuildSymbols(), fixture.uuid);
-  assert(repeated.success && repeated.finalLibraryPath == result.finalLibraryPath);
-  assert(CountSymbolMutationRevisions(repeated.finalLibraryPath) == count);
-  assert(ReadFileBytes(source) == original);
+  const fs::path collision = assets /
+      GdtfDictionary::BuildPerastageCanonicalGdtfFileName(source.string());
+  fs::copy_file(source, collision, fs::copy_options::overwrite_existing);
+  const auto collisionBefore = ReadFile(collision);
+  scene.fixtures[kSelected] = MakeFixture(kSelected, collision.string());
+  scene.fixtures[kShared] = MakeFixture(kShared, collision.string());
+  scene.fixtures[kShared].typeName = "Another exact-definition alias";
+  const auto unsaved = symbols::PrepareFixtureSymbols(scene,
+      cfg.GetProjectFixtureSymbols(), kSelected, collision.string(), symbols,
+      gdtf::MutationPolicy::CompleteAndImprove);
+  assert(unsaved.success && unsaved.standardGdtfUpdated);
+  assert(unsaved.fixtureReferencesUpdated && scene.basePath.empty());
+  assert(!fs::equivalent(collision, unsaved.publishedGdtfPath));
+  assert(ReadFile(collision) == collisionBefore);
+  assert(scene.fixtures.at(kSelected).gdtfSpec == unsaved.publishedGdtfPath);
+  assert(scene.fixtures.at(kShared).gdtfSpec == unsaved.publishedGdtfPath);
+  const auto library = GdtfDictionary::Get(scene.fixtures.at(kSelected).typeName);
+  assert(library && library->path == unsaved.publishedGdtfPath);
+  for (const auto &[name, bytes] : ReadArchiveFile(unsaved.publishedGdtfPath)) {
+    (void)bytes;
+    assert(!name.starts_with("perastage/symbols/"));
+  }
+  const auto unsavedBytes = ReadFile(unsaved.publishedGdtfPath);
+  const auto repeatUnsaved = symbols::PrepareFixtureSymbols(scene,
+      cfg.GetProjectFixtureSymbols(), kSelected, unsaved.publishedGdtfPath,
+      symbols, gdtf::MutationPolicy::CompleteAndImprove);
+  assert(repeatUnsaved.success && !repeatUnsaved.standardGdtfUpdated);
+  assert(ReadFile(unsaved.publishedGdtfPath) == unsavedBytes);
+  assert(ReadFile(collision) == collisionBefore);
+
+  // A different source with the same canonical name cannot replace either an
+  // unrelated destination or the already published derivative in the library.
+  const fs::path distinctSource = directory / "AnotherImportedSource.gdtf";
+  fs::copy_file(source, distinctSource, fs::copy_options::overwrite_existing);
+  const auto distinctBytes = ReadFile(distinctSource);
+  cfg.Reset();
+  scene.fixtures[kSelected] = MakeFixture(kSelected, distinctSource.string());
+  const auto separate = symbols::PrepareFixtureSymbols(scene,
+      cfg.GetProjectFixtureSymbols(), kSelected, distinctSource.string(), symbols,
+      gdtf::MutationPolicy::CompleteAndImprove);
+  assert(separate.success && separate.standardGdtfUpdated);
+  assert(separate.publishedGdtfPath != collision.string());
+  assert(separate.publishedGdtfPath != unsaved.publishedGdtfPath);
+  assert(ReadFile(collision) == collisionBefore);
+  assert(ReadFile(unsaved.publishedGdtfPath) == unsavedBytes);
+  assert(ReadFile(distinctSource) == distinctBytes);
 }
 
+void CheckLegacyReadAndRuntimePlaceholder(ConfigManager &cfg, const fs::path &directory) {
+  cfg.Reset();
+  auto &scene = cfg.GetScene();
+  const fs::path legacy = directory / "LegacyInternal.gdtf";
+  const std::string svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" "
+      "viewBox=\"0 0 100 50\" data-perastage-symbol-version=\"1\" "
+      "data-perastage-offset-x-mm=\"7\" data-perastage-offset-y-mm=\"8\">"
+      "<polygon points=\"0,0 100,0 100,50 0,50\"/></svg>";
+  auto builder = tests::gdtf::BuildMinimalValidFixture().WithModelResource("legacy");
+  for (const auto view : {SymbolViewKind::Top, SymbolViewKind::Front,
+                         SymbolViewKind::Left, SymbolViewKind::Bottom})
+    builder.WithArchiveEntry(BuildPerastageFixtureSymbolPath("legacy", view), svg);
+  builder.WriteArchive(legacy);
+  const auto before = ReadFile(legacy);
+  scene.fixtures[kSelected] = MakeFixture(kSelected, legacy.string());
+  FixtureSymbolResourceInspection resources;
+  assert(InspectFixtureSymbolResources(legacy.string(), resources));
+  assert(resources.perastageViewsUsable);
+  assert(!resources.standardViewsUsable);
+  const auto loaded = symbol_cache::LoadUsableFixtureSymbol(legacy.string(), SymbolViewKind::Top);
+  assert(loaded && loaded->offsetXmm == 7.0 && loaded->offsetYmm == 8.0);
+  assert(ReadFile(legacy) == before);
+
+  // Completing standards cleans the derivative only after the exact legacy
+  // project representation has been retained outside the exchange archive.
+  scene.basePath = directory.string();
+  const auto completed = symbols::PrepareFixtureSymbols(scene,
+      cfg.GetProjectFixtureSymbols(), kSelected, legacy.string(), BuildSymbols(),
+      gdtf::MutationPolicy::CompleteAndImprove);
+  assert(completed.success && completed.projectSymbolsUpdated);
+  assert(completed.standardGdtfUpdated && completed.fixtureReferencesUpdated);
+  const auto *legacyProject = cfg.GetProjectFixtureSymbols().FindForFixture(scene.fixtures.at(kSelected));
+  assert(legacyProject && legacyProject->generatorVersion == "legacy-perastage-import-1");
+  for (const auto &view : legacyProject->views) {
+    assert(view.svg == svg);
+    assert(view.offsetXmm == 7.0 && view.offsetYmm == 8.0);
+  }
+  for (const auto &[name, bytes] : ReadArchiveFile(completed.publishedGdtfPath)) {
+    (void)bytes;
+    assert(!name.starts_with("perastage/symbols/"));
+  }
+  assert(ReadFile(legacy) == before);
+
+  const fs::path noGeometryLegacy = directory / "LegacyNoGeometry.gdtf";
+  fs::copy_file(legacy, noGeometryLegacy, fs::copy_options::overwrite_existing);
+  scene.fixtures[kGenerated] = MakeFixture(kGenerated, noGeometryLegacy.string());
+  const auto noGeometry = symbols::ApplyRuntimeFixtureSymbolPlaceholder(scene,
+      cfg.GetProjectFixtureSymbols(), kGenerated, noGeometryLegacy.string());
+  assert(noGeometry.success && noGeometry.projectSymbolsUpdated);
+  const auto *retainedLegacy = cfg.GetProjectFixtureSymbols().FindForFixture(scene.fixtures.at(kGenerated));
+  assert(retainedLegacy && retainedLegacy->generatorVersion == "legacy-perastage-import-1");
+  assert(retainedLegacy->FindView(SymbolViewKind::Top)->svg == svg);
+  assert(ReadFile(noGeometryLegacy) == before);
+
+  const fs::path authoredTop = directory / "UsableAuthoredTop.gdtf";
+  const std::string authored = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\">"
+      "<polygon points=\"0,0 10,0 10,10\"/></svg>";
+  tests::gdtf::BuildMinimalValidFixture().WithModelResource("authored")
+      .WithArchiveEntry("models/svg/authored.svg", authored).WriteArchive(authoredTop);
+  scene.fixtures[kOtherMode] = MakeFixture(kOtherMode, authoredTop.string());
+  const auto authoredBytes = ReadFile(authoredTop);
+  const auto keepAuthored = symbols::ApplyRuntimeFixtureSymbolPlaceholder(scene,
+      cfg.GetProjectFixtureSymbols(), kOtherMode, authoredTop.string());
+  assert(keepAuthored.success && !keepAuthored.projectSymbolsUpdated);
+  assert(!cfg.GetProjectFixtureSymbols().FindForFixture(scene.fixtures.at(kOtherMode)));
+  assert(ReadFile(authoredTop) == authoredBytes);
+
+  scene.fixtures[kPlaceholder] = MakeFixture(kPlaceholder, (directory / "PlaceholderMissing.gdtf").string());
+  const auto placeholder = symbols::ApplyRuntimeFixtureSymbolPlaceholder(scene,
+      cfg.GetProjectFixtureSymbols(), kPlaceholder, "");
+  assert(placeholder.success && placeholder.projectSymbolsUpdated);
+  assert(!placeholder.standardGdtfUpdated && !placeholder.fixtureReferencesUpdated);
+  const auto expected = *cfg.GetProjectFixtureSymbols().FindForFixture(scene.fixtures.at(kPlaceholder));
+  assert(expected.generatorVersion == "runtime-fixture-placeholder-1");
+  assert(expected.kind == symbols::ProjectFixtureSymbolKind::GeneratedFallback);
+  for (const auto &view : expected.views) {
+    assert(view.svg.find("viewBox=\"0 0 200 200\"") != std::string::npos);
+    assert(view.offsetXmm == 100.0 && view.offsetYmm == 100.0);
+  }
+  const auto repeated = symbols::ApplyRuntimeFixtureSymbolPlaceholder(scene,
+      cfg.GetProjectFixtureSymbols(), kPlaceholder, "");
+  assert(repeated.success && !repeated.projectSymbolsUpdated);
+  assert(ReadFile(legacy) == before);
+}
+
+void CheckNewInstanceInheritanceAndConflict(const fs::path &directory) {
+  MvrScene scene;
+  symbols::ProjectFixtureSymbolStore store;
+  scene.fixtures[kSelected] = MakeFixture(kSelected, "definition.gdtf");
+  scene.fixtures[kShared] = MakeFixture(kShared, "definition.gdtf");
+  scene.fixtures[kOtherMode] = MakeFixture(kOtherMode, "definition.gdtf", "Other mode");
+  symbols::ProjectFixtureSymbolBundle bundle;
+  std::string error;
+  assert(symbols::BuildProjectFixtureSymbolBundle(BuildSymbols(),
+      symbols::ProjectFixtureSymbolKind::UserOverride, "", bundle, error));
+  assert(store.ApplyToFixtures(scene, {kSelected, kShared}, bundle, error));
+  const auto originalBinding = scene.fixtures.at(kSelected).projectSymbolDefinitionId;
+  const auto originalContent = store.ContentIdForDefinition(originalBinding);
+  scene.fixtures[kGenerated] = MakeFixture(kGenerated, "definition.gdtf");
+  const auto inherited = symbols::InheritFixtureProjectSymbols(scene, store, kGenerated);
+  assert(inherited.success && inherited.projectSymbolsUpdated);
+  assert(!inherited.symbolBindingConflict);
+  assert(scene.fixtures.at(kSelected).projectSymbolDefinitionId == originalBinding);
+  assert(scene.fixtures.at(kShared).projectSymbolDefinitionId == originalBinding);
+  assert(scene.fixtures.at(kOtherMode).projectSymbolDefinitionId.empty());
+  assert(store.ContentIdForDefinition(scene.fixtures.at(kGenerated).projectSymbolDefinitionId) == originalContent);
+  assert(*store.FindForFixture(scene.fixtures.at(kGenerated)) == bundle);
+  assert(store.BundleCount() == 1);
+
+  auto conflictingBundle = bundle;
+  conflictingBundle.views.front().offsetXmm += 1.0;
+  scene.fixtures[kOtherMode].gdtfMode = "Default";
+  assert(store.ApplyToFixtures(scene, {kOtherMode}, conflictingBundle, error));
+  const auto conflictBinding = scene.fixtures.at(kOtherMode).projectSymbolDefinitionId;
+  scene.fixtures[kPlaceholder] = MakeFixture(kPlaceholder, "definition.gdtf");
+  const auto conflict = symbols::InheritFixtureProjectSymbols(scene, store, kPlaceholder);
+  assert(conflict.success && conflict.symbolBindingConflict);
+  assert(!conflict.projectSymbolsUpdated && !conflict.warnings.empty());
+  assert(scene.fixtures.at(kPlaceholder).projectSymbolDefinitionId.empty());
+  assert(scene.fixtures.at(kOtherMode).projectSymbolDefinitionId == conflictBinding);
+  assert(scene.fixtures.at(kSelected).projectSymbolDefinitionId == originalBinding);
+  assert(*store.FindForFixture(scene.fixtures.at(kSelected)) == bundle);
+  assert(*store.FindForFixture(scene.fixtures.at(kOtherMode)) == conflictingBundle);
+  const auto rejectedAutomatic = symbols::PrepareFixtureSymbols(scene, store, kPlaceholder,
+      "", BuildSymbols(), gdtf::MutationPolicy::PreserveImported);
+  assert(rejectedAutomatic.success && rejectedAutomatic.symbolBindingConflict);
+  assert(!rejectedAutomatic.projectSymbolsUpdated);
+  assert(scene.fixtures.at(kPlaceholder).projectSymbolDefinitionId.empty());
+
+  scene.basePath = directory.string();
+  const fs::path legacySource = directory / "definition.gdtf";
+  const std::string legacySvg = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\" "
+      "data-perastage-symbol-version=\"1\"><polygon points=\"0,0 10,0 10,10\"/></svg>";
+  auto builder = tests::gdtf::BuildMinimalValidFixture().WithModelResource("conflict");
+  for (const auto view : {SymbolViewKind::Top, SymbolViewKind::Front,
+                         SymbolViewKind::Left, SymbolViewKind::Bottom})
+    builder.WithArchiveEntry(BuildPerastageFixtureSymbolPath("conflict", view), legacySvg);
+  builder.WriteArchive(legacySource);
+  const auto sourceBefore = ReadFile(legacySource);
+  const auto retainLegacy = symbols::PrepareFixtureSymbols(scene, store, kPlaceholder,
+      legacySource.string(), BuildSymbols(), gdtf::MutationPolicy::CompleteAndImprove);
+  assert(retainLegacy.success && retainLegacy.symbolBindingConflict);
+  assert(!retainLegacy.projectSymbolsUpdated && !retainLegacy.standardGdtfUpdated);
+  assert(!retainLegacy.fixtureReferencesUpdated && !retainLegacy.warnings.empty());
+  assert(scene.fixtures.at(kPlaceholder).gdtfSpec == "definition.gdtf");
+  assert(scene.fixtures.at(kPlaceholder).projectSymbolDefinitionId.empty());
+  assert(ReadFile(legacySource) == sourceBefore);
+}
 } // namespace
 
-// Runs the symbol-to-GDTF mutation ownership and compatibility regression test.
 int main() {
   wxInitializer initializer;
   assert(initializer.IsOk());
-
-  auto &cfg = ConfigManager::Get();
-  cfg.Reset();
-  MvrScene &scene = cfg.GetScene();
-  ScopedTempProject project;
-  ScopedFixtureDictionary dictionaryGuard;
-  scene.basePath = project.path.string();
-
-  const std::string gdtfSpec = MakeFixtureGdtf(project.path);
-  const std::string gdtfPath = (project.path / gdtfSpec).string();
-
-  Fixture fixture;
-  fixture.uuid = "fixture-symbol-test";
-  fixture.typeName = "SymbolFixture";
-  fixture.gdtfSpec = gdtfSpec;
-  scene.fixtures[fixture.uuid] = fixture;
-  Fixture sharedFixture = fixture;
-  sharedFixture.uuid = "fixture-symbol-shared";
-  scene.fixtures[sharedFixture.uuid] = sharedFixture;
-
-  const std::string originalFixtureSpec = fixture.gdtfSpec;
-  const fs::path canonicalBeforeFailure =
-      project.path / "fixtures" /
-      GdtfDictionary::BuildPerastageCanonicalGdtfFileName(gdtfPath);
-  fs::create_directories(canonicalBeforeFailure.parent_path());
-  const std::string previousPublishedBytes = "previous derivative";
-  std::ofstream(canonicalBeforeFailure, std::ios::binary)
-      << previousPublishedBytes;
-  const auto allSymbols = BuildSymbols();
-  const std::vector<symbols::Symbol2D> incompleteSymbols = {allSymbols.front()};
-  symbol_preview::ApplySymbolsOptions projectOnlyOptions;
-  projectOnlyOptions.updateSceneCopy = true;
-  projectOnlyOptions.updateLibraryCopy = false;
-  const symbol_preview::ApplySymbolsResult failedPublication =
-      symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
-          incompleteSymbols, fixture.uuid, projectOnlyOptions);
-  assert(!failedPublication.success);
-  assert(scene.fixtures.at(fixture.uuid).gdtfSpec == originalFixtureSpec);
-  assert(scene.fixtures.at(sharedFixture.uuid).gdtfSpec == originalFixtureSpec);
-  {
-    std::ifstream previousPublishedInput(canonicalBeforeFailure,
-                                         std::ios::binary);
-    assert(std::string(std::istreambuf_iterator<char>(previousPublishedInput),
-                       std::istreambuf_iterator<char>()) ==
-           previousPublishedBytes);
-  }
-  for (const auto &entry : fs::directory_iterator(canonicalBeforeFailure.parent_path()))
-    assert(entry.path().filename().string().find(".working.") ==
-           std::string::npos);
-
-  symbol_preview::FixtureSymbolInspectionResult before{};
-  std::string errorMessage;
-  assert(symbol_preview::InspectFixtureSymbolState(fixture, scene, before, errorMessage));
-  assert(errorMessage.empty());
-  assert(before.hasResolvableGdtf);
-  assert(!before.editorIsPerastage);
-  assert(before.requiresSymbolGeneration);
-
-  const auto symbols = allSymbols;
-  symbol_preview::ApplySymbolsOptions options;
-  options.updateSceneCopy = true;
-  options.updateLibraryCopy = false;
-  const symbol_preview::ApplySymbolsResult sceneResult =
-      symbol_preview::ApplySymbolsToFixtureGdtfWithResult(symbols, fixture.uuid,
-                                                          options);
-  ReportUnexpectedApplyResult(
-      sceneResult, sceneResult.success && sceneResult.sceneUpdated &&
-                       !sceneResult.libraryUpdated &&
-                       !sceneResult.finalScenePath.empty() &&
-                       !sceneResult.finalSceneFingerprint.empty() &&
-                       sceneResult.warnings.empty());
-  assert(sceneResult.success);
-  assert(sceneResult.sceneUpdated);
-  assert(!sceneResult.libraryUpdated);
-  assert(!sceneResult.finalScenePath.empty());
-  assert(!sceneResult.finalSceneFingerprint.empty());
-  assert(sceneResult.warnings.empty());
-  assert(scene.fixtures.at(fixture.uuid).gdtfSpec.find("fixtures/") == 0);
-  assert(scene.fixtures.at(sharedFixture.uuid).gdtfSpec ==
-         scene.fixtures.at(fixture.uuid).gdtfSpec);
-
-  const std::string mutatedPath =
-      (project.path / scene.fixtures.at(fixture.uuid).gdtfSpec).string();
-
-  const ArchiveSnapshot mutatedSnapshot =
-      ReadArchiveSnapshot(fs::path(mutatedPath));
-
-  std::string derivativeValidationError;
-  assert(fixture_gdtf::ValidatePublishedDerivative(
-      mutatedPath, derivativeValidationError));
-  assert(derivativeValidationError.empty());
-
-  assert(mutatedSnapshot.entries.find("perastage/symbols/Body/top.svg") !=
-         mutatedSnapshot.entries.end());
-  assert(mutatedSnapshot.entries.find("perastage/symbols/Body/bottom.svg") !=
-         mutatedSnapshot.entries.end());
-  assert(mutatedSnapshot.entries.find("perastage/symbols/Body/side.svg") !=
-         mutatedSnapshot.entries.end());
-  assert(mutatedSnapshot.entries.find("perastage/symbols/Body/front.svg") !=
-         mutatedSnapshot.entries.end());
-
-  assert(!mutatedSnapshot.entries.contains("models/svg/Body.svg"));
-  assert(!mutatedSnapshot.entries.contains("models/svg_side/Body.svg"));
-  assert(!mutatedSnapshot.entries.contains("models/svg_front/Body.svg"));
-  assert(!mutatedSnapshot.entries.contains("models/svg/Body_bottom.svg"));
-
-  std::string rawNameError;
-  const std::vector<std::string> rawNames =
-      tests::archive::ReadRawCentralDirectoryEntryNames(mutatedPath, rawNameError);
-  assert(rawNameError.empty());
-  for (const std::string &expectedName : {"perastage/symbols/Body/top.svg",
-                                          "perastage/symbols/Body/bottom.svg",
-                                          "perastage/symbols/Body/side.svg",
-                                          "perastage/symbols/Body/front.svg"}) {
-    assert(std::find(rawNames.begin(), rawNames.end(), expectedName) !=
-           rawNames.end());
-  }
-  for (const std::string &rawName : rawNames) {
-    assert(rawName.find('\\') == std::string::npos);
-  }
-
-  tinyxml2::XMLDocument doc;
-  assert(doc.Parse(mutatedSnapshot.descriptionXml.c_str(),
-                   mutatedSnapshot.descriptionXml.size()) ==
-         tinyxml2::XML_SUCCESS);
-
-  tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
-  assert(fixtureType != nullptr);
-  fixtureType = fixtureType->FirstChildElement("FixtureType");
-  assert(fixtureType != nullptr);
-
-  const char *editor = fixtureType->Attribute("Editor");
-  assert(editor == nullptr);
-
-  const bool hasRevision =
-      fixtureType->FirstChildElement("Revisions") != nullptr &&
-      fixtureType->FirstChildElement("Revisions")->FirstChildElement("Revision") != nullptr;
-  assert(hasRevision);
-
-  tinyxml2::XMLElement *audit = fixtureType->FirstChildElement("PerastageMutationAudit");
-  assert(audit == nullptr);
-
-  tinyxml2::XMLElement *revision =
-      fixtureType->FirstChildElement("Revisions")->FirstChildElement("Revision");
-  assert(revision != nullptr);
-  const char *date = revision->Attribute("Date");
-  const char *text = revision->Attribute("Text");
-  const char *modifiedBy = revision->Attribute("ModifiedBy");
-  assert(date != nullptr && std::string(date).size() > 0);
-  assert(text != nullptr);
-  assert(modifiedBy != nullptr);
-  assert(std::string(text) ==
-         "Applied Perastage fixture SVG symbol views (top, side, front, bottom)");
-  assert(std::string(modifiedBy).rfind("Perastage ", 0) == 0);
-
-  symbol_preview::FixtureSymbolInspectionResult after{};
-  assert(symbol_preview::InspectFixtureSymbolState(scene.fixtures.at(fixture.uuid), scene,
-                                                   after, errorMessage));
-  assert(errorMessage.empty());
-  assert(after.editorIsPerastage);
-  assert(after.hasValidSvgSymbolSet);
-  assert(!after.requiresSymbolGeneration);
-
-  symbol_preview::ApplySymbolsOptions invalidOptions;
-  invalidOptions.updateSceneCopy = false;
-  invalidOptions.updateLibraryCopy = false;
-  const std::string specBeforeFailedApply =
-      scene.fixtures.at(fixture.uuid).gdtfSpec;
-  const symbol_preview::ApplySymbolsResult invalidResult =
-      symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
-          symbols, fixture.uuid, invalidOptions);
-  ReportUnexpectedApplyResult(
-      invalidResult, !invalidResult.success && !invalidResult.sceneUpdated &&
-                         !invalidResult.libraryUpdated &&
-                         invalidResult.diagnostic ==
-                             "No fixture GDTF persistence target was requested.");
-  assert(!invalidResult.success);
-  assert(!invalidResult.sceneUpdated);
-  assert(!invalidResult.libraryUpdated);
-  assert(invalidResult.diagnostic ==
-         "No fixture GDTF persistence target was requested.");
-  assert(scene.fixtures.at(fixture.uuid).gdtfSpec == specBeforeFailedApply);
-
-  scene.fixtures.at(fixture.uuid).typeName.clear();
-  symbol_preview::ApplySymbolsOptions dualOptions;
-  dualOptions.updateSceneCopy = true;
-  dualOptions.updateLibraryCopy = true;
-  const symbol_preview::ApplySymbolsResult libraryFailureResult =
-      symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
-          symbols, fixture.uuid, dualOptions);
-  ReportUnexpectedApplyResult(libraryFailureResult,
-                              libraryFailureResult.success &&
-                                  libraryFailureResult.sceneUpdated &&
-                                  !libraryFailureResult.libraryUpdated &&
-                                  !libraryFailureResult.finalSceneFingerprint.empty() &&
-                                  libraryFailureResult.warnings.size() == 1);
-  assert(libraryFailureResult.success);
-  assert(libraryFailureResult.sceneUpdated);
-  assert(!libraryFailureResult.libraryUpdated);
-  assert(!libraryFailureResult.finalSceneFingerprint.empty());
-  assert(libraryFailureResult.warnings.size() == 1);
-  assert(scene.fixtures.at(fixture.uuid).gdtfSpec ==
-         scene.fixtures.at(sharedFixture.uuid).gdtfSpec);
-  assert(fixture_gdtf::ValidatePublishedDerivative(
-      libraryFailureResult.finalScenePath, derivativeValidationError));
-  scene.fixtures.at(fixture.uuid).typeName = fixture.typeName;
-
-  const fs::path dictionaryPath = project.path / "fixture-symbol-dictionary.json";
-  assert(GdtfDictionary::CreateEmptyDictionaryFile(dictionaryPath.string(),
-                                                   &errorMessage));
-  assert(dictionaryGuard.Activate(dictionaryPath, errorMessage));
-
-  const symbol_preview::ApplySymbolsResult dualResult =
-      symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
-          symbols, fixture.uuid, dualOptions);
-  ReportUnexpectedApplyResult(
-      dualResult, dualResult.success && dualResult.sceneUpdated &&
-                      dualResult.libraryUpdated &&
-                      !dualResult.finalScenePath.empty() &&
-                      !dualResult.finalLibraryPath.empty());
-  assert(dualResult.success);
-  assert(dualResult.sceneUpdated);
-  assert(dualResult.libraryUpdated);
-  assert(!dualResult.finalScenePath.empty());
-  assert(!dualResult.finalLibraryPath.empty());
-  assert(scene.fixtures.at(fixture.uuid).gdtfSpec.find("fixtures/") == 0);
-  assert(!InspectFixturePath("fixture-library-inspection",
-                             dualResult.finalLibraryPath)
-              .requiresSymbolGeneration);
-
-  symbol_preview::ApplySymbolsOptions libraryOnlyOptions;
-  libraryOnlyOptions.updateSceneCopy = false;
-  libraryOnlyOptions.updateLibraryCopy = true;
-  const symbol_preview::ApplySymbolsResult libraryOnlyResult =
-      symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
-          symbols, fixture.uuid, libraryOnlyOptions);
-  ReportUnexpectedApplyResult(
-      libraryOnlyResult,
-      libraryOnlyResult.success && !libraryOnlyResult.sceneUpdated &&
-          libraryOnlyResult.libraryUpdated &&
-          libraryOnlyResult.finalScenePath.empty());
-  assert(libraryOnlyResult.success);
-  assert(!libraryOnlyResult.sceneUpdated);
-  assert(libraryOnlyResult.libraryUpdated);
-  assert(libraryOnlyResult.finalScenePath.empty());
-
-  const fs::path dictionaryAssets =
-      project.path / "fixture-symbol-dictionary_assets";
-  fs::create_directories(dictionaryAssets);
-  const fs::path sameFileArchive =
-      dictionaryAssets /
-      GdtfDictionary::BuildPerastageCanonicalGdtfFileName(gdtfPath);
-  fs::copy_file(gdtfPath, sameFileArchive,
-                fs::copy_options::overwrite_existing);
-  Fixture sameFileFixture;
-  sameFileFixture.uuid = "fixture-symbol-same-file";
-  sameFileFixture.typeName = "SameFileSymbolFixture";
-  sameFileFixture.gdtfSpec =
-      fs::relative(sameFileArchive, project.path).generic_string();
-  scene.fixtures[sameFileFixture.uuid] = sameFileFixture;
-  const std::size_t revisionsBefore =
-      CountSymbolMutationRevisions(sameFileArchive);
-  symbol_cache::ClearGdtfSemanticFingerprintCache();
-  const symbol_preview::ApplySymbolsResult sameFileResult =
-      symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
-          symbols, sameFileFixture.uuid, dualOptions);
-  ReportUnexpectedApplyResult(
-      sameFileResult, sameFileResult.success && sameFileResult.sceneUpdated &&
-                          sameFileResult.libraryUpdated);
-  assert(sameFileResult.success);
-  assert(sameFileResult.sceneUpdated);
-  assert(sameFileResult.libraryUpdated);
-  std::error_code equivalenceError;
-  assert(!fs::equivalent(sameFileResult.finalScenePath,
-                         sameFileResult.finalLibraryPath, equivalenceError));
-  assert(!equivalenceError);
-  assert(fixture_gdtf::ValidatePublishedDerivative(
-      sameFileResult.finalScenePath, derivativeValidationError));
-  assert(fixture_gdtf::ValidatePublishedDerivative(
-      sameFileResult.finalLibraryPath, derivativeValidationError));
-  assert(CountSymbolMutationRevisions(sameFileArchive) == revisionsBefore + 1);
-  assert(!InspectFixturePath("fixture-same-file-inspection",
-                             sameFileArchive.string())
-              .requiresSymbolGeneration);
-  std::string fingerprintError;
-  assert(symbol_cache::ComputeGdtfSemanticFingerprint(
-             sameFileArchive.string(), fingerprintError) ==
-         sameFileResult.finalSceneFingerprint);
-  assert(fingerprintError.empty());
-
-  const fs::path authoredSource = project.path / "AuthoredPartial.gdtf";
-  MakeAuthoredPartialFixture(authoredSource, true);
-  const std::string authoredSourceBytes = ReadFileBytes(authoredSource);
-  const ArchiveSnapshot authoredBefore = ReadArchiveSnapshot(authoredSource);
-  Fixture authoredFixture;
-  authoredFixture.uuid = "fixture-authored-partial";
-  authoredFixture.typeName = "AuthoredPartial";
-  authoredFixture.gdtfSpec = authoredSource.filename().string();
-  scene.fixtures[authoredFixture.uuid] = authoredFixture;
-  const auto authoredBeforeInspection =
-      InspectFixturePath(authoredFixture.uuid, authoredSource.string());
-  assert(!authoredBeforeInspection.hasValidSvgSymbolSet);
-  assert(authoredBeforeInspection.requiresSymbolGeneration);
-  auto authoredSymbols = symbols;
-  authoredSymbols.front().bounds.min = {3.0f, 4.0f};
-  authoredSymbols.front().bounds.max = {103.0f, 54.0f};
-  authoredSymbols.front().strokes = {{{3.0f, 4.0f}, {103.0f, 54.0f}}};
-  const auto authoredResult = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
-      authoredSymbols, authoredFixture.uuid, projectOnlyOptions);
-  ReportUnexpectedApplyResult(authoredResult, authoredResult.success);
-  assert(authoredResult.success);
-  assert(ReadFileBytes(authoredSource) == authoredSourceBytes);
-  const ArchiveSnapshot authoredAfter = ReadArchiveSnapshot(authoredResult.finalScenePath);
-  for (const std::string &path : {"models/svg/base.svg", "models/svg_side/base.svg"})
-    assert(authoredAfter.contents.at(path) == authoredBefore.contents.at(path));
-
-  tinyxml2::XMLDocument authoredDocument;
-  assert(authoredDocument.Parse(authoredAfter.descriptionXml.c_str()) ==
-         tinyxml2::XML_SUCCESS);
-  const auto *authoredModel = authoredDocument.FirstChildElement("GDTF")
-                                  ->FirstChildElement("FixtureType")
-                                  ->FirstChildElement("Models")
-                                  ->FirstChildElement("Model");
-  assert(authoredModel->FloatAttribute("SVGOffsetX") == 11.0f);
-  assert(authoredModel->FloatAttribute("SVGOffsetY") == 12.0f);
-  assert(authoredModel->FloatAttribute("SVGSideOffsetX") == 13.0f);
-  assert(authoredModel->FloatAttribute("SVGSideOffsetY") == 14.0f);
-  FixtureSymbolResourceInspection authoredResources;
-  assert(InspectFixtureSymbolResources(authoredResult.finalScenePath, authoredResources));
-  assert(!authoredResources.standardViewsUsable);
-  assert(authoredResources.perastageViewsUsable);
-  assert(authoredResources.FindStandardView(SymbolViewKind::Top)->provenance ==
-         FixtureSymbolProvenance::AuthoredGdtf);
-  assert(authoredResources.FindStandardView(SymbolViewKind::Left)->provenance ==
-         FixtureSymbolProvenance::AuthoredGdtf);
-  assert(!authoredResources.FindStandardView(SymbolViewKind::Front)->exists);
-  assert(!authoredAfter.entries.contains("models/svg_front/base.svg"));
-  assert(!authoredAfter.entries.contains("models/svg/base_bottom.svg"));
-  for (const SymbolViewKind view : {SymbolViewKind::Top, SymbolViewKind::Left,
-                                   SymbolViewKind::Front, SymbolViewKind::Bottom}) {
-    const auto *resource = authoredResources.FindPerastageView(view);
-    assert(resource->provenance == FixtureSymbolProvenance::GeneratedPerastage);
-    assert(!resource->standardGdtf);
-    const std::string &path = resource->archivePath;
-    tinyxml2::XMLDocument generatedDocument;
-    assert(generatedDocument.Parse(authoredAfter.contents.at(path).c_str()) ==
-           tinyxml2::XML_SUCCESS);
-    assert(generatedDocument.FirstChildElement("svg")->IntAttribute(
-               kPerastageSymbolVersionAttribute) ==
-           kCurrentPerastageSymbolResourceVersion);
-  }
-
-  PerastageSvgSymbolData internalTop;
-  std::string internalTopError;
-  assert(LoadPerastageSvgSymbolFromGdtf(authoredResult.finalScenePath,
-                                      SymbolViewKind::Top, internalTop,
-                                      &internalTopError));
-  assert(internalTopError.empty());
-  assert(internalTop.sourcePath == "perastage/symbols/base/top.svg");
-  assert(internalTop.offsetXmm == -3.0);
-  assert(internalTop.offsetYmm == -4.0);
-
-  const auto standardTop = ResolveFixtureSymbolView(authoredResources,
-      SymbolViewKind::Top, FixtureSymbolResolutionPurpose::StandardGdtf);
-  assert(standardTop.resourceSet == FixtureSymbolResourceSet::StandardGdtf);
-  assert(standardTop.offsetXmm == 11.0 && standardTop.offsetYmm == 12.0);
-  PerastageSvgSymbolData loadedStandard;
-  assert(LoadPerastageSvgSymbolFromGdtf(authoredResult.finalScenePath,
-      SymbolViewKind::Top, loadedStandard, nullptr,
-      FixtureSymbolResolutionPurpose::StandardGdtf));
-  assert(loadedStandard.sourcePath == "models/svg/base.svg");
-  assert(loadedStandard.offsetXmm == 11.0 && loadedStandard.offsetYmm == 12.0);
-
-  // Reapplication preserves every resource byte, description metadata, offsets,
-  // revision count and semantic identity, including authored standard content.
-  const auto authoredRevisions = CountSymbolMutationRevisions(authoredResult.finalScenePath);
-  const auto repeated = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
-      authoredSymbols, authoredFixture.uuid, projectOnlyOptions);
-  assert(repeated.success);
-  assert(repeated.finalSceneFingerprint == authoredResult.finalSceneFingerprint);
-  assert(ReadArchiveSnapshot(repeated.finalScenePath).contents == authoredAfter.contents);
-  assert(CountSymbolMutationRevisions(repeated.finalScenePath) == authoredRevisions);
-  FixtureSymbolResourceInspection repeatedResources;
-  assert(InspectFixtureSymbolResources(repeated.finalScenePath, repeatedResources));
-  for (const auto view : {SymbolViewKind::Top, SymbolViewKind::Left,
-                         SymbolViewKind::Front, SymbolViewKind::Bottom}) {
-    const auto *before = authoredResources.FindPerastageView(view);
-    const auto *after = repeatedResources.FindPerastageView(view);
-    assert(before->archivePath == after->archivePath);
-    assert(before->provenance == after->provenance);
-    assert(before->usable == after->usable);
-    assert(before->offsetXmm == after->offsetXmm);
-    assert(before->offsetYmm == after->offsetYmm);
-  }
-  assert(ReadFileBytes(authoredSource) == authoredSourceBytes);
-
-  auto changedSymbols = authoredSymbols;
-  changedSymbols.front().strokes.front().back().x += 1.0f;
-  const auto changed = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
-      changedSymbols, authoredFixture.uuid, projectOnlyOptions);
-  assert(changed.success);
-  assert(changed.finalSceneFingerprint != repeated.finalSceneFingerprint);
-  assert(CountSymbolMutationRevisions(changed.finalScenePath) == authoredRevisions + 1);
-  const auto changedArchive = ReadArchiveSnapshot(changed.finalScenePath);
-  assert(changedArchive.contents.at("perastage/symbols/base/top.svg") !=
-         authoredAfter.contents.at("perastage/symbols/base/top.svg"));
-  assert(changedArchive.descriptionXml.find(
-      "Applied Perastage fixture SVG symbol views (top)") != std::string::npos);
-  for (const std::string &path : {"models/svg/base.svg", "models/svg_side/base.svg"})
-    assert(changedArchive.contents.at(path) == authoredBefore.contents.at(path));
-  const auto changedAgain = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
-      changedSymbols, authoredFixture.uuid, projectOnlyOptions);
-  assert(changedAgain.success);
-  assert(changedAgain.finalSceneFingerprint == changed.finalSceneFingerprint);
-  assert(ReadArchiveSnapshot(changedAgain.finalScenePath).contents == changedArchive.contents);
-
-  // Internal offset changes are effective metadata changes even when the
-  // original generated geometry is supplied again without editing its points.
-  auto offsetSymbols = changedSymbols;
-  offsetSymbols.front().bounds.min.x -= 2.0f;
-  const auto offsetResult = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
-      offsetSymbols, authoredFixture.uuid, projectOnlyOptions);
-  assert(offsetResult.success);
-  assert(offsetResult.finalSceneFingerprint != changed.finalSceneFingerprint);
-  assert(CountSymbolMutationRevisions(offsetResult.finalScenePath) == authoredRevisions + 2);
-  FixtureSymbolResourceInspection offsetResources;
-  assert(InspectFixtureSymbolResources(offsetResult.finalScenePath, offsetResources));
-  assert(offsetResources.FindPerastageView(SymbolViewKind::Top)->offsetXmm == -1.0);
-  assert(offsetResources.FindStandardView(SymbolViewKind::Top)->offsetXmm == 11.0);
-  assert(offsetResources.FindStandardView(SymbolViewKind::Top)->offsetYmm == 12.0);
-  const auto offsetAgain = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
-      offsetSymbols, authoredFixture.uuid, projectOnlyOptions);
-  assert(offsetAgain.success);
-  assert(offsetAgain.finalSceneFingerprint == offsetResult.finalSceneFingerprint);
-  assert(CountSymbolMutationRevisions(offsetAgain.finalScenePath) == authoredRevisions + 2);
-  assert(ReadFileBytes(authoredSource) == authoredSourceBytes);
-
-  const fs::path invalidAuthoredSource = project.path / "InvalidAuthored.gdtf";
-  MakeAuthoredPartialFixture(invalidAuthoredSource, false);
-  const std::string invalidAuthoredSourceBytes = ReadFileBytes(invalidAuthoredSource);
-  Fixture invalidAuthoredFixture = authoredFixture;
-  invalidAuthoredFixture.uuid = "fixture-invalid-authored-partial";
-  invalidAuthoredFixture.typeName = "InvalidAuthored";
-  invalidAuthoredFixture.gdtfSpec = invalidAuthoredSource.filename().string();
-  scene.fixtures[invalidAuthoredFixture.uuid] = invalidAuthoredFixture;
-  const auto invalidAuthoredResult = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
-      symbols, invalidAuthoredFixture.uuid, projectOnlyOptions);
-  ReportUnexpectedApplyResult(invalidAuthoredResult, invalidAuthoredResult.success);
-  assert(invalidAuthoredResult.success);
-  assert(ReadFileBytes(invalidAuthoredSource) == invalidAuthoredSourceBytes);
-  const auto invalidAuthoredBefore = ReadArchiveSnapshot(invalidAuthoredSource);
-  const auto invalidAuthoredAfter = ReadArchiveSnapshot(invalidAuthoredResult.finalScenePath);
-  assert(invalidAuthoredAfter.contents.at("models/svg/base.svg") ==
-         invalidAuthoredBefore.contents.at("models/svg/base.svg"));
-  FixtureSymbolResourceInspection invalidAuthoredResources;
-  assert(InspectFixtureSymbolResources(invalidAuthoredResult.finalScenePath,
-                                      invalidAuthoredResources));
-  assert(!invalidAuthoredResources.FindStandardView(SymbolViewKind::Top)->usable);
-  assert(invalidAuthoredResources.FindStandardView(SymbolViewKind::Top)->provenance ==
-         FixtureSymbolProvenance::AuthoredGdtf);
-  assert(invalidAuthoredResources.perastageViewsUsable);
-
-  const fs::path standardOnlySource = project.path / "StandardViewsOnly.gdtf";
-  tests::gdtf::BuildMinimalValidFixture()
-      .WithFixtureIdentity("StandardViewsOnly", "Manufacturer",
-                           tests::gdtf::FixtureBuilder::kMinimalFixtureTypeId)
-      .WriteArchive(standardOnlySource);
-  Fixture standardOnlyFixture;
-  standardOnlyFixture.uuid = "fixture-standard-only";
-  standardOnlyFixture.typeName = "StandardViewsOnly";
-  standardOnlyFixture.gdtfSpec = standardOnlySource.filename().string();
-  scene.fixtures[standardOnlyFixture.uuid] = standardOnlyFixture;
-  std::vector<symbols::Symbol2D> standardSymbols;
-  for (const auto &symbol : symbols) {
-    if (symbol.view != symbols::SymbolView::Bottom)
-      standardSymbols.push_back(symbol);
-  }
-  const auto standardOnlyResult = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
-      standardSymbols, standardOnlyFixture.uuid, projectOnlyOptions);
-  assert(!standardOnlyResult.success);
-  assert(!standardOnlyResult.diagnostic.empty());
-  assert(scene.fixtures.at(standardOnlyFixture.uuid).gdtfSpec ==
-         standardOnlyFixture.gdtfSpec);
-
-  const std::string currentVersionPath = MakeFixtureGdtfFromFixtureTypeXml(
-      "<FixtureType Name=\"Current\" Manufacturer=\"Acme\" Editor=\"Vendor\">"
-      "<Models><Model Name=\"Body\" File=\"\" PrimitiveType=\"Cube\"/></Models>"
-      "<PerastageMutationAudit SchemaVersion=\"1\"/>"
-      "</FixtureType>");
-  const auto currentVersion =
-      InspectFixturePath("fixture-current-version", currentVersionPath);
-  assert(currentVersion.editorIsPerastage);
-  assert(currentVersion.hasValidSvgSymbolSet);
-  assert(!currentVersion.requiresSymbolGeneration);
-  assert(currentVersion.warningMessage.empty());
-
-  const std::string externalVersionPath = MakeFixtureGdtfFromFixtureTypeXml(
-      "<FixtureType Name=\"External\" Manufacturer=\"Acme\" Editor=\"Vendor\">"
-      "<Models><Model Name=\"Body\" File=\"\" PrimitiveType=\"Cube\"/></Models>"
-      "</FixtureType>");
-  const auto externalVersion =
-      InspectFixturePath("fixture-external-version", externalVersionPath);
-  assert(!externalVersion.editorIsPerastage);
-  assert(externalVersion.hasValidSvgSymbolSet);
-  assert(!externalVersion.requiresSymbolGeneration);
-
-  const std::string invalidExternalPath = MakeFixtureGdtfFromFixtureTypeXml(
-      "<FixtureType Name=\"InvalidExternal\" Manufacturer=\"Acme\" Editor=\"Vendor\">"
-      "<Models><Model Name=\"Body\" File=\"\" PrimitiveType=\"Cube\"/></Models>"
-      "</FixtureType>",
-      false);
-  const auto invalidExternal =
-      InspectFixturePath("fixture-invalid-external", invalidExternalPath);
-  assert(!invalidExternal.editorIsPerastage);
-  assert(!invalidExternal.hasValidSvgSymbolSet);
-  assert(invalidExternal.requiresSymbolGeneration);
-
-  const std::string unknownVersionPath = MakeFixtureGdtfFromFixtureTypeXml(
-      "<FixtureType Name=\"Future\" Manufacturer=\"Acme\" Editor=\"Perastage\">"
-      "<Models><Model Name=\"Body\" File=\"\" PrimitiveType=\"Cube\"/></Models>"
-      "<PerastageMutationAudit SchemaVersion=\"999\"/>"
-      "</FixtureType>");
-  const auto unknownVersion =
-      InspectFixturePath("fixture-unknown-version", unknownVersionPath);
-  assert(!unknownVersion.editorIsPerastage);
-  assert(unknownVersion.hasValidSvgSymbolSet);
-  assert(!unknownVersion.requiresSymbolGeneration);
-  assert(!unknownVersion.warningMessage.empty());
-
-  std::vector<GdtfObject> objects;
-  std::string loadError;
-  assert(LoadGdtf(mutatedPath, objects, &loadError));
-  assert(loadError.empty());
-
-  std::error_code ec;
-  fs::remove(currentVersionPath, ec);
-  fs::remove(externalVersionPath, ec);
-  fs::remove(invalidExternalPath, ec);
-  fs::remove(unknownVersionPath, ec);
-  CheckWhiteHoleMigration(project.path);
-  CheckUnsavedScene(project.path);
-  CheckUnsavedLibraryNameCollision(project.path);
+  TemporaryProject project;
+  ConfigManager &cfg = ConfigManager::Get();
+  CheckManualApplyAndIntegratedPersistence(cfg, project.path);
+  CheckUnsavedProjectAndFailures(cfg, project.path);
+  CheckAutomaticSafeDerivativeOwnership(cfg, project.path);
+  CheckLegacyReadAndRuntimePlaceholder(cfg, project.path);
+  CheckNewInstanceInheritanceAndConflict(project.path);
   cfg.Reset();
   return 0;
 }

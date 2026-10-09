@@ -23,6 +23,7 @@
 #include "magnet_snap.h"
 #include "mvr_preferences.h"
 #include "preferences/gdtf_credentials_panel.h"
+#include "preferences/gdtf_mutation_policy_panel.h"
 #include "selection_movement_settings.h"
 #include "units/units.h"
 #include "update/update_check_preferences.h"
@@ -252,9 +253,17 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   book->AddPage(updatesPanel, _("Updates"));
 
   // GDTF page
-  gdtfCredentialsPanel = new GdtfCredentialsPanel(book);
+  auto *gdtfPanel = new wxPanel(book);
+  auto *gdtfSizer = new wxBoxSizer(wxVERTICAL);
+  gdtfMutationPolicyPanel = new GdtfMutationPolicyPanel(gdtfPanel);
+  gdtfMutationPolicyPanel->LoadPreferences(
+      GetDefaultGuiConfigServices().Preferences());
+  gdtfSizer->Add(gdtfMutationPolicyPanel, 0, wxEXPAND);
+  gdtfCredentialsPanel = new GdtfCredentialsPanel(gdtfPanel);
   gdtfCredentialsPanel->LoadCredentials();
-  book->AddPage(gdtfCredentialsPanel, _("GDTF"));
+  gdtfSizer->Add(gdtfCredentialsPanel, 0, wxEXPAND);
+  gdtfPanel->SetSizer(gdtfSizer);
+  book->AddPage(gdtfPanel, _("GDTF"));
 
   // MVR Import / Export page
   wxPanel *mvrPanel = new wxPanel(book);
@@ -576,6 +585,8 @@ bool PreferencesDialog::ApplyPreferences() {
   cfg.SetValue(localization::kUiLanguageConfigKey,
                std::string(localization::AppLanguageCode(selectedLanguage)));
   auto &preferences = GetDefaultGuiConfigServices().Preferences();
+  if (gdtfMutationPolicyPanel)
+    gdtfMutationPolicyPanel->ApplyPreferences(preferences);
   if (updateCheckModeChoice && updateCheckModeChoice->GetSelection() == 1)
     gui::update::WriteStartupCheckMode(
         preferences, gui::update::StartupCheckMode::ManualOnly);

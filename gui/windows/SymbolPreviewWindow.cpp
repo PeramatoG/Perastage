@@ -198,11 +198,14 @@ void SymbolPreviewWindow::OnExportSelectedView(wxCommandEvent &WXUNUSED(event)) 
 
 void SymbolPreviewWindow::OnApplySymbolToFixture(wxCommandEvent &WXUNUSED(event)) {
   const symbol_preview::ApplySymbolsResult result =
-      symbol_preview::ApplySymbolsToFixtureGdtfWithResult(symbols_, fixtureUuid_);
+      symbol_preview::ApplySymbolsToFixtureProjectWithResult(symbols_, fixtureUuid_);
   const symbol_preview::ApplySymbolsPresentation presentation =
       symbol_preview::BuildApplySymbolsPresentation(result);
   if (presentation.kind == symbol_preview::ApplySymbolsMessageKind::Error) {
-    wxMessageBox(presentation.message, _("Apply Views to Fixture"),
+    const wxString error = result.diagnostic.empty()
+        ? _("The project fixture symbol was not updated.")
+        : wxString::FromUTF8(result.diagnostic);
+    wxMessageBox(error, _("Apply Views to Fixture"),
                  wxOK | wxICON_ERROR, this);
     return;
   }
@@ -214,10 +217,9 @@ void SymbolPreviewWindow::OnApplySymbolToFixture(wxCommandEvent &WXUNUSED(event)
   const long icon = presentation.kind == symbol_preview::ApplySymbolsMessageKind::Warning
                         ? wxICON_WARNING
                         : wxICON_INFORMATION;
-  const wxString message = result.success && result.libraryUpdated &&
-          result.fixtureReferencesUpdated && !result.sceneUpdated
-      ? _("Symbol views were applied to the fixture library derivative and the unsaved scene. Save the project to persist the scene references.")
-      : wxString::FromUTF8(presentation.message);
+  const wxString message = result.unsavedProject
+      ? _("Symbol views were applied to the unsaved project. Save the project to persist the symbol override.")
+      : _("Symbol views were applied to the project. Save the project to persist the symbol override.");
   wxMessageBox(message, _("Apply Views to Fixture"), wxOK | icon, this);
 }
 

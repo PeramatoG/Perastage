@@ -67,6 +67,8 @@ public:
     // Access to current MVR scene (modifiable)
     MvrScene& GetScene();
     const MvrScene& GetScene() const;
+    symbols::ProjectFixtureSymbolStore &GetProjectFixtureSymbols();
+    const symbols::ProjectFixtureSymbolStore &GetProjectFixtureSymbols() const;
 
     // Current selections for different object types
     const std::vector<std::string>& GetSelectedFixtures() const;

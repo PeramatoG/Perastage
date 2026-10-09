@@ -4,6 +4,7 @@
 #include "gdtf_archive_reader.h"
 #include "gdtf_canonicalizer.h"
 #include "gdtf_mutation_audit.h"
+#include "gdtf_publication_resources.h"
 #include "runtime_storage.h"
 
 #include <tinyxml2.h>
@@ -359,11 +360,40 @@ DocumentMutationResult MutateDocument(
     return result;
   }
 
+  std::vector<GdtfCanonicalizer::ResourceMutation> privateResources;
+  std::string resourceError;
+  if (!fixture_gdtf::BuildStandardPublicationResourceMutations(
+          PathUtils::PathFromUtf8(gdtfPath), privateResources, resourceError)) {
+    result.errors.push_back(resourceError);
+    return result;
+  }
+  for (const auto &resource : privateResources) {
+    const auto resourcePath = extraction.Path() / PathUtils::PathFromUtf8(resource.archivePath);
+    if (resource.bytes) {
+      std::ofstream output(resourcePath, std::ios::binary | std::ios::trunc);
+      output.write(resource.bytes->data(), static_cast<std::streamsize>(resource.bytes->size()));
+      output.close();
+      if (!output) {
+        result.errors.push_back("Could not standardize a legacy SVG resource.");
+        return result;
+      }
+    } else {
+      std::error_code removalError;
+      fs::remove(resourcePath, removalError);
+      if (removalError) {
+        result.errors.push_back("Could not remove a legacy private symbol resource.");
+        return result;
+      }
+    }
+  }
+
+  std::string revisionText = request.revisionText.empty()
+      ? "Updated GDTF document fields from Perastage" : request.revisionText;
+  if (!privateResources.empty())
+    revisionText += "; standardized legacy private symbol resources";
   GdtfMutationAudit::AppendRevision(
       fixtureType, document,
-      request.revisionText.empty()
-          ? "Updated GDTF document fields from Perastage"
-          : request.revisionText,
+      revisionText,
       modifiedByProgram);
   GdtfCanonicalizer::Options canonicalOptions;
   canonicalOptions.allowFixtureTypeIdRepair = true;

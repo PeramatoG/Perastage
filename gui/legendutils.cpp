@@ -17,6 +17,7 @@
  */
 #include "legendutils.h"
 #include "fixtures/fixture_gdtf_resolution.h"
+#include "symbols/project_fixture_symbol_runtime.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -43,6 +44,14 @@ std::string NormalizeModelKey(const std::string &path) {
 
 std::string BuildFixtureSymbolKey(const Fixture &fixture,
                                   const std::string &basePath) {
+  if (const auto projectSource = symbols::BuildProjectFixtureSymbolSource(fixture);
+      !projectSource.empty())
+    return projectSource;
+  return BuildFixtureGdtfSymbolKey(fixture, basePath);
+}
+
+std::string BuildFixtureGdtfSymbolKey(const Fixture &fixture,
+                                      const std::string &basePath) {
   MvrScene scene;
   scene.basePath = basePath;
   gui::fixtures::FixtureGdtfResolution resolution;
@@ -62,5 +71,7 @@ std::string BuildFixtureSymbolKey(const Fixture &fixture,
 
 // Builds a workspace-independent identity for persistent fixture symbol hashes.
 std::string BuildFixturePersistentSymbolIdentity(const Fixture &fixture) {
-  return fixture.gdtfSpec + "\n" + fixture.gdtfMode + "\n" + fixture.typeName;
+  const std::string fixtureIdentity = fixture.gdtfSpec + "\n" + fixture.gdtfMode + "\n" + fixture.typeName;
+  const auto projectSource = symbols::BuildProjectFixtureSymbolSource(fixture);
+  return projectSource.empty() ? fixtureIdentity : projectSource + "\n" + fixtureIdentity;
 }

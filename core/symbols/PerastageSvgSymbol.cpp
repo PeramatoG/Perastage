@@ -44,16 +44,25 @@ bool HasLegacySymbolRevisionForView(const tinyxml2::XMLElement *fixtureType,
   const tinyxml2::XMLElement *revisions = fixtureType->FirstChildElement("Revisions");
   if (!revisions)
     return false;
+  bool legacy = false;
   for (const tinyxml2::XMLElement *revision =
            revisions->FirstChildElement("Revision");
        revision; revision = revision->NextSiblingElement("Revision")) {
     const char *modifiedBy = revision->Attribute("ModifiedBy");
     const char *text = revision->Attribute("Text");
-    if (modifiedBy && text &&
-        IsPerastageFixtureSymbolRevisionForView(modifiedBy, text, view))
-      return true;
+    if (!modifiedBy || !text)
+      continue;
+    if (IsPerastageFixtureSymbolRevisionForView(modifiedBy, text, view))
+      legacy = true;
+    if (IsPerastageStandardSvgMutationRevisionForView(modifiedBy, text, view) ||
+        (view != SymbolViewKind::Bottom && view != SymbolViewKind::Back &&
+         IsPerastageStandardSvgCleanupRevision(modifiedBy, text)))
+      legacy = false;
   }
-  return false;
+  // Revisions are appended in operation order. A later standard publication
+  // supersedes only recognized older legacy ownership; stored SVG markers still
+  // identify private compatibility content independently below.
+  return legacy;
 }
 
 const tinyxml2::XMLElement *ResolveFixtureType(const tinyxml2::XMLDocument &doc) {
@@ -544,7 +553,7 @@ bool ParseCompoundPolygonPath(const char *data, PerastageSvgPolygon &polygon) {
 bool CollectSvgElements(
     const tinyxml2::XMLElement *node,
     std::vector<std::pair<PerastageSvgPolygon, bool>> &rawPolygons,
-    std::vector<PerastageSvgPolyline> &strokes, bool allowCompoundPaths) {
+    std::vector<PerastageSvgPolyline> &strokes, bool strictCompoundPaths) {
   for (const tinyxml2::XMLElement *element = node ? node->FirstChildElement() : nullptr;
        element; element = element->NextSiblingElement()) {
     const std::string tag = element->Name() ? element->Name() : "";
@@ -556,12 +565,15 @@ bool CollectSvgElements(
             PerastageSvgPolygon{std::move(polygonPoints), {}},
             ElementForcesWhiteFill(element));
       }
-    } else if (allowCompoundPaths && tag == "path" &&
+    } else if (tag == "path" &&
                element->Attribute("fill-rule", "evenodd")) {
       PerastageSvgPolygon polygon;
-      if (!ParseCompoundPolygonPath(element->Attribute("d"), polygon))
-        return false;
-      rawPolygons.emplace_back(std::move(polygon), false);
+      if (!ParseCompoundPolygonPath(element->Attribute("d"), polygon)) {
+        if (strictCompoundPaths)
+          return false;
+      } else {
+        rawPolygons.emplace_back(std::move(polygon), false);
+      }
     } else if (tag == "polyline") {
       PerastageSvgPolyline line;
       if (ParsePointList(element->Attribute("points"), line.points) &&
@@ -569,7 +581,7 @@ bool CollectSvgElements(
         strokes.push_back(std::move(line));
       }
     }
-    if (!CollectSvgElements(element, rawPolygons, strokes, allowCompoundPaths))
+    if (!CollectSvgElements(element, rawPolygons, strokes, strictCompoundPaths))
       return false;
   }
   return true;
@@ -585,7 +597,7 @@ struct SvgResourceMetadata {
 };
 
 bool ParseSvgData(const std::string &svgXml, PerastageSvgSymbolData &out,
-                  SvgResourceMetadata &metadata, bool perastageResource) {
+                  SvgResourceMetadata &metadata, bool strictCompoundPaths) {
   tinyxml2::XMLDocument doc;
   if (doc.Parse(svgXml.c_str(), svgXml.size()) != tinyxml2::XML_SUCCESS)
     return false;
@@ -620,9 +632,11 @@ bool ParseSvgData(const std::string &svgXml, PerastageSvgSymbolData &out,
 
   std::vector<std::pair<PerastageSvgPolygon, bool>> rawPolygons;
   out.strokes.clear();
-  // Limit the emitted path subset to positively identified Perastage content.
+  // Supported SVG geometry is independent from resource ownership/provenance.
+  // Preserve authored import recovery for unsupported paths, while project and
+  // positively identified generated resources must parse their complete subset.
   if (!CollectSvgElements(svg, rawPolygons, out.strokes,
-                          perastageResource || metadata.marked))
+                          strictCompoundPaths || metadata.marked))
     return false;
   AssignWhitePolygonsAsHoles(rawPolygons, out.fills);
 
@@ -787,8 +801,7 @@ InspectedSvgResource InspectResourcePath(const SymbolArchive &symbolArchive,
   resource.exists = true;
   resource.archivePath = storedPath.empty() ? path : storedPath;
   const bool legacy = !dedicated &&
-                      (view == SymbolViewKind::Bottom ||
-                       HasLegacySymbolRevisionForView(symbolArchive.fixtureType, view));
+                      HasLegacySymbolRevisionForView(symbolArchive.fixtureType, view);
   resource.provenance = dedicated ? FixtureSymbolProvenance::GeneratedPerastage
                                  : legacy ? FixtureSymbolProvenance::LegacyPerastage
                                           : FixtureSymbolProvenance::AuthoredGdtf;
@@ -971,7 +984,7 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
   if (!payload.Success() || payload.filesystemFallback ||
       payload.entryPath != resolved.archivePath ||
       !ParseSvgData(std::string(payload.bytes.begin(), payload.bytes.end()), parsed,
-                    metadata, resolved.resourceSet == FixtureSymbolResourceSet::Perastage)) {
+                    metadata, resolved.provenance != FixtureSymbolProvenance::AuthoredGdtf)) {
     if (errorDetails)
       *errorDetails = "The resolved SVG resource could not be loaded: " + resolved.archivePath;
     return false;
@@ -989,4 +1002,20 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
   if (errorDetails)
     errorDetails->clear();
   return true;
+}
+
+bool ParsePerastageProjectSvgSymbol(const std::string &svg,
+                                   PerastageSvgSymbolData &out,
+                                   std::string *errorDetails) {
+  return ParseFixtureSymbolSvg(svg, out, errorDetails);
+}
+
+bool ParseFixtureSymbolSvg(const std::string &svg, PerastageSvgSymbolData &out,
+                           std::string *errorDetails) {
+  out = {};
+  SvgResourceMetadata metadata;
+  const bool usable = ParseSvgData(svg, out, metadata, true);
+  if (errorDetails)
+    *errorDetails = usable ? "" : "The fixture symbol SVG is malformed or unsupported.";
+  return usable;
 }

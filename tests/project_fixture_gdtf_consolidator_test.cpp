@@ -3,6 +3,8 @@
 #include "gdtf_test_fixture_builder.h"
 #include "mvrscene.h"
 #include "symbols/fixture_symbol_resource_contract.h"
+#include "symbols/project_fixture_symbols.h"
+#include "file_import_utils.h"
 
 #include <array>
 #include <cassert>
@@ -158,7 +160,7 @@ static void VerifyResourceOwnershipFingerprinting() {
   const std::string authoredFingerprint =
       project_gdtf::ComputeBaseGdtfFingerprint(authored.string(), error);
   assert(!authoredFingerprint.empty());
-  assert(authoredFingerprint == project_gdtf::ComputeBaseGdtfFingerprint(
+  assert(authoredFingerprint != project_gdtf::ComputeBaseGdtfFingerprint(
                                     authoredBottom.string(), error));
   assert(authoredFingerprint == project_gdtf::ComputeBaseGdtfFingerprint(
                                     authoredWithInternal.string(), error));
@@ -241,9 +243,51 @@ static void VerifyResourceOwnershipFingerprinting() {
   fs::remove_all(root);
 }
 
+// Reference consolidation must preserve distinct legacy project representations.
+static void VerifyLegacySymbolsSurviveConsolidation() {
+  const fs::path root = fs::temp_directory_path() / "perastage-legacy-symbol-bindings";
+  fs::remove_all(root);
+  fs::create_directories(root);
+  const std::array<std::string, 2> uuids = {
+      "10112233-4455-6677-8899-aabbccddeeff", "20112233-4455-6677-8899-aabbccddeeff"};
+  const std::array<std::string, 2> names = {"Fixture@Perastage.gdtf", "Fixture@Perastage_2.gdtf"};
+  const std::array<std::string, 2> payloads = {
+      "<svg viewBox=\"0 0 12 10\"><polygon points=\"0,0 12,0 12,10\"/></svg>",
+      "<svg viewBox=\"0 0 18 10\"><polygon points=\"0,0 18,0 18,10\"/></svg>"};
+  const std::string authoredFront = "<svg viewBox=\"0 0 15 6\"><polygon points=\"0,0 15,0 15,6\"/></svg>";
+  MvrScene scene;
+  scene.basePath = root.string();
+  std::array<std::optional<std::string>, 2> sourceDigests;
+  for (size_t index = 0; index < names.size(); ++index) {
+    tests::gdtf::BuildMinimalValidFixture().WithModelResource("main")
+        .WithArchiveEntry("perastage/symbols/main/top.svg", payloads[index])
+        .WithArchiveEntry("models/svg_front/main.svg", authoredFront)
+        .WriteArchive(root / names[index]);
+    scene.fixtures.emplace(uuids[index], BuildFixture(uuids[index], names[index]));
+    sourceDigests[index] = FileImportUtils::ComputeFileSha256(root / names[index]);
+  }
+  const auto plan = project_gdtf::BuildConsolidationPlan(scene);
+  assert(plan.groups.size() == 1);
+  symbols::ProjectFixtureSymbolStore store;
+  std::string error;
+  assert(project_gdtf::ApplyConsolidationPlan(scene, plan, error, &store));
+  assert(scene.fixtures.at(uuids[0]).gdtfSpec == scene.fixtures.at(uuids[1]).gdtfSpec);
+  assert(store.BundleCount() == 2);
+  for (size_t index = 0; index < names.size(); ++index) {
+    const auto *bundle = store.FindForFixture(scene.fixtures.at(uuids[index]));
+    assert(bundle && bundle->FindView(SymbolViewKind::Top)->svg == payloads[index]);
+    assert(!bundle->FindView(SymbolViewKind::Bottom));
+    assert(bundle->FindView(SymbolViewKind::Front)->svg == authoredFront);
+    assert(bundle->FindView(SymbolViewKind::Front)->sourceProvenance == "authored-gdtf");
+    assert(FileImportUtils::ComputeFileSha256(root / names[index]) == sourceDigests[index]);
+  }
+  fs::remove_all(root);
+}
+
 // Runs GUI-independent project GDTF consolidation coverage.
 int main() {
   VerifyFingerprintAndConsolidation();
   VerifyResourceOwnershipFingerprinting();
+  VerifyLegacySymbolsSurviveConsolidation();
   return 0;
 }
