@@ -2655,7 +2655,6 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../core/symbols/standard_gdtf_completion.cpp
                ../core/symbols/standard_gdtf_svg.cpp
                ../core/gdtf_mutation_policy.cpp
-               ../core/gdtf/editor/gdtf_document.cpp
                ../gui/fixtures/fixture_gdtf_resolution.cpp
                ../core/fixture_gdtf_derivative_publication.cpp
                ../core/fixture_gdtf_derivative_contract.cpp

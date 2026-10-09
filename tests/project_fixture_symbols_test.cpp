@@ -3,6 +3,7 @@
 #include "symbols/project_fixture_symbol_migration.h"
 #include "file_import_utils.h"
 #include "support/gdtf_test_fixture_builder.h"
+#include "wx_path_utils.h"
 
 #include <cassert>
 #include <filesystem>
@@ -43,7 +44,7 @@ symbols::ProjectFixtureSymbolBundle Bundle(symbols::ProjectFixtureSymbolKind kin
 
 std::map<std::string, std::vector<std::uint8_t>> ArchiveEntries(
     const std::filesystem::path &path) {
-  wxFileInputStream file(wxString::FromUTF8(path.string()));
+  wxFileInputStream file(WxPathUtils::WxStringFromFilesystemPath(path));
   wxZipInputStream archive(file);
   std::map<std::string, std::vector<std::uint8_t>> entries;
   std::unique_ptr<wxZipEntry> entry;

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test_tool_requirements.sh"
+
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 mainwindow="$root/gui/mainwindow.cpp"
 
@@ -9,7 +11,7 @@ if ! rg -q 'viewportPanel->RefreshAfterFixtureResourceRebind\(\)' "$mainwindow";
   exit 1
 fi
 rg -q 'UpdateScene\(\)' "$root/viewer3d/viewer3dpanel.cpp"
-python3 - "$root" <<'PY'
+run_test_python - "$root" <<'PY'
 from pathlib import Path
 import re
 import sys
