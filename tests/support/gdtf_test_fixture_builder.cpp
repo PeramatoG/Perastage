@@ -224,6 +224,9 @@ std::string FixtureBuilder::BuildDescriptionXml() const {
          "    <DMXModes><DMXMode Name=\"" +
          modeName + "\" Geometry=\"" + modeGeometry +
          "\"><DMXChannels><DMXChannel Offset=\"1\" Geometry=\"Root\"><LogicalChannel Attribute=\"Dimmer\"><ChannelFunction Name=\"Dimmer\" Attribute=\"Dimmer\" Default=\"0/1\" DMXFrom=\"0/1\"/></LogicalChannel></DMXChannel></DMXChannels></DMXMode></DMXModes>\n"
+         + (perastageGeneratedSymbols
+                ? "    <Revisions><Revision Date=\"2026-01-01T00:00:00\" ModifiedBy=\"Perastage 1.5\" Text=\"Applied fixture SVG symbol views (top, side, front, bottom)\" UserID=\"0\"/></Revisions>\n"
+                : "") +
          "    <FTPresets/>\n"
          "    <Protocols/>\n"
          "  </FixtureType>\n"
