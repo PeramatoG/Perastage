@@ -58,7 +58,7 @@ std::map<std::string, std::vector<std::uint8_t>> ArchiveEntries(
         break;
       bytes.insert(bytes.end(), buffer, buffer + count);
     }
-    assert(entries.emplace(entry->GetName().ToStdString(), std::move(bytes)).second);
+    assert(entries.emplace(entry->GetName(wxPATH_UNIX).ToStdString(), std::move(bytes)).second);
   }
   return entries;
 }
