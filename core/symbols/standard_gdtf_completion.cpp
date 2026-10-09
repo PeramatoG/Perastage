@@ -4,6 +4,7 @@
 #include "gdtf_archive_reader.h"
 #include "gdtf_canonicalizer.h"
 #include "gdtf_mutation_audit.h"
+#include "gdtf_publication_resources.h"
 
 #include <algorithm>
 #include <array>

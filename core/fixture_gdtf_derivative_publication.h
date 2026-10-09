@@ -1,10 +1,7 @@
 #pragma once
 
-#include "gdtf_publication_resources.h"
-
 #include <filesystem>
 #include <string>
-#include <vector>
 
 namespace fixture_gdtf {
 

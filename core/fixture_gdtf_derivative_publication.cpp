@@ -7,6 +7,7 @@
 #include "gdtf_canonicalizer.h"
 #include "gdtf_filename_policy.h"
 #include "gdtf_mutation_audit.h"
+#include "gdtf_publication_resources.h"
 #include "symbols/fixture_symbol_resource_contract.h"
 
 #ifdef _WIN32

@@ -600,7 +600,6 @@ target_include_directories(perastage_gdtf_publication_resources PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 target_link_libraries(perastage_gdtf_publication_resources
-    PUBLIC perastage_gdtf_read
-    PRIVATE tinyxml2::tinyxml2
+    PUBLIC perastage_gdtf_read tinyxml2::tinyxml2
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE perastage_gdtf_publication_resources)
