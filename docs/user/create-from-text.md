@@ -8,8 +8,8 @@ Pasted text, `.txt` files and `.pdf` files are supported; PDFs have their text e
 
 1. Open **Tools → Create from text** and paste text or load a rider file.
 2. Choose **Apply filter** to clean candidate lines, then review and edit the filtered text.
-3. Choose **Create**. If fixture definitions need review, complete **Resolve fixture types**.
-4. Choose **Resolve and create** to confirm the plan and begin any selected downloads.
+3. Choose **Create**.
+4. If **Resolve fixture types** opens because fixture definitions require resolution, review the proposed resolutions and choose **Resolve and create** to confirm the plan and begin any selected downloads.
 
 ## Fixture-type resolution
 
