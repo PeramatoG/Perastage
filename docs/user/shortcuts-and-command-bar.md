@@ -80,6 +80,8 @@ keep their native text-editing behavior.
 4. Execute and verify the result in tables/viewers.
 5. Reuse command history for repetitive changes.
 
+<!-- PERASTAGE_CONSOLE_HELP_BEGIN -->
+
 ## Console commands (frequent and useful)
 
 ### Selection commands
@@ -121,21 +123,6 @@ Notes:
 - Group rotation pivot defaults to selection bounding-box center.
 - You can override pivot with a trailing `x,y,z` triplet, for example `rot y ++45 --g -2.5,0,0`.
 
-## Focus and priority behavior
-
-- Shortcuts are blocked while typing in editable text fields/cells.
-- Viewer shortcuts run in the currently focused viewer.
-- Dialog-local shortcuts remain local to that dialog.
-
-## Create from text dialog local shortcuts
-
-| Shortcut | Action |
-| --- | --- |
-| `↑` / `↓` | Move through suggestions |
-| `Enter` or `Tab` | Accept selected suggestion |
-| `Esc` | Close suggestions without closing dialog |
-
-
 ### Transform spaces
 
 World axes are the default for command-bar transforms. Relative position and rotation commands can opt into local axes with `--local` or `-l`:
@@ -150,5 +137,21 @@ rot z ++ 30 --group --local
 ```
 
 Transform-space modifiers affect incremental operations (`++` and `--`). Absolute position commands still set world coordinates, and absolute rotation commands keep the existing Euler-angle behavior. The **Local Axes** toolbar button is persistent and affects viewport transforms only; command-bar history and scripts stay deterministic and do not inherit that toolbar state.
+
+<!-- PERASTAGE_CONSOLE_HELP_END -->
+
+## Focus and priority behavior
+
+- Shortcuts are blocked while typing in editable text fields/cells.
+- Viewer shortcuts run in the currently focused viewer.
+- Dialog-local shortcuts remain local to that dialog.
+
+## Create from text dialog local shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `↑` / `↓` | Move through suggestions |
+| `Enter` or `Tab` | Accept selected suggestion |
+| `Esc` | Close suggestions without closing dialog |
 
 For page editing and layout mouse controls, see [Layouts and PDF](layouts.md).

@@ -19,6 +19,14 @@ Use dedicated documents for deeper topics:
 - `docs/user/troubleshooting.md` for runtime problems with installed applications.
 - Existing policy/spec files (for example `docs/developer/text_to_scene_rules.md` and `docs/developer/gdtf_mutation_policy.md`) for behavior contracts.
 
+## User manual ownership
+
+`docs/user/` owns canonical English user-manual content; localized mirrors
+translate that content, and the website and packaged Help consume it.
+`help.md` is transitional compatibility content. See
+[User Manual Pipeline](user_manual_pipeline.md) for source paths, translation,
+runtime/package staging, and Console extraction contracts.
+
 ## Developer Documentation Authority
 
 The [Developer Documentation index](index.md) is the canonical entry map.

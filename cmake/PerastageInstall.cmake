@@ -81,6 +81,21 @@ install(FILES
     OPTIONAL
 )
 
+# Stage canonical Markdown without recursively copying localized sources into English.
+# The UI translation registry also owns manual locale identifiers; English is implicit.
+foreach(PERASTAGE_MANUAL_LANGUAGE IN ITEMS en ${PERASTAGE_TRANSLATION_LANGUAGES})
+    if(PERASTAGE_MANUAL_LANGUAGE STREQUAL "en")
+        set(PERASTAGE_MANUAL_SOURCE_DIR "${CMAKE_SOURCE_DIR}/docs/user")
+    else()
+        set(PERASTAGE_MANUAL_SOURCE_DIR "${CMAKE_SOURCE_DIR}/docs/user/locales/${PERASTAGE_MANUAL_LANGUAGE}")
+    endif()
+    file(GLOB PERASTAGE_MANUAL_FILES CONFIGURE_DEPENDS "${PERASTAGE_MANUAL_SOURCE_DIR}/*.md")
+    if(PERASTAGE_MANUAL_FILES)
+        install(FILES ${PERASTAGE_MANUAL_FILES}
+                DESTINATION "${PERASTAGE_INSTALL_ASSET_DEST}/help/${PERASTAGE_MANUAL_LANGUAGE}")
+    endif()
+endforeach()
+
 if(WIN32)
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
     include(InstallRequiredSystemLibraries)

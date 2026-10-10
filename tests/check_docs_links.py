@@ -44,7 +44,44 @@ for md_file in sorted([ROOT / "README.md", *DOCS.rglob("*.md")]):
             failures.append(f"{md_file.relative_to(ROOT)} links outside repository: {href}")
             continue
         if not target.exists():
+            # Partial mirrors may link to a page supplied by the English fallback.
+            try:
+                localized_target = target.relative_to(DOCS / "user" / "locales")
+            except ValueError:
+                localized_target = None
+            if (localized_target is not None and len(localized_target.parts) == 2
+                    and (DOCS / "user" / localized_target.name).is_file()):
+                continue
             failures.append(f"{md_file.relative_to(ROOT)} has missing link: {href}")
+
+# Validate manual ownership without duplicating the index or local-link checker.
+manual = DOCS / "user"
+if not (manual / "index.md").is_file():
+    failures.append("canonical user manual index is missing")
+canonical_names = {page.name for page in manual.glob("*.md") if page.is_file()}
+locales = manual / "locales"
+registry = (ROOT / "cmake" / "PerastageLocalization.cmake").read_text(encoding="utf-8")
+locale_match = re.search(r"set\(PERASTAGE_TRANSLATION_LANGUAGES\s+([^)]+)\)", registry)
+if not locale_match:
+    failures.append("manual locales cannot resolve the existing translation registry")
+allowed_locales = set(locale_match.group(1).split()) if locale_match else set()
+if locales.exists():
+    for localized in sorted(locales.iterdir()):
+        if not localized.is_dir() or localized.name not in allowed_locales:
+            failures.append(f"unexpected localized manual directory: {localized.relative_to(ROOT)}")
+            continue
+        for page in sorted(localized.iterdir()):
+            if not page.is_file() or page.name not in canonical_names:
+                failures.append(f"localized manual has no canonical Markdown owner: {page.relative_to(ROOT)}")
+
+begin = "<!-- PERASTAGE_CONSOLE_HELP_BEGIN -->"
+end = "<!-- PERASTAGE_CONSOLE_HELP_END -->"
+command_pages = [manual / "shortcuts-and-command-bar.md"]
+command_pages.extend(locales.glob("*/shortcuts-and-command-bar.md"))
+for page in command_pages:
+    text = page.read_text(encoding="utf-8")
+    if text.count(begin) != 1 or text.count(end) != 1 or text.find(begin) >= text.find(end):
+        failures.append(f"{page.relative_to(ROOT)} must have exactly one ordered Console help marker pair")
 
 shell = DOCS / "assets" / "js" / "docs-shell.js"
 shell_text = shell.read_text(encoding="utf-8")

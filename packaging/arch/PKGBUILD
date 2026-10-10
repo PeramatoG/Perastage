@@ -115,6 +115,7 @@ package() {
   test -d "$pkgdir/opt/perastage/library"
   test -d "$pkgdir/opt/perastage/licenses"
   test -f "$pkgdir/opt/perastage/help.md"
+  test -f "$pkgdir/opt/perastage/help/en/index.md"
   test -f "$pkgdir/usr/share/applications/perastage.desktop"
   test -f "$pkgdir/usr/share/mime/packages/perastage-mime.xml"
   test -f "$pkgdir/usr/share/icons/hicolor/1024x1024/apps/perastage.png"
