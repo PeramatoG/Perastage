@@ -1,291 +1,39 @@
-# Perastage Feature Overview
+# Feature Overview
 
-This document is the canonical feature map for the current Perastage release line. It consolidates the active workflows that have evolved from the beta period into the current production-oriented toolset.
+Perastage is an open-source desktop tool for lighting and rigging scene work and technical documentation.
 
-## Audience and Primary Use Cases
+## MVR project workflows
 
-Perastage is designed for lighting designers, programmers, and technicians who need to:
+[Open, merge and export MVR](opening-mvr-files.md), review conflicts and save ongoing work as PSTG projects.
 
-- import and normalize real show data,
-- visualize rigs in 3D and 2D,
-- maintain fixture/truss/hoist/object metadata,
-- generate printable and shareable technical documentation.
+## GDTF and GDTF Share
 
-## Project and Scene Lifecycle
+Use fixture definitions and local dictionaries, [search/download GDTFs](gdtf-download.md), browse cached catalog data offline and review revisions and DMX modes. [Preferences](preferences.md#gdtf-definition-completion) controls automatic definition completion.
 
-### Project files and defaults
+## MVR / GDTF Inspector
 
-- Perastage projects use the `.pstg` format.
-- New projects can load default layout templates from `library/default_layouts/`; portable `.pslayout` packages are preferred, with legacy `.json` templates still accepted for compatibility.
-- Layout template export uses `.pslayout`, a self-contained ZIP-based package that includes layout JSON and referenced layout images. Legacy `.json` layout templates can still be imported, but standalone JSON export is no longer offered.
-- Save, Save As, and Load workflows preserve scene and user-facing project context.
+[Inspect](inspector.md) project snapshots and external packages without editing them. Browse scene/package trees, fixture definitions, XML, previews and reported issues.
 
-### Layer-aware organization
+## 2D and 3D visualization
 
-- Fixtures, trusses, hoists, and objects can be grouped into layers.
-- Layer visibility and selection behavior is shared across viewer and documentation workflows.
-- Active layer controls where newly created items are placed.
+[Review plans and spatial relationships](views.md), choose rendering styles and use movement, axis and snapping controls. Adjust model detail for larger scenes.
 
-## MVR and GDTF Workflows
+## Scene editing, tables, patch and grouping
 
-### Read-only MVR / GDTF Inspector
+Edit fixtures, trusses, hoists and objects; review metadata and patch; organize layers and groups. Use table edits, continuous placement, Undo/Redo and the embedded [Console](shortcuts-and-command-bar.md).
 
-- Open **View > Layout Views > MVR / GDTF Inspector** to inspect an immutable,
-  canonical snapshot of the current project. Use **Refresh** to capture a new
-  snapshot, or **Open external...** to inspect a standalone `.mvr` or `.gdtf`
-  without importing it.
-- Browse MVR package paths hierarchically or switch to the scene tree built from
-  the inspected snapshot. Activate an embedded GDTF to inspect it through the
-  normal read-only GDTF view, then return to its parent MVR.
-- For a GDTF, use the dedicated detail pages to review FixtureType identity,
-  authored physical metadata and revision history, select each DMX mode and
-  inspect its channel/function/set hierarchy, and review wheel, slot, filter,
-  color, and archive-resource references. Geometry names and effective channel
-  offsets are shown where the GDTF read model provides them. Selecting a safe
-  package resource updates the persistent Source and Preview presentation.
-  Selected XML and plain-text files appear in Source; SVG files show their
-  exact XML source and a rendered image simultaneously. Raster images,
-  GLB/3DS models, and embedded GDTFs restore the primary package XML in Source
-  while updating Preview. Activate an embedded GDTF to
-  inspect its complete read-only document; unsupported and oversized resources
-  stay visible and receive a preview status without being treated as invalid.
-  The primary XML document already visible in the central pane is not duplicated
-  in Preview, and no selected text document is duplicated there.
-- The exact retained XML has syntax highlighting, clickable folding markers,
-  explicit **Fold all** and **Unfold all** controls, line numbers sized to the
-  current document, selection, copy-all, and wrapping forward or reverse find.
-  The Preview remains visible below the right-side details notebook. Documents
-  above the automatic display limit start
-  with a clearly labelled bounded view and retain an explicit action to load
-  the complete exact text. Drag the workspace dividers to resize Navigation,
-  XML/resource, Details, and Preview; these proportions are saved independently
-  of monitor resolution. Scene rows expose separate Name, Type, and UUID columns.
-  The Issues view groups structured
-  diagnostic codes while the Diagnostics view retains full technical detail;
-  archive paths are copied from a package entry's context menu.
-- The Inspector is intentionally read-only. It does not edit packages, resolve
-  missing resources online, save snapshots, or change project selection and
-  dirty state.
-- Inspection and selected-resource reads run in managed background work. Rapid
-  source or resource changes use separate request lifetimes, so an obsolete
-  preview can neither cancel nor replace the latest source. Current-project
-  capture copies the scene briefly on the UI thread, then performs canonical
-  archive creation and inspection in background work. GLB/3DS geometry is
-  prepared in background work; bounded GDTF fixture-model parsing still uses
-  the GUI-side established loader. Temporary model files use controlled names,
-  are automatically removed, and are never written beside the inspected source.
+## Create from Text
 
-### MVR import and open behavior
+[Generate starting scenes](create-from-text.md) from pasted text, TXT or PDF riders, review fixture-type matches, choose modes or continue with Generic fallback.
 
-- Imports MVR 1.6 scenes with fixtures, trusses, hoists/supports, and generic objects.
-- `.mvr` opening from startup, command-line, or OS association uses a clean-scene reset plus import flow for deterministic behavior.
-- Menu import lets you choose between opening the selected MVR as a new project or merging it into the current project.
-- Merged MVR content preserves existing scene content, resolves imported UUID collisions so both scenes can coexist, prompts before fixture type/GDTF definition conflicts are applied, and reports duplicate DMX patch addresses as non-blocking warnings for post-merge review.
+## Layouts and PDF documentation
 
-### MVR export
+[Arrange printable pages](layouts.md) with 2D views, legends, event tables, text and images. Share templates and export layout PDFs.
 
-- Exports the current scene back to `.mvr` for interoperability.
-- Keeps **Type Color** separate from **Color Filter**: Type Color is a
-  Perastage visual used by plans, summaries, legends, and type-based viewer
-  coloring and is shared by fixture type and mode, while Color Filter is the
-  optional per-fixture color imported from and exported to the MVR
-  `Fixture/Color` node.
-- Stores Type Color by fixture profile and mode in root-level Perastage
-  `UserData`, allowing table swatches, summaries, legends, and type-based
-  viewer colors to survive project save and reopen without using the standard
-  MVR `Fixture/Color` node.
-- Stores Perastage-specific layer appearance metadata, including layer colors, in root-level `UserData/Data` with Perastage-owned `PerastageLayerAppearance` entries instead of writing non-standard color data inside standard `Layer` nodes.
-- Parametric objects exported as Fixture/Truss/Support receive stable non-empty `FixtureID` and globally unique `FixtureIDNumeric` values.
+## Experimental local integration
 
-### GDTF integration and dictionary pipeline
+OSC and [MCP](../developer/mcp_adapter.md) offer experimental local integration for separately configured automation. Technical contracts belong in the [developer documentation](../developer/index.md).
 
-- Local fixture dictionary maps textual fixture descriptions to GDTF specs and
-  Perastage visual-color defaults under `library/`. Dictionary files now write
-  the explicit `visual_color` key while continuing to read the legacy `color`
-  key.
-- GDTF-Share download flow is available from the Tools menu.
-- Export packages GDTFs under `gdtf/` with archive-relative forward-slash paths.
-- Filename collisions are handled deterministically (`name (1).gdtf`, etc.) and references are updated.
-- Policy details for mutation, revisions, and schema fallback are maintained in [GDTF mutation policy](../developer/gdtf_mutation_policy.md).
+## Platforms and source
 
-## Rider and Text-to-Scene Generation
-
-### Inputs and parsing flow
-
-- Rider-like imports accept text and PDF input through **Tools → Create from text**.
-- **Apply filter** supports parser-first cleanup before final object creation.
-- Parser understands hang tokens, including optional coordinate payloads where supported.
-- `CALLES` and `SIDES` headers map into side-truss/fixture placement workflows.
-
-### Rules contract
-
-- Parsing and placement behavior is governed by [Text-to-scene rules](../developer/text_to_scene_rules.md).
-- Any parser behavior changes must update the rules document in the same change set.
-
-## Dictionary Portability and Asset Handling
-
-Perastage dictionary import/export supports multiple transport levels:
-
-- JSON Snapshot, which stores file references only,
-- Portable ZIP Bundle, which stores a manifest-backed bundle with referenced assets.
-
-Additional safeguards include:
-
-- preflight path validation,
-- missing-reference reporting,
-- collision policy prompts for differing file content,
-- custom active dictionaries store newly owned fixture and truss assets in a sibling `<dictionary name>_assets` folder so the JSON and assets can be moved together;
-- truss Add/Replace selections remain pending until the Dictionary Editor is saved, then supported `.gdtf`, `.gtruss`, `.3ds`, and `.glb` sources are ingested as real owned GDTF assets;
-- **More... → Reset Contents...** rebuilds fixture and truss dictionaries from application defaults into dictionary-owned storage, reports missing default assets, and keeps **Use Default** as a separate active-dictionary selection action;
-- The Dictionary Editor keeps common actions visible while moving less frequent active-dictionary actions into **More...**. **Duplicate Current...** creates an independent copy of the active fixture or truss dictionary, including resolvable referenced assets, and can optionally activate the copy after validation. **Export...** clearly offers **JSON Snapshot** or **Portable ZIP Bundle** without changing the active dictionary.
-
-## Patch, Data Tables, and Editing Helpers
-
-### Patch management
-
-- Manual and assisted patch workflows support universe and address management.
-- Auto patch can group by hang position/type and assign channels sequentially.
-
-### Data tables
-
-- The Fixture Editor **Symbols** page compares **Standard GDTF** Top/Front/Side
-  with **Perastage** Top/Front/Side/Bottom as separate resource groups. Unavailable
-  or unusable views show N/A; tooltips identify the archive path, provenance,
-  and diagnostic. The generic GDTF thumbnail remains on the Preview page.
-- Manual fixture symbol previews show a checker background through transparent
-  polygon holes. **Apply views to fixture** also works before saving a new scene:
-  it stores a project symbol override for the matching fixture definition and mode
-  while keeping the GDTF unchanged. Save the project to persist the exact
-  Top/Front/Side/Bottom representation; reopening uses those stored views without
-  requiring the original external GDTF or regenerating them.
-- **Preferences > GDTF > GDTF definition completion** defaults to completing
-  missing standard Top/Side/Front views in audited `@Perastage.gdtf` derivatives.
-  Existing authored and unusable views are preserved. **Preserve imported GDTF
-  definitions** disables automatic completion while retaining project symbols
-  and scene editing. Project symbols stay outside MVR and embedded GDTFs.
-- GDTF Share reuses a fresh catalog cache for one hour when opening the search
-  dialog. A cached catalog opens immediately; stale data refreshes in the
-  background while browsing and searching remain available. A failed refresh
-  keeps cached results usable. Downloads wait for an active refresh to finish
-  and may request sign-in. Without a usable cache, the normal sign-in and
-  first online load are required.
-- The GDTF Share browser has a resizable catalog list and revision details pane.
-  Select a row to see creator, dates, file size, copyable UUID/RID, and mode names
-  with DMX channel footprints without downloading a GDTF. **Source** identifies
-  `Manuf.` or `User`; **Creator** is the contributor username. Missing metadata
-  appears as a dash. **Rating** stays visible and shows `--` when no numeric
-  rating is available.
-- General catalog search matches every whitespace-separated word in any order
-  across manufacturer, fixture, UUID, revision, and mode names. For example,
-  `martin sceptron` and `sceptron martin` return the same results. Manufacturer
-  and Fixture filters narrow those matches together.
-- Dedicated tables for fixtures, trusses, hoists, and objects.
-- Fixture, truss, and hoist Hang Position cells use the shared Hang Position dialog, which lists existing MVR positions and can add, rename, or delete positions across affected rigging items when confirmed.
-- Add Fixture, Add Truss, and Add Object offer a continuous placement mode that
-  disables the fixed quantity field and attaches one new element at a time to
-  the pointer in the visible 2D or 3D viewer. Left-click confirms each element
-  and immediately starts the next copy; right-click or Escape cancels only the
-  pending copy.
-  Magnet snapping and axis-constrained movement follow the current viewer
-  toolbar settings, including changes made while placement is active. Holding
-  the left button and dragging navigates the active viewer instead of
-  confirming an element; releasing the button immediately realigns the pending
-  element beneath the pointer. Undo removes the most recently confirmed element
-  while leaving a provisional copy attached to the pointer. Undoing the first
-  confirmed element, or undoing before any confirmation, cancels continuous
-  placement.
-- Add Truss supports quantity, real-world insertion-point coordinates in the active distance units, automatic linear placement from the selected truss bounding-box length, and optional default grouping into one bridge.
-- **Tools → Convert Scene Objects to Truss** converts the selected scene object and every other scene object that uses the same model file into truss objects. The same command is available by right-clicking a scene object in the 2D or 3D viewer.
-- In the 2D and 3D viewers, right-clicking empty viewer space while the **Trusses** table is active opens truss selection shortcuts. Trusses can be selected by hang position or by model; geometry-only trusses without a model are grouped by their shared source file name.
-- Multi-row editing helpers include fills, ranges, interpolation, and relative expressions.
-- **Group** and **Ungroup** in the Edit menu create and remove MVR-compatible GroupObject hierarchy from the active cross-table selection across fixtures, trusses, hoists, and scene objects while preserving world placement and hang-position assignments; after grouping, clicking a member selects the full group across related tables, and the selection highlights and moves/rotates the full group, including nested groups, while hovering a grouped member uses a more yellow primary highlight and a paler related-green highlight on the other group members in the 3D view and related tables using the same row style as table selection.
-- CSV export is available through file/export workflows.
-
-### Conversion and type/color helpers
-
-- **Auto color** can assign colors by layer/type while preserving explicit colors.
-- **Convert to Hoist** transforms selected fixtures into supports while retaining scene context.
-- **Replace fixtures** (Edit menu) swaps selected fixtures to a chosen fixture source (scene fixture, dictionary fixture, or GDTF file) while preserving placement and patch identity fields.
-- **Replace trusses** (Edit menu) swaps selected trusses to a chosen truss source (scene truss, dictionary truss, GDTF truss, GTruss, GLB, or 3DS model) while preserving placement, grouping, hang-position, and instance identity fields.
-
-## Visualization and Layout Production
-
-### 3D Viewer
-
-- OpenGL-based viewer with orbit, pan, zoom, and preset camera views.
-- Selection flows integrate with scene tables and command operations.
-- The viewport toolbar includes a Drag Move toggle for moving scene selections with a left-click drag. It is disabled by default to make viewport panning safer in dense scenes, and its state is stored with the project.
-- The viewport toolbar includes an axis-lock toggle for dragged scene selections. It is enabled by default for axis-constrained moves; disabling it stores the project setting and allows Blender-style free dragging on a plane parallel to the 3D camera view.
-- Context menu includes **Render style** with these options:
-  - **Standard** for general-purpose scene reading.
-  - **Sketch mode** for high-readability geometry outlines.
-  - **Textured** for material-aware scenic validation.
-  - **Wireframe** for technical debugging and overlap checks.
-  - **White** for neutral shape review.
-  - **By device type** for fast fixture-category grouping.
-  - **By layer** for layer-organization validation.
-  - **By universe** for DMX universe distribution checks.
-
-### 2D Viewer
-
-- Top-down plan visualization with configurable grid and labels.
-- The shared viewport axis-lock toggle also controls 2D selection dragging: enabled keeps movement constrained to one screen axis, while disabled allows free movement across both axes in the active 2D plane.
-- The Magnet toolbar toggle is disabled by default and can be enabled to snap dragged trusses, fixtures, and scene objects to nearby compatible scene bounds in the 2D and 3D viewers. Fixture snaps use the nearest truss bounding-box surface or edge even when fixtures and trusses are managed from different tables. Truss-to-truss snaps can create or extend an official GroupObject when the mouse is released, and fixture-to-truss snaps add the fixture to the truss snap group so it can later be detached without flattening the rest of the group. Scene-object snaps only update transforms. Magnet does not modify Hang Position, does not merge geometry, and keeps exported MVR data standards-compliant.
-- The Cross-table Actions toolbar toggle is disabled by default and can be enabled to make viewport hover, selection, measuring, and compatible interaction tools work across fixtures, trusses, hoists, and scene objects regardless of the currently selected Data Views table.
-- Supports vector draw-command capture for downstream document/export workflows.
-
-### Layout system
-
-- Multi-page layout authoring with page naming and orientation control.
-- Place and edit views, legends, event tables, text blocks, and image elements.
-- Layouts can be exported and printed as production documentation sheets.
-
-## Printing and Export Outputs
-
-- Layout-to-PDF output for full documentation sets. The completion message
-  reports how many elements used generated Perastage symbols and how many used
-  rendered fallbacks.
-- Print table workflows for fixtures/trusses/hoists/objects.
-- Debug-only 2D direct print dialog is gated in Release builds via feature flags.
-
-## GUI Workflow and Operations
-
-### Fixture distribution
-
-- Select fixtures attached to one straight, connected truss line and press
-  `Alt+D` to choose a distribution system.
-- Exact spacing supports a configurable distance between fixture centers or
-  fixture edges, placed outside-in between two limits or from one start point
-  in a chosen direction. Uniform full-truss and two-point systems remain
-  available in the same dialog.
-- A layout that does not fit leaves the scene unchanged and reports a
-  non-blocking message. Completed distributions support Undo and Redo.
-
-### Console and command workflows
-
-- Console supports text command workflows for selection and transform operations.
-- Command history and prompt behavior provide fast operator iteration in large scenes.
-
-### Units and preferences
-
-- Distance and weight systems are independently configurable.
-- Internal canonical values remain millimeters (distance) and kilograms (weight).
-- Input parsing accepts explicit unit suffixes regardless of active display system.
-
-### Shortcut and interaction model
-
-- Keyboard/mouse interaction includes viewer navigation, selection, and layout editing actions.
-- Detailed precedence and scope are tracked in [GUI shortcut architecture](../developer/gui_shortcut_architecture.md).
-
-## Future/Experimental
-
-- Some tools remain Debug-only for production safety in Release builds.
-- Large-scene performance and selected advanced workflows continue to be iterated.
-
-## Related Documents
-
-- [Changes since beta 0.1.0]()
-- [Build and dependency guide](../developer/build.md)
-- [Packaging and platform integration](../developer/packaging.md)
-- [Build troubleshooting](troubleshooting.md)
-- [Documentation policy and synchronization checklist](../developer/documentation_policy.md#documentation-synchronization-checklist)
+Perastage supports Windows, macOS and Linux and is licensed under GNU GPL version 3 or later. See [Installation](installation.md) for release packages and the [repository](https://github.com/PeramatoG/Perastage) for source and contribution information.

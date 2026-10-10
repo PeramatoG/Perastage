@@ -40,7 +40,8 @@ assert gettext.get('platform') == 'windows', 'gettext host tools must be Windows
 assert 'tools' in gettext.get('features', []), 'gettext must request the tools feature'
 
 windows_implementation = 'scripts/windows/PerastageWindowsBootstrap.ps1'
-windows_roots = [windows_implementation, '.github/workflows/windows-installer.yml', 'docs/developer/build.md', 'docs/user/installation-windows.md', 'docs/user/troubleshooting.md', 'docs/developer/localization.md']
+# Source-build guidance belongs to developer docs; user troubleshooting is runtime-only.
+windows_roots = [windows_implementation, '.github/workflows/windows-installer.yml', 'docs/developer/build.md', 'docs/developer/localization.md']
 forbid(r'vcpkg(?:\.exe)?\s+install\s+"?gettext\[tools\]', *windows_roots, flags=re.I)
 
 require(r'PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE.*ON|PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON', '.github/workflows/windows-installer.yml', '.github/workflows/linux-installer.yml', '.github/workflows/arch-package.yml', '.github/workflows/macos-installer.yml', '.github/workflows/macos-15-manual-installer.yml', windows_implementation, 'packaging/arch/PKGBUILD')

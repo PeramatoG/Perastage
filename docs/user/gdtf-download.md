@@ -1,38 +1,22 @@
-# Download GDTF Files
+# GDTF Download
 
-Perastage can download fixture profiles from GDTF Share.
+Use **Tools → Download GDTF** to find and download fixture profiles from GDTF Share. Online catalog loading and downloads require a GDTF Share account and an Internet connection.
 
-## Before you start
+## Find a profile
 
-- You need an active GDTF Share account.
-- Internet access is required to load the online catalog and download files.
+1. Open **Tools → Download GDTF**. A usable cached catalog opens immediately; without one, sign in to load the catalog. Cancelling initial sign-in cancels the operation.
+2. Search by manufacturer, fixture, UUID, revision or DMX mode name. All search words must match, in any order; Manufacturer and Fixture filters narrow the results.
+3. Select a revision and review its creator, dates, size, identifiers and DMX modes with channel footprints before downloading.
+4. Download the selected profile and check the fixture's definition and mode in your project or dictionary.
 
-## Download workflow
+## Cached and offline browsing
 
-1. Open **Tools → Download GDTF**.
-2. Sign in when prompted.
-3. Search for the fixture profile you need.
-4. Download and store it in your local user library.
+A fresh catalog is reused for one hour. Stale cached data refreshes in the background while browsing remains available; a failed refresh keeps cached results usable. Cached browsing works offline without sign-in. Downloads require online authentication and wait for an active refresh to finish.
 
-If no catalog is available locally, Perastage asks you to sign in before it
-loads the online catalog. Cancelling that sign-in simply cancels the Download
-GDTF operation; it does not open an empty search window or report an error.
+A failed or cancelled download preserves an existing destination profile.
 
-## Related tools
+## Credentials and local profiles
 
-- **Tools → Edit dictionaries** to manage local mapping and dictionary entries.
-- **Tools → Open user library folder** to inspect downloaded files directly.
+Passwords use the operating system's secure credential store when available. If the runtime store is unavailable, Perastage warns you and can use credentials for the current operation without persisting the password. You may need to enter it again in a later session. The username may be remembered as a sign-in hint.
 
-## When to use this
-
-Use GDTF download when fixtures appear generic, missing, or visually incorrect after opening/importing MVR content.
-
-## Credential storage
-
-When available, Perastage stores the GDTF Share password in the operating system's secure credential store through wxWidgets. The username may remain in non-secret Perastage metadata so the sign-in field can be prefilled. The password is not written to `gdtf_credentials.json` or application configuration.
-
-Official Perastage builds include wxSecretStore support. On Linux, password persistence also requires an active Freedesktop Secret Service provider such as GNOME Keyring or KWallet. On systems where the operating-system credential store is unavailable at runtime, or on intentionally minimal developer builds without secure-store support, Perastage can still validate credentials for the current operation, but it does not persist the password. Perastage shows a warning in this state, may keep the username as a non-secret hint, and will ask for the password again in a later session.
-
-The GDTF search dialog identifies whether it is showing the online catalog or a cached catalog. A cached catalog can be browsed offline and without a current authenticated session, but Perastage will ask you to sign in when you download. Loading the online catalog and downloading require a GDTF Share account and an Internet connection. If the online catalog was loaded successfully in the same workflow, the authenticated session is reused for the download without asking again.
-
-Downloads are written to temporary sibling files first and are published only after the response is successful and ZIP-compatible. If a download, cancellation, or local publication step fails, an existing destination GDTF file is preserved.
+Use **Tools → Edit dictionaries** to manage profile mappings and **Tools → Open user library folder** to find local content. See [credential troubleshooting](troubleshooting.md#gdtf-share-credentials) if passwords are not retained.

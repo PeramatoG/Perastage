@@ -25,7 +25,9 @@ keep their native text-editing behavior.
 | `Ctrl+G` | Group the active cross-table selection |
 | `Ctrl+U` | Ungroup selected objects from their direct group |
 | `F1` | Open help |
-| `F` | Focus CLI and prefill `fixture ` (outside editable widgets) |
+| `Ctrl+Alt+D` / `Ctrl+Shift+D` | Distribute fixtures on truss / between points |
+| `P` / `R` | Focus Console and prefill `pos ` / `rot ` outside editable widgets |
+| `F` | Focus Console and prefill `fixture ` (outside editable widgets) |
 | `1 / 2 / 3 / 4` | Switch to Fixtures / Trusses / Hoists / Objects |
 
 ## Viewer shortcuts
@@ -41,6 +43,13 @@ keep their native text-editing behavior.
 | `Shift + Arrow keys` (3D) | Pan camera |
 | `Alt + Arrow keys` (2D/3D) | Zoom in/out |
 | `Arrow keys` (2D) | Pan view |
+
+## Layout View shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `Delete` | Delete selected layout element |
+| `Z` | Fit layout view |
 
 ## Console input shortcuts
 
@@ -66,7 +75,7 @@ keep their native text-editing behavior.
 ## Command bar quick workflow
 
 1. Focus the command bar.
-2. Optionally prefill with `P`, `R`, or `F`.
+2. Outside editable widgets, use `P`, `R`, or `F` to focus and prefill the Console.
 3. Edit the command text.
 4. Execute and verify the result in tables/viewers.
 5. Reuse command history for repetitive changes.
@@ -102,13 +111,13 @@ Selection syntax examples:
 
 Notes:
 
+- Console position values and pivot coordinates use meters; rotation values use degrees.
 - One value applies to all selected items.
 - Two values distribute linearly from start to end across selection; `t` and `thru` are accepted as optional range separators, so `pos x -7 t 7`, `pos x -7 thru 7`, and `pos x -7 7` are equivalent.
 - Use `++` / `--` for relative offsets. Compact and spaced values are both
   accepted, for example `pos x ++1.5`, `pos x ++ 1.5`, `pos z --1`, and
   `pos z -- 1`.
-- Mouse and console transforms move a grouped truss through its root group.
-  Grouped fixtures, supports, and scene objects remain individual targets.
+- Grouped movement follows [Selection & Movement preferences](preferences.md#selection--movement).
 - Group rotation pivot defaults to selection bounding-box center.
 - You can override pivot with a trailing `x,y,z` triplet, for example `rot y ++45 --g -2.5,0,0`.
 
@@ -142,46 +151,4 @@ rot z ++ 30 --group --local
 
 Transform-space modifiers affect incremental operations (`++` and `--`). Absolute position commands still set world coordinates, and absolute rotation commands keep the existing Euler-angle behavior. The **Local Axes** toolbar button is persistent and affects viewport transforms only; command-bar history and scripts stay deterministic and do not inherit that toolbar state.
 
-## Transform explicit objects through MCP
-
-The `live_batch_transform` MCP tool can reposition or rotate several objects
-in the open Perastage scene in one Undo step while preserving your selection.
-Use `live_objects_list` or `live_groups_list` to obtain UUIDs, then provide
-ordered targets and components. Position values use millimetres; rotation
-values use degrees. For example, replace these UUIDs with objects in your scene:
-
-```json
-{
-  "targets": [
-    {
-      "kind": "fixture",
-      "uuid": "fixture-a-uuid",
-      "components": [
-        {"kind": "position", "axis": "x", "value": -2000, "mode": "absolute", "space": "world"},
-        {"kind": "position", "axis": "y", "value": 1500, "mode": "absolute", "space": "world"}
-      ]
-    },
-    {
-      "kind": "fixture",
-      "uuid": "fixture-b-uuid",
-      "components": [
-        {"kind": "position", "axis": "x", "value": 2000, "mode": "absolute", "space": "world"},
-        {"kind": "rotation", "axis": "z", "value": 45, "mode": "relative", "space": "local"}
-      ]
-    }
-  ]
-}
-```
-
-Supported target kinds are `fixture`, `truss`, `support`, `scene_object`, and
-`group`. Targeting a child changes that exact object; targeting a group also
-synchronizes its descendants. Components run in request order, including
-repeated targets. Every component requires a valid axis, mode, and space;
-local space affects relative operations. If any object is missing, its kind is
-incorrect, or a component is invalid, the complete batch is rejected. A batch
-that changes nothing creates no Undo step. Layout coordinates are supplied by
-the client. The selection tools `live_position_transform` and
-`live_rotation_transform` remain available for simple current-selection edits.
-
-See the [MCP adapter guide](../developer/mcp_adapter.md) for server startup and
-client integration.
+For page editing and layout mouse controls, see [Layouts and PDF](layouts.md).

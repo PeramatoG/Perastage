@@ -2,40 +2,40 @@
 
 ## Is Perastage a real-time DMX visualizer?
 
-No. Perastage is focused on practical MVR viewing and scene workflow tasks.
+No. It focuses on scene editing, MVR review and technical documentation. See the [Feature Overview](features.md).
 
-## What file type is the main focus?
+## What is the difference between PSTG and MVR?
 
-MVR (`.mvr`).
+PSTG preserves Perastage project context, layouts and project symbols for continued editing. MVR exchanges scene data with other applications. See [Opening MVR Files](opening-mvr-files.md).
 
-## Can I import and export MVR?
+## Which desktop platforms are supported?
 
-Yes. Use **File → Import MVR...** and **File → Export MVR...**.
+Windows, macOS and Linux. See [Installation](installation.md) and the packages available for your release.
 
-## Does Perastage support project-based work?
+## Can Perastage import and export MVR?
 
-Yes. You can save project progress and continue editing before final export.
+Yes, including opening a new project or merging into the current project. See [Opening MVR Files](opening-mvr-files.md).
 
-## Can I work in both 2D and 3D?
+## What is the MVR / GDTF Inspector? Is it read-only?
 
-Yes. Perastage includes both views and they are intended to be used together.
+It browses project snapshots or external packages, definitions, resources and diagnostics without modifying the project or file. See [Inspector](inspector.md).
 
-## Is PDF output available for layouts?
+## Can Perastage download GDTFs?
 
-Yes. 2D layout workflows include PDF export for print/share use.
+Yes, through **Tools → Download GDTF**, with a GDTF Share account and network access. See [GDTF Download](gdtf-download.md).
 
-## Can I download GDTF files inside the app?
+## Can I browse the cached GDTF catalog offline?
 
-Yes, with a valid GDTF Share account, using **Tools → Download GDTF**.
+Yes, if a usable cache already exists. Downloading still requires online authentication. See [cached browsing](gdtf-download.md#cached-and-offline-browsing).
 
-## Where is my user library folder?
+## Are layouts and PDF supported?
 
-Use **Tools → Open user library folder**. On Windows, it is typically `%APPDATA%\Perastage\library\`.
+Yes. Compose printable pages and export the selected layout with **File → Print Layout...**. See [Layouts and PDF](layouts.md).
 
-## Are keyboard shortcuts available?
+## Where are logs? How do I report a useful problem?
 
-Yes. Perastage includes global and viewer shortcuts (fit view, tabs, viewport presets) plus local shortcuts in **Create from text** autocomplete. See [Shortcuts and command bar](shortcuts-and-command-bar.md).
+Use **Help → Open Logs Folder** and **Help → Export Diagnostic Report...**. Include reproduction steps and review files before sharing. See [Troubleshooting](troubleshooting.md#logs-and-diagnostic-reports).
 
-## Is there a command bar or console workflow?
+## Is external automation available?
 
-Yes. Perastage supports command-bar workflows, including shortcut-prefill actions for faster command entry.
+OSC and MCP integration are experimental local integrations requiring separate setup. See the developer [integration documentation](../developer/index.md) and [MCP adapter](../developer/mcp_adapter.md). For everyday embedded commands, see [Shortcuts and Command Bar](shortcuts-and-command-bar.md).

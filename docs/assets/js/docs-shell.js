@@ -1,10 +1,14 @@
 const docsPages = [
-  { md: 'user/installation.md', html: 'installation.html', title: 'Installation', icon: '🛠️', summary: 'Set up dependencies and install Perastage on your platform.' },
+  { md: 'user/installation.md', html: 'installation.html', title: 'Installation', icon: '🛠️', summary: 'Install a release package on your desktop platform.' },
   { md: 'user/quick-start.md', html: 'quick-start.html', title: 'Quick Start', icon: '🚀', summary: 'Learn the fastest path to open a project and navigate the app.' },
   { md: 'user/opening-mvr-files.md', html: 'opening-mvr-files.html', title: 'Opening MVR Files', icon: '📁', summary: 'Import MVR scenes and inspect fixtures, trusses, and objects.' },
   { md: 'user/gdtf-download.md', html: 'gdtf-download.html', title: 'GDTF Download', icon: '⬇️', summary: 'Download and manage GDTF fixture profiles from supported sources.' },
-  { md: 'user/views.md', html: 'views.html', title: 'Views', icon: '🧭', summary: 'Understand 2D, 3D, and layout views for scene review workflows.' },
+  { md: 'user/inspector.md', html: 'inspector.html', title: 'MVR / GDTF Inspector', icon: '🔎', summary: 'Inspect project snapshots and external packages without editing them.' },
+  { md: 'user/create-from-text.md', html: 'create-from-text.html', title: 'Create from Text', icon: '📝', summary: 'Create scene content from text, TXT or PDF riders.' },
+  { md: 'user/views.md', html: 'views.html', title: 'Views', icon: '🧭', summary: 'Use 2D and 3D views to review and edit scenes.' },
+  { md: 'user/layouts.md', html: 'layouts.html', title: 'Layouts and PDF', icon: '📄', summary: 'Arrange printable pages and export layout PDFs.' },
   { md: 'user/preferences.md', html: 'preferences.html', title: 'Preferences', icon: '⚙️', summary: 'Configure application behavior, units, and user-facing defaults.' },
+  { md: 'user/shortcuts-and-command-bar.md', html: 'shortcuts-and-command-bar.html', title: 'Shortcuts and Command Bar', icon: '⌨️', summary: 'Look up keyboard, mouse and embedded Console commands.' },
   { md: 'user/troubleshooting.md', html: 'troubleshooting.html', title: 'Troubleshooting', icon: '🩺', summary: 'Resolve common setup, import, and rendering issues quickly.' },
   { md: 'user/faq.md', html: 'faq.html', title: 'FAQ', icon: '❓', summary: 'Find concise answers to frequent workflow and feature questions.' },
   { md: 'user/features.md', html: 'features.html', title: 'Feature overview', icon: '✨', summary: 'Explore key capabilities and practical tools available in Perastage.' },
@@ -44,7 +48,7 @@ function renderDocShell(activeHtml) {
     <a href="#content" class="skip-link">Skip to content</a>
     <div class="page-shell">
       <header class="site-header">
-        <a class="brand" href="documentation.html" aria-label="Perastage docs home">
+        <a class="brand" href="index.html" aria-label="Perastage home">
           <img src="assets/images/Perastage_logo.png" alt="Perastage logo" />
           <div><h1>Perastage</h1><p>Lighting and Rigging visualization tool</p></div>
         </a>
@@ -52,7 +56,7 @@ function renderDocShell(activeHtml) {
       </header>
       <div class="layout">
         <aside id="docNav" class="nav-panel" aria-label="Documentation navigation"><ul class="nav-links">${renderNav(activeHtml)}</ul></aside>
-        <main class="content-panel"><div class="breadcrumb"><a href="documentation.html">Home</a> / ${activeHtml.replace('.html', '')}</div><div id="content"></div><a class="back-top" href="#top">Back to top</a></main>
+        <main class="content-panel"><div class="breadcrumb"><a href="documentation.html">Documentation</a> / ${activeHtml.replace('.html', '')}</div><div id="content"></div><a class="back-top" href="#top">Back to top</a></main>
       </div>
       <footer>Perastage documentation • <a href="https://github.com/PeramatoG/Perastage">Main GitHub repository</a> • <a href="https://github.com/PeramatoG/Perastage/releases/latest">Latest releases</a></footer>
     </div>`;
@@ -81,11 +85,11 @@ function resolveMarkdownHref(markdownPath) {
 
 // Converts documentation Markdown links to their HTML shell counterparts.
 function rewriteMarkdownLinks(contentElement, currentMdFile) {
-  const currentFolder = currentMdFile.includes('/') ? currentMdFile.replace(/\/[^/]+$/, '') : '';
+  const currentFolder = currentMdFile.split('/').slice(0, -1).join('/');
   const links = contentElement.querySelectorAll('a[href]');
   links.forEach((link) => {
     const href = link.getAttribute('href');
-    if (!href || href.startsWith('#')) {
+    if (!href || href.startsWith('#') || /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(href)) {
       return;
     }
     try {

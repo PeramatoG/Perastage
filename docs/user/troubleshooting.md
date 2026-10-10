@@ -1,181 +1,41 @@
 # Troubleshooting
 
-If Perastage does not behave as expected, use these quick checks.
+## MVR open and import problems
 
-## MVR file does not open
+Confirm the extension is `.mvr`, try another file to isolate the problem, and review import messages in the Console. Use the [Inspector](inspector.md) to examine an external package without importing it. For merge conflicts, see [Opening MVR Files](opening-mvr-files.md).
 
-- Confirm the file extension is `.mvr`.
-- Try a different MVR file to isolate whether the issue is file-specific.
-- Restart Perastage and retry import/open.
+## Missing or incorrect GDTF fixtures
 
-## Fixtures look missing or incorrect
+Check the fixture definition and selected DMX mode. Use **Tools → Download GDTF** for profiles and **Tools → Edit dictionaries** for local mappings. Reopen and review the scene after correcting missing profiles. Check the [definition completion policy](preferences.md#gdtf-definition-completion) if generated views differ from your expectations.
 
-- Download required profiles in **Tools -> Download GDTF**.
-- Check local mappings in **Tools -> Edit dictionaries**.
-- Reopen the scene after downloading missing profiles.
+## User library
 
-## Cannot find local library content
+Use **Tools → Open user library folder**; on Windows the default is `%APPDATA%\Perastage\library\`. Confirm your user profile is writable and back up custom content before replacing files. Edit user-library files rather than installed defaults.
 
-Open the location from:
+## Layout and PDF problems
 
-- **Tools -> Open user library folder**
+Select a non-empty layout, check its frames and orientation, and verify scene/table content before **File → Print Layout...**. Choose a writable destination and a non-empty filename. Review the exported PDF; see [Layouts and PDF](layouts.md) for the workflow.
 
-On Windows, the default path is:
+## Project and runtime problems
 
-- `%APPDATA%\Perastage\library\`
+Save a separate project copy when possible, restart Perastage and reopen it. Recheck critical data in 2D, 3D and tables. For slow 3D navigation, lower [Model detail](preferences.md#3d-viewer) or enable the navigation proxy. Compare with a small project to isolate scene-specific problems.
 
-## Layout or print output is not as expected
+## GDTF Share credentials
 
-- Recheck the scene in 2D before exporting.
-- Verify table values for fixtures/trusses/hoists/objects.
-- If PDF export fails, choose a writable destination, avoid empty filenames, and retry after confirming the Viewer 2D print preferences.
-- Invalid numeric preferences are ignored and replaced with safe defaults, so reset preferences if exports still look inconsistent.
-- Export PDF again after confirming layout adjustments.
+Online loads and downloads require an account and network access; [cached catalog browsing](gdtf-download.md#cached-and-offline-browsing) remains available offline.
 
-## Scene seems inconsistent after many edits
+If Perastage warns that the runtime secure credential store is unavailable, the password is usable for the current operation but is not retained. Check that your operating-system credential store is available; Linux needs an active Secret Service provider such as GNOME Keyring or KWallet. If the warning persists in a release package, include it in your report. Do not include passwords.
 
-- Save the project.
-- Close and reopen it.
-- Revalidate critical items in both 2D and 3D views.
+## Logs and diagnostic reports
 
-## CMake cannot find a dependency through vcpkg
+Use **Help → Open Logs Folder** to find `perastage.log`, the previous launch's `perastage.previous.log`, and the `crash_reports` subfolder.
 
-If CMake reports that a required dependency cannot be found, for example:
+Default log locations:
 
-```text
-Could not find a package configuration file provided by "wxWidgets"
-```
+- Windows: `%LOCALAPPDATA%\Perastage\logs\`
+- macOS: `~/Library/Logs/Perastage/`
+- Linux: `${XDG_STATE_HOME}/perastage/logs/`, or `~/.local/state/perastage/logs/` if unset.
 
-or:
+Use **Help → Export Diagnostic Report...** for a text report with build/platform details, available OpenGL information and recent log lines. Reports stay local and are not uploaded automatically. Review the report before sharing it, together with reproduction steps and a small example file when possible.
 
-```text
-Could NOT find ZLIB (missing: ZLIB_LIBRARY ZLIB_INCLUDE_DIR)
-```
-
-or a similar error for `tinyxml2`, `CURL`, `GLEW`, `meshoptimizer`, `nanovg`, `podofo`, `Backward`, or `mdns`, first verify which vcpkg toolchain CMake selected. Do not reinstall an already-present package until the external classic checkout has been confirmed.
-
-The Windows Ninja presets intentionally disable vcpkg manifest mode and manifest auto-install. Visual Studio/CMake should not print `-- Running vcpkg install`, build packages during configure, or create a `vcpkg_installed` directory in the repository or build tree. Verify the expected classic vcpkg paths and selected toolchain:
-
-```powershell
-Test-Path "$env:VCPKG_ROOT\vcpkg.exe"
-Test-Path "$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
-Test-Path "$env:VCPKG_ROOT\installed\x64-windows\include\wx\secretstore.h"
-Test-Path "$env:VCPKG_ROOT\installed\x64-windows\tools\gettext\bin\msgfmt.exe"
-Select-String -Path ".\build\win-x64-debug-ninja\CMakeCache.txt" -Pattern '^CMAKE_TOOLCHAIN_FILE'
-Test-Path ".\vcpkg_installed"
-Test-Path ".\build\win-x64-debug-ninja\vcpkg_installed"
-```
-
-The public `include\wx\setup.h` is not the configuration-specific wxWidgets
-header. Current vcpkg layouts place generated MSW headers below Release
-`lib\msw*\wx\setup.h` and Debug `debug\lib\msw*\wx\setup.h` directories.
-`setup_windows.ps1` inspects both configuration groups and reports every
-generated header that is missing or does not define `wxUSE_SECRETSTORE 1`.
-
-The first four checks should be `True`; the final two checks should normally be `False` for local Windows builds. If a required package is missing, install or repair it manually in the selected classic vcpkg installation before configuring again. A typical one-time command is:
-
-```powershell
-& "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows wxwidgets[secretstore] gettext[tools] tinyxml2 curl glew zlib nanovg podofo meshoptimizer backward-cpp mdns
-```
-
-If the CMake error path contains Visual Studio's internal vcpkg, for example:
-
-```text
-C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake
-```
-
-then Visual Studio injected its bundled vcpkg instead of the intended external classic checkout. Put the external `VCPKG_ROOT` in the `environment` map of an ignored user preset that inherits `Windows x64 Debug (Ninja)` or `Windows x64 Release (Ninja)`, or run `<external-vcpkg-root>\vcpkg.exe integrate install` once from the intended checkout. Reopen Visual Studio, select that preset, clear the affected CMake cache, and reconfigure. Perastage ignores a bundled `VC\vcpkg` environment value and falls back to the user-wide descriptor; do not reinstall wxWidgets merely because the wrong root was selected. You can also run the validation helper from a Visual Studio Developer PowerShell:
-
-```powershell
-.\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
-```
-
-Always use this root launcher for diagnostics. The delegated files under
-`scripts/windows/` are implementation details, and launcher errors identify a
-missing implementation before any toolchain validation begins.
-
-Useful cleanup commands from the repository root:
-
-```powershell
-Remove-Item -Recurse -Force .\.vs -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force .\build\win-x64-debug-ninja -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force .\build\win-x64-release-ninja -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force .\out\build\x64-Debug -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force .\out\build\x64-Release -ErrorAction SilentlyContinue
-```
-
-Deleting `.vs` or the selected build directory is safe. Deleting `$env:VCPKG_ROOT\installed`, vcpkg downloads, packages, or buildtrees is not part of normal troubleshooting.
-
-If your vcpkg installation is intentionally located somewhere else, pass `-VcpkgRoot` to `setup_windows.ps1` for validation, and create your own local CMake user preset only if you fully own that machine-specific override. Perastage does not generate or depend on `CMakeUserPresets.json`.
-
-## Export diagnostics after a crash or bug
-
-Perastage writes local diagnostics only. It does not upload logs or crash reports automatically.
-
-Use **Help -> Open Logs Folder** to view the local logs and crash reports folder. The current log file is named `perastage.log`, and the previous launch is kept as `perastage.previous.log`.
-
-Default log locations are:
-
-- Windows: `%LOCALAPPDATA%\Perastage\logs\perastage.log`
-- macOS: `~/Library/Logs/Perastage/perastage.log`
-- Linux: `${XDG_STATE_HOME}/perastage/logs/perastage.log`, or `~/.local/state/perastage/logs/perastage.log` when `XDG_STATE_HOME` is not set
-
-Crash reports are written under the `crash_reports` folder inside the same logs folder. Use **Help -> Export Diagnostic Report** to create a plain-text report that includes build information, platform details, captured OpenGL information when available, and recent log lines. Share this file manually only if you are comfortable sending it to the developer.
-
-## Localization catalog generation
-
-If localization catalog generation fails during configure, build, or packaging, verify that gettext tools are installed as build-time tools and visible to CMake. On Windows, `msgfmt.exe`, `xgettext.exe`, `msgmerge.exe`, and `msgattrib.exe` should exist under `$env:VCPKG_ROOT\installed\x64-windows\tools\gettext\bin`; run `setup_windows.ps1 -SkipBuild` to validate them without installing packages. On macOS, run `brew --prefix gettext` and add its `bin` directory to `PATH` before configuring because Homebrew gettext is keg-only. The generated `perastage.mo` catalog should be staged under `resources/locale/es/LC_MESSAGES/perastage.mo` on Windows/Linux and `Perastage.app/Contents/Resources/locale/es/LC_MESSAGES/perastage.mo` on macOS.
-
-## GDTF Share password is not saved
-
-Official Perastage builds require wxWidgets to be compiled with `wxUSE_SECRETSTORE`. If CMake reports that secure credential storage is missing, rebuild dependencies with the repository manifest or repair an existing Windows vcpkg tree with:
-
-```powershell
-& "$env:VCPKG_ROOT\vcpkg.exe" install "wxwidgets[secretstore]:x64-windows" --recurse
-```
-
-Then delete the affected Perastage build directory and configure again so the secure-store probe sees the rebuilt wxWidgets package. On Linux, install `libsecret-1-dev` before building wxWidgets with vcpkg. At runtime, Linux password persistence also needs a Secret Service provider such as GNOME Keyring or KWallet; a headless or minimal desktop can report the runtime store as unavailable even when the feature was compiled correctly.
-
-### CMake reports CMAKE_CXX_COMPILER not set on Windows
-
-Run Ninja presets from a Visual Studio Developer PowerShell or run `setup_windows.ps1`, which imports the x64 MSVC environment before configuring CMake. If this appears after a failed dependency configure, rerun `setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild` so the selected build directory is refreshed while the selected classic vcpkg installation remains untouched.
-
-### LNK4272 reports x64 libraries conflicting with an x86 target
-
-`LNK4272: library machine type 'x64' conflicts with target machine type 'x86'`, unresolved `__RTC_InitBase`, unresolved `__RTC_Shutdown`, or unresolved `_mainCRTStartup` during CMake's compiler test means the build directory captured an x86 MSVC compiler or linker while the active environment points at x64 SDK/runtime libraries. This is a mixed compiler/cache/environment problem, not a Perastage source, credential-store, or vcpkg target problem.
-
-Use the setup script so it validates the x64 MSVC tools and refreshes only the selected build directory when an incompatible cache is detected:
-
-```powershell
-.\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
-```
-
-To inspect the active compiler manually from the same shell, run:
-
-```powershell
-where cl
-where link
-cl
-$env:VSCMD_ARG_HOST_ARCH
-$env:VSCMD_ARG_TGT_ARCH
-```
-
-The compiler banner must say `for x64`, and both `VSCMD_ARG_HOST_ARCH` and `VSCMD_ARG_TGT_ARCH` must be `x64`. Deleting the selected Perastage build directory is safe; deleting the selected classic vcpkg checkout, `$env:VCPKG_ROOT\installed`, global vcpkg downloads, packages, or buildtrees is not required for this compiler-cache problem.
-
-If multiple Visual Studio installations are present, select one explicitly:
-
-```powershell
-.\setup_windows.ps1 -Configuration Debug -VisualStudioPath "C:\Program Files\Microsoft Visual Studio\2022\Community" -CleanBuild -SkipBuild
-```
-
-You can also use `-VisualStudioVersion` with a vswhere-compatible version range when you prefer version selection over a full path.
-
-### wxWidgetsConfig.cmake is missing on Windows
-
-If CMake reports that `wxWidgetsConfig.cmake` or `wxwidgets-config.cmake` is missing from the selected classic vcpkg checkout, it usually means wxWidgets is missing from `$env{VCPKG_ROOT}/installed/x64-windows` or the wrong toolchain file is active. The shared Windows Ninja presets disable manifest mode, so CMake will fail clearly instead of installing packages automatically.
-
-```powershell
-.\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
-```
-
-Do not delete or replace the vcpkg installation to fix this. Install or repair the missing classic `x64-windows` package in the selected classic vcpkg checkout, then rerun `setup_windows.ps1 -CleanBuild -SkipBuild`.
+Source-build, dependency and toolchain failures belong in the [developer build guide](../developer/build.md).

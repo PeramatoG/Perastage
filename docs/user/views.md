@@ -1,41 +1,21 @@
-# Views (2D and 3D)
+# Views
 
-Perastage combines 3D scene inspection with 2D layout-oriented review.
+Use 3D to check spatial relationships and orientations, and 2D to check plans, positions and readability. Show hidden viewer panes from **View**.
 
-## 3D view
+## Navigate and review
 
-Use 3D when you need spatial understanding.
+In 3D, drag to orbit, Shift-drag or middle-drag to pan, and use the wheel to zoom. Right-click and choose **Render style** for a different presentation, including type, layer or universe coloring.
 
-Typical checks:
+In 2D, drag empty space to pan and use the wheel to zoom. Select scene elements to cross-check their rows in Fixtures, Trusses, Hoists and Objects. Double-click a cell within a multi-selection to edit that column for the selected rows.
 
-- Position and orientation.
-- Relationships between fixtures, trusses, hoists, and objects.
-- Group membership while hovering scene items: the hovered item uses the primary hover highlight, and other members of the same group use a paler related-green highlight in the 3D view and related tables, with table rows styled like selected rows.
-- Group selection while clicking scene items: clicking a grouped member selects its full group across related tables.
-- General scene structure before export.
-- Dragging feedback: while moving scene elements in 2D or with the 3D gizmo, the bottom X/Y/Z status readout shows the dragged insertion-point position with a highlighted font color until the mouse is released.
-- Drag Move: the **Drag Move** toolbar toggle, shown with the Move icon, enables moving scene selections by holding the left mouse button over an element and dragging. It is disabled by default so left-dragging pans the viewport in dense scenes unless the user enables selection dragging, and the setting is stored in the project.
-- Axis lock: the **Axis Lock** toolbar toggle, shown with the Move 3D icon, is enabled by default and stores its state in the project. When disabled, 3D selection dragging follows a plane parallel to the current camera view through the selection origin, similar to Blender free move.
-- Cross-table actions: the **Cross-table Actions** toolbar toggle, shown with the Layers icon, is disabled by default and stores its state in the project. When enabled, viewport hover, selection, measuring, and compatible interaction tools can target fixtures, trusses, hoists, and scene objects without being limited to the active Data Views table.
+## Move and select
 
-## 2D view and layouts
+- **Drag Move** enables left-button dragging of scene selections; it is disabled by default.
+- **Axis Lock** constrains movement. Disabling it allows free 2D movement or movement on a camera-facing plane in 3D.
+- **Local Axes** changes viewport transform axes.
+- **Magnet** snaps compatible anchors while moving or inserting elements.
+- **Cross-table Actions** allows viewport tools to target object types beyond the active table; it is disabled by default.
 
-Use 2D when you need plan-oriented validation and output.
+Grouped movement follows [Selection & Movement preferences](preferences.md#selection--movement). Review the final position in both views and use Undo if needed.
 
-Typical checks:
-
-- Top/plan readability.
-- Free 2D selection movement when **Axis Lock** is disabled; when enabled, dragged selections remain constrained to the dominant horizontal or vertical movement axis.
-- Layout alignment and coverage.
-- Print-ready preparation.
-
-You can export layout-oriented output as PDF for sharing or printing.
-
-## Tables and views together
-
-Best practice is to combine visual review with table review:
-
-- Validate elements in Fixtures, Trusses, Hoists, and Objects tables.
-- Double-click a cell inside an existing multi-selection to edit that column for all selected elements. A single click on one selected row still reduces the selection to that row after the normal system double-click interval when no second click follows.
-- Cross-check selected elements in 2D and 3D.
-- Confirm updates before saving or exporting MVR.
+See [Shortcuts and Command Bar](shortcuts-and-command-bar.md) for keyboard, mouse and Console input. For printable pages, use [Layouts and PDF](layouts.md).

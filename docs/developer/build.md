@@ -349,6 +349,17 @@ C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsyst
 
 then Visual Studio exposed its bundled vcpkg instead of the intended external checkout. Select the canonical Windows Ninja preset, clear the affected CMake cache with `setup_windows.ps1 -CleanBuild -SkipBuild`, and verify that `CMAKE_TOOLCHAIN_FILE` points at `cmake/PerastageWindowsVcpkgToolchain.cmake` while `PERASTAGE_RESOLVED_VCPKG_ROOT` identifies the external checkout.
 
+### Missing compiler or wxWidgets configuration
+
+If CMake reports `CMAKE_CXX_COMPILER not set`, run the root
+`setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild` launcher so
+it establishes the x64 MSVC environment and refreshes the selected cache.
+
+If `wxWidgetsConfig.cmake` or `wxwidgets-config.cmake` is missing, verify the
+selected external classic checkout and its installed `x64-windows` wxWidgets
+package. Install or repair the missing package there, then rerun the launcher;
+do not replace the whole checkout. Local presets do not install packages.
+
 ## Secure credential-store verification
 
 Official Windows and macOS presets require `PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON`. Official Linux packaging workflows also pass this option explicitly. When the option is enabled, CMake compiles a small `wx/setup.h` probe and fails if `wxUSE_SECRETSTORE` is disabled. On Linux, building wxWidgets with this feature requires libsecret development headers such as `libsecret-1-dev`; runtime persistence still depends on a running Freedesktop Secret Service provider such as GNOME Keyring or KWallet.
