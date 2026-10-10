@@ -59,3 +59,61 @@ footer { margin-top:1rem; color:var(--text-muted); font-size:.92rem; text-align:
   .nav-panel { display:none; }
   .nav-panel.open { display:block; }
 }
+
+/* Product landing styles stay scoped to protect the shared documentation shell. */
+:focus-visible { outline: 3px solid var(--accent-strong); outline-offset: 4px; }
+.skip-link:focus { padding: .5rem 1rem; background: var(--bg-primary); border-radius: 6px; }
+.product-page { background: var(--bg-primary); }
+.product-shell { width: min(1320px, 94vw); }
+.product-header { flex-wrap: wrap; box-shadow: none; }
+.product-brand-name { font-size: 1.45rem; font-weight: 700; }
+.product-nav, .product-status, .product-footer ul { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; list-style: none; padding: 0; margin: 0; }
+.product-nav a { display: inline-block; padding: .4rem 0; color: var(--text-primary); }
+.product-nav a:hover { color: var(--accent-strong); }
+.product-hero { display: grid; grid-template-columns: 1fr 1.1fr; align-items: center; gap: 2.5rem; padding: 4rem 0 3rem; }
+.product-hero > * { min-width: 0; }
+.product-eyebrow { margin: 0 0 1rem; color: var(--accent-strong); font-weight: 600; }
+.product-hero h1 { font-size: clamp(2rem, 3.7vw, 3.5rem); line-height: 1.12; letter-spacing: -.025em; margin: 0 0 1.5rem; }
+.product-lead { color: var(--text-muted); font-size: 1.08rem; }
+.product-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin: 1.75rem 0 1.25rem; }
+.product-button { display: inline-block; padding: .7rem 1rem; border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-weight: 600; }
+.product-button:hover { border-color: var(--accent-strong); }
+.product-button-primary { background: var(--accent); color: var(--bg-primary); border-color: var(--accent); }
+.product-button-primary:hover, .product-button-primary:focus-visible { background: var(--accent-strong); color: var(--bg-primary); }
+.product-status { color: var(--text-muted); font-size: .85rem; }
+.product-screenshot { display: block; width: 100%; height: auto; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.product-release { padding: 1rem 1.25rem; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-secondary); }
+.product-release h2 { font-size: 1rem; margin: 0 0 .25rem; }
+.product-release p { color: var(--text-muted); margin: 0; }
+.product-section { padding: 3rem 0 0; scroll-margin-top: 1rem; }
+.product-section h2 { font-size: clamp(1.5rem, 2.5vw, 2rem); line-height: 1.25; margin: 0 0 1rem; }
+.product-intro { max-width: 760px; color: var(--text-muted); margin-bottom: 1.5rem; }
+.product-feature-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
+.product-card { padding: 1.25rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; }
+.product-card h3 { font-size: 1.1rem; line-height: 1.35; margin: 0 0 .65rem; color: var(--text-primary); }
+.product-card p { color: var(--text-muted); margin: 0; }
+.product-workflow, .product-help-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.product-workflow { list-style: none; padding: 0; margin: 1.5rem 0 0; counter-reset: workflow; }
+.product-workflow li { counter-increment: workflow; }
+.product-workflow li::before { content: counter(workflow, decimal-leading-zero); display: block; color: var(--accent-strong); font-weight: 700; margin-bottom: .75rem; }
+.product-help-grid { margin-top: 1.5rem; }
+.product-help-card:hover, .product-help-card:focus-visible { border-color: var(--accent-strong); }
+.product-footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+.product-footer ul { justify-content: center; }
+@media (max-width: 1050px) {
+  .product-hero { gap: 1.5rem; }
+  .product-feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .product-header { align-items: flex-start; }
+  .product-header nav { width: 100%; }
+  .product-nav { gap: .25rem 1rem; }
+  .product-hero { grid-template-columns: 1fr; padding: 2.5rem 0 2rem; }
+  .product-workflow, .product-help-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .product-feature-grid { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .doc-card:hover, .doc-card:focus-visible { transform: none; }
+}
