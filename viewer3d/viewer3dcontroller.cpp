@@ -714,6 +714,7 @@ Viewer3DController::Viewer3DController()
 
 // Releases 3D viewer controller resources and rendering state.
 Viewer3DController::~Viewer3DController() {
+  ClearRuntimeMeshes();
   for (auto &[path, mesh] : m_impl->resourceSyncState.loadedMeshes) {
     (void)path;
     ReleaseMeshBuffers(mesh);
@@ -1796,49 +1797,6 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
 }
 
 // Releases mesh Buffers.
-void Viewer3DController::ReleaseMeshBuffers(Mesh &mesh) {
-  if (mesh.textureId != 0) {
-    glDeleteTextures(1, &mesh.textureId);
-    mesh.textureId = 0;
-  }
-  if (mesh.eboLines != 0) {
-    glDeleteBuffers(1, &mesh.eboLines);
-    mesh.eboLines = 0;
-  }
-  if (mesh.eboTriangles != 0) {
-    glDeleteBuffers(1, &mesh.eboTriangles);
-    mesh.eboTriangles = 0;
-  }
-  if (mesh.vboNormals != 0) {
-    glDeleteBuffers(1, &mesh.vboNormals);
-    mesh.vboNormals = 0;
-  }
-  if (mesh.vboTexCoords != 0) {
-    glDeleteBuffers(1, &mesh.vboTexCoords);
-    mesh.vboTexCoords = 0;
-  }
-  if (mesh.vboFlatNormals != 0) {
-    glDeleteBuffers(1, &mesh.vboFlatNormals);
-    mesh.vboFlatNormals = 0;
-  }
-  if (mesh.vboFlatVertices != 0) {
-    glDeleteBuffers(1, &mesh.vboFlatVertices);
-    mesh.vboFlatVertices = 0;
-  }
-  if (mesh.vboVertices != 0) {
-    glDeleteBuffers(1, &mesh.vboVertices);
-    mesh.vboVertices = 0;
-  }
-  if (mesh.vao != 0) {
-    glDeleteVertexArrays(1, &mesh.vao);
-    mesh.vao = 0;
-  }
-
-  mesh.triangleIndexCount = 0;
-  mesh.flatVertexCount = 0;
-  mesh.lineIndexCount = 0;
-  mesh.buffersReady = false;
-}
 
 // Draws a mesh using the given color. When selected or highlighted the
 // mesh is rendered entirely in cyan or green respectively.

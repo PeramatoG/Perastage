@@ -486,7 +486,9 @@ void OpaqueObjectPass::Render(
                 partCaptureTransform = localPartCapture;
 
               controller.DrawMeshWithOutline(
-                  *part.mesh, r, g, b, RENDER_SCALE, isHighlighted,
+                  controller.ResolveRenderMesh(
+                      *part.mesh, context.is2DViewer || controller.m_captureCanvas),
+                  r, g, b, RENDER_SCALE, isHighlighted,
                   isGroupHighlighted, isSelected, cx, cy, cz, wireframe, mode,
                   partCaptureTransform, false, partMatrix, disableDepthBias,
                   context.selectionOverlayPass);

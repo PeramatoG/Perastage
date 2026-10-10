@@ -145,9 +145,20 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/mvrxchange/mvr_xchange_dialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_print.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preferencesdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/preferencesdialog_persistence.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/preferences/preferences_page.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/preferences/rider_import_preferences_page.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/preferences/units_preferences_page.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/preferences/language_preferences_page.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/preferences/updates_preferences_page.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/preferences/gdtf_preferences_page.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/preferences/mvr_preferences_page.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/preferences/selection_movement_preferences_page.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/preferences/viewer3d_preferences_page.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preview_resource.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preferences/gdtf_credentials_panel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preferences/gdtf_mutation_policy_panel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/preferences/viewer3d_rendering_preferences_panel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/resource_reference_sync.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/resource_path_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_object_primitive_creation.cpp

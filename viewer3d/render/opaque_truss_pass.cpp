@@ -205,7 +205,9 @@ void OpaqueTrussPass::Render(
             bool isHighlighted, bool isGroupHighlighted, bool isSelected) {
           if (trussMesh) {
             controller.DrawMeshWithOutline(
-                *trussMesh, r, g, b, RENDER_SCALE, isHighlighted,
+                controller.ResolveRenderMesh(
+                    *trussMesh, context.is2DViewer || controller.m_captureCanvas),
+                r, g, b, RENDER_SCALE, isHighlighted,
                 isGroupHighlighted, isSelected, cx, cy, cz, wireframe, mode,
                 captureTransformFn, false, matrix, false,
                 context.selectionOverlayPass);

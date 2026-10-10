@@ -34,6 +34,7 @@
 #include <wx/zipstrm.h>
 
 #include "configmanager.h"
+#include "model_detail_policy.h"
 #include "fixture.h"
 #include "fixture_label_overrides.h"
 #include "filesystem_path_utils.h"
@@ -502,6 +503,7 @@ int main() {
 
   std::filesystem::path temp = std::filesystem::temp_directory_path() /
                                std::filesystem::path(u8"símbolos_roundtrip.pstg");
+    model_detail::SavePreferences(cfg, {model_detail::Level::Low, true});
     assert(cfg.SaveProject(PathUtils::PathToUtf8(temp)));
 
     const auto projectEntries = ReadProjectEntries(temp);
@@ -611,7 +613,10 @@ int main() {
 
     cfg.SetValue("viewer3d_invert_orbit", "1");
     cfg.SetValue("viewer3d_invert_orbit_horizontal", "0");
+    model_detail::SavePreferences(cfg, {model_detail::Level::High, false});
     assert(cfg.LoadProject(foreignNavigationProject.string()));
+    assert((model_detail::ReadPreferences(cfg) ==
+            model_detail::Preferences{model_detail::Level::High, false}));
     assert(cfg.GetValue("viewer3d_invert_orbit") ==
            std::optional<std::string>("1"));
     assert(cfg.GetValue("viewer3d_invert_orbit_horizontal") ==
@@ -621,7 +626,12 @@ int main() {
     staleProjectOverride.showLabelName[0] = false;
     viewer2d::SaveFixtureLabelOverrides(
         cfg, {{"previous-project-fixture", staleProjectOverride}});
+    cfg.RemoveKey(model_detail::kDetailConfigKey);
+    cfg.RemoveKey(model_detail::kMovingProxyConfigKey);
     assert(cfg.LoadProject(PathUtils::PathToUtf8(temp)));
+    assert(model_detail::ReadPreferences(cfg) == model_detail::Preferences{});
+    assert(!cfg.GetValue(model_detail::kDetailConfigKey));
+    assert(!cfg.GetValue(model_detail::kMovingProxyConfigKey));
 
     const auto &scene2 = cfg.GetScene();
     const auto &loadedGroupedTruss = scene2.trusses.at(t.uuid);

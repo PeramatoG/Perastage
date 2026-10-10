@@ -1,7 +1,5 @@
 #include "viewer3d_render_style.h"
 
-#include "configmanager.h"
-
 namespace {
 constexpr std::string_view kStandardStyleValue = "standard";
 constexpr std::string_view kWhiteStyleValue = "white";
@@ -13,8 +11,7 @@ constexpr std::string_view kByLayerStyleValue = "by_layer";
 constexpr std::string_view kByUniverseStyleValue = "by_universe";
 } // namespace
 
-Viewer3DRenderStyle ResolveViewer3DRenderStyle(const ConfigManager &cfg) {
-  const auto style = cfg.GetValue("viewer3d_render_style");
+Viewer3DRenderStyle ParseViewer3DRenderStyle(const std::optional<std::string> &style) {
   if (!style.has_value())
     return Viewer3DRenderStyle::Standard;
 

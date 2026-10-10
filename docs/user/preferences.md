@@ -2,6 +2,22 @@
 
 Perastage includes a Preferences dialog for user-level behavior and display settings.
 
+The dialog uses a native category tree on the left and one settings page on the
+right. Select a page with the mouse or the keyboard. The navigation hierarchy is:
+
+- **General**: Language, Units, Updates
+- **Import**: Rider Import
+- **Viewer**: 3D Viewer, Selection & Movement
+- **Formats**: GDTF, MVR Import / Export
+
+Switching pages keeps pending edits and does not save them. **Apply** saves all
+pages and keeps the dialog open. **OK** saves all pages and closes the dialog.
+**Cancel** discards edits made since the last Apply. The window can be resized;
+long pages scroll vertically and explanatory text wraps to the available width.
+Language changes still require restarting Perastage; unit and rendering changes
+apply immediately.
+
+
 ## Common settings
 
 Current user-facing preferences include:
@@ -11,6 +27,7 @@ Current user-facing preferences include:
 - GDTF-related settings
 - Update check behavior (startup recommended or manual only)
 - MVR import/export settings
+- 3D model detail and an optional navigation proxy
 
 ## Why preferences matter
 
@@ -20,7 +37,7 @@ Current user-facing preferences include:
 
 ## GDTF definition completion
 
-The **GDTF** tab offers two policies under **GDTF definition completion**:
+The **Formats > GDTF** page offers two policies under **GDTF definition completion**:
 
 - **Complete and improve GDTF definitions (recommended)** is the default.
   Perastage may generate missing standard Top, Side, and Front SVG views from
@@ -36,7 +53,7 @@ the scene has first been saved.
 
 ## MVR Import / Export
 
-The **MVR Import / Export** tab is the location for MVR-related import and export preferences. The current export setting controls how truss geometry is written when exporting MVR files.
+The **Formats > MVR Import / Export** page is the location for MVR-related import and export preferences. The current export setting controls how truss geometry is written when exporting MVR files.
 
 ### Truss geometry export mode
 
@@ -78,3 +95,25 @@ disappear when it ends, and do not become part of the scene or exported data.
 ## Good practice
 
 After changing preferences, recheck your scene in both 2D and 3D and verify table values display as expected.
+
+## 3D Viewer model detail
+
+Under **Viewer > 3D Viewer > Performance**, **Model detail** controls the runtime
+representation of fixture, truss, and scene-object meshes:
+
+- **Standard** (default) balances detail and performance. Small meshes stay complete;
+  heavy meshes use a conservative simplification.
+- **Low** requests a smaller representation for heavy meshes.
+- **High** renders all available authored mesh detail.
+
+**Use a simplified proxy while navigating** is a separate option, disabled by
+default. When enabled, unselected fixtures may temporarily use a more aggressive
+proxy during fast navigation, even with High selected. When navigation ends,
+the chosen model detail returns. Caching, GPU buffers, and instancing remain
+available with every detail level and with the proxy disabled.
+
+Apply and OK take effect on the next redraw without reopening the project.
+These are Perastage rendering preferences: source meshes and GDTF resources
+remain unchanged. 2D views, symbol captures, and exported geometry continue to
+use the complete geometry. Detail levels are not inferred from GDTF filenames
+or from multiple authored models.

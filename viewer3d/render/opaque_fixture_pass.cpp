@@ -43,7 +43,6 @@
 #include "symbols/project_fixture_symbol_runtime.h"
 #include "universe_color.h"
 #include "viewer3dcontroller.h"
-#include <meshoptimizer.h>
 
 namespace {
 namespace fs = std::filesystem;
@@ -115,144 +114,6 @@ BuildSymbolViewCandidates(SymbolViewKind requested) {
 
 std::array<float, 3> BuildSvgVertexForView(float x, float y, Viewer2DView view);
 
-const Mesh &ResolveMovingProxyMesh(const Mesh &source,
-                                   Viewer3DController &controller) {
-  const size_t sourceTriangleCount = source.indices.size() / 3;
-  // Do not proxy very small meshes; simplification artifacts are more visible
-  // than the potential performance gain for tiny triangle counts.
-  if (sourceTriangleCount <= 500)
-    return source;
-
-  auto computeProxyRatio = [](size_t triangleCount) {
-    if (triangleCount <= 2'000)
-      return 0.60f;
-    if (triangleCount <= 10'000)
-      return 0.35f;
-    if (triangleCount <= 50'000)
-      return 0.20f;
-    if (triangleCount <= 200'000)
-      return 0.10f;
-    return 0.05f;
-  };
-
-  static std::unordered_map<const Mesh *, Mesh> proxyCache;
-  auto it = proxyCache.find(&source);
-  if (it != proxyCache.end())
-    return it->second;
-
-  Mesh proxy = source;
-  proxy.buffersReady = false;
-  proxy.vao = 0;
-  proxy.vboVertices = 0;
-  proxy.vboNormals = 0;
-  proxy.vboTexCoords = 0;
-  proxy.vboFlatVertices = 0;
-  proxy.vboFlatNormals = 0;
-  proxy.eboTriangles = 0;
-  proxy.eboLines = 0;
-
-  const size_t vertexCount = proxy.vertices.size() / 3;
-  if (vertexCount >= 3 && proxy.indices.size() >= 3) {
-    constexpr float kProxySimplifyError = 0.01f;
-    constexpr float kProxyOverdrawThreshold = 1.05f;
-    constexpr size_t kProxyMinTriangles = 300;
-    constexpr size_t kProxyMaxTriangles = 25'000;
-
-    const size_t indexCount = proxy.indices.size();
-    const float proxyRatio = computeProxyRatio(sourceTriangleCount);
-    const size_t requestedTriangles = static_cast<size_t>(
-        static_cast<float>(sourceTriangleCount) * proxyRatio);
-    const size_t targetTriangles = std::clamp(
-        requestedTriangles, std::min(kProxyMinTriangles, sourceTriangleCount),
-        std::min(kProxyMaxTriangles, sourceTriangleCount));
-    const size_t targetIndexCount = std::max<size_t>(3, targetTriangles * 3);
-
-    std::vector<uint32_t> simplified(indexCount);
-    size_t simplifiedCount =
-        meshopt_simplify(simplified.data(), proxy.indices.data(), indexCount,
-                         proxy.vertices.data(), vertexCount, sizeof(float) * 3,
-                         targetIndexCount, kProxySimplifyError, 0, nullptr);
-    const size_t acceptableUpperBound =
-        std::max(targetIndexCount + targetIndexCount / 4,
-                 std::min(indexCount, indexCount * 4 / 5));
-
-    // Some dense/non-manifold fixtures (often 32-bit/high-poly assets) can be
-    // too constrained for a strict low-error pass. Escalate sloppy simplify
-    // error in steps before using coarse subsampling to avoid odd artifacts.
-    if (simplifiedCount < 3 || simplifiedCount > acceptableUpperBound) {
-      const std::vector<float> sloppyErrors = {kProxySimplifyError, 0.02f,
-                                               0.05f, 0.10f, 0.20f};
-      std::vector<uint32_t> sloppyCandidate(indexCount);
-      size_t bestCount = 0;
-      std::vector<uint32_t> bestIndices;
-
-      for (float sloppyError : sloppyErrors) {
-        size_t candidateCount = meshopt_simplifySloppy(
-            sloppyCandidate.data(), proxy.indices.data(), indexCount,
-            proxy.vertices.data(), vertexCount, sizeof(float) * 3,
-            targetIndexCount, sloppyError, nullptr);
-        if (candidateCount < 3)
-          continue;
-
-        if (bestCount == 0 || candidateCount < bestCount) {
-          bestCount = candidateCount;
-          bestIndices.assign(sloppyCandidate.begin(),
-                             sloppyCandidate.begin() +
-                                 static_cast<std::ptrdiff_t>(candidateCount));
-        }
-
-        if (candidateCount <= acceptableUpperBound)
-          break;
-      }
-
-      if (bestCount >= 3) {
-        simplifiedCount = bestCount;
-        simplified = std::move(bestIndices);
-      }
-    }
-    if (simplifiedCount < 3 || simplifiedCount >= indexCount * 95 / 100 ||
-        simplifiedCount > acceptableUpperBound) {
-      // Safety net for very large/complex 32-bit meshes where meshoptimizer
-      // cannot reduce enough towards the requested budget: force a coarse
-      // triangle subsample so every heavy fixture still gets a lighter proxy
-      // while moving the camera.
-      const size_t sourceTriangles = indexCount / 3;
-      const size_t targetTriangles = std::max<size_t>(1, targetIndexCount / 3);
-      simplified.clear();
-      simplified.reserve(targetTriangles * 3);
-      for (size_t t = 0; t < targetTriangles; ++t) {
-        const size_t sourceTri = (t * sourceTriangles) / targetTriangles;
-        const size_t base = sourceTri * 3;
-        if (base + 2 >= proxy.indices.size())
-          break;
-        simplified.push_back(proxy.indices[base]);
-        simplified.push_back(proxy.indices[base + 1]);
-        simplified.push_back(proxy.indices[base + 2]);
-      }
-      simplifiedCount = simplified.size();
-    }
-    if (simplifiedCount < 3)
-      simplifiedCount = indexCount;
-    simplified.resize(simplifiedCount);
-
-    std::vector<uint32_t> cacheOptimized(simplified.size());
-    meshopt_optimizeVertexCache(cacheOptimized.data(), simplified.data(),
-                                simplified.size(), vertexCount);
-
-    std::vector<uint32_t> overdrawOptimized(cacheOptimized.size());
-    meshopt_optimizeOverdraw(overdrawOptimized.data(), cacheOptimized.data(),
-                             cacheOptimized.size(), proxy.vertices.data(),
-                             vertexCount, sizeof(float) * 3,
-                             kProxyOverdrawThreshold);
-    proxy.indices = std::move(overdrawOptimized);
-  }
-
-  // Upload proxy mesh once so moving-camera rendering stays on the GPU path
-  // instead of falling back to immediate-mode CPU submission.
-  controller.EnsureMeshGpuBuffers(proxy);
-
-  return proxyCache.emplace(&source, std::move(proxy)).first->second;
-}
 
 struct SvgTessellationContext {
   std::vector<std::array<GLdouble, 3>> generatedVertices;
@@ -1066,7 +927,9 @@ void OpaqueFixturePass::Render(
           }
           const bool drawUnlit = !is2DViewer && obj.isLens;
           controller.DrawMeshWithOutline(
-              obj.mesh, partR, partG, partB, RENDER_SCALE, highlight,
+              controller.ResolveRenderMesh(
+                  obj.mesh, context.is2DViewer || captureRecordingActive),
+              partR, partG, partB, RENDER_SCALE, highlight,
               groupHighlight, selected, cx, cy, cz, wireframe, mode,
               applyCapture, drawUnlit, partMatrix, false,
               context.selectionOverlayPass);
@@ -1124,7 +987,8 @@ void OpaqueFixturePass::Render(
             partB = isWhiteRenderMode ? 1.0f : 0.35f;
           }
           const bool drawUnlit = !is2DViewer && obj.isLens;
-          const Mesh &proxyMesh = ResolveMovingProxyMesh(obj.mesh, controller);
+          const Mesh &proxyMesh = controller.ResolveRenderMesh(
+              obj.mesh, context.is2DViewer || captureRecordingActive, true);
           AddFixtureInstancedDraw(fixtureInstancedBatches, proxyMesh, partR,
                                   partG, partB, drawUnlit, wireframe, mode,
                                   RENDER_SCALE, cx, cy, cz, matrix, localMatrix,
@@ -1141,53 +1005,8 @@ void OpaqueFixturePass::Render(
       continue;
     }
 
-    // Proxy/instanced fixture batching is reserved for the fast-interaction
-    // path while the camera is moving. When the camera is static we draw full
-    // geometry directly to avoid persistent proxy rendering.
-    const bool eligibleForFixtureInstancedBatch =
-        context.skipOptionalWork && !highlight && !groupHighlight &&
-        !selected && !captureRecordingActive;
-    if (eligibleForFixtureInstancedBatch) {
-      ++frameMetrics.instancedFixtures;
-      if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
-        const auto &parts = itg->second;
-        const bool reversePartOrder = drawRealTopInTopView;
-        for (size_t offset = 0; offset < parts.size(); ++offset) {
-          const size_t partIndex =
-              reversePartOrder ? (parts.size() - 1 - offset) : offset;
-          const auto &obj = parts[partIndex];
-          float localMatrix[16];
-          MatrixToArray(obj.transform, localMatrix);
-          Matrix worldMatrix =
-              MatrixUtils::Multiply(f.transform, obj.transform);
-          float worldMatrixArray[16];
-          MatrixToArray(worldMatrix, worldMatrixArray);
-
-          float partR = r;
-          float partG = g;
-          float partB = b;
-          if (!is2DViewer && obj.isLens) {
-            const bool isWhiteRenderMode =
-                controller.IsPureWhiteRenderStyleEnabled();
-            partR = 1.0f;
-            partG = isWhiteRenderMode ? 1.0f : 0.78f;
-            partB = isWhiteRenderMode ? 1.0f : 0.35f;
-          }
-          const bool drawUnlit = !is2DViewer && obj.isLens;
-          AddFixtureInstancedDraw(fixtureInstancedBatches, obj.mesh, partR,
-                                  partG, partB, drawUnlit, wireframe, mode,
-                                  RENDER_SCALE, cx, cy, cz, matrix, localMatrix,
-                                  worldMatrixArray);
-        }
-      } else {
-        AddFixtureInstancedDraw(
-            fixtureInstancedBatches, viewer3d::fallback::FixtureCubeMesh(), r, g, b, false,
-            wireframe, mode, 0.2f, cx, cy, cz, matrix, nullptr, matrix);
-      }
-    } else {
-      ++frameMetrics.fallbackFixtures;
-      frameMetrics.fallbackDrawCalls += drawFixtureGeometry();
-    }
+    ++frameMetrics.fallbackFixtures;
+    frameMetrics.fallbackDrawCalls += drawFixtureGeometry();
 
     glPopMatrix();
 

@@ -568,3 +568,11 @@ Inspection reports three independent validation layers. XML well-formedness answ
 `perastage_inspection_validation` is the sole owner of libxml2. Its private adapter uses libxml2 only as an XSD 1.0 engine and exposes neutral Core values; no libxml2 or wxWidgets type crosses its public API. TinyXML2 and the existing production readers remain authoritative for semantic data. Context-local resource loaders deny external XML and schema resources, and parsing disables external entities, network access, and system catalogs.
 
 The schema layer embeds exact official `mvrdevelopment/tools` files from revision `e199c6ed635de23cb5ebf9654ee54a358775a065`: `gdtf.xsd` for GDTF 1.2 / DIN SPEC 15800:2022-02 and `mvr.xsd` for MVR 1.6 / DIN SPEC 15801:2023-12. Their stable specification basis is `mvrdevelopment/spec@098d3791f77f0895bd859adf01864b4826e2006f`. Provenance files record source paths and hashes, while an offline guard detects changes. The official MVR XSD is intentionally backwards-compatible, so version-specific provider, Fixture `ChildList`, and `FixtureTypeId` rules remain semantic checks in the existing reader path. XSD 1.0 limitations, package constraints, resource existence, and graph/reference integrity remain semantic or package responsibilities.
+
+## Runtime 3D model detail
+
+Core owns GUI-independent model-detail configuration and triangle/error budgets.
+Viewer3D owns immutable runtime representations and a per-viewer mesh cache;
+GUI owns the category-based Preferences container and focused settings pages.
+See [Runtime model detail and Preferences](model_detail.md) for policy values,
+simplification, invalidation, preserved settings, and the G0.2/G0.3 extraction.

@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-09 06:36+0000\n"
+"POT-Creation-Date: 2026-10-10 16:11+0000\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -488,13 +488,13 @@ msgid "Type Color"
 msgstr "Color del tipo"
 
 #: gui/dictionaryeditdialog.cpp:599 gui/mainwindow_layout.cpp:329
-#: gui/mainwindow_menu_builders.cpp:79 gui/mainwindow_print.cpp:633
+#: gui/mainwindow_menu_builders.cpp:79 gui/mainwindow_print.cpp:640
 #: gui/riggingpanel.cpp:185 gui/summarypanel.cpp:137
 msgid "Fixtures"
 msgstr "Aparatos"
 
 #: gui/dictionaryeditdialog.cpp:600 gui/mainwindow_layout.cpp:334
-#: gui/mainwindow_print.cpp:636 gui/riggingpanel.cpp:188
+#: gui/mainwindow_print.cpp:643 gui/riggingpanel.cpp:188
 #: gui/summarypanel.cpp:170
 msgid "Trusses"
 msgstr "Trusses"
@@ -837,8 +837,8 @@ msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:1521 gui/dictionaryeditdialog.cpp:2276
 #: gui/fixtureeditdialog.cpp:770 gui/fixturetablepanel.cpp:525
-#: gui/mainwindow_fixture_replace.cpp:222 gui/mainwindow_menu.cpp:1052
-#: gui/mainwindow_menu.cpp:1075
+#: gui/mainwindow_fixture_replace.cpp:222 gui/mainwindow_menu.cpp:1054
+#: gui/mainwindow_menu.cpp:1077
 msgid "Select GDTF file"
 msgstr "Seleccione el archivo GDTF"
 
@@ -853,7 +853,7 @@ msgid "DMX Mode"
 msgstr "Modo DMX"
 
 #: gui/dictionaryeditdialog.cpp:1556 gui/dictionaryeditdialog.cpp:2307
-#: gui/mainwindow_menu.cpp:1108 gui/mainwindow_menu.cpp:1127
+#: gui/mainwindow_menu.cpp:1110 gui/mainwindow_menu.cpp:1129
 #: gui/mainwindow_truss_replace.cpp:114
 msgid "Select Truss file"
 msgstr "Seleccionar archivo de armadura"
@@ -1352,16 +1352,16 @@ msgstr "Valor numérico no válido"
 #: gui/gdtf_share_download_workflow.cpp:481 gui/hoisttablepanel.cpp:894
 #: gui/hoisttablepanel.cpp:899 gui/hoisttablepanel.cpp:905
 #: gui/hoisttablepanel.cpp:912
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:280
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:504
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:647
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:283
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:509
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:652
 #: gui/mainwindow_io.cpp:251 gui/mainwindow_io.cpp:343
 #: gui/mainwindow_io.cpp:414 gui/mainwindow_io.cpp:449
 #: gui/mainwindow_io.cpp:471 gui/mainwindow_io.cpp:495
 #: gui/mainwindow_io.cpp:554 gui/mainwindow_io.cpp:687
 #: gui/mainwindow_io.cpp:697 gui/mainwindow_io.cpp:747
 #: gui/mainwindow_io.cpp:833 gui/mainwindow_io.cpp:874
-#: gui/mainwindow_io.cpp:892 gui/mainwindow_menu.cpp:1154
+#: gui/mainwindow_io.cpp:892 gui/mainwindow_menu.cpp:1156
 #: gui/ridertextdialog.cpp:218 gui/ridertextdialog.cpp:224
 #: gui/ridertextdialog.cpp:233 gui/ridertextdialog.cpp:245
 #: gui/ridertextdialog.cpp:319 gui/ridertextdialog.cpp:334
@@ -2530,7 +2530,7 @@ msgid "Move Down"
 msgstr "Mover hacia abajo"
 
 #: gui/layoutpanel.cpp:35 gui/mainwindow_menu.cpp:368
-#: gui/mainwindow_print.cpp:209
+#: gui/mainwindow_print.cpp:210
 msgid "Layout"
 msgstr "Layout"
 
@@ -2642,19 +2642,19 @@ msgstr "Usuario:"
 msgid "Password:"
 msgstr "Contraseña:"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:56
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:57
 msgid "Create new UUIDs for imported objects"
 msgstr "Crear UUID nuevos para los objetos importados"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:57
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:58
 msgid "Replace existing project objects"
 msgstr "Reemplazar los objetos existentes del proyecto"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:58
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:59
 msgid "Skip incoming colliding objects"
 msgstr "Omitir los objetos entrantes con UUID en conflicto"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:61
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:62
 #, c-format
 msgid ""
 "The selected MVR contains %zu UUIDs that already exist in the current "
@@ -2663,88 +2663,88 @@ msgstr ""
 "El MVR seleccionado contiene %zu UUID que ya existen en el proyecto actual. "
 "Elija cómo Perastage debe manejar esos objetos entrantes."
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:65
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:66
 msgid "MVR Merge UUID Collisions"
 msgstr "MVR Fusionar UUID Colisiones"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:102
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:103
 msgid "Use current project definition for imported fixtures"
 msgstr "Usar la definición del proyecto actual para los aparatos importados"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:104
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:105
 #, c-format
 msgid "Keep imported definition by renaming it to \"%s\""
 msgstr "Conservar la definición importada cambiándole el nombre a «%s»"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:106
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:107
 msgid "Cancel merge"
 msgstr "Cancelar fusión"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:119
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:120
 msgid "MVR Merge Fixture Type Conflict"
 msgstr "MVR Conflicto de tipo de accesorio de fusión"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:147
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:148
 msgid "Open as new project"
 msgstr "Abrir como proyecto nuevo"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:148
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:149
 msgid "Merge into current project"
 msgstr "Fusionar en el proyecto actual"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:150
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:151
 msgid "Choose how Perastage should import the selected MVR file."
 msgstr "Elija cómo debe importar Perastage el archivo MVR seleccionado."
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:151
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:152
 #: gui/mainwindow_menu.cpp:175
 msgid "Import MVR"
 msgstr "Importar MVR"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:230
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:232
 msgid "Importing MVR file..."
 msgstr "Importando archivo MVR..."
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:237
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:239
 msgid "MVR import progress"
 msgstr "MVR progreso de importación"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:279
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:282
 msgid "MVR import failed."
 msgstr "Error al importar MVR."
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:280
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:283
 msgid "Failed to import MVR file."
 msgstr "No se pudo importar el archivo MVR."
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:320
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:323
 #, c-format
 msgid "MVR imported: %s"
 msgstr "MVR importado: %s"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:377
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:380
 msgid "Import MVR file"
 msgstr "Importar archivo MVR"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:488
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:493
 msgid "MVR merge: importing selected file..."
 msgstr "MVR fusión: importando archivo seleccionado..."
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:503
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:508
 msgid "MVR merge failed."
 msgstr "La fusión MVR falló."
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:504
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:509
 msgid "Failed to import MVR file for merge."
 msgstr "No se pudo importar el archivo MVR para fusionarlo."
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:525
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:537
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:555
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:530
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:542
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:560
 msgid "MVR merge cancelled."
 msgstr "MVR fusión cancelada."
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:556
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:561
 msgid ""
 "The MVR merge was cancelled because fixture type definition conflicts were "
 "not resolved."
@@ -2752,122 +2752,122 @@ msgstr ""
 "La fusión MVR se canceló porque los conflictos de definición de tipo de "
 "dispositivo no se resolvieron."
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:558
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:563
 msgid "MVR Merge Cancelled"
 msgstr "MVR Fusión cancelada"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:591
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:596
 #, c-format
 msgid "MVR merged: %s"
 msgstr "MVR fusionado: %s"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:643
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:648
 msgid "loading a project"
 msgstr "cargar un proyecto"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:643
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:648
 #: gui/mainwindow_io.cpp:240
 msgid "Open Project"
 msgstr "Abrir proyecto"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:647
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:652
 #: gui/mainwindow_io.cpp:251
 msgid "Failed to load project."
 msgstr "No se pudo cargar el proyecto."
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:650
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:655
 msgid "Project load failed."
 msgstr "Error al cargar el proyecto."
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:661
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:666
 #, c-format
 msgid "Project loaded: %s"
 msgstr "Proyecto cargado: %s"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:684
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:689
 msgid "Unsupported startup file format."
 msgstr "Formato de archivo de inicio no compatible."
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:690
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:695
 #, c-format
 msgid "Unsupported startup file. Use %s or .mvr files."
 msgstr "Archivo de inicio no compatible. Use archivos %s o .mvr."
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:692
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:697
 msgid "Unsupported file"
 msgstr "Archivo no compatible"
 
-#: gui/mainwindow.cpp:598 gui/mainwindow_menu_builders.cpp:80
+#: gui/mainwindow.cpp:600 gui/mainwindow_menu_builders.cpp:80
 msgid "3D Viewport"
 msgstr "Visor 3D"
 
-#: gui/mainwindow.cpp:641 gui/mainwindow_menu_builders.cpp:81
+#: gui/mainwindow.cpp:643 gui/mainwindow_menu_builders.cpp:81
 msgid "2D Viewport"
 msgstr "Visor 2D"
 
-#: gui/mainwindow.cpp:657 gui/mainwindow_menu_builders.cpp:82
+#: gui/mainwindow.cpp:659 gui/mainwindow_menu_builders.cpp:82
 msgid "2D Render Options"
 msgstr "Opciones de render 2D"
 
-#: gui/mainwindow.cpp:774
+#: gui/mainwindow.cpp:776
 #, c-format
 msgid "Do you want to save changes before %s?"
 msgstr "¿Desea guardar los cambios antes de %s?"
 
-#: gui/mainwindow.cpp:848
+#: gui/mainwindow.cpp:850
 #, c-format
 msgid "Please wait until the startup project loading finishes before %s."
 msgstr "Espere a que termine la carga del proyecto inicial antes de %s."
 
-#: gui/mainwindow.cpp:850
+#: gui/mainwindow.cpp:852
 msgid "Perastage is still loading"
 msgstr "Perastage aún está cargando"
 
-#: gui/mainwindow.cpp:879
+#: gui/mainwindow.cpp:881
 msgid "Project loading"
 msgstr "Carga del proyecto"
 
-#: gui/mainwindow.cpp:905 gui/mainwindow.cpp:1116
+#: gui/mainwindow.cpp:907 gui/mainwindow.cpp:1118
 msgid "Loading project file..."
 msgstr "Cargando archivo de proyecto..."
 
-#: gui/mainwindow.cpp:958
+#: gui/mainwindow.cpp:960
 msgid "Building scene..."
 msgstr "Construyendo la escena..."
 
-#: gui/mainwindow.cpp:966
+#: gui/mainwindow.cpp:968
 msgid "Applying saved layout..."
 msgstr "Aplicando el layout guardado..."
 
-#: gui/mainwindow.cpp:994
+#: gui/mainwindow.cpp:996
 msgid "Reloading fixture/truss/support tables..."
 msgstr "Recargando las tablas de aparatos, trusses y soportes..."
 
-#: gui/mainwindow.cpp:1020
+#: gui/mainwindow.cpp:1022
 msgid "Updating 3D viewport..."
 msgstr "Actualizando visor 3D..."
 
-#: gui/mainwindow.cpp:1034
+#: gui/mainwindow.cpp:1036
 msgid "Updating 2D viewport..."
 msgstr "Actualizando visor 2D..."
 
-#: gui/mainwindow.cpp:1052 gui/mainwindow.cpp:1731
+#: gui/mainwindow.cpp:1054 gui/mainwindow.cpp:1733
 msgid "Refreshing panels..."
 msgstr "Actualizando paneles..."
 
-#: gui/mainwindow.cpp:1054
+#: gui/mainwindow.cpp:1056
 msgid "Refreshing rigging..."
 msgstr "Actualizando rigging..."
 
-#: gui/mainwindow.cpp:1062
+#: gui/mainwindow.cpp:1064
 msgid "Updating window title..."
 msgstr "Actualizando el título de la ventana..."
 
-#: gui/mainwindow.cpp:1067
+#: gui/mainwindow.cpp:1069
 msgid "Finalizing project load..."
 msgstr "Finalizando la carga del proyecto..."
 
-#: gui/mainwindow.cpp:1689
+#: gui/mainwindow.cpp:1691
 msgid "Loading tables..."
 msgstr "Cargando tablas..."
 
@@ -3002,7 +3002,7 @@ msgstr ""
 
 #: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:481
 #: gui/mainwindow_startup_splash.cpp:63
-#: gui/services/fixture_symbol_preparation_service.cpp:467
+#: gui/services/fixture_symbol_preparation_service.cpp:489
 msgid "Ready"
 msgstr "Listo"
 
@@ -3253,7 +3253,7 @@ msgstr "No se pudo copiar el archivo."
 msgid "Object exported successfully."
 msgstr "Objeto exportado exitosamente."
 
-#: gui/mainwindow_io.cpp:913 gui/mainwindow_print.cpp:651
+#: gui/mainwindow_io.cpp:913 gui/mainwindow_print.cpp:658
 msgid "Select table"
 msgstr "Seleccione tabla"
 
@@ -3262,12 +3262,12 @@ msgstr "Seleccione tabla"
 msgid "Export CSV"
 msgstr "Exportar CSV"
 
-#: gui/mainwindow_layout.cpp:339 gui/mainwindow_print.cpp:639
+#: gui/mainwindow_layout.cpp:339 gui/mainwindow_print.cpp:646
 #: gui/riggingpanel.cpp:191 gui/summarypanel.cpp:180
 msgid "Hoists"
 msgstr "Motores"
 
-#: gui/mainwindow_layout.cpp:344 gui/mainwindow_print.cpp:642
+#: gui/mainwindow_layout.cpp:344 gui/mainwindow_print.cpp:649
 #: gui/summarypanel.cpp:197
 msgid "Objects"
 msgstr "Objetos"
@@ -3355,7 +3355,7 @@ msgstr "Exportar MVR"
 msgid "Export the project to MVR"
 msgstr "Exportar el proyecto a MVR"
 
-#: gui/mainwindow_menu.cpp:181 gui/mainwindow_print.cpp:214
+#: gui/mainwindow_menu.cpp:181 gui/mainwindow_print.cpp:215
 msgid "Print"
 msgstr "Imprimir"
 
@@ -3747,7 +3747,7 @@ msgstr ""
 msgid "You are up to date."
 msgstr "Estás al día."
 
-#: gui/mainwindow_menu.cpp:1152 gui/mainwindow_truss_replace.cpp:180
+#: gui/mainwindow_menu.cpp:1154 gui/mainwindow_truss_replace.cpp:180
 msgid ""
 "Unsupported or unreadable truss file. Supported formats are GDTF, GTruss, "
 "GLB, and 3DS."
@@ -3755,7 +3755,7 @@ msgstr ""
 "Archivo de truss no compatible o ilegible. Los formatos admitidos son GDTF, "
 "GTruss, GLB y 3DS."
 
-#: gui/mainwindow_menu.cpp:1335 gui/mainwindow_menu.cpp:1357
+#: gui/mainwindow_menu.cpp:1337 gui/mainwindow_menu.cpp:1359
 msgid "Select Object file"
 msgstr "Seleccionar archivo de objeto"
 
@@ -3971,96 +3971,96 @@ msgstr "&Herramientas"
 msgid "&Help"
 msgstr "A&yuda"
 
-#: gui/mainwindow_print.cpp:210
+#: gui/mainwindow_print.cpp:211
 msgid "2D View"
 msgstr "Vista 2D"
 
-#: gui/mainwindow_print.cpp:211
+#: gui/mainwindow_print.cpp:212
 msgid "Table"
 msgstr "Tabla"
 
-#: gui/mainwindow_print.cpp:213
+#: gui/mainwindow_print.cpp:214
 msgid "Select what to print:"
 msgstr "Seleccione qué imprimir:"
 
-#: gui/mainwindow_print.cpp:234 gui/mainwindow_print.cpp:381
+#: gui/mainwindow_print.cpp:235 gui/mainwindow_print.cpp:382
 msgid "2D viewport is not available."
 msgstr "La vista 2D no está disponible."
 
-#: gui/mainwindow_print.cpp:234 gui/mainwindow_print.cpp:264
-#: gui/mainwindow_print.cpp:294 gui/mainwindow_print.cpp:332
-#: gui/mainwindow_print.cpp:336
+#: gui/mainwindow_print.cpp:235 gui/mainwindow_print.cpp:265
+#: gui/mainwindow_print.cpp:295 gui/mainwindow_print.cpp:333
+#: gui/mainwindow_print.cpp:337
 msgid "Print Viewer 2D"
 msgstr "Imprimir vista 2D"
 
-#: gui/mainwindow_print.cpp:254
+#: gui/mainwindow_print.cpp:255
 msgid "Save 2D view as"
 msgstr "Guardar vista 2D como"
 
-#: gui/mainwindow_print.cpp:263
+#: gui/mainwindow_print.cpp:264
 msgid "Please choose a destination file for the 2D view."
 msgstr "Seleccione un archivo de destino para la vista 2D."
 
-#: gui/mainwindow_print.cpp:277
+#: gui/mainwindow_print.cpp:278
 msgid "Printing 2D view..."
 msgstr "Imprimiendo vista 2D..."
 
-#: gui/mainwindow_print.cpp:293
+#: gui/mainwindow_print.cpp:294
 msgid "Unable to capture the 2D view for printing."
 msgstr "No se puede capturar la vista 2D para imprimir."
 
-#: gui/mainwindow_print.cpp:329
+#: gui/mainwindow_print.cpp:330
 #, c-format
 msgid "Failed to generate PDF plan: %s"
 msgstr "No se pudo generar el plano PDF: %s"
 
-#: gui/mainwindow_print.cpp:331 gui/mainwindow_print.cpp:542
+#: gui/mainwindow_print.cpp:332 gui/mainwindow_print.cpp:549
 msgid "Print failed. Please review the error and try again."
 msgstr "La impresión falló. Revise el error e inténtelo de nuevo."
 
-#: gui/mainwindow_print.cpp:335
+#: gui/mainwindow_print.cpp:336
 #, c-format
 msgid "2D view saved to %s"
 msgstr "Vista 2D guardada en %s"
 
-#: gui/mainwindow_print.cpp:350
+#: gui/mainwindow_print.cpp:351
 msgid "No layout is selected."
 msgstr "No hay ningún layout seleccionado."
 
-#: gui/mainwindow_print.cpp:350 gui/mainwindow_print.cpp:363
-#: gui/mainwindow_print.cpp:373 gui/mainwindow_print.cpp:381
-#: gui/mainwindow_print.cpp:414 gui/mainwindow_print.cpp:543
-#: gui/mainwindow_print.cpp:552
+#: gui/mainwindow_print.cpp:351 gui/mainwindow_print.cpp:364
+#: gui/mainwindow_print.cpp:374 gui/mainwindow_print.cpp:382
+#: gui/mainwindow_print.cpp:415 gui/mainwindow_print.cpp:550
+#: gui/mainwindow_print.cpp:559
 msgid "Print Layout"
 msgstr "Imprimir layout"
 
-#: gui/mainwindow_print.cpp:363
+#: gui/mainwindow_print.cpp:364
 msgid "Selected layout is not available."
 msgstr "El layout seleccionado no está disponible."
 
-#: gui/mainwindow_print.cpp:372
+#: gui/mainwindow_print.cpp:373
 msgid "The selected layout is empty."
 msgstr "El layout seleccionado está vacío."
 
-#: gui/mainwindow_print.cpp:404
+#: gui/mainwindow_print.cpp:405
 msgid "Save layout as"
 msgstr "Guardar layout como"
 
-#: gui/mainwindow_print.cpp:413
+#: gui/mainwindow_print.cpp:414
 msgid "Please choose a destination file for the layout."
 msgstr "Seleccione un archivo de destino para el layout."
 
-#: gui/mainwindow_print.cpp:539
+#: gui/mainwindow_print.cpp:546
 #, c-format
 msgid "Failed to generate layout PDF: %s"
 msgstr "No se pudo generar el PDF del layout: %s"
 
-#: gui/mainwindow_print.cpp:547
+#: gui/mainwindow_print.cpp:554
 #, c-format
 msgid "Layout saved to %s"
 msgstr "Layout guardado en %s"
 
-#: gui/mainwindow_print.cpp:549
+#: gui/mainwindow_print.cpp:556
 #, c-format
 msgid ""
 "\n"
@@ -4075,11 +4075,11 @@ msgstr ""
 "Perastage symbols: %zu\n"
 "Reservas renderizadas: %zu"
 
-#: gui/mainwindow_print.cpp:620
+#: gui/mainwindow_print.cpp:627
 msgid "Printing layout..."
 msgstr "Imprimiendo layout..."
 
-#: gui/mainwindow_print.cpp:651
+#: gui/mainwindow_print.cpp:658
 msgid "Print Table"
 msgstr "Imprimir tabla"
 
@@ -4461,119 +4461,32 @@ msgstr ""
 "Los símbolos del proyecto, la edición de la escena y las ediciones "
 "explícitas de GDTF siguen disponibles."
 
-#: gui/preferencesdialog.cpp:79
-#: tests/localization_catalog_integration_test.cpp:122
-#: tests/localization_catalog_integration_test.cpp:143
-#: tests/localization_catalog_integration_test.cpp:174
-msgid "Preferences"
-msgstr "Preferencias"
-
-#: gui/preferencesdialog.cpp:90
-msgid "Auto patch after import"
-msgstr "Aplicar patch automáticamente después de importar"
-
-#: gui/preferencesdialog.cpp:95
-msgid "Auto-create layers by position"
-msgstr "Crear capas automáticamente según la posición"
-
-#: gui/preferencesdialog.cpp:98
-msgid "Auto-create layers by fixture type"
-msgstr "Crear capas automáticamente según el tipo de aparato"
-
-#: gui/preferencesdialog.cpp:114
-#, c-format
-msgid "LX%d height:"
-msgstr "Altura LX%d:"
-
-#: gui/preferencesdialog.cpp:126
-#, c-format
-msgid "LX%d position:"
-msgstr "Posición LX%d:"
-
-#: gui/preferencesdialog.cpp:138
-#, c-format
-msgid "LX%d margin:"
-msgstr "Margen LX%d:"
-
-#: gui/preferencesdialog.cpp:151
-msgid "Rider Import"
-msgstr "Importación del rider"
-
-#: gui/preferencesdialog.cpp:159
-msgid "Distance system:"
-msgstr "Sistema de unidades de distancia:"
-
-#: gui/preferencesdialog.cpp:162 gui/preferencesdialog.cpp:179
-msgid "Metric"
-msgstr "Métrico"
-
-#: gui/preferencesdialog.cpp:163 gui/preferencesdialog.cpp:180
-msgid "Imperial"
-msgstr "Imperial"
-
-#: gui/preferencesdialog.cpp:176
-msgid "Weight system:"
-msgstr "Sistema de unidades de peso:"
-
-#: gui/preferencesdialog.cpp:190
-msgid "Units"
-msgstr "Unidades"
-
-#: gui/preferencesdialog.cpp:198
+#: gui/preferences/language_preferences_page.cpp:45
 msgid "Interface language:"
 msgstr "Idioma de la interfaz:"
 
-#: gui/preferencesdialog.cpp:221 gui/preferencesdialog.cpp:733
+#: gui/preferences/language_preferences_page.cpp:55
+#: gui/preferencesdialog.cpp:143
 msgid "Language changes will be applied after restarting Perastage."
 msgstr "Los cambios de idioma se aplicarán después de reiniciar Perastage."
 
-#: gui/preferencesdialog.cpp:227
-#: tests/localization_catalog_integration_test.cpp:176
-msgid "Language"
-msgstr "Idioma"
-
-#: gui/preferencesdialog.cpp:235
-msgid "Automatic update checks:"
-msgstr "Búsqueda automática de actualizaciones:"
-
-#: gui/preferencesdialog.cpp:238
-msgid "Check on startup (recommended)"
-msgstr "Buscar actualizaciones al iniciar (recomendado)"
-
-#: gui/preferencesdialog.cpp:239
-msgid "Manual only"
-msgstr "Solo manualmente"
-
-#: gui/preferencesdialog.cpp:249
-msgid "Manual checks are always available from Help -> Check for Updates."
-msgstr ""
-"La búsqueda manual siempre está disponible en Ayuda > Buscar actualizaciones."
-
-#: gui/preferencesdialog.cpp:253
-msgid "Updates"
-msgstr "Actualizaciones"
-
-#: gui/preferencesdialog.cpp:266
-msgid "GDTF"
-msgstr "GDTF"
-
-#: gui/preferencesdialog.cpp:272
+#: gui/preferences/mvr_preferences_page.cpp:17
 msgid "Export"
 msgstr "Exportación"
 
-#: gui/preferencesdialog.cpp:276
+#: gui/preferences/mvr_preferences_page.cpp:21
 msgid "Truss geometry export mode:"
 msgstr "Modo de exportación de la geometría del truss:"
 
-#: gui/preferencesdialog.cpp:280
+#: gui/preferences/mvr_preferences_page.cpp:25
 msgid "Standard MVR representation"
 msgstr "Representación MVR estándar"
 
-#: gui/preferencesdialog.cpp:282
+#: gui/preferences/mvr_preferences_page.cpp:27
 msgid "Direct Geometry3D for truss symbols"
 msgstr "Geometry3D directa para los símbolos de truss"
 
-#: gui/preferencesdialog.cpp:294
+#: gui/preferences/mvr_preferences_page.cpp:32
 msgid ""
 "Standard MVR representation: preserves imported Symbol/Symdef references "
 "when possible and is Perastage's canonical representation.\n"
@@ -4589,41 +4502,80 @@ msgstr ""
 "aplicaciones que no admiten correctamente Symbol/Symdef. Ambos modos cumplen "
 "con MVR 1.6."
 
-#: gui/preferencesdialog.cpp:308
-msgid "MVR Import / Export"
-msgstr "Importación y exportación MVR"
+#: gui/preferences/rider_import_preferences_page.cpp:17
+msgid "Auto patch after import"
+msgstr "Aplicar patch automáticamente después de importar"
 
-#: gui/preferencesdialog.cpp:314 gui/preferencesdialog.cpp:376
+#: gui/preferences/rider_import_preferences_page.cpp:20
+msgid "Auto-create layers by position"
+msgstr "Crear capas automáticamente según la posición"
+
+#: gui/preferences/rider_import_preferences_page.cpp:23
+msgid "Auto-create layers by fixture type"
+msgstr "Crear capas automáticamente según el tipo de aparato"
+
+#: gui/preferences/rider_import_preferences_page.cpp:31
+#, c-format
+msgid "LX%d height:"
+msgstr "Altura LX%d:"
+
+#: gui/preferences/rider_import_preferences_page.cpp:37
+#, c-format
+msgid "LX%d position:"
+msgstr "Posición LX%d:"
+
+#: gui/preferences/rider_import_preferences_page.cpp:43
+#, c-format
+msgid "LX%d margin:"
+msgstr "Margen LX%d:"
+
+#: gui/preferences/rider_import_preferences_page.cpp:111
+#, c-format
+msgid "LX%d height (%s):"
+msgstr "Altura LX%d (%s):"
+
+#: gui/preferences/rider_import_preferences_page.cpp:114
+#, c-format
+msgid "LX%d position (%s):"
+msgstr "Posición LX%d (%s):"
+
+#: gui/preferences/rider_import_preferences_page.cpp:117
+#, c-format
+msgid "LX%d margin (%s):"
+msgstr "Margen LX%d (%s):"
+
+#: gui/preferences/selection_movement_preferences_page.cpp:18
+#: gui/preferencesdialog.cpp:64
 msgid "Selection & Movement"
 msgstr "Selección y &movimiento"
 
-#: gui/preferencesdialog.cpp:323
+#: gui/preferences/selection_movement_preferences_page.cpp:27
 msgid "Choose how interactive transforms handle objects inside groups."
 msgstr ""
 "Elija cómo gestionan las transformaciones interactivas los objetos dentro de "
 "grupos."
 
-#: gui/preferencesdialog.cpp:330
+#: gui/preferences/selection_movement_preferences_page.cpp:34
 msgid "Grouped object movement"
 msgstr "Movimiento de objetos agrupados"
 
-#: gui/preferencesdialog.cpp:333
+#: gui/preferences/selection_movement_preferences_page.cpp:37
 msgid "Fixtures move the containing group"
 msgstr "Los aparatos mueven el grupo que los contiene"
 
-#: gui/preferencesdialog.cpp:335
+#: gui/preferences/selection_movement_preferences_page.cpp:39
 msgid "Trusses move the containing group"
 msgstr "Los trusses mueven el grupo que los contiene"
 
-#: gui/preferencesdialog.cpp:338
+#: gui/preferences/selection_movement_preferences_page.cpp:42
 msgid "Supports / Hoists move the containing group"
 msgstr "Los soportes / polipastos mueven el grupo que los contiene"
 
-#: gui/preferencesdialog.cpp:341
+#: gui/preferences/selection_movement_preferences_page.cpp:45
 msgid "Scene Objects move the containing group"
 msgstr "Los objetos de escena mueven el grupo que los contiene"
 
-#: gui/preferencesdialog.cpp:354
+#: gui/preferences/selection_movement_preferences_page.cpp:51
 msgid ""
 "When enabled, selecting this type inside a group moves the highest parent "
 "GroupObject during mouse, CLI, and Magnet transformations.\n"
@@ -4636,83 +4588,83 @@ msgstr ""
 "Las ediciones de tabla siempre modifican únicamente el objeto editado.\n"
 "Seleccionar un GroupObject directamente siempre mueve ese grupo."
 
-#: gui/preferencesdialog.cpp:364
+#: gui/preferences/selection_movement_preferences_page.cpp:60
 msgid "Magnet visual feedback"
 msgstr "Retroalimentación visual magnética"
 
-#: gui/preferencesdialog.cpp:367
+#: gui/preferences/selection_movement_preferences_page.cpp:63
 msgid "Show anchor references while moving or inserting elements"
 msgstr "Mostrar referencias de anclaje al mover o insertar elementos"
 
-#: gui/preferencesdialog.cpp:384 gui/preferencesdialog.cpp:515
+#: gui/preferences/units_preferences_page.cpp:19
+msgid "Distance system:"
+msgstr "Sistema de unidades de distancia:"
+
+#: gui/preferences/units_preferences_page.cpp:22
+#: gui/preferences/units_preferences_page.cpp:29
+msgid "Metric"
+msgstr "Métrico"
+
+#: gui/preferences/units_preferences_page.cpp:23
+#: gui/preferences/units_preferences_page.cpp:30
+msgid "Imperial"
+msgstr "Imperial"
+
+#: gui/preferences/units_preferences_page.cpp:26
+msgid "Weight system:"
+msgstr "Sistema de unidades de peso:"
+
+#: gui/preferences/updates_preferences_page.cpp:19
+msgid "Automatic update checks:"
+msgstr "Búsqueda automática de actualizaciones:"
+
+#: gui/preferences/updates_preferences_page.cpp:22
+msgid "Check on startup (recommended)"
+msgstr "Buscar actualizaciones al iniciar (recomendado)"
+
+#: gui/preferences/updates_preferences_page.cpp:23
+msgid "Manual only"
+msgstr "Solo manualmente"
+
+#: gui/preferences/updates_preferences_page.cpp:27
+msgid "Manual checks are always available from Help -> Check for Updates."
+msgstr ""
+"La búsqueda manual siempre está disponible en Ayuda > Buscar actualizaciones."
+
+#: gui/preferences/viewer3d_preferences_page.cpp:20
+#: gui/preferencesdialog.cpp:63
 msgid "3D Viewer"
 msgstr "Visor 3D"
 
-#: gui/preferencesdialog.cpp:393
+#: gui/preferences/viewer3d_preferences_page.cpp:29
 msgid ""
 "Customize camera interaction and visualize the current navigation shortcuts."
 msgstr ""
 "Configure la interacción de la cámara y consulte los atajos de navegación "
 "actuales."
 
-#: gui/preferencesdialog.cpp:404
+#: gui/preferences/viewer3d_preferences_page.cpp:39
 msgid "Navigation"
 msgstr "Navegación"
 
-#: gui/preferencesdialog.cpp:407
+#: gui/preferences/viewer3d_preferences_page.cpp:42
 msgid "Invert orbit horizontal direction"
 msgstr "Invertir la dirección horizontal de la órbita"
 
-#: gui/preferencesdialog.cpp:419
+#: gui/preferences/viewer3d_preferences_page.cpp:48
 msgid "Invert orbit vertical direction"
 msgstr "Invertir la dirección vertical de la órbita"
 
-#: gui/preferencesdialog.cpp:428
+#: gui/preferences/viewer3d_preferences_page.cpp:53
 msgid "Disabled by default to preserve the current behavior."
 msgstr ""
 "Desactivado de forma predeterminada para mantener el comportamiento actual."
 
-#: gui/preferencesdialog.cpp:438 viewer2d/viewer2drenderpanel.cpp:92
-msgid "Render mode"
-msgstr "Modo de render"
-
-#: gui/preferencesdialog.cpp:440
-msgid "Standard"
-msgstr "Estándar"
-
-#: gui/preferencesdialog.cpp:443 viewer2d/viewer2drenderpanel.cpp:90
-msgid "White"
-msgstr "Blanco"
-
-#: gui/preferencesdialog.cpp:445
-msgid "Sketch mode"
-msgstr "Modo boceto"
-
-#: gui/preferencesdialog.cpp:447
-msgid "Textured"
-msgstr "Texturizado"
-
-#: gui/preferencesdialog.cpp:449 viewer2d/viewer2drenderpanel.cpp:90
-msgid "Wireframe"
-msgstr "Wireframe"
-
-#: gui/preferencesdialog.cpp:451 viewer2d/viewer2drenderpanel.cpp:90
-msgid "By device type"
-msgstr "Por tipo de dispositivo"
-
-#: gui/preferencesdialog.cpp:453 viewer2d/viewer2drenderpanel.cpp:91
-msgid "By layer"
-msgstr "Por capa"
-
-#: gui/preferencesdialog.cpp:455 viewer2d/viewer2drenderpanel.cpp:91
-msgid "By universe"
-msgstr "Por universo"
-
-#: gui/preferencesdialog.cpp:494
+#: gui/preferences/viewer3d_preferences_page.cpp:66
 msgid "Current mouse and keyboard shortcuts"
 msgstr "Atajos actuales del ratón y el teclado"
 
-#: gui/preferencesdialog.cpp:497
+#: gui/preferences/viewer3d_preferences_page.cpp:69
 msgid ""
 "Orbit: Left drag or Right drag.\n"
 "Pan: Middle drag, Shift + drag, or Shift + Left drag.\n"
@@ -4725,26 +4677,128 @@ msgstr ""
 "Zoom: rueda del ratón.\n"
 "Rectángulo de selección: Ctrl + arrastrar con el botón izquierdo."
 
-#: gui/preferencesdialog.cpp:506
+#: gui/preferences/viewer3d_preferences_page.cpp:77
 msgid "Informational only: shortcut remapping is not available yet."
 msgstr "Solo informativo: todavía no es posible reasignar los atajos."
 
-#: gui/preferencesdialog.cpp:666
-#, c-format
-msgid "LX%d height (%s):"
-msgstr "Altura LX%d (%s):"
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:15
+msgid "Performance"
+msgstr "Rendimiento"
 
-#: gui/preferencesdialog.cpp:669
-#, c-format
-msgid "LX%d position (%s):"
-msgstr "Posición LX%d (%s):"
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:17
+msgid "Model detail:"
+msgstr "Detalle del modelo:"
 
-#: gui/preferencesdialog.cpp:672
-#, c-format
-msgid "LX%d margin (%s):"
-msgstr "Margen LX%d (%s):"
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:20
+msgid "Low"
+msgstr "Bajo"
 
-#: gui/preferencesdialog.cpp:734
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:21
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:36
+msgid "Standard"
+msgstr "Estándar"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:22
+msgid "High"
+msgstr "Alto"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:26
+msgid "Use a simplified proxy while navigating"
+msgstr "Usar una representación simplificada durante la navegación"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:29
+msgid ""
+"Standard balances detail and performance. High preserves full model detail. "
+"Low simplifies heavy meshes more aggressively. GDTF resources stay unchanged."
+msgstr "El nivel Estándar equilibra el detalle y el rendimiento. Alto conserva todos los detalles del modelo. Bajo simplifica las mallas complejas de forma más agresiva. Los recursos GDTF permanecen sin cambios."
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:34
+#: viewer2d/viewer2drenderpanel.cpp:92
+msgid "Render mode"
+msgstr "Modo de render"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:39
+#: viewer2d/viewer2drenderpanel.cpp:90
+msgid "White"
+msgstr "Blanco"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:41
+msgid "Sketch mode"
+msgstr "Modo boceto"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:43
+msgid "Textured"
+msgstr "Texturizado"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:45
+#: viewer2d/viewer2drenderpanel.cpp:90
+msgid "Wireframe"
+msgstr "Wireframe"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:47
+#: viewer2d/viewer2drenderpanel.cpp:90
+msgid "By device type"
+msgstr "Por tipo de dispositivo"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:49
+#: viewer2d/viewer2drenderpanel.cpp:91
+msgid "By layer"
+msgstr "Por capa"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:51
+#: viewer2d/viewer2drenderpanel.cpp:91
+msgid "By universe"
+msgstr "Por universo"
+
+#: gui/preferencesdialog.cpp:39
+#: tests/localization_catalog_integration_test.cpp:122
+#: tests/localization_catalog_integration_test.cpp:143
+#: tests/localization_catalog_integration_test.cpp:174
+msgid "Preferences"
+msgstr "Preferencias"
+
+#: gui/preferencesdialog.cpp:51
+msgid "General"
+msgstr "General"
+
+#: gui/preferencesdialog.cpp:53
+#: tests/localization_catalog_integration_test.cpp:176
+msgid "Language"
+msgstr "Idioma"
+
+#: gui/preferencesdialog.cpp:55
+msgid "Units"
+msgstr "Unidades"
+
+#: gui/preferencesdialog.cpp:56
+msgid "Updates"
+msgstr "Actualizaciones"
+
+#: gui/preferencesdialog.cpp:58
+msgid "Import"
+msgstr "Importación"
+
+#: gui/preferencesdialog.cpp:60
+msgid "Rider Import"
+msgstr "Importación del rider"
+
+#: gui/preferencesdialog.cpp:62
+msgid "Viewer"
+msgstr "Visor"
+
+#: gui/preferencesdialog.cpp:66
+msgid "Formats"
+msgstr "Formatos"
+
+#: gui/preferencesdialog.cpp:67
+msgid "GDTF"
+msgstr "GDTF"
+
+#: gui/preferencesdialog.cpp:68
+msgid "MVR Import / Export"
+msgstr "Importación y exportación MVR"
+
+#: gui/preferencesdialog.cpp:144
 msgid "Restart required"
 msgstr "Reinicio necesario"
 
@@ -5175,31 +5229,31 @@ msgstr "Seleccione un tipo de aparato:"
 msgid "Add from file..."
 msgstr "Añadir desde archivo..."
 
-#: gui/services/fixture_symbol_preparation_service.cpp:491
+#: gui/services/fixture_symbol_preparation_service.cpp:513
 msgid "fixture resource"
 msgstr "recurso de aparato"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:494
+#: gui/services/fixture_symbol_preparation_service.cpp:516
 msgid "Preparing"
 msgstr "Preparando"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:498
+#: gui/services/fixture_symbol_preparation_service.cpp:520
 msgid "Capturing fixture views"
 msgstr "Capturando vistas de aparatos"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:501
+#: gui/services/fixture_symbol_preparation_service.cpp:523
 msgid "Processing"
 msgstr "Procesando"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:504
+#: gui/services/fixture_symbol_preparation_service.cpp:526
 msgid "Publishing"
 msgstr "Publicando"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:507
+#: gui/services/fixture_symbol_preparation_service.cpp:529
 msgid "Refreshing"
 msgstr "Actualizando"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:512
+#: gui/services/fixture_symbol_preparation_service.cpp:534
 #, c-format
 msgid "Preparing fixture symbols: %s - %s - %zu pending"
 msgstr "Preparando símbolos de aparatos: %s - %s - %zu pendientes"
@@ -5371,13 +5425,17 @@ msgstr "Aplicar vistas al dispositivo"
 msgid ""
 "Symbol views were applied to the unsaved project. Save the project to "
 "persist the symbol override."
-msgstr "Las vistas del símbolo se han aplicado al proyecto sin guardar. Guarda el proyecto para conservar el símbolo personalizado."
+msgstr ""
+"Las vistas del símbolo se han aplicado al proyecto sin guardar. Guarda el "
+"proyecto para conservar el símbolo personalizado."
 
 #: gui/windows/SymbolPreviewWindow.cpp:222
 msgid ""
 "Symbol views were applied to the project. Save the project to persist the "
 "symbol override."
-msgstr "Las vistas del símbolo se han aplicado al proyecto. Guarda el proyecto para conservar el símbolo personalizado."
+msgstr ""
+"Las vistas del símbolo se han aplicado al proyecto. Guarda el proyecto para "
+"conservar el símbolo personalizado."
 
 #: mvr/mvrimporter.cpp:318
 msgid "Resolve GDTF source conflicts"

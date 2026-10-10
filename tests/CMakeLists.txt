@@ -3934,6 +3934,74 @@ foreach(PERASTAGE_NEUTRAL_HELPER_TEST IN LISTS PERASTAGE_NEUTRAL_HELPER_TEST_TAR
     endif()
 endforeach()
 
+
+add_executable(model_detail_test model_detail_test.cpp
+               ../viewer3d/resources/runtime_mesh_simplification.cpp
+               ../viewer3d/resources/runtime_mesh_cache.cpp)
+target_include_directories(model_detail_test PRIVATE ../core ../viewer3d)
+target_link_libraries(model_detail_test PRIVATE meshoptimizer::meshoptimizer)
+add_test(NAME ModelDetail COMMAND model_detail_test)
+set_tests_properties(ModelDetail PROPERTIES LABELS "unit;viewer3d")
+
+add_executable(viewer3d_rendering_preferences_panel_test
+               viewer3d_rendering_preferences_panel_test.cpp
+               ../gui/preferences/viewer3d_rendering_preferences_panel.cpp
+               ../viewer3d/render/viewer3d_render_style.cpp)
+target_include_directories(viewer3d_rendering_preferences_panel_test PRIVATE
+                           ../gui ../core ../models ../viewer3d/render)
+target_link_libraries(viewer3d_rendering_preferences_panel_test PRIVATE ${wxWidgets_LIBRARIES})
+find_program(PERASTAGE_XVFB_RUN xvfb-run)
+if(UNIX AND NOT APPLE AND PERASTAGE_XVFB_RUN)
+  add_test(NAME Viewer3DRenderingPreferencesPanel
+           COMMAND "${PERASTAGE_XVFB_RUN}" -a "$<TARGET_FILE:viewer3d_rendering_preferences_panel_test>")
+else()
+  add_test(NAME Viewer3DRenderingPreferencesPanel COMMAND viewer3d_rendering_preferences_panel_test)
+endif()
+set_tests_properties(Viewer3DRenderingPreferencesPanel PROPERTIES LABELS "gui;viewer3d")
+if(BASH_EXECUTABLE)
+  add_bash_policy_test(ModelDetailBoundary
+                      ${CMAKE_CURRENT_SOURCE_DIR}/check_model_detail_boundary.sh
+                      LABELS architecture viewer3d)
+endif()
+# Exercise the real dialog/pages while isolating OS vault and locale discovery.
+add_executable(preferences_dialog_test
+               preferences_dialog_test.cpp
+               preferences_dialog_backend_stubs.cpp
+               ../gui/preferencesdialog.cpp
+               ../gui/preferences/preferences_page.cpp
+               ../gui/preferences/language_preferences_page.cpp
+               ../gui/preferences/units_preferences_page.cpp
+               ../gui/preferences/updates_preferences_page.cpp
+               ../gui/preferences/rider_import_preferences_page.cpp
+               ../gui/preferences/viewer3d_preferences_page.cpp
+               ../gui/preferences/selection_movement_preferences_page.cpp
+               ../gui/preferences/gdtf_preferences_page.cpp
+               ../gui/preferences/mvr_preferences_page.cpp
+               ../gui/preferences/gdtf_mutation_policy_panel.cpp
+               ../gui/preferences/viewer3d_rendering_preferences_panel.cpp
+               ../gui/update/update_check_preferences.cpp
+               ../core/gdtf_mutation_policy.cpp
+               ../core/localization/app_language.cpp
+               ../core/units/units.cpp
+               ../viewer3d/render/viewer3d_render_style.cpp)
+target_include_directories(preferences_dialog_test PRIVATE
+                           ../gui ../core ../models ../mvr ../viewer3d/render ../third_party)
+target_link_libraries(preferences_dialog_test PRIVATE ${wxWidgets_LIBRARIES})
+target_compile_definitions(preferences_dialog_test PRIVATE
+                           PERASTAGE_ENABLE_LOCALIZATION=$<BOOL:${PERASTAGE_ENABLE_LOCALIZATION}>)
+if(UNIX AND NOT APPLE AND PERASTAGE_XVFB_RUN)
+  add_test(NAME PreferencesDialog
+           COMMAND "${PERASTAGE_XVFB_RUN}" -a "$<TARGET_FILE:preferences_dialog_test>")
+else()
+  add_test(NAME PreferencesDialog COMMAND preferences_dialog_test)
+endif()
+set_tests_properties(PreferencesDialog PROPERTIES LABELS "gui;preferences" TIMEOUT 60)
+if(BASH_EXECUTABLE)
+  add_bash_policy_test(PreferencesPageBoundary
+                      ${CMAKE_CURRENT_SOURCE_DIR}/check_preferences_page_boundary.sh
+                      LABELS architecture gui)
+endif()
+
 # Guards the explicit dictionary publication dependency inventory against drift.
 get_property(PERASTAGE_DECLARED_TEST_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 foreach(PERASTAGE_DECLARED_TEST IN LISTS PERASTAGE_DECLARED_TEST_TARGETS)

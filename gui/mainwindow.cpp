@@ -79,6 +79,7 @@ using json = nlohmann::json;
 #include "app_version.h"
 #include "autopatcher.h"
 #include "configmanager.h"
+#include "model_detail_policy.h"
 #include "consolepanel.h"
 #include "credentialstore.h"
 #include "dictionaryeditdialog.h"
@@ -316,6 +317,7 @@ const std::vector<std::string> &GetPreferencesDialogConfigKeys() {
       "rider_autopatch",         "rider_layer_mode",
       "ui_distance_unit_system", "ui_weight_unit_system",
       "app_update_startup_mode", "viewer3d_render_style", "gdtf_mutation_policy",
+      model_detail::kDetailConfigKey, model_detail::kMovingProxyConfigKey,
       "viewer3d_invert_orbit",   "viewer3d_invert_orbit_horizontal",
       "rider_lx1_height",
       "rider_lx2_height",        "rider_lx3_height",
