@@ -29,7 +29,6 @@ GdtfMutationPolicyPanel::GdtfMutationPolicyPanel(wxWindow *parent)
         "Project symbols, scene editing, and explicit GDTF edits remain "
         "available."));
   hint->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
-  hint->Wrap(740);
   sizer->Add(hint, 0, wxLEFT | wxRIGHT | wxBOTTOM, 10);
   SetSizer(sizer);
 }

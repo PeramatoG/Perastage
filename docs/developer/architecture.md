@@ -573,5 +573,6 @@ The schema layer embeds exact official `mvrdevelopment/tools` files from revisio
 
 Core owns GUI-independent model-detail configuration and triangle/error budgets.
 Viewer3D owns immutable runtime representations and a per-viewer mesh cache;
-GUI owns the focused rendering preferences panel. See [Runtime model detail](model_detail.md)
-for policy values, simplification, invalidation, and the G0.2/G0.3 extraction.
+GUI owns the category-based Preferences container and focused settings pages.
+See [Runtime model detail and Preferences](model_detail.md) for policy values,
+simplification, invalidation, preserved settings, and the G0.2/G0.3 extraction.

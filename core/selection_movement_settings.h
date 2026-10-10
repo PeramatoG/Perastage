@@ -20,8 +20,9 @@ constexpr const char *kGroupMoveSceneObjectConfigKey =
     "selection_group_move_scene_object";
 
 // Loads the user policy while retaining legacy grouped-truss defaults.
+template <typename Store>
 inline scene_grouping::InteractiveTransformPolicy
-LoadInteractiveTransformPolicy(const ConfigManager &cfg) {
+LoadInteractiveTransformPolicy(const Store &cfg) {
   auto enabled = [&](const char *key, bool fallback) {
     const auto value = cfg.GetValue(key);
     return value ? *value == "1" : fallback;
@@ -34,8 +35,9 @@ LoadInteractiveTransformPolicy(const ConfigManager &cfg) {
 }
 
 // Persists all grouped-object movement choices in user configuration.
+template <typename Store>
 inline void SaveInteractiveTransformPolicy(
-    ConfigManager &cfg,
+    Store &cfg,
     const scene_grouping::InteractiveTransformPolicy &policy) {
   cfg.SetValue(kGroupMoveFixtureConfigKey,
                policy.promoteFixturesToGroup ? "1" : "0");

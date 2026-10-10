@@ -2,6 +2,22 @@
 
 Perastage includes a Preferences dialog for user-level behavior and display settings.
 
+The dialog uses a native category tree on the left and one settings page on the
+right. Select a page with the mouse or the keyboard. The navigation hierarchy is:
+
+- **General**: Language, Units, Updates
+- **Import**: Rider Import
+- **Viewer**: 3D Viewer, Selection & Movement
+- **Formats**: GDTF, MVR Import / Export
+
+Switching pages keeps pending edits and does not save them. **Apply** saves all
+pages and keeps the dialog open. **OK** saves all pages and closes the dialog.
+**Cancel** discards edits made since the last Apply. The window can be resized;
+long pages scroll vertically and explanatory text wraps to the available width.
+Language changes still require restarting Perastage; unit and rendering changes
+apply immediately.
+
+
 ## Common settings
 
 Current user-facing preferences include:
@@ -21,7 +37,7 @@ Current user-facing preferences include:
 
 ## GDTF definition completion
 
-The **GDTF** tab offers two policies under **GDTF definition completion**:
+The **Formats > GDTF** page offers two policies under **GDTF definition completion**:
 
 - **Complete and improve GDTF definitions (recommended)** is the default.
   Perastage may generate missing standard Top, Side, and Front SVG views from
@@ -37,7 +53,7 @@ the scene has first been saved.
 
 ## MVR Import / Export
 
-The **MVR Import / Export** tab is the location for MVR-related import and export preferences. The current export setting controls how truss geometry is written when exporting MVR files.
+The **Formats > MVR Import / Export** page is the location for MVR-related import and export preferences. The current export setting controls how truss geometry is written when exporting MVR files.
 
 ### Truss geometry export mode
 
@@ -82,7 +98,7 @@ After changing preferences, recheck your scene in both 2D and 3D and verify tabl
 
 ## 3D Viewer model detail
 
-Under **3D Viewer > Performance**, **Model detail** controls the runtime
+Under **Viewer > 3D Viewer > Performance**, **Model detail** controls the runtime
 representation of fixture, truss, and scene-object meshes:
 
 - **Standard** (default) balances detail and performance. Small meshes stay complete;

@@ -28,7 +28,6 @@ Viewer3DRenderingPreferencesPanel::Viewer3DRenderingPreferencesPanel(wxWindow *p
   auto *hint = new wxStaticText(performance->GetStaticBox(), wxID_ANY,
       _("Standard balances detail and performance. High preserves full model detail. "
         "Low simplifies heavy meshes more aggressively. GDTF resources stay unchanged."));
-  hint->Wrap(740);
   performance->Add(hint, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
   sizer->Add(performance, 0, wxEXPAND);
   wxStaticBoxSizer *viewer3dRenderSizer =

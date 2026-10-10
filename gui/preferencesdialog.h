@@ -18,19 +18,25 @@
 #pragma once
 
 #include "localization/app_language.h"
-#include <array>
-#include <wx/wx.h>
+#include <functional>
+#include <vector>
+#include <wx/dialog.h>
 
 wxDECLARE_EVENT(EVT_UI_UNITS_CHANGED, wxCommandEvent);
 wxDECLARE_EVENT(EVT_UI_PREFERENCES_APPLIED, wxCommandEvent);
 
-class Viewer3DRenderingPreferencesPanel;
-class GdtfCredentialsPanel;
-class GdtfMutationPolicyPanel;
+class IGuiPreferencesService;
+class PreferencesPage;
+class LanguagePreferencesPage;
+class UnitsPreferencesPage;
 
 class PreferencesDialog : public wxDialog {
 public:
-  PreferencesDialog(wxWindow *parent);
+  explicit PreferencesDialog(wxWindow *parent);
+  // The commit adapter preserves the application's existing persistence/dirty
+  // state boundary and permits isolated UI regression tests.
+  PreferencesDialog(wxWindow *parent, IGuiPreferencesService &preferences,
+                    std::function<bool(const std::function<void()> &)> commit);
 
 private:
   void OnApplyButton(wxCommandEvent &event);
@@ -38,37 +44,13 @@ private:
   void NotifyPreferencesApplied();
   bool ApplyPreferences();
   void NotifyUnitsChanged();
-  void RefreshRiderImportDistanceLabels();
-  void ConvertRiderImportDistanceFields();
-  void
-  ShowLanguageRestartNoticeIfNeeded(localization::AppLanguage selectedLanguage);
+  void ShowLanguageRestartNoticeIfNeeded(localization::AppLanguage language);
 
-  std::array<wxTextCtrl *, 6> lxHeightCtrls{};
-  std::array<wxTextCtrl *, 6> lxPosCtrls{};
-  std::array<wxTextCtrl *, 6> lxMarginCtrls{};
-  std::array<wxStaticText *, 6> lxHeightLabels{};
-  std::array<wxStaticText *, 6> lxPosLabels{};
-  std::array<wxStaticText *, 6> lxMarginLabels{};
-  wxCheckBox *autopatchCheck = nullptr;
-  wxRadioButton *layerPosRadio = nullptr;
-  wxRadioButton *layerTypeRadio = nullptr;
-  Viewer3DRenderingPreferencesPanel *viewer3dRenderingPanel = nullptr;
-  wxCheckBox *viewer3dInvertOrbitHorizontalCheck = nullptr;
-  wxCheckBox *viewer3dInvertOrbitVerticalCheck = nullptr;
-  wxCheckBox *groupMoveFixtureCheck = nullptr;
-  wxCheckBox *groupMoveTrussCheck = nullptr;
-  wxCheckBox *groupMoveSupportCheck = nullptr;
-  wxCheckBox *groupMoveSceneObjectCheck = nullptr;
-  wxCheckBox *magnetAnchorReferencesCheck = nullptr;
-  wxChoice *distanceUnitChoice = nullptr;
-  wxChoice *weightUnitChoice = nullptr;
-  wxChoice *updateCheckModeChoice = nullptr;
-  wxChoice *mvrTrussGeometryExportModeChoice = nullptr;
-  wxChoice *interfaceLanguageChoice = nullptr;
-  int initialDistanceUnitSelection = wxNOT_FOUND;
-  int initialWeightUnitSelection = wxNOT_FOUND;
+  IGuiPreferencesService &preferences;
+  std::function<bool(const std::function<void()> &)> commitPreferences;
+  std::vector<PreferencesPage *> pages;
+  UnitsPreferencesPage *unitsPage = nullptr;
+  LanguagePreferencesPage *languagePage = nullptr;
   localization::AppLanguage lastRestartNoticeLanguage =
       localization::DefaultAppLanguage();
-  GdtfCredentialsPanel *gdtfCredentialsPanel = nullptr;
-  GdtfMutationPolicyPanel *gdtfMutationPolicyPanel = nullptr;
 };

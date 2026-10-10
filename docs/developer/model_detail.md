@@ -64,21 +64,72 @@ existing navigation batching path alone requests temporary fixture proxies.
 2D contexts and capture paths bypass detail resolution; picking and bounds keep
 full geometry. No Layout/PDF policy changes are introduced.
 
-## Focused Preferences extraction
+## Preferences restructuring
 
-`gui/preferences/viewer3d_rendering_preferences_panel.*` owns the detail choice,
-proxy checkbox, and the existing render-mode radios and load/apply wiring
-previously in `PreferencesDialog`. Navigation settings and unrelated pages
-remain in their original owners. Render-style parsing is reusable without
-`ConfigManager`; its legacy adapter remains in Viewer3D. GPU release and detail
-resolution live in the adjacent controller implementation rather than growing
-the controller hotspot. The formerly unreachable duplicate fixture batching
-branch was removed while retaining the reachable batching behavior.
+`PreferencesDialog` is a container/coordinator with a native `wxTreebook`:
+
+- General: Language, Units, Updates
+- Import: Rider Import
+- Viewer: 3D Viewer, Selection & Movement
+- Formats: GDTF, MVR Import / Export
+
+Category nodes have no page; wxWidgets displays their first child. Pages are
+created and loaded once. Navigation never reloads, applies, or saves settings,
+so pending edits survive switching. Each cohesive `*_preferences_page.*` under
+`gui/preferences/` owns its controls and load/apply wiring. A small
+`PreferencesPage` contract supplies vertical scrolling and responsive wrapping
+of explanatory text and long native control labels. Native choices can shrink
+with the right pane. No custom rendering/theme or settings backend is added.
+
+The dialog applies every page through the existing preference service, commits
+once, and posts the existing unit/preference events only after successful save.
+The original dirty-state capture/restore remains in
+`preferencesdialog_persistence.cpp`, using the existing legacy ConfigManager
+bridge. Units delegates conversion of pending Rider fields to the Rider page;
+Core still owns unit parsing/formatting. Language selection is in its page, while
+the restart notice remains in the coordinator and retains its deduplication.
+The GDTF page composes the existing mutation-policy and credential panels.
+
+Existing persisted keys/values remain compatible; there is no migration:
+
+| Page | Preserved keys |
+| --- | --- |
+| Rider Import | `rider_autopatch`, `rider_layer_mode`, `rider_lx1_height`/`pos`/`margin` through `rider_lx6_height`/`pos`/`margin` |
+| Units | `ui_distance_unit_system`, `ui_weight_unit_system` |
+| Language | `ui_language` |
+| Updates | `app_update_startup_mode` (including the existing `never_auto` read alias) |
+| GDTF | `gdtf_mutation_policy`; existing credential-vault storage and legacy `gdtf_username`/`gdtf_password` synchronization |
+| MVR | `mvr_truss_geometry_export_mode` |
+| Selection & Movement | `selection_group_move_fixture`, `selection_group_move_truss`, `selection_group_move_support`, `selection_group_move_scene_object`, `viewport_magnet_show_anchor_references` |
+| 3D Viewer | `viewer3d_invert_orbit_horizontal`, `viewer3d_invert_orbit`, `viewer3d_render_style` |
+
+The two new detail/proxy keys above live in the 3D Viewer page alongside navigation,
+render style, and the unchanged shortcut information. The focused rendering
+panel remains composed inside that page. Selection/MVR helpers accept the existing
+preference facade as well as ConfigManager, preserving their domain policy and
+callers. Render-style parsing remains reusable without ConfigManager; its legacy
+adapter stays in Viewer3D. GPU release/detail resolution live in the adjacent
+controller implementation; the unreachable duplicate fixture batch was removed.
+
+Intentionally retained coupling: the GDTF credentials panel still uses the
+existing global GUI services and platform credential vault, and its explicit
+**Validate credentials** action still validates/saves credentials immediately.
+That existing explicit action is independent of unapplied settings edits and is
+not rolled back by Cancel. Normal page edits persist only through Apply/OK.
+Credential failures keep their existing warnings/return handling; restructuring
+does not redesign credential transactions or failed-save rollback. Dirty-state
+bookkeeping stays behind the existing legacy bridge. Future cleanup can replace
+that bridge and inject credential services without being required for v1.7.0.
 
 Focused tests cover policy parsing/budgets, immutable source data, uploaded-copy
 state, cache reuse/separation/invalidation, real preference store file/buffer
 round trips, and wxWidgets panel load/apply for every detail/proxy/render-style
-combination. `check_model_detail_boundary.sh` protects ownership and config-key
+combination. The real-dialog regression additionally covers all eight pages,
+existing values, Apply/OK/Cancel, navigation without mutation, pending edits,
+unit conversion/events, language notices, and resizing. It isolates OS credential
+and locale discovery with test doubles; those backends retain their separate
+integration coverage. `check_preferences_page_boundary.sh` guards page ownership
+and the single persistence boundary. `check_model_detail_boundary.sh` protects ownership and config-key
 bookkeeping. Native visual review of demanding/non-manifold assets remains
 useful because meshoptimizer budgets are intentionally approximate.
 

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.6.118\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-10 15:22+0000\n"
+"POT-Creation-Date: 2026-10-10 16:11+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4212,6 +4212,203 @@ msgid ""
 "symbols, scene editing, and explicit GDTF edits remain available."
 msgstr ""
 
+#: gui/preferences/language_preferences_page.cpp:45
+msgid "Interface language:"
+msgstr ""
+
+#: gui/preferences/language_preferences_page.cpp:55
+#: gui/preferencesdialog.cpp:143
+msgid "Language changes will be applied after restarting Perastage."
+msgstr ""
+
+#: gui/preferences/mvr_preferences_page.cpp:17
+msgid "Export"
+msgstr ""
+
+#: gui/preferences/mvr_preferences_page.cpp:21
+msgid "Truss geometry export mode:"
+msgstr ""
+
+#: gui/preferences/mvr_preferences_page.cpp:25
+msgid "Standard MVR representation"
+msgstr ""
+
+#: gui/preferences/mvr_preferences_page.cpp:27
+msgid "Direct Geometry3D for truss symbols"
+msgstr ""
+
+#: gui/preferences/mvr_preferences_page.cpp:32
+msgid ""
+"Standard MVR representation: preserves imported Symbol/Symdef references "
+"when possible and is Perastage's canonical representation.\n"
+"Direct Geometry3D for truss symbols: expands truss Symbol/Symdef references "
+"into direct Geometry3D entries for compatibility with applications that do "
+"not correctly support Symbol/Symdef. Both modes are MVR 1.6 compliant."
+msgstr ""
+
+#: gui/preferences/rider_import_preferences_page.cpp:17
+msgid "Auto patch after import"
+msgstr ""
+
+#: gui/preferences/rider_import_preferences_page.cpp:20
+msgid "Auto-create layers by position"
+msgstr ""
+
+#: gui/preferences/rider_import_preferences_page.cpp:23
+msgid "Auto-create layers by fixture type"
+msgstr ""
+
+#: gui/preferences/rider_import_preferences_page.cpp:31
+#, c-format
+msgid "LX%d height:"
+msgstr ""
+
+#: gui/preferences/rider_import_preferences_page.cpp:37
+#, c-format
+msgid "LX%d position:"
+msgstr ""
+
+#: gui/preferences/rider_import_preferences_page.cpp:43
+#, c-format
+msgid "LX%d margin:"
+msgstr ""
+
+#: gui/preferences/rider_import_preferences_page.cpp:111
+#, c-format
+msgid "LX%d height (%s):"
+msgstr ""
+
+#: gui/preferences/rider_import_preferences_page.cpp:114
+#, c-format
+msgid "LX%d position (%s):"
+msgstr ""
+
+#: gui/preferences/rider_import_preferences_page.cpp:117
+#, c-format
+msgid "LX%d margin (%s):"
+msgstr ""
+
+#: gui/preferences/selection_movement_preferences_page.cpp:18
+#: gui/preferencesdialog.cpp:64
+msgid "Selection & Movement"
+msgstr ""
+
+#: gui/preferences/selection_movement_preferences_page.cpp:27
+msgid "Choose how interactive transforms handle objects inside groups."
+msgstr ""
+
+#: gui/preferences/selection_movement_preferences_page.cpp:34
+msgid "Grouped object movement"
+msgstr ""
+
+#: gui/preferences/selection_movement_preferences_page.cpp:37
+msgid "Fixtures move the containing group"
+msgstr ""
+
+#: gui/preferences/selection_movement_preferences_page.cpp:39
+msgid "Trusses move the containing group"
+msgstr ""
+
+#: gui/preferences/selection_movement_preferences_page.cpp:42
+msgid "Supports / Hoists move the containing group"
+msgstr ""
+
+#: gui/preferences/selection_movement_preferences_page.cpp:45
+msgid "Scene Objects move the containing group"
+msgstr ""
+
+#: gui/preferences/selection_movement_preferences_page.cpp:51
+msgid ""
+"When enabled, selecting this type inside a group moves the highest parent "
+"GroupObject during mouse, CLI, and Magnet transformations.\n"
+"Table edits always modify only the edited object.\n"
+"Selecting a GroupObject directly always moves that group."
+msgstr ""
+
+#: gui/preferences/selection_movement_preferences_page.cpp:60
+msgid "Magnet visual feedback"
+msgstr ""
+
+#: gui/preferences/selection_movement_preferences_page.cpp:63
+msgid "Show anchor references while moving or inserting elements"
+msgstr ""
+
+#: gui/preferences/units_preferences_page.cpp:19
+msgid "Distance system:"
+msgstr ""
+
+#: gui/preferences/units_preferences_page.cpp:22
+#: gui/preferences/units_preferences_page.cpp:29
+msgid "Metric"
+msgstr ""
+
+#: gui/preferences/units_preferences_page.cpp:23
+#: gui/preferences/units_preferences_page.cpp:30
+msgid "Imperial"
+msgstr ""
+
+#: gui/preferences/units_preferences_page.cpp:26
+msgid "Weight system:"
+msgstr ""
+
+#: gui/preferences/updates_preferences_page.cpp:19
+msgid "Automatic update checks:"
+msgstr ""
+
+#: gui/preferences/updates_preferences_page.cpp:22
+msgid "Check on startup (recommended)"
+msgstr ""
+
+#: gui/preferences/updates_preferences_page.cpp:23
+msgid "Manual only"
+msgstr ""
+
+#: gui/preferences/updates_preferences_page.cpp:27
+msgid "Manual checks are always available from Help -> Check for Updates."
+msgstr ""
+
+#: gui/preferences/viewer3d_preferences_page.cpp:20
+#: gui/preferencesdialog.cpp:63
+msgid "3D Viewer"
+msgstr ""
+
+#: gui/preferences/viewer3d_preferences_page.cpp:29
+msgid ""
+"Customize camera interaction and visualize the current navigation shortcuts."
+msgstr ""
+
+#: gui/preferences/viewer3d_preferences_page.cpp:39
+msgid "Navigation"
+msgstr ""
+
+#: gui/preferences/viewer3d_preferences_page.cpp:42
+msgid "Invert orbit horizontal direction"
+msgstr ""
+
+#: gui/preferences/viewer3d_preferences_page.cpp:48
+msgid "Invert orbit vertical direction"
+msgstr ""
+
+#: gui/preferences/viewer3d_preferences_page.cpp:53
+msgid "Disabled by default to preserve the current behavior."
+msgstr ""
+
+#: gui/preferences/viewer3d_preferences_page.cpp:66
+msgid "Current mouse and keyboard shortcuts"
+msgstr ""
+
+#: gui/preferences/viewer3d_preferences_page.cpp:69
+msgid ""
+"Orbit: Left drag or Right drag.\n"
+"Pan: Middle drag, Shift + drag, or Shift + Left drag.\n"
+"Zoom: Mouse wheel.\n"
+"Selection rectangle: Ctrl + Left drag."
+msgstr ""
+
+#: gui/preferences/viewer3d_preferences_page.cpp:77
+msgid "Informational only: shortcut remapping is not available yet."
+msgstr ""
+
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:15
 msgid "Performance"
 msgstr ""
@@ -4225,7 +4422,7 @@ msgid "Low"
 msgstr ""
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:21
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:37
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:36
 msgid "Standard"
 msgstr ""
 
@@ -4243,269 +4440,93 @@ msgid ""
 "Low simplifies heavy meshes more aggressively. GDTF resources stay unchanged."
 msgstr ""
 
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:35
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:34
 #: viewer2d/viewer2drenderpanel.cpp:92
 msgid "Render mode"
 msgstr ""
 
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:40
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:39
 #: viewer2d/viewer2drenderpanel.cpp:90
 msgid "White"
 msgstr ""
 
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:42
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:41
 msgid "Sketch mode"
 msgstr ""
 
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:44
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:43
 msgid "Textured"
 msgstr ""
 
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:46
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:45
 #: viewer2d/viewer2drenderpanel.cpp:90
 msgid "Wireframe"
 msgstr ""
 
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:48
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:47
 #: viewer2d/viewer2drenderpanel.cpp:90
 msgid "By device type"
 msgstr ""
 
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:50
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:49
 #: viewer2d/viewer2drenderpanel.cpp:91
 msgid "By layer"
 msgstr ""
 
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:52
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:51
 #: viewer2d/viewer2drenderpanel.cpp:91
 msgid "By universe"
 msgstr ""
 
-#: gui/preferencesdialog.cpp:79
+#: gui/preferencesdialog.cpp:39
 #: tests/localization_catalog_integration_test.cpp:122
 #: tests/localization_catalog_integration_test.cpp:143
 #: tests/localization_catalog_integration_test.cpp:174
 msgid "Preferences"
 msgstr ""
 
-#: gui/preferencesdialog.cpp:90
-msgid "Auto patch after import"
+#: gui/preferencesdialog.cpp:51
+msgid "General"
 msgstr ""
 
-#: gui/preferencesdialog.cpp:95
-msgid "Auto-create layers by position"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:98
-msgid "Auto-create layers by fixture type"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:114
-#, c-format
-msgid "LX%d height:"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:126
-#, c-format
-msgid "LX%d position:"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:138
-#, c-format
-msgid "LX%d margin:"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:151
-msgid "Rider Import"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:159
-msgid "Distance system:"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:162 gui/preferencesdialog.cpp:179
-msgid "Metric"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:163 gui/preferencesdialog.cpp:180
-msgid "Imperial"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:176
-msgid "Weight system:"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:190
-msgid "Units"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:198
-msgid "Interface language:"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:221 gui/preferencesdialog.cpp:664
-msgid "Language changes will be applied after restarting Perastage."
-msgstr ""
-
-#: gui/preferencesdialog.cpp:227
+#: gui/preferencesdialog.cpp:53
 #: tests/localization_catalog_integration_test.cpp:176
 msgid "Language"
 msgstr ""
 
-#: gui/preferencesdialog.cpp:235
-msgid "Automatic update checks:"
+#: gui/preferencesdialog.cpp:55
+msgid "Units"
 msgstr ""
 
-#: gui/preferencesdialog.cpp:238
-msgid "Check on startup (recommended)"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:239
-msgid "Manual only"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:249
-msgid "Manual checks are always available from Help -> Check for Updates."
-msgstr ""
-
-#: gui/preferencesdialog.cpp:253
+#: gui/preferencesdialog.cpp:56
 msgid "Updates"
 msgstr ""
 
-#: gui/preferencesdialog.cpp:266
+#: gui/preferencesdialog.cpp:58
+msgid "Import"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:60
+msgid "Rider Import"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:62
+msgid "Viewer"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:66
+msgid "Formats"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:67
 msgid "GDTF"
 msgstr ""
 
-#: gui/preferencesdialog.cpp:272
-msgid "Export"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:276
-msgid "Truss geometry export mode:"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:280
-msgid "Standard MVR representation"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:282
-msgid "Direct Geometry3D for truss symbols"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:294
-msgid ""
-"Standard MVR representation: preserves imported Symbol/Symdef references "
-"when possible and is Perastage's canonical representation.\n"
-"Direct Geometry3D for truss symbols: expands truss Symbol/Symdef references "
-"into direct Geometry3D entries for compatibility with applications that do "
-"not correctly support Symbol/Symdef. Both modes are MVR 1.6 compliant."
-msgstr ""
-
-#: gui/preferencesdialog.cpp:308
+#: gui/preferencesdialog.cpp:68
 msgid "MVR Import / Export"
 msgstr ""
 
-#: gui/preferencesdialog.cpp:314 gui/preferencesdialog.cpp:376
-msgid "Selection & Movement"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:323
-msgid "Choose how interactive transforms handle objects inside groups."
-msgstr ""
-
-#: gui/preferencesdialog.cpp:330
-msgid "Grouped object movement"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:333
-msgid "Fixtures move the containing group"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:335
-msgid "Trusses move the containing group"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:338
-msgid "Supports / Hoists move the containing group"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:341
-msgid "Scene Objects move the containing group"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:354
-msgid ""
-"When enabled, selecting this type inside a group moves the highest parent "
-"GroupObject during mouse, CLI, and Magnet transformations.\n"
-"Table edits always modify only the edited object.\n"
-"Selecting a GroupObject directly always moves that group."
-msgstr ""
-
-#: gui/preferencesdialog.cpp:364
-msgid "Magnet visual feedback"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:367
-msgid "Show anchor references while moving or inserting elements"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:384 gui/preferencesdialog.cpp:465
-msgid "3D Viewer"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:393
-msgid ""
-"Customize camera interaction and visualize the current navigation shortcuts."
-msgstr ""
-
-#: gui/preferencesdialog.cpp:404
-msgid "Navigation"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:407
-msgid "Invert orbit horizontal direction"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:419
-msgid "Invert orbit vertical direction"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:428
-msgid "Disabled by default to preserve the current behavior."
-msgstr ""
-
-#: gui/preferencesdialog.cpp:444
-msgid "Current mouse and keyboard shortcuts"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:447
-msgid ""
-"Orbit: Left drag or Right drag.\n"
-"Pan: Middle drag, Shift + drag, or Shift + Left drag.\n"
-"Zoom: Mouse wheel.\n"
-"Selection rectangle: Ctrl + Left drag."
-msgstr ""
-
-#: gui/preferencesdialog.cpp:456
-msgid "Informational only: shortcut remapping is not available yet."
-msgstr ""
-
-#: gui/preferencesdialog.cpp:597
-#, c-format
-msgid "LX%d height (%s):"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:600
-#, c-format
-msgid "LX%d position (%s):"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:603
-#, c-format
-msgid "LX%d margin (%s):"
-msgstr ""
-
-#: gui/preferencesdialog.cpp:665
+#: gui/preferencesdialog.cpp:144
 msgid "Restart required"
 msgstr ""
 

@@ -48,14 +48,16 @@ inline const char *SerializeTrussGeometryExportMode(MvrTrussGeometryExportMode m
 }
 
 // Loads MVR export options from the existing user preference store.
-inline MvrExportOptions LoadExportOptions(const ConfigManager &config) {
+template <typename Store>
+inline MvrExportOptions LoadExportOptions(const Store &config) {
   MvrExportOptions options;
   options.trussGeometryExportMode = ParseTrussGeometryExportMode(config.GetValue(kTrussGeometryExportModeKey));
   return options;
 }
 
 // Saves MVR export options to the existing user preference store.
-inline void SaveExportOptions(ConfigManager &config, const MvrExportOptions &options) {
+template <typename Store>
+inline void SaveExportOptions(Store &config, const MvrExportOptions &options) {
   config.SetValue(kTrussGeometryExportModeKey, SerializeTrussGeometryExportMode(options.trussGeometryExportMode));
 }
 
