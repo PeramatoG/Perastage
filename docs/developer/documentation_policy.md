@@ -13,10 +13,10 @@ This document defines how Perastage documentation should be organized and mainta
 Use dedicated documents for deeper topics:
 
 - `docs/user/features.md` for feature breakdowns and workflow summaries.
-- `docs/developer/build.md` for dependency, CMake, and advanced build options.
-- `docs/user/installation-windows.md` for Windows-specific setup notes.
+- `docs/developer/build.md` for source builds, dependencies, toolchains and build troubleshooting.
 - `docs/developer/packaging.md` for installer and desktop integration behavior.
-- `docs/user/troubleshooting.md` for platform-specific failure modes and fixes.
+- `docs/user/` for operator workflows and reference documentation.
+- `docs/user/troubleshooting.md` for runtime problems with installed applications.
 - Existing policy/spec files (for example `docs/developer/text_to_scene_rules.md` and `docs/developer/gdtf_mutation_policy.md`) for behavior contracts.
 
 ## Developer Documentation Authority

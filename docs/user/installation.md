@@ -1,26 +1,17 @@
 # Installation
 
-Perastage is a cross-platform desktop application.
+Download the package for your desktop platform from the [latest release](https://github.com/PeramatoG/Perastage/releases/latest).
 
-## Recommended method
+- **Windows:** run the installer, then launch Perastage from the installed shortcut.
+- **macOS:** use the macOS package supplied with the release and launch Perastage.
+- **Linux:** use the Linux package supplied with the release and launch Perastage.
 
-1. Open the latest release page in this repository.
-2. Download the package for your operating system.
-3. Install the app and launch Perastage.
+Follow the instructions supplied with that package. Package availability can vary by release.
 
-## First-run library location
+## Your editable library
 
-Perastage stores editable user library data in your user profile folder.
+Use **Tools → Open user library folder** to find writable dictionaries, fixture profiles and other library content. On Windows the default is `%APPDATA%\Perastage\library\`.
 
-On Windows, the default location is:
+Keep custom library content backed up. Bundled defaults fill missing user-library files without overwriting your existing files; edit the user copy rather than the installation directory.
 
-- `%APPDATA%\Perastage\library\`
-
-You can open the folder directly from inside the app:
-
-- **Tools → Open user library folder**
-
-## Notes
-
-- Keep your user library folder backed up if you maintain custom dictionary entries or downloaded fixture profiles.
-- If installation succeeds but content looks incomplete, review [Download GDTF Files](gdtf-download.md).
+For launch, import or missing-content problems, see [Troubleshooting](troubleshooting.md). Source-build instructions belong in the [developer build guide](../developer/build.md).

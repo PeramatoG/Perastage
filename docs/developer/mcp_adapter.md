@@ -96,6 +96,36 @@ preserved even when the CLI returns a non-zero status. An unavailable CLI or
 live endpoint is reported as an MCP tool error with structured adapter or CLI
 diagnostics rather than being mistaken for an empty result.
 
+## Batch transform example
+
+Discover UUIDs with `live_objects_list` or `live_groups_list`, then replace the
+example UUIDs with explicit targets in the current scene. Positions are in
+millimetres and rotations in degrees. Submit this payload to
+`live_batch_transform`:
+
+```json
+{
+  "targets": [
+    {
+      "kind": "fixture",
+      "uuid": "fixture-a-uuid",
+      "components": [
+        {"kind": "position", "axis": "x", "value": -2000, "mode": "absolute", "space": "world"},
+        {"kind": "position", "axis": "y", "value": 1500, "mode": "absolute", "space": "world"}
+      ]
+    },
+    {
+      "kind": "fixture",
+      "uuid": "fixture-b-uuid",
+      "components": [
+        {"kind": "position", "axis": "x", "value": 2000, "mode": "absolute", "space": "world"},
+        {"kind": "rotation", "axis": "z", "value": 45, "mode": "relative", "space": "local"}
+      ]
+    }
+  ]
+}
+```
+
 ## Build and stdio startup
 
 Build and test independently from the native application:
