@@ -133,6 +133,8 @@ and the single persistence boundary. `check_model_detail_boundary.sh` protects o
 bookkeeping. Native visual review of demanding/non-manifold assets remains
 useful because meshoptimizer budgets are intentionally approximate.
 
-New GUI strings are gettext-ready and extracted into the POT. Language catalog
-updates, including any future French/German additions, follow the final UI string
-freeze; this block does not introduce languages or edit existing PO catalogs.
+New GUI strings are gettext-ready and extracted into the POT. The complete
+Spanish and Simplified Chinese catalogs are synchronized and translated,
+including the category navigation and detail/proxy controls. Strict catalog
+validation must pass before the Linux CI job runs CTest. Future French/German
+additions remain outside this block; no new languages are introduced.
