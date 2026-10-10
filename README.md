@@ -26,7 +26,7 @@ It is designed to open an MVR project quickly, inspect its contents in a clear v
 
 Perastage is **not** a real-time DMX visualizer. Its main purpose is to provide a fast and practical way to view, check, and work with MVR files that use GDTF libraries.
 
-**Help website:** https://perastage.luismaperamato.com/  
+**Help website:** https://perastage.luismaperamato.com/documentation.html\
 **Latest release:** https://github.com/PeramatoG/Perastage/releases/latest  
 
 ## What Perastage is for
@@ -76,15 +76,15 @@ Recent 3D optimization updates depend on `meshoptimizer`; if you prepare depende
 
 ## User Guide
 
-**Latest online documentation:** https://perastage.luismaperamato.com/
+**Latest online documentation:** https://perastage.luismaperamato.com/documentation.html
 
-**Perastage User Guide (GitHub Pages):** [docs/index.html](docs/index.html)
+**Perastage User Guide (GitHub Pages):** [docs/documentation.html](docs/documentation.html)
 
 ## Documentation
 
 The README is intentionally compact. Use these entry points for detailed documentation:
 
-- [Help website / user guide](docs/index.html)
+- [Help website / user guide](docs/documentation.html)
 - [Quick Start](docs/user/quick-start.md)
 - [Feature overview](docs/user/features.md)
 - [Troubleshooting](docs/user/troubleshooting.md)

@@ -3,46 +3,131 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Perastage Documentation</title>
+    <meta name="description" content="Perastage is a free, cross-platform desktop application to open, inspect, edit and document MVR scenes and work with GDTF fixtures." />
+    <title>Perastage — MVR &amp; GDTF workflows</title>
     <link rel="stylesheet" href="assets/css/style.css" />
   </head>
-  <body id="top">
-    <div class="page-shell">
-      <header class="site-header">
-        <a class="brand" href="index.html" aria-label="Perastage docs home">
-          <img src="assets/images/Perastage_logo.png" alt="Perastage logo" />
-          <div>
-            <h1>Perastage</h1>
-            <p>Lighting and Rigging visualization tool</p>
-          </div>
+  <body id="top" class="product-page">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page-shell product-shell">
+      <header class="site-header product-header">
+        <a class="brand" href="index.html" aria-label="Perastage home">
+          <img src="assets/images/Perastage_logo.png" alt="" width="48" height="48" />
+          <span class="product-brand-name">Perastage</span>
         </a>
+        <nav aria-label="Main navigation">
+          <ul class="product-nav">
+            <li><a href="#features">Features</a></li>
+            <li><a href="#workflow">Workflow</a></li>
+            <li><a href="documentation.html">Documentation</a></li>
+            <li><a href="https://github.com/PeramatoG/Perastage/releases/latest">Download</a></li>
+            <li><a href="https://github.com/PeramatoG/Perastage">GitHub</a></li>
+          </ul>
+        </nav>
       </header>
-
-      <section class="hero-panel">
-        <h2>Perastage User Guide</h2>
-        <p>
-          Perastage is a fast, cross-platform desktop viewer focused on MVR and GDTF workflows, helping you inspect, review, and present lighting scenes without heavy setup.
-        </p>
-        <div class="doc-grid" aria-label="Documentation sections" id="docGrid"></div>
-      </section>
-
-      <footer>
-        <a href="https://github.com/PeramatoG/Perastage">Main GitHub repository</a>
-        •
-        <a href="https://github.com/PeramatoG/Perastage/releases/latest">Latest releases</a>
+      <main id="main">
+        <section class="product-hero" aria-labelledby="hero-title">
+          <div>
+            <p class="product-eyebrow">MVR &amp; GDTF workflows</p>
+            <h1 id="hero-title">Open, inspect, edit and document MVR scenes.</h1>
+            <p class="product-lead">Perastage is a free, cross-platform desktop application for practical MVR and GDTF workflows. Review rigs in 2D and 3D, inspect scene and fixture data, organize and edit projects, build production layouts and export interoperable MVR files.</p>
+            <div class="product-actions">
+              <a class="product-button product-button-primary" href="https://github.com/PeramatoG/Perastage/releases/latest">Download latest release</a>
+              <a class="product-button" href="quick-start.html">Quick start</a>
+            </div>
+            <ul class="product-status" aria-label="Platform and project information">
+              <li>Windows · macOS · Linux</li>
+              <li>Free &amp; open source</li>
+              <li>MVR &amp; GDTF workflows</li>
+            </ul>
+          </div>
+          <img class="product-screenshot" src="assets/images/screenshots/hero-main.png" alt="Perastage showing a stage scene in the 3D workspace" width="1919" height="1079" fetchpriority="high" />
+        </section>
+        <aside class="product-release" aria-labelledby="release-title">
+          <h2 id="release-title">Coming in Perastage 1.7.0</h2>
+          <p>MVR / GDTF Inspector, improved GDTF Share workflow and symbol handling, and experimental local OSC / MCP integration.</p>
+        </aside>
+        <section id="features" class="product-section" aria-labelledby="features-title">
+          <h2 id="features-title">Practical tools for real show files</h2>
+          <p class="product-intro">Perastage brings MVR, GDTF, visualization, inspection and production documentation into one focused desktop workflow.</p>
+          <div class="product-feature-grid">
+            <article class="product-card">
+              <h3>MVR workflows</h3>
+              <p>Open, merge, edit and export MVR scenes while preserving interoperable scene data.</p>
+            </article>
+            <article class="product-card">
+              <h3>GDTF workflows</h3>
+              <p>Work with local fixture libraries and GDTF Share, including improved search, revision and DMX mode information.</p>
+            </article>
+            <article class="product-card">
+              <h3>2D &amp; 3D views</h3>
+              <p>Inspect and edit scene structure from technical plan views and spatial 3D views.</p>
+            </article>
+            <article class="product-card">
+              <h3>MVR &amp; GDTF Inspector</h3>
+              <p>Inspect MVR packages, scene structure, GDTF definitions, DMX modes, resources and source XML without modifying the original file.</p>
+            </article>
+            <article class="product-card">
+              <h3>Production layouts</h3>
+              <p>Build printable layouts, legends and technical documentation and export them to PDF.</p>
+            </article>
+            <article class="product-card">
+              <h3>Create from text</h3>
+              <p>Turn rider-style text and PDF content into structured scene elements.</p>
+            </article>
+            <article class="product-card">
+              <h3>Editing workflows</h3>
+              <p>Use tables, patch tools, grouping, bulk editing, commands and scene transformation tools for practical project work.</p>
+            </article>
+            <article class="product-card">
+              <h3>Automation &amp; external control</h3>
+              <p>Use experimental local interfaces for controlled automation and integration, including OSC and MCP-based workflows.</p>
+            </article>
+          </div>
+        </section>
+        <section id="workflow" class="product-section" aria-labelledby="workflow-title">
+          <h2 id="workflow-title">From show file to usable documentation</h2>
+          <ol class="product-workflow">
+            <li class="product-card">
+              <h3>Open or create</h3>
+              <p>Start from an MVR file, import show data or create scene content inside Perastage.</p>
+            </li>
+            <li class="product-card">
+              <h3>Inspect, review and edit</h3>
+              <p>Use the 2D/3D workspaces, Inspector and editing tools to understand and adjust the project.</p>
+            </li>
+            <li class="product-card">
+              <h3>Document and export</h3>
+              <p>Produce layouts and PDF documentation or export the updated MVR scene for use in other compatible applications.</p>
+            </li>
+          </ol>
+        </section>
+        <section class="product-section" aria-labelledby="documentation-title">
+          <h2 id="documentation-title">Need help getting started?</h2>
+          <div class="product-help-grid">
+            <a class="product-card product-help-card" href="quick-start.html">
+              <h3>Quick Start</h3>
+              <p>Get from installation to your first useful scene review.</p>
+            </a>
+            <a class="product-card product-help-card" href="documentation.html">
+              <h3>User Guide</h3>
+              <p>Browse Perastage workflows, preferences and reference documentation.</p>
+            </a>
+            <a class="product-card product-help-card" href="troubleshooting.html">
+              <h3>Troubleshooting</h3>
+              <p>Resolve common installation, MVR, GDTF and display issues.</p>
+            </a>
+          </div>
+        </section>
+      </main>
+      <footer class="product-footer">
+        <ul>
+          <li><a href="https://github.com/PeramatoG/Perastage">GitHub repository</a></li>
+          <li><a href="https://github.com/PeramatoG/Perastage/releases/latest">Latest releases</a></li>
+          <li><a href="https://github.com/PeramatoG/Perastage/blob/main/LICENSE.txt">GPL-3.0 license</a></li>
+        </ul>
+        <p>Perastage is developed and maintained by Luisma Peramato.</p>
       </footer>
     </div>
-
-    <script src="assets/js/docs-shell.js"></script>
-    <script>
-      // Renders landing cards with section-specific preview text for each documentation entry.
-      function renderLandingGrid() {
-        const grid = document.getElementById('docGrid');
-        grid.innerHTML = docsPages
-          .map((p) => `<a class="doc-card" href="${p.html}">${p.icon} ${p.title}<span>${p.summary}</span></a>`)
-          .join('');
-      }
-      renderLandingGrid();
-    </script>
   </body>
 </html>

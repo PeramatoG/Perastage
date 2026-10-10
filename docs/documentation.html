@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Perastage Documentation</title>
+    <link rel="stylesheet" href="assets/css/style.css" />
+  </head>
+  <body id="top">
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand" href="documentation.html" aria-label="Perastage docs home">
+          <img src="assets/images/Perastage_logo.png" alt="Perastage logo" />
+          <div>
+            <h1>Perastage</h1>
+            <p>Lighting and Rigging visualization tool</p>
+          </div>
+        </a>
+      </header>
+
+      <section class="hero-panel">
+        <h2>Perastage User Guide</h2>
+        <p>
+          Perastage is a fast, cross-platform desktop viewer focused on MVR and GDTF workflows, helping you inspect, review, and present lighting scenes without heavy setup.
+        </p>
+        <div class="doc-grid" aria-label="Documentation sections" id="docGrid"></div>
+      </section>
+
+      <footer>
+        <a href="https://github.com/PeramatoG/Perastage">Main GitHub repository</a>
+        •
+        <a href="https://github.com/PeramatoG/Perastage/releases/latest">Latest releases</a>
+      </footer>
+    </div>
+
+    <script src="assets/js/docs-shell.js"></script>
+    <script>
+      // Renders landing cards with section-specific preview text for each documentation entry.
+      function renderLandingGrid() {
+        const grid = document.getElementById('docGrid');
+        grid.innerHTML = docsPages
+          .map((p) => `<a class="doc-card" href="${p.html}">${p.icon} ${p.title}<span>${p.summary}</span></a>`)
+          .join('');
+      }
+      renderLandingGrid();
+    </script>
+  </body>
+</html>

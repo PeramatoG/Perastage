@@ -44,7 +44,7 @@ function renderDocShell(activeHtml) {
     <a href="#content" class="skip-link">Skip to content</a>
     <div class="page-shell">
       <header class="site-header">
-        <a class="brand" href="index.html" aria-label="Perastage docs home">
+        <a class="brand" href="documentation.html" aria-label="Perastage docs home">
           <img src="assets/images/Perastage_logo.png" alt="Perastage logo" />
           <div><h1>Perastage</h1><p>Lighting and Rigging visualization tool</p></div>
         </a>
@@ -52,7 +52,7 @@ function renderDocShell(activeHtml) {
       </header>
       <div class="layout">
         <aside id="docNav" class="nav-panel" aria-label="Documentation navigation"><ul class="nav-links">${renderNav(activeHtml)}</ul></aside>
-        <main class="content-panel"><div class="breadcrumb"><a href="index.html">Home</a> / ${activeHtml.replace('.html', '')}</div><div id="content"></div><a class="back-top" href="#top">Back to top</a></main>
+        <main class="content-panel"><div class="breadcrumb"><a href="documentation.html">Home</a> / ${activeHtml.replace('.html', '')}</div><div id="content"></div><a class="back-top" href="#top">Back to top</a></main>
       </div>
       <footer>Perastage documentation • <a href="https://github.com/PeramatoG/Perastage">Main GitHub repository</a> • <a href="https://github.com/PeramatoG/Perastage/releases/latest">Latest releases</a></footer>
     </div>`;
