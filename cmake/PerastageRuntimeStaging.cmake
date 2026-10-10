@@ -52,6 +52,26 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/help.md ${PERASTAGE_RUNTIME_ASSET_DIR}
 )
 
+# Stage canonical Markdown without recursively copying localized sources into English.
+# The UI translation registry also owns manual locale identifiers; English is implicit.
+foreach(PERASTAGE_MANUAL_LANGUAGE IN ITEMS en ${PERASTAGE_TRANSLATION_LANGUAGES})
+    if(PERASTAGE_MANUAL_LANGUAGE STREQUAL "en")
+        set(PERASTAGE_MANUAL_SOURCE_DIR "${CMAKE_SOURCE_DIR}/docs/user")
+    else()
+        set(PERASTAGE_MANUAL_SOURCE_DIR "${CMAKE_SOURCE_DIR}/docs/user/locales/${PERASTAGE_MANUAL_LANGUAGE}")
+    endif()
+    file(GLOB PERASTAGE_MANUAL_FILES CONFIGURE_DEPENDS "${PERASTAGE_MANUAL_SOURCE_DIR}/*.md")
+    if(PERASTAGE_MANUAL_FILES)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E make_directory
+                    "${PERASTAGE_RUNTIME_ASSET_DIR}/help/${PERASTAGE_MANUAL_LANGUAGE}"
+            COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${PERASTAGE_MANUAL_FILES}
+                    "${PERASTAGE_RUNTIME_ASSET_DIR}/help/${PERASTAGE_MANUAL_LANGUAGE}"
+            VERBATIM
+        )
+    endif()
+endforeach()
+
 # Copy license files to the platform runtime asset directory.
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/LICENSE.txt ${PERASTAGE_RUNTIME_ASSET_DIR}

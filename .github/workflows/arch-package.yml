@@ -216,6 +216,7 @@ jobs:
           grep -q '^opt/perastage/library/' arch-package-contents.txt
           grep -q '^opt/perastage/licenses/' arch-package-contents.txt
           grep -q '^opt/perastage/help.md$' arch-package-contents.txt
+          grep -q '^opt/perastage/help/en/index.md$' arch-package-contents.txt
           grep -q '^usr/share/applications/perastage.desktop$' arch-package-contents.txt
           grep -q '^usr/share/mime/packages/perastage-mime.xml$' arch-package-contents.txt
           grep -q '^usr/share/icons/hicolor/1024x1024/apps/perastage.png$' arch-package-contents.txt
