@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mesh.h"
+#include "runtime_mesh_cache.h"
 #include "gdtf_geometry_types.h"
 #include "mesh_processing.h"
 #include "fixture.h"
@@ -32,6 +33,7 @@ struct FixtureAnchorRegistryEntry {
 };
 
 struct ResourceSyncState {
+  viewer3d::resources::RuntimeMeshCache runtimeMeshes;
   struct PathResolutionEntry {
     std::string resolvedPath;
     bool attempted = false;

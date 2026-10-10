@@ -22,6 +22,7 @@
 
 #include "LayoutManager.h"
 #include "configmanager.h"
+#include "model_detail_policy.h"
 #include "diagnostics/DiagnosticLogger.h"
 #include "consolepanel.h"
 #include "fixture_label_overrides.h"
@@ -183,6 +184,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
       cfg.GetValue(kLayoutsConfigKey);
   const std::optional<std::string> preservedViewer3DRenderStyle =
       cfg.GetValue(kViewer3DRenderStyleConfigKey);
+  const auto preservedModelDetail = model_detail::CapturePreferences(cfg);
   auto setImportStatus = [owner](const wxString &message) {
     if (owner == nullptr || !owner->GetStatusBar())
       return;
@@ -265,6 +267,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
       });
   owner->UnlockViewportInteraction();
 
+  preservedModelDetail.Restore(cfg);
   if (!imported) {
     if (preservedLayoutsConfig.has_value())
       cfg.SetValue(kLayoutsConfigKey, *preservedLayoutsConfig);
@@ -439,13 +442,14 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
       cfg.GetValue(kLayoutsConfigKey);
   const std::optional<std::string> preservedViewer3DRenderStyle =
       cfg.GetValue(kViewer3DRenderStyleConfigKey);
+  const auto preservedModelDetail = model_detail::CapturePreferences(cfg);
   const std::unordered_set<std::string> preservedHiddenLayers =
       cfg.GetHiddenLayers();
   const std::string preservedCurrentLayer = cfg.GetCurrentLayer();
 
   // Restores merge-preserved project configuration and layer UI state.
   auto restorePreservedConfig = [&cfg, &preservedLayoutsConfig,
-                                 &preservedViewer3DRenderStyle,
+                                 &preservedViewer3DRenderStyle, &preservedModelDetail,
                                  &preservedHiddenLayers,
                                  &preservedCurrentLayer]() {
     if (preservedLayoutsConfig.has_value())
@@ -457,6 +461,7 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
                    *preservedViewer3DRenderStyle);
     else
       cfg.RemoveKey(kViewer3DRenderStyleConfigKey);
+    preservedModelDetail.Restore(cfg);
     cfg.SetHiddenLayers(preservedHiddenLayers);
     cfg.SetCurrentLayer(preservedCurrentLayer);
     layouts::LayoutManager::Get().LoadFromConfig(cfg);

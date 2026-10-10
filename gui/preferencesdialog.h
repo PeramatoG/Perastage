@@ -24,6 +24,7 @@
 wxDECLARE_EVENT(EVT_UI_UNITS_CHANGED, wxCommandEvent);
 wxDECLARE_EVENT(EVT_UI_PREFERENCES_APPLIED, wxCommandEvent);
 
+class Viewer3DRenderingPreferencesPanel;
 class GdtfCredentialsPanel;
 class GdtfMutationPolicyPanel;
 
@@ -51,14 +52,7 @@ private:
   wxCheckBox *autopatchCheck = nullptr;
   wxRadioButton *layerPosRadio = nullptr;
   wxRadioButton *layerTypeRadio = nullptr;
-  wxRadioButton *viewer3dStandardRenderRadio = nullptr;
-  wxRadioButton *viewer3dWhiteRenderRadio = nullptr;
-  wxRadioButton *viewer3dWhiteModelRenderRadio = nullptr;
-  wxRadioButton *viewer3dTexturedRenderRadio = nullptr;
-  wxRadioButton *viewer3dWireframeRenderRadio = nullptr;
-  wxRadioButton *viewer3dByDeviceTypeRenderRadio = nullptr;
-  wxRadioButton *viewer3dByLayerRenderRadio = nullptr;
-  wxRadioButton *viewer3dByUniverseRenderRadio = nullptr;
+  Viewer3DRenderingPreferencesPanel *viewer3dRenderingPanel = nullptr;
   wxCheckBox *viewer3dInvertOrbitHorizontalCheck = nullptr;
   wxCheckBox *viewer3dInvertOrbitVerticalCheck = nullptr;
   wxCheckBox *groupMoveFixtureCheck = nullptr;

@@ -11,6 +11,7 @@ Current user-facing preferences include:
 - GDTF-related settings
 - Update check behavior (startup recommended or manual only)
 - MVR import/export settings
+- 3D model detail and an optional navigation proxy
 
 ## Why preferences matter
 
@@ -78,3 +79,25 @@ disappear when it ends, and do not become part of the scene or exported data.
 ## Good practice
 
 After changing preferences, recheck your scene in both 2D and 3D and verify table values display as expected.
+
+## 3D Viewer model detail
+
+Under **3D Viewer > Performance**, **Model detail** controls the runtime
+representation of fixture, truss, and scene-object meshes:
+
+- **Standard** (default) balances detail and performance. Small meshes stay complete;
+  heavy meshes use a conservative simplification.
+- **Low** requests a smaller representation for heavy meshes.
+- **High** renders all available authored mesh detail.
+
+**Use a simplified proxy while navigating** is a separate option, disabled by
+default. When enabled, unselected fixtures may temporarily use a more aggressive
+proxy during fast navigation, even with High selected. When navigation ends,
+the chosen model detail returns. Caching, GPU buffers, and instancing remain
+available with every detail level and with the proxy disabled.
+
+Apply and OK take effect on the next redraw without reopening the project.
+These are Perastage rendering preferences: source meshes and GDTF resources
+remain unchanged. 2D views, symbol captures, and exported geometry continue to
+use the complete geometry. Detail levels are not inferred from GDTF filenames
+or from multiple authored models.

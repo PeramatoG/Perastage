@@ -36,8 +36,12 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/render/sketch_post_process_pass.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/render_pipeline.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/viewer3d_render_style.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/render/viewer3d_render_style_preferences.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/scenerenderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/mesh_processing.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/resources/runtime_mesh_simplification.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/resources/runtime_mesh_cache.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dcontroller_model_detail.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/fixture_symbol_source.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/resource_path_search.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/resource_sync_system.cpp

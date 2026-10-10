@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "configmanager.h"
+#include "model_detail_policy.h"
 #include "symbols/project_fixture_symbol_migration.h"
 #include "projectutils.h"
 #include "json.hpp"
@@ -72,6 +73,8 @@ std::vector<RestoredUserPreference> CaptureUserInteractionPreferences(
       {user_navigation_preferences::kHorizontalOrbitInversionConfigKey.data(),
        config.GetValue(std::string(
            user_navigation_preferences::kHorizontalOrbitInversionConfigKey))},
+      {model_detail::kDetailConfigKey, config.GetValue(model_detail::kDetailConfigKey)},
+      {model_detail::kMovingProxyConfigKey, config.GetValue(model_detail::kMovingProxyConfigKey)},
       {"gdtf_mutation_policy", config.GetValue("gdtf_mutation_policy")}};
 }
 

@@ -27,7 +27,7 @@
 #include "selection_movement_settings.h"
 #include "units/units.h"
 #include "update/update_check_preferences.h"
-#include "viewer3d_render_style.h"
+#include "preferences/viewer3d_rendering_preferences_panel.h"
 #include <wx/checkbox.h>
 #include <wx/choice.h>
 #include <wx/font.h>
@@ -434,60 +434,10 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   viewer3dSizer->Add(viewer3dNavigationSizer, 0,
                      wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
 
-  wxStaticBoxSizer *viewer3dRenderSizer =
-      new wxStaticBoxSizer(wxVERTICAL, viewer3dPanel, _("Render mode"));
-  viewer3dStandardRenderRadio = new wxRadioButton(
-      viewer3dRenderSizer->GetStaticBox(), wxID_ANY, _("Standard"),
-      wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
-  viewer3dWhiteRenderRadio = new wxRadioButton(
-      viewer3dRenderSizer->GetStaticBox(), wxID_ANY, _("White"));
-  viewer3dWhiteModelRenderRadio = new wxRadioButton(
-      viewer3dRenderSizer->GetStaticBox(), wxID_ANY, _("Sketch mode"));
-  viewer3dTexturedRenderRadio = new wxRadioButton(
-      viewer3dRenderSizer->GetStaticBox(), wxID_ANY, _("Textured"));
-  viewer3dWireframeRenderRadio = new wxRadioButton(
-      viewer3dRenderSizer->GetStaticBox(), wxID_ANY, _("Wireframe"));
-  viewer3dByDeviceTypeRenderRadio = new wxRadioButton(
-      viewer3dRenderSizer->GetStaticBox(), wxID_ANY, _("By device type"));
-  viewer3dByLayerRenderRadio = new wxRadioButton(
-      viewer3dRenderSizer->GetStaticBox(), wxID_ANY, _("By layer"));
-  viewer3dByUniverseRenderRadio = new wxRadioButton(
-      viewer3dRenderSizer->GetStaticBox(), wxID_ANY, _("By universe"));
-
-  const Viewer3DRenderStyle renderStyle = ResolveViewer3DRenderStyle(cfg);
-  viewer3dStandardRenderRadio->SetValue(renderStyle ==
-                                        Viewer3DRenderStyle::Standard);
-  viewer3dWhiteRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::White);
-  viewer3dWhiteModelRenderRadio->SetValue(renderStyle ==
-                                          Viewer3DRenderStyle::WhiteModel);
-  viewer3dTexturedRenderRadio->SetValue(renderStyle ==
-                                        Viewer3DRenderStyle::Textured);
-  viewer3dWireframeRenderRadio->SetValue(renderStyle ==
-                                         Viewer3DRenderStyle::Wireframe);
-  viewer3dByDeviceTypeRenderRadio->SetValue(renderStyle ==
-                                            Viewer3DRenderStyle::ByDeviceType);
-  viewer3dByLayerRenderRadio->SetValue(renderStyle ==
-                                       Viewer3DRenderStyle::ByLayer);
-  viewer3dByUniverseRenderRadio->SetValue(renderStyle ==
-                                          Viewer3DRenderStyle::ByUniverse);
-
-  viewer3dRenderSizer->Add(viewer3dStandardRenderRadio, 0,
-                           wxLEFT | wxRIGHT | wxTOP, 8);
-  viewer3dRenderSizer->Add(viewer3dWhiteModelRenderRadio, 0,
-                           wxLEFT | wxRIGHT | wxTOP, 6);
-  viewer3dRenderSizer->Add(viewer3dTexturedRenderRadio, 0,
-                           wxLEFT | wxRIGHT | wxTOP, 6);
-  viewer3dRenderSizer->Add(viewer3dWireframeRenderRadio, 0,
-                           wxLEFT | wxRIGHT | wxTOP, 6);
-  viewer3dRenderSizer->Add(viewer3dWhiteRenderRadio, 0,
-                           wxLEFT | wxRIGHT | wxTOP, 6);
-  viewer3dRenderSizer->Add(viewer3dByDeviceTypeRenderRadio, 0,
-                           wxLEFT | wxRIGHT | wxTOP, 6);
-  viewer3dRenderSizer->Add(viewer3dByLayerRenderRadio, 0,
-                           wxLEFT | wxRIGHT | wxTOP, 6);
-  viewer3dRenderSizer->Add(viewer3dByUniverseRenderRadio, 0,
-                           wxLEFT | wxRIGHT | wxTOP | wxBOTTOM, 8);
-  viewer3dSizer->Add(viewer3dRenderSizer, 0,
+  viewer3dRenderingPanel = new Viewer3DRenderingPreferencesPanel(viewer3dPanel);
+  viewer3dRenderingPanel->LoadPreferences(
+      GetDefaultGuiConfigServices().Preferences());
+  viewer3dSizer->Add(viewer3dRenderingPanel, 0,
                      wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
 
   wxStaticBoxSizer *viewer3dShortcutsSizer = new wxStaticBoxSizer(
@@ -593,27 +543,8 @@ bool PreferencesDialog::ApplyPreferences() {
   else
     gui::update::WriteStartupCheckMode(
         preferences, gui::update::StartupCheckMode::StartupRecommended);
-  Viewer3DRenderStyle renderStyle = Viewer3DRenderStyle::Standard;
-  if (viewer3dWhiteRenderRadio && viewer3dWhiteRenderRadio->GetValue())
-    renderStyle = Viewer3DRenderStyle::White;
-  else if (viewer3dWhiteModelRenderRadio &&
-           viewer3dWhiteModelRenderRadio->GetValue())
-    renderStyle = Viewer3DRenderStyle::WhiteModel;
-  else if (viewer3dTexturedRenderRadio &&
-           viewer3dTexturedRenderRadio->GetValue())
-    renderStyle = Viewer3DRenderStyle::Textured;
-  else if (viewer3dWireframeRenderRadio &&
-           viewer3dWireframeRenderRadio->GetValue())
-    renderStyle = Viewer3DRenderStyle::Wireframe;
-  else if (viewer3dByDeviceTypeRenderRadio &&
-           viewer3dByDeviceTypeRenderRadio->GetValue())
-    renderStyle = Viewer3DRenderStyle::ByDeviceType;
-  else if (viewer3dByLayerRenderRadio && viewer3dByLayerRenderRadio->GetValue())
-    renderStyle = Viewer3DRenderStyle::ByLayer;
-  else if (viewer3dByUniverseRenderRadio &&
-           viewer3dByUniverseRenderRadio->GetValue())
-    renderStyle = Viewer3DRenderStyle::ByUniverse;
-  cfg.SetValue("viewer3d_render_style", ToConfigValue(renderStyle));
+  if (viewer3dRenderingPanel)
+    viewer3dRenderingPanel->ApplyPreferences(preferences);
   cfg.SetValue(std::string(user_navigation_preferences::kVerticalOrbitInversionConfigKey),
                viewer3dInvertOrbitVerticalCheck &&
                        viewer3dInvertOrbitVerticalCheck->GetValue()

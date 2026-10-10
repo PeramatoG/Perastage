@@ -3934,6 +3934,35 @@ foreach(PERASTAGE_NEUTRAL_HELPER_TEST IN LISTS PERASTAGE_NEUTRAL_HELPER_TEST_TAR
     endif()
 endforeach()
 
+
+add_executable(model_detail_test model_detail_test.cpp
+               ../viewer3d/resources/runtime_mesh_simplification.cpp
+               ../viewer3d/resources/runtime_mesh_cache.cpp)
+target_include_directories(model_detail_test PRIVATE ../core ../viewer3d)
+target_link_libraries(model_detail_test PRIVATE meshoptimizer::meshoptimizer)
+add_test(NAME ModelDetail COMMAND model_detail_test)
+set_tests_properties(ModelDetail PROPERTIES LABELS "unit;viewer3d")
+
+add_executable(viewer3d_rendering_preferences_panel_test
+               viewer3d_rendering_preferences_panel_test.cpp
+               ../gui/preferences/viewer3d_rendering_preferences_panel.cpp
+               ../viewer3d/render/viewer3d_render_style.cpp)
+target_include_directories(viewer3d_rendering_preferences_panel_test PRIVATE
+                           ../gui ../core ../models ../viewer3d/render)
+target_link_libraries(viewer3d_rendering_preferences_panel_test PRIVATE ${wxWidgets_LIBRARIES})
+find_program(PERASTAGE_XVFB_RUN xvfb-run)
+if(UNIX AND NOT APPLE AND PERASTAGE_XVFB_RUN)
+  add_test(NAME Viewer3DRenderingPreferencesPanel
+           COMMAND "${PERASTAGE_XVFB_RUN}" -a "$<TARGET_FILE:viewer3d_rendering_preferences_panel_test>")
+else()
+  add_test(NAME Viewer3DRenderingPreferencesPanel COMMAND viewer3d_rendering_preferences_panel_test)
+endif()
+set_tests_properties(Viewer3DRenderingPreferencesPanel PROPERTIES LABELS "gui;viewer3d")
+if(BASH_EXECUTABLE)
+  add_bash_policy_test(ModelDetailBoundary
+                      ${CMAKE_CURRENT_SOURCE_DIR}/check_model_detail_boundary.sh
+                      LABELS architecture viewer3d)
+endif()
 # Guards the explicit dictionary publication dependency inventory against drift.
 get_property(PERASTAGE_DECLARED_TEST_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 foreach(PERASTAGE_DECLARED_TEST IN LISTS PERASTAGE_DECLARED_TEST_TARGETS)
