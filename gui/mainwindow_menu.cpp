@@ -714,7 +714,7 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
 
 // Opens the public Perastage documentation website in the default browser.
 void MainWindow::OnOpenOnlineDocumentation(wxCommandEvent &WXUNUSED(event)) {
-  wxLaunchDefaultBrowser("https://perastage.luismaperamato.com/");
+  wxLaunchDefaultBrowser(wxString::FromUTF8(user_manual::kOnlineDocumentation));
 }
 
 // Opens the local diagnostics folder in the system file explorer.

@@ -25,6 +25,8 @@ struct Fixture {
 };
 int main() {
   try {
+    Check(std::string_view(kOnlineDocumentation).ends_with("/documentation.html"),
+          "Online Documentation must target the documentation hub");
     Fixture fixture;
     fixture.Write("en/index.md", "# English");
     fixture.Write("en/next.md", "# Next");

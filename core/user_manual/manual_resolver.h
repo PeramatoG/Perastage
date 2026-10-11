@@ -7,7 +7,7 @@
 
 namespace user_manual {
 inline constexpr const char *kOnlineDocumentation =
-    "https://perastage.luismaperamato.com";
+    "https://perastage.luismaperamato.com/documentation.html";
 
 struct Page {
   std::string name;

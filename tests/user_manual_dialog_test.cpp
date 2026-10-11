@@ -65,13 +65,22 @@ int main(int argc, char **argv) {
       Check(dialog.GoHome(), "Home recovers from missing page");
       dialog.Hide();
     }
-    UserManualDialog missing(nullptr, root / "absent", "es", [](const auto &) {});
+    std::string missingOnlineUrl;
+    UserManualDialog missing(nullptr, root / "absent", "es",
+        [&](const std::string &url) { missingOnlineUrl = url; });
     Check(missing.CurrentPage().name.empty(), "Missing offline entry handled");
     bool onlineAvailable = false;
     for (auto *child : missing.GetChildren())
-      if (auto *button = dynamic_cast<wxButton *>(child))
-        onlineAvailable |= button->GetLabel() == "Online Documentation" && button->IsEnabled();
+      if (auto *button = dynamic_cast<wxButton *>(child);
+          button && button->GetLabel() == "Online Documentation" && button->IsEnabled()) {
+        onlineAvailable = true;
+        wxCommandEvent event(wxEVT_BUTTON, button->GetId());
+        event.SetEventObject(button);
+        button->GetEventHandler()->ProcessEvent(event);
+      }
     Check(onlineAvailable, "Online route available without offline files");
+    Check(missingOnlineUrl == user_manual::kOnlineDocumentation,
+          "Online Documentation button must use the canonical destination");
     std::cout << "GUI manual navigation and en/es/zh_CN fallback passed\n";
   } catch (const std::exception &e) { std::cerr << e.what() << '\n'; result = 1; }
   wxTheApp->OnExit(); wxEntryCleanup();

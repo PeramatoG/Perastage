@@ -119,8 +119,9 @@ Link ManualResolver::ResolveLink(std::string_view currentPage,
   const fs::path docsTarget = (fs::path("user") / target).lexically_normal();
   if (IsContained(docsTarget) && docsTarget.extension() == ".md" &&
       (*docsTarget.begin() == "developer" || *docsTarget.begin() == "reference")) {
+    const auto repositoryPath = docsTarget.generic_u8string();
     std::string url = "https://github.com/PeramatoG/Perastage/blob/main/docs/" +
-                      EncodePath(PathUtils::PathToUtf8(docsTarget));
+                      EncodePath(std::string(repositoryPath.begin(), repositoryPath.end()));
     if (!fragment->empty()) url += "#" + EncodePath(*fragment);
     return {LinkKind::Online, url, {}};
   }

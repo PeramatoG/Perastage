@@ -5185,7 +5185,7 @@ msgstr "不"
 
 #: gui/user_manual_dialog.cpp:23
 msgid "Perastage Help"
-msgstr "关于 Perastage"
+msgstr "Perastage 帮助"
 
 #: gui/user_manual_dialog.cpp:37
 msgid "Back"
