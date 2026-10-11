@@ -16,6 +16,8 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "consolepanel.h"
+#include "user_manual/console_help.h"
+#include "projectutils.h"
 #include "command/command_text_processor.h"
 #include "configmanager.h"
 #include "fixturetablepanel.h"
@@ -28,16 +30,9 @@
 #include "trusstablepanel.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
-#include <algorithm>
-#include <cctype>
 #include <exception>
-#include <fstream>
-#include <optional>
-#include <sstream>
 #include <vector>
-#include <wx/filename.h>
 #include <wx/intl.h>
-#include <wx/stdpaths.h>
 
 namespace {
 
@@ -127,87 +122,6 @@ void AppendStyledConsoleLine(wxTextCtrl *textCtrl, const wxString &line) {
   textCtrl->AppendText(line + "\n");
 }
 
-wxString ReadUtf8File(const wxString &path) {
-  std::ifstream in(path.ToStdString());
-  if (!in)
-    return {};
-  std::stringstream buffer;
-  buffer << in.rdbuf();
-  return wxString::FromUTF8(buffer.str());
-}
-
-wxString ExtractConsoleSection(const wxString &markdown,
-                               const wxString &header) {
-  const wxString startToken = "## " + header;
-  const int start = markdown.Find(startToken);
-  if (start == wxNOT_FOUND)
-    return {};
-
-  const int sectionStart = start + static_cast<int>(startToken.length());
-  wxString rest = markdown.Mid(sectionStart);
-  const int nextHeader = rest.Find("\n## ");
-  if (nextHeader != wxNOT_FOUND)
-    rest = rest.Left(nextHeader);
-
-  wxArrayString lines = wxSplit(rest, '\n', '\0');
-  wxString result;
-  for (const wxString &line : lines) {
-    wxString clean = line;
-    clean.Trim(true).Trim(false);
-    if (clean.IsEmpty()) {
-      result += "\n";
-      continue;
-    }
-
-    if (clean.StartsWith("| ---"))
-      continue;
-    if (clean.StartsWith("### ")) {
-      result += clean.Mid(4) + "\n";
-      continue;
-    }
-    if (clean.StartsWith("## ")) {
-      result += clean.Mid(3) + "\n";
-      continue;
-    }
-    if (clean.StartsWith("|")) {
-      wxString tableLine = clean;
-      tableLine.Replace("|", " ");
-      tableLine.Trim(true).Trim(false);
-      result += tableLine + "\n";
-      continue;
-    }
-    result += clean + "\n";
-  }
-
-  return result.Trim();
-}
-
-// Loads stable English Console help with a built-in fallback.
-wxString BuildConsoleHelpContent() {
-  wxFileName helpPath(wxStandardPaths::Get().GetExecutablePath());
-  helpPath.SetFullName("help.md");
-  const wxString markdown = ReadUtf8File(helpPath.GetFullPath());
-
-  const wxString preferredHeader = "Console Commands (complete)";
-  const wxString fallbackHeader = "Comandos de consola (completo)";
-
-  wxString section = ExtractConsoleSection(markdown, preferredHeader);
-  if (section.IsEmpty())
-    section = ExtractConsoleSection(markdown, fallbackHeader);
-  if (!section.IsEmpty())
-    return section;
-
-  wxString help = wxString("Console commands:");
-  help += "\n- clear\n- f ...\n- t ...\n";
-  help += "- pos x|y|z <values>\n- pos <x>,<y>,<z>\n";
-  help += "- x|y|z <values>\n";
-  help += "- rot x|y|z <values> [--group|--g] [pivotX,pivotY,pivotZ]\n";
-  help += wxString("Examples:");
-  help += "\n- f 1-5\n- pos x 1 4\n- pos x ++1 --local\n- rot z --10\n";
-  help += "- rot y ++45 --g --local -2.5,0,0";
-  return help;
-}
-
 } // namespace
 
 ConsolePanel::ConsolePanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
@@ -256,7 +170,8 @@ void ConsolePanel::OnHelpButton(wxCommandEvent &) {
                       wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
   auto *dialogSizer = new wxBoxSizer(wxVERTICAL);
   auto *helpText = new wxTextCtrl(
-      &helpDialog, wxID_ANY, BuildConsoleHelpContent(), wxDefaultPosition,
+      &helpDialog, wxID_ANY, wxString::FromUTF8(user_manual::LoadConsoleHelp(
+          ProjectUtils::ResolveResourcePath("help"))), wxDefaultPosition,
       wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
   helpText->SetBackgroundColour(*wxBLACK);
   helpText->SetForegroundColour(wxColour(230, 230, 230));

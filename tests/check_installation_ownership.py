@@ -47,7 +47,6 @@ def main() -> int:
         "${PERASTAGE_INSTALL_ASSET_DEST}/licenses/vcpkg",
         "${CMAKE_SOURCE_DIR}/LICENSE.txt",
         "${CMAKE_SOURCE_DIR}/THIRD_PARTY_NOTICES.md",
-        "${CMAKE_SOURCE_DIR}/help.md",
         "${CMAKE_SOURCE_DIR}/docs/user",
         "${CMAKE_SOURCE_DIR}/docs/user/locales/${PERASTAGE_MANUAL_LANGUAGE}",
         "foreach(PERASTAGE_MANUAL_LANGUAGE IN ITEMS en ${PERASTAGE_TRANSLATION_LANGUAGES})",
@@ -87,6 +86,7 @@ def main() -> int:
             errors.append(f"install module is missing contract: {contract}")
 
     forbidden_contracts = (
+        r"help\.md",
         r"\bPOST_BUILD\b",
         r"\bfind_package\s*\(\s*Gettext\b",
         r"PerastageCompileGettextCatalog\.cmake",

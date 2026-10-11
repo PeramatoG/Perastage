@@ -47,11 +47,6 @@ if(PERASTAGE_ENABLE_LOCALIZATION)
     endforeach()
 endif()
 
-# Copy help documentation to the platform runtime asset directory.
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/help.md ${PERASTAGE_RUNTIME_ASSET_DIR}
-)
-
 # Stage canonical Markdown without recursively copying localized sources into English.
 # The UI translation registry also owns manual locale identifiers; English is implicit.
 foreach(PERASTAGE_MANUAL_LANGUAGE IN ITEMS en ${PERASTAGE_TRANSLATION_LANGUAGES})

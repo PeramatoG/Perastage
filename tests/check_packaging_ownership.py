@@ -91,6 +91,19 @@ def main() -> int:
         if re.search(pattern, packaging_cmake, re.IGNORECASE):
             errors.append(f"packaging module crosses an ownership boundary: {pattern}")
 
+    # Arch package and CI assertions must agree with the canonical offline bundle.
+    pkgbuild = (ROOT / "packaging/arch/PKGBUILD").read_text(encoding="utf-8")
+    workflow = (ROOT / ".github/workflows/arch-package.yml").read_text(encoding="utf-8")
+    for page in ("index.md", "shortcuts-and-command-bar.md"):
+        if f'test -f "$pkgdir/opt/perastage/help/en/{page}"' not in pkgbuild:
+            errors.append(f"Arch package must require English manual page: {page}")
+        if f"grep -q '^opt/perastage/help/en/{page}$' arch-package-contents.txt" not in workflow:
+            errors.append(f"Arch CI must require English manual page: {page}")
+    if 'test ! -e "$pkgdir/opt/perastage/help.md"' not in pkgbuild:
+        errors.append("Arch package must reject root legacy help")
+    if "! grep -q '^opt/perastage/help.md$' arch-package-contents.txt" not in workflow:
+        errors.append("Arch CI must reject root legacy help")
+
     if errors:
         print("Packaging ownership check failed:", file=sys.stderr)
         for error in errors:

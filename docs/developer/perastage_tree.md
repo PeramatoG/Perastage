@@ -19,8 +19,7 @@ Perastage/
 |-- setup.sh                     # Stable Linux/WSL setup launcher.
 |-- setup_windows.ps1            # Stable Windows setup launcher.
 |-- README.md                    # Product overview, features, and entry links.
-|-- help.md                      # In-app help content.
-|-- docs/                        # User documentation, architecture notes, repository map, and docs website assets.
+|-- docs/                        # Canonical docs/user manual, developer/reference docs, and website assets.
 |-- AGENTS.md                    # Repository guidance for automated coding agents.
 |-- VERSION                      # Single project version source.
 |-- app/                         # Application lifecycle and startup/bootstrap composition.

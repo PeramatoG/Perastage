@@ -38,6 +38,26 @@ int main(int argc, char **argv) {
     Has(MarkdownToHtml("6. [Export MVR](opening-mvr-files.md#export-mvr) for exchange, or prepare [Layouts and PDF](layouts.md) for printing and sharing."),
         "<a href=\"opening-mvr-files.md#export-mvr\">Export MVR</a>");
 
+    // The bounded plain-text renderer shares inline/table/list grammar with HTML.
+    const auto plain = MarkdownToPlainText(
+        "# Heading\n\nParagraph **bold** and `pos x ++ 1` with [Help](next.md#part).\n"
+        "- first\n* second\n\n"
+        "| Command | Description |\n| --- | :---: |\n"
+        "| `rot x\\|y\\|z --g` | **group** [pivot](https://example.com/a(b)) |\n\n"
+        "```text\n  pos x ++ 1 --local\nrot z -- 30 --group\n```\n"
+        "<!-- invisible\ncomment -->\n## End\n");
+    Check(plain == "Heading\n\nParagraph bold and pos x ++ 1 with Help (next.md#part).\n"
+          "• first\n• second\n\nCommand  |  Description\n"
+          "rot x|y|z --g  |  group pivot (https://example.com/a(b))\n\n"
+          "  pos x ++ 1 --local\nrot z -- 30 --group\n\n\nEnd",
+          "Readable plain text preserves commands, tables, lists, links and line breaks");
+    Check(MarkdownToPlainText("```\n**literal** `literal` [literal](url)\n```") ==
+          "**literal** `literal` [literal](url)", "Fenced literals bypass inline formatting");
+    Check(MarkdownToPlainText("```\n  pos x ++ 1  \n```") == "  pos x ++ 1  ",
+          "Fenced command whitespace is preserved exactly");
+    Check(MarkdownToPlainText("```\npos x ++ 1").empty(), "Unclosed fence fails cleanly");
+    Check(MarkdownToPlainText("<!-- unclosed").empty(), "Unclosed comment fails cleanly");
+
     Check(argc == 2, "Supply canonical docs/user directory");
     size_t pages = 0;
     const std::regex rawLink(R"(\[[^\]\n]+\]\([^\)\n]+\))");

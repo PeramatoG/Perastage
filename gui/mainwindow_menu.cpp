@@ -21,7 +21,6 @@
 #include "mainwindow.h"
 #include "mainwindow/controllers/mainwindow_io_controller.h"
 #include "mainwindow_menu_builders.h"
-#include "mainwindow_menu_helpers.h"
 #include "mainwindow_menu_text_utils.h"
 #include "mainwindow_view_controller.h"
 #include "uuidutils.h"

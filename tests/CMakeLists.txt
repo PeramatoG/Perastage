@@ -4056,3 +4056,13 @@ target_compile_definitions(user_manual_dialog_test PRIVATE
 target_link_libraries(user_manual_dialog_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME UserManualDialog COMMAND user_manual_dialog_test ${CMAKE_SOURCE_DIR}/docs/user)
 set_tests_properties(UserManualDialog PROPERTIES LABELS "standard-strict;integration;gui;help")
+
+add_executable(console_help_test console_help_test.cpp
+    ../core/user_manual/console_help.cpp ../core/user_manual/manual_resolver.cpp
+    ../core/localization/app_language.cpp ../core/filesystem_path_utils.cpp
+    ../core/utf8_utils.cpp ../core/markdown.cpp)
+target_include_directories(console_help_test PRIVATE ../core)
+target_compile_definitions(console_help_test PRIVATE
+    PERASTAGE_ENABLE_LOCALIZATION=$<BOOL:${PERASTAGE_ENABLE_LOCALIZATION}>)
+add_test(NAME ConsoleHelp COMMAND console_help_test ${CMAKE_SOURCE_DIR}/docs/user)
+set_tests_properties(ConsoleHelp PROPERTIES LABELS "standard-strict;unit;help")

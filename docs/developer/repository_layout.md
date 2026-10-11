@@ -201,8 +201,10 @@ Root files are grouped by structural role in the machine-readable baseline. In
 summary, `main.cpp` is the application entry point; `CMakeLists.txt` and
 `CMakePresets.json` are build entry points; `setup.sh` and `setup_windows.ps1`
 are setup/build launchers; `vcpkg.json` describes dependencies; and `VERSION`
-and the license files provide project metadata. `README.md`, `help.md`, the
+and the license files provide project metadata. `README.md`, the
 community documents, and `AGENTS.md` are documentation or repository guidance.
+`docs/user/*.md` owns the canonical English user manual; packaged `help/<locale>/`
+pages are generated artifacts.
 
 The obsolete Visual Studio `CMakeSettings.json` and `CppProperties.json` files
 were removed after their settings were verified as redundant with the canonical
@@ -253,7 +255,6 @@ Perastage documentation is intentionally split by audience and responsibility:
 | Path | Purpose |
 |------|---------|
 | `README.md` | Short project overview, highlights, and entry links. |
-| `help.md` | In-app help content. |
 | [perastage_tree.md](perastage_tree.md) | Concise navigational tree used by architecture guard scripts. |
 | `docs/developer/build.md` | Build requirements, dependency setup, and local CMake workflows. |
 | `docs/developer/maintainer_runbook.md` | Operational index for routine maintenance, recovery, and external-service dependencies. |
@@ -265,7 +266,7 @@ Perastage documentation is intentionally split by audience and responsibility:
 | `docs/developer/repository_structure_baseline.json` | Machine-readable structural contract enforced by tests. |
 | `docs/assets/` | Assets used by the documentation website. |
 | `docs/*.html` | Static documentation website entry points and shells. |
-| `docs/user/` | User-facing guides shown in the public documentation flow. |
+| `docs/user/` | Canonical English user manual consumed by the website and packaged Help/Console. |
 | `docs/developer/` | Build, architecture, packaging, policy, and maintainer guides. |
 | `docs/developer/technical-notes/` | Active implementation contracts and maintainer-only technical notes. |
 | `docs/reference/` | Intentionally maintained local reference/specification material. |

@@ -29,8 +29,17 @@ console = read("gui/consolepanel.cpp")
 process_start = console.index("void ConsolePanel::ProcessCommand")
 require(not translation_call.search(console[process_start:]),
         "Console processor output must not depend on the UI locale")
-for token in ("[INFO]", "[ERROR]", "[CMD]", "--group", "--local"):
+for token in ("[INFO]", "[ERROR]", "[CMD]"):
     require(token in console, f"Console contract token disappeared: {token}")
+
+# Console help is canonical English Markdown; Core must not translate it.
+for path in (root / "core/user_manual").glob("*.cpp"):
+    require(not translation_call.search(path.read_text()), f"gettext crossed into {path}")
+help_source = read("core/user_manual/console_help.cpp")
+require('ManualResolver(manualRoot, "en")' in help_source, "Console must always load English")
+canonical = read("docs/user/shortcuts-and-command-bar.md")
+for token in ("--group", "--local"):
+    require(token in canonical, f"Canonical Console contract token disappeared: {token}")
 
 # Primitive tokens, default names, and preference keys stay stable strings.
 primitive_creation = read("gui/scene_object_primitive_creation.cpp")
