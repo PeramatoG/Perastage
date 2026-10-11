@@ -24,6 +24,13 @@ int main(int argc, char **argv) {
   for (const auto &entry : std::filesystem::directory_iterator(argv[1]))
     if (entry.path().extension() == ".md")
       std::filesystem::copy_file(entry.path(), root / "en" / entry.path().filename());
+  for (const std::string locale : {"es", "zh_CN"}) {
+    std::filesystem::create_directories(root / locale);
+    for (const auto &entry : std::filesystem::directory_iterator(
+             std::filesystem::path(argv[1]) / "locales" / locale))
+      if (entry.path().extension() == ".md")
+        std::filesystem::copy_file(entry.path(), root / locale / entry.path().filename());
+  }
   if (!wxEntryStart(argc, argv)) return 1;
   if (!wxTheApp->CallOnInit()) return 1;
   int result = 0;
@@ -34,8 +41,13 @@ int main(int argc, char **argv) {
           [&](const std::string &url) { openedUrl = url; });
       dialog.Show(); wxTheApp->Yield();
       Check(dialog.CurrentPage().name == "index.md", "Entry page");
-      Check(dialog.CurrentPage().locale == "en", "Absent mirrors use English");
-      Check(dialog.CurrentPage().englishFallback == (localization::ParseAppLanguageCode(locale) != localization::AppLanguage::English), "Fallback flag");
+      const auto expectedLocale = localization::AppLanguageCode(localization::ParseAppLanguageCode(locale));
+      Check(dialog.CurrentPage().locale == expectedLocale, "Localized entry page");
+      Check(!dialog.CurrentPage().englishFallback, "Complete entry must not fall back");
+      const std::string exportFragment = expectedLocale == "es" ? "exportar-mvr" :
+          expectedLocale == "zh_CN" ? "导出-mvr" : "export-mvr";
+      const std::string movementFragment = expectedLocale == "es" ? "selección-y-movimiento" :
+          expectedLocale == "zh_CN" ? "选择与移动" : "selection--movement";
       wxHtmlWindow *html = nullptr;
       for (auto *child : dialog.GetChildren())
         if (auto *window = dynamic_cast<wxHtmlWindow *>(child)) html = window;
@@ -45,15 +57,24 @@ int main(int argc, char **argv) {
       event.SetEventObject(html);
       Check(html->GetEventHandler()->ProcessEvent(event), "Link event handled");
       Check(dialog.CurrentPage().name == "quick-start.md", "Local event navigation");
-      Check(dialog.NavigateLink("opening-mvr-files.md#export-mvr"), "Page with fragment");
-      Check(dialog.NavigateLink("#export-mvr"), "Fragment navigation");
+      Check(dialog.NavigateLink("opening-mvr-files.md#" + exportFragment), "Page with fragment");
+      Check(dialog.NavigateLink("#" + exportFragment), "Fragment navigation");
       Check(dialog.GoHome(), "Home");
       Check(dialog.GoBack(), "Back after Home");
       Check(dialog.CurrentPage().name == "opening-mvr-files.md" &&
-            dialog.CurrentPage().fragment == "export-mvr", "Back restores page and fragment");
+            dialog.CurrentPage().fragment == exportFragment, "Back restores page and fragment");
       Check(dialog.GoBack() && dialog.CurrentPage().name == "quick-start.md", "Back stack");
-      Check(dialog.NavigateLink("preferences.md#selection--movement"), "Punctuation heading");
-      Check(dialog.NavigateLink("#selection--movement"), "Canonical punctuation anchor");
+      Check(dialog.NavigateLink("preferences.md#" + movementFragment), "Punctuation heading");
+      Check(dialog.NavigateLink("#" + movementFragment), "Canonical punctuation anchor");
+      Check(!dialog.CurrentPage().englishFallback && dialog.CurrentPage().locale == expectedLocale,
+            "Cross-page localized navigation must not fall back");
+      // Deliberately remove a translated page to retain page-level resilience coverage.
+      if (expectedLocale != "en") {
+        std::filesystem::remove(root / expectedLocale / "quick-start.md");
+        Check(dialog.NavigateLink("quick-start.md"), "Missing translation navigation");
+        Check(dialog.CurrentPage().englishFallback && dialog.CurrentPage().locale == "en",
+              "Deliberately removed page uses English fallback");
+      }
       Check(dialog.NavigateLink("https://example.com"), "Browser external link");
       Check(openedUrl == "https://example.com", "External routed to browser");
       Check(dialog.NavigateLink("../developer/build.md"), "Developer link");
@@ -81,7 +102,7 @@ int main(int argc, char **argv) {
     Check(onlineAvailable, "Online route available without offline files");
     Check(missingOnlineUrl == user_manual::kOnlineDocumentation,
           "Online Documentation button must use the canonical destination");
-    std::cout << "GUI manual navigation and en/es/zh_CN fallback passed\n";
+    std::cout << "GUI complete en/es/zh_CN navigation and deliberate page-removal fallback passed\n";
   } catch (const std::exception &e) { std::cerr << e.what() << '\n'; result = 1; }
   wxTheApp->OnExit(); wxEntryCleanup();
   std::filesystem::remove_all(root);

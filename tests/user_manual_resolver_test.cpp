@@ -47,6 +47,14 @@ int main() {
       Check(page->fragment == "part", "Load preserves fragment");
       Check(resolver->RequestedLocale() == requested, "Fallback does not change requested locale");
     }
+    for (const std::string locale : {"es", "zh_CN"}) {
+      fixture.Write(locale + "/next.md", "# Localized next");
+      ManualResolver resolver(fixture.root, locale);
+      Check(!resolver.Load("next.md")->englishFallback, "Existing localized page resolves normally");
+      fs::remove(fixture.root / locale / "next.md");
+      Check(resolver.Load("next.md")->englishFallback == (resolver.RequestedLocale() != "en"),
+            "Deliberately removed localized page falls back");
+    }
     Check(!english.Load("missing.md"), "Missing page");
     Check(english.Load("café.md")->markdown == "中文 & español", "UTF-8 path and content");
     const auto relative = english.ResolveLink("section/current.md", "../next.md#part");

@@ -5,6 +5,8 @@ from __future__ import annotations
 import pathlib
 import re
 import sys
+from collections import Counter
+from urllib.parse import unquote, urlsplit
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
@@ -28,11 +30,54 @@ def markdown_section(text: str, heading: str) -> str:
     section = text.split(marker, 1)[1]
     return section.split("\n## ", 1)[0]
 
-link_pattern = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
+def manual_anchors(text: str) -> set[str]:
+    """Match core/markdown.cpp: UTF-8 bytes retained, ASCII lowercase, duplicate suffixes."""
+    anchors: set[str] = set()
+    counts: Counter[str] = Counter()
+    fenced = False
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("```"):
+            fenced = not fenced
+        if fenced:
+            continue
+        heading = re.match(r"^#{1,3} (.*)$", line)
+        if not heading:
+            continue
+        anchor = "".join(c.lower() if "A" <= c <= "Z" else
+                         "-" if c in " \t" else c
+                         for c in heading[1]
+                         if ord(c) >= 128 or c.isascii() and
+                         (c.isalnum() or c in "_- \t"))
+        occurrence = counts[anchor]
+        counts[anchor] += 1
+        anchors.add(anchor + (f"-{occurrence}" if occurrence else ""))
+    return anchors
+
+
+link_pattern = re.compile(r"\[([^\]]*)\]\(([^)]*)\)")
 for md_file in sorted([ROOT / "README.md", *DOCS.rglob("*.md")]):
-    text = md_file.read_text(encoding="utf-8")
+    try:
+        text = md_file.read_text(encoding="utf-8")
+    except UnicodeError:
+        failures.append(f"{md_file.relative_to(ROOT)} is not UTF-8")
+        continue
     for match in link_pattern.finditer(text):
-        href = match.group(1).split("#", 1)[0]
+        label, destination = match.groups()
+        if not label.strip() or not destination.strip():
+            failures.append(f"{md_file.relative_to(ROOT)} has an empty Markdown link")
+            continue
+        href, _, fragment = destination.partition("#")
+        if md_file.is_relative_to(DOCS / "user") and not urlsplit(destination).scheme:
+            target = (md_file.parent / unquote(href)).resolve() if href else md_file
+            if fragment and target.is_file() and target.suffix == ".md":
+                try:
+                    target_text = target.read_text(encoding="utf-8")
+                    if unquote(fragment) not in manual_anchors(target_text):
+                        failures.append(f"{md_file.relative_to(ROOT)} has missing fragment: {destination}")
+                except UnicodeError:
+                    failures.append(f"{target.relative_to(ROOT)} is not UTF-8")
         if not href or href.startswith(("http://", "https://", "mailto:")):
             continue
         if not href.endswith((".md", ".html")):
@@ -44,14 +89,6 @@ for md_file in sorted([ROOT / "README.md", *DOCS.rglob("*.md")]):
             failures.append(f"{md_file.relative_to(ROOT)} links outside repository: {href}")
             continue
         if not target.exists():
-            # Partial mirrors may link to a page supplied by the English fallback.
-            try:
-                localized_target = target.relative_to(DOCS / "user" / "locales")
-            except ValueError:
-                localized_target = None
-            if (localized_target is not None and len(localized_target.parts) == 2
-                    and (DOCS / "user" / localized_target.name).is_file()):
-                continue
             failures.append(f"{md_file.relative_to(ROOT)} has missing link: {href}")
 
 # Validate manual ownership without duplicating the index or local-link checker.
@@ -65,23 +102,74 @@ locale_match = re.search(r"set\(PERASTAGE_TRANSLATION_LANGUAGES\s+([^)]+)\)", re
 if not locale_match:
     failures.append("manual locales cannot resolve the existing translation registry")
 allowed_locales = set(locale_match.group(1).split()) if locale_match else set()
-if locales.exists():
-    for localized in sorted(locales.iterdir()):
-        if not localized.is_dir() or localized.name not in allowed_locales:
-            failures.append(f"unexpected localized manual directory: {localized.relative_to(ROOT)}")
-            continue
-        for page in sorted(localized.iterdir()):
-            if not page.is_file() or page.name not in canonical_names:
-                failures.append(f"localized manual has no canonical Markdown owner: {page.relative_to(ROOT)}")
+for locale in sorted(allowed_locales):
+    localized = locales / locale
+    names = {page.name for page in localized.glob("*.md") if page.is_file()}
+    for name in sorted(canonical_names - names):
+        failures.append(f"{locale} manual is missing canonical page: {name}")
+    for entry in localized.iterdir() if localized.is_dir() else []:
+        if not entry.is_file() or entry.suffix != ".md":
+            failures.append(f"localized manual has unexpected entry: {entry.relative_to(ROOT)}")
+    for name in sorted(names - canonical_names):
+        failures.append(f"{locale} manual has unexpected page: {name}")
+for directory in sorted(locales.iterdir()) if locales.exists() else []:
+    if not directory.is_dir() or directory.name not in allowed_locales:
+        failures.append(f"unexpected localized manual directory: {directory.relative_to(ROOT)}")
+for directory in [manual, *(locales / locale for locale in sorted(allowed_locales))]:
+    for page in directory.glob("*.md"):
+        try:
+            if not page.read_text(encoding="utf-8").strip():
+                failures.append(f"{page.relative_to(ROOT)} is empty")
+        except UnicodeError:
+            failures.append(f"{page.relative_to(ROOT)} is not UTF-8")
 
 begin = "<!-- PERASTAGE_CONSOLE_HELP_BEGIN -->"
 end = "<!-- PERASTAGE_CONSOLE_HELP_END -->"
 command_pages = [manual / "shortcuts-and-command-bar.md"]
 command_pages.extend(locales.glob("*/shortcuts-and-command-bar.md"))
 for page in command_pages:
-    text = page.read_text(encoding="utf-8")
+    try:
+        text = page.read_text(encoding="utf-8")
+    except UnicodeError:
+        continue
     if text.count(begin) != 1 or text.count(end) != 1 or text.find(begin) >= text.find(end):
         failures.append(f"{page.relative_to(ROOT)} must have exactly one ordered Console help marker pair")
+    elif page.parent != manual:
+        canonical_text = command_pages[0].read_text(encoding="utf-8")
+        section = text.split(begin)[1].split(end)[0]
+        canonical_section = canonical_text.split(begin)[1].split(end)[0]
+        fence_pattern = r"```[^\n]*\n(.*?)```"
+        inline_section = re.sub(fence_pattern, "", section, flags=re.DOTALL)
+        inline_canonical = re.sub(fence_pattern, "", canonical_section, flags=re.DOTALL)
+        for pattern, localized, english in (
+                (fence_pattern, section, canonical_section),
+                (r"`([^`]+)`", inline_section, inline_canonical)):
+            if re.findall(pattern, localized, re.DOTALL) != re.findall(pattern, english, re.DOTALL):
+                failures.append(f"{page.relative_to(ROOT)} changes stable Console syntax/examples")
+
+# Original external destinations must remain unchanged in each mirror. New
+# canonical developer/reference URLs are checked against their English owners.
+for locale in sorted(allowed_locales):
+    for source in manual.glob("*.md"):
+        mirror = locales / locale / source.name
+        if not mirror.is_file():
+            continue
+        try:
+            translated_text = mirror.read_text(encoding="utf-8")
+        except UnicodeError:
+            continue
+        original_urls = {m[2] for m in link_pattern.finditer(source.read_text(encoding="utf-8"))
+                         if m[2].startswith(("http://", "https://"))}
+        translated_urls = {m[2] for m in link_pattern.finditer(translated_text)
+                           if m[2].startswith(("http://", "https://"))}
+        if not original_urls <= translated_urls:
+            failures.append(f"{mirror.relative_to(ROOT)} rewrites an external URL")
+        prefix = "https://github.com/PeramatoG/Perastage/blob/main/docs/"
+        for url in translated_urls:
+            if url.startswith(prefix):
+                target = (DOCS / url[len(prefix):].split("#")[0]).resolve()
+                if not target.is_relative_to(DOCS) or not target.is_file():
+                    failures.append(f"{mirror.relative_to(ROOT)} links to missing English owner: {url}")
 
 shell = DOCS / "assets" / "js" / "docs-shell.js"
 shell_text = shell.read_text(encoding="utf-8")
@@ -137,4 +225,4 @@ if failures:
         print(f"- {failure}", file=sys.stderr)
     sys.exit(1)
 
-print("OK: documentation links and website markdown targets exist.")
+print(f"OK: documentation links, localized fragments, UTF-8, Console syntax and manual parity ({len(canonical_names)} pages per locale).")

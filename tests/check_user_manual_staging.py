@@ -30,8 +30,8 @@ def check_bundle(asset_root: Path, expected: dict[str, bytes]) -> None:
     assert not (asset_root / 'help.md').exists()
 
 
-def exercise(cmake: str, translated: bool) -> None:
-    """Test absent or partial locales using the actual staging/install owners."""
+def exercise(cmake: str, scenario: str) -> None:
+    """Test complete, absent or partial locales using the actual staging/install owners."""
     with tempfile.TemporaryDirectory(prefix='perastage-manual-') as tmp:
         source = Path(tmp) / 'source with spaces'
         build = Path(tmp) / 'build'
@@ -52,17 +52,23 @@ def exercise(cmake: str, translated: bool) -> None:
         # Unregistered and nested sources must never leak into English or other locales.
         (source / 'docs/user/locales/unregistered').mkdir(parents=True)
         (source / 'docs/user/locales/unregistered/index.md').write_text('excluded')
-        if translated:
+        if scenario != 'absent':
             registry = (ROOT / 'cmake/PerastageLocalization.cmake').read_text()
             languages = re.search(r'set\(PERASTAGE_TRANSLATION_LANGUAGES\s+([^)]+)\)', registry)
             assert languages
             for language in languages.group(1).split():
                 locale = source / 'docs/user/locales' / language
                 locale.mkdir()
-                payload = f'fixture {language}\n'.encode()
-                (locale / 'index.md').write_bytes(payload)
+                mirror = ROOT / 'docs/user/locales' / language
+                canonical_names = {p.name for p in (ROOT / 'docs/user').glob('*.md')}
+                assert {p.name for p in mirror.glob('*.md')} == canonical_names
+                pages = sorted(mirror.glob('*.md')) if scenario == 'complete' else [mirror / 'index.md']
+                for page in pages:
+                    shutil.copyfile(page, locale / page.name)
+                    expected[f'{language}/{page.name}'] = page.read_bytes()
                 (locale / 'not-manual.txt').write_text('excluded')
-                expected[f'{language}/index.md'] = payload
+                (locale / 'nested').mkdir()
+                (locale / 'nested/index.md').write_text('excluded')
         # Include the existing registry owner with UI localization disabled.
         (source / 'main.c').write_text('int main(void) { return 0; }\n')
         (source / 'CMakeLists.txt').write_text('''cmake_minimum_required(VERSION 3.21)
@@ -87,15 +93,15 @@ include(cmake/PerastageInstall.cmake)
 
 
 def main() -> None:
-    """Run both optional-locale scenarios with the configured CMake executable."""
+    """Run complete and resilience scenarios with the configured CMake executable."""
     parser = argparse.ArgumentParser()
     parser.add_argument('--cmake', default=shutil.which('cmake'))
     args = parser.parse_args()
     if not args.cmake:
         parser.error('CMake is required for staging validation')
-    for translated in (False, True):
-        exercise(args.cmake, translated)
-    print('OK: runtime/install help/en, optional locales, Markdown isolation and absence of root legacy help.')
+    for scenario in ('complete', 'absent', 'partial'):
+        exercise(args.cmake, scenario)
+    print('OK: byte-identical complete runtime/install help/en, help/es, help/zh_CN; absent/partial locales, Markdown isolation and absence of root legacy help.')
 
 
 if __name__ == '__main__':
