@@ -75,7 +75,8 @@
 #include "logger.h"
 #include "magnet_snap.h"
 #include "viewport_interaction_scope.h"
-#include "markdown.h"
+#include "localization/app_language.h"
+#include "user_manual_dialog.h"
 #include "preferencesdialog.h"
 #include "projectutils.h"
 #include "resource_path_utils.h"
@@ -704,60 +705,11 @@ void MainWindow::OnToggleRigging(wxCommandEvent &event) {
 
 // Displays the help dialog from the packaged markdown documentation.
 void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
-  // Attempt to load the Markdown help file located alongside the executable.
-  wxFileName helpPath(wxStandardPaths::Get().GetExecutablePath());
-  helpPath.SetFullName("help.md");
-  if (helpPath.Exists()) {
-    // Read the file contents.
-    std::ifstream in(WxToUtf8(helpPath.GetFullPath()));
-    std::string markdown((std::istreambuf_iterator<char>(in)),
-                         std::istreambuf_iterator<char>());
-    HelpMarkdown help = SplitHelpMarkdown(markdown);
-
-    // Create a resizable dialog containing a wxHtmlWindow to render the
-    // generated HTML.
-    const wxSize parentSize = GetSize();
-    const wxSize dialogSize(
-        std::max(900, static_cast<int>(parentSize.x * 0.85)),
-        std::max(700, static_cast<int>(parentSize.y * 0.85)));
-    wxDialog dlg(this, wxID_ANY, _("Perastage Help"),
-                 wxDefaultPosition, dialogSize,
-                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX);
-    wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
-    wxBoxSizer *langSizer = new wxBoxSizer(wxHORIZONTAL);
-    wxStaticText *langLabel = new wxStaticText(&dlg, wxID_ANY, _("Language:"));
-    wxChoice *langChoice = new wxChoice(&dlg, wxID_ANY);
-    langChoice->Append(_("English"));
-    langChoice->Append(_("Español"));
-    langChoice->SetSelection(0);
-    langSizer->Add(langLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 6);
-    langSizer->Add(langChoice, 0, wxALIGN_CENTER_VERTICAL);
-    sizer->Add(langSizer, 0, wxLEFT | wxRIGHT | wxTOP, 8);
-    wxHtmlWindow *htmlWin = new wxHtmlWindow(
-        &dlg, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxHW_SCROLLBAR_AUTO);
-
-    auto setHelpPage = [&](const std::string &markdownBody) {
-      std::string html = MarkdownToHtml(markdownBody);
-      std::string wrapped = WrapHelpHtml(html);
-      htmlWin->SetPage(wxString::FromUTF8(wrapped));
-    };
-
-    setHelpPage(help.english);
-    langChoice->Bind(wxEVT_CHOICE, [&](wxCommandEvent &) {
-      if (langChoice->GetSelection() == 1)
-        setHelpPage(help.spanish);
-      else
-        setHelpPage(help.english);
-    });
-
-    sizer->Add(htmlWin, 1, wxEXPAND | wxALL, 5);
-    dlg.SetSizer(sizer);
-    dlg.ShowModal();
-  } else {
-    wxMessageBox(_("help.md file not found"),
-                 _("Perastage Help"), wxOK | wxICON_ERROR,
-                 this);
-  }
+  auto &services = guiConfigServices ? *guiConfigServices : GetDefaultGuiConfigServices();
+  const std::string language = services.Preferences()
+      .GetValue(localization::kUiLanguageConfigKey).value_or("en");
+  UserManualDialog dialog(this, ProjectUtils::ResolveResourcePath("help"), language);
+  dialog.ShowModal();
 }
 
 // Opens the public Perastage documentation website in the default browser.

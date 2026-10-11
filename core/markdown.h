@@ -20,6 +20,8 @@
 #include <string>
 
 // Simple Markdown to HTML converter.
-// Supports headers (#, ##, ###), bold (**text**), and unordered lists (- item).
+// Supports anchored headings, paragraphs, bold, inline code, links, lists,
+// fenced code, tables and invisible comments. Escapes text and preserves UTF-8.
+// This intentionally small manual grammar does not implement full CommonMark.
 // Designed for lightweight help documentation.
 std::string MarkdownToHtml(const std::string &markdown);
