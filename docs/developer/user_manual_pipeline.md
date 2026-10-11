@@ -27,9 +27,13 @@ Mirrors use the same filenames and preserve links and page relationships.
 Translate explanatory prose and preserve exact UI labels according to
 [documentation policy](documentation_policy.md) and localization policy.
 Preserve Console command grammar in English, and standards identifiers such as
-MVR, GDTF, DMX, XML, and UUID. Missing translated pages may temporarily fall back
-page-by-page to English; DOC-140C will enforce translation completeness. F1/Help selects the requested locale from `ui_language` and falls back to
-English for each missing or unreadable localized page.
+MVR, GDTF, DMX, XML, and UUID. The supported COMPLETE manual locales are
+`en`, `es`, and `zh_CN`. English remains the canonical source and fallback.
+Translated mirrors must maintain exact filename parity with `docs/user/*.md`,
+including nonempty UTF-8 content and valid localized heading fragments.
+F1/Help selects the requested locale from `ui_language`; page-level English
+fallback remains available for future development or missing/unreadable files
+in damaged or incomplete installations.
 
 ## Runtime and package ownership
 
@@ -41,16 +45,17 @@ only top-level Markdown pages, with no HTML conversion or new build dependency:
 <runtime asset root>/
     help/
         en/       # docs/user/*.md, including index.md
-        es/       # docs/user/locales/es/*.md, when present
-        zh_CN/    # docs/user/locales/zh_CN/*.md, when present
+        es/       # docs/user/locales/es/*.md, complete mirror
+        zh_CN/    # docs/user/locales/zh_CN/*.md, complete mirror
 ```
 
 The asset root remains beside the executable on Windows/Linux and inside
-`Perastage.app/Contents/Resources` on macOS. Localized source directories are
-optional, including in builds with UI localization disabled; they are never
-recursively copied into `help/en/`. `help/en/index.md` and
-`help/en/shortcuts-and-command-bar.md` are required canonical-manual package
-artifacts. Links to developer/reference documents still resolve in the
+`Perastage.app/Contents/Resources` on macOS. All three complete manuals are required release payloads, including in builds
+with UI localization disabled. CMake tolerates absent localized directories
+for development fixtures; release guards require every canonical filename in
+`help/en/`, `help/es/`, and `help/zh_CN/`, including `index.md`, with staged and
+installed files byte-identical to their source pages. Locales are never
+recursively copied into `help/en/`. Links to developer/reference documents still resolve in the
 repository/website; these documents are outside the packaged user-manual bundle.
 The offline viewer opens safe developer/reference links in the repository
 through the system browser; user-manual links and heading fragments navigate
@@ -81,3 +86,15 @@ Root `help.md` no longer exists and is neither staged nor installed. There is no
 independent in-app help prose source: permanent operator-content changes belong
 in `docs/user/*.md`, translated mirrors in `docs/user/locales/<locale>/*.md`, and
 `help/<locale>/*.md` is generated/staged package content.
+
+## Validation
+
+`tests/check_docs_links.py` derives filename parity from canonical pages and
+locales from CMake, checks UTF-8, Console markers and stable command examples,
+and validates translated links and fragments using the offline anchor rules.
+`MarkdownRenderer` verifies fragments against actual rendered headings in every
+manual. `UserManualDialog` exercises localized navigation and deliberate
+page-removal fallback; `UserManualStaging` verifies the production staging and
+installation owners with complete, partial and absent locale fixtures.
+Developer links in mirrors use canonical repository URLs so they resolve both
+from the nested source directories and from the flat packaged locale folders.

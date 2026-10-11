@@ -50,7 +50,8 @@ files.
 - Keep paragraphs short and focused.
 - Prefer bullet lists and tables for structured information.
 - Use fenced code blocks for commands and snippets.
-- Write all documentation and code comments in English.
+- Write source, developer and reference documentation and code comments in English.
+- `docs/user/locales/<locale>/` contains intentional translated user-manual mirrors; translate their operator-facing prose while preserving canonical technical and UI terms.
 
 ## Localization Policy for Translated Manual Mirrors
 
@@ -141,7 +142,7 @@ Use this short checklist for PRs that claim **no functional change**:
 - [ ] One-line English comments added/maintained above touched function definitions.
 - [ ] CMake source lists updated explicitly when files are split or moved (no implicit source discovery).
 - [ ] If text-to-scene parsing or scene-generation behavior changed, `docs/developer/text_to_scene_rules.md` was updated in the same PR.
-- [ ] If GUI shortcut mappings/scope/precedence changed, `docs/developer/../developer/gui_shortcut_architecture.md` was updated in the same PR.
+- [ ] If GUI shortcut mappings/scope/precedence changed, [`docs/developer/gui_shortcut_architecture.md`](gui_shortcut_architecture.md) was updated in the same PR.
 - [ ] Hotspot growth was avoided by extracting responsibilities when touching near-limit files.
 
 ## Assets and Media

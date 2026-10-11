@@ -844,6 +844,9 @@ if(Python3_Interpreter_FOUND)
                                LABELS standard-strict policy architecture)
     add_repository_policy_test(DocsLinks ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_docs_links.py)
+    add_repository_policy_test(DocsLinksFixtures ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_docs_links_fixtures.py
+                               LABELS standard-strict policy help)
     add_repository_policy_test(TestTargetsNoSourceRootIncludes ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_test_targets_no_source_root_includes.py
                                LABELS standard-strict policy cmake)

@@ -30,6 +30,9 @@ int main(int argc, char **argv) {
           "Visible &lt;b&gt; &amp; &quot;text&quot;"}) Has(html, expected);
     Check(html.find("PERASTAGE_CONSOLE_HELP") == html.npos, "Comments must be invisible");
     Check(html.find("multiple") == html.npos, "Multiline comments must be invisible");
+    Has(MarkdownToHtml("## Selección y movimiento\n## 选择与移动\n## 选择与移动\n"),
+        "name=\"selección-y-movimiento\"");
+    Has(MarkdownToHtml("## 选择与移动\n## 选择与移动\n"), "name=\"选择与移动-1\"");
     Has(MarkdownToHtml("[\"quoted\"](a\"b.md)"), "href=\"a&quot;b.md\"");
     Has(MarkdownToHtml("[URL](https://example.com/a(b))"), "href=\"https://example.com/a(b)\"");
     Has(MarkdownToHtml("- **Relative group** movement continues\n  on the next line."),
@@ -61,7 +64,7 @@ int main(int argc, char **argv) {
     Check(argc == 2, "Supply canonical docs/user directory");
     size_t pages = 0;
     const std::regex rawLink(R"(\[[^\]\n]+\]\([^\)\n]+\))");
-    for (const auto &entry : std::filesystem::directory_iterator(argv[1])) {
+    for (const auto &entry : std::filesystem::recursive_directory_iterator(argv[1])) {
       if (entry.path().extension() != ".md") continue;
       std::ifstream in(entry.path(), std::ios::binary);
       const std::string source((std::istreambuf_iterator<char>(in)), {});
@@ -92,6 +95,6 @@ int main(int argc, char **argv) {
       ++pages;
     }
     Check(pages > 0, "Canonical manual must not be empty");
-    std::cout << "Renderer and " << pages << " canonical pages passed\n";
+    std::cout << "Renderer and " << pages << " canonical/localized pages passed\n";
   } catch (const std::exception &e) { std::cerr << e.what() << '\n'; return 1; }
 }

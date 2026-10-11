@@ -55,7 +55,18 @@ int main(int argc, char **argv) {
     Check(help.find("Global shortcuts") == help.npos &&
           help.find("Focus and priority") == help.npos, "Unmarked content is excluded");
 
-    // A translated page exists and is deliberately different: Console still uses English.
+    // Real complete mirrors are present: Console still consumes canonical English.
+    for (const std::string locale : {"es", "zh_CN"}) {
+      fs::create_directories(fixture.root / locale);
+      for (const auto &entry : fs::directory_iterator(fs::path(argv[1]) / "locales" / locale))
+        if (entry.path().extension() == ".md")
+          fs::copy_file(entry.path(), fixture.root / locale / entry.path().filename());
+      ManualResolver ui(fixture.root, locale);
+      Check(ui.Load()->locale == ui.RequestedLocale() && !ui.Load()->englishFallback,
+            "Complete UI manual opens without fallback");
+      Check(LoadConsoleHelp(fixture.root) == help, "Complete mirrors cannot change Console help");
+    }
+    // A translated page is deliberately different: Console still uses English.
     for (const std::string locale : {"en", "es", "zh_CN"}) {
       if (locale != "en") fixture.Write(locale, Marked("localized placeholder"));
       ManualResolver ui(fixture.root, locale);
