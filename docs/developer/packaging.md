@@ -174,6 +174,9 @@ Its Jammy/GCC 11 compiled caches are isolated from normal current-Linux caches.
 The lane resolves its project-build CMake through the pinned vcpkg toolchain so
 it can consume current package configurations; this build tool does not alter
 the Jammy/GCC 11 runtime ABI floor.
+The AppImage packaging tools use versioned release URLs and verified SHA-256
+checksums. `appimagetool` is pinned to stable release `1.9.1`; do not replace
+its URL with the mutable `continuous` release, whose assets change upstream.
 The Arch package is intentionally separate and follows Arch Linux's rolling,
 current library environment rather than this portable compatibility contract.
 

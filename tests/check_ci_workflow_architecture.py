@@ -213,12 +213,14 @@ for needle in [
     'smoke_test_appimage.sh',
     'desktop-file-validate squashfs-root/Perastage.desktop',
     'c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d',
-    'a6d71e2b6cd66f8e8d16c37ad164658985e0cf5fcaa950c90a482890cb9d13e0',
+    'https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage',
+    'ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0',
     '.github/scripts/download_verified.sh',
 ]:
     assert needle in linux_installer, f'AppImage compatibility workflow is missing {needle}'
 assert 'runs-on: ubuntu-latest' not in linux_installer
 assert 'releases/download/continuous/linuxdeploy' not in linux_installer
+assert 'releases/download/continuous/appimagetool' not in linux_installer
 assert 'pull_request:' in linux_installer and '- vcpkg.json' in linux_installer
 appimage_smoke_test = Path('.github/scripts/smoke_test_appimage.sh').read_text()
 assert "xdotool search --onlyvisible --name '[Pp]erastage'" in appimage_smoke_test

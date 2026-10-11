@@ -359,11 +359,10 @@ jobs:
             linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
 
-          # continuous currently points at upstream commit 8c8c91f762b412a19f4e8d2c4b35afb98f2d7c81;
-          # its verified content hash makes a mutable-asset change fail closed.
+          # Pin the stable release and its asset hash; continuous assets are replaced upstream.
           .github/scripts/download_verified.sh \
-            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage \
-            a6d71e2b6cd66f8e8d16c37ad164658985e0cf5fcaa950c90a482890cb9d13e0 \
+            https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage \
+            ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0 \
             appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
 
