@@ -21,12 +21,13 @@ def run(*args: str) -> None:
 
 
 def check_bundle(asset_root: Path, expected: dict[str, bytes]) -> None:
-    """Require byte-identical Markdown payloads and retained transitional help."""
+    """Require byte-identical Markdown payloads and exclude legacy root help."""
     actual = {p.relative_to(asset_root / 'help').as_posix(): p.read_bytes()
               for p in (asset_root / 'help').rglob('*') if p.is_file()}
     assert actual == expected, f"manual payload mismatch at {asset_root}: {actual.keys()}"
     assert (asset_root / 'help/en/index.md').is_file()
-    assert (asset_root / 'help.md').read_bytes() == (ROOT / 'help.md').read_bytes()
+    assert (asset_root / 'help/en/shortcuts-and-command-bar.md').is_file()
+    assert not (asset_root / 'help.md').exists()
 
 
 def exercise(cmake: str, translated: bool) -> None:
@@ -40,7 +41,7 @@ def exercise(cmake: str, translated: bool) -> None:
         (source / 'licenses').mkdir()
         (source / 'resources').mkdir()
         (source / 'resources/Perastage_logo_1024.png').write_bytes(b'fixture')
-        for name in ('LICENSE.txt', 'THIRD_PARTY_NOTICES.md', 'help.md'):
+        for name in ('LICENSE.txt', 'THIRD_PARTY_NOTICES.md'):
             shutil.copyfile(ROOT / name, source / name)
         (source / 'dummy.gdtf').write_bytes(b'fixture')
         (source / 'docs/user').mkdir(parents=True)
@@ -94,7 +95,7 @@ def main() -> None:
         parser.error('CMake is required for staging validation')
     for translated in (False, True):
         exercise(args.cmake, translated)
-    print('OK: runtime/install help/en, optional locales, Markdown isolation and help.md.')
+    print('OK: runtime/install help/en, optional locales, Markdown isolation and absence of root legacy help.')
 
 
 if __name__ == '__main__':

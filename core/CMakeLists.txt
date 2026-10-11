@@ -520,6 +520,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutTemplatePackageService.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutSelectionPolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewpresets.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/user_manual/console_help.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/user_manual/manual_resolver.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/markdown.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/magnet_snap.cpp

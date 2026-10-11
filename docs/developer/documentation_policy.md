@@ -23,7 +23,7 @@ Use dedicated documents for deeper topics:
 
 `docs/user/` owns canonical English user-manual content; localized mirrors
 translate that content, and the website and packaged Help consume it.
-`help.md` is transitional compatibility content. See
+There is no independent in-app help prose source. See
 [User Manual Pipeline](user_manual_pipeline.md) for source paths, translation,
 runtime/package staging, and Console extraction contracts.
 
@@ -52,14 +52,14 @@ files.
 - Use fenced code blocks for commands and snippets.
 - Write all documentation and code comments in English.
 
-## Localization Policy for Spanish Help (ES)
+## Localization Policy for Translated Manual Mirrors
 
-When updating the Spanish block in `help.md` (`<!-- LANG:es -->`), keep UI terminology stable and searchable:
+When updating translated mirrors under `docs/user/locales/<locale>/`, keep UI terminology stable and searchable:
 
 - Do **not** translate exact UI labels for menus, panels, dialogs, tabs, and buttons.
 - Translate only explanatory narrative text around those labels.
 - Keep command names and option labels exactly as shown in the application UI.
-- Reuse the same canonical UI terms across all ES help sections.
+- Reuse the same canonical UI terms across all translated manual sections.
 
 Minimum glossary of terms that must remain untranslated:
 
@@ -87,9 +87,10 @@ Minimum glossary of terms that must remain untranslated:
 
 Use this checklist in every PR that changes behavior, UX labels, or parsing contracts to keep user help and technical rules aligned.
 
-### 1) User-facing functionality that must be reflected in `help.md`
+### 1) User-facing functionality in the canonical manual
 
-Update `help.md` when a change is visible to operators in normal workflows, including at least:
+User-visible operator behavior must be updated in the appropriate canonical
+`docs/user/*.md` owner, including at least:
 
 - New or removed menu actions, dialogs, toolbar actions, or panel entries.
 - Changes to user-executed workflows (new steps, reordered steps, renamed actions, changed defaults).
@@ -97,6 +98,10 @@ Update `help.md` when a change is visible to operators in normal workflows, incl
 - New or changed console commands, command syntax, or command scope/selection behavior.
 - Build-gated visibility changes that affect what users can access in Debug vs Release.
 - Any user-visible warning, limitation, or prerequisite needed to avoid incorrect usage.
+
+Console command syntax/help changes must update the marked canonical section in
+`docs/user/shortcuts-and-command-bar.md`. Keep technical command parser contracts
+in [Command API](command_api.md); cross-link rather than duplicate them.
 
 ### 2) Detailed rules that remain in `docs/developer/text_to_scene_rules.md`
 
@@ -108,11 +113,11 @@ Keep parser/scene-generation contracts in `docs/developer/text_to_scene_rules.md
 - Coordinate/unit parsing semantics and value interpretation rules.
 - Error handling, skipped-line policy, and deterministic behavior requirements.
 
-`help.md` should summarize only operator-facing behavior. Avoid duplicating the full parser contract there; link to `docs/developer/text_to_scene_rules.md` for details.
+The canonical user manual should summarize only operator-facing behavior. Avoid duplicating the full parser contract there; link to `docs/developer/text_to_scene_rules.md` for details.
 
 ### 3) Criteria for updating both files in the same PR
 
-Update **both** `help.md` and `docs/developer/text_to_scene_rules.md` in the same PR when **any** of the following is true:
+Update **both** the appropriate `docs/user/*.md` owner and `docs/developer/text_to_scene_rules.md` in the same PR when **any** of the following is true:
 
 - A text-to-scene/rider parsing or scene-generation change is visible to users.
 - The same feature requires both a user workflow explanation and an update to parsing/placement technical rules.
@@ -122,7 +127,7 @@ If the change is purely internal and does not alter user-visible behavior, updat
 
 ### PR self-check (required before merge)
 
-- [ ] I reviewed this checklist and updated `help.md` where user-facing behavior changed.
+- [ ] I reviewed this checklist and updated the appropriate canonical `docs/user/*.md` owner where user-facing behavior changed.
 - [ ] I updated `docs/developer/text_to_scene_rules.md` where parser/scene-generation rules changed.
 - [ ] I updated both files in the same PR when both criteria applied.
 - [ ] I added cross-links instead of duplicating long rule sections.

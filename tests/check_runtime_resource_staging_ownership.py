@@ -38,7 +38,6 @@ def main() -> int:
         "${PERASTAGE_GENERATED_LOCALE_DIR}",
         "PerastageCopyRuntimeCatalog.cmake",
         "PerastageVerifyFileExists.cmake",
-        "${CMAKE_SOURCE_DIR}/help.md",
         "${CMAKE_SOURCE_DIR}/docs/user",
         "${CMAKE_SOURCE_DIR}/docs/user/locales/${PERASTAGE_MANUAL_LANGUAGE}",
         "foreach(PERASTAGE_MANUAL_LANGUAGE IN ITEMS en ${PERASTAGE_TRANSLATION_LANGUAGES})",
@@ -57,6 +56,7 @@ def main() -> int:
             errors.append(f"runtime staging module is missing contract: {contract}")
 
     forbidden_contracts = (
+        r"help\.md",
         r"\binstall\s*\(",
         r"\binclude\s*\(\s*CPack\b",
         r"\bset\s*\(\s*CPACK_",

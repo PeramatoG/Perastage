@@ -25,3 +25,7 @@
 // This intentionally small manual grammar does not implement full CommonMark.
 // Designed for lightweight help documentation.
 std::string MarkdownToHtml(const std::string &markdown);
+
+// Bounded Console presentation: headings, paragraphs, lists, fences, inline code,
+// bold, links and tables. Not CommonMark; unclosed fences/comments return empty.
+std::string MarkdownToPlainText(const std::string &markdown);

@@ -39,7 +39,6 @@ only top-level Markdown pages, with no HTML conversion or new build dependency:
 
 ```text
 <runtime asset root>/
-    help.md
     help/
         en/       # docs/user/*.md, including index.md
         es/       # docs/user/locales/es/*.md, when present
@@ -49,25 +48,36 @@ only top-level Markdown pages, with no HTML conversion or new build dependency:
 The asset root remains beside the executable on Windows/Linux and inside
 `Perastage.app/Contents/Resources` on macOS. Localized source directories are
 optional, including in builds with UI localization disabled; they are never
-recursively copied into `help/en/`. `help/en/index.md` is the canonical-manual
-package assertion. Links to developer/reference documents still resolve in the
+recursively copied into `help/en/`. `help/en/index.md` and
+`help/en/shortcuts-and-command-bar.md` are required canonical-manual package
+artifacts. Links to developer/reference documents still resolve in the
 repository/website; these documents are outside the packaged user-manual bundle.
 The offline viewer opens safe developer/reference links in the repository
 through the system browser; user-manual links and heading fragments navigate
 locally. Back restores the previous page, Home returns to `index.md`, and
 Online Documentation remains available in both the dialog and Help menu.
 
-## Transitional Help and Console extraction
+## Help and Console consumers
 
 F1/Help consumes the canonical packaged `help/<locale>/index.md` manual.
-
-Root `help.md` remains staged and installed only for the transitional Console
-consumer. DOC-140B2 will migrate Console help and remove `help.md`, obsolete
-split-help code and transitional packaging assertions.
+Console consumes only the English marked section from
+`help/en/shortcuts-and-command-bar.md`, resolved through the same runtime resource
+contract. UI language does not select Console syntax or help prose.
 
 In [Shortcuts and Command Bar](../user/shortcuts-and-command-bar.md), the invisible
 HTML comments `<!-- PERASTAGE_CONSOLE_HELP_BEGIN -->` and
-`<!-- PERASTAGE_CONSOLE_HELP_END -->` delimit only the canonical Console command
-reference, including transform spaces. Future extraction uses these stable
-markers instead of a translated heading. Localized mirrors must preserve them.
-General keyboard and viewer shortcuts remain outside the marked reference.
+`<!-- PERASTAGE_CONSOLE_HELP_END -->` delimit the canonical Console reference,
+including transform spaces. Core's `user_manual/console_help` helper requires
+exactly one of each marker, in order, and a nonempty section. It uses the bounded
+`MarkdownToPlainText` transformation in `core/markdown` for headings, paragraphs,
+lists, fenced examples, inline code, bold, links and tables; it does not implement
+full CommonMark. Missing pages, invalid markers or empty/malformed presentation
+return only a short English unavailability message and an Online Documentation
+pointer, with no built-in command catalog. Localized mirrors preserve the markers,
+but Console always loads English. General keyboard and viewer shortcuts remain
+outside the marked reference.
+
+Root `help.md` no longer exists and is neither staged nor installed. There is no
+independent in-app help prose source: permanent operator-content changes belong
+in `docs/user/*.md`, translated mirrors in `docs/user/locales/<locale>/*.md`, and
+`help/<locale>/*.md` is generated/staged package content.

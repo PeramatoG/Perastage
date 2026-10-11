@@ -28,7 +28,6 @@
     "project_metadata": ["VERSION", "LICENSE.txt", "THIRD_PARTY_NOTICES.md"],
     "documentation_and_community": [
       "README.md",
-      "help.md",
       "CONTRIBUTING.md",
       "CODE_OF_CONDUCT.md",
       "SECURITY.md"

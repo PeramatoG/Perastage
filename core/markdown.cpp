@@ -47,24 +47,26 @@ std::string Trim(std::string s) {
 }
 
 // A deliberately bounded inline grammar, not a full CommonMark parser.
-std::string Inline(std::string_view text, unsigned depth = 0) {
-  if (depth > 16) return Escape(text);
+std::string Inline(std::string_view text, unsigned depth = 0, bool plain = false) {
+  if (depth > 16) return plain ? std::string(text) : Escape(text);
   std::string out;
   for (size_t i = 0; i < text.size();) {
     if (text[i] == '\\' && i + 1 < text.size()) {
-      out += Escape(text.substr(i + 1, 1)); i += 2; continue;
+      out += plain ? std::string(text.substr(i + 1, 1)) : Escape(text.substr(i + 1, 1)); i += 2; continue;
     }
     if (text[i] == '`') {
       const auto end = text.find('`', i + 1);
       if (end != text.npos) {
-        out += "<code>" + Escape(text.substr(i + 1, end - i - 1)) + "</code>";
+        out += plain ? std::string(text.substr(i + 1, end - i - 1))
+                     : "<code>" + Escape(text.substr(i + 1, end - i - 1)) + "</code>";
         i = end + 1; continue;
       }
     }
     if (text.substr(i, 2) == "**") {
       const auto end = text.find("**", i + 2);
       if (end != text.npos) {
-        out += "<b>" + Inline(text.substr(i + 2, end - i - 2), depth + 1) + "</b>";
+        const auto content = Inline(text.substr(i + 2, end - i - 2), depth + 1, plain);
+        out += plain ? content : "<b>" + content + "</b>";
         i = end + 2; continue;
       }
     }
@@ -79,13 +81,15 @@ std::string Inline(std::string_view text, unsigned depth = 0) {
           if (text[end] == ')' && --balance == 0) break;
         }
         if (end < text.size()) {
-          out += "<a href=\"" + Escape(text.substr(labelEnd + 2, end - labelEnd - 2)) +
-                 "\">" + Inline(text.substr(i + 1, labelEnd - i - 1), depth + 1) + "</a>";
+          const auto label = Inline(text.substr(i + 1, labelEnd - i - 1), depth + 1, plain);
+          const auto target = text.substr(labelEnd + 2, end - labelEnd - 2);
+          out += plain ? label + " (" + std::string(target) + ")"
+                       : "<a href=\"" + Escape(target) + "\">" + label + "</a>";
           i = end + 1; continue;
         }
       }
     }
-    out += Escape(text.substr(i++, 1));
+    out += plain ? std::string(text.substr(i++, 1)) : Escape(text.substr(i++, 1));
   }
   return out;
 }
@@ -230,4 +234,57 @@ std::string MarkdownToHtml(const std::string &markdown) {
   flushParagraph(); closeList();
   if (inCode) out << "</code></pre>\n";
   return out.str();
+}
+
+std::string MarkdownToPlainText(const std::string &markdown) {
+  std::istringstream input(markdown);
+  std::ostringstream out;
+  std::string line;
+  bool fence = false, comment = false, table = false;
+  while (std::getline(input, line)) {
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    if (!comment && Trim(line).starts_with("```")) {
+      fence = !fence;
+      table = false;
+      continue;
+    }
+    // Literal command examples bypass inline formatting and preserve whitespace.
+    if (fence) { out << line << '\n'; continue; }
+    std::string visible;
+    size_t pos = 0;
+    while (pos < line.size()) {
+      const auto marker = line.find(comment ? "-->" : "<!--", pos);
+      if (!comment) visible += line.substr(pos, marker == line.npos ? marker : marker - pos);
+      if (marker == line.npos) break;
+      pos = marker + (comment ? 3 : 4);
+      comment = !comment;
+    }
+    std::string text = Trim(visible);
+    if (text.starts_with('|')) {
+      const auto cells = Cells(text);
+      if (table && Separator(text)) continue;
+      table = true;
+      for (size_t i = 0; i < cells.size(); ++i) {
+        if (i) out << "  |  ";
+        out << Inline(cells[i], 0, true);
+      }
+      out << '\n';
+      continue;
+    }
+    table = false;
+    const auto heading = text.find_first_not_of('#');
+    if (heading >= 1 && heading <= 6 && heading < text.size() && text[heading] == ' ')
+      text = text.substr(heading + 1);
+    const auto item = List(text);
+    if (!item.type.empty()) {
+      out << (item.type == "ul" ? "• " : item.number + ". ");
+      text = text.substr(item.start);
+    }
+    out << Inline(text, 0, true) << '\n';
+  }
+  if (fence || comment) return {};
+  const auto text = out.str();
+  if (text.find_first_not_of(" \t\r\n") == text.npos) return {};
+  const auto first = text.find_first_not_of('\n');
+  return text.substr(first, text.find_last_not_of('\n') - first + 1);
 }
