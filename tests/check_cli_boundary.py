@@ -88,7 +88,6 @@ def check(root: Path = REPOSITORY_ROOT) -> list[str]:
     forbidden_cli_cmake = {
         r"(?:WIN32_EXECUTABLE|MACOSX_BUNDLE)\s+TRUE": "CLI must remain a console, non-bundle executable",
         r"target_link_libraries\s*\(\s*perastage_cli(?:_support)?\b[^)]*\b(?:app|gui|viewer2d|viewer3d|viewer_common)\b": "CLI targets must not link application, GUI, or viewer targets",
-        r"install\s*\([^)]*\bperastage_cli\b": "CLI must not be installed",
     }
     for pattern, message in forbidden_cli_cmake.items():
         if re.search(pattern, cli_cmake, re.IGNORECASE | re.DOTALL):
@@ -117,18 +116,6 @@ def check(root: Path = REPOSITORY_ROOT) -> list[str]:
         if forbidden_tokens.search(source):
             errors.append(f"CLI source uses a GUI/application bootstrap token: {path.relative_to(root)}")
 
-    packaging_files = [
-        root / "cmake/PerastageInstall.cmake",
-        root / "cmake/PerastageRuntimeStaging.cmake",
-        root / "cmake/PerastagePackaging.cmake",
-    ]
-    packaging_files.extend(path for path in (root / "packaging").rglob("*") if path.is_file())
-    for path in packaging_files:
-        if not path.is_file():
-            continue
-        text = path.read_text(encoding="utf-8", errors="replace")
-        if "perastage-cli" in text or "perastage_cli" in text:
-            errors.append(f"Development CLI must not be installed or packaged: {path.relative_to(root)}")
     return errors
 
 

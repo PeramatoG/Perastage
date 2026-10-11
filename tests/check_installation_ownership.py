@@ -34,6 +34,10 @@ def main() -> int:
 
     contracts = (
         "install(TARGETS ${PROJECT_NAME}",
+        "install(TARGETS perastage_cli",
+        'RUNTIME DESTINATION "${PROJECT_NAME}.app/Contents/MacOS"',
+        "install(TARGETS ${PROJECT_NAME} perastage_cli RUNTIME DESTINATION .)",
+        "DEPENDS ${PROJECT_NAME} perastage_cli",
         "BUNDLE DESTINATION .",
         "install(DIRECTORY ${CMAKE_SOURCE_DIR}/resources DESTINATION ${PERASTAGE_INSTALL_RESOURCE_DEST})",
         "PERASTAGE_GENERATED_LOCALE_DIR",

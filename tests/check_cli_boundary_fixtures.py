@@ -65,12 +65,26 @@ class CliBoundaryFixtureTests(unittest.TestCase):
         )
         self.assertTrue(check_cli_boundary.check(self.root))
 
-    def test_packaging_owner_reference_is_rejected(self) -> None:
-        """Reject adding the development CLI to the canonical packaging owner."""
-        (self.root / "cmake/PerastagePackaging.cmake").write_text(
-            "set(CPACK_COMPONENTS_ALL perastage_cli)\n", encoding="utf-8"
+    def test_installation_is_accepted(self) -> None:
+        """Shipping the CLI does not change its architectural isolation."""
+        (self.root / "cmake/PerastageInstall.cmake").write_text(
+            "install(TARGETS perastage_cli RUNTIME DESTINATION .)\n", encoding="utf-8"
         )
-        self.assertTrue(check_cli_boundary.check(self.root))
+        self.assertEqual(check_cli_boundary.check(self.root), [])
+
+    def test_bundle_and_gui_dependencies_remain_rejected(self) -> None:
+        """Shipping must not permit GUI linkage or bundle/subsystem changes."""
+        for declaration in (
+            "set_target_properties(perastage_cli PROPERTIES MACOSX_BUNDLE TRUE)",
+            "set_target_properties(perastage_cli PROPERTIES WIN32_EXECUTABLE TRUE)",
+            "target_link_libraries(perastage_cli PRIVATE perastage_gui)",
+        ):
+            with self.subTest(declaration=declaration):
+                path = self.root / "cli/CMakeLists.txt"
+                original = path.read_text()
+                path.write_text(original + declaration + "\n")
+                self.assertTrue(check_cli_boundary.check(self.root))
+                path.write_text(original)
 
     def test_capability_serialization_dependency_is_accepted(self) -> None:
         """Accept the reviewed read-only capability discovery facade."""

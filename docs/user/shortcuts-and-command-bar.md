@@ -80,6 +80,27 @@ keep their native text-editing behavior.
 4. Execute and verify the result in tables/viewers.
 5. Reuse command history for repetitive changes.
 
+## Experimental CLI
+
+Starting with 1.7.0, Perastage includes an experimental `perastage-cli` for
+automation and advanced workflows. Run it in a terminal:
+
+| Platform | Example |
+| --- | --- |
+| Windows (PowerShell, default install) | `& "C:\Program Files\Perastage\perastage-cli.exe" --help` |
+| macOS (app installed in Applications) | `/Applications/Perastage.app/Contents/MacOS/perastage-cli --help` |
+| Linux AppImage (replace the filename with your download) | `./Perastage-1.7.0-x86_64.AppImage --cli --help` |
+| Arch Linux | `perastage-cli --help` |
+
+Use `--version` to check the installed version. Windows and macOS do not add
+the CLI to PATH. Commands and options remain in English. `inspect` reads files
+without changing them; `scene` requires a separate output file and never
+overwrites its source; `live` connects only to a running local Perastage instance
+over loopback. Experimental refers to support and stability maturity; existing
+validation and atomicity rules still apply. The MCP adapter is configured
+separately and is not included in the installer. For detailed grammar, see
+[Developer CLI](../developer/cli.md).
+
 <!-- PERASTAGE_CONSOLE_HELP_BEGIN -->
 
 ## Console commands (frequent and useful)

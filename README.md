@@ -39,6 +39,7 @@ Perastage is not intended to be a real-time DMX visualizer.
 - **Layouts and PDF:** build production layouts and export technical documentation.
 - **Fixture resources:** project fixture symbols and standards-oriented GDTF workflows.
 - **Experimental local integration:** OSC and MCP for separately configured automation.
+  Starting with 1.7.0, packages also include the experimental [CLI](docs/user/shortcuts-and-command-bar.md#experimental-cli).
 - **Cross-platform:** Windows, macOS and Linux.
 
 See the [feature overview](docs/user/features.md) for details.

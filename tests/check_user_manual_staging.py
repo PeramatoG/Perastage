@@ -76,6 +76,8 @@ project(Perastage LANGUAGES C)
 set(PERASTAGE_ENABLE_LOCALIZATION OFF)
 include(cmake/PerastageLocalization.cmake)
 add_executable(Perastage MACOSX_BUNDLE main.c)
+add_executable(perastage_cli main.c)
+set_target_properties(perastage_cli PROPERTIES OUTPUT_NAME "perastage-cli")
 set(PERASTAGE_GENERATED_DUMMY_GDTF_ARCHIVE "${CMAKE_SOURCE_DIR}/dummy.gdtf")
 include(cmake/PerastageRuntimeStaging.cmake)
 include(cmake/PerastageInstall.cmake)
@@ -90,6 +92,14 @@ include(cmake/PerastageInstall.cmake)
             installed /= 'Perastage.app/Contents/Resources'
         check_bundle(runtime, expected)
         check_bundle(installed, expected)
+        executable_root = source / 'out/install/Release'
+        if sys.platform == 'darwin':
+            executable_root /= 'Perastage.app/Contents/MacOS'
+        suffix = '.exe' if sys.platform == 'win32' else ''
+        for name in ('Perastage', 'perastage-cli'):
+            executable = executable_root / (name + suffix)
+            assert executable.is_file(), f"stage must build and install {executable}"
+        assert not list((source / 'out/install/Release').rglob('*mcp*'))
 
 
 def main() -> None:

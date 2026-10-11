@@ -298,11 +298,11 @@ Changes since **v1.6.0**.
 - Made Inspector policy tests use the repository's portable Python test-tool
   launcher so they run consistently on Windows, macOS, and Linux CI hosts.
 
-- Documented and regression-tested the development CLI automation contract for versioned JSON, exit codes, stream routing, Unicode paths, and structured diagnostic locations, while explicitly keeping human-readable presentation outside the machine-compatibility promise. The CLI remains unshipped.
+- Documented and regression-tested the development CLI automation contract for versioned JSON, exit codes, stream routing, Unicode paths, and structured diagnostic locations, while explicitly keeping human-readable presentation outside the machine-compatibility promise. The CLI ships experimentally starting with 1.7.0.
 
-- Added a headless `inspect` command to the development CLI for GDTF and MVR summaries, package and resource inventories, diagnostics, exact retained XML, and structured JSON, with deterministic exit codes, Unicode-safe native Windows paths, complete structured GDTF document facts, clean data/process stream separation, and layered Core serialization boundaries that keep neutral results independent from full format reports, and explicit cross-platform UTF-8 report verification. The CLI remains unshipped.
+- Added a headless `inspect` command to the development CLI for GDTF and MVR summaries, package and resource inventories, diagnostics, exact retained XML, and structured JSON, with deterministic exit codes, Unicode-safe native Windows paths, complete structured GDTF document facts, clean data/process stream separation, and layered Core serialization boundaries that keep neutral results independent from full format reports, and explicit cross-platform UTF-8 report verification. The CLI ships experimentally starting with 1.7.0.
 
-- Added a dedicated headless command-line executable for development and cross-platform automation, with stable help and version output, deterministic usage errors, and strengthened automated separation from GUI startup, application state, localization, and packaging; it is not included in shipped packages yet.
+- Added a dedicated headless command-line executable for development and cross-platform automation, with stable help and version output, deterministic usage errors, and strengthened automated separation from GUI startup, application state, and localization; it ships experimentally starting with 1.7.0.
 
 - Added a safe, read-only package resource inspection boundary with bounded raw reads, conservative file-kind identification, unchanged UTF-8 text previews, and embedded GDTF inspection through the established standalone path. Image and model decoding remains outside the semantic inspection service.
 - Improved package resource inspection reliability across platforms, including deterministic owned-byte reads and consistent GDTF compatibility handling.

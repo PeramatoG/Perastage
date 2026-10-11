@@ -104,6 +104,66 @@ def main() -> int:
     if "! grep -q '^opt/perastage/help.md$' arch-package-contents.txt" not in workflow:
         errors.append("Arch CI must reject root legacy help")
 
+    # Every existing release product must carry the independent experimental CLI.
+    package_contracts = {
+        "packaging/arch/PKGBUILD": (
+            'ln -s /opt/perastage/perastage-cli "$pkgdir/usr/bin/perastage-cli"',
+            'test -x "$pkgdir/opt/perastage/perastage-cli"',
+            'readlink "$pkgdir/usr/bin/perastage-cli"',
+        ),
+        ".github/workflows/arch-package.yml": (
+            "grep -q '^opt/perastage/perastage-cli$' arch-package-contents.txt",
+            "grep -q '^usr/bin/perastage-cli$' arch-package-contents.txt",
+            'readlink "$CLI_PACKAGE_ROOT/usr/bin/perastage-cli"',
+            '"$CLI_PACKAGE_ROOT/opt/perastage/perastage-cli" --version',
+            '"$CLI_PACKAGE_ROOT/opt/perastage/perastage-cli" --help',
+        ),
+        ".github/workflows/windows-installer.yml": (
+            '"Perastage.exe", "perastage-cli.exe"',
+            '"./out/install/Release/perastage-cli.exe" --version',
+            '"./out/install/Release/perastage-cli.exe" --help',
+            "Validate installed CLI payload",
+            '(Join-Path $installDir "perastage-cli.exe") --version',
+            '(Join-Path $installDir "perastage-cli.exe") --help',
+        ),
+        ".github/workflows/linux-installer.yml": (
+            'cp "$STAGE_DIR/perastage-cli" "$APPDIR/usr/bin/perastage-cli"',
+            '--executable "$APPDIR/usr/bin/perastage-cli"',
+            'test -x squashfs-root/usr/bin/perastage-cli',
+            'squashfs-root/AppRun --cli --version',
+            'squashfs-root/AppRun --cli --help',
+            '"./Perastage-${VERSION}-x86_64.AppImage" --cli --version',
+            '"./Perastage-${VERSION}-x86_64.AppImage" --cli --help',
+        ),
+    }
+    for name in ("macos-installer.yml", "macos-15-manual-installer.yml"):
+        package_contracts[f".github/workflows/{name}"] = (
+            "test -x out/install/Release/Perastage.app/Contents/MacOS/perastage-cli",
+            '-x "$CLI_PATH"',
+            'check_macos_bundle_dependencies.py "$APP_PATH"',
+            '"$CLI_PATH" --version',
+            '"$CLI_PATH" --help',
+            'check_macos_bundle_dependencies.py "$MOUNT_DIR/Perastage.app"',
+            '"$MOUNT_DIR/Perastage.app/Contents/MacOS/perastage-cli" --version',
+            '"$MOUNT_DIR/Perastage.app/Contents/MacOS/perastage-cli" --help',
+        )
+    for name, requirements in package_contracts.items():
+        text = (ROOT / name).read_text(encoding="utf-8")
+        for requirement in requirements:
+            if requirement not in text:
+                errors.append(f"{name} is missing shipped CLI contract: {requirement}")
+
+    inno = (ROOT / "packaging/windows/Perastage.iss").read_text(encoding="utf-8")
+    if not re.search(r'Source: "\{#StageDir\}\\\*";[^\n]*recursesubdirs', inno):
+        errors.append("Inno Setup must consume the complete staged runtime payload")
+    if re.search(r"^Name:.*perastage-cli", inno, re.MULTILINE | re.IGNORECASE):
+        errors.append("Inno Setup must not create CLI shortcuts")
+
+    install_cmake = (ROOT / "cmake/PerastageInstall.cmake").read_text(encoding="utf-8")
+    if re.search(r"install\s*\([^)]*(?:tools/mcp|perastage[_-]mcp)",
+                 install_cmake, re.IGNORECASE | re.DOTALL):
+        errors.append("The MCP adapter must remain outside native release installation")
+
     if errors:
         print("Packaging ownership check failed:", file=sys.stderr)
         for error in errors:

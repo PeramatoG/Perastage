@@ -15,6 +15,32 @@ Perastage currently has two different build contexts:
 
 Do not assume that local dependency paths, such as a developer-selected `VCPKG_ROOT`, also apply to CI workflows. CI packaging workflows define their own paths inside the GitHub Actions workspace.
 
+## Experimental CLI payload (starting with 1.7.0)
+
+The common install owner, `cmake/PerastageInstall.cmake`, installs the independent
+console executable and makes `perastage_stage` build both the GUI and CLI from a
+clean build. The GUI package remains the primary release product; there is no
+separate CLI release artifact and the Rust MCP adapter is not packaged.
+
+| Package | CLI location |
+| --- | --- |
+| Windows Inno Setup | `perastage-cli.exe` beside `Perastage.exe`, normally `C:\Program Files\Perastage\perastage-cli.exe` |
+| macOS DMG (both supported variants) | `Perastage.app/Contents/MacOS/perastage-cli`, inside the single app bundle |
+| Linux AppImage | `usr/bin/perastage-cli` in the AppDir; invoke the AppImage with `--cli <CLI arguments...>` |
+| Arch Linux | `/opt/perastage/perastage-cli`, exposed by `/usr/bin/perastage-cli` symlink |
+
+Windows and macOS do not add the CLI to PATH or create CLI shortcuts. Inno Setup
+consumes the existing stage recursively. Both macOS workflows bundle dylibs for
+both executables before signing and audit non-system dependency resolution in
+the stage and mounted DMG. Linux deployment collects runtime dependencies for
+both binaries; the exact first argument `--cli` dispatches to the CLI, preserving
+all remaining argument boundaries and the caller's working directory. Other
+AppImage launches retain the existing GUI behavior.
+
+Package lanes require CLI presence and run `--version` and `--help` against the
+staged/final payload (including an installed Windows payload and extracted Arch
+package). See [Developer CLI](cli.md) for grammar and safety contracts.
+
 ## Windows Packaging
 
 The official Windows installer workflow uses Inno Setup:

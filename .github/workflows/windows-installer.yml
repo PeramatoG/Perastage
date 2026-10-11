@@ -198,6 +198,13 @@ jobs:
         shell: pwsh
         run: |
           cmake --build build --config Release --target perastage_stage
+          foreach ($binary in @("Perastage.exe", "perastage-cli.exe")) {
+            if (-not (Test-Path "out/install/Release/$binary" -PathType Leaf)) { throw "Missing staged $binary" }
+          }
+          & "./out/install/Release/perastage-cli.exe" --version
+          if ($LASTEXITCODE -ne 0) { throw "Staged CLI --version failed" }
+          & "./out/install/Release/perastage-cli.exe" --help
+          if ($LASTEXITCODE -ne 0) { throw "Staged CLI --help failed" }
           foreach ($lang in @('es', 'zh_CN')) {
             if (-not (Test-Path "out/install/Release/resources/locale/$lang/LC_MESSAGES/perastage.mo")) { throw "Missing staged $lang catalog" }
           }
@@ -272,6 +279,28 @@ jobs:
           $exe = Get-ChildItem -Path $installerDir -Filter "Perastage_*_Setup.exe" | Select-Object -First 1
           if ($null -eq $exe) { throw "Installer not found in $installerDir" }
           Write-Host "Found installer: $($exe.FullName)"
+
+      - name: Validate installed CLI payload
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem "out/installer/Perastage_*_Setup.exe" | Select-Object -First 1
+          $installDir = Join-Path $env:RUNNER_TEMP "Perastage CLI installer smoke"
+          try {
+            $process = Start-Process -FilePath $installer.FullName -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/NOICONS', '/TASKS=', "/DIR=`"$installDir`"") -Wait -PassThru
+            if ($process.ExitCode -ne 0) { throw "Installer smoke failed: $($process.ExitCode)" }
+            foreach ($binary in @("Perastage.exe", "perastage-cli.exe")) {
+              if (-not (Test-Path (Join-Path $installDir $binary) -PathType Leaf)) { throw "Missing installed $binary" }
+            }
+            & (Join-Path $installDir "perastage-cli.exe") --version
+            if ($LASTEXITCODE -ne 0) { throw "Installed CLI --version failed" }
+            & (Join-Path $installDir "perastage-cli.exe") --help
+            if ($LASTEXITCODE -ne 0) { throw "Installed CLI --help failed" }
+          } finally {
+            $uninstaller = Join-Path $installDir "unins000.exe"
+            if (Test-Path $uninstaller) {
+              Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait
+            }
+          }
 
       # ── 12. Upload installer artifact ────────────────────────────────────────
       - name: Upload Windows installer
