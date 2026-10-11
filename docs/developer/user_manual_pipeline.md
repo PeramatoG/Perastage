@@ -28,8 +28,8 @@ Translate explanatory prose and preserve exact UI labels according to
 [documentation policy](documentation_policy.md) and localization policy.
 Preserve Console command grammar in English, and standards identifiers such as
 MVR, GDTF, DMX, XML, and UUID. Missing translated pages may temporarily fall back
-page-by-page to English; DOC-140C will enforce translation completeness. This
-foundation stages files only and does not implement runtime fallback.
+page-by-page to English; DOC-140C will enforce translation completeness. F1/Help selects the requested locale from `ui_language` and falls back to
+English for each missing or unreadable localized page.
 
 ## Runtime and package ownership
 
@@ -52,13 +52,18 @@ optional, including in builds with UI localization disabled; they are never
 recursively copied into `help/en/`. `help/en/index.md` is the canonical-manual
 package assertion. Links to developer/reference documents still resolve in the
 repository/website; these documents are outside the packaged user-manual bundle.
-DOC-140B must handle such links in the offline viewer.
+The offline viewer opens safe developer/reference links in the repository
+through the system browser; user-manual links and heading fragments navigate
+locally. Back restores the previous page, Home returns to `index.md`, and
+Online Documentation remains available in both the dialog and Help menu.
 
 ## Transitional Help and Console extraction
 
-Root `help.md` remains staged and installed for compatibility until DOC-140B
-migrates the GUI Help viewer and Console help. This block changes neither
-Help/F1 behavior nor the Console C++ consumer.
+F1/Help consumes the canonical packaged `help/<locale>/index.md` manual.
+
+Root `help.md` remains staged and installed only for the transitional Console
+consumer. DOC-140B2 will migrate Console help and remove `help.md`, obsolete
+split-help code and transitional packaging assertions.
 
 In [Shortcuts and Command Bar](../user/shortcuts-and-command-bar.md), the invisible
 HTML comments `<!-- PERASTAGE_CONSOLE_HELP_BEGIN -->` and

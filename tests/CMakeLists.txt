@@ -635,6 +635,7 @@ target_link_libraries(perastage_test_required_fixture_svg PUBLIC
 perastage_resolve_git_bash(RESOLVED_BASH_EXECUTABLE REQUIRED_FOR_TESTING)
 set(BASH_EXECUTABLE "${RESOLVED_BASH_EXECUTABLE}" CACHE FILEPATH "Resolved shell for repository policy tests" FORCE)
 if(BASH_EXECUTABLE)
+    add_bash_policy_test(UserManualBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_user_manual_boundary.sh LABELS standard-strict architecture help)
     add_bash_policy_test(ExternalSceneWorkflowBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_external_scene_workflow_boundary.sh LABELS standard-strict architecture cli mvr)
     add_bash_policy_test(InspectionContractBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_contract_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(CommandCoreBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_command_core_boundary.sh LABELS standard-strict architecture core command)
@@ -4030,3 +4031,28 @@ foreach(PERASTAGE_PUBLICATION_TEST_TARGET IN LISTS PERASTAGE_PUBLICATION_TEST_TA
                               perastage_gdtf_filename_policy)
     endif()
 endforeach()
+
+add_executable(user_manual_resolver_test user_manual_resolver_test.cpp
+    ../core/user_manual/manual_resolver.cpp ../core/localization/app_language.cpp
+    ../core/filesystem_path_utils.cpp ../core/utf8_utils.cpp)
+target_include_directories(user_manual_resolver_test PRIVATE ../core)
+target_compile_definitions(user_manual_resolver_test PRIVATE
+    PERASTAGE_ENABLE_LOCALIZATION=$<BOOL:${PERASTAGE_ENABLE_LOCALIZATION}>)
+add_test(NAME UserManualResolver COMMAND user_manual_resolver_test)
+set_tests_properties(UserManualResolver PROPERTIES LABELS "standard-strict;unit;help")
+
+add_executable(markdown_renderer_test markdown_renderer_test.cpp ../core/markdown.cpp)
+target_include_directories(markdown_renderer_test PRIVATE ../core)
+add_test(NAME MarkdownRenderer COMMAND markdown_renderer_test ${CMAKE_SOURCE_DIR}/docs/user)
+set_tests_properties(MarkdownRenderer PROPERTIES LABELS "standard-strict;unit;help")
+
+add_executable(user_manual_dialog_test user_manual_dialog_test.cpp
+    ../gui/user_manual_dialog.cpp ../gui/mainwindow_menu_text_utils.cpp
+    ../core/user_manual/manual_resolver.cpp ../core/localization/app_language.cpp
+    ../core/filesystem_path_utils.cpp ../core/utf8_utils.cpp ../core/markdown.cpp)
+target_include_directories(user_manual_dialog_test PRIVATE ../core ../gui)
+target_compile_definitions(user_manual_dialog_test PRIVATE
+    PERASTAGE_ENABLE_LOCALIZATION=$<BOOL:${PERASTAGE_ENABLE_LOCALIZATION}>)
+target_link_libraries(user_manual_dialog_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME UserManualDialog COMMAND user_manual_dialog_test ${CMAKE_SOURCE_DIR}/docs/user)
+set_tests_properties(UserManualDialog PROPERTIES LABELS "standard-strict;integration;gui;help")
