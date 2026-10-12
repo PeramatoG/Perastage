@@ -20,7 +20,7 @@ struct FixtureSymbolApplicationResult {
   std::string diagnostic;
 };
 
-// Project and standard output are deliberately separate serialization products.
+// Fixture-wide project symbols have no GDTF mutation or publication side effects.
 bool BuildProjectFixtureSymbolBundle(
     const std::vector<Symbol2D> &symbols, ProjectFixtureSymbolKind kind,
     const std::string &sourceGdtfPath, ProjectFixtureSymbolBundle &bundle,
@@ -38,7 +38,7 @@ FixtureSymbolApplicationResult InheritFixtureProjectSymbols(
     const std::string &fixtureUuid);
 
 // Persists a fallback only when a definition has no authoritative bundle, and
-// independently completes missing standard views through owned derivatives.
+// materializes recognized legacy resources into PSTG. The historical policy is ignored.
 FixtureSymbolApplicationResult PrepareFixtureSymbols(
     MvrScene &scene, ProjectFixtureSymbolStore &store,
     const std::string &fixtureUuid, const std::string &sourceGdtfPath,

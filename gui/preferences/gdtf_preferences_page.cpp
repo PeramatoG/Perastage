@@ -9,13 +9,10 @@
 #include <wx/statline.h>
 #include <wx/textctrl.h>
 #include "preferences/gdtf_credentials_panel.h"
-#include "preferences/gdtf_mutation_policy_panel.h"
 
 GdtfPreferencesPage::GdtfPreferencesPage(wxWindow *parent)
     : PreferencesPage(parent) {
   auto *gdtfSizer = new wxBoxSizer(wxVERTICAL);
-  gdtfMutationPolicyPanel = new GdtfMutationPolicyPanel(this);
-  gdtfSizer->Add(gdtfMutationPolicyPanel, 0, wxEXPAND);
   gdtfCredentialsPanel = new GdtfCredentialsPanel(this);
   gdtfSizer->Add(gdtfCredentialsPanel, 0, wxEXPAND);
   SetSizer(gdtfSizer);
@@ -24,12 +21,11 @@ GdtfPreferencesPage::GdtfPreferencesPage(wxWindow *parent)
 }
 
 void GdtfPreferencesPage::LoadPreferences(const IGuiPreferencesService &cfg) {
-  gdtfMutationPolicyPanel->LoadPreferences(
-      cfg);
+  (void)cfg;
   gdtfCredentialsPanel->LoadCredentials();
 }
 
 void GdtfPreferencesPage::ApplyPreferences(IGuiPreferencesService &cfg) {
-  gdtfMutationPolicyPanel->ApplyPreferences(cfg);
+  (void)cfg;
   gdtfCredentialsPanel->ApplyCredentials();
 }

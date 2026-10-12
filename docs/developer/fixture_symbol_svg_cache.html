@@ -59,15 +59,12 @@ GDTF resources or invents physical metadata. Persisted symbols take precedence;
 a generator change or empty disposable cache does not regenerate them. Core owns packaging through transactional additional
 resources. Save includes only referenced bundles and Load restores exact content;
 neither operation waits for the preparation queue or captures new geometry.</p>
-<p>Standard completion is a separate Core operation. In the default completion
-policy it adds missing GDTF 1.2 Top/Side/Front resources from captured geometry,
-using the dedicated standard serializer and official model offsets. Existing
-usable and unusable authored resources are preserved automatically. Preserve
-mode disables this GDTF mutation while allowing project fallbacks. Effective
-completion receives one standard Revision and a canonical atomic <code>@Perastage</code>
-derivative; a no-op adds none. Fixture references change only after successful
-publication. Standard and internal completeness are independent; Bottom is
-never a standard completeness requirement.</p>
+<p>Automatic capture never supplies standard GDTF Model SVG candidates. Missing
+standard views do not schedule capture if a valid project bundle exists. The
+historical mutation setting has no effect on PSTG preparation. No source GDTF
+bytes, offsets, revisions or fixture GDTF references change during preparation.
+Per-Model original previews use the neutral Core catalog and general SVG bitmap
+backend, independently from polygon conversion for runtime rendering.</p>
 <p><code>fixture_symbol_availability.*</code> is the GUI-independent loading boundary for
 Viewer2D/Viewer3D, layout, legends, PDF, comparison previews, and preparation.
 Project lookup precedes existing GDTF candidate policy for internal rendering.
@@ -92,15 +89,15 @@ reject in-place source changes. This low-frequency correctness check remains
 separate from hot rendering cache identity. Preparation does not persist queue,
 snapshot, or worker state. Persisted bundle metadata belongs to the project,
 not the coordinator.</p>
-<p>Recognized legacy internal views are materialized into project storage before
-automatic standard completion retargets a GDTF reference. Newly inserted
+<p>Recognized legacy internal views are materialized into project storage without
+retargeting their GDTF reference. Newly inserted
 instances inherit an existing project symbol only when every bound instance of
 that exact nonempty source/mode agrees on the same content. Divergent overrides
 remain authoritative and are diagnosed rather than merged or regenerated.</p>
 <p>Manual preview pauses matching automatic work. Applying records an explicit
 project override; closing without Apply restores automatic eligibility. A
 matching authoritative persisted override prevents automatic replacement.
-Core owns project application and standard completion rules; GUI owns capture,
+Core owns project application and exact Model mutation boundaries; GUI owns capture,
 progress, diagnostics, and refresh.</p>
 <h2 id="hot-svg-cache">Hot SVG cache</h2>
 <p><code>FixtureSymbolSvgCache</code> stores immutable positive GDTF parse results. Its key

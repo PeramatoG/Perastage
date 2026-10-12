@@ -19,7 +19,7 @@
 #include "gdtf/fixture_symbol_comparison_panel.h"
 #include "configmanager.h"
 #include "filesystem_path_utils.h"
-#include "fixturepreviewpanel.h"
+#include "gdtf/fixture_part_navigator.h"
 #include "fixture_gdtf_apply_services.h"
 #include "fixturetable/fixture_table_columns.h"
 #include "fixturetablepanel.h"
@@ -45,6 +45,7 @@
 #include "hoist_load_recalculation_prompt.h"
 #include "projectutils.h"
 #include "symbolcache.h"
+#include "symbols/project_fixture_symbol_runtime.h"
 #include "units/units.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
@@ -55,7 +56,7 @@
 #include <memory>
 #include <sstream>
 #include <set>
-#include <tinyxml2.h>
+#include "gdtf/fixture_thumbnail_preview.h"
 #include <unordered_map>
 #include <unordered_set>
 #include <wx/clrpicker.h>
@@ -161,21 +162,6 @@ wxColour ResolvePreviewBackground(wxWindow *window) {
   return wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
 }
 
-// Draws a bitmap centered on a themed square preview canvas.
-wxBitmap ComposePreviewBitmap(const wxBitmap &content, int size,
-                              const wxColour &background) {
-  wxBitmap canvas(size, size);
-  wxMemoryDC dc(canvas);
-  dc.SetBackground(wxBrush(background));
-  dc.Clear();
-  if (content.IsOk()) {
-    dc.DrawBitmap(content, (size - content.GetWidth()) / 2,
-                  (size - content.GetHeight()) / 2, true);
-  }
-  dc.SelectObject(wxNullBitmap);
-  return canvas;
-}
-
 // Creates a themed placeholder bitmap with centered text.
 wxBitmap CreatePreviewPlaceholder(const wxString &label, const wxColour &background) {
   constexpr int kPreviewSize = 220;
@@ -189,91 +175,6 @@ wxBitmap CreatePreviewPlaceholder(const wxString &label, const wxColour &backgro
   return fallback;
 }
 
-// Loads the thumbnail bitmap from a GDTF archive when available.
-bool LoadGdtfThumbnail(const std::string &gdtfPath, const wxColour &background,
-                       wxBitmap &outBitmap) {
-  if (gdtfPath.empty())
-    return false;
-
-  wxFileInputStream input(wxString::FromUTF8(gdtfPath));
-  if (!input.IsOk())
-    return false;
-
-  wxZipInputStream zipInput(input);
-  std::unique_ptr<wxZipEntry> entry;
-  std::unordered_map<std::string, std::string> entries;
-  while ((entry.reset(zipInput.GetNextEntry())), entry) {
-    wxString name = entry->GetName();
-    std::string content;
-    char buffer[4096];
-    while (true) {
-      zipInput.Read(buffer, sizeof(buffer));
-      size_t count = zipInput.LastRead();
-      if (count == 0)
-        break;
-      content.append(buffer, buffer + count);
-    }
-    entries.emplace(std::string(name.ToUTF8()), std::move(content));
-  }
-
-  auto descriptionIt = entries.find("description.xml");
-  if (descriptionIt == entries.end())
-    return false;
-
-  tinyxml2::XMLDocument doc;
-  if (doc.Parse(descriptionIt->second.c_str(), descriptionIt->second.size()) !=
-      tinyxml2::XML_SUCCESS) {
-    return false;
-  }
-
-  tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
-  if (fixtureType)
-    fixtureType = fixtureType->FirstChildElement("FixtureType");
-  else
-    fixtureType = doc.FirstChildElement("FixtureType");
-  if (!fixtureType)
-    return false;
-
-  const char *thumbnailAttr = fixtureType->Attribute("Thumbnail");
-  std::string thumbnailBase = thumbnailAttr ? thumbnailAttr : "";
-
-  std::vector<std::string> candidates;
-  if (!thumbnailBase.empty()) {
-    candidates.push_back(thumbnailBase);
-    candidates.push_back(thumbnailBase + ".png");
-    candidates.push_back(thumbnailBase + ".jpg");
-    candidates.push_back(thumbnailBase + ".jpeg");
-    candidates.push_back("thumbnails/" + thumbnailBase + ".png");
-    candidates.push_back("thumbnails/" + thumbnailBase + ".jpg");
-    candidates.push_back("thumbnails/" + thumbnailBase + ".jpeg");
-  }
-  candidates.push_back("thumbnail.png");
-  candidates.push_back("thumbnail.jpg");
-  candidates.push_back("thumbnail.jpeg");
-
-  for (const auto &candidate : candidates) {
-    auto it = entries.find(candidate);
-    if (it == entries.end())
-      continue;
-    wxMemoryInputStream stream(it->second.data(), it->second.size());
-    wxImage image;
-    if (!image.LoadFile(stream, wxBITMAP_TYPE_ANY))
-      continue;
-    constexpr int kPreviewSize = 220;
-    const int srcW = std::max(1, image.GetWidth());
-    const int srcH = std::max(1, image.GetHeight());
-    const double scale = std::min(static_cast<double>(kPreviewSize) / srcW,
-                                  static_cast<double>(kPreviewSize) / srcH);
-    const int dstW = std::max(1, static_cast<int>(std::round(srcW * scale)));
-    const int dstH = std::max(1, static_cast<int>(std::round(srcH * scale)));
-    if (dstW != srcW || dstH != srcH)
-      image.Rescale(dstW, dstH, wxIMAGE_QUALITY_HIGH);
-
-    outBitmap = ComposePreviewBitmap(wxBitmap(image), kPreviewSize, background);
-    return outBitmap.IsOk();
-  }
-  return false;
-}
 
 } // namespace
 
@@ -606,7 +507,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   auto *previewPage = new wxPanel(visualNotebook, wxID_ANY);
   auto *previewSizer = new wxBoxSizer(wxVERTICAL);
   previewPage->SetSizer(previewSizer);
-  preview = new FixturePreviewPanel(previewPage);
+  preview = new FixturePartNavigator(previewPage);
   preview->SetMinSize(wxSize(gui::gdtf_layout::MinimumVisualPaneWidth(this),
                              gui::gdtf_layout::MinimumPreviewHeight(this)));
   previewSizer->Add(preview, 2, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
@@ -848,19 +749,29 @@ void FixtureEditDialog::OnModeChanged(wxCommandEvent &) {
 // Refreshes each fixture preview from the active resolved GDTF resource.
 void FixtureEditDialog::UpdateVisualizers() {
   const std::string path = PathUtils::PathToUtf8(GetActiveResolvedGdtfPath());
-  if (symbolComparison)
-    symbolComparison->SetArchivePath(path, panel && row >= 0 && static_cast<size_t>(row) < panel->rowUuids.size() ? panel->rowUuids[row] : "");
+  if (symbolComparison) {
+    std::string projectSource;
+    const auto &fixtures = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().fixtures;
+    if (panel && row >= 0 && static_cast<size_t>(row) < panel->rowUuids.size()) {
+      const auto selected = fixtures.find(panel->rowUuids[row]);
+      if (selected != fixtures.end())
+        projectSource = symbols::BuildProjectFixtureSymbolSource(selected->second);
+    }
+    symbolComparison->SetArchivePath(path, projectSource);
+  }
 
   if (fixtureImagePreview) {
-    wxBitmap image;
     const wxColour background =
         ResolvePreviewBackground(fixtureImagePreview->GetParent());
-    if (LoadGdtfThumbnail(path, background, image)) {
-      fixtureImagePreview->SetBitmap(image);
-      fixtureImagePreview->SetToolTip("");
+    const auto thumbnail = LoadGdtfThumbnailPreview(path, wxSize(220, 220), background);
+    if (thumbnail.decoded) {
+      fixtureImagePreview->SetBitmap(thumbnail.bitmap);
+      fixtureImagePreview->SetToolTip(wxString::FromUTF8(thumbnail.diagnostic));
     } else {
       fixtureImagePreview->SetBitmap(CreatePreviewPlaceholder("No image", background));
-      fixtureImagePreview->SetToolTip(_("No thumbnail image found in this GDTF."));
+      fixtureImagePreview->SetToolTip(thumbnail.diagnostic.empty()
+          ? _("No thumbnail image found in this GDTF.")
+          : wxString::FromUTF8(thumbnail.diagnostic));
     }
     Layout();
   }

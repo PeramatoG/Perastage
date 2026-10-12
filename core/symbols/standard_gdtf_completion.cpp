@@ -49,6 +49,10 @@ std::pair<const char *, const char *> OffsetAttributes(SymbolViewKind view) {
 tinyxml2::XMLElement *ResolveModel(tinyxml2::XMLDocument &document,
                                  const std::string &requestedFile,
                                  std::string &error) {
+  if (requestedFile.empty()) {
+    error = "An explicit exact Model/@File is required; no Model is inferred.";
+    return nullptr;
+  }
   auto *root = document.FirstChildElement("GDTF");
   if (!root || !root->Attribute("DataVersion") ||
       std::string(root->Attribute("DataVersion")) != "1.2") {
@@ -61,22 +65,12 @@ tinyxml2::XMLElement *ResolveModel(tinyxml2::XMLDocument &document,
   for (auto *model = models ? models->FirstChildElement("Model") : nullptr;
        model; model = model->NextSiblingElement("Model")) {
     const char *file = model->Attribute("File");
-    if (!requestedFile.empty()) {
-      if (file && requestedFile == file) {
-        if (selected) {
-          error = "The requested Model/@File identifies multiple models.";
-          return nullptr;
-        }
-        selected = model;
+    if (file && requestedFile == file) {
+      if (selected) {
+        error = "The requested Model/@File identifies multiple models.";
+        return nullptr;
       }
-    } else {
-      if (!selected)
-        selected = model;
-      const char *name = model->Attribute("Name");
-      if (name && std::string(name) == "Main") {
-        selected = model;
-        break;
-      }
+      selected = model;
     }
   }
   const char *file = selected ? selected->Attribute("File") : nullptr;
@@ -159,7 +153,7 @@ bool Inspect(const std::filesystem::path &sourcePath,
     inspected.archivePath = StandardGdtfSvgPath(context.modelFile, view);
     std::vector<std::string> matches;
     for (const auto &entry : context.archive.entries)
-      if (!entry.directory && Lower(entry.path) == Lower(inspected.archivePath))
+      if (!entry.directory && entry.path == inspected.archivePath)
         matches.push_back(entry.path);
     if (!matches.empty()) {
       inspected.state = StandardGdtfViewState::ExistingUnusable;
@@ -171,10 +165,14 @@ bool Inspect(const std::filesystem::path &sourcePath,
         if (payload.Success() && !payload.filesystemFallback &&
             payload.entryPath == matches.front()) {
           const std::string svg(payload.bytes.begin(), payload.bytes.end());
-          PerastageSvgSymbolData parsed;
-          if (ParseFixtureSymbolSvg(svg, parsed, &inspected.diagnostic)) {
+          tinyxml2::XMLDocument document;
+          const bool parsed = document.Parse(svg.c_str(), svg.size()) == tinyxml2::XML_SUCCESS;
+          const std::string root = document.RootElement() ? document.RootElement()->Name() : "";
+          if (parsed && (root == "svg" || root.ends_with(":svg"))) {
             inspected.state = StandardGdtfViewState::ExistingUsable;
             inspected.diagnostic.clear();
+          } else {
+            inspected.diagnostic = "The authored resource is malformed SVG XML.";
           }
         }
         if (inspected.state == StandardGdtfViewState::ExistingUnusable &&

@@ -48,7 +48,6 @@ private:
     std::vector<symbols::Symbol2D> processedSymbols;
     tools::FixtureGeometryBounds bounds;
     WorkStage stage = WorkStage::Capturing;
-    bool fixtureReferencesUpdated = false;
     bool projectSymbolsUpdated = false;
     bool processingSubmitted = false;
   };

@@ -44,14 +44,13 @@ Choose which object types move their containing root group during mouse, Console
 
 ## Formats
 
-### GDTF definition completion
+### GDTF resources
 
-Under **GDTF → GDTF definition completion**:
-
-- **Complete and improve GDTF definitions (recommended)** may fill missing standard Top/Side/Front views from geometry in an audited `@Perastage.gdtf` derivative. Existing authored views, including unusable ones needing explicit repair, are preserved.
-- **Preserve imported GDTF definitions** disables automatic completion.
-
-Both allow normal scene editing and explicit GDTF edits. Manually applied Perastage views are project symbols stored in PSTG, rather than replacements for authored GDTF views. Save the project to keep them; they are not exported into MVR or embedded GDTFs.
+GDTF preferences manage Share credentials. Perastage automatically stores
+fixture-wide Top/Front/Side/Bottom symbols in PSTG. Save the project to retain
+generated symbols and user overrides; they do not become GDTF or MVR resources.
+The Fixture Editor inspects authored SVGs per Model and preserves their bytes
+and offsets. Explicit physical-property edits remain available.
 
 ### MVR Import / Export
 

@@ -350,6 +350,8 @@ target_link_libraries(perastage_inspection_gdtf_byte_source
 add_library(perastage_gdtf_read STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_archive_reader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_description_reader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_thumbnail.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/gdtf_model_svg_inspection.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_power_reader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/gdtf_document.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_color_cie.cpp

@@ -29,6 +29,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/symbol_physical_calibration.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/symbol_physical_calibration_core.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/windows/symbol_preview_drawing.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/fixture_part_navigator.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/fixture_thumbnail_preview.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/fixture_symbol_comparison_panel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/windows/SymbolPreviewWindow.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/windows/symbol_fixture_apply_presentation.cpp
@@ -158,7 +160,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/preferences/viewer3d_preferences_page.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preview_resource.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preferences/gdtf_credentials_panel.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/preferences/gdtf_mutation_policy_panel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preferences/viewer3d_rendering_preferences_panel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/resource_reference_sync.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/resource_path_utils.cpp

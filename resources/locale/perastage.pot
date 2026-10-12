@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Perastage 1.6.135\n"
+"Project-Id-Version: Perastage 1.6.137\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-12 18:32+0000\n"
+"POT-Creation-Date: 2026-10-12 20:33+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -746,7 +746,7 @@ msgid ""
 msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:1521 gui/dictionaryeditdialog.cpp:2276
-#: gui/fixtureeditdialog.cpp:770 gui/fixturetablepanel.cpp:525
+#: gui/fixtureeditdialog.cpp:671 gui/fixturetablepanel.cpp:525
 #: gui/mainwindow_fixture_replace.cpp:224 gui/mainwindow_menu.cpp:1005
 #: gui/mainwindow_menu.cpp:1028
 msgid "Select GDTF file"
@@ -1044,51 +1044,51 @@ msgstr ""
 msgid "Placement"
 msgstr ""
 
-#: gui/fixtureeditdialog.cpp:376
+#: gui/fixtureeditdialog.cpp:277
 msgid "Fixture instance"
 msgstr ""
 
-#: gui/fixtureeditdialog.cpp:589
+#: gui/fixtureeditdialog.cpp:490
 msgid "Mode channels"
 msgstr ""
 
-#: gui/fixtureeditdialog.cpp:599
+#: gui/fixtureeditdialog.cpp:500
 msgid ""
 "Type, source, and mode controls select project fixture context. Power and "
 "weight edits update the GDTF file and append a revision entry."
 msgstr ""
 
-#: gui/fixtureeditdialog.cpp:615
+#: gui/fixtureeditdialog.cpp:516
 msgid "GDTF thumbnail"
 msgstr ""
 
-#: gui/fixtureeditdialog.cpp:620
+#: gui/fixtureeditdialog.cpp:521
 #: gui/inspection/inspector_workspace_panel.cpp:544
 msgid "Preview"
 msgstr ""
 
-#: gui/fixtureeditdialog.cpp:623
+#: gui/fixtureeditdialog.cpp:524
 msgid "GDTF wheels"
 msgstr ""
 
-#: gui/fixtureeditdialog.cpp:630
+#: gui/fixtureeditdialog.cpp:531
 msgid "Symbols"
 msgstr ""
 
-#: gui/fixtureeditdialog.cpp:741 gui/trusseditdialog.cpp:520
+#: gui/fixtureeditdialog.cpp:642 gui/trusseditdialog.cpp:520
 msgid "Fix malformed GDTF editor values before applying."
 msgstr ""
 
-#: gui/fixtureeditdialog.cpp:742 gui/fixtureeditdialog.cpp:761
+#: gui/fixtureeditdialog.cpp:643 gui/fixtureeditdialog.cpp:662
 #: gui/trusseditdialog.cpp:521 gui/trusseditdialog.cpp:543
 msgid "GDTF validation"
 msgstr ""
 
-#: gui/fixtureeditdialog.cpp:863
+#: gui/fixtureeditdialog.cpp:773
 msgid "No thumbnail image found in this GDTF."
 msgstr ""
 
-#: gui/fixtureeditdialog.cpp:1145 gui/fixtureeditdialog.cpp:1150
+#: gui/fixtureeditdialog.cpp:1056 gui/fixtureeditdialog.cpp:1061
 msgid "GDTF update"
 msgstr ""
 
@@ -1252,6 +1252,20 @@ msgstr ""
 msgid "Channel out of range (1-512)"
 msgstr ""
 
+#: gui/gdtf/fixture_part_navigator.cpp:10
+#: gui/gdtf/fixture_part_navigator.cpp:25
+msgid "All fixture"
+msgstr ""
+
+#: gui/gdtf/fixture_part_navigator.cpp:12
+msgid "Select a Geometry to inspect its subtree in Solo mode."
+msgstr ""
+
+#: gui/gdtf/fixture_part_navigator.cpp:36
+#, c-format
+msgid "%zu: %s [%s: %s]"
+msgstr ""
+
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:18
 msgid "Authored GDTF"
 msgstr ""
@@ -1265,11 +1279,14 @@ msgid "User override"
 msgstr ""
 
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:21
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:139
 msgid "Legacy Perastage"
 msgstr ""
 
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:22
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:99
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:130
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:136
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:183
 msgid "N/A"
 msgstr ""
 
@@ -1281,30 +1298,72 @@ msgstr ""
 msgid "Perastage project (PSTG)"
 msgstr ""
 
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:47
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:55
 #: viewer2d/viewer2drenderpanel.cpp:109
 msgid "Top"
 msgstr ""
 
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:48
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:56
 #: viewer2d/viewer2drenderpanel.cpp:109
 msgid "Front"
 msgstr ""
 
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:49
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:57
 #: viewer2d/viewer2drenderpanel.cpp:109
 msgid "Side"
 msgstr ""
 
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:51
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:59
 msgid "Bottom"
 msgstr ""
 
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:81
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:72
+#, c-format
+msgid "%s [%s]"
+msgstr ""
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:99
 #, c-format
 msgid ""
 "Archive path: %s\n"
 "Provenance: %s\n"
+"Diagnostic: %s"
+msgstr ""
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:111
+#, c-format
+msgid ""
+"File: %s\n"
+"Dimensions (m): %g × %g × %g\n"
+"Primitive: %s\n"
+"Geometry references: %zu"
+msgstr ""
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:114
+msgid "No Models available"
+msgstr ""
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:137
+msgid "Present; preview unavailable"
+msgstr ""
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:137
+msgid "Missing"
+msgstr ""
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:145
+msgid "Malformed SVG"
+msgstr ""
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:147
+msgid "Ambiguous resource"
+msgstr ""
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:152
+#, c-format
+msgid ""
+"Archive path: %s\n"
+"Insertion offsets: %g, %g\n"
 "Diagnostic: %s"
 msgstr ""
 
@@ -2820,7 +2879,7 @@ msgstr ""
 
 #: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:481
 #: gui/mainwindow_startup_splash.cpp:63
-#: gui/services/fixture_symbol_preparation_service.cpp:489
+#: gui/services/fixture_symbol_preparation_service.cpp:488
 msgid "Ready"
 msgstr ""
 
@@ -4235,26 +4294,6 @@ msgstr ""
 msgid "Credentials are valid and were saved."
 msgstr ""
 
-#: gui/preferences/gdtf_mutation_policy_panel.cpp:16
-msgid "GDTF definition completion:"
-msgstr ""
-
-#: gui/preferences/gdtf_mutation_policy_panel.cpp:19
-msgid "Complete and improve GDTF definitions (recommended)"
-msgstr ""
-
-#: gui/preferences/gdtf_mutation_policy_panel.cpp:20
-msgid "Preserve imported GDTF definitions"
-msgstr ""
-
-#: gui/preferences/gdtf_mutation_policy_panel.cpp:26
-msgid ""
-"Adds missing standard SVG views to a derived @Perastage GDTF when enabled. "
-"Existing resources require explicit replacement or repair.\n"
-"Preserving imported definitions disables automatic completion. Project "
-"symbols, scene editing, and explicit GDTF edits remain available."
-msgstr ""
-
 #: gui/preferences/language_preferences_page.cpp:45
 msgid "Interface language:"
 msgstr ""
@@ -4974,31 +5013,31 @@ msgstr ""
 msgid "Add from file..."
 msgstr ""
 
-#: gui/services/fixture_symbol_preparation_service.cpp:513
+#: gui/services/fixture_symbol_preparation_service.cpp:512
 msgid "fixture resource"
 msgstr ""
 
-#: gui/services/fixture_symbol_preparation_service.cpp:516
+#: gui/services/fixture_symbol_preparation_service.cpp:515
 msgid "Preparing"
 msgstr ""
 
-#: gui/services/fixture_symbol_preparation_service.cpp:520
+#: gui/services/fixture_symbol_preparation_service.cpp:519
 msgid "Capturing fixture views"
 msgstr ""
 
-#: gui/services/fixture_symbol_preparation_service.cpp:523
+#: gui/services/fixture_symbol_preparation_service.cpp:522
 msgid "Processing"
 msgstr ""
 
-#: gui/services/fixture_symbol_preparation_service.cpp:526
+#: gui/services/fixture_symbol_preparation_service.cpp:525
 msgid "Publishing"
 msgstr ""
 
-#: gui/services/fixture_symbol_preparation_service.cpp:529
+#: gui/services/fixture_symbol_preparation_service.cpp:528
 msgid "Refreshing"
 msgstr ""
 
-#: gui/services/fixture_symbol_preparation_service.cpp:534
+#: gui/services/fixture_symbol_preparation_service.cpp:533
 #, c-format
 msgid "Preparing fixture symbols: %s - %s - %zu pending"
 msgstr ""

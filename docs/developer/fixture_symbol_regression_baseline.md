@@ -96,3 +96,18 @@ including bounds through refresh and any separately requested publication phases
 every phase completed before its failure; later phases remain absent. Outcomes
 are deliberately limited to `skipped`, `generated`, and `failed` by the current
 contract.
+
+## Model ownership and project preparation
+
+`GdtfModelSvgInspection` exercises Base/Yoke/Head/Pixel resources, shared Pixel
+Geometry references, exact paths/offsets, absent File and duplicated File.
+`SymbolFixtureApplierGdtf` requires PSTG-only capture under both historical
+policies, byte-identical source and unchanged references in saved/unsaved scenes;
+its existing project Save/Load, override, Undo/Redo and legacy checks remain.
+`GdtfResourceSvgBitmap` also exercises Fixture Editor Model selection, unchanged
+project previews and canonical SVG-only/PNG-only thumbnails. Resource existence
+is tested independently of internal polygon parsing. `GdtfGeometryInspection`
+checks All/Solo filtering of repeated Models without changing tree transforms.
+The model SVG boundary guard forbids automatic capture/publication coupling.
+Native platform layout, OpenGL navigation and CJK font validation remain manual
+release checks in addition to the automated Linux GUI tests.

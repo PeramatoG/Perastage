@@ -113,9 +113,9 @@ void FixtureSymbolPreparationService::Request(
   for (const auto &warning : inherited.warnings)
     diagnostics::DiagnosticLogger::Warning(warning);
   const auto &fixture = cfg.GetScene().fixtures.at(fixtureUuid);
-  const auto policy = gdtf::ReadMutationPolicy(GetDefaultGuiConfigServices().Preferences());
   if (!symbols::NeedsAutomaticFixtureSymbolPreparation(
-          fixture, cfg.GetProjectFixtureSymbols(), key.effectiveGdtfPath, policy))
+          fixture, cfg.GetProjectFixtureSymbols(), key.effectiveGdtfPath,
+          gdtf::MutationPolicy::PreserveImported))
     return;
   if (fallbackDiagnostics_.contains(key))
     return;
@@ -136,7 +136,7 @@ void FixtureSymbolPreparationService::Request(
     if (fallbackDiagnostics_.insert(key).second) {
       diagnostics::DiagnosticLogger::Info(
           "Fixture geometry is unavailable; the current symbol representation is retained. "
-          "Standard completion was skipped: " + geometryDiagnostic);
+          "Project symbol capture was skipped: " + geometryDiagnostic);
     }
     return;
   }
@@ -192,7 +192,7 @@ void FixtureSymbolPreparationService::PromoteManualFixture(
       "Fixture symbol automatic work paused for manual preview.");
 }
 
-// Rechecks standard completion independently of the retained project override.
+// Rechecks PSTG preparation eligibility after manual preview ends.
 void FixtureSymbolPreparationService::CompleteManualFixture(
     const std::string &fixtureUuid, bool applied) {
   const auto manualIt = manualWork_.find(fixtureUuid);
@@ -291,7 +291,7 @@ void FixtureSymbolPreparationService::RunNextStep() {
                 fixtureIt->second,
                 GetDefaultGuiConfigServices().LegacyConfigManager().GetProjectFixtureSymbols(),
                 resolution.selectedPath,
-                gdtf::ReadMutationPolicy(GetDefaultGuiConfigServices().Preferences()))) {
+                gdtf::MutationPolicy::PreserveImported)) {
           coordinator_.Skip(*currentKey_, epoch_);
           work_.erase(*currentKey_);
           currentKey_.reset();
@@ -440,7 +440,7 @@ void FixtureSymbolPreparationService::RunNextStep() {
     const auto applied = symbols::PrepareFixtureSymbols(
         cfg.GetScene(), cfg.GetProjectFixtureSymbols(), work.fixtureUuid,
         currentKey_->effectiveGdtfPath, work.processedSymbols,
-        gdtf::ReadMutationPolicy(GetDefaultGuiConfigServices().Preferences()));
+        gdtf::MutationPolicy::PreserveImported);
     if (!coordinator_.IsCurrent(epoch_) || !applied.success) {
       FailCurrent(applied.diagnostic.empty()
                       ? "Fixture symbol application was rejected as stale."
@@ -448,8 +448,7 @@ void FixtureSymbolPreparationService::RunNextStep() {
       return;
     }
     for (const auto &warning : applied.warnings)
-      diagnostics::DiagnosticLogger::Warning("Fixture standard completion: " + warning);
-    work.fixtureReferencesUpdated = applied.fixtureReferencesUpdated;
+      diagnostics::DiagnosticLogger::Warning("Fixture project symbols: " + warning);
     work.projectSymbolsUpdated = applied.projectSymbolsUpdated;
     coordinator_.Complete(*currentKey_, epoch_, true);
     work.stage = WorkStage::Finalizing;
@@ -457,7 +456,7 @@ void FixtureSymbolPreparationService::RunNextStep() {
     return;
   }
 
-  if (work.fixtureReferencesUpdated || work.projectSymbolsUpdated) {
+  if (work.projectSymbolsUpdated) {
     cfg.MarkDirty();
     window_.RefreshAfterFixtureSymbolUpdate();
   }

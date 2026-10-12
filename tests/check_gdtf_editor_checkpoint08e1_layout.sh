@@ -31,16 +31,26 @@ require('wxScrolledWindow(contextSplitter' in fixture and 'Fixture instance' in 
         'Fixture Edit must use a compact scrollable Fixture instance pane.')
 require('wxNotebook* visualNotebook' in fixture_h and 'new wxNotebook' in fixture,
         'Fixture Edit must use a native visual-resource notebook.')
-for tab in ['Preview', 'Symbols']:
+for tab in ['Preview', 'GDTF wheels', 'Symbols']:
     require(f'AddPage' in fixture and tab in fixture, f'Missing Fixture visual-resource tab: {tab}.')
-require(fixture.count('visualNotebook->AddPage') == 2,
-        'Fixture visual-resource notebook must have exactly Preview and Symbols tabs.')
+require(fixture.count('visualNotebook->AddPage') == 3,
+        'Fixture visual-resource notebook must have exactly Preview, GDTF wheels and Symbols tabs.')
 require('fixtureImagePreview = new wxStaticBitmap(previewPage' in fixture,
         'Fixture image must be placed below the 3D preview on the Preview tab.')
-require('officialSymbolPreview' in fixture_h and 'LoadGdtfOfficialSvgSymbol' in fixture,
-        'Symbols tab must include an official GDTF SVG thumbnail preview above Perastage symbols.')
-require('symbolRootSizer->Add(officialSymbolPreview, 1' in fixture and 'symbolRootSizer->Add(symbolSizer, 1' in fixture,
-        'Official SVG thumbnail area must receive the same vertical proportion as the Top/Front/Side symbol area.')
+comparison = Path('gui/gdtf/fixture_symbol_comparison_panel.cpp').read_text()
+navigator = Path('gui/gdtf/fixture_part_navigator.cpp').read_text()
+require('officialSymbolPreview' not in fixture_h + fixture,
+        'The fixture thumbnail must not be duplicated on Symbols.')
+require('FixtureSymbolComparisonPanel' in fixture and 'modelSelector_' in comparison,
+        'Symbols must delegate per-Model inspection to one compact selector.')
+require('InspectGdtfModelSvgs' in comparison and 'GetOrCreateSvg' in comparison,
+        'Original Model previews must use Core inspection and the general SVG backend.')
+require('FixturePartNavigator* preview' in fixture_h and 'FixturePartNavigator(previewPage)' in fixture,
+        'Fixture Preview must delegate scalable part navigation.')
+require('All fixture' in navigator and 'ShowGeometry' in navigator,
+        'Part navigation must retain All and read-only Geometry Solo modes.')
+require('LoadGdtfThumbnailPreview' in fixture,
+        'Fixture thumbnail must use the shared canonical SVG/PNG preview boundary.')
 require(fixture.count('new GdtfEditorPanel(') == 1,
         'Fixture Edit must instantiate exactly one GdtfEditorPanel.')
 for child in ['GdtfMetadataPanel', 'GdtfTypeIdentityPanel', 'GdtfPhysicalPropertiesPanel', 'GdtfModesPanel']:
@@ -81,11 +91,13 @@ fixture_order = fixture.find('gdtfConfiguration.twoPaneOrder')
 require(fixture_order >= 0, 'Fixture must configure typed two-pane section order.')
 fixture_block = fixture[fixture_order:fixture.find('};', fixture_order)+2]
 expected_fixture = ['GdtfEditorSection::TypeIdentity', 'GdtfEditorSection::Metadata',
-                    'GdtfEditorSection::PhysicalProperties', 'GdtfEditorSection::ChannelSummary',
-                    'GdtfEditorSection::Modes']
+                    'GdtfEditorSection::PhysicalProperties', 'GdtfEditorSection::Modes']
 positions = [fixture_block.find(token) for token in expected_fixture]
 require(all(pos >= 0 for pos in positions) and positions == sorted(positions),
         'Fixture section order must be Type, Metadata, Physical in overview and Modes in workspace.')
+require('fixtureChannelSummaryPanel = new GdtfChannelSummaryPanel(fixtureScroll)' in fixture and
+        'gdtfConfiguration.channelSummary.visible = false' in fixture,
+        'The quick channel summary belongs to the compact fixture context pane.')
 require(fixture_block.count('GdtfEditorPane::Workspace') == 1 and 'GdtfEditorSection::Modes' in fixture_block,
         'Fixture browser must be isolated in the workspace pane while the quick summary stays in overview.')
 
@@ -104,9 +116,9 @@ require('gdtfConfiguration.channelSummary.visible = false' in truss and 'gdtfCon
 
 require('wxDataViewCtrl' in modes and 'Mode and channel browser' in modes,
         'GdtfModesPanel must use the 08E2 read-only mode/channel browser after 08E1.')
-for forbidden in ['wxTreeCtrl', 'wxSlider', 'GdtfWheel']:
-    require(forbidden not in fixture + truss + panel + modes,
-            f'08E1 must not introduce future browser/resource controls: {forbidden}.')
+for forbidden in ['wxTreeCtrl', 'wxSlider']:
+    require(forbidden not in fixture + truss + panel,
+            f'Host layout must delegate browser/resource controls: {forbidden}.')
 for forbidden in ['GdtfApplyRequest', 'ProjectFixtureGdtfApplyAdapter', 'ProjectTrussGdtfApplyAdapter', 'GdtfEditSession']:
     require(forbidden not in panel_h + panel, f'Reusable panels must not depend on apply/session type {forbidden}.')
 require('ApplyChanges' in fixture and 'ApplyChanges' in truss,

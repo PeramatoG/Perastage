@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-12 18:32+0000\n"
+"POT-Creation-Date: 2026-10-12 20:33+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -817,7 +817,7 @@ msgstr ""
 "\n"
 
 #: gui/dictionaryeditdialog.cpp:1521 gui/dictionaryeditdialog.cpp:2276
-#: gui/fixtureeditdialog.cpp:770 gui/fixturetablepanel.cpp:525
+#: gui/fixtureeditdialog.cpp:671 gui/fixturetablepanel.cpp:525
 #: gui/mainwindow_fixture_replace.cpp:224 gui/mainwindow_menu.cpp:1005
 #: gui/mainwindow_menu.cpp:1028
 msgid "Select GDTF file"
@@ -1146,15 +1146,15 @@ msgstr "从选定方向的一点开始"
 msgid "Placement"
 msgstr "放置："
 
-#: gui/fixtureeditdialog.cpp:376
+#: gui/fixtureeditdialog.cpp:277
 msgid "Fixture instance"
 msgstr "灯具类型"
 
-#: gui/fixtureeditdialog.cpp:589
+#: gui/fixtureeditdialog.cpp:490
 msgid "Mode channels"
 msgstr "通道"
 
-#: gui/fixtureeditdialog.cpp:599
+#: gui/fixtureeditdialog.cpp:500
 msgid ""
 "Type, source, and mode controls select project fixture context. Power and "
 "weight edits update the GDTF file and append a revision entry."
@@ -1162,37 +1162,37 @@ msgstr ""
 "类型、源和模式控件选择项目夹具上下文。功率和重量编辑更新 GDTF 文件并附加修订"
 "条目。"
 
-#: gui/fixtureeditdialog.cpp:615
+#: gui/fixtureeditdialog.cpp:516
 msgid "GDTF thumbnail"
 msgstr "GDTF 缩略图"
 
-#: gui/fixtureeditdialog.cpp:620
+#: gui/fixtureeditdialog.cpp:521
 #: gui/inspection/inspector_workspace_panel.cpp:544
 msgid "Preview"
 msgstr "< 上一页"
 
-#: gui/fixtureeditdialog.cpp:623
+#: gui/fixtureeditdialog.cpp:524
 msgid "GDTF wheels"
 msgstr "GDTF Share 凭据"
 
-#: gui/fixtureeditdialog.cpp:630
+#: gui/fixtureeditdialog.cpp:531
 msgid "Symbols"
 msgstr "Symbols"
 
-#: gui/fixtureeditdialog.cpp:741 gui/trusseditdialog.cpp:520
+#: gui/fixtureeditdialog.cpp:642 gui/trusseditdialog.cpp:520
 msgid "Fix malformed GDTF editor values before applying."
 msgstr "在应用之前修复格式错误的 GDTF 编辑器值。"
 
-#: gui/fixtureeditdialog.cpp:742 gui/fixtureeditdialog.cpp:761
+#: gui/fixtureeditdialog.cpp:643 gui/fixtureeditdialog.cpp:662
 #: gui/trusseditdialog.cpp:521 gui/trusseditdialog.cpp:543
 msgid "GDTF validation"
 msgstr "GDTF 验证"
 
-#: gui/fixtureeditdialog.cpp:863
+#: gui/fixtureeditdialog.cpp:773
 msgid "No thumbnail image found in this GDTF."
 msgstr "在此 GDTF 中找不到缩略图。"
 
-#: gui/fixtureeditdialog.cpp:1145 gui/fixtureeditdialog.cpp:1150
+#: gui/fixtureeditdialog.cpp:1056 gui/fixtureeditdialog.cpp:1061
 msgid "GDTF update"
 msgstr "GDTF 更新"
 
@@ -1356,6 +1356,20 @@ msgstr "无效值"
 msgid "Channel out of range (1-512)"
 msgstr "通道超出范围（1-512）"
 
+#: gui/gdtf/fixture_part_navigator.cpp:10
+#: gui/gdtf/fixture_part_navigator.cpp:25
+msgid "All fixture"
+msgstr "整灯"
+
+#: gui/gdtf/fixture_part_navigator.cpp:12
+msgid "Select a Geometry to inspect its subtree in Solo mode."
+msgstr "选择 Geometry，在 Solo 模式检查其子树。"
+
+#: gui/gdtf/fixture_part_navigator.cpp:36
+#, c-format
+msgid "%zu: %s [%s: %s]"
+msgstr "%zu: %s [%s: %s]"
+
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:18
 msgid "Authored GDTF"
 msgstr "原始 GDTF"
@@ -1369,11 +1383,14 @@ msgid "User override"
 msgstr "用户自定义符号"
 
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:21
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:139
 msgid "Legacy Perastage"
 msgstr "旧版 Perastage"
 
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:22
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:99
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:130
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:136
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:183
 msgid "N/A"
 msgstr "不适用"
 
@@ -1385,26 +1402,31 @@ msgstr "标准 GDTF"
 msgid "Perastage project (PSTG)"
 msgstr "Perastage 项目 (PSTG)"
 
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:47
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:55
 #: viewer2d/viewer2drenderpanel.cpp:109
 msgid "Top"
 msgstr "顶视图"
 
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:48
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:56
 #: viewer2d/viewer2drenderpanel.cpp:109
 msgid "Front"
 msgstr "前视图"
 
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:49
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:57
 #: viewer2d/viewer2drenderpanel.cpp:109
 msgid "Side"
 msgstr "侧视图"
 
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:51
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:59
 msgid "Bottom"
 msgstr "底部"
 
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:81
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:72
+#, c-format
+msgid "%s [%s]"
+msgstr "%s [%s]"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:99
 #, c-format
 msgid ""
 "Archive path: %s\n"
@@ -1413,6 +1435,50 @@ msgid ""
 msgstr ""
 "归档路径：%s\n"
 "来源：%s\n"
+"诊断：%s"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:111
+#, c-format
+msgid ""
+"File: %s\n"
+"Dimensions (m): %g × %g × %g\n"
+"Primitive: %s\n"
+"Geometry references: %zu"
+msgstr ""
+"文件：%s\n"
+"尺寸（m）：%g × %g × %g\n"
+"基本形状：%s\n"
+"Geometry 引用：%zu"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:114
+msgid "No Models available"
+msgstr "没有可用的 Model"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:137
+msgid "Present; preview unavailable"
+msgstr "存在；预览不可用"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:137
+msgid "Missing"
+msgstr "缺失"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:145
+msgid "Malformed SVG"
+msgstr "SVG 格式错误"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:147
+msgid "Ambiguous resource"
+msgstr "资源有歧义"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:152
+#, c-format
+msgid ""
+"Archive path: %s\n"
+"Insertion offsets: %g, %g\n"
+"Diagnostic: %s"
+msgstr ""
+"归档路径：%s\n"
+"插入偏移：%g, %g\n"
 "诊断：%s"
 
 #: gui/gdtf/gdtf_metadata_panel.cpp:64
@@ -2937,7 +3003,7 @@ msgstr "选择桁架线上的两个点，或按 Esc 键取消。"
 
 #: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:481
 #: gui/mainwindow_startup_splash.cpp:63
-#: gui/services/fixture_symbol_preparation_service.cpp:489
+#: gui/services/fixture_symbol_preparation_service.cpp:488
 msgid "Ready"
 msgstr "就绪"
 
@@ -4371,30 +4437,6 @@ msgstr "凭据有效，但未保存（%s）。"
 msgid "Credentials are valid and were saved."
 msgstr "Credentials are valid and were saved."
 
-#: gui/preferences/gdtf_mutation_policy_panel.cpp:16
-msgid "GDTF definition completion:"
-msgstr "GDTF 定义补全："
-
-#: gui/preferences/gdtf_mutation_policy_panel.cpp:19
-msgid "Complete and improve GDTF definitions (recommended)"
-msgstr "补全并完善 GDTF 定义（推荐）"
-
-#: gui/preferences/gdtf_mutation_policy_panel.cpp:20
-msgid "Preserve imported GDTF definitions"
-msgstr "保留导入的 GDTF 定义"
-
-#: gui/preferences/gdtf_mutation_policy_panel.cpp:26
-msgid ""
-"Adds missing standard SVG views to a derived @Perastage GDTF when enabled. "
-"Existing resources require explicit replacement or repair.\n"
-"Preserving imported definitions disables automatic completion. Project "
-"symbols, scene editing, and explicit GDTF edits remain available."
-msgstr ""
-"启用后，会将缺失的标准 SVG 视图添加到 @Perastage 派生 GDTF 中。替换或修复现有"
-"资源需要明确操作。\n"
-"保留导入的定义会禁用自动补全。项目符号、场景编辑和明确请求的 GDTF 编辑仍然可"
-"用。"
-
 #: gui/preferences/language_preferences_page.cpp:45
 msgid "Interface language:"
 msgstr "界面语言："
@@ -5131,31 +5173,31 @@ msgstr "选择灯具类型："
 msgid "Add from file..."
 msgstr "从文件添加..."
 
-#: gui/services/fixture_symbol_preparation_service.cpp:513
+#: gui/services/fixture_symbol_preparation_service.cpp:512
 msgid "fixture resource"
 msgstr "灯具资源"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:516
+#: gui/services/fixture_symbol_preparation_service.cpp:515
 msgid "Preparing"
 msgstr "正在准备"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:520
+#: gui/services/fixture_symbol_preparation_service.cpp:519
 msgid "Capturing fixture views"
 msgstr "正在捕获灯具视图"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:523
+#: gui/services/fixture_symbol_preparation_service.cpp:522
 msgid "Processing"
 msgstr "正在处理"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:526
+#: gui/services/fixture_symbol_preparation_service.cpp:525
 msgid "Publishing"
 msgstr "正在发布"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:529
+#: gui/services/fixture_symbol_preparation_service.cpp:528
 msgid "Refreshing"
 msgstr "正在刷新"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:534
+#: gui/services/fixture_symbol_preparation_service.cpp:533
 #, c-format
 msgid "Preparing fixture symbols: %s - %s - %zu pending"
 msgstr "正在准备灯具符号：%s - %s - %zu 个待处理"
@@ -5665,6 +5707,26 @@ msgstr "渲染模式"
 #: viewer3d/viewer3dpanel.cpp:2285
 msgid "Export image..."
 msgstr "导出灯具..."
+
+#~ msgid "GDTF definition completion:"
+#~ msgstr "GDTF 定义补全："
+
+#~ msgid "Complete and improve GDTF definitions (recommended)"
+#~ msgstr "补全并完善 GDTF 定义（推荐）"
+
+#~ msgid "Preserve imported GDTF definitions"
+#~ msgstr "保留导入的 GDTF 定义"
+
+#~ msgid ""
+#~ "Adds missing standard SVG views to a derived @Perastage GDTF when "
+#~ "enabled. Existing resources require explicit replacement or repair.\n"
+#~ "Preserving imported definitions disables automatic completion. Project "
+#~ "symbols, scene editing, and explicit GDTF edits remain available."
+#~ msgstr ""
+#~ "启用后，会将缺失的标准 SVG 视图添加到 @Perastage 派生 GDTF 中。替换或修复"
+#~ "现有资源需要明确操作。\n"
+#~ "保留导入的定义会禁用自动补全。项目符号、场景编辑和明确请求的 GDTF 编辑仍然"
+#~ "可用。"
 
 #~ msgid "Language:"
 #~ msgstr "语言："

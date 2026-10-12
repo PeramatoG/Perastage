@@ -8,7 +8,7 @@ Perastage es una herramienta de escritorio de código abierto para trabajar con 
 
 ## GDTF y GDTF Share
 
-Utiliza definiciones de luminarias y diccionarios locales, [busca y descarga GDTF](gdtf-download.md), consulta el catálogo en caché sin conexión y revisa revisiones y modos DMX. [Preferencias](preferences.md#completar-definiciones-gdtf) controla el completado automático de definiciones.
+Utiliza definiciones de luminarias y diccionarios locales, [busca y descarga GDTF](gdtf-download.md), consulta el catálogo en caché sin conexión y revisa revisiones y modos DMX. El editor inspecciona cada Model y conserva los recursos originales GDTF.
 
 ## MVR / GDTF Inspector
 

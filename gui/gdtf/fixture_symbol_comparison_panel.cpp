@@ -6,10 +6,10 @@
 #include <wx/sizer.h>
 #include <wx/statbox.h>
 #include <wx/stattext.h>
+#include <wx/choice.h>
+#include "gdtf_archive_reader.h"
 #include "symbols/fixture_symbol_availability.h"
-#include "symbols/project_fixture_symbol_runtime.h"
-#include "configmanager.h"
-#include "guiconfigservices.h"
+#include "filesystem_path_utils.h"
 #include "windows/symbol_preview_drawing.h"
 
 namespace {
@@ -29,8 +29,16 @@ FixtureSymbolComparisonPanel::FixtureSymbolComparisonPanel(wxWindow *parent)
   auto *root = new wxBoxSizer(wxVERTICAL);
   SetSizer(root);
   for (auto set : {FixtureSymbolResourceSet::StandardGdtf, FixtureSymbolResourceSet::Perastage}) {
-    auto *group = new wxStaticBoxSizer(wxHORIZONTAL, this,
+    auto *group = new wxStaticBoxSizer(wxVERTICAL, this,
         set == FixtureSymbolResourceSet::StandardGdtf ? _("Standard GDTF") : _("Perastage project (PSTG)"));
+    if (set == FixtureSymbolResourceSet::StandardGdtf) {
+      modelSelector_ = new wxChoice(group->GetStaticBox(), wxID_ANY);
+      modelSelector_->Bind(wxEVT_CHOICE, [this](wxCommandEvent &) { UpdateSelectedModel(); });
+      group->Add(modelSelector_, 0, wxEXPAND | wxALL, 3);
+      modelDetails_ = new wxStaticText(group->GetStaticBox(), wxID_ANY, "");
+      group->Add(modelDetails_, 0, wxEXPAND | wxALL, 3);
+    }
+    auto *views = new wxBoxSizer(wxHORIZONTAL);
     const auto add = [&](SymbolViewKind view, const wxString &label) {
       auto *column = new wxBoxSizer(wxVERTICAL);
       column->Add(new wxStaticText(group->GetStaticBox(), wxID_ANY, label),
@@ -42,27 +50,37 @@ FixtureSymbolComparisonPanel::FixtureSymbolComparisonPanel(wxWindow *parent)
       panel->Bind(wxEVT_SIZE, [panel](wxSizeEvent &event) { panel->Refresh(); event.Skip(); });
       previews_.push_back({panel, set, view, {}, {}});
       column->Add(panel, 1, wxEXPAND);
-      group->Add(column, 1, wxEXPAND | wxALL, 3);
+      views->Add(column, 1, wxEXPAND | wxALL, 3);
     };
     add(SymbolViewKind::Top, _("Top"));
     add(SymbolViewKind::Front, _("Front"));
     add(SymbolViewKind::Left, _("Side"));
     if (set == FixtureSymbolResourceSet::Perastage)
       add(SymbolViewKind::Bottom, _("Bottom"));
+    group->Add(views, 1, wxEXPAND);
     root->Add(group, 1, wxEXPAND | wxALL, 6);
   }
 }
 
 void FixtureSymbolComparisonPanel::SetArchivePath(const std::string &path,
-                                                 const std::string &fixtureUuid) {
+                                                 const std::string &projectSource) {
+  archivePath_ = path;
+  bitmapCache_.Clear();
+  catalog_ = symbols::InspectGdtfModelSvgs(PathUtils::PathFromUtf8(path));
+  modelSelector_->Clear();
+  for (const auto &model : catalog_.models)
+    modelSelector_->Append(wxString::Format(_("%s [%s]"),
+        wxString::FromUTF8(model.name), wxString::FromUTF8(model.file)));
+  modelSelector_->Enable(!catalog_.models.empty());
+  if (!catalog_.models.empty())
+    modelSelector_->SetSelection(0);
+  UpdateSelectedModel();
   const auto availability = symbol_cache::InspectFixtureSymbolAvailability(path);
-  std::string projectSource;
-  const auto &fixtures = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().fixtures;
-  if (const auto fixture = fixtures.find(fixtureUuid); fixture != fixtures.end())
-    projectSource = symbols::BuildProjectFixtureSymbolSource(fixture->second);
   const auto projectAvailability = projectSource.empty() ? availability
       : symbol_cache::InspectFixtureSymbolAvailability(projectSource);
   for (auto &preview : previews_) {
+    if (preview.set == FixtureSymbolResourceSet::StandardGdtf)
+      continue;
     const bool project = preview.set == FixtureSymbolResourceSet::InternalRendering && !projectSource.empty();
     preview.model = BuildFixtureSymbolPreviewModel(project ? projectAvailability.resources : availability.resources,
                                                    preview.set, preview.view);
@@ -85,6 +103,60 @@ void FixtureSymbolComparisonPanel::SetArchivePath(const std::string &path,
   }
 }
 
+void FixtureSymbolComparisonPanel::UpdateSelectedModel() {
+  const int selected = modelSelector_->GetSelection();
+  const auto *model = selected >= 0 && static_cast<size_t>(selected) < catalog_.models.size()
+      ? &catalog_.models[selected] : nullptr;
+  modelDetails_->SetLabel(model ? wxString::Format(
+      _("File: %s\nDimensions (m): %g × %g × %g\nPrimitive: %s\nGeometry references: %zu"),
+      wxString::FromUTF8(model->file), model->lengthMeters, model->widthMeters,
+      model->heightMeters, wxString::FromUTF8(model->primitiveType),
+      model->geometryReferences.size()) : _("No Models available"));
+  std::string details;
+  if (model) {
+    for (const auto &reference : model->geometryReferences)
+      details += reference + "\n";
+    for (const auto &diagnostic : model->diagnostics)
+      details += diagnostic + "\n";
+  }
+  for (const auto &diagnostic : catalog_.diagnostics)
+    details += diagnostic + "\n";
+  modelDetails_->SetToolTip(wxString::FromUTF8(details));
+  for (auto &preview : previews_) {
+    if (preview.set != FixtureSymbolResourceSet::StandardGdtf)
+      continue;
+    preview.standard = {};
+    preview.svg.clear();
+    preview.status = _("N/A");
+    if (model) {
+      const auto view = std::find_if(model->views.begin(), model->views.end(),
+          [&](const auto &resource) { return resource.view == preview.view; });
+      if (view != model->views.end()) {
+        preview.standard = *view;
+        preview.status = view->archivePath.empty() ? _("N/A")
+            : view->present ? _("Present; preview unavailable") : _("Missing");
+        if (view->legacyPerastage) {
+          preview.status = _("Legacy Perastage");
+        } else if (view->state == symbols::ModelSvgResourceState::Present) {
+          const auto bytes = gdtf::ReadGdtfArchiveResource(PathUtils::PathFromUtf8(archivePath_), view->archivePath);
+          if (bytes.Success() && !bytes.filesystemFallback && bytes.entryPath == view->archivePath)
+            preview.svg.assign(bytes.bytes.begin(), bytes.bytes.end());
+        } else if (view->state == symbols::ModelSvgResourceState::Malformed) {
+          preview.status = _("Malformed SVG");
+        } else if (view->state == symbols::ModelSvgResourceState::Ambiguous) {
+          preview.status = _("Ambiguous resource");
+        }
+      }
+    }
+    preview.panel->SetToolTip(wxString::Format(
+        _("Archive path: %s\nInsertion offsets: %g, %g\nDiagnostic: %s"),
+        wxString::FromUTF8(preview.standard.archivePath), preview.standard.offsetX,
+        preview.standard.offsetY, wxString::FromUTF8(preview.standard.diagnostic)));
+    preview.panel->Refresh();
+  }
+  Layout();
+}
+
 void FixtureSymbolComparisonPanel::DrawPreview(wxPaintEvent &event) {
   const auto it = std::find_if(previews_.begin(), previews_.end(), [&](const auto &preview) {
     return preview.panel == event.GetEventObject();
@@ -95,6 +167,18 @@ void FixtureSymbolComparisonPanel::DrawPreview(wxPaintEvent &event) {
   dc.SetBackground(wxBrush(it->panel->GetBackgroundColour()));
   dc.Clear();
   const wxRect rect = it->panel->GetClientRect();
+  if (it->set == FixtureSymbolResourceSet::StandardGdtf) {
+    if (!it->svg.empty() && rect.GetWidth() > 0 && rect.GetHeight() > 0) {
+      const auto bitmap = bitmapCache_.GetOrCreateSvg(archivePath_, it->standard.archivePath,
+          it->svg, rect.GetSize(), it->panel->GetBackgroundColour());
+      if (bitmap.decoded) {
+        dc.DrawBitmap(bitmap.bitmap, 0, 0, true);
+        return;
+      }
+    }
+    dc.DrawLabel(it->status, rect, wxALIGN_CENTER);
+    return;
+  }
   if (!it->data) {
     dc.DrawLabel(_("N/A"), rect, wxALIGN_CENTER);
     return;

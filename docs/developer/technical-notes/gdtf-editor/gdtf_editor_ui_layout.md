@@ -26,8 +26,23 @@ The Fixture GDTF section order is configured with typed placements:
 
 The visual resources are native notebook tabs:
 
-- `Preview`: 3D Preview in the upper area and Fixture Image below it.
-- `Symbols`: independent Standard GDTF Top/Front/Side and Perastage project Top/Front/Side/Bottom groups. Missing or unusable resources show N/A with source/provenance diagnostics. The comparison panel is presentation-only and consumes Core inspection/loading.
+- `Preview`: All fixture is the default. A compact Geometry/Model selector shows
+  the selected Geometry subtree in Solo mode using the shared loaded hierarchy
+  and assembled world transforms. Stable node indices distinguish repeated
+  Model instances. The root PNG/SVG thumbnail stays below the 3D preview.
+- `Symbols`: Standard GDTF uses one Model selector, not a tab per Model. The
+  selected Model exposes its Name, File, dimensions, PrimitiveType, Geometry
+  reference count and exact Top/Front/Side originals, with paths and offsets in
+  tooltips. Present-but-unsupported previews remain distinct from missing or
+  malformed resources. The independent Perastage project (PSTG) group remains
+  fixture-wide Top/Front/Side/Bottom with generated/override provenance. Standard
+  views never use another Model, view, Top fallback or project symbol.
+
+`GdtfNode3D` carries modelName/modelFile and geometryName for inspection without
+new XML parsing. GeometryReference instances retain their own displayed name
+while stableName, node order, transforms and render identity remain unchanged.
+Copying/caches retain the fields; render-content hashes intentionally exclude
+this descriptive metadata so stable render identity does not change.
 
 The optional GDTF `FixtureType` `Thumbnail` is a root-level `.png` or `.svg`
 resource and remains on the Preview page; it is independent from model symbol

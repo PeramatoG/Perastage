@@ -131,7 +131,7 @@ int main() {
       .WithArchiveEntry("wheels/open.png", "authored wheel")
       .WriteArchive(source);
   const std::string original = ReadFile(source);
-  const auto inspected = symbols::InspectStandardGdtfViews(source);
+  const auto inspected = symbols::InspectStandardGdtfViews(source, modelFile);
   assert(inspected.success && inspected.views.size() == 3);
   for (const auto &view : inspected.views)
     assert(view.state == StandardGdtfViewState::Missing);
@@ -140,13 +140,13 @@ int main() {
 
   auto prepared = Prepare(source, published);
   auto result = symbols::CompleteStandardGdtfViews(
-      source, prepared, candidates, gdtf::MutationPolicy::PreserveImported);
+      source, prepared, candidates, gdtf::MutationPolicy::PreserveImported, modelFile);
   assert(result.success && !result.changed && !fs::exists(published));
   assert(!fs::exists(prepared.workingPath) && ReadFile(source) == original);
 
   prepared = Prepare(source, published);
   result = symbols::CompleteStandardGdtfViews(
-      source, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove);
+      source, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove, modelFile);
   assert(result.success && result.changed && result.publishedPath == published);
   assert(!fs::exists(prepared.workingPath));
   assert(ReadFile(source) == original);
@@ -161,7 +161,7 @@ int main() {
   bool invokedPublisher = false;
   result = symbols::CompleteStandardGdtfViews(
       published, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove,
-      "", [&](const auto &, auto &) { invokedPublisher = true; return false; });
+      modelFile, [&](const auto &, auto &) { invokedPublisher = true; return false; });
   assert(result.success && !result.changed && !invokedPublisher);
   assert(ReadFile(published) == completed && RevisionCount(published) == 1);
 
@@ -174,13 +174,13 @@ int main() {
       .WithArchiveEntry("models/svg_side/" + modelFile + ".svg", "<svg")
       .WriteArchive(mixed);
   const std::string mixedOriginal = ReadFile(mixed);
-  const auto mixedInspection = symbols::InspectStandardGdtfViews(mixed);
+  const auto mixedInspection = symbols::InspectStandardGdtfViews(mixed, modelFile);
   assert(mixedInspection.views[0].state == StandardGdtfViewState::ExistingUsable);
   assert(mixedInspection.views[1].state == StandardGdtfViewState::ExistingUnusable);
   assert(mixedInspection.views[2].state == StandardGdtfViewState::Missing);
   prepared = Prepare(mixed, improved);
   result = symbols::CompleteStandardGdtfViews(
-      mixed, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove);
+      mixed, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove, modelFile);
   assert(result.success && result.changed && !result.diagnostics.empty());
   assert(RevisionCount(improved) == 1);
   assert(Entry(improved, "description.xml").find("Added missing standard SVG Front view") !=
@@ -190,22 +190,22 @@ int main() {
   assert(ReadFile(mixed) == mixedOriginal);
   prepared = Prepare(improved, improved);
   result = symbols::ReplaceStandardGdtfViews(
-      improved, prepared, {candidates[1]}, symbols::StandardGdtfReplacementIntent::RepairInvalid);
+      improved, prepared, {candidates[1]}, symbols::StandardGdtfReplacementIntent::RepairInvalid, modelFile);
   assert(result.success && result.changed && RevisionCount(improved) == 2);
   assert(Entry(improved, "description.xml").find("after explicit user repair") != std::string::npos);
   const std::string repaired = ReadFile(improved);
   prepared = Prepare(improved, improved);
   result = symbols::ReplaceStandardGdtfViews(
-      improved, prepared, {candidates[0]}, symbols::StandardGdtfReplacementIntent::RepairInvalid);
+      improved, prepared, {candidates[0]}, symbols::StandardGdtfReplacementIntent::RepairInvalid, modelFile);
   assert(!result.success && ReadFile(improved) == repaired);
   prepared = Prepare(improved, improved);
   result = symbols::ReplaceStandardGdtfViews(
-      improved, prepared, {candidates[0]}, symbols::StandardGdtfReplacementIntent::ReplaceExisting);
+      improved, prepared, {candidates[0]}, symbols::StandardGdtfReplacementIntent::ReplaceExisting, modelFile);
   assert(result.success && result.changed && RevisionCount(improved) == 3);
   const std::string explicitlyReplaced = ReadFile(improved);
   prepared = Prepare(improved, improved);
   result = symbols::ReplaceStandardGdtfViews(
-      improved, prepared, {candidates[0]}, symbols::StandardGdtfReplacementIntent::ReplaceExisting);
+      improved, prepared, {candidates[0]}, symbols::StandardGdtfReplacementIntent::ReplaceExisting, modelFile);
   assert(result.success && !result.changed && ReadFile(improved) == explicitlyReplaced);
 
   // Legacy extensions are copied out of intentional output, never source-mutated.
@@ -221,7 +221,7 @@ int main() {
   const std::string legacyBytes = ReadFile(legacy);
   prepared = Prepare(legacy, legacyOutput);
   result = symbols::CompleteStandardGdtfViews(
-      legacy, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove);
+      legacy, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove, modelFile);
   assert(result.success && result.changed && RevisionCount(legacyOutput) == 1);
   assert(ReadFile(legacy) == legacyBytes);
   CheckStandardOutput(legacyOutput, modelFile);
@@ -231,22 +231,22 @@ int main() {
   invalidCandidate.offsetXmm = std::numeric_limits<double>::infinity();
   prepared = Prepare(source, published);
   result = symbols::CompleteStandardGdtfViews(
-      source, prepared, {invalidCandidate}, gdtf::MutationPolicy::CompleteAndImprove);
+      source, prepared, {invalidCandidate}, gdtf::MutationPolicy::CompleteAndImprove, modelFile);
   assert(!result.success && ReadFile(published) == completed);
   assert(!fs::exists(prepared.workingPath));
   prepared = Prepare(source, published);
   result = symbols::CompleteStandardGdtfViews(
       source, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove,
-      "", [](const auto &, std::string &error) { error = "Test publication refused"; return false; });
+      modelFile, [](const auto &, std::string &error) { error = "Test publication refused"; return false; });
   assert(!result.success && ReadFile(published) == completed && ReadFile(source) == original);
   assert(!fs::exists(prepared.workingPath));
 
   const fs::path noFile = root / "NoModelFile.gdtf";
   tests::gdtf::BuildMinimalValidFixture().WriteArchive(noFile);
-  assert(!symbols::InspectStandardGdtfViews(noFile).success);
+  assert(!symbols::InspectStandardGdtfViews(noFile, "").success);
   const fs::path unsafe = root / "UnsafeModel.gdtf";
   tests::gdtf::BuildMinimalValidFixture().WithModelResource("../escape").WriteArchive(unsafe);
-  assert(!symbols::InspectStandardGdtfViews(unsafe).success);
+  assert(!symbols::InspectStandardGdtfViews(unsafe, "../escape").success);
 
   // An authored resource in an unsupported Bottom location has no ownership
   // evidence. Publication refuses it instead of silently deleting its bytes.
@@ -257,7 +257,7 @@ int main() {
   const std::string unknownBytes = ReadFile(unknownBottom);
   prepared = Prepare(unknownBottom, root / "UnknownBottom@Perastage.gdtf");
   result = symbols::CompleteStandardGdtfViews(
-      unknownBottom, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove);
+      unknownBottom, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove, "body");
   assert(!result.success && result.errorMessage.find("explicit repair") != std::string::npos);
   assert(ReadFile(unknownBottom) == unknownBytes && !fs::exists(prepared.publishedPath));
 
@@ -270,7 +270,7 @@ int main() {
   const std::string namedBytes = ReadFile(namedBottom);
   prepared = Prepare(namedBottom, namedOutput);
   result = symbols::CompleteStandardGdtfViews(
-      namedBottom, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove);
+      namedBottom, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove, "foo_bottom");
   assert(result.success && result.changed && RevisionCount(namedOutput) == 1);
   assert(Entry(namedOutput, "models/svg/foo_bottom.svg").find("polygon") != std::string::npos);
   assert(Entry(namedOutput, "models/svg/foo_bottom.svg").find("data-perastage-") == std::string::npos);
@@ -300,7 +300,7 @@ int main() {
   assert(evidence.success);
   prepared = Prepare(evidenceSource, root / "UnmarkedLegacy@Perastage.gdtf");
   result = symbols::CompleteStandardGdtfViews(
-      evidenceSource, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove);
+      evidenceSource, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove, "body");
   assert(result.success && result.changed && RevisionCount(prepared.publishedPath) == 2);
   assert(!tests::zip::ReadEntry(prepared.publishedPath, "models/svg/body_bottom.svg"));
 
@@ -328,8 +328,8 @@ int main() {
   const fs::path reorderedOutput = root / "Reordered@Perastage.gdtf";
   prepared = Prepare(source, reorderedOutput);
   result = symbols::CompleteStandardGdtfViews(
-      source, prepared, {candidates[2], candidates[0], candidates[1]},
-      gdtf::MutationPolicy::CompleteAndImprove);
+      source, prepared, {candidates[2], candidates[0], candidates[1]}, gdtf::MutationPolicy::CompleteAndImprove,
+      modelFile);
   assert(result.success && result.changed);
   assert(Entry(reorderedOutput, "description.xml").find(
       "Added missing standard SVG Top, Side and Front views") != std::string::npos);
@@ -351,8 +351,7 @@ int main() {
   const fs::path historicalOutput = root / "Historical@Perastage.gdtf";
   prepared = Prepare(historical, historicalOutput);
   result = symbols::ReplaceStandardGdtfViews(
-      historical, prepared, {candidates[2]},
-      symbols::StandardGdtfReplacementIntent::ReplaceExisting);
+      historical, prepared, {candidates[2]}, symbols::StandardGdtfReplacementIntent::ReplaceExisting, "history");
   assert(result.success && result.changed && ReadFile(historical) == historicalBytes);
   assert(Entry(historicalOutput, "models/svg_front/history.svg") == candidates[2].svg);
   assert(Entry(historicalOutput, "models/svg/history.svg") == authored);
@@ -416,7 +415,7 @@ int main() {
   WithRevision(partialBase, partialLegacy, "Applied fixture SVG symbol views (top, side)");
   prepared = Prepare(partialLegacy, partialOutput);
   result = symbols::CompleteStandardGdtfViews(
-      partialLegacy, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove);
+      partialLegacy, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove, "history");
   assert(result.success && result.changed && RevisionCount(partialOutput) == 2);
   assert(InspectFixtureSymbolResources(partialOutput.string(), resourceInspection));
   assert(resourceInspection.standardViewsUsable);
@@ -433,7 +432,7 @@ int main() {
   assert(prepared.publishedPath != authoredNamedSource);
   assert(prepared.publishedReference.starts_with("fixtures/"));
   result = symbols::CompleteStandardGdtfViews(
-      authoredNamedSource, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove);
+      authoredNamedSource, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove, modelFile);
   assert(result.success && result.changed && ReadFile(authoredNamedSource) == authoredNamedBytes);
   const fs::path ownedProjectDerivative = result.publishedPath;
   const std::string ownedBytes = ReadFile(ownedProjectDerivative);
@@ -441,7 +440,7 @@ int main() {
       ownedProjectDerivative, project, authoredNamedSource.filename(), prepared, error));
   assert(prepared.publishedPath == ownedProjectDerivative);
   result = symbols::CompleteStandardGdtfViews(
-      ownedProjectDerivative, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove);
+      ownedProjectDerivative, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove, modelFile);
   assert(result.success && !result.changed && ReadFile(ownedProjectDerivative) == ownedBytes);
 
   // A preexisting unrelated destination also remains byte-for-byte intact.
@@ -454,7 +453,7 @@ int main() {
       source, project, foreignDestination.filename(), prepared, error));
   assert(prepared.publishedPath != foreignDestination);
   result = symbols::CompleteStandardGdtfViews(
-      source, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove);
+      source, prepared, candidates, gdtf::MutationPolicy::CompleteAndImprove, modelFile);
   assert(result.success && result.changed && ReadFile(foreignDestination) == foreignBytes);
   assert(ReadFile(source) == original);
   fs::remove_all(root);

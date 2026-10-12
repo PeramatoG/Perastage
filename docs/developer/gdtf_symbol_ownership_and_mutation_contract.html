@@ -61,12 +61,20 @@
 <li>Front: <code>models/svg_front/&lt;Model.File&gt;.svg</code></li>
 </ul>
 <p>Their offsets belong to the corresponding standard <code>&lt;Model&gt;</code> attributes in <code>description.xml</code>.</p>
+<p>Models describe physically separated fixture parts. Geometries reference those
+Models and supply hierarchy/transforms; multiple Geometries may reuse one Model.
+SVG geometry is physical 1:1 in millimeters. Scaling a 3D mesh to a Model&#39;s
+dimensions must not be assumed to scale its authored SVG geometry.
+FixtureType/@Thumbnail is a basename for root <code>&lt;name&gt;.svg</code> and/or <code>&lt;name&gt;.png</code>;
+permissive thumbnail import guesses never outrank exact canonical resources.</p>
 <p>Bottom is not a standard GDTF 1.2 model SVG view and must not be emitted as a standard GDTF 1.2 resource. Perastage may support Bottom internally. If a later supported GDTF version standardizes Bottom, the GDTF serializer may emit it only when targeting that version and according to that version&#39;s exact rules.</p>
 <h2 id="official-references">Official references</h2>
 <ul>
 <li>GDTF specification: <a href="https://github.com/mvrdevelopment/spec/blob/main/gdtf-spec.md">https://github.com/mvrdevelopment/spec/blob/main/gdtf-spec.md</a></li>
 <li>MVR specification: <a href="https://github.com/mvrdevelopment/spec/blob/main/mvr-spec.md">https://github.com/mvrdevelopment/spec/blob/main/mvr-spec.md</a></li>
 <li>Specification repository/version policy: <a href="https://github.com/mvrdevelopment/spec/blob/main/README.md">https://github.com/mvrdevelopment/spec/blob/main/README.md</a></li>
+<li>Official Model examples: <a href="https://github.com/mvrdevelopment/spec/blob/main/examples/models.md">https://github.com/mvrdevelopment/spec/blob/main/examples/models.md</a></li>
+<li>Official Geometry examples: <a href="https://github.com/mvrdevelopment/spec/blob/main/examples/geometry.md">https://github.com/mvrdevelopment/spec/blob/main/examples/geometry.md</a></li>
 <li>Approved future GDTF/MVR changes are maintained on the official <code>next</code> branch and must not be emitted by Perastage unless the written file declares and supports the corresponding version.</li>
 </ul>
 <h2 id="core-principle">Core principle</h2>
@@ -112,7 +120,7 @@
 <h3 id="2-standard-gdtf-svg-resource">2. Standard GDTF SVG resource</h3>
 <p>Purpose:</p>
 <ul>
-<li>standards-compliant completion or explicit replacement of GDTF model SVG resources.</li>
+<li>authored per-Model exchange resources; future model-local replacement uses an explicit mutation boundary.</li>
 </ul>
 <p>Ownership:</p>
 <ul>
@@ -125,14 +133,24 @@
 <h2 id="standard-resource-mutation-rules">Standard resource mutation rules</h2>
 <p>Perastage distinguishes <strong>missing</strong>, <strong>invalid</strong>, and <strong>existing valid</strong> standard resources.</p>
 <h3 id="missing-standard-resource">Missing standard resource</h3>
-<p>If a standard resource required or supported by the targeted GDTF version is absent and Perastage can generate a valid replacement from trusted available geometry, Perastage may complete the missing resource automatically when the active GDTF mutation policy allows completion.</p>
-<p>Examples for GDTF 1.2:</p>
-<ul>
-<li>missing Top SVG;</li>
-<li>missing Side SVG;</li>
-<li>missing Front SVG.</li>
-</ul>
-<p>The resulting GDTF is a derived <code>@Perastage</code> GDTF and receives a standard revision describing the views that were added.</p>
+<p>Perastage 1.7.0 inspects authored Model SVG resources per Model and does not
+generate missing standard SVGs automatically. A whole-fixture capture cannot
+represent an individual physically separated Model. Missing standard views do
+not schedule fixture capture, create a derivative, alter offsets or rebind a
+fixture. Automatic preparation writes only the fixture-wide PSTG bundle.</p>
+<p><code>gdtf_model_svg_inspection.*</code> enumerates every Model in document order, its exact
+File, dimensions, PrimitiveType, offsets and Geometry references. Version view
+descriptors expose Top/Front/Side for 1.2 and Top for 1.1. Unsupported versions
+remain diagnostic. The vector representation can accept future version views;
+no <code>next</code> Bottom semantics are enabled for current publication.</p>
+<p>Every future mutating API requires an explicit nonempty exact Model/@File and
+rejects duplicated values. <code>Main</code> and the first Model are never implicit targets.
+The existing standard serializer/completion/repair boundary is dormant in normal
+production workflows until a reviewed model-local generator is available.</p>
+<p>Resource presence, readable SVG XML and GUI preview support are separate facts.
+The internal polygon parser is not a GDTF validity checker. General SVG previews
+use GdtfResourceBitmapCache; unsupported previews remain present resources.
+Exact paths and offsets appear in the selected Model&#39;s preview details.</p>
 <h3 id="existing-valid-standard-resource">Existing valid standard resource</h3>
 <p>Perastage must never automatically replace an existing valid authored standard SVG merely because the generated Perastage representation is preferred visually.</p>
 <p>Replacement requires an explicit user action.</p>
@@ -233,26 +251,17 @@
 <p>When a legacy Perastage project/GDTF is opened, recognized legacy internal symbols may be used as compatibility input and may be materialized into PSTG project-symbol storage on project save. This migration must not silently claim unknown authored resources as Perastage-owned.</p>
 <p>Perastage must not attempt to reconstruct overwritten original authored SVG bytes from a legacy derivative unless an authoritative original source is available. Existing user libraries whose authored SVGs were overwritten by historical Perastage behavior should be rebuilt from clean source GDTFs where practical.</p>
 <h2 id="gdtf-modification-preference">GDTF modification preference</h2>
-<p>Perastage should expose a clear project/application policy controlling automatic GDTF completion.</p>
-<p>Recommended modes:</p>
-<h3 id="complete-and-improve-gdtf-definitions">Complete and improve GDTF definitions</h3>
-<p>Recommended default.</p>
-<p>Perastage may:</p>
-<ul>
-<li>add missing standard resources it can generate correctly;</li>
-<li>add missing standard data from explicit/trusted values;</li>
-<li>apply explicit user edits;</li>
-<li>perform safe, deterministic standard repairs covered by Core policy;</li>
-<li>publish a standards-compliant <code>@Perastage</code> derivative;</li>
-<li>append standard revisions for effective changes.</li>
-</ul>
-<p>It must still not silently replace existing meaningful resources or values merely because a generated alternative exists.</p>
-<h3 id="preserve-imported-gdtf-definitions">Preserve imported GDTF definitions</h3>
-<p>Perastage may inspect and use imported definitions but does not automatically complete or mutate them.</p>
-<p>Perastage-specific rendering fallbacks remain PSTG-owned.</p>
-<p>Explicit user-requested GDTF edits/repairs may still create a derived GDTF after confirmation unless the product chooses to make this mode a strict lock.</p>
-<p>The setting should control GDTF completion/mutation, not normal scene editing inside MVR/PSTG.</p>
+<p>The automatic definition-completion choice is absent from 1.7.0 Preferences.
+Its only production use previously connected whole-fixture capture to Model SVG
+mutation. Existing <code>gdtf_mutation_policy</code> values remain readable without a
+settings migration, but neither value changes project-symbol preparation.
+Explicit Weight/Power/document edits continue through the owned derivative and
+standard revision boundary.</p>
 <h2 id="mvrpstg-relationship">MVR/PSTG relationship</h2>
+<p>Canonical validation preserves an unchanged clean source archive byte-for-byte
+in packaged output, including its original SVG bytes and offsets. Changing only
+PSTG symbols does not justify GDTF rewriting. Necessary compatibility repairs
+and explicitly intended edits still follow canonical publication and Revisions.</p>
 <p><code>scene.mvr</code> inside PSTG remains a standards-oriented scene representation.</p>
 <p>Perastage project symbols must not be embedded in the MVR as application-private files or private GDTF resources.</p>
 <p>The PSTG container owns any additional Perastage symbol resources outside <code>scene.mvr</code>.</p>
@@ -275,9 +284,9 @@
 <p>GUI code may:</p>
 <ul>
 <li>present previews and diagnostics;</li>
-<li>request completion/replacement/regeneration;</li>
+<li>request project-symbol generation or explicit document edits;</li>
 <li>collect explicit user intent;</li>
-<li>select policy options.</li>
+<li>present Model and Geometry selectors without archive parsing.</li>
 </ul>
 <p>GUI code must not hand-roll GDTF archive rewriting, revision XML, PSTG symbol packaging, or resource-resolution rules.</p>
 <p>Existing reusable infrastructure should be preserved where its responsibility remains valid, including:</p>
@@ -300,7 +309,7 @@
 <li>keep safe legacy reads;</li>
 <li>move current/future Perastage project-symbol persistence to PSTG;</li>
 <li>keep standard GDTF resources independent from project symbols;</li>
-<li>generate missing standard GDTF SVGs through a dedicated standards-compliant serializer/output path;</li>
+<li>inspect every Model independently and defer standard SVG generation until a reviewed model-local generator exists;</li>
 <li>never replace an existing valid authored standard SVG automatically;</li>
 <li>make explicit replacement/repair a distinct user-intended operation;</li>
 <li>remove Perastage-private SVG markers from newly generated standard GDTF SVG resources;</li>
@@ -313,7 +322,7 @@
 <ul>
 <li>Opening/inspecting a clean GDTF does not mutate its source bytes.</li>
 <li>An existing valid authored standard SVG is not automatically replaced.</li>
-<li>A missing GDTF 1.2 Top/Side/Front resource can be completed in a derived GDTF when policy permits.</li>
+<li>Missing standard views leave the GDTF and fixture references unchanged during project-symbol preparation.</li>
 <li>Generated standard SVG names/paths match <code>Model/@File</code> and official GDTF locations exactly.</li>
 <li>Standard model offsets are written through official GDTF attributes.</li>
 <li>Newly generated standard SVGs contain no Perastage-private ownership metadata.</li>
@@ -339,7 +348,7 @@
 </ul>
 <h3 id="mutation-policy">Mutation policy</h3>
 <ul>
-<li>Automatic completion adds missing standard content only when enabled.</li>
+<li>Neither historical policy enables automatic Model SVG completion in production.</li>
 <li>Existing valid content requires explicit intent to replace.</li>
 <li>Invalid existing content is reported separately from missing content and requires explicit repair/replacement.</li>
 <li>User-entered physical/data edits can produce audited standards-compliant derived GDTFs.</li>
@@ -354,7 +363,7 @@
 <li>a full GDTF editor for every standard field;</li>
 <li>unrelated MVR/CLI/OSC roadmap work.</li>
 </ul>
-<p>The goal is to establish correct ownership, standards-compliant GDTF completion, safe mutation semantics, and deterministic project persistence before continuing broader Perastage 1.7.0 work.</p>
+<p>The goal is to establish correct ownership, per-Model inspection, safe mutation semantics, and deterministic project persistence before continuing broader Perastage 1.7.0 work.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

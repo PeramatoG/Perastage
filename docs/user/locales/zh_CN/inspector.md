@@ -22,3 +22,13 @@
 ## 问题与诊断
 
 **Issues** 汇总已报告的问题；**Diagnostics** 提供调查所需的更多细节。预览受限并不意味着文件无效。Inspector 不修复包，也不下载缺失资源。请通过常规编辑流程修正，或在报告问题时[导出诊断报告](troubleshooting.md#日志与诊断报告)。
+
+## 灯具编辑器预览
+
+Preview 默认显示 **All fixture**。选择 Geometry 可在 Solo 模式查看其子树；
+同一 Model 的重复实例仍是独立选项。下方缩略图支持 GDTF 根目录中的标准 PNG 和 SVG。
+
+在 Symbols 中选择 **Standard GDTF** 的 Model，查看其准确的 Top/Front/Side
+资源、尺寸和 PrimitiveType。提示显示路径、插入偏移和诊断。资源存在不代表支持预览。
+独立的 **Perastage project (PSTG)** 组显示整灯的 Top/Front/Side/Bottom，
+并区分用户覆盖的来源。检查预览及生成项目符号均保留原始 GDTF 资源。

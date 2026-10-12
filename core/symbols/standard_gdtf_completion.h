@@ -34,9 +34,9 @@ using StandardGdtfPublication = std::function<bool(
     const fixture_gdtf::PreparedDerivative &, std::string &)>;
 
 // Inspects exactly Model/@File resources, without compatibility name guessing.
-// Empty modelFile selects Main, or the first Model when Main is absent.
+// Empty or ambiguous selectors are rejected, including for inspection.
 StandardGdtfMutationResult InspectStandardGdtfViews(
-    const std::filesystem::path &sourcePath, std::string modelFile = "");
+    const std::filesystem::path &sourcePath, std::string modelFile);
 
 // Completes missing views only. Existing unusable resources remain diagnostics.
 // No-op requests discard the prepared copy and never append a revision.
@@ -44,7 +44,7 @@ StandardGdtfMutationResult CompleteStandardGdtfViews(
     const std::filesystem::path &sourcePath,
     const fixture_gdtf::PreparedDerivative &prepared,
     const std::vector<StandardGdtfSvgCandidate> &candidates,
-    gdtf::MutationPolicy policy, std::string modelFile = "",
+    gdtf::MutationPolicy policy, std::string modelFile,
     const StandardGdtfPublication &publish = {});
 
 enum class StandardGdtfReplacementIntent { RepairInvalid, ReplaceExisting };
@@ -54,7 +54,7 @@ StandardGdtfMutationResult ReplaceStandardGdtfViews(
     const std::filesystem::path &sourcePath,
     const fixture_gdtf::PreparedDerivative &prepared,
     const std::vector<StandardGdtfSvgCandidate> &candidates,
-    StandardGdtfReplacementIntent intent, std::string modelFile = "",
+    StandardGdtfReplacementIntent intent, std::string modelFile,
     const StandardGdtfPublication &publish = {});
 
 } // namespace symbols

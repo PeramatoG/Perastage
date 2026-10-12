@@ -43,7 +43,7 @@
 <div id="content" tabindex="-1"><h1 id="gdtf-mutation-policy-perastage">GDTF mutation policy (Perastage)</h1>
 <p>This document defines how Perastage writes and version-stamps GDTF files, with a focus on <code>description.xml</code> mutations and long-term compatibility behavior. The <a href="gdtf_symbol_ownership_and_mutation_contract.html">GDTF symbol ownership and mutation contract</a> is the product/architecture source of truth: project symbols belong to PSTG; only version-valid standard resources belong to derived GDTFs.</p>
 <h2 id="export-canonicalization-policy">Export canonicalization policy</h2>
-<p>Perastage is permissive when importing GDTF/MVR data and strict when exporting it. Loading a legacy or externally generated GDTF must not rewrite the user&#39;s source file just because it was read, but every GDTF that leaves Perastage is normalized through the shared <code>core/gdtf_canonicalizer</code> layer before it is written directly or embedded in an MVR archive.</p>
+<p>Perastage is permissive when importing GDTF/MVR data and strict when exporting it. Loading a legacy or externally generated GDTF must not rewrite the user&#39;s source file just because it was read, and every published GDTF passes the shared <code>core/gdtf_canonicalizer</code> validation boundary. An already canonical description with canonical archive paths is copied byte-for-byte, preserving unchanged authored GDTFs in project/MVR packaging. Effective standardization repairs still use canonical rewriting and revisions.</p>
 <p>The GDTF 1.2 XSD used to verify this policy is <code>mvrdevelopment/tools:gdtf.xsd</code> from the public GDTF/MVR tools repository, advertised there as the GDTF 1.2 XSD Schema; the fetched artifact size was 53,467 bytes with SHA-256 <code>13a044d297f19d0437965657fb21d02f7b2b02541aabeba5f11e5000074ac2f2</code>. That schema defines <code>FixtureType</code> as an ordered sequence where <code>AttributeDefinitions</code>, <code>Geometries</code>, and <code>DMXModes</code> have <code>minOccurs=&quot;1&quot;</code>; <code>Wheels</code>, <code>PhysicalDescriptions</code>, <code>Models</code>, <code>Revisions</code>, <code>FTPresets</code>, and <code>Protocols</code> have <code>minOccurs=&quot;0&quot;</code>; and <code>Name</code>, <code>Manufacturer</code>, <code>Description</code>, and <code>FixtureTypeID</code> are required attributes. This is stricter than the prose sentence that one or more sections may be empty or missing, so Perastage treats non-canonical input permissively but keeps generated strict fixtures and publication output aligned to the verified XSD.</p>
 <p>The reader, mutation-audit helper, and canonicalizer share one Core-owned definition of the official GDTF <code>FixtureType</code> child order (<code>AttributeDefinitions</code>, <code>Wheels</code>, <code>PhysicalDescriptions</code>, <code>Models</code>, <code>Geometries</code>, <code>DMXModes</code>, <code>Revisions</code>, <code>FTPresets</code>, <code>Protocols</code>). The canonicalizer removes the known Perastage-owned legacy <code>PerastageMutationAudit</code> child and a legacy <code>Editor</code> attribute only when the shared conservative predicate recognizes a Perastage program value. It preserves valid standard sections and resources, validates required root/fixture structure, and repairs Perastage-owned placeholder <code>FixtureTypeID</code> values with deterministic stable IDs when safe. Unknown third-party children and attributes are not guessed away: strict publication rejects them while leaving the parsed document content intact for an explicit caller decision.</p>
 <p>Any canonicalization mutation is recorded with a standard GDTF <code>Revision</code> only. Perastage-specific GDTF metadata must not use custom XML nodes; legacy <code>PerastageMutationAudit</code> is read-only compatibility metadata and is never written on export. Perastage-specific MVR metadata remains restricted to root-level <code>GeneralSceneDescription/UserData/Data[@provider=&quot;Perastage&quot;]</code>; object-level MVR <code>UserData</code> is not exported for Fixture, SceneObject, Support, Truss, or GroupObject.</p>
@@ -111,10 +111,10 @@ Core strings and serialized GDTF data remain UTF-8.</p>
 <td>Preserves the legacy public API by delegating the transaction to Core and invalidates the corresponding Viewer3D loader cache entry after successful atomic replacement.</td>
 </tr>
 <tr>
-<td>Core standard symbol completion</td>
+<td>Dormant Core model-local SVG boundary</td>
 <td><code>core/symbols/standard_gdtf_completion.cpp</code> + <code>standard_gdtf_svg.cpp</code></td>
 <td>Dedicated completion/repair API and standard serializer</td>
-<td>Adds missing GDTF 1.2 Top/Side/Front resources using exact <code>Model/@File</code> paths and official offsets; preserves existing resources unless explicit repair/replacement is requested; appends one standard <code>Revision</code> for effective changes and publishes a canonical atomic derivative.</td>
+<td>No normal production caller; future model-local mutations require explicit exact <code>Model/@File</code> paths and official offsets; preserves existing resources unless explicit repair/replacement is requested; appends one standard <code>Revision</code> for effective changes and publishes a canonical atomic derivative.</td>
 </tr>
 <tr>
 <td>Project fixture editor</td>
@@ -180,35 +180,24 @@ strict publication.</p>
 <li>The <a href="fixture_symbol_resource_contract.html">Core resource contract</a> separates project-owned internal symbols from standard GDTF resources. New GDTF output never creates <code>perastage/symbols/</code>, private Perastage archive resources, or SVG ownership markers. Positively identified historical resources remain read-only compatibility input and can migrate to PSTG on Save. Model basenames and generic editor/revision metadata do not establish ownership.</li>
 <li>Fixture display color is no longer persisted by mutating <code>description.xml</code> model <code>Color</code> values in place. The persisted source of truth for default color selection is the Perastage dictionary/project data layer, while <code>GetGdtfModelColor(...)</code> remains read-only for legacy fallback reads.</li>
 </ul>
-<h2 id="automatic-gdtf-completion-preference">Automatic GDTF completion preference</h2>
-<p><code>core/gdtf_mutation_policy.h</code> owns <code>gdtf::MutationPolicy</code>: <code>CompleteAndImprove</code>
-(default) and <code>PreserveImported</code>. Existing user preferences persist
-<code>gdtf_mutation_policy</code> as <code>complete_and_improve</code> or <code>preserve_imported</code>; missing
-or unknown values use the default. The <strong>Preferences &gt; GDTF</strong> page exposes
-<strong>GDTF definition completion</strong> above GDTF Share credentials.</p>
-<p><strong>Complete and improve GDTF definitions</strong> allows missing standard resources to
-be generated from trusted available geometry. It never automatically replaces
-an existing resource because it is unusable or because a generated symbol looks
-better. <strong>Preserve imported GDTF definitions</strong> disables automatic GDTF
-completion. Both modes permit PSTG project symbols, normal scene/MVR editing,
-and separately authorized explicit GDTF edits.</p>
-<p>Automatic completion is not part of read-only inspection. Rendering preparation
-may request completion after geometry capture; Core applies policy and resource
-classification, prepares a derivative, records accurate effective changes, and
-retargets scene references only after canonical atomic publication succeeds.
-Manual project-symbol Apply records no GDTF revision because it mutates PSTG
-project data only. A no-op standard completion does not publish a changed
-definition or add a revision. Existing invalid resources require explicit
-repair/replacement intent through the distinct Core API; a repair GUI command
-is deferred rather than treating invalid resources as missing.</p>
-<p>Intentional derivative publication removes positively recognized legacy private
-resources/markers through the shared Core publication policy. It preserves
-unrelated authored resources and never rewrites a source simply because it was
-opened. Every effective archive/XML change, including owned compatibility
-cleanup, is represented in standard revision history. An unchanged legacy GDTF
-may remain embedded under the existing canonical MVR preservation policy;
-Save materializes its recognized project symbols outside MVR without creating
-new private resources in the embedded definition.</p>
+<h2 id="historical-automatic-gdtf-completion-preference">Historical automatic GDTF completion preference</h2>
+<p><code>gdtf::MutationPolicy</code> and the <code>gdtf_mutation_policy</code> key remain readable for
+compatibility. Preferences no longer exposes a definition-completion choice:
+there is no reviewed model-local automatic SVG generator in production.</p>
+<p>Automatic fixture-symbol preparation exclusively updates PSTG, regardless of
+the historical setting. It does not publish an @Perastage derivative, update
+Model offsets, append a GDTF revision or rebind fixture GDTF references.
+Inspecting missing standard resources has no mutation side effects.</p>
+<p>The standard SVG serializer/completion/repair APIs remain a dormant future
+boundary. They require exact nonempty Model/@File and reject ambiguous values.
+Any future generator must operate in Model-local coordinates, with physical
+1:1 SVG geometry in millimeters; 3D mesh scaling does not scale SVGs.
+Current output supports GDTF 1.2 Top/Front/Side only, never next-only Bottom.</p>
+<p>Explicit Weight/Power/document editing retains canonical owned derivative
+publication and accurate standard Revisions. Unknown authored resources cannot
+be claimed as Perastage-owned. Legacy symbols materialize into PSTG without
+rewriting their source; intentional publication keeps its existing audited
+compatibility cleanup and MVR preservation rules.</p>
 <h2 id="2-exact-revision-format-used-by-perastage">2) Exact <code>Revision</code> format used by Perastage</h2>
 <p>Perastage appends <code>&lt;Revision /&gt;</code> under <code>&lt;FixtureType&gt;/&lt;Revisions&gt;</code> and ensures <code>&lt;Revisions&gt;</code> exists when needed. Repeated exports do not append a duplicate Perastage revision when the same <code>Text</code>, <code>ModifiedBy</code>, and <code>UserID</code> already exist.</p>
 <p>Perastage writes these attributes:</p>
@@ -307,8 +296,8 @@ new private resources in the embedded definition.</p>
 <h3 id="manual-checklist">Manual checklist</h3>
 <ul>
 <li><input disabled="" type="checkbox"> Manually Apply Top/Bottom/Front/Side and verify a project override survives PSTG Save/Load, including an unsaved scene, while the source GDTF bytes remain unchanged.</li>
-<li><input disabled="" type="checkbox"> Enable automatic completion and verify missing standard Top/Side/Front appear in a canonical derivative at exact official paths with standard offsets and one effective revision. Verify authored and unusable existing resources remain unchanged.</li>
-<li><input disabled="" type="checkbox"> Select Preserve imported GDTF definitions and verify project rendering still works while automatic completion leaves GDTF bytes/references unchanged.</li>
+<li><input disabled="" type="checkbox"> Generate project symbols with missing Model SVGs and verify PSTG output, byte-identical source GDTF, unchanged offsets and no derivative or reference rebinding.</li>
+<li><input disabled="" type="checkbox"> Load both historical mutation-policy values and verify identical safe project-symbol behavior; Preferences must expose no automatic definition-completion option.</li>
 <li><input disabled="" type="checkbox"> Inspect PSTG and its <code>scene.mvr</code>: project symbols are in <code>resources/fixture_symbols/</code> outside MVR; newly published GDTFs contain no private namespace or SVG ownership metadata.</li>
 <li><input disabled="" type="checkbox"> Edit fixture color via dictionary/project workflow and verify fixture color persists after reopening without mutating model <code>Color</code> in the source <code>.gdtf</code>.</li>
 <li><input disabled="" type="checkbox"> Edit fixture physical properties and verify weight/power values persist after reopening.</li>

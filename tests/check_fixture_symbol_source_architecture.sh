@@ -11,10 +11,13 @@ renderer="$root/viewer3d/render/opaque_fixture_pass.cpp"
 
 rg -q 'LoadGdtf\(physicalGdtfPath, objects, exactGdtfMode' "$classifier"
 rg -q '#include "\.\./gdtfloader\.h"' "$classifier"
-# Preparation must consider project bindings and standard completion separately;
-# a complete standard SVG set alone no longer determines project eligibility.
+# Preparation considers authoritative project bindings; missing Model SVGs
+# must never reconnect whole-fixture capture to GDTF mutation.
 rg -q 'NeedsAutomaticFixtureSymbolPreparation' "$service"
-rg -q 'InspectStandardGdtfViews' "$application"
+if rg -n 'InspectStandardGdtfViews|CompleteStandardGdtfViews|StandardGdtfSvgCandidate' "$application"; then
+  echo "Automatic preparation must create PSTG symbols only." >&2
+  exit 1
+fi
 rg -q 'FindForFixture' "$application"
 rg -q 'ComputeFixtureGeometryBoundsMm' "$service"
 rg -q 'LoadGdtf\(gdtfPath, objects, gdtfMode' "$geometry"

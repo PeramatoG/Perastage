@@ -22,3 +22,16 @@ Utiliza los controles de búsqueda, plegado y copia para examinar XML. Los docum
 ## Incidencias y diagnóstico
 
 **Issues** agrupa los problemas detectados; **Diagnostics** aporta más detalle para investigarlos. Una limitación de la vista previa no implica que el archivo sea inválido. Inspector no repara paquetes ni descarga recursos que falten. Utiliza los flujos de edición habituales para corregirlos, o [exporta un informe de diagnóstico](troubleshooting.md#registros-e-informes-de-diagnóstico) al comunicar una incidencia.
+
+## Vistas previas del editor de luminarias
+
+Preview comienza en **All fixture**. Selecciona una Geometry para ver su subárbol
+en modo Solo; las instancias repetidas de un Model siguen siendo opciones
+distintas. La miniatura inferior admite PNG y SVG canónicos en la raíz del GDTF.
+
+En Symbols, selecciona un Model de **Standard GDTF** para ver sus recursos exactos
+Top/Front/Side, dimensiones y PrimitiveType. Las ayudas muestran rutas, offsets
+y diagnósticos. Un recurso presente puede no admitir vista previa. El grupo
+independiente **Perastage project (PSTG)** muestra Top/Front/Side/Bottom de la
+luminaria completa y distingue las sustituciones del usuario. La inspección y
+generación de símbolos del proyecto conservan los recursos originales GDTF.

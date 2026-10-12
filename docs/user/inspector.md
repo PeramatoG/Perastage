@@ -40,3 +40,16 @@ Perastage preserves connector information and records a standard Revision. If no
 safe field exists, keep the correction in the project rather than inventing a
 connector or power-input topology. Project power overrides are not automatically
 written into GDTFs during MVR export.
+
+## Fixture Editor previews
+
+In the Fixture Editor, Preview starts with **All fixture**. Select a Geometry
+to inspect its subtree in Solo mode; repeated Model instances remain separate
+choices. The GDTF thumbnail below it supports canonical root PNG and SVG.
+
+On Symbols, select a **Standard GDTF** Model to see its exact Top/Front/Side
+resources, dimensions and PrimitiveType. Tooltips show paths, insertion offsets
+and diagnostics. A present resource may have an unsupported preview. The
+independent **Perastage project (PSTG)** group shows fixture-wide
+Top/Front/Side/Bottom, with distinct provenance for user overrides. Opening these
+previews and generating project symbols preserve authored GDTF resources.

@@ -8,6 +8,7 @@
  * (at your option) any later version.
  */
 #include "../viewer3d/gdtfloader.h"
+#include "../viewer3d/gdtf_geometry_inspection.h"
 
 #include <cassert>
 #include <cmath>
@@ -46,6 +47,8 @@ std::string MakeReferencedGeometryGdtf()
         "<Geometry Name=\"Head\" Position=\"{1,0,0,1}{0,1,0,0}{0,0,1,0}{0,0,0,1}\">"
         "<GeometryReference Name=\"MountedBeam\" Geometry=\"BeamLED\" "
         "Position=\"{1,0,0,2}{0,1,0,0}{0,0,1,0}{0,0,0,1}\"/>"
+        "<GeometryReference Name=\"MountedBeam2\" Geometry=\"BeamLED\" "
+        "Position=\"{1,0,0,4}{0,1,0,0}{0,0,1,0}{0,0,0,1}\"/>"
         "</Geometry>"
         "</Geometry>"
         "<Beam Name=\"BeamLED\" Model=\"BeamModel\"/>"
@@ -76,20 +79,30 @@ int main()
     std::vector<GdtfObject> objects;
     std::string loadError;
     assert(LoadGdtf(gdtfPath, objects, "Standard", &loadError));
-    assert(objects.size() == 2);
+    assert(objects.size() == 3);
     assert(NearlyEqual(objects[0].transform.o[0], 0.0f));
     assert(NearlyEqual(objects[1].transform.o[0], 3.0f));
 
     GdtfGeometryTree tree;
     assert(LoadGdtfGeometryTree(gdtfPath, tree, "Standard", &loadError));
-    assert(tree.emitterNodeIndices.size() == 1);
+    assert(tree.emitterNodeIndices.size() == 2);
     const GdtfNode3D& emitter = tree.nodes[tree.emitterNodeIndices.front()];
     assert(emitter.parentIndex >= 0);
+    assert(emitter.modelName == "BeamModel");
+    assert(emitter.modelFile.empty());
+    assert(emitter.geometryName == "MountedBeam");
+    const auto& secondEmitter = tree.nodes[tree.emitterNodeIndices[1]];
+    assert(secondEmitter.geometryName == "MountedBeam2");
+    assert(secondEmitter.modelName == emitter.modelName);
+    assert(NearlyEqual(secondEmitter.worldTransform.o[0], 5.0f));
+    assert(GdtfInspectionObjects(tree).size() == 3);
+    const auto solo = GdtfInspectionObjects(tree, tree.emitterNodeIndices[1]);
+    assert(solo.size() == 1 && NearlyEqual(solo[0].transform.o[0], 5.0f));
     assert(NearlyEqual(emitter.worldTransform.o[0], 3.0f));
 
     std::vector<GdtfObject> defaultModeObjects;
     assert(LoadGdtf(gdtfPath, defaultModeObjects, &loadError));
-    assert(defaultModeObjects.size() == 2);
+    assert(defaultModeObjects.size() == 3);
     assert(NearlyEqual(defaultModeObjects[1].transform.o[0], 3.0f));
 
     std::error_code ec;

@@ -94,11 +94,14 @@ void CheckNativePreviewHoles() {
 
 } // namespace
 
+void CheckFixtureEditorSymbolsAndThumbnails();
+
 // Verifies SVG fitting, alpha composition, authored white, and safe failures.
 int main() {
   AppScope app;
   if (!app.IsOk())
     return 77;
+  CheckFixtureEditorSymbolsAndThumbnails();
   CheckNativePreviewHoles();
   GdtfResourceBitmapCache cache;
 

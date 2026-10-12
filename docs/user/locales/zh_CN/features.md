@@ -8,7 +8,7 @@ Perastage 是开源桌面工具，用于灯光和吊装场景设计及技术文�
 
 ## GDTF 与 GDTF Share
 
-使用灯具定义和本地字典，[搜索和下载 GDTF](gdtf-download.md)，离线浏览缓存目录，检查修订版本和 DMX 模式。[偏好设置](preferences.md#gdtf-定义补全)控制自动定义补全。
+使用灯具定义和本地字典，[搜索和下载 GDTF](gdtf-download.md)，离线浏览缓存目录并检查修订和 DMX 模式。灯具编辑器按 Model 检查并保留原始 GDTF 资源。
 
 ## MVR / GDTF Inspector
 

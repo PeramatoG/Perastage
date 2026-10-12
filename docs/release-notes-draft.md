@@ -9,7 +9,7 @@ workflows.
 
 - New read-only **MVR / GDTF Inspector** for projects, external files and embedded
   fixture definitions.
-- Self-contained **PSTG fixture symbols** and safer completion of missing
+- Self-contained **PSTG fixture symbols** and per-Model inspection of authored
   standard GDTF views.
 - Faster **GDTF Share browsing**, with richer search, revision and DMX mode details.
 - **Low / Standard / High 3D Model Detail** and reorganized Preferences.
@@ -35,12 +35,14 @@ workflows.
   Apply them even before the first save, then save the project to retain them.
   These project symbols are not exported into MVR or embedded GDTFs.
 - Manufacturer-authored GDTF **Top / Side / Front** resources are preserved.
-  The Fixture Editor lets you compare standard GDTF views with project symbols
-  independently.
-- Under **GDTF definition completion**, the default completion policy can fill
-  missing standard GDTF 1.2 Top/Side/Front resources from available trusted
-  geometry in a separate Perastage derivative, preserving the external source.
-  **Preserve imported GDTF definitions** disables automatic completion.
+  The Fixture Editor selects each Model independently and keeps project symbols
+  in their own fixture-wide group.
+- Automatic fixture-symbol preparation writes Top/Front/Side/Bottom to PSTG
+  while preserving source GDTF bytes, Model offsets and fixture references.
+- The Preview page offers **All fixture** or **Solo** inspection of Geometry
+  subtrees and resolves canonical root SVG/PNG thumbnails.
+- Standard SVG resource presence is separate from Perastage preview support;
+  manufacturer resources remain visible and preserved even when unsupported.
 - Existing unusable or authored resources are not silently replaced; unusable
   views require explicit repair. **Bottom** remains a Perastage project view,
   rather than a standard GDTF 1.2 SVG requirement.

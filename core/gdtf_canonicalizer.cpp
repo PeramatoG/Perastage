@@ -26,6 +26,7 @@ constexpr const char *kCanonicalizationRevisionText =
 struct ZipEntryData {
   std::string name;
   std::string bytes;
+  bool canonicalName = true;
 };
 
 // Returns a lowercase copy for case-insensitive comparisons.
@@ -81,7 +82,9 @@ bool ReadZipEntries(const fs::path &path, std::vector<ZipEntryData> &entries,
     if (entry->IsDir())
       continue;
     ZipEntryData data;
-    data.name = NormalizeArchivePath(entry->GetName().ToStdString());
+    const std::string originalName = entry->GetName().ToStdString();
+    data.name = NormalizeArchivePath(originalName);
+    data.canonicalName = data.name == originalName;
     ReadCurrentZipEntry(zip, data.bytes);
     entries.push_back(std::move(data));
   }
@@ -363,6 +366,7 @@ Result CanonicalizeArchive(const fs::path &sourcePath, const fs::path &destinati
     AddError(result, options, "missing description.xml in GDTF archive");
     return result;
   }
+  const bool canonicalDescriptionPath = descIt->name == "description.xml";
   descIt->name = "description.xml";
   tinyxml2::XMLDocument doc;
   if (doc.Parse(descIt->bytes.c_str(), descIt->bytes.size()) != tinyxml2::XML_SUCCESS) {
@@ -375,6 +379,21 @@ Result CanonicalizeArchive(const fs::path &sourcePath, const fs::path &destinati
   result.errors = xmlResult.errors;
   if (!xmlResult.success)
     return result;
+  if (!xmlResult.changed && canonicalDescriptionPath &&
+      std::all_of(entries.begin(), entries.end(),
+                  [](const auto &entry) { return entry.canonicalName; })) {
+    // Keep unchanged authored archives intact during project/MVR packaging.
+    std::error_code comparisonError;
+    std::error_code copyError;
+    if (!fs::equivalent(sourcePath, destinationPath, comparisonError))
+      fs::copy_file(sourcePath, destinationPath, fs::copy_options::overwrite_existing, copyError);
+    if (copyError) {
+      AddError(result, options, "Could not preserve the unchanged GDTF archive: " + copyError.message());
+      return result;
+    }
+    result.success = true;
+    return result;
+  }
   descIt->bytes = PrintDocument(doc);
   if (!WriteZipEntries(destinationPath, entries, result))
     return result;
