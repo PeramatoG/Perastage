@@ -55,25 +55,22 @@ the guard never adds an accepted edge for a new module automatically.
 
 ### Application include-directory ownership
 
-The ORG-023 audit classified the application target's include directories from
-actual include spellings and CMake ownership before ORG-024 changed their
-declarations:
+Feature include directories are declared by their owning module's local
+`CMakeLists.txt`, using module-relative paths. Root application includes contain
+only shared vendored headers (`third_party`), dependency-provided compatibility
+paths (`${_wx_includes}` and `${NANOVG_INCLUDE_DIR}`), and the retained
+`resources` compatibility exposure. Do not expose the repository root as a
+catch-all include directory or duplicate feature include declarations in root.
 
-| Classification | Audited paths | Evidence and ownership |
-|---|---|---|
-| A: module-owned and formerly redundant in root | `core`, `core/layouts`, `core/print`; `gui`, `gui/mainwindow/controllers`, `gui/mainwindow/ids`; `models`; `mvr`; `viewer2d`, `viewer2d/pdf`; `viewer3d`, `viewer3d/interfaces`, `viewer3d/resources`, `viewer3d/culling`, `viewer3d/labels`, `viewer3d/picking`, `viewer3d/render` | Sources use both unqualified headers such as `logger.h` and nested spellings such as `resources/resource_sync_system.h`. Each complete group was already applied to `${PROJECT_NAME}` by its owning module CMake file, so ORG-024 removed only the duplicate root declarations. |
-| B: module-specific without local ownership | None | All audited feature paths had an active owner declaration. `viewer_common` was locally owned even though it was not in the pre-audit root list. |
-| C: shared project-wide | `third_party` | The application uses unqualified vendored headers from several modules: `json.hpp` in Core, GUI, MVR, Viewer2D, and Viewer3D, and `stb_easy_font.h` in Viewer3D. The shared application declaration remains in root. |
-| D: dependency-provided state | `${_wx_includes}`, `${NANOVG_INCLUDE_DIR}` | Dependency configuration supplies these compatibility variables and application sources consume wxWidgets across modules and NanoVG in the viewers. They remain shared target configuration pending a separate dependency-modernization effort. |
-| E: unresolved compatibility exposure | `resources` | No application C/C++ header include currently resolves through this directory; it contains platform resources and runtime assets. The include is retained until the same revision has native Windows, Linux, and macOS build evidence that it is unnecessary. |
+`resources` contains platform resources and runtime assets, rather than
+application headers. Removing its compatibility include requires native
+Windows, Linux, and macOS build evidence for the same revision. Dependency
+include modernization is a separate reviewed change.
 
-Test executables are separate targets and continue to declare their own focused
-include requirements in `tests/CMakeLists.txt`; their requirements did not
-justify any application-target path. The audit also observed factual
-cross-module header use (notably GUI and viewers consuming Core and Models,
-Viewer3D consuming MVR data, and GUI consuming Viewer2D/Viewer3D facilities).
-That include-directory audit did not itself define direction policy. The
-subsequent dependency audit produced the enforced contract below.
+Test executables declare their own focused include requirements in
+`tests/CMakeLists.txt`; these do not justify application-target paths.
+[`check_include_directory_ownership.py`](../../tests/check_include_directory_ownership.py)
+owns the exact include inventory and validates root/module declarations.
 
 All GUI feature modules still contribute to the same `${PROJECT_NAME}` target.
 Moving declarations to module CMake files records ownership and reduces root
@@ -84,29 +81,29 @@ architecture change.
 ### Internal module dependency directions
 
 The following contract records the current production source-level includes.
-It is not a target-level link graph: the eight GUI feature modules contribute
+It is not a target-level link graph: the GUI application modules contribute
 to the application target, while `cli` owns separate command-line targets.
-Counts are evidence occurrences from the current inventory; same-module
-includes and test sources are excluded.
+Same-module includes and test sources are excluded; exact include evidence
+belongs to the guard inventory, not this contract.
 
-| Consumer | Accepted providers (evidence count) | Architectural rationale |
+| Consumer | Accepted providers | Architectural rationale |
 |---|---|---|
-| `app` | `core` (12), `gui` (2), `viewer3d` (1) | Application composition coordinates lifecycle services, windows, and the existing GDTF cache teardown API. |
-| `cli` | `core` (10) | The headless command-line shell consumes only the canonical Core product name and public Inspection APIs; semantic readers remain transitive implementation details. |
-| `core` | `models` (46), `mvr` (7), `viewer2d` (4), `viewer3d` (7) | Application services coordinate scene data, interchange, and existing symbol/geometry implementations. |
-| `models` | None | Scene data does not include another audited application module. |
-| `mvr` | `core` (92), `gui` (3), `models` (24), `viewer2d` (1), `viewer3d` (3) | Interchange uses shared services and scene data plus existing import presentation, label, and geometry facilities. |
-| `gui` | `core` (420), `models` (47), `mvr` (15), `viewer2d` (77), `viewer3d` (45), `viewer_common` (5) | UI workflows orchestrate application services, interchange, both viewers, and shared GL utilities. |
-| `viewer_common` | `core` (4) | Shared viewer utilities use central preferences and diagnostics. |
-| `viewer2d` | `core` (27), `gui` (13), `models` (6), `viewer3d` (9), `viewer_common` (9) | 2D rendering consumes scene/services, shared GL support, existing 3D types, and UI command identifiers. |
-| `viewer3d` | `core` (72), `gui` (17), `models` (25), `viewer2d` (13), `viewer_common` (8) | 3D rendering consumes scene/services, shared GL support, 2D render interfaces, and existing UI status facilities. |
+| `app` | `core`, `gui`, `viewer3d` | Application composition coordinates lifecycle services, windows, and the existing GDTF cache teardown API. |
+| `cli` | `core` | The headless command-line shell consumes only the canonical Core product name and public Inspection APIs; semantic readers remain transitive implementation details. |
+| `core` | `models`, `mvr`, `viewer2d`, `viewer3d` | Application services coordinate scene data, interchange, and existing symbol/geometry implementations. |
+| `models` | None | Scene data does not include another production module. |
+| `mvr` | `core`, `gui`, `models`, `viewer2d`, `viewer3d` | Interchange uses shared services and scene data plus existing import presentation, label, and geometry facilities. |
+| `gui` | `core`, `models`, `mvr`, `viewer2d`, `viewer3d`, `viewer_common` | UI workflows orchestrate application services, interchange, both viewers, and shared GL utilities. |
+| `viewer_common` | `core` | Shared viewer utilities use central preferences and diagnostics. |
+| `viewer2d` | `core`, `gui`, `models`, `viewer3d`, `viewer_common` | 2D rendering consumes scene/services, shared GL support, existing 3D types, and UI command identifiers. |
+| `viewer3d` | `core`, `gui`, `models`, `viewer2d`, `viewer_common` | 3D rendering consumes scene/services, shared GL support, 2D render interfaces, and existing UI status facilities. |
 
 The current graph contains intentional-for-current-architecture cycles between
 `core` and each of `mvr`, `viewer2d`, and `viewer3d`; between `gui` and each of
 `mvr`, `viewer2d`, and `viewer3d`; and between `viewer2d` and `viewer3d`.
 In particular, renderer-to-GUI includes, `mvr -> gui`, and Core's viewer
 includes are visible technical-debt directions rather than a proposed layering
-model. ORG-025 accepts them because they exist; removing them requires a
+model. They are accepted compatibility directions; removing them requires a
 separate behavior-preserving architecture change.
 
 `tests/check_module_dependency_directions.py` resolves quoted includes through
@@ -116,39 +113,31 @@ new direction requires architectural review and a coordinated update to this
 section and the check's explicit `ACCEPTED_DIRECTIONS`; the check never blesses
 new edges automatically.
 
-## Application bootstrap ownership (ORG-030–033)
+## Application bootstrap ownership
 
-ORG-030 audited the former root-owned bootstrap and selected `app/` as the
-application-composition owner. ORG-031 through ORG-033 implement that boundary:
-`app/perastage_app.h` owns the `MyApp : wxApp` declaration and lifetime state,
-while `app/perastage_app.cpp` owns lifecycle methods and private bootstrap
-helpers. Root `main.cpp` is now limited to including the App declaration and
-invoking `wxIMPLEMENT_APP(MyApp)`.
+`app/` owns application composition. `app/perastage_app.h` declares
+`MyApp : wxApp` and its lifetime state; `app/perastage_app.cpp` implements
+lifecycle methods and private bootstrap helpers. Root `main.cpp` only includes
+the App declaration and invokes `wxIMPLEMENT_APP(MyApp)`.
 
-The extraction preserves the audited startup sequence and semantics: launch-CWD
-capture, CLI and platform open routing, two-stage deferred startup resolution,
-localization and fallback warning, diagnostics and crash handling, splash and
-main-window composition, metrics, platform hooks, and ordered shutdown. App
-depends downward on `core` (12 include occurrences), `gui` (2), and `viewer3d`
-(1). The Viewer3D direction remains intentional composition debt because App
-coordinates the existing GDTF cache shutdown API. No lower-level module may
-include App headers or depend upward on application lifecycle policy.
+App owns launch-CWD capture, startup argument/path selection and external-open
+queuing, CLI/platform open routing, two-stage deferred startup resolution,
+localization and fallback warnings, diagnostics and crash handling, splash
+sequencing, `MainWindow` construction, metrics, platform hooks, and ordered
+shutdown. Core retains reusable services, GUI retains visible startup
+publication, and Viewer3D retains cache implementation. App's Viewer3D
+dependency is composition debt for the GDTF cache shutdown API. No lower-level
+module may include App headers or depend upward on lifecycle policy.
 
-`app/CMakeLists.txt` explicitly contributes the App declaration and
-implementation to `${PROJECT_NAME}` and exposes only its local include directory
-to that target. Root CMake registers `app/` after lower-level source modules;
-its `add_executable` continues to own only `main.cpp` and generated build
-information. The repository baseline, dependency-direction inventory, bootstrap
-ownership check, startup-publication guard, and localization catalog scanner
-enforce this implemented boundary.
-
-The detailed ORG-030 audit rationale remains the extraction contract: App owns
-wxWidgets lifecycle, startup selection and external-open queuing, localization
-orchestration, diagnostics, splash sequencing, `MainWindow` construction, and
-teardown. Core retains reusable services, GUI retains visible startup
-publication, and Viewer3D retains cache implementation. Startup argument/path
-selection may be split internally in a future focused change, but ORG-034 and
-later organization work is outside this implementation.
+`app/CMakeLists.txt` explicitly contributes the declaration and implementation
+to `${PROJECT_NAME}` and exposes only its local include directory. Root CMake
+registers App after lower-level modules and owns only `main.cpp` and generated
+build information in `add_executable`. The repository baseline,
+[`bootstrap ownership guard`](../../tests/check_application_bootstrap_ownership.py),
+dependency guard, startup-publication guard, and localization scanner enforce
+these boundaries. See [Startup Architecture](startup_architecture.md) for
+startup sequencing and publication rules. Internal startup helpers may be
+split in focused changes while preserving this ownership and lifecycle.
 
 ## GDTF Share catalog browser
 
@@ -177,15 +166,15 @@ transaction publishes. The selection
 text adapter resolves numeric Console IDs against an explicitly supplied scene.
 The embedded Console acquires project context, presents results, and refreshes
 GUI state as an adapter frontend; it invokes the focused GUI-independent text
-processor once per entered line and no longer owns parsing, variant dispatch,
+processor once per entered line and does not own parsing, variant dispatch,
 semantic adaptation, execution ordering, or stop decisions. The processor
 executes parsed commands against one explicit `ExecutionContext`, so selection
 from an earlier operation is immediately available to a later transform. It
 returns ordered semantic `Result` records, per-step selection snapshots, parser
 diagnostics, and an aggregate `MutationSummary`. The Console maps those neutral
-facts to the historically target-specific table/viewer presentation; Core has
+facts to the target-specific table/viewer presentation; Core has
 no knowledge of widgets, active GUI state, or refresh mechanics.
-The focused `perastage_command_scene_tools` target now adapts grouping and
+The focused `perastage_command_scene_tools` target adapts grouping and
 explicit destructive conversion operations downward to existing Core scene
 services. The shared GUI `GuiProjectMutationHost` is the application-side Undo
 publisher used by Console and current main-window command consumers; refresh
@@ -253,8 +242,8 @@ reported explicitly rather than assigned guessed footprints. See
 
 Inspection diagnostics remain separate. Existing Inspection Core reports are
 about the exact file or immutable byte source inspected and are not attached to
-an active scene that may since have changed. QRY-450 therefore exposes no
-validation report until a future active-project service can guarantee current
+an active scene that may since have changed. Query Core exposes no
+validation report without a service that guarantees current active-project
 provenance; Query Core does not duplicate the MVR/GDTF validators.
 
 ## Tool and inspection contract
@@ -358,7 +347,7 @@ and OpenGL panel. GDTF fixture-model parsing remains GUI-thread work because the
 existing archive/cache loader is not thread-safe; its automatic input is
 therefore constrained by the 16 MiB nested-GDTF preview cap.
 
-`perastage_inspection_core` is the first minimal non-GUI link boundary. This
+`perastage_inspection_core` is the minimal non-GUI link boundary. This
 static library owns only `core/inspection/inspection_contract.cpp`, publishes
 the `core/` include root, and requires C++20; it has no wxWidgets or other
 third-party link dependency. The focused inspection services and
@@ -371,47 +360,33 @@ The focused target is intentionally not a general Core library or a migration
 of MVR and GDTF code. It may grow only when a concrete inspection service
 requires another reviewed dependency.
 
-The dependency audit supporting this boundary found that the API-010 header
-and implementation use only the C++ standard library. The GDTF description
-reader and its snapshots are presentation-independent but use tinyxml2, while
-`GdtfDocument` composes that reader with the archive reader. The archive reader
-still uses wxWidgets base file and ZIP streams plus the Core filesystem-to-wx
-path adapter. On the MVR side, scene-node parsing, import result types,
-reference resolution, and project-application separation provide reusable
-read-side pieces, but package acquisition accepts `wxInputStream`, and the
-current importer also contains wxWidgets UI and application interactions.
-Adding those paths now would therefore introduce XML/archive dependencies or
-incorrectly pull GUI/application/model integration into this standard-library
-foundation. Viewer and App sources are not dependencies of this target.
+The minimal Inspection Core stays standard-library-only because readers have
+separate XML/archive dependencies and application importers add project/UI
+integration. It must not acquire Viewer or App dependencies, or become a broad
+Core library without a concrete service need and reviewed dependencies.
 
-INS-110 adds `perastage_gdtf_read` as the single production owner of
+`perastage_gdtf_read` is the single production owner of
 `gdtf_archive_reader.cpp`, `gdtf_description_reader.cpp`, and
-`gdtf/editor/gdtf_document.cpp`. The application and the focused
-Inspection Core targets independently consume that implementation. The CLI and
-wxWidgets Inspector are separate frontends over those services, and the normal
-GUI application links only the focused GDTF, MVR, and resource inspection
-targets required by the Inspector. GUI code owns presentation and layout only;
-parsing, package access, validation, and mutation remain in their Core owners,
-while CLI serialization and formatting remain CLI-owned. The read target keeps
-tinyxml2 and wxWidgets base/archive facilities private, using `wx::base` with
-config packages and base-only flags from the already-selected `wx-config` on
-Linux and macOS. Its public headers expose only standard C++ and immutable GDTF
-read models.
+`gdtf/editor/gdtf_document.cpp`. The application and focused inspection services
+consume that same implementation independently. Its public headers expose only
+standard C++ and immutable GDTF read models. tinyxml2 and wxWidgets base/archive
+facilities remain private, using `wx::base` with config packages and base-only
+flags from the selected `wx-config` on Linux and macOS.
 
-`perastage_inspection_gdtf` composes INS-100 package inventory with
+`perastage_inspection_gdtf` composes package inventory with
 `LoadGdtfDocument`. The existing archive snapshot exposes the selected raw
 `description.xml`, its actual entry path, and canonical or compatibility state.
 The existing description snapshot supplies fixture metadata, revisions,
 physical values, DMX modes, wheels, slots, and resource references. Original
 reader diagnostics remain in those snapshots and are also adapted to ordered
-API-010 diagnostics with stable `gdtf.archive.*` and
+neutral inspection diagnostics with stable `gdtf.archive.*` and
 `gdtf.description.*` codes.
 
 The service is strictly read-only and follows stable DIN SPEC 15800:2022-02
 behavior from the official specification `main` branch. It does not rewrite
 XML, canonicalize archives, invoke editor sessions, retrieve resource bytes, or
 add another GDTF parser. Semantic coverage is limited to the established read
-models; deeper validation and preview are future responsibilities.
+models; standards validation and resource preview have separate owners.
 
 `perastage_inspection_serialization` is a C++20 static library that owns only
 `core/inspection/inspection_json_serializer.cpp`. Its standard-C++ public API
@@ -427,9 +402,9 @@ minimal base serializer and the focused GDTF, MVR, and resource Inspection
 targets, reuses the base serializer's private diagnostic/path/token helpers,
 and adds only already-structured package, validation, document, and snapshot
 facts. It never reparses packages or XML, exposes no JSON implementation or
-GUI/wx type, and keeps complete reports from broadening the API-030 base target.
+GUI/wx type, and keeps complete reports from broadening the minimal base serializer.
 
-`perastage_inspection_package` is the INS-100 C++20 static boundary for
+`perastage_inspection_package` is the C++20 static boundary for
 read-only `.gdtf` and `.mvr` classification and ZIP metadata inventory. Its
 public model is standard C++ and builds on the neutral inspection contract;
 the standard-library raw ZIP metadata target is its only implementation
@@ -448,8 +423,8 @@ metadata allocations; ZIP64 and multi-disk packages receive the neutral fatal
 being mislabeled as malformed or as standards violations. Sentinel values are
 never interpreted as offsets. This
 layer exposes only the presence of the canonical
-root filename; GDTF and MVR XML semantics remain deferred to INS-110 and
-INS-120, and conformance findings remain deferred to INS-130.
+root filename; GDTF and MVR XML semantics belong to the shared readers,
+and conformance findings belong to the validation layer.
 
 The standard-library-only `perastage_archive_zip_directory` static library owns
 bounded classic-ZIP directory mechanics shared by package inspection and the
@@ -457,16 +432,15 @@ existing GDTF reader: EOCD lookup with comment validation, single-disk and
 ZIP64 checks, central-directory bounds, local/central filename consistency,
 raw filename bytes, UTF-8 flags, and entry order. GDTF retains its compatibility
 decoding and diagnostics. The stricter layout-package preflight remains local
-because it combines these mechanics with layout-specific canonical-path and
-entry-count policy; migrating it is intentionally deferred to avoid changing
-layout import behavior in INS-100.
+because its canonical-path and entry-count policy is specific to layout
+imports. Reusing directory mechanics must preserve that stricter behavior.
 
 The shared ZIP metadata entries also provide classic uncompressed size and
 portable directory identity from a trailing `/`. Package inspection builds its
 inventory directly from that metadata, without wx streams or positional
 pairing. The MVR importer remains a separate extraction/import workflow.
 
-INS-120 adds `perastage_mvr_read` as the single production owner of MVR package
+`perastage_mvr_read` is the single production owner of MVR package
 acquisition, read orchestration, scene-node reading, resource resolution, and
 reference resolution. Every `MvrImporter` mode delegates General Scene
 Description traversal to that seam. The focused
@@ -502,7 +476,7 @@ restricted package-only read environment to the shared parser, while application
 imports supply the richer adapter without changing XML traversal ownership.
 
 `perastage_inspection_mvr` is a read-only consumer whose public API uses
-standard C++ filesystem paths or owned bytes. It composes the INS-100 MVR
+standard C++ filesystem paths or owned bytes. It composes the MVR package
 inventory with one acquired package passed to `perastage_mvr_read`, avoiding a
 second extraction. Byte inputs use the same bounded central-directory reader
 directly from memory, so they retain the same ordered entry names, sizes, path
@@ -527,9 +501,8 @@ browsing, and characterization beyond the focused service contract remain
 outside this boundary.
 
 The standards baseline is the current stable DIN SPEC 15800:2022-02 / GDTF
-1.2 and DIN SPEC 15801:2023-12 / MVR 1.6 package format. INS-100 uses only
-stable package identity facts and does not implement future proposals or
-semantic validation.
+1.2 and DIN SPEC 15801:2023-12 / MVR 1.6 package format. Package inspection
+uses stable package identity facts; semantic validation has a separate owner.
 
 Inspection JSON schema version `1` contains `schema_version`, `request`,
 `success`, `worst_severity`, and `diagnostics`. The request contains
@@ -548,8 +521,7 @@ tokens do not silently change within a schema version. Removing or renaming a
 field, changing its type, or reinterpreting its meaning requires a new schema
 version. Deliberate additive optional fields may retain the version when
 existing meanings remain unchanged. Object key order and presentation
-formatting are not schema guarantees, and future CLI text output is outside the
-JSON schema.
+formatting are not schema guarantees, and CLI text output is outside the JSON schema.
 
 ## Library convention
 
@@ -558,7 +530,7 @@ JSON schema.
 
 ## GUI architecture references
 
-- Keyboard shortcut routing and scope rules are documented in `docs/developer/../developer/gui_shortcut_architecture.md`.
+- Keyboard shortcut routing and scope rules are documented in `gui_shortcut_architecture.md`.
 - Storage source-of-truth and runtime precedence are documented in `docs/developer/storage_policy.md`.
 
 ### XML and standards validation layers
@@ -571,8 +543,12 @@ The schema layer embeds exact official `mvrdevelopment/tools` files from revisio
 
 ## Runtime 3D model detail
 
+Core owns cross-cutting viewport interaction preferences alongside shared
+selection movement settings. GUI and both viewers consume that neutral policy
+without introducing viewer or UI implementation dependencies into Core.
+
 Core owns GUI-independent model-detail configuration and triangle/error budgets.
 Viewer3D owns immutable runtime representations and a per-viewer mesh cache;
 GUI owns the category-based Preferences container and focused settings pages.
 See [Runtime model detail and Preferences](model_detail.md) for policy values,
-simplification, invalidation, preserved settings, and the G0.2/G0.3 extraction.
+simplification, invalidation, and preserved settings.

@@ -107,6 +107,41 @@ class ModuleDependencyDirectionFixtures(unittest.TestCase):
         evidence, errors = checker.audit(self.root)
         self.assertEqual((evidence, errors), ([], []))
 
+    def write_documented_directions(self, edges, omitted_module=None) -> None:
+        """Write a provider-only table independently of include evidence counts."""
+        rows = []
+        for consumer in checker.MODULES:
+            if consumer == omitted_module:
+                continue
+            providers = ", ".join(
+                f"`{provider}`" for module, provider in sorted(edges) if module == consumer
+            ) or "None"
+            rows.append(f"| `{consumer}` | {providers} | Responsibility |")
+        self.write("docs/developer/architecture.md", "\n".join(rows))
+
+    def test_provider_only_documentation_passes(self) -> None:
+        self.write_documented_directions(checker.ACCEPTED_DIRECTIONS)
+        self.assertEqual(checker.documentation_contract_errors(self.root), [])
+
+    def test_missing_documented_direction_fails(self) -> None:
+        self.write_documented_directions(checker.ACCEPTED_DIRECTIONS - {("app", "core")})
+        errors = checker.documentation_contract_errors(self.root)
+        self.assertIn("checker-only=[('app', 'core')]", "\n".join(errors))
+
+    def test_unreviewed_documented_provider_fails(self) -> None:
+        for provider in ("app", "unknown_module"):
+            with self.subTest(provider=provider):
+                self.write_documented_directions(
+                    checker.ACCEPTED_DIRECTIONS | {("models", provider)}
+                )
+                errors = checker.documentation_contract_errors(self.root)
+                self.assertIn(f"documented-only=[('models', '{provider}')]", "\n".join(errors))
+
+    def test_missing_documented_module_fails(self) -> None:
+        self.write_documented_directions(checker.ACCEPTED_DIRECTIONS, omitted_module="models")
+        errors = checker.documentation_contract_errors(self.root)
+        self.assertIn("must contain exactly the canonical production modules", "\n".join(errors))
+
 
 if __name__ == "__main__":
     unittest.main()

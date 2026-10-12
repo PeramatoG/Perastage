@@ -208,9 +208,8 @@ def documentation_contract_errors(root: Path) -> list[str]:
     for consumer, providers in rows:
         if consumer not in MODULES:
             continue
-        for provider in re.findall(r"`([^`]+)`\s*\(\d+\)", providers):
-            if provider in MODULES:
-                documented.add((consumer, provider))
+        for provider in re.findall(r"`([^`]+)`", providers):
+            documented.add((consumer, provider))
     errors: list[str] = []
     if consumers != set(MODULES):
         errors.append(
