@@ -7,7 +7,7 @@ async function checkMetadata(page, route) {
   assert.equal(await page.locator('h1').count(), 1, route);
   if (route.startsWith('stable/')) {
     assert.equal(await page.locator('link[rel="canonical"]').getAttribute('href'), publicUrl(route));
-    return; // The published 1.6.0 snapshot intentionally retains its original presentation.
+    return; // The published 1.6.0 snapshot intentionally retains its original metadata and logo assets.
   }
   if (route === '404.html') {
     assert.equal(await meta('robots'), 'noindex,follow');
@@ -51,7 +51,7 @@ async function checkMetadata(page, route) {
   }
 }
 
-// Check underline and contrast in the rendered palette, including translucent surfaces.
+// Check underlines and WCAG contrast against actual rendered component backgrounds.
 async function checkPresentation(page) {
   const result = await page.evaluate(() => {
     const style = getComputedStyle(document.documentElement);
@@ -59,16 +59,33 @@ async function checkPresentation(page) {
     const luminance = color => color.map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4)
       .reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0);
     const foregrounds = ['--text-primary', '--text-muted', '--accent', '--accent-strong'];
-    // Include cards, selected navigation and the brightest gradient background.
-    const backgrounds = ['--bg-primary', '--bg-secondary', '--bg-card'].map(rgb)
-      .concat(['1b2b47', '24395f', '1a2741'].map(hex => hex.match(/../g).map(value => parseInt(value, 16) / 255)));
+    const backgrounds = ['--bg-primary', '--bg-secondary', '--bg-card'].map(rgb);
+    for (const element of document.querySelectorAll('.nav-panel, .content-panel, .hero-panel, .doc-card, .product-card, .product-release, .nav-links a.active, #content code, #content pre, #content th, #content td')) {
+      const color = getComputedStyle(element).backgroundColor;
+      const components = color.match(/[\d.]+/g).map(Number);
+      if (components.length === 3 || components[3] === 1) backgrounds.push(components.slice(0, 3).map(value => value / 255));
+    }
     const ratios = foregrounds.flatMap(name => backgrounds.map(background => {
       const a = luminance(rgb(name)), b = luminance(background);
       return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
     }));
+    // Resolve actual visible text through its nearest opaque ancestor surface.
+    const textRatios = [];
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const parseColor = color => color.match(/[\d.]+/g).slice(0, 3).map(value => Number(value) / 255);
+    while (walker.nextNode()) {
+      const node = walker.currentNode, element = node.parentElement;
+      if (!node.textContent.trim() || !element.checkVisibility() || element.closest('script, style, svg')) continue;
+      let surface = element;
+      while (surface && getComputedStyle(surface).backgroundColor === 'rgba(0, 0, 0, 0)') surface = surface.parentElement;
+      const background = surface ? parseColor(getComputedStyle(surface).backgroundColor) : rgb('--bg-primary');
+      const foreground = parseColor(getComputedStyle(element).color);
+      const a = luminance(foreground), b = luminance(background);
+      textRatios.push((Math.max(a, b) + .05) / (Math.min(a, b) + .05));
+    }
     const links = [...document.querySelectorAll('#content p a, #content li a')];
     return {
-      contrast: Math.min(...ratios),
+      contrast: Math.min(...ratios, ...textRatios),
       underlined: links.every(link => getComputedStyle(link).textDecorationLine.includes('underline')),
       focusOutline: style.getPropertyValue('--accent-strong').trim(),
       allImagesHaveAlt: [...document.images].every(image => image.hasAttribute('alt')),

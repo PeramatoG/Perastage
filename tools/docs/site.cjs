@@ -4,7 +4,7 @@ const site = Object.freeze({
   name: 'Perastage',
   description: 'Perastage is a free, cross-platform desktop application to open, inspect, edit and document MVR scenes and work with GDTF fixtures.',
   socialImage: 'assets/images/screenshots/hero-main.png',
-  themeColor: '#0b1220'
+  themeColor: '#080808'
 });
 
 // Encode route segments while keeping one absolute, release-neutral public origin.
