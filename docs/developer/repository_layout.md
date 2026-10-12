@@ -6,7 +6,7 @@ repository entry-point ownership. For architectural boundaries and dependency
 direction, see [Architecture](architecture.md). For a shorter navigational
 view, see [perastage_tree.md](perastage_tree.md).
 
-The machine-readable ORG-001 baseline is
+The machine-readable structural baseline is
 [`repository_structure_baseline.json`](repository_structure_baseline.json). The
 `RepositoryStructureBaseline` policy test validates its required directories,
 root-file roles, build/development entry points, and current CMake ownership
@@ -82,75 +82,35 @@ keeps that classification, local module CMake ownership, and root registration
 from silently diverging. Required architecture guard inventories and stable
 documentation markers are validated against the same canonical module list.
 
-The source-registration arrangement is decentralized. The root `CMakeLists.txt`
-creates the application target and registers only its entry point and generated
-build-information source. The dedicated `cli/` module owns the separate
-`perastage_cli` executable and `perastage_cli_support` command/presentation library; it does
-not contribute sources to the GUI application. Every module above registers its explicit production
-source list through its own `CMakeLists.txt`; `core/` additionally owns the
-focused `perastage_inspection_core` static library and links it into the
-inspection services and focused tests rather than compiling private copies of
-its implementation. Core also owns `perastage_query_core`, the read-only
-structured scene/project query boundary. It consumes neutral scene state and
-typed UUID identity without application or GUI dependencies. Core also
-owns the separate `perastage_inspection_serialization` static library, whose
-standard-C++ interface serializes existing neutral inspection results while its
-vendored JSON dependency remains private. The separate
-`perastage_inspection_report_serialization` target composes complete GDTF/MVR
-reports from structured Inspection results without broadening that minimal base
-boundary. Core also owns the focused
-`perastage_inspection_package` static library. It classifies `.gdtf` and `.mvr`
-paths and inventories ZIP entry metadata without extraction or XML parsing;
-its public interface and implementation are standard-library-only apart from
-the neutral inspection contract. The narrow `perastage_archive_zip_directory`
-static library gives package inspection and the existing GDTF reader one owner
-for bounded raw classic-ZIP directory mechanics. Core also owns
-`perastage_gdtf_read`, the shared production implementation of the archive,
-description, and immutable document readers, and `perastage_inspection_gdtf`,
-which composes them with package inventory and the neutral inspection contract.
-The shared read target also owns the mode/channel, wheel-catalog, and CIE color
-read models exposed as optional in-memory GDTF inspection details.
-The application and inspection service independently consume the shared reader.
-The normal application now links the focused GDTF, MVR, and resource inspection
-targets for the production wxWidgets Inspector under `gui/inspection/`; the
-headless CLI remains a separate frontend over the same Core services. Shared
-production readers retain single ownership, and GUI code owns presentation and
-layout only rather than parsing, validation, archive access, or mutation. The
-reader's private wx dependency remains base/archive-only.
-`tests/` is added conditionally when
-testing is enabled. No recursive project-source discovery is used.
+The root creates the GUI application target and registers only `main.cpp` and
+generated build information. Each source module explicitly owns its production
+sources and any focused reusable targets in its local `CMakeLists.txt`; shared
+production implementations are linked rather than compiled as private copies.
+`cli/` owns the separate `perastage_cli` executable and
+`perastage_cli_support` library and contributes no sources to the GUI target.
+`tests/` is registered only when testing is enabled.
 
-The application-bootstrap boundary in [Architecture](architecture.md#application-bootstrap-ownership-org-030033)
-assigns wxWidgets lifecycle and startup orchestration to the top-level `app/`
-composition module. Root `main.cpp` remains the sole accepted root C/C++ source
-and contains only application-entry wiring. App is registered explicitly and
-may depend downward on Core, GUI, and Viewer3D; lower-level modules must not
-depend upward on App.
+App lifecycle, Core Command/Query/Inspection services, shared readers, and
+frontend dependency rules are owned by
+[Architecture](architecture.md#application-bootstrap-ownership), with detailed
+contracts linked there. This path map does not duplicate their API inventories.
 
-Target-level operating-system configuration is dispatched once through
-`cmake/platform/PerastagePlatform.cmake`. The Windows owner configures the
-application resource, GUI subsystem, MSVC release symbols, and `Dbghelp`; the
-macOS owner configures the application bundle, plist, and icon resources. The
-Linux owner documents that no additional target configuration is currently
-required, while desktop, MIME, and icon installation remains in
-`cmake/PerastageInstall.cmake`.
-
-Cross-cutting viewport interaction preference policy is owned by `core/`, next
-to the existing shared selection movement settings. GUI, 2D viewer, and 3D
-viewer consumers depend on that policy without introducing viewer or UI
-implementation dependencies into Core. The baseline audit treats `main.cpp` as
-the only accepted root C/C++ file and rejects any additional root source or
-header, case-insensitively by extension, with an actionable diagnostic.
+Target-level platform configuration is dispatched through
+`cmake/platform/PerastagePlatform.cmake` to the Windows, macOS, and Linux owners.
+Runtime staging belongs to `cmake/PerastageRuntimeStaging.cmake`; installation,
+including Linux desktop/MIME/icon integration, belongs to
+`cmake/PerastageInstall.cmake`; packaging belongs to
+`cmake/PerastagePackaging.cmake`. See [Build](build.md) and
+[Packaging](packaging.md) for platform procedures.
 
 ## Structural regression guard
 
-The ORG-002 guard extends the ORG-001 audit rather than creating a parallel
-repository checker. It enumerates Git-tracked files, so ignored builds, IDE
-state, caches, and other untracked local artifacts do not affect results. It
-protects four invariants:
+[`check_repository_structure_baseline.py`](../../tests/check_repository_structure_baseline.py)
+enforces the JSON baseline over Git-tracked files; ignored builds, IDE state,
+caches, and untracked artifacts do not affect results. It protects these rules:
 
-1. Vendored C/C++ code belongs under `third_party/`. The audit conservatively
-   detects vendor-style source directories and explicit upstream-provenance
+1. Vendored C/C++ code belongs under `third_party/`. The guard detects
+   vendor-style source directories and explicit upstream-provenance
    metadata outside that owner; ordinary first-party copyright or license
    headers are not treated as evidence of vendoring.
 2. Shared build/development configuration cannot acquire developer-specific
@@ -160,9 +120,6 @@ protects four invariants:
    source modules, while source-free support directories are not misclassified.
 4. CMake cannot discover production sources through `file(GLOB ...)` or
    `file(GLOB_RECURSE ...)`; resource globs remain valid.
-
-The check uses no branch name or checkout-path assumption and accepts an
-explicit tracked-file manifest for isolated fixtures.
 
 Tracked developer-local configuration is rejected even if it is force-added:
 this includes root `CMakeUserPresets.json`, canonical local build directories,
@@ -182,18 +139,13 @@ otherwise frozen: intentional future structural changes may move files or
 modules when the baseline, documentation, CMake ownership, and focused fixtures
 are updated together.
 
-The baseline retains exact-count support for narrowly reviewed machine-path
-exceptions, but currently records none. Shared Windows presets load a tracked
-bootstrap toolchain that resolves classic vcpkg from a valid external
-`VCPKG_ROOT` or the standard user-wide integration descriptor; developer-specific
-overrides belong in the ignored `CMakeUserPresets.json`. Fixtures continue to
-prove that new machine paths and stale exceptions are rejected.
-
-The `/mnt/c` values in the WSL presets are intentionally portable platform
-isolation paths: they prevent Linux package discovery from crossing into the
-standard Windows drive mount and are therefore accepted without an exception.
-User-specific paths below WSL drive mounts, such as
-`/mnt/d/Users/alice/toolchain`, remain forbidden.
+Machine-path exceptions require narrow justification in the baseline; stale
+exceptions fail validation. Windows toolchain discovery uses an external
+`VCPKG_ROOT` or user-wide integration descriptor, while machine-specific
+overrides belong in ignored `CMakeUserPresets.json`. The WSL `/mnt/c` package
+isolation paths prevent discovery from crossing into the standard Windows
+mount; they do not authorize developer-specific paths below drive mounts.
+See [Build](build.md) for supported preset and toolchain configuration.
 
 ## Repository-root roles and development entry points
 
@@ -206,10 +158,8 @@ community documents, and `AGENTS.md` are documentation or repository guidance.
 `docs/user/*.md` owns the canonical English user manual; packaged `help/<locale>/`
 pages are generated artifacts.
 
-The obsolete Visual Studio `CMakeSettings.json` and `CppProperties.json` files
-were removed after their settings were verified as redundant with the canonical
-CMake presets and generated compile database. Repository-visible validation starts at `tests/CMakeLists.txt`
-and `.github/workflows/ci-tests.yml`; packaging entry points include
+Repository-visible validation starts at `tests/CMakeLists.txt` and
+`.github/workflows/ci-tests.yml`; packaging entry points include
 `packaging/arch/PKGBUILD` and `packaging/windows/Perastage.iss`.
 
 `CMakeUserPresets.json` is optional, ignored developer-local state for
@@ -220,33 +170,24 @@ safe local override example.
 
 ### Setup-script ownership and compatibility
 
-The root setup files remain the discoverable, stable platform entry points.
-`setup.sh` is a small Linux/WSL launcher that resolves the checkout from its own
-location and delegates unchanged arguments to
-`scripts/linux/PerastageLinuxBootstrap.sh`; that implementation owns parsing,
-dependency installation, package-manager and command checks, preset selection,
-configure/build sequencing, and completion diagnostics. It accepts `Debug` or
-`Release` in any argument position plus `--skip-deps`, `--skip-build`, and
-`-h`/`--help`; Debug is the default. Help exits successfully, invalid arguments
-and setup failures exit nonzero, diagnostics retain their stdout/stderr intent,
-and invocation is independent of the caller's working directory. Native Linux
-and WSL share apt/dnf handling and the existing Debug
-`wsl-x64-debug`/`wsl-debug-build` and Release
-`wsl-x64-release`/`wsl-release-build` mappings.
+The root setup files are stable, discoverable public platform entry points:
 
-`setup_windows.ps1` is likewise a small Windows launcher. It resolves
-`scripts/windows/PerastageWindowsBootstrap.ps1` from its own location and
-forwards the public PowerShell parameters. The implementation script owns the
-Visual Studio environment, classic-vcpkg and dependency validation, preset
-selection, cache cleanup, and configure/build sequencing; the adjacent
-`PerastageWindowsBootstrap.psm1` owns reusable native-process, path, and Git
-Bash helpers. The public options retain Debug as the default and include
-`-Configuration`, `-VcpkgRoot`, `-VisualStudioPath`, `-VisualStudioVersion`,
-`-BashExecutable`, `-SkipBuild`, and `-CleanBuild`.
-Repository documentation and policy tests refer to the root public commands;
-CI and packaging use presets directly rather than invoking either launcher.
-Changing the root invocation syntax, accepted options, diagnostics, exit
-behavior, or preset mapping would therefore break the supported setup contract.
+- `setup.sh` resolves the checkout from its own location and forwards arguments
+  to `scripts/linux/PerastageLinuxBootstrap.sh`. That implementation owns Linux/
+  WSL argument parsing, dependency installation, package-manager and command
+  checks, preset selection, configure/build sequencing, and diagnostics.
+- `setup_windows.ps1` resolves and forwards public PowerShell parameters to
+  `scripts/windows/PerastageWindowsBootstrap.ps1`. That implementation owns the
+  Visual Studio environment, classic-vcpkg/dependency validation, preset
+  selection, cache cleanup, and configure/build sequencing. Its adjacent
+  `PerastageWindowsBootstrap.psm1` owns native-process, path, and Git Bash helpers.
+
+Both launchers default to Debug and resolve implementation paths independently
+of the caller's working directory. The [build guide](build.md) owns supported
+options and invocation examples. Public syntax, accepted options, diagnostics,
+exit behavior, and preset mappings are compatibility contracts. Policy tests
+and repository documentation use the root commands; CI and packaging use
+presets directly.
 
 ## Documentation layout
 
