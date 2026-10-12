@@ -21,11 +21,11 @@
 </header>
 <div class="layout">
 <aside id="docNav" class="nav-panel"><nav aria-label="Documentation navigation"><ul class="nav-links">
-<li><a href="../documentation.html">User Documentation</a></li>
+<li><a href="../next/documentation.html">User Documentation</a></li>
 <li><a href="index.html">Developer Documentation</a></li>
 </ul></nav></aside>
 <main class="content-panel">
-<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../documentation.html">Documentation</a> / <a href="index.html">Developer</a> / <span id="pageTitle">MVR identity recovery</span></nav>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../next/documentation.html">Documentation</a> / <a href="index.html">Developer</a> / <span id="pageTitle">MVR identity recovery</span></nav>
 <div id="content" tabindex="-1"><h1 id="mvr-identity-recovery">MVR identity recovery</h1>
 <p>Perastage treats UUIDs as scene-instance identity, independently of display names, row order, GDTF filenames, and filesystem paths. Canonical editable and exported identity uses lowercase RFC 4122 text with hyphens.</p>
 <p><code>mvridentity::RecoverSceneIdentities</code> is the GUI-independent transaction boundary used before strict MVR serialization. It preserves canonical UUIDs, accepts uppercase, surrounding whitespace, braces, and unhyphenated UUID text, and deterministically replaces missing, malformed, duplicate, or key-versus-field-conflicting identities. It rebuilds scene maps and rewrites GroupObject parent and child references in the same transaction. Default and legacy name-only layers are materialized once with deterministic UUIDs; subsequent save, reload, and export preserve that stored value.</p>

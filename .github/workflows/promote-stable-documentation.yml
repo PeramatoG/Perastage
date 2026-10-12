@@ -1,0 +1,85 @@
+name: Promote Stable Documentation
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: perastage-stable-documentation
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create dedicated release App token
+        id: release-app-token
+        if: ${{ vars.PERASTAGE_RELEASE_APP_ENABLED == 'true' }}
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.PERASTAGE_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PERASTAGE_RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+      - name: Validate dedicated release App token
+        if: ${{ vars.PERASTAGE_RELEASE_APP_ENABLED == 'true' }}
+        env:
+          RELEASE_APP_TOKEN: ${{ steps.release-app-token.outputs.token }}
+        run: test -n "$RELEASE_APP_TOKEN"
+      - name: Check out main with the dedicated release App
+        if: ${{ vars.PERASTAGE_RELEASE_APP_ENABLED == 'true' }}
+        uses: actions/checkout@v6
+        with:
+          token: ${{ steps.release-app-token.outputs.token }}
+          ref: main
+          fetch-depth: 0
+      - name: Check out main with GITHUB_TOKEN
+        if: ${{ vars.PERASTAGE_RELEASE_APP_ENABLED != 'true' }}
+        uses: actions/checkout@v6
+        with:
+          token: ${{ github.token }}
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Verify published tag and compare Stable version
+        id: release
+        env:
+          PUBLISHED_SHA: ${{ github.sha }}
+        run: node tools/docs/published_release.cjs
+      - name: Promote and validate static documentation
+        if: ${{ steps.release.outputs.promote == 'true' }}
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          SOURCE_REF: ${{ steps.release.outputs.source_ref }}
+        run: |
+          set -euo pipefail
+          node tools/docs/build_static_docs.cjs --check
+          node tools/docs/build_static_docs.cjs --promote-stable "$RELEASE_VERSION" --source-ref "$SOURCE_REF"
+          node tools/docs/build_static_docs.cjs --check
+          node tests/check_static_docs.cjs
+          node tests/check_versioned_docs.cjs
+          python3 tests/check_stable_documentation_workflow.py
+          python3 tests/check_docs_links.py
+          python3 tests/check_docs_links_fixtures.py
+          git diff --check
+      - name: Commit generated documentation and push without force
+        if: ${{ steps.release.outputs.promote == 'true' }}
+        env:
+          SOURCE_REF: ${{ steps.release.outputs.source_ref }}
+        run: |
+          set -euo pipefail
+          # Rendering owns only generated HTML plus the Stable version contract/assets.
+          unexpected="$(git diff --name-only -- . ':!docs/**/*.html' ':!docs/*.html' ':!docs/stable/**')"
+          [ -z "$unexpected" ] || { echo "Unexpected source changes: $unexpected"; exit 1; }
+          git add -- docs/stable ':(glob)docs/**/*.html' ':(glob)docs/*.html'
+          git diff --cached --quiet && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "docs: promote ${SOURCE_REF} documentation to stable [skip version-bump]"
+          # A concurrent main update rejects this fast-forward push; rerun from fresh main.
+          git push origin HEAD:refs/heads/main

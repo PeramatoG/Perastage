@@ -36,7 +36,7 @@ def main() -> None:
 
         check()
         # Mutate generated sidebar metadata while keeping the canonical owner intact.
-        page = root / 'docs/installation.html'
+        page = root / 'docs/next/installation.html'
         original_page = page.read_text(encoding='utf-8')
         install_entry = '<li><a class="active" aria-current="page" href="installation.html">Installation</a></li>'
         quick_entry = '<li><a href="quick-start.html">Quick Start</a></li>'
@@ -69,9 +69,9 @@ def main() -> None:
         wrapper.unlink()
         check('public user route is missing')
         wrapper.write_bytes(original_wrapper)
-        landing = root / 'docs/documentation.html'
+        landing = root / 'docs/next/documentation.html'
         original_landing = landing.read_text(encoding='utf-8')
-        landing.write_text(original_landing.replace('href="developer/index.html"', 'href="build.html"'), encoding='utf-8')
+        landing.write_text(original_landing.replace('href="../developer/index.html"', 'href="build.html"'), encoding='utf-8')
         check('missing required marker')
         landing.write_text(original_landing, encoding='utf-8')
         for locale in match[1].split():

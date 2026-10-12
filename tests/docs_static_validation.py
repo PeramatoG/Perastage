@@ -1,6 +1,9 @@
 """Inspect actual static HTML links, fragments and canonical navigation."""
 from html.parser import HTMLParser
 import os
+import re
+import json
+import hashlib
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -70,20 +73,51 @@ def validate_static_docs(root: Path, canonical_navigation, failures: list[str]) 
     cache = {}
     for file in sorted(docs.rglob('*.html')):
         cache[file.resolve()] = Page(file.read_text(encoding='utf-8'))
-    expected_links = [(Path(md).with_suffix('.html').name, title)
-                      for _, entries in canonical_navigation for md, title in entries]
-    expected_groups = [heading for heading, _ in canonical_navigation]
-    for route, _ in expected_links:
+    manifest = json.loads((docs / 'stable/manifest.json').read_text(encoding='utf-8'))
+    stable_navigation = []
+    for heading, body in re.findall(r'^## ([^\n]+)\n(.*?)(?=^## |\Z)', manifest['user_index'], re.MULTILINE | re.DOTALL):
+        entries = [(md, title) for title, md in re.findall(r'\[([^\]]+)\]\(([^)]+)\)', body)]
+        if entries:
+            stable_navigation.append((heading, entries))
+    generated_files = []
+    for channel, navigation in [('next', canonical_navigation), ('stable', stable_navigation)]:
+        expected_links = [(Path(md).with_suffix('.html').name, title)
+                          for _, entries in navigation for md, title in entries]
+        expected_groups = [heading for heading, _ in navigation]
+        for route, _ in expected_links:
+            file = docs / channel / route
+            if not file.is_file():
+                failures.append(f'public user route is missing: {channel}/{route}')
+                continue
+            page = cache[file.resolve()]
+            if page.nav_headings != expected_groups or page.nav_links != expected_links:
+                failures.append(f'{channel}/{route} navigation must mirror canonical index sections, titles and order')
+        generated_files += [docs / channel / route for route, _ in expected_links]
+        generated_files += [docs / channel / 'documentation.html']
+    stable_pages = {Path(md).with_suffix('.html').name for _, entries in stable_navigation for md, _ in entries}
+    next_pages = {Path(md).with_suffix('.html').name for _, entries in canonical_navigation for md, _ in entries}
+    for route in sorted(stable_pages | next_pages | {'documentation.html'}):
         file = docs / route
         if not file.is_file():
             failures.append(f'public user route is missing: {route}')
             continue
-        page = cache[file.resolve()]
-        if page.nav_headings != expected_groups or page.nav_links != expected_links:
-            failures.append(f'{route} navigation must mirror canonical index sections, titles and order')
-    generated_files = [docs / route for route, _ in expected_links]
+        target = f"{'stable' if route in stable_pages or route == 'documentation.html' else 'next'}/{route}"
+        text = file.read_text(encoding='utf-8')
+        if f'location.replace("{target}"' not in text or f'href="{target}"' not in text:
+            failures.append(f'{route} compatibility target must be {target}')
+        generated_files.append(file)
+    artifact_names = set(manifest['artifacts'])
+    actual_names = {file.relative_to(docs / 'stable').as_posix() for file in (docs / 'stable').rglob('*') if file.is_file()}
+    if actual_names != artifact_names | {'manifest.json'}:
+        failures.append('Stable has missing or extra files')
+    if set(manifest['pages']) != stable_pages | {'documentation.html'}:
+        failures.append('Stable inventory differs from its release user index')
+    for name, digest in manifest['artifacts'].items():
+        file = docs / 'stable' / name
+        if file.is_file() and hashlib.sha256(file.read_bytes()).hexdigest() != digest:
+            failures.append(f'Stable hash mismatch: {name}')
     generated_files += [file.with_suffix('.html') for file in (docs / 'developer').rglob('*.md')]
-    generated_files += [docs / name for name in ('documentation.html', 'doc.html', 'build.html', 'repository_layout.html')]
+    generated_files += [docs / name for name in ('doc.html', 'build.html', 'repository_layout.html')]
     for file in generated_files:
         if not file.is_file():
             failures.append(f'missing generated static route: {file.relative_to(root)}')
@@ -94,12 +128,12 @@ def validate_static_docs(root: Path, canonical_navigation, failures: list[str]) 
             failures.append(f'{file.relative_to(root)} is missing generated marker')
         if 'loadMarkdown(' in text or 'marked.min.js' in text or 'docs-shell.js' in text:
             failures.append(f'{file.relative_to(root)} retains runtime Markdown rendering')
-        compatibility = file.name in ('doc.html', 'build.html', 'repository_layout.html') and file.parent == docs
+        compatibility = file.parent == docs
         if not compatibility and (not page.content_heading or 'docNav' not in page.ids):
             failures.append(f'{file.relative_to(root)} lacks static content/navigation')
-        if file.parent != docs and not page.nav_headings:
+        if file.is_relative_to(docs / 'developer'):
             developer_index = Path(os.path.relpath(docs / 'developer/index.html', file.parent)).as_posix()
-            user_hub = Path(os.path.relpath(docs / 'documentation.html', file.parent)).as_posix()
+            user_hub = Path(os.path.relpath(docs / 'next/documentation.html', file.parent)).as_posix()
             if page.nav_links != [(user_hub, 'User Documentation'), (developer_index, 'Developer Documentation')]:
                 failures.append(f'{file.relative_to(root)} has incorrect developer navigation')
         for link in page.links:
@@ -111,9 +145,9 @@ def validate_static_docs(root: Path, canonical_navigation, failures: list[str]) 
                 failures.append(f'{file.relative_to(root)} has missing generated link/resource: {link}')
             elif parsed.fragment and target in cache and unquote(parsed.fragment) not in cache[target].ids:
                 failures.append(f'{file.relative_to(root)} has missing generated fragment: {link}')
-    hub = (docs / 'documentation.html').read_text(encoding='utf-8')
-    for marker in ('class="developer-entry"', 'href="developer/index.html"', 'id="docGrid"'):
+    hub = (docs / 'next/documentation.html').read_text(encoding='utf-8')
+    for marker in ('class="developer-entry"', 'href="../developer/index.html"', 'id="docGrid"'):
         if marker not in hub:
-            failures.append(f'documentation.html is missing required marker: {marker}')
+            failures.append(f'next/documentation.html is missing required marker: {marker}')
     if list((docs / 'user').rglob('*.html')):
         failures.append('localized mirrors or user source directories unexpectedly publish HTML')

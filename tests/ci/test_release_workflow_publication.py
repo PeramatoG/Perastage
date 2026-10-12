@@ -47,6 +47,7 @@ def test_release_app_credentials_are_confined_and_fail_closed() -> None:
         "main-patch-test-build.yml": "  bump-version:",
         "minor-draft-release.yml": "  publish-release:",
         "validate-release-automation-app.yml": "  validate-release-app:",
+        "promote-stable-documentation.yml": "  promote:",
     }
 
     assert {name for name, text in workflows.items() if action in text} == set(expected_users)
@@ -62,7 +63,7 @@ def test_release_app_credentials_are_confined_and_fail_closed() -> None:
     patch = workflows["main-patch-test-build.yml"]
     minor = workflows["minor-draft-release.yml"]
     recovery = workflows["recover-minor-release.yml"]
-    for publisher in (patch, minor):
+    for publisher in (patch, minor, workflows["promote-stable-documentation.yml"]):
         assert "vars.PERASTAGE_RELEASE_APP_ENABLED == 'true'" in publisher
         assert "vars.PERASTAGE_RELEASE_APP_ENABLED != 'true'" in publisher
         assert 'run: test -n "$RELEASE_APP_TOKEN"' in publisher

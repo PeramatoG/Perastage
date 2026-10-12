@@ -55,6 +55,7 @@ jobs:
           set -euo pipefail
           test -f .github/release-artifact-contract.json
           python3 -m json.tool .github/release-artifact-contract.json >/dev/null
+          node tools/docs/build_static_docs.cjs --check
           VERSION_RAW="$(tr -d '[:space:]' < VERSION)"
           [[ "$VERSION_RAW" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid VERSION: $VERSION_RAW"; exit 1; }
           IFS='.' read -r major minor patch <<< "$VERSION_RAW"

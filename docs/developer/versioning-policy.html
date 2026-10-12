@@ -21,11 +21,11 @@
 </header>
 <div class="layout">
 <aside id="docNav" class="nav-panel"><nav aria-label="Documentation navigation"><ul class="nav-links">
-<li><a href="../documentation.html">User Documentation</a></li>
+<li><a href="../next/documentation.html">User Documentation</a></li>
 <li><a href="index.html">Developer Documentation</a></li>
 </ul></nav></aside>
 <main class="content-panel">
-<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../documentation.html">Documentation</a> / <a href="index.html">Developer</a> / <span id="pageTitle">Perastage Versioning Policy</span></nav>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../next/documentation.html">Documentation</a> / <a href="index.html">Developer</a> / <span id="pageTitle">Perastage Versioning Policy</span></nav>
 <div id="content" tabindex="-1"><h1 id="perastage-versioning-policy">Perastage Versioning Policy</h1>
 <p>Perastage uses a three-number semantic version format:</p>
 <p><code>MAJOR.MINOR.PATCH</code></p>
@@ -65,6 +65,23 @@
 <li><code>v1.2.0</code></li>
 <li><code>v2.0.0</code></li>
 </ul>
+<h2 id="public-documentation-channels">Public documentation channels</h2>
+<p>User documentation has two public channels: <code>docs/next/</code> follows the canonical
+<code>docs/user/</code> working tree on main; <code>docs/stable/</code> is a frozen generated snapshot
+of the latest published non-prerelease <code>vMAJOR.MINOR.PATCH</code> release tag.
+Only explicit promotion changes Stable. Draft creation, prereleases, repeated
+publication and older releases never advance or regress it.</p>
+<p>The <code>Promote Stable Documentation</code> workflow handles <code>release: published</code>,
+verifies the exact tagged release commit and version, validates the outputs,
+then commits generated documentation to main without force. Concurrent main
+changes reject the push; rerun the workflow from fresh main. It uses the same
+dedicated release App and fail-closed credential policy as release publication,
+with GITHUB_TOKEN only when that App is not enabled. Pages continues publishing
+the committed <code>docs/</code> tree. Recovery uses the same published-release event.</p>
+<p>Developer website documentation follows main at <code>docs/developer/</code>; historical
+developer/source contracts belong to Git tags. Packaged offline Help remains
+the manual from the exact application release. See
+<a href="user_manual_pipeline.html">User Manual Pipeline</a> for rendering and routing.</p>
 <h2 id="release-notes">Release Notes</h2>
 <p>Perastage maintains a curated working draft for the next release in <a href="https://github.com/PeramatoG/Perastage/blob/main/docs/release-notes-draft.md"><code>release-notes-draft.md</code></a>.
 Update that draft whenever a merged PR includes a meaningful user-facing change, such as a feature, bug fix, performance improvement, stability improvement, packaging change, or documentation update.

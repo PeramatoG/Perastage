@@ -33,6 +33,13 @@ Never make editorial fixes in generated HTML: update Markdown and regenerate.
 Run `node tools/docs/build_static_docs.cjs --check` to reject stale artifacts.
 The hand-authored product landing page `docs/index.html` remains separate.
 
+`docs/next/` follows main's canonical user Markdown. `docs/stable/` is frozen
+from the latest published non-prerelease release tag and changes only through
+explicit promotion. Never edit generated Stable/Next HTML manually. Developer
+website documentation remains current-main content under `docs/developer/`;
+release-specific developer/source material is accessed through Git tags.
+Packaged offline Help corresponds to the exact application release.
+
 ## Developer Documentation Authority
 
 The [Developer Documentation index](index.md) is the canonical entry map.
