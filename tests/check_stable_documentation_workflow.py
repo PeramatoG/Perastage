@@ -15,6 +15,7 @@ for marker in ('release:', 'types: [published]', '!github.event.release.prerelea
                'node tools/docs/build_static_docs.cjs --check',
                '--promote-stable "$RELEASE_VERSION" --source-ref "$SOURCE_REF"',
                'node tests/check_static_docs.cjs', 'node tests/check_versioned_docs.cjs',
+               "':!docs/sitemap.xml'", 'docs/sitemap.xml docs/robots.txt',
                'python3 tests/check_docs_links.py', 'python3 tests/check_docs_links_fixtures.py',
                '[skip version-bump]', 'git push origin HEAD:refs/heads/main'):
     assert marker in workflow, f'published-release workflow is missing {marker}'

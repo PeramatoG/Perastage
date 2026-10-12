@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://perastage.luismaperamato.com/sitemap.xml

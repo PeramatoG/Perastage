@@ -32,6 +32,13 @@ Public documentation HTML is generated from canonical Markdown by
 Never make editorial fixes in generated HTML: update Markdown and regenerate.
 Run `node tools/docs/build_static_docs.cjs --check` to reject stale artifacts.
 The hand-authored product landing page `docs/index.html` remains separate.
+Generated metadata and public identity belong to `tools/docs/`; descriptions
+come from canonical prose rather than a separate editorial inventory. The same
+build owns `docs/sitemap.xml` and `docs/robots.txt`, listing only the landing,
+Stable manifest pages and current indexable developer routes. `--check` rejects
+crawl artifact drift; release promotion commits the updated sitemap with Stable.
+Template changes apply to Next, developer pages and future promotions; existing
+Stable bytes and manifest hashes remain immutable between promotions.
 
 `docs/next/` follows main's canonical user Markdown. `docs/stable/` is frozen
 from the latest published non-prerelease release tag and changes only through

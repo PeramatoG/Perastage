@@ -28,7 +28,7 @@ const stableRead = name => fs.readFileSync(path.join(fixture, 'docs/stable', nam
 const release = (tag, extra = {}) => ({ action: 'published', release: { tag_name: tag, draft: false, prerelease: false, ...extra } });
 try {
   fs.cpSync(path.join(root, 'tools/docs'), path.join(fixture, 'tools/docs'), { recursive: true });
-  for (const name of ['assets/css/style.css', 'assets/js/docs-nav.js', 'assets/images/Perastage_logo.png']) {
+  for (const name of ['assets/css/style.css', 'assets/js/docs-nav.js', 'assets/images/Perastage_logo.png', 'assets/images/logo-web.png', 'assets/images/favicon.png', 'assets/images/apple-touch-icon.png']) {
     const destination = path.join(fixture, 'docs', name);
     fs.mkdirSync(path.dirname(destination), { recursive: true });
     fs.copyFileSync(path.join(root, 'docs', name), destination);
@@ -60,6 +60,13 @@ try {
   assert.deepEqual(stable.pages, ['documentation.html', 'quick-start.html']);
   const tagged = stableRead('quick-start.html');
   assert(tagged.includes('Tagged original manual.'));
+  assert(tagged.includes('<meta name="description"'));
+  assert(tagged.includes('<link rel="canonical" href="https://perastage.luismaperamato.com/stable/quick-start.html"'));
+  assert(tagged.includes('<meta property="og:url" content="https://perastage.luismaperamato.com/stable/quick-start.html"'));
+  assert(tagged.includes('aria-current="page"'));
+  assert(tagged.includes('loading="lazy" decoding="async"'));
+  assert(tagged.includes('logo-web.png') && !tagged.includes('Perastage_logo.png'));
+  assert(!tagged.includes('name="robots"'));
   assert(!tagged.includes('Working-tree manual.'));
   assert(tagged.includes('Released guides'));
   assert(tagged.includes('blob/v1.6.0/docs/developer/build.md#building'));
@@ -117,6 +124,11 @@ try {
   fs.appendFileSync(path.join(fixture, 'docs/user/quick-start.md'), '\nAfter tagged release.\n');
   run(['--promote-stable', '1.7.0', '--source-ref', 'v1.7.0']); run(['--check']);
   assert.equal(readStable(fixture).version, '1.7.0');
+  const sitemap = fs.readFileSync(path.join(fixture, 'docs/sitemap.xml'), 'utf8');
+  assert(sitemap.includes('/stable/inspector.html</loc>'));
+  assert(!sitemap.includes('/next/'));
+  assert(stableRead('inspector.html').includes('<meta name="description"'));
+  assert(stableRead('inspector.html').includes('property="og:image"'));
   assert(stableRead('inspector.html').includes('Current-only workflow.'));
   assert(!stableRead('quick-start.html').includes('After tagged release.'));
   assert(fs.readFileSync(path.join(fixture, 'docs/inspector.html'), 'utf8').includes('location.replace("stable/inspector.html"'));

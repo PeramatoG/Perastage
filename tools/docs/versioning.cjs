@@ -104,7 +104,7 @@ function renderTagged(root, version, sourceRef, commit, nextPages, nextOutputs =
       } }
     };
     const rendered = new Map(context.pages.map(page => [page.source, renderMarkdown(page.source, page.output, context)]));
-    for (const page of context.pages) outputs.set(page.output, pageTemplate(page, rendered.get(page.source).html, context));
+    for (const page of context.pages) outputs.set(page.output, pageTemplate({ ...page, summaryHtml: rendered.get(page.source).descriptionHtml }, rendered.get(page.source).html, context));
     outputs.set(context.hub, pageTemplate({ output: context.hub, title: 'User Documentation' }, hubContent(context, rendered), context, true));
     validateOutputs(new Map([...nextOutputs, ...outputs]), docs);
     const artifacts = Object.fromEntries([...outputs].map(([file, content]) => [path.relative(directory, file).split(path.sep).join('/'), hash(content)]).sort(([a], [b]) => a.localeCompare(b, 'en')));

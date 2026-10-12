@@ -7,6 +7,7 @@ const { renderMarkdown } = require('./render_markdown.cjs');
 const { MARKER, pageTemplate, hubContent, compatibilityTemplate } = require('./templates.cjs');
 const { readStable, promoteStable } = require('./versioning.cjs');
 const { validateOutputs } = require('./validate_outputs.cjs');
+const { crawlOutputs } = require('./crawl.cjs');
 
 // Build every artifact in memory before writing, also exposing the pipeline to fixtures.
 function generate(root = path.resolve(__dirname, '../..'), options = {}) {
@@ -20,7 +21,7 @@ function generate(root = path.resolve(__dirname, '../..'), options = {}) {
   const outputs = new Map();
   for (const page of context.pages) {
     const result = rendered.get(page.source);
-    outputs.set(page.output, pageTemplate({ ...page, title: page.title || result.title }, result.html, context));
+    outputs.set(page.output, pageTemplate({ ...page, title: page.title || result.title, summaryHtml: result.descriptionHtml }, result.html, context));
   }
   outputs.set(context.hub, pageTemplate({ output: context.hub, title: 'User Documentation' }, hubContent(context, rendered), context, true));
   const legacyTarget = output => `${stable && stable.pages.includes(path.basename(output)) ? 'stable' : 'next'}/${path.basename(output)}`;
@@ -31,7 +32,7 @@ function generate(root = path.resolve(__dirname, '../..'), options = {}) {
   // Preserve stable-owned bookmarks even if a page is later removed from Next.
   for (const name of stable ? stable.pages : []) {
     if (!outputs.has(path.join(context.docs, name))) outputs.set(path.join(context.docs, name), compatibilityTemplate(`stable/${name}`));
-    if (!outputs.has(path.join(context.docs, 'next', name))) outputs.set(path.join(context.docs, 'next', name), compatibilityTemplate('documentation.html'));
+    if (!outputs.has(path.join(context.docs, 'next', name))) outputs.set(path.join(context.docs, 'next', name), compatibilityTemplate('documentation.html', null, 'next/'));
   }
   const legacyRoutes = Object.fromEntries([...context.routes].map(([source, output]) => [
     path.relative(context.docs, source).split(path.sep).join('/'),
@@ -44,6 +45,7 @@ function generate(root = path.resolve(__dirname, '../..'), options = {}) {
   for (const name of ['build', 'repository_layout']) {
     outputs.set(path.join(context.docs, `${name}.html`), compatibilityTemplate(`developer/${name}.html`));
   }
+  for (const [file, content] of crawlOutputs(context, stable, outputs)) outputs.set(file, content);
   return { context, outputs, stable };
 }
 

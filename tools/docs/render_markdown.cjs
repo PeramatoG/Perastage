@@ -55,16 +55,20 @@ function renderMarkdown(source, output, context) {
     return originalLink.call(this, rewriteUrl(href, source, output, context), title, text);
   };
   renderer.image = function(href, title, text) {
-    return originalImage.call(this, rewriteUrl(href, source, output, context, true), title, text);
+    return originalImage.call(this, rewriteUrl(href, source, output, context, true), title, text).replace('<img ', '<img loading="lazy" decoding="async" ');
   };
   renderer.html = html => html.replace(/\b(href|src|poster)=(['"])(.*?)\2/gi, (_, attribute, quote, url) =>
     `${attribute}=${quote}${escapeHtml(rewriteUrl(url.replace(/&amp;/g, '&'), source, output, context, attribute.toLowerCase() !== 'href'))}${quote}`);
   const html = marked.parse(markdown, { renderer, mangle: false, headerIds: true });
-  const heading = marked.lexer(markdown).find(token => token.type === 'heading' && token.depth === 1);
-  const paragraph = marked.lexer(markdown).find(token => token.type === 'paragraph');
+  const tokens = marked.lexer(markdown);
+  const heading = tokens.find(token => token.type === 'heading' && token.depth === 1);
+  const paragraph = tokens.find(token => token.type === 'paragraph');
   // Marked already escapes prose. Strip presentation tags and preserve its entities once.
   const summaryHtml = paragraph ? marked.parseInline(paragraph.text, { mangle: false }).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() : '';
-  return { html, title: heading ? heading.text : path.basename(source, '.md'), summaryHtml };
+  const useful = tokens.find(token => token.type === 'paragraph' &&
+    token.tokens && token.tokens.some(part => part.type === 'text' && /[a-z]{3}/i.test(part.text)));
+  const descriptionHtml = useful ? marked.parseInline(useful.text, { mangle: false }).replace(/<img[^>]*>/g, '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() : '';
+  return { html, title: heading ? heading.text : path.basename(source, '.md'), summaryHtml, descriptionHtml };
 }
 
 module.exports = { escapeHtml, relativeUrl, rewriteUrl, renderMarkdown };

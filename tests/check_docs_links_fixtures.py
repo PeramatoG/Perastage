@@ -103,10 +103,14 @@ def main() -> None:
                 (original_page.replace('href="installation.html"', 'href="developer/build.html"'), 'mirror canonical index'),
                 (original_page.replace('>Help</h2>', '>Reference</h2>'), 'mirror canonical index'),
                 (re.sub(r'<h1\b[^>]*>', '<p>', original_page), 'lacks static content'),
+                (re.sub(r'<meta name="description"[^>]*>', '', original_page), 'missing metadata: description'),
+                (original_page.replace('content="noindex,follow"', 'content="index,follow"'), 'Next must remain noindex'),
+                (original_page.replace('href="https://perastage.luismaperamato.com/next/installation.html"', 'href="installation.html"'), 'canonical must be'),
+                (original_page.replace('<div id="content" tabindex="-1">', '<div id="content" tabindex="-1"><h1>Duplicate</h1>'), 'exactly one primary h1'),
                 (original_page.replace('Generated from canonical Markdown.', 'Hand edited.'), 'missing generated marker'),
                 (original_page.replace('assets/js/docs-nav.js', 'assets/js/marked.min.js'), 'runtime Markdown'),
                 (original_page.replace('href="preferences.html"', 'href="preferences.html#nonexistent"'), 'missing generated fragment'),
-                (original_page.replace('assets/images/Perastage_logo.png', 'assets/images/missing.png'), 'missing generated link/resource')):
+                (original_page.replace('assets/images/logo-web.png', 'assets/images/missing.png'), 'missing generated link/resource')):
             page.write_text(payload, encoding='utf-8')
             check(error)
             page.write_text(original_page, encoding='utf-8')

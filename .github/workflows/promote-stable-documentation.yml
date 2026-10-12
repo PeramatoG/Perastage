@@ -73,10 +73,10 @@ jobs:
           SOURCE_REF: ${{ steps.release.outputs.source_ref }}
         run: |
           set -euo pipefail
-          # Rendering owns only generated HTML plus the Stable version contract/assets.
-          unexpected="$(git diff --name-only -- . ':!docs/**/*.html' ':!docs/*.html' ':!docs/stable/**')"
+          # Rendering owns generated HTML, crawl artifacts and the Stable contract/assets.
+          unexpected="$(git diff --name-only -- . ':!docs/**/*.html' ':!docs/*.html' ':!docs/stable/**' ':!docs/sitemap.xml' ':!docs/robots.txt')"
           [ -z "$unexpected" ] || { echo "Unexpected source changes: $unexpected"; exit 1; }
-          git add -- docs/stable ':(glob)docs/**/*.html' ':(glob)docs/*.html'
+          git add -- docs/stable ':(glob)docs/**/*.html' ':(glob)docs/*.html' docs/sitemap.xml docs/robots.txt
           git diff --cached --quiet && exit 0
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

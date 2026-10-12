@@ -46,6 +46,8 @@ a:hover, a:focus-visible { color: var(--accent-strong); }
 footer { margin-top:1rem; color:var(--text-muted); font-size:.92rem; text-align:center; }
 #content h1, #content h2, #content h3, #content h4 { line-height:1.25; margin-top:1.3em; }
 #content p, #content li { color: var(--text-primary); }
+#content a:not(.doc-card) { text-decoration: underline; text-underline-offset: .16em; }
+#docGrid > section > h2 { font-size: 1.17rem; }
 #content code { background:#0d1628; padding:.1rem .35rem; border-radius:6px; }
 #content pre { background:#0d1628; padding:1rem; overflow:auto; border-radius:10px; border:1px solid var(--border); }
 #content table { border-collapse: collapse; width:100%; }
