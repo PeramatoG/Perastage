@@ -21,7 +21,7 @@ def main() -> None:
         (root / 'tests').mkdir()
         checker = root / 'tests/check_docs_links.py'
         shutil.copyfile(ROOT / 'tests/check_docs_links.py', checker)
-        registry = (root / 'cmake/PerastageLocalization.cmake').read_text()
+        registry = (root / 'cmake/PerastageLocalization.cmake').read_text(encoding='utf-8')
         match = re.search(r'set\(PERASTAGE_TRANSLATION_LANGUAGES\s+([^)]+)\)', registry)
         assert match
         pages = sorted((root / 'docs/user').glob('*.md'))
@@ -36,7 +36,7 @@ def main() -> None:
         check()
         # Mutate the presentation mirror, leaving its canonical editorial owner intact.
         shell = root / 'docs/assets/js/docs-shell.js'
-        original_shell = shell.read_text()
+        original_shell = shell.read_text(encoding='utf-8')
         install_entry = re.search(r"\s+\{ md: 'user/installation.md'.*?\},", original_shell)[0]
         quick_entry = re.search(r"\s+\{ md: 'user/quick-start.md'.*?\},", original_shell)[0]
         swapped_entries = original_shell.replace(install_entry, 'ENTRY_PLACEHOLDER').replace(
@@ -50,29 +50,29 @@ def main() -> None:
                 (original_shell.replace("html: 'installation.html'", "html: 'install.html'"), 'changes public route'),
                 (original_shell.replace("md: 'user/installation.md'", "md: 'developer/build.md'"), 'mirror canonical index'),
                 (original_shell.replace("title: 'Help'", "title: 'Reference'"), 'mirror canonical index')):
-            shell.write_text(payload)
+            shell.write_text(payload, encoding='utf-8')
             check(error)
-            shell.write_text(original_shell)
+            shell.write_text(original_shell, encoding='utf-8')
         # Moving an entry between groups must fail even when the total inventory is unchanged.
         shell.write_text(original_shell.replace(install_entry, '').replace(
-            "{ title: 'Workflows', pages: [", "{ title: 'Workflows', pages: [" + install_entry))
+            "{ title: 'Workflows', pages: [", "{ title: 'Workflows', pages: [" + install_entry), encoding='utf-8')
         check('mirror canonical index')
-        shell.write_text(original_shell)
+        shell.write_text(original_shell, encoding='utf-8')
         index = root / 'docs/user/index.md'
-        original_index = index.read_text()
-        index.write_text(original_index.replace('- [Installation](installation.md)', ''))
+        original_index = index.read_text(encoding='utf-8')
+        index.write_text(original_index.replace('- [Installation](installation.md)', ''), encoding='utf-8')
         check('index must list every user page exactly once')
-        index.write_text(original_index)
+        index.write_text(original_index, encoding='utf-8')
         wrapper = root / 'docs/installation.html'
         original_wrapper = wrapper.read_bytes()
         wrapper.unlink()
         check('public user route is missing')
         wrapper.write_bytes(original_wrapper)
         landing = root / 'docs/documentation.html'
-        original_landing = landing.read_text()
-        landing.write_text(original_landing.replace('href="doc.html?md=developer/index.md"', 'href="build.html"'))
+        original_landing = landing.read_text(encoding='utf-8')
+        landing.write_text(original_landing.replace('href="doc.html?md=developer/index.md"', 'href="build.html"'), encoding='utf-8')
         check('missing required marker')
-        landing.write_text(original_landing)
+        landing.write_text(original_landing, encoding='utf-8')
         for locale in match[1].split():
             mirror = root / 'docs/user/locales' / locale
             page = mirror / pages[0].name
@@ -81,7 +81,7 @@ def main() -> None:
             check('missing canonical page')
             page.write_bytes(original)
             extra = mirror / 'unexpected.md'
-            extra.write_text('# Unexpected\n')
+            extra.write_text('# Unexpected\n', encoding='utf-8')
             check('unexpected page')
             extra.unlink()
             for payload, error in (
