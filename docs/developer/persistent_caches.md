@@ -1,5 +1,8 @@
 # Persistent application caches
 
+Perastage stores regenerable geometry and GDTF catalog caches in its user data
+directory. Core services manage cache paths, migration, size and safe cleanup.
+
 `AppPaths` owns the canonical `<UserDataDir>/cache` root and its children:
 
 - `viewer3d/gdtf`: mode-specific binary geometry.
