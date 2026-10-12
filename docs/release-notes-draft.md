@@ -66,6 +66,10 @@ workflows.
   simplify unselected fixtures during fast navigation, then restore the chosen
   detail.
 - Preferences now use categories for General, Import, Viewer and Formats.
+- **General → Cache** shows cache storage and disk usage, opens the cache folder,
+  and clears regenerable caches immediately after confirmation. Geometry caches
+  now stay in Perastage user data instead of beside GDTF and model files; existing
+  catalog caches migrate safely and settings, libraries and projects are preserved.
   Switching categories retains pending edits; **Apply** saves without closing.
 - Tables use numeric and natural ordering, object dragging follows the pointer
   smoothly in 2D/3D, and Layout Viewer view dragging/resizing stays on the
