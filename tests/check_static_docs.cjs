@@ -8,11 +8,77 @@ const { generate } = require('../tools/docs/build_static_docs.cjs');
 const { MARKER } = require('../tools/docs/templates.cjs');
 const { rewriteUrl, renderMarkdown } = require('../tools/docs/render_markdown.cjs');
 const marked = require('../tools/docs/vendor/marked.min.js');
+const { site, publicUrl } = require('../tools/docs/site.cjs');
+const { descriptionFrom } = require('../tools/docs/metadata.cjs');
+const { indexable, crawlOutputs } = require('../tools/docs/crawl.cjs');
 const root = path.resolve(__dirname, '..');
 const first = generate();
 const second = generate();
 assert.deepEqual([...first.outputs], [...second.outputs], 'identical inputs must produce byte-identical HTML');
 const { context } = first;
+assert(![...first.outputs.keys()].some(file => file.startsWith(path.join(root, 'docs/stable/'))), 'normal generation must never own frozen Stable bytes');
+const sitemap = first.outputs.get(path.join(context.docs, 'sitemap.xml'));
+const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]);
+const expectedLocations = [publicUrl(), ...first.stable.pages.map(name => publicUrl(`stable/${name}`)),
+  ...context.pages.filter(page => page.developer).map(page => publicUrl(path.relative(context.docs, page.output).split(path.sep).join('/')))];
+assert.deepEqual(locations, expectedLocations.sort());
+assert.equal(new Set(locations).size, locations.length);
+assert(!/\/next\/|manifest\.json|<lastmod>|\.md</.test(sitemap));
+assert(first.outputs.get(path.join(context.docs, 'robots.txt')).includes(`Sitemap: ${publicUrl('sitemap.xml')}`));
+assert(!first.outputs.get(path.join(context.docs, 'robots.txt')).includes('Disallow'));
+assert(!indexable('<meta content="noindex,follow" name="robots">'));
+assert(indexable('<meta name="robots" content="index,follow">'));
+const excludedPage = context.pages.find(page => page.developer);
+const excludedStable = first.stable.pages[0];
+const noindexOutputs = new Map(first.outputs);
+noindexOutputs.set(excludedPage.output, '<meta name="robots" content="noindex,follow">');
+const noindexStable = { ...first.stable, outputs: new Map(first.stable.outputs) };
+noindexStable.outputs.set(path.join(first.stable.directory, excludedStable), '<meta content="noindex,follow" name="robots">');
+const filteredSitemap = crawlOutputs(context, noindexStable, noindexOutputs).get(path.join(context.docs, 'sitemap.xml'));
+assert(!filteredSitemap.includes(publicUrl(`stable/${excludedStable}`)));
+assert(!filteredSitemap.includes(publicUrl(path.relative(context.docs, excludedPage.output).split(path.sep).join('/'))));
+assert.equal(descriptionFrom(''), site.description);
+assert(!descriptionFrom('Use &quot;quotes&quot;, &amp; symbols and &#39;apostrophes&#39;.').includes('&amp;'));
+assert(descriptionFrom('Long useful prose '.repeat(30)).length <= 170);
+for (const page of context.pages) {
+  const html = first.outputs.get(page.output);
+  const canonical = publicUrl(path.relative(context.docs, page.output).split(path.sep).join('/'));
+  assert(html.includes(`<link rel="canonical" href="${canonical}"`));
+  assert(html.includes(`<meta property="og:url" content="${canonical}"`));
+  for (const field of ['description', 'twitter:card', 'twitter:title', 'twitter:description', 'twitter:image']) assert(html.includes(`name="${field}"`));
+  assert.equal((html.match(/<h1\b/g) || []).length, 1);
+  assert(html.includes('alt="" width="48" height="48"'));
+  assert(html.includes('logo-web.png') && !html.includes('alt="Perastage logo"'));
+  if (!page.developer) {
+    assert(html.includes('content="noindex,follow"'));
+    assert(html.includes('aria-label="Documentation version"'));
+    assert(html.includes('aria-current="page"'));
+  }
+}
+assert(!first.outputs.get(context.hub).includes('<h3'));
+const landing = fs.readFileSync(path.join(context.docs, 'index.html'), 'utf8');
+assert(landing.includes(`<link rel="canonical" href="${publicUrl()}"`));
+for (const field of ['description', 'twitter:card', 'twitter:title', 'twitter:description', 'twitter:image']) assert(landing.includes(`name="${field}"`));
+for (const field of ['og:site_name', 'og:type', 'og:title', 'og:description', 'og:url', 'og:image']) assert(landing.includes(`property="${field}"`));
+const jsonLd = JSON.parse(landing.match(/<script type="application\/ld\+json">([^]*?)<\/script>/)[1]);
+assert.equal(jsonLd['@type'], 'SoftwareApplication');
+assert.equal(jsonLd.url, publicUrl());
+assert.equal(jsonLd.description, site.description);
+assert.equal(jsonLd.license, 'https://spdx.org/licenses/GPL-3.0-or-later.html');
+assert.equal(jsonLd.offers.price, '0');
+assert(!landing.includes('Perastage_logo.png'));
+assert(landing.includes('fetchpriority="high" loading="eager" decoding="async"'));
+assert(landing.includes('href="stable/quick-start.html"') && landing.includes('href="stable/troubleshooting.html"'));
+assert(landing.includes('experimental local CLI and OSC interfaces') && landing.includes('configured separately'));
+const imageBytes = name => fs.statSync(path.join(context.docs, 'assets/images', name)).size;
+assert(imageBytes('logo-web.png') < imageBytes('Perastage_logo.png') / 5);
+assert(imageBytes('favicon.png') < 10000);
+for (const [file, html] of first.outputs) {
+  if (!file.endsWith('.html')) continue;
+  if (html.includes('Compatibility-only')) assert(html.includes('name="robots" content="noindex,follow"'));
+  assert(!/<script[^>]+src="https?:|<link[^>]+rel="stylesheet"[^>]+href="https?:/.test(html), 'no remote runtime dependencies');
+}
+assert(first.outputs.get(path.join(context.docs, 'documentation.html')).includes(`href="${publicUrl('stable/documentation.html')}"`));
 assert.equal(context.groups.flatMap(group => group.pages).length, 13);
 for (const [source, output] of context.routes) {
   assert(!source.includes(`${path.sep}locales${path.sep}`));
@@ -94,6 +160,22 @@ try {
   assert.deepEqual(snapshot(), changed, '--check must not rewrite stale artifacts');
   run([]);
   assert.equal(fs.readFileSync(stale, 'utf8'), original);
+  for (const name of ['sitemap.xml', 'robots.txt']) {
+    const file = path.join(fixture, 'docs', name), originalCrawl = fs.readFileSync(file, 'utf8');
+    fs.appendFileSync(file, 'drift');
+    assert(run(['--check'], 1).stderr.includes(`docs/${name}`));
+    assert.equal(fs.readFileSync(file, 'utf8'), originalCrawl + 'drift', '--check must not rewrite crawl artifacts');
+    run([]);
+    assert.equal(fs.readFileSync(file, 'utf8'), originalCrawl);
+  }
+  const addedSource = path.join(fixture, 'docs/developer/sitemap-fixture.md');
+  fs.writeFileSync(addedSource, '# Sitemap fixture\n\nCanonical developer prose for a newly discovered public route.\n');
+  run(['--check'], 1); run([]);
+  assert(fs.readFileSync(path.join(fixture, 'docs/sitemap.xml'), 'utf8').includes('/developer/sitemap-fixture.html</loc>'));
+  fs.unlinkSync(addedSource);
+  run(['--check'], 1); run([]);
+  assert(!fs.readFileSync(path.join(fixture, 'docs/sitemap.xml'), 'utf8').includes('sitemap-fixture'));
+  assert(!fs.existsSync(path.join(fixture, 'docs/developer/sitemap-fixture.html')));
   const canonical = path.join(fixture, 'docs/user/installation.md');
   fs.appendFileSync(canonical, '\nA new canonical paragraph.\n');
   run(['--check'], 1);
@@ -122,8 +204,17 @@ try {
   const rendered = renderMarkdown(sample, sampleOutput, sampleContext).html;
   assert(rendered.includes('id="repeated-1"'));
   assert(rendered.includes('src="assets/images/Perastage_logo.png"'));
+  assert(rendered.includes('<img loading="lazy" decoding="async"'));
+  assert(rendered.includes('alt="Logo"'));
   assert(rendered.includes('href="assets/images/Perastage_logo.png"'));
   assert(rendered.includes('href="https://example.org/x?y=1&z=2"'));
+  fs.writeFileSync(sample, '# Summary fixture\n\n[Navigation](https://example.org/)\n\nUseful **prose**, `code`, &quot;quotes&quot; and &amp; symbols describe this canonical page, rather than its navigation.\n');
+  const prose = renderMarkdown(sample, sampleOutput, sampleContext).descriptionHtml;
+  const description = descriptionFrom(prose);
+  assert(description.startsWith('Useful prose, code, "quotes" and & symbols'));
+  assert(!description.includes('Navigation') && !description.includes('**') && !description.includes('`'));
+  fs.writeFileSync(sample, '# Heading only\n\n[Navigation](https://example.org/)\n');
+  assert.equal(descriptionFrom(renderMarkdown(sample, sampleOutput, sampleContext).descriptionHtml), site.description);
   // The same machinery can use another source/output root without a locale inventory.
   fs.unlinkSync(sample);
   const translatedRoot = path.join(fixture, 'docs/custom-source');

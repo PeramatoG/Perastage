@@ -5,6 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Perastage is a free, cross-platform desktop application to open, inspect, edit and document MVR scenes and work with GDTF fixtures." />
     <title>Perastage — MVR &amp; GDTF workflows</title>
+    <link rel="canonical" href="https://perastage.luismaperamato.com/" />
+    <link rel="icon" href="assets/images/favicon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png" />
+    <meta name="theme-color" content="#0b1220" />
+    <meta property="og:site_name" content="Perastage" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Perastage — MVR &amp; GDTF workflows" />
+    <meta property="og:description" content="Perastage is a free, cross-platform desktop application to open, inspect, edit and document MVR scenes and work with GDTF fixtures." />
+    <meta property="og:url" content="https://perastage.luismaperamato.com/" />
+    <meta property="og:image" content="https://perastage.luismaperamato.com/assets/images/screenshots/hero-main.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Perastage — MVR &amp; GDTF workflows" />
+    <meta name="twitter:description" content="Perastage is a free, cross-platform desktop application to open, inspect, edit and document MVR scenes and work with GDTF fixtures." />
+    <meta name="twitter:image" content="https://perastage.luismaperamato.com/assets/images/screenshots/hero-main.png" />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Perastage",
+      "applicationCategory": "MultimediaApplication",
+      "operatingSystem": "Windows, macOS, Linux",
+      "url": "https://perastage.luismaperamato.com/",
+      "downloadUrl": "https://github.com/PeramatoG/Perastage/releases/latest",
+      "description": "Perastage is a free, cross-platform desktop application to open, inspect, edit and document MVR scenes and work with GDTF fixtures.",
+      "license": "https://spdx.org/licenses/GPL-3.0-or-later.html",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "EUR"
+      }
+    }
+    </script>
     <link rel="stylesheet" href="assets/css/style.css" />
   </head>
   <body id="top" class="product-page">
@@ -12,20 +44,20 @@
     <div class="page-shell product-shell">
       <header class="site-header product-header">
         <a class="brand" href="index.html" aria-label="Perastage home">
-          <img src="assets/images/Perastage_logo.png" alt="" width="48" height="48" />
+          <img src="assets/images/logo-web.png" alt="" width="48" height="48" />
           <span class="product-brand-name">Perastage</span>
         </a>
         <nav aria-label="Main navigation">
           <ul class="product-nav">
             <li><a href="#features">Features</a></li>
             <li><a href="#workflow">Workflow</a></li>
-            <li><a href="documentation.html">Documentation</a></li>
+            <li><a href="stable/documentation.html">Documentation</a></li>
             <li><a href="https://github.com/PeramatoG/Perastage/releases/latest">Download</a></li>
             <li><a href="https://github.com/PeramatoG/Perastage">GitHub</a></li>
           </ul>
         </nav>
       </header>
-      <main id="main">
+      <main id="main" tabindex="-1">
         <section class="product-hero" aria-labelledby="hero-title">
           <div>
             <p class="product-eyebrow">MVR &amp; GDTF workflows</p>
@@ -33,7 +65,7 @@
             <p class="product-lead">Perastage is a free, cross-platform desktop application for practical MVR and GDTF workflows. Review rigs in 2D and 3D, inspect scene and fixture data, organize and edit projects, build production layouts and export interoperable MVR files.</p>
             <div class="product-actions">
               <a class="product-button product-button-primary" href="https://github.com/PeramatoG/Perastage/releases/latest">Download latest release</a>
-              <a class="product-button" href="quick-start.html">Quick start</a>
+              <a class="product-button" href="stable/quick-start.html">Quick start</a>
             </div>
             <ul class="product-status" aria-label="Platform and project information">
               <li>Windows · macOS · Linux</li>
@@ -41,11 +73,11 @@
               <li>MVR &amp; GDTF workflows</li>
             </ul>
           </div>
-          <img class="product-screenshot" src="assets/images/screenshots/hero-main.png" alt="Perastage showing a stage scene in the 3D workspace" width="1919" height="1079" fetchpriority="high" />
+          <img class="product-screenshot" src="assets/images/screenshots/hero-main.png" alt="Perastage showing a stage scene in the 3D workspace" width="1919" height="1079" fetchpriority="high" loading="eager" decoding="async" />
         </section>
         <aside class="product-release" aria-labelledby="release-title">
           <h2 id="release-title">Coming in Perastage 1.7.0</h2>
-          <p>MVR / GDTF Inspector, improved GDTF Share workflow and symbol handling, and experimental local OSC / MCP integration.</p>
+          <p>MVR / GDTF Inspector, improved GDTF Share workflow and symbol handling, experimental local CLI and OSC interfaces, and a separately configured MCP adapter.</p>
         </aside>
         <section id="features" class="product-section" aria-labelledby="features-title">
           <h2 id="features-title">Practical tools for real show files</h2>
@@ -81,7 +113,7 @@
             </article>
             <article class="product-card">
               <h3>Automation &amp; external control</h3>
-              <p>Use experimental local interfaces for controlled automation and integration, including OSC and MCP-based workflows.</p>
+              <p>Use the experimental local CLI and OSC interfaces for automation and advanced workflows. An MCP adapter can be configured separately.</p>
             </article>
           </div>
         </section>
@@ -105,15 +137,15 @@
         <section class="product-section" aria-labelledby="documentation-title">
           <h2 id="documentation-title">Need help getting started?</h2>
           <div class="product-help-grid">
-            <a class="product-card product-help-card" href="quick-start.html">
+            <a class="product-card product-help-card" href="stable/quick-start.html">
               <h3>Quick Start</h3>
               <p>Get from installation to your first useful scene review.</p>
             </a>
-            <a class="product-card product-help-card" href="documentation.html">
+            <a class="product-card product-help-card" href="stable/documentation.html">
               <h3>User Guide</h3>
               <p>Browse Perastage workflows, preferences and reference documentation.</p>
             </a>
-            <a class="product-card product-help-card" href="troubleshooting.html">
+            <a class="product-card product-help-card" href="stable/troubleshooting.html">
               <h3>Troubleshooting</h3>
               <p>Resolve common installation, MVR, GDTF and display issues.</p>
             </a>

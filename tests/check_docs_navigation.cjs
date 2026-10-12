@@ -8,6 +8,7 @@ catch (error) {
 }
 const fs = require('node:fs');
 const assert = require('node:assert/strict');
+const { checkMetadata, checkPresentation } = require('./docs_browser_metadata.cjs');
 const root = require('node:path').resolve(__dirname, '..');
 const index = fs.readFileSync(`${root}/docs/user/index.md`, 'utf8');
 const expected = [];
@@ -51,13 +52,26 @@ async function ready(page, base, route) {
     const base = process.env.DOCS_TEST_BASE_URL || 'http://127.0.0.1:8765/';
     const stable = JSON.parse(fs.readFileSync(`${root}/docs/stable/manifest.json`, 'utf8'));
     const stableHas = route => stable.pages.includes(route);
+    let contrast;
+    for (const route of ['index.html', '404.html', 'stable/quick-start.html', 'next/documentation.html', 'next/quick-start.html', 'developer/index.html', 'developer/build.html']) {
+      await page.goto(base + route);
+      await page.waitForLoadState('networkidle');
+      assert.equal(page.url(), base + route, 'normal pages must not redirect');
+      await checkMetadata(page, route);
+      if (!route.startsWith('stable/')) contrast = await checkPresentation(page);
+    }
+    await page.goto(base + 'index.html');
+    await page.keyboard.press('Tab');
+    assert.equal(await page.locator(':focus').textContent(), 'Skip to content');
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator(':focus').getAttribute('id'), 'main');
     await ready(page, base, 'documentation.html');
     assert.equal(page.url(), base + 'stable/documentation.html');
     assert.equal(await page.locator('.channel-label').textContent(), `Stable ${stable.version}`);
     assert.equal(await page.locator('#docGrid .doc-card').count(), stable.pages.length - 1);
     await page.locator('.channel-switcher a').filter({hasText:'Next'}).click();
     assert.equal(page.url(), base + 'next/documentation.html');
-    assert.deepEqual(await page.locator('#docGrid h3').allTextContents(), [...new Set(expected.map(p=>p.section))]);
+    assert.deepEqual(await page.locator('#docGrid h2').allTextContents(), [...new Set(expected.map(p=>p.section))]);
     assert.deepEqual(await page.locator('#docGrid .doc-card').evaluateAll(links=>links.map(a=>a.getAttribute('href'))), expected.map(p=>p.html));
     assert.equal(await page.locator('#docGrid a[href*="developer"], #docGrid a[href="build.html"]').count(), 0);
     assert.equal(await page.locator('.developer-entry a').getAttribute('href'), '../developer/index.html');
@@ -67,7 +81,7 @@ async function ready(page, base, route) {
       await ready(page, base, 'next/' + entry.html);
       assert.deepEqual(await page.locator('#docNav h2').allTextContents(), [...new Set(expected.map(p=>p.section))]);
       assert.deepEqual(await page.locator('#docNav a').evaluateAll(links=>links.map(a=>a.getAttribute('href'))), expected.map(p=>p.html));
-      assert.equal(await page.locator('[aria-current="page"]').getAttribute('href'), entry.html);
+      assert.equal(await page.locator('#docNav [aria-current="page"]').getAttribute('href'), entry.html);
       assert.equal(await page.locator('.breadcrumb').innerText(), `Documentation / ${entry.section} / ${entry.title}`);
       assert.equal(await page.title(), `Perastage Documentation • ${entry.title}`);
       assert.equal(await page.locator('main').count(), 1);
@@ -129,6 +143,12 @@ async function ready(page, base, route) {
       assert.equal(page.url(), base + 'developer/index.html');
     }
     await page.setViewportSize({width:390,height:844});
+    for (const route of ['index.html', '404.html', 'next/documentation.html']) {
+      await page.goto(base + route);
+      await page.waitForLoadState('networkidle');
+      await checkMetadata(page, route);
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), route);
+    }
     for (const route of ['stable/quick-start.html','next/inspector.html','developer/index.html','developer/technical-notes/gdtf-editor/gdtf_editor_architecture.html']) {
       await ready(page, base, route);
       const nav = page.locator('#docNav'), toggle = page.locator('#menuToggle');
@@ -153,12 +173,20 @@ async function ready(page, base, route) {
     assert(await plain.locator('#docNav').isVisible(), 'mobile navigation remains available without JavaScript');
     assert.equal(await plain.locator('#menuToggle').isVisible(), false);
     await plain.goto(base + 'documentation.html');
+    assert.equal(await plain.locator('link[rel="canonical"]').getAttribute('href'), 'https://perastage.luismaperamato.com/stable/documentation.html');
+    assert.equal(await plain.locator('meta[name="robots"]').getAttribute('content'), 'noindex,follow');
     assert(await plain.locator('a[href="stable/documentation.html"]').isVisible());
     await plain.goto(base + 'build.html');
     assert(await plain.locator('a[href="developer/build.html"]').isVisible());
+    for (const route of ['index.html', '404.html']) {
+      await plain.goto(base + route);
+      assert(await plain.locator('main h1').isVisible());
+      await checkMetadata(plain, route);
+      assert(await plain.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+    }
     assert.deepEqual(errors, []);
     await disabled.close();
-    console.log('PASS: Stable/Next hubs and switchers, all 13 Next user routes, developer/nested routes, links, fragments, legacy/safe redirects, keyboard/mobile navigation, JavaScript-disabled content, and zero console/local resource errors.');
+    console.log(`PASS: landing/404 desktop/mobile and DOM metadata, Stable/Next hubs and switchers, all 13 Next user routes, developer/nested routes, links, fragments, legacy/safe redirects, keyboard/mobile navigation, JavaScript-disabled content, WCAG AA palette (minimum ${contrast.toFixed(2)}:1), and zero console/local resource errors.`);
   } finally {
     await browser.close();
   }

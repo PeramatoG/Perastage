@@ -4,6 +4,7 @@ import os
 import re
 import json
 import hashlib
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -25,11 +26,23 @@ class Page(HTMLParser):
         self.content_heading = False
         self.in_content = False
         self.scripts = []
+        self.metadata = {}
+        self.canonical = None
+        self.images = []
+        self.h1_count = 0
         self.feed(text)
 
     def handle_starttag(self, tag, attributes):
         """Read IDs, link destinations and sidebar identity from real elements."""
         attrs = dict(attributes)
+        if tag == 'meta':
+            self.metadata[attrs.get('name') or attrs.get('property')] = attrs.get('content', '')
+        if tag == 'link' and attrs.get('rel') == 'canonical':
+            self.canonical = attrs.get('href')
+        if tag == 'img':
+            self.images.append(attrs)
+        if tag == 'h1':
+            self.h1_count += 1
         if attrs.get('id'):
             self.ids.add(attrs['id'])
         if attrs.get('id') == 'docNav':
@@ -151,3 +164,65 @@ def validate_static_docs(root: Path, canonical_navigation, failures: list[str]) 
             failures.append(f'next/documentation.html is missing required marker: {marker}')
     if list((docs / 'user').rglob('*.html')):
         failures.append('localized mirrors or user source directories unexpectedly publish HTML')
+    validate_web_metadata(docs, cache, manifest, failures)
+
+
+def validate_web_metadata(docs, cache, manifest, failures):
+    """Check real XML and HTML semantics while respecting the frozen Stable template."""
+    origin = 'https://perastage.luismaperamato.com/'
+    expected = {origin}
+    for file, page in cache.items():
+        route = file.relative_to(docs.resolve()).as_posix()
+        if route.startswith('stable/'):
+            if route in {'stable/' + name for name in manifest['pages']}:
+                if page.canonical != origin + route:
+                    failures.append(f'{route} has incorrect frozen Stable canonical')
+                if 'noindex' not in page.metadata.get('robots', ''):
+                    expected.add(origin + route)
+            continue
+        text = file.read_text(encoding='utf-8')
+        if 'Compatibility-only' in text:
+            if page.metadata.get('robots') != 'noindex,follow':
+                failures.append(f'{route} compatibility page must remain noindex')
+            if page.canonical and not page.canonical.startswith(origin):
+                failures.append(f'{route} compatibility canonical must be absolute')
+            continue
+        if route == '404.html':
+            if page.metadata.get('robots') != 'noindex,follow' or page.h1_count != 1:
+                failures.append('404 must have one h1 and remain noindex')
+            continue
+        canonical = origin if route == 'index.html' else origin + route
+        if page.canonical != canonical:
+            failures.append(f'{route} canonical must be {canonical}')
+        for field in ('description', 'og:site_name', 'og:type', 'og:title', 'og:description',
+                      'og:url', 'og:image', 'twitter:card', 'twitter:title',
+                      'twitter:description', 'twitter:image'):
+            if not page.metadata.get(field):
+                failures.append(f'{route} missing metadata: {field}')
+        description = page.metadata.get('description', '')
+        if not 120 <= len(description) <= 170 or '<' in description or '\n' in description:
+            failures.append(f'{route} requires a concise plain-text description')
+        if page.metadata.get('og:url') != canonical or page.metadata.get('twitter:card') != 'summary_large_image':
+            failures.append(f'{route} has incorrect social URL/card')
+        for field in ('og:image', 'twitter:image'):
+            if not page.metadata.get(field, '').startswith(origin):
+                failures.append(f'{route} requires absolute social image URLs')
+        if route.startswith('next/') and page.metadata.get('robots') != 'noindex,follow':
+            failures.append(f'{route} Next must remain noindex,follow')
+        if route.startswith('developer/') and 'noindex' not in page.metadata.get('robots', ''):
+            expected.add(canonical)
+        if page.h1_count != 1:
+            failures.append(f'{route} must have exactly one primary h1')
+        for image in page.images:
+            if 'alt' not in image:
+                failures.append(f'{route} image requires explicit alt behavior')
+    try:
+        sitemap = ET.parse(docs / 'sitemap.xml')
+        namespace = '{http://www.sitemaps.org/schemas/sitemap/0.9}'
+        assert sitemap.getroot().tag == namespace + 'urlset'
+        urls = [node.text for node in sitemap.findall(f'{namespace}url/{namespace}loc')]
+        assert urls == sorted(expected), 'sitemap inventory/order must match indexable canonical routes'
+        assert all(url.startswith(origin) for url in urls)
+        assert not sitemap.findall(f'{namespace}url/{namespace}lastmod')
+    except (ET.ParseError, AssertionError, OSError) as error:
+        failures.append(f'invalid sitemap: {error}')
