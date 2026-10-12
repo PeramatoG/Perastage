@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "version": "1.6.0",
+  "source_ref": "v1.6.0",
+  "source_commit": "affdeaf4ba0f490c867ebb90af8a47802ca26963",
+  "user_index": "# User Documentation\n\nStart here for operator-facing Perastage workflows. These pages explain installation, core scene workflows, views, preferences, troubleshooting, and frequently asked questions.\n\n## Core guides\n\n- [Installation](installation.md)\n- [Quick Start](quick-start.md)\n- [Opening MVR Files](opening-mvr-files.md)\n- [GDTF Download](gdtf-download.md)\n- [Views](views.md)\n- [Preferences](preferences.md)\n- [Troubleshooting](troubleshooting.md)\n- [FAQ](faq.md)\n- [Feature Overview](features.md)\n",
+  "pages": [
+    "documentation.html",
+    "faq.html",
+    "features.html",
+    "gdtf-download.html",
+    "installation.html",
+    "opening-mvr-files.html",
+    "preferences.html",
+    "quick-start.html",
+    "troubleshooting.html",
+    "views.html"
+  ],
+  "artifacts": {
+    "documentation.html": "3ef6b7278c58d2ad1817cd56aca479a59f588e7747be17d652bd1bb75620073a",
+    "faq.html": "9cba714b6052080ebe5d905ddb1b22904b698bead214ed0497b1c54d7ce74a95",
+    "features.html": "4990566db29a95ac82e570f5a0d6710e5ef76429aaf029b544ecf157e4dd0b51",
+    "gdtf-download.html": "a5890a768bacb20369c1e6ae3a4b3c266a5218ccf92eb9c7da3946901ab2c8fa",
+    "installation.html": "b7d2ac335032a7d7d551f1587628f4ca3fc3e14c84ba6ea898b0ae35a18bc316",
+    "opening-mvr-files.html": "c1ad64f7b936343d8f993d82e00785f25e6b05971943083c8d432a25422a3655",
+    "preferences.html": "2a910559e537d3db9fbf870fc1114443049f3c411221f540b496a513275935ff",
+    "quick-start.html": "b7c55c8343ec9d01d1da79e2e6eb8ffd465b274baa9cd999927bf9c16bea9f5a",
+    "troubleshooting.html": "d22bf0f4d68415ae451b63ff56ba6d211268d99d1297a9ab942f80e305efcc4e",
+    "views.html": "7b11b8a6303b881603512fdbc7ffa66118395a88e5b5aaee263f7f0eb3b9c777"
+  }
+}

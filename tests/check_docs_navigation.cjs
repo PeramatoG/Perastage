@@ -49,15 +49,22 @@ async function ready(page, base, route) {
     const errors = [];
     observe(page, errors);
     const base = process.env.DOCS_TEST_BASE_URL || 'http://127.0.0.1:8765/';
+    const stable = JSON.parse(fs.readFileSync(`${root}/docs/stable/manifest.json`, 'utf8'));
+    const stableHas = route => stable.pages.includes(route);
     await ready(page, base, 'documentation.html');
+    assert.equal(page.url(), base + 'stable/documentation.html');
+    assert.equal(await page.locator('.channel-label').textContent(), `Stable ${stable.version}`);
+    assert.equal(await page.locator('#docGrid .doc-card').count(), stable.pages.length - 1);
+    await page.locator('.channel-switcher a').filter({hasText:'Next'}).click();
+    assert.equal(page.url(), base + 'next/documentation.html');
     assert.deepEqual(await page.locator('#docGrid h3').allTextContents(), [...new Set(expected.map(p=>p.section))]);
     assert.deepEqual(await page.locator('#docGrid .doc-card').evaluateAll(links=>links.map(a=>a.getAttribute('href'))), expected.map(p=>p.html));
     assert.equal(await page.locator('#docGrid a[href*="developer"], #docGrid a[href="build.html"]').count(), 0);
-    assert.equal(await page.locator('.developer-entry a').getAttribute('href'), 'developer/index.html');
+    assert.equal(await page.locator('.developer-entry a').getAttribute('href'), '../developer/index.html');
     assert.equal(await page.locator('main .developer-entry').count(), 1);
     assert((await page.locator('#docGrid .doc-card').filter({hasText:'MVR / GDTF Inspector'}).innerText()).includes("project's snapshot"));
     for (const entry of expected) {
-      await ready(page, base, entry.html);
+      await ready(page, base, 'next/' + entry.html);
       assert.deepEqual(await page.locator('#docNav h2').allTextContents(), [...new Set(expected.map(p=>p.section))]);
       assert.deepEqual(await page.locator('#docNav a').evaluateAll(links=>links.map(a=>a.getAttribute('href'))), expected.map(p=>p.html));
       assert.equal(await page.locator('[aria-current="page"]').getAttribute('href'), entry.html);
@@ -82,14 +89,27 @@ async function ready(page, base, route) {
     // A representative generated GFM table and code fence contain semantic HTML.
     await ready(page, base, 'developer/build.html');
     assert(await page.locator('#content pre code').count() > 0);
-    await ready(page, base, 'preferences.html#mvr-import--export');
+    await ready(page, base, 'next/quick-start.html');
+    await page.locator('.channel-switcher a').filter({hasText:'Stable'}).click();
+    assert.equal(page.url(), base + 'stable/quick-start.html');
+    await page.locator('.channel-switcher a').filter({hasText:'Next'}).click();
+    assert.equal(page.url(), base + 'next/quick-start.html');
+    await ready(page, base, 'next/inspector.html');
+    if (!stableHas('inspector.html')) assert((await page.locator('.doc-channel').innerText()).includes('unavailable in Stable'));
+    await page.locator('.channel-switcher a').filter({hasText:'Stable'}).click();
+    assert.equal(page.url(), base + (stableHas('inspector.html') ? 'stable/inspector.html' : 'stable/documentation.html'));
+    await ready(page, base, 'next/preferences.html#mvr-import--export');
     assert(await page.locator('#mvr-import--export').evaluate(el=>window.scrollY>0 && el.getBoundingClientRect().top>=0 && el.getBoundingClientRect().top<window.innerHeight));
     await ready(page, base, 'developer/index.html#active-subsystem-and-technical-contracts');
     assert(await page.locator('#active-subsystem-and-technical-contracts').evaluate(el=>window.scrollY>0 && el.getBoundingClientRect().top>=0 && el.getBoundingClientRect().top<window.innerHeight));
     // Only these intentional compatibility checks use old query routes.
     for (const [legacy, target] of [
-      ['doc.html?md=user%2Ffeatures.md', 'features.html'],
-      ['doc.html?md=user/index.md', 'documentation.html'],
+      ['doc.html?md=user%2Ffeatures.md', `${stableHas('features.html') ? 'stable' : 'next'}/features.html`],
+      ['doc.html?md=user/index.md', 'stable/documentation.html'],
+      ['doc.html?md=user/inspector.md#choose-what-to-inspect', `${stableHas('inspector.html') ? 'stable' : 'next'}/inspector.html#choose-what-to-inspect`],
+      ['quick-start.html', 'stable/quick-start.html'],
+      ['inspector.html', `${stableHas('inspector.html') ? 'stable' : 'next'}/inspector.html`],
+      ['quick-start.html?mode=compact#quick-start', 'stable/quick-start.html?mode=compact#quick-start'],
       ['doc.html?md=developer/index.md', 'developer/index.html'],
       ['doc.html?md=developer/build.md', 'developer/build.html'],
       ['doc.html?md=developer/repository_layout.md', 'developer/repository_layout.html'],
@@ -109,7 +129,7 @@ async function ready(page, base, route) {
       assert.equal(page.url(), base + 'developer/index.html');
     }
     await page.setViewportSize({width:390,height:844});
-    for (const route of ['quick-start.html','developer/index.html','developer/technical-notes/gdtf-editor/gdtf_editor_architecture.html']) {
+    for (const route of ['stable/quick-start.html','next/inspector.html','developer/index.html','developer/technical-notes/gdtf-editor/gdtf_editor_architecture.html']) {
       await ready(page, base, route);
       const nav = page.locator('#docNav'), toggle = page.locator('#menuToggle');
       assert.equal(await nav.isVisible(), false);
@@ -123,20 +143,22 @@ async function ready(page, base, route) {
     const disabled = await browser.newContext({javaScriptEnabled:false, viewport:{width:1280,height:900}});
     const plain = await disabled.newPage();
     observe(plain, errors);
-    for (const route of ['documentation.html','installation.html','developer/index.html']) {
+    for (const route of ['stable/documentation.html','stable/installation.html','next/documentation.html','next/installation.html','developer/index.html']) {
       await ready(plain, base, route);
       assert(await plain.locator('#content h1').isVisible());
       assert(await plain.locator('#docNav').isVisible());
     }
     await plain.setViewportSize({width:390,height:844});
-    await ready(plain, base, 'installation.html');
+    await ready(plain, base, 'next/installation.html');
     assert(await plain.locator('#docNav').isVisible(), 'mobile navigation remains available without JavaScript');
     assert.equal(await plain.locator('#menuToggle').isVisible(), false);
+    await plain.goto(base + 'documentation.html');
+    assert(await plain.locator('a[href="stable/documentation.html"]').isVisible());
     await plain.goto(base + 'build.html');
     assert(await plain.locator('a[href="developer/build.html"]').isVisible());
     assert.deepEqual(errors, []);
     await disabled.close();
-    console.log('PASS: static hub/all 13 user routes, developer/nested routes, links, fragments, legacy/safe redirects, keyboard/mobile navigation, JavaScript-disabled content, and zero console/local resource errors.');
+    console.log('PASS: Stable/Next hubs and switchers, all 13 Next user routes, developer/nested routes, links, fragments, legacy/safe redirects, keyboard/mobile navigation, JavaScript-disabled content, and zero console/local resource errors.');
   } finally {
     await browser.close();
   }

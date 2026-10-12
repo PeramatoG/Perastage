@@ -21,15 +21,15 @@
 </header>
 <div class="layout">
 <aside id="docNav" class="nav-panel"><nav aria-label="Documentation navigation"><ul class="nav-links">
-<li><a href="../documentation.html">User Documentation</a></li>
+<li><a href="../next/documentation.html">User Documentation</a></li>
 <li><a href="index.html">Developer Documentation</a></li>
 </ul></nav></aside>
 <main class="content-panel">
-<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../documentation.html">Documentation</a> / <a href="index.html">Developer</a> / <span id="pageTitle">User Manual Pipeline</span></nav>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../next/documentation.html">Documentation</a> / <a href="index.html">Developer</a> / <span id="pageTitle">User Manual Pipeline</span></nav>
 <div id="content" tabindex="-1"><h1 id="user-manual-pipeline">User Manual Pipeline</h1>
 <h2 id="source-ownership-and-consumers">Source ownership and consumers</h2>
 <p><code>docs/user/*.md</code> is the canonical English user manual. Its human-readable
-navigation and inventory are owned by <a href="../documentation.html">the user index</a>; do not
+navigation and inventory are owned by <a href="../next/documentation.html">the user index</a>; do not
 maintain a second page list. Keep these English paths stable for repository and
 website links, without moving them under <code>en/</code> or duplicating them under
 <code>locales/en/</code>.</p>
@@ -41,14 +41,41 @@ Developer and reference documentation remains English-only unless explicitly
 decided otherwise.</p>
 <h2 id="static-website-consumer">Static website consumer</h2>
 <p>Run <code>node tools/docs/build_static_docs.cjs</code> independently of the application build.
-It uses vendored Marked 4.3.0 at generation time, derives grouped navigation from
-the canonical user index, preserves root user URLs, and maps developer Markdown
-to adjacent <code>.html</code> routes. English HTML is committed under <code>docs/</code>; verify it
+It uses vendored Marked 4.3.0 at generation time and derives each channel&#39;s
+grouped navigation from its own <code>docs/user/index.md</code>. Next is generated from
+the current working tree into <code>docs/next/</code>; Stable is a frozen snapshot from
+the latest published non-prerelease release tag under <code>docs/stable/</code>.
+Developer Markdown follows main at adjacent <code>docs/developer/*.html</code> routes;
+it is never duplicated into user channels. English HTML is committed under <code>docs/</code>; verify it
 with <code>node tools/docs/build_static_docs.cjs --check</code>. Generated HTML must never
 receive manual editorial fixes. Edit Markdown and regenerate instead.
 Packaged Help and the website are separate consumers of the same canonical source;
 the website does not fetch or render Markdown in the browser. Legacy <code>doc.html?md=</code>
 bookmarks and root build/repository-layout routes remain compatibility redirects.</p>
+<p>Normal generation preserves every Stable byte. Explicit promotion reads only
+local Git objects, stages and validates all tagged user outputs, then atomically
+exchanges the snapshot directory. Promotion runs on Linux or macOS with Python 3
+for the operating-system directory swap; normal generation and checking use Node:</p>
+<pre><code class="language-sh">node tools/docs/build_static_docs.cjs --promote-stable 1.6.0 --source-ref v1.6.0
+</code></pre>
+<p>The deterministic <code>docs/stable/manifest.json</code> records the release version/ref,
+exact source commit, original user index, derived page inventory and SHA-256
+artifact hashes, without timestamps. <code>--check</code> rejects missing, added or edited
+Stable files as well as current Next/developer/compatibility drift. Historical
+pages outside the release&#39;s index and developer/source links point to that Git
+tag. Required release-specific content assets are copied into Stable; shared
+CSS, logo and navigation assets remain under <code>docs/assets/</code>.</p>
+<p><code>documentation.html</code> is the durable Online Documentation URL and defaults to
+Stable. Root user bookmarks and <code>doc.html?md=user/...</code> select Stable when its
+inventory contains the page, otherwise Next; fragments survive redirects.
+Developer compatibility links continue to current <code>docs/developer/</code> routes.
+The channel switcher opens the matching page or explains the missing page and
+opens the other hub. Next carries <code>noindex,follow</code>; Stable has canonical URLs.</p>
+<p>Only the published-release workflow promotes Stable automatically; draft
+creation does not. See <a href="versioning-policy.html#public-documentation-channels">Versioning Policy</a>.
+Packaged offline Help still corresponds to the exact application release.
+The product landing, shared presentation assets and developer docs are not
+versioned. Localization and broader search metadata remain separate work.</p>
 <h2 id="translated-mirrors">Translated mirrors</h2>
 <p>Translated mirrors belong under <code>docs/user/locales/es/</code> and
 <code>docs/user/locales/zh_CN/</code>. Locale identifiers follow the existing
@@ -93,7 +120,7 @@ Online Documentation remains available in both the dialog and Help menu.</p>
 Console consumes only the English marked section from
 <code>help/en/shortcuts-and-command-bar.md</code>, resolved through the same runtime resource
 contract. UI language does not select Console syntax or help prose.</p>
-<p>In <a href="../shortcuts-and-command-bar.html">Shortcuts and Command Bar</a>, the invisible
+<p>In <a href="../next/shortcuts-and-command-bar.html">Shortcuts and Command Bar</a>, the invisible
 HTML comments <code>&lt;!-- PERASTAGE_CONSOLE_HELP_BEGIN --&gt;</code> and
 <code>&lt;!-- PERASTAGE_CONSOLE_HELP_END --&gt;</code> delimit the canonical Console reference,
 including transform spaces. Core&#39;s <code>user_manual/console_help</code> helper requires

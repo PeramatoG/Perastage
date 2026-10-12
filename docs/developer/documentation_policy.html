@@ -21,11 +21,11 @@
 </header>
 <div class="layout">
 <aside id="docNav" class="nav-panel"><nav aria-label="Documentation navigation"><ul class="nav-links">
-<li><a href="../documentation.html">User Documentation</a></li>
+<li><a href="../next/documentation.html">User Documentation</a></li>
 <li><a href="index.html">Developer Documentation</a></li>
 </ul></nav></aside>
 <main class="content-panel">
-<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../documentation.html">Documentation</a> / <a href="index.html">Developer</a> / <span id="pageTitle">Documentation Policy</span></nav>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../next/documentation.html">Documentation</a> / <a href="index.html">Developer</a> / <span id="pageTitle">Documentation Policy</span></nav>
 <div id="content" tabindex="-1"><h1 id="documentation-policy">Documentation Policy</h1>
 <p>This document defines how Perastage documentation should be organized and maintained. The primary rule is that <code>README.md</code> stays short and acts as a landing page, while detailed workflows live in focused files under <code>docs/</code>.</p>
 <h2 id="readme-scope">README Scope</h2>
@@ -55,6 +55,12 @@ runtime/package staging, and Console extraction contracts.</p>
 Never make editorial fixes in generated HTML: update Markdown and regenerate.
 Run <code>node tools/docs/build_static_docs.cjs --check</code> to reject stale artifacts.
 The hand-authored product landing page <code>docs/index.html</code> remains separate.</p>
+<p><code>docs/next/</code> follows main&#39;s canonical user Markdown. <code>docs/stable/</code> is frozen
+from the latest published non-prerelease release tag and changes only through
+explicit promotion. Never edit generated Stable/Next HTML manually. Developer
+website documentation remains current-main content under <code>docs/developer/</code>;
+release-specific developer/source material is accessed through Git tags.
+Packaged offline Help corresponds to the exact application release.</p>
 <h2 id="developer-documentation-authority">Developer Documentation Authority</h2>
 <p>The <a href="index.html">Developer Documentation index</a> is the canonical entry map.
 Canonical sources own project-wide policy; focused technical notes own only

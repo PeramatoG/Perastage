@@ -28,14 +28,14 @@ const userOutput = context.routes.get(user);
 const developer = path.join(root, 'docs/developer/index.md');
 const developerOutput = context.routes.get(developer);
 assert.equal(rewriteUrl('quick-start.md?mode=compact#next', user, userOutput, context), 'quick-start.html?mode=compact#next');
-assert.equal(rewriteUrl('../developer/build.md#building', user, userOutput, context), 'developer/build.html#building');
-assert.equal(rewriteUrl('../user/features.md#overview', developer, developerOutput, context), '../features.html#overview');
-assert.equal(rewriteUrl('../user/index.md#help', developer, developerOutput, context), '../documentation.html#help');
+assert.equal(rewriteUrl('../developer/build.md#building', user, userOutput, context), '../developer/build.html#building');
+assert.equal(rewriteUrl('../user/features.md#overview', developer, developerOutput, context), '../next/features.html#overview');
+assert.equal(rewriteUrl('../user/index.md#help', developer, developerOutput, context), '../next/documentation.html#help');
 assert.equal(rewriteUrl('technical-notes/index.md#viewer-and-rendering-contracts', developer, developerOutput, context), 'technical-notes/index.html#viewer-and-rendering-contracts');
 assert.equal(rewriteUrl('repository%5Flayout.md?mode=compact#paths', developer, developerOutput, context), 'repository_layout.html?mode=compact#paths');
 assert.equal(rewriteUrl('../../CMakeLists.txt', developer, developerOutput, context), 'https://github.com/PeramatoG/Perastage/blob/main/CMakeLists.txt');
 assert.equal(rewriteUrl('../../.github', developer, developerOutput, context), 'https://github.com/PeramatoG/Perastage/tree/main/.github');
-assert.equal(rewriteUrl('../assets/images/Perastage_logo.png?v=1', user, userOutput, context), 'assets/images/Perastage_logo.png?v=1');
+assert.equal(rewriteUrl('../assets/images/Perastage_logo.png?v=1', user, userOutput, context), '../assets/images/Perastage_logo.png?v=1');
 for (const href of ['#local', 'https://example.org/file.md?x=1&y=2#fragment', '//example.org/file.md', 'mailto:docs@example.org']) {
   assert.equal(rewriteUrl(href, user, userOutput, context), href);
 }
@@ -85,12 +85,12 @@ try {
   run([]);
   run([]);
   assert.deepEqual(snapshot(), before, 'regeneration must not modify identical output');
-  const stale = path.join(fixture, 'docs/installation.html');
+  const stale = path.join(fixture, 'docs/next/installation.html');
   const original = fs.readFileSync(stale, 'utf8');
   fs.writeFileSync(stale, original + '<!-- stale -->\n');
   const changed = snapshot();
   const drift = run(['--check'], 1);
-  assert(drift.stderr.includes('docs/installation.html'), drift.stderr + drift.stdout);
+  assert(drift.stderr.includes('docs/next/installation.html'), drift.stderr + drift.stdout);
   assert.deepEqual(snapshot(), changed, '--check must not rewrite stale artifacts');
   run([]);
   assert.equal(fs.readFileSync(stale, 'utf8'), original);

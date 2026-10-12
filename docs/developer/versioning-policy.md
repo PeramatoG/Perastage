@@ -70,6 +70,27 @@ Examples:
 - `v1.2.0`
 - `v2.0.0`
 
+## Public documentation channels
+
+User documentation has two public channels: `docs/next/` follows the canonical
+`docs/user/` working tree on main; `docs/stable/` is a frozen generated snapshot
+of the latest published non-prerelease `vMAJOR.MINOR.PATCH` release tag.
+Only explicit promotion changes Stable. Draft creation, prereleases, repeated
+publication and older releases never advance or regress it.
+
+The `Promote Stable Documentation` workflow handles `release: published`,
+verifies the exact tagged release commit and version, validates the outputs,
+then commits generated documentation to main without force. Concurrent main
+changes reject the push; rerun the workflow from fresh main. It uses the same
+dedicated release App and fail-closed credential policy as release publication,
+with GITHUB_TOKEN only when that App is not enabled. Pages continues publishing
+the committed `docs/` tree. Recovery uses the same published-release event.
+
+Developer website documentation follows main at `docs/developer/`; historical
+developer/source contracts belong to Git tags. Packaged offline Help remains
+the manual from the exact application release. See
+[User Manual Pipeline](user_manual_pipeline.md) for rendering and routing.
+
 ## Release Notes
 
 Perastage maintains a curated working draft for the next release in [`release-notes-draft.md`](../release-notes-draft.md).

@@ -130,3 +130,10 @@ footer { margin-top:1rem; color:var(--text-muted); font-size:.92rem; text-align:
 [hidden] { display: none !important; }
 #content { overflow-x: auto; }
 #content img { max-width: 100%; height: auto; }
+
+/* A quiet channel indicator shares the existing documentation palette. */
+.doc-channel { margin: .75rem 0 1.25rem; padding: .75rem 0; border-bottom: 1px solid var(--border); }
+.channel-label { font-weight: 600; }
+.channel-switcher { display: inline-flex; gap: .75rem; margin-left: 1rem; }
+.channel-switcher [aria-current] { color: var(--text-primary); text-decoration: underline; }
+.doc-channel p { color: var(--text-muted); font-size: .9rem; margin: .4rem 0 0; }

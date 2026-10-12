@@ -18,14 +18,47 @@ decided otherwise.
 ## Static website consumer
 
 Run `node tools/docs/build_static_docs.cjs` independently of the application build.
-It uses vendored Marked 4.3.0 at generation time, derives grouped navigation from
-the canonical user index, preserves root user URLs, and maps developer Markdown
-to adjacent `.html` routes. English HTML is committed under `docs/`; verify it
+It uses vendored Marked 4.3.0 at generation time and derives each channel's
+grouped navigation from its own `docs/user/index.md`. Next is generated from
+the current working tree into `docs/next/`; Stable is a frozen snapshot from
+the latest published non-prerelease release tag under `docs/stable/`.
+Developer Markdown follows main at adjacent `docs/developer/*.html` routes;
+it is never duplicated into user channels. English HTML is committed under `docs/`; verify it
 with `node tools/docs/build_static_docs.cjs --check`. Generated HTML must never
 receive manual editorial fixes. Edit Markdown and regenerate instead.
 Packaged Help and the website are separate consumers of the same canonical source;
 the website does not fetch or render Markdown in the browser. Legacy `doc.html?md=`
 bookmarks and root build/repository-layout routes remain compatibility redirects.
+
+Normal generation preserves every Stable byte. Explicit promotion reads only
+local Git objects, stages and validates all tagged user outputs, then atomically
+exchanges the snapshot directory. Promotion runs on Linux or macOS with Python 3
+for the operating-system directory swap; normal generation and checking use Node:
+
+```sh
+node tools/docs/build_static_docs.cjs --promote-stable 1.6.0 --source-ref v1.6.0
+```
+
+The deterministic `docs/stable/manifest.json` records the release version/ref,
+exact source commit, original user index, derived page inventory and SHA-256
+artifact hashes, without timestamps. `--check` rejects missing, added or edited
+Stable files as well as current Next/developer/compatibility drift. Historical
+pages outside the release's index and developer/source links point to that Git
+tag. Required release-specific content assets are copied into Stable; shared
+CSS, logo and navigation assets remain under `docs/assets/`.
+
+`documentation.html` is the durable Online Documentation URL and defaults to
+Stable. Root user bookmarks and `doc.html?md=user/...` select Stable when its
+inventory contains the page, otherwise Next; fragments survive redirects.
+Developer compatibility links continue to current `docs/developer/` routes.
+The channel switcher opens the matching page or explains the missing page and
+opens the other hub. Next carries `noindex,follow`; Stable has canonical URLs.
+
+Only the published-release workflow promotes Stable automatically; draft
+creation does not. See [Versioning Policy](versioning-policy.md#public-documentation-channels).
+Packaged offline Help still corresponds to the exact application release.
+The product landing, shared presentation assets and developer docs are not
+versioned. Localization and broader search metadata remain separate work.
 
 ## Translated mirrors
 

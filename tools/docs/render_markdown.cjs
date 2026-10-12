@@ -13,7 +13,7 @@ function relativeUrl(output, target) {
 }
 
 // Resolve canonical links and assets at build time, preserving queries and fragments.
-function rewriteUrl(href, source, output, context) {
+function rewriteUrl(href, source, output, context, resource = false) {
   if (/^(?:file:|[a-z]:[\\/])/i.test(href || '')) throw new Error(`Unsupported filesystem URL in ${source}: ${href}`);
   if (!href || href.startsWith('#') || /^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(href)) return href;
   const match = href.match(/^([^?#]*)([?#].*)?$/);
@@ -30,6 +30,7 @@ function rewriteUrl(href, source, output, context) {
   }
   const published = context.routes.get(target);
   if (published) return relativeUrl(output, published) + suffix;
+  if (context.tagged) return context.tagged.url(relative.split(path.sep).join('/'), output, suffix, resource);
   if (!fs.existsSync(target)) throw new Error(`Missing local link/asset in ${source}: ${href}`);
   // Only tracked files/directories may become repository URLs; never expose local files.
   const insideDocs = target.startsWith(context.docs + path.sep);
@@ -54,10 +55,10 @@ function renderMarkdown(source, output, context) {
     return originalLink.call(this, rewriteUrl(href, source, output, context), title, text);
   };
   renderer.image = function(href, title, text) {
-    return originalImage.call(this, rewriteUrl(href, source, output, context), title, text);
+    return originalImage.call(this, rewriteUrl(href, source, output, context, true), title, text);
   };
   renderer.html = html => html.replace(/\b(href|src|poster)=(['"])(.*?)\2/gi, (_, attribute, quote, url) =>
-    `${attribute}=${quote}${escapeHtml(rewriteUrl(url.replace(/&amp;/g, '&'), source, output, context))}${quote}`);
+    `${attribute}=${quote}${escapeHtml(rewriteUrl(url.replace(/&amp;/g, '&'), source, output, context, attribute.toLowerCase() !== 'href'))}${quote}`);
   const html = marked.parse(markdown, { renderer, mangle: false, headerIds: true });
   const heading = marked.lexer(markdown).find(token => token.type === 'heading' && token.depth === 1);
   const paragraph = marked.lexer(markdown).find(token => token.type === 'paragraph');

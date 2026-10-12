@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Prove the shared documentation checker rejects broken complete manual mirrors."""
 from pathlib import Path
+import hashlib
+import json
 import re
 import shutil
 import subprocess
@@ -10,13 +12,53 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def check_windows_checkout(root: Path) -> None:
+    """Exercise real Git autocrlf conversion while retaining exact artifact bytes."""
+    source = root / 'checkout-source'
+    checkout = root / 'checkout-result'
+    source.mkdir()
+    checkout.mkdir()
+    shutil.copyfile(root / '.gitattributes', source / '.gitattributes')
+    expected = {}
+    for file in [*(root / 'docs').rglob('*.html'), *(root / 'docs/stable').rglob('*')]:
+        if not file.is_file():
+            continue
+        name = file.relative_to(root).as_posix()
+        expected[name] = file.read_bytes()
+    # Release-specific text resources may legitimately contain either line-ending style.
+    expected['docs/stable/content/tagged-lf.txt'] = b'Tagged content\nKeep these bytes\n'
+    expected['docs/stable/content/tagged-crlf.txt'] = b'Tagged content\r\nKeep these bytes\r\n'
+    for name, content in expected.items():
+        file = source / name
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_bytes(content)
+    (source / 'unmanaged.txt').write_bytes(b'Ordinary text\n')
+
+    def git(*arguments: str) -> None:
+        """Use a fixture index and explicit Windows checkout settings on every host."""
+        subprocess.run(['git', '-c', 'core.autocrlf=true', '-c', 'core.eol=crlf',
+                        '-c', 'core.safecrlf=false', *arguments], cwd=source,
+                       check=True, capture_output=True)
+
+    git('init', '--quiet', '--template=')
+    git('add', '--', '.gitattributes', 'docs', 'unmanaged.txt')
+    git('checkout-index', '--all', '--prefix=' + checkout.as_posix() + '/')
+    assert (checkout / 'unmanaged.txt').read_bytes() == b'Ordinary text\r\n', 'Windows conversion must be active in the fixture'
+    manifest = json.loads((root / 'docs/stable/manifest.json').read_text(encoding='utf-8'))
+    for name, digest in manifest['artifacts'].items():
+        assert hashlib.sha256((checkout / 'docs/stable' / name).read_bytes()).hexdigest() == digest, (
+            f'Windows autocrlf checkout changes Stable artifact bytes: {name}')
+    for name, content in expected.items():
+        assert (checkout / name).read_bytes() == content, f'Windows autocrlf checkout changes generated/resource bytes: {name}'
+
+
 def main() -> None:
     """Exercise parity, encoding, stable syntax and link failures in an isolated tree."""
     with tempfile.TemporaryDirectory(prefix='perastage-doc-links-') as tmp:
         root = Path(tmp)
         for directory in ('docs', 'cmake', '.github'):
             shutil.copytree(ROOT / directory, root / directory)
-        for name in ('README.md', 'AGENTS.md'):
+        for name in ('README.md', 'AGENTS.md', '.gitattributes'):
             shutil.copyfile(ROOT / name, root / name)
         (root / 'tests').mkdir()
         checker = root / 'tests/check_docs_links.py'
@@ -35,8 +77,17 @@ def main() -> None:
                 assert expected in result.stderr, result.stderr
 
         check()
+        check_windows_checkout(root)
+        # A checkout policy must not weaken the manifest's exact-byte integrity guard.
+        stable_page = root / 'docs/stable/quick-start.html'
+        original_stable = stable_page.read_bytes()
+        for payload in (original_stable + b'<!-- tampered -->\n',
+                        original_stable.replace(b'\n', b'\r\n')):
+            stable_page.write_bytes(payload)
+            check('Stable hash mismatch: quick-start.html')
+            stable_page.write_bytes(original_stable)
         # Mutate generated sidebar metadata while keeping the canonical owner intact.
-        page = root / 'docs/installation.html'
+        page = root / 'docs/next/installation.html'
         original_page = page.read_text(encoding='utf-8')
         install_entry = '<li><a class="active" aria-current="page" href="installation.html">Installation</a></li>'
         quick_entry = '<li><a href="quick-start.html">Quick Start</a></li>'
@@ -69,9 +120,9 @@ def main() -> None:
         wrapper.unlink()
         check('public user route is missing')
         wrapper.write_bytes(original_wrapper)
-        landing = root / 'docs/documentation.html'
+        landing = root / 'docs/next/documentation.html'
         original_landing = landing.read_text(encoding='utf-8')
-        landing.write_text(original_landing.replace('href="developer/index.html"', 'href="build.html"'), encoding='utf-8')
+        landing.write_text(original_landing.replace('href="../developer/index.html"', 'href="build.html"'), encoding='utf-8')
         check('missing required marker')
         landing.write_text(original_landing, encoding='utf-8')
         for locale in match[1].split():
@@ -111,7 +162,7 @@ def main() -> None:
             check('rewrites an external URL')
             install.write_bytes(original_install)
         check()
-    print('OK: canonical navigation/routes and complete manual parity/link/fragment/encoding/Console guard failure fixtures.')
+    print('OK: Windows autocrlf checkout byte preservation, exact Stable hashes, canonical navigation/routes and complete manual parity/link/fragment/encoding/Console guard failure fixtures.')
 
 
 if __name__ == '__main__':
