@@ -41,6 +41,11 @@ GdtfOverviewPresentation BuildGdtfOverviewPresentation(
       {GdtfOverviewField::PowerConsumption,
        Number(description.powerConsumptionWPresent,
               description.powerConsumptionW, "W")},
+      {GdtfOverviewField::BeamPowerTotal,
+       Number(description.electricalPower.beamTotalW.has_value(), description.electricalPower.beamTotalW.value_or(0), "W")},
+      {GdtfOverviewField::PlanningPowerSource,
+       Value(description.electricalPower.source == gdtf::PlanningPowerSource::WiringConsumer ? "WiringObject/Consumer/ElectricalPayLoad" :
+             description.electricalPower.source == gdtf::PlanningPowerSource::Properties ? "PhysicalDescriptions/Properties/PowerConsumption" : "")},
       {GdtfOverviewField::ModelColor, Value(description.modelColorHex)},
       {GdtfOverviewField::TrussCrossSectionType,
        Value(description.trussCrossSectionType)},

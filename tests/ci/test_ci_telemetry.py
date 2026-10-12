@@ -44,3 +44,12 @@ def test_cli_creates_checkpoints_json_and_markdown(tmp_path):
     assert payload["phases"][0]["cumulative_seconds"] >= 0
     assert "## CI Debug performance telemetry — Linux" in summary.read_text(encoding="utf-8")
     assert "### Runner resources" in summary.read_text(encoding="utf-8")
+
+
+def test_macos_sdk_guard_checkpoint_uses_step_outcome():
+    workflow = (SCRIPT.parents[1] / "workflows" / "ci-tests.yml").read_text(encoding="utf-8")
+    checkpoint = next(line for line in workflow.splitlines()
+                      if "checkpoint --phase \"Validate restored vcpkg SDK metadata\"" in line)
+    assert '--status "${{ steps.macos-sdk-cache-guard.outcome' in checkpoint
+    assert "outputs.guard-result" not in checkpoint
+    assert "outputs.guard-reason" not in checkpoint

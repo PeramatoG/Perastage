@@ -190,7 +190,7 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
     f.gdtfMode = mode;
     f.layer = layerName;
     f.weightKg = weight;
-    f.powerConsumptionW = power;
+    f.SetSourcePlanningPower(preparation.powerConsumptionW);
     f.physicalPropertiesSource = FixturePhysicalPropertiesSource::Gdtf;
     f.physicalPropertiesDirty = false;
     f.visualColorHex = defaultColor;

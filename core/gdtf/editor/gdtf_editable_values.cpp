@@ -62,6 +62,7 @@ bool SetEditableValue(GdtfEditableValues &values, GdtfFieldId fieldId,
     }
     return false;
   case GdtfFieldId::PowerConsumption:
+    if (value.empty()) { values.powerConsumptionW.reset(); return true; }
     if (auto parsed = ParseFloat(value)) {
       values.powerConsumptionW = *parsed;
       return true;

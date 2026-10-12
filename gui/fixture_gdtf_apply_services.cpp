@@ -1,6 +1,9 @@
 #include "fixture_gdtf_apply_services.h"
 
 #include "gdtf_mutation_audit.h"
+#include "gdtf_power_write_target.h"
+#include "gdtf_archive_reader.h"
+#include "gdtf_description_reader.h"
 #include "gdtfdictionary.h"
 #include "fixture_gdtf_derivative_publication.h"
 #include "gdtfloader.h"
@@ -82,6 +85,17 @@ namespace gui {
 // Builds the GUI-hosted service bridge used by the non-GUI fixture adapter.
 gdtf::ProjectFixtureGdtfApplyServices MakeFixtureGdtfApplyServices() {
   gdtf::ProjectFixtureGdtfApplyServices services;
+  services.readPlanningPower = [](const std::filesystem::path &path) {
+    return gdtf::ReadGdtfDescription(gdtf::ReadGdtfArchive(path).descriptionXml).electricalPower.planningW;
+  };
+  services.canWritePlanningPower = [](const std::filesystem::path &path) {
+    const auto archive = gdtf::ReadGdtfArchive(path);
+    tinyxml2::XMLDocument document;
+    if (!archive.Success() || document.Parse(archive.descriptionXml.c_str()) != tinyxml2::XML_SUCCESS) return false;
+    auto *root = document.FirstChildElement("GDTF");
+    const char *attribute = nullptr;
+    return gdtf::FindPowerWriteTarget(root ? root->FirstChildElement("FixtureType") : nullptr, attribute) != nullptr;
+  };
   services.modeExists = [](const std::filesystem::path &path,
                            const std::string &mode) {
     const auto modes = GetGdtfModes(PathUtils::PathToUtf8(path));

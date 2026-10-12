@@ -27,6 +27,7 @@
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include "project_fixture_identity.h"
+#include "fixture_power_project_metadata.h"
 #include "selection_movement_settings.h"
 #include "uuidutils.h"
 #include "user_navigation_preferences.h"
@@ -550,6 +551,7 @@ bool ConfigManager::SaveProject(const std::string &path) {
   bool ok = projectSession.SaveProject(
       path, [this](std::vector<uint8_t> &configBytes) {
         UserPreferencesStore serializationSnapshot = preferencesStore;
+        serializationSnapshot.SetValue(fixture_power::kProjectKey, fixture_power::SerializeOverrides(GetScene()));
         const auto normalization =
             project_identity::NormalizeFixtureLabelOverrides(
                 serializationSnapshot.GetValue(
@@ -717,6 +719,7 @@ bool ConfigManager::LoadProject(const std::string &path,
       });
 
   if (ok) {
+    fixture_power::RestoreOverrides(GetScene(), GetValue(fixture_power::kProjectKey).value_or("{}"));
     const auto normalization =
         project_identity::NormalizeFixtureLabelOverrides(
             GetValue(project_identity::kFixtureLabelOverridesConfigKey),

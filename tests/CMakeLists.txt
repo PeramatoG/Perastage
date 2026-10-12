@@ -4072,3 +4072,18 @@ target_compile_definitions(console_help_test PRIVATE
     PERASTAGE_ENABLE_LOCALIZATION=$<BOOL:${PERASTAGE_ENABLE_LOCALIZATION}>)
 add_test(NAME ConsoleHelp COMMAND console_help_test ${CMAKE_SOURCE_DIR}/docs/user)
 set_tests_properties(ConsoleHelp PROPERTIES LABELS "standard-strict;unit;help")
+
+add_executable(gdtf_electrical_power_test gdtf_electrical_power_test.cpp
+               ../core/gdtf_mutation_audit.cpp build_info_stub.cpp)
+target_include_directories(gdtf_electrical_power_test PRIVATE ../core ../models ../third_party)
+target_link_libraries(gdtf_electrical_power_test PRIVATE perastage_gdtf_read tinyxml2::tinyxml2)
+add_test(NAME GdtfElectricalPower COMMAND gdtf_electrical_power_test)
+set_perastage_test_labels(GdtfElectricalPower LAYER standard-strict DOMAINS gdtf core)
+
+add_executable(gdtf_description_header_compile_test
+               gdtf_description_header_compile_test.cpp)
+set_property(TARGET gdtf_description_header_compile_test
+             PROPERTY INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/core")
+add_test(NAME GdtfDescriptionHeaderCompile COMMAND gdtf_description_header_compile_test)
+set_perastage_test_labels(GdtfDescriptionHeaderCompile
+                         LAYER standard-strict DOMAINS gdtf core architecture)

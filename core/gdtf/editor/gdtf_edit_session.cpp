@@ -58,6 +58,7 @@ bool GdtfEditSession::SetValue(GdtfFieldId fieldId, const std::string &value) {
   if (!capability || !SupportsEditableSessionValue(*capability) ||
       !IsGdtfSessionValueSupported(fieldId))
     return false;
+  if (fieldId == GdtfFieldId::PowerConsumption && value.empty() && context_.kind != GdtfEditorContextKind::ProjectFixture) return false;
   auto nextValues = currentValues_;
   if (!SetEditableValue(nextValues, fieldId, value))
     return false;

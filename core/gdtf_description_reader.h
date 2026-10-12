@@ -1,5 +1,6 @@
 #pragma once
 
+#include "gdtf_power_reader.h"
 #include <string>
 #include <vector>
 
@@ -58,6 +59,7 @@ struct GdtfDescriptionSnapshot {
   float weightKg = 0.0f;
   bool powerConsumptionWPresent = false;
   float powerConsumptionW = 0.0f;
+  GdtfPowerSnapshot electricalPower;
   std::string modelColorHex;
   std::string trussCrossSectionType;
   std::string trussCrossSection;

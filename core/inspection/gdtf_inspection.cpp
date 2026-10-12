@@ -267,6 +267,19 @@ GdtfInspectionResult InspectGdtf(const Request &request) {
     AppendDescriptionDiagnostic(result, diagnostic,
                                 document.Archive().descriptionEntryPath);
   }
+  for (const auto &power : document.Description().electricalPower.diagnostics) {
+    Diagnostic diagnostic;
+    diagnostic.severity = power.code == gdtf::PowerDiagnosticCode::MissingPlanningPower
+        ? DiagnosticSeverity::Information : DiagnosticSeverity::Warning;
+    diagnostic.domain = DiagnosticDomain::Content;
+    diagnostic.code = std::string("gdtf.power.") + gdtf::ToString(power.code);
+    diagnostic.message = power.message;
+    DiagnosticLocation location;
+    location.sourcePath = request.sourcePath;
+    location.packageEntry = document.Archive().descriptionEntryPath;
+    diagnostic.location = std::move(location);
+    result.inspection.diagnostics.push_back(std::move(diagnostic));
+  }
   DiagnosticLocation validationLocation;
   validationLocation.sourcePath = request.sourcePath;
   validationLocation.packageEntry = document.Archive().descriptionEntryPath;

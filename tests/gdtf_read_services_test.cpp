@@ -316,8 +316,7 @@ static void TestPowerParsing() {
                        "<PowerConsumption Value=\"120\"/>"
                        "<PowerConsumption Value=\"30.5\"/>"
                        "</Properties></PhysicalDescriptions>");
-  assert(snapshot.powerConsumptionWPresent);
-  assert(NearlyEqual(snapshot.powerConsumptionW, 150.5f));
+  assert(!snapshot.powerConsumptionWPresent);
 
   snapshot = readPower(
       "<PhysicalDescriptions><Properties>"
@@ -327,7 +326,7 @@ static void TestPowerParsing() {
       "<WiringObject ComponentType=\"Consumer\" ElectricalPayLoad=\"50\"/>"
       "</Geometry></Geometries>");
   assert(snapshot.powerConsumptionWPresent);
-  assert(NearlyEqual(snapshot.powerConsumptionW, 120.0f));
+  assert(NearlyEqual(snapshot.powerConsumptionW, 50.0f));
 
   snapshot = readPower(
       "<Geometries><Geometry>"
@@ -352,8 +351,7 @@ static void TestPowerParsing() {
       "<WiringObject ComponentType=\"Consumer\" ElectricalPayLoad=\"-1\"/>"
       "<WiringObject ComponentType=\"Consumer\" ElectricalPayLoad=\"invalid\"/>"
       "</Geometry></Geometries>");
-  assert(snapshot.powerConsumptionWPresent);
-  assert(NearlyEqual(snapshot.powerConsumptionW, 42.0f));
+  assert(!snapshot.powerConsumptionWPresent);
 }
 
 // Verifies ordered metadata, revisions, and DMX modes are preserved.
