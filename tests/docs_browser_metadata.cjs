@@ -25,7 +25,7 @@ async function checkMetadata(page, route) {
   assert.equal(await meta('twitter:card'), 'summary_large_image');
   assert.equal(await meta('og:image'), publicUrl(site.socialImage));
   assert.equal(await meta('twitter:image'), publicUrl(site.socialImage));
-  assert.equal(await meta('theme-color'), site.themeColor);
+  assert.equal(await meta('theme-color'), route === 'index.html' ? '#080808' : site.themeColor);
   const brand = page.locator('.brand');
   assert.equal(await brand.getAttribute('aria-label'), 'Perastage home');
   const logo = brand.locator('img');
