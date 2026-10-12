@@ -56,7 +56,7 @@ footer { margin-top:1rem; color:var(--text-muted); font-size:.92rem; text-align:
 @media (max-width: 860px) {
   .layout { grid-template-columns: 1fr; }
   .menu-toggle { display:block; }
-  .nav-panel { display:none; }
+  .nav-panel.enhanced { display:none; }
   .nav-panel.open { display:block; }
 }
 
@@ -125,3 +125,8 @@ footer { margin-top:1rem; color:var(--text-muted); font-size:.92rem; text-align:
 .developer-entry p { color: var(--text-muted); }
 .doc-card .doc-card-title { color: var(--text-primary); font-size: 1rem; }
 .doc-card-title i { font-style: normal; }
+
+/* Hidden controls and wide Markdown tables remain usable without enhancement. */
+[hidden] { display: none !important; }
+#content { overflow-x: auto; }
+#content img { max-width: 100%; height: auto; }

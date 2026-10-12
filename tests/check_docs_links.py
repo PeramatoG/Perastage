@@ -7,6 +7,7 @@ import re
 import sys
 from collections import Counter
 from urllib.parse import unquote, urlsplit
+from docs_static_validation import validate_static_docs
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
@@ -171,9 +172,7 @@ for locale in sorted(allowed_locales):
                 if not target.is_relative_to(DOCS) or not target.is_file():
                     failures.append(f"{mirror.relative_to(ROOT)} links to missing English owner: {url}")
 
-shell = DOCS / "assets" / "js" / "docs-shell.js"
-shell_text = shell.read_text(encoding="utf-8")
-# The Markdown index owns sections, titles, and order; JavaScript only mirrors it.
+# The canonical Markdown index owns grouped static navigation.
 index_text = (manual / "index.md").read_text(encoding="utf-8")
 canonical_navigation = []
 for heading, body in re.findall(r"^## ([^\n]+)\n(.*?)(?=^## |\Z)", index_text, re.MULTILINE | re.DOTALL):
@@ -186,41 +185,7 @@ expected_paths = {f"user/{name}" for name in canonical_names - {"index.md"}}
 if set(indexed_paths) != expected_paths or len(indexed_paths) != len(set(indexed_paths)):
     failures.append("canonical user index must list every user page exactly once")
 
-presentation = shell_text.split("const docsPages", 1)[0]
-shell_navigation = []
-public_routes = []
-for heading, body in re.findall(r"\{ title: '([^']+)', pages: \[(.*?)\]\s*\}", presentation, re.DOTALL):
-    entries = re.findall(r"\{ md: '([^']+)', html: '([^']+)', title: '([^']+)'", body)
-    shell_navigation.append((heading, [(md, title) for md, _, title in entries]))
-    for md, route, _ in entries:
-        public_routes.append(route)
-        wrapper = DOCS / route
-        # Preserve the established filename routes, not just any existing wrapper.
-        if route != pathlib.PurePosixPath(md).with_suffix(".html").name:
-            failures.append(f"user navigation changes public route for {md}: {route}")
-        if not wrapper.is_file() or f"loadMarkdown('{md}')" not in wrapper.read_text(encoding="utf-8"):
-            failures.append(f"public user route is missing or loads the wrong Markdown: {route}")
-if shell_navigation != canonical_navigation:
-    failures.append("website user navigation must mirror canonical index sections, titles and order")
-if len(public_routes) != len(set(public_routes)):
-    failures.append("website user navigation has duplicate public routes")
-require_text(DOCS / "documentation.html", (
-    "docsSections.map", "section.pages.map", "Developer Documentation",
-    'href="doc.html?md=developer/index.md"', 'class="developer-entry"',
-))
-require_text(shell, (
-    'href="documentation.html">User Documentation',
-    'href="doc.html?md=developer/index.md">Developer Documentation',
-    'aria-label="Breadcrumb"', 'aria-controls="docNav"',
-    "toggle.setAttribute('aria-expanded', String(!expanded))",
-    "nav.classList.toggle('open')",
-))
-for md_path in re.findall(r"md: '([^']+\.md)'", shell_text):
-    if not (DOCS / md_path).exists():
-        failures.append(f"docs-shell.js navigation points to missing markdown: {md_path}")
-for load_path in re.findall(r"loadMarkdown\('([^']+\.md)'\)", "\n".join(p.read_text(encoding="utf-8") for p in DOCS.glob("*.html"))):
-    if not (DOCS / load_path).exists():
-        failures.append(f"HTML wrapper loads missing markdown: {load_path}")
+validate_static_docs(ROOT, canonical_navigation, failures)
 
 # Keep the living code-health contract and machine-owned inventories discoverable.
 require_text(ROOT / "AGENTS.md", ("docs/developer/code_health.md", "tests/source_file_size_policy.json"))

@@ -15,6 +15,18 @@ outputs are artifacts; permanent edits belong in the canonical Markdown.
 Developer and reference documentation remains English-only unless explicitly
 decided otherwise.
 
+## Static website consumer
+
+Run `node tools/docs/build_static_docs.cjs` independently of the application build.
+It uses vendored Marked 4.3.0 at generation time, derives grouped navigation from
+the canonical user index, preserves root user URLs, and maps developer Markdown
+to adjacent `.html` routes. English HTML is committed under `docs/`; verify it
+with `node tools/docs/build_static_docs.cjs --check`. Generated HTML must never
+receive manual editorial fixes. Edit Markdown and regenerate instead.
+Packaged Help and the website are separate consumers of the same canonical source;
+the website does not fetch or render Markdown in the browser. Legacy `doc.html?md=`
+bookmarks and root build/repository-layout routes remain compatibility redirects.
+
 ## Translated mirrors
 
 Translated mirrors belong under `docs/user/locales/es/` and

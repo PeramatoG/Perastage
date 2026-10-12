@@ -27,6 +27,12 @@ There is no independent in-app help prose source. See
 [User Manual Pipeline](user_manual_pipeline.md) for source paths, translation,
 runtime/package staging, and Console extraction contracts.
 
+Public documentation HTML is generated from canonical Markdown by
+`node tools/docs/build_static_docs.cjs` and committed under `docs/` for publishing.
+Never make editorial fixes in generated HTML: update Markdown and regenerate.
+Run `node tools/docs/build_static_docs.cjs --check` to reject stale artifacts.
+The hand-authored product landing page `docs/index.html` remains separate.
+
 ## Developer Documentation Authority
 
 The [Developer Documentation index](index.md) is the canonical entry map.
