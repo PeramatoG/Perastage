@@ -13,6 +13,12 @@
 tests/data/*.txt text eol=lf
 tests/fixtures/fixture_symbols/*.txt text eol=lf
 
+# Generated documentation and Stable hashes must be identical in every checkout.
+/docs/**/*.html text eol=lf
+/docs/stable/manifest.json text eol=lf
+# Tagged content resources are hashed as original bytes, including their line endings.
+/docs/stable/content/** -text
+
 ###############################################################################
 # Set default behavior for command prompt diff.
 #
