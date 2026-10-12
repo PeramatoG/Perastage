@@ -11,6 +11,8 @@
 
 #include "filesystem_path_utils.h"
 #include "gdtfloader.h"
+#include "gdtf_archive_reader.h"
+#include "gdtf_description_reader.h"
 #include "mvr_import_package.h"
 #include "primitive_model_resources.h"
 #include "trussloader.h"
@@ -377,8 +379,12 @@ MvrImportResourceResolver::FixtureMetadata(const std::string &path) {
   metadata.fixtureTypeId = CanonicalizeUuid(rawId);
   if (metadata.fixtureTypeId.empty())
     metadata.fixtureTypeId = rawId;
-  metadata.hasProperties =
-      GetGdtfProperties(path, metadata.weightKg, metadata.powerW);
+  const auto archive = gdtf::ReadGdtfArchive(path);
+  const auto description = gdtf::ReadGdtfDescription(archive.descriptionXml);
+  metadata.hasProperties = archive.Success() && description.Success();
+  metadata.weightKg = description.weightKg;
+  metadata.powerW = description.powerConsumptionW;
+  metadata.powerPresent = description.powerConsumptionWPresent;
   return fixtureMetadata_.emplace(key, std::move(metadata)).first->second;
 }
 

@@ -20,6 +20,8 @@
 #include "fixturetablepanel.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
+#include "gdtf_archive_reader.h"
+#include "gdtf_description_reader.h"
 #include "guiconfigservices.h"
 #include "projectutils.h"
 
@@ -275,7 +277,9 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
     target.gdtfSpec = replacement.gdtfSpec;
     target.gdtfMode = replacement.gdtfMode;
     target.weightKg = replacement.weightKg;
-    target.powerConsumptionW = replacement.powerConsumptionW;
+    const auto electrical = gdtf::ReadGdtfDescription(gdtf::ReadGdtfArchive(replacement.gdtfSpec).descriptionXml);
+    target.planningPowerOverrideW.reset();
+    target.SetSourcePlanningPower(electrical.electricalPower.planningW);
     target.physicalPropertiesSource = FixturePhysicalPropertiesSource::Gdtf;
     target.physicalPropertiesDirty = false;
     target.visualColorHex = replacementColor;

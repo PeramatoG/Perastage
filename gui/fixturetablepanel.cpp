@@ -425,7 +425,7 @@ void FixtureTablePanel::ReloadData() {
     row.push_back(roll);
     row.push_back(pitch);
     row.push_back(yaw);
-    wxString power = wxString::Format("%.1f", fixture->powerConsumptionW);
+    wxString power = fixture->HasPlanningPower() ? wxString::Format("%.1f", fixture->powerConsumptionW) : wxString::FromUTF8("—");
     wxString weight = wxString::FromUTF8(Units::FormatWeightFromKilograms(
         fixture->weightKg, weightUnit, Units::ValueFormatContext::Table));
     wxString category = wxString::FromUTF8(fixture->category);

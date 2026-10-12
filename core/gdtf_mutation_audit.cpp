@@ -1,4 +1,5 @@
 #include "gdtf_mutation_audit.h"
+#include "gdtf_power_write_target.h"
 #include "gdtf_fixture_type_vocabulary.h"
 
 #include <array>
@@ -245,8 +246,13 @@ bool ApplyPhysicalProperties(tinyxml2::XMLElement *fixtureType,
   if (!weightKg.has_value() && !powerConsumptionW.has_value())
     return false;
 
-  tinyxml2::XMLElement *properties = EnsurePhysicalPropertiesNode(fixtureType, doc);
-  if (!properties)
+  if (weightKg && (!std::isfinite(*weightKg) || *weightKg < 0)) return false;
+  const char *powerAttribute = nullptr;
+  auto *powerTarget = gdtf::FindPowerWriteTarget(fixtureType, powerAttribute);
+  if (powerConsumptionW && (!powerTarget || !std::isfinite(*powerConsumptionW) || *powerConsumptionW < 0))
+    return false;
+  tinyxml2::XMLElement *properties = weightKg ? EnsurePhysicalPropertiesNode(fixtureType, doc) : nullptr;
+  if (weightKg && !properties)
     return false;
 
   bool mutated = false;
@@ -262,14 +268,11 @@ bool ApplyPhysicalProperties(tinyxml2::XMLElement *fixtureType,
   }
 
   if (powerConsumptionW.has_value()) {
-    tinyxml2::XMLElement *powerNode =
-        properties->FirstChildElement("PowerConsumption");
-    if (!powerNode)
-      powerNode = properties->InsertNewChildElement("PowerConsumption");
     const std::string formattedPower = FormatGdtfMutationFloat(*powerConsumptionW);
-    if (formattedPower.empty())
-      return false;
-    powerNode->SetAttribute("Value", formattedPower.c_str());
+    if (formattedPower.empty()) return false;
+    powerTarget->SetAttribute(powerAttribute, formattedPower.c_str());
+    if (std::string(powerAttribute) == "ElectricalPayLoad")
+      powerTarget->DeleteAttribute("ElectricalPayload");
     mutated = true;
   }
 
@@ -287,7 +290,8 @@ bool ApplyPhysicalPropertiesWithAudit(
   if (!mutated)
     return false;
 
-  AppendRevision(fixtureType, doc, revisionText, modifiedBy);
+  AppendRevision(fixtureType, doc, revisionText, modifiedBy, 0, "",
+                 RevisionPolicy::RecordEffectiveChange);
   return true;
 }
 

@@ -14,6 +14,8 @@
 namespace gdtf {
 
 struct ProjectFixtureGdtfApplyServices {
+  std::function<bool(const std::filesystem::path &)> canWritePlanningPower;
+  std::function<std::optional<float>(const std::filesystem::path &)> readPlanningPower;
   std::function<bool(const std::filesystem::path &, const std::string &)> modeExists;
   std::function<int(const std::filesystem::path &, const std::string &)> channelCount;
   std::function<bool(const std::filesystem::path &, const GdtfApplyRequest &, std::string &)> writeDocumentMutation;

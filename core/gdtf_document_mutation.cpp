@@ -4,6 +4,7 @@
 #include "gdtf_archive_reader.h"
 #include "gdtf_canonicalizer.h"
 #include "gdtf_mutation_audit.h"
+#include "gdtf_power_write_target.h"
 #include "gdtf_publication_resources.h"
 #include "runtime_storage.h"
 
@@ -281,6 +282,10 @@ bool ValidateFinitePhysicalPropertyInputs(const DocumentMutationRequest &request
     errors.push_back("GDTF mutation rejected non-finite PowerConsumption value");
     valid = false;
   }
+  if ((request.weightSet && request.weightKg < 0) || (request.powerSet && request.powerW < 0)) {
+    errors.push_back("Physical properties must be non-negative");
+    valid = false;
+  }
   return valid;
 }
 
@@ -341,6 +346,11 @@ DocumentMutationResult MutateDocument(
     return result;
   }
 
+  const char *powerAttribute = nullptr;
+  if (request.powerSet && !gdtf::FindPowerWriteTarget(fixtureType, powerAttribute)) {
+    result.errors.push_back("Planning power cannot safely be written to GDTF: no canonical electrical target; retain the project override.");
+    return result;
+  }
   bool mutated = false;
   if (request.descriptionSet) {
     fixtureType->SetAttribute("Description", request.description.c_str());
@@ -394,7 +404,7 @@ DocumentMutationResult MutateDocument(
   GdtfMutationAudit::AppendRevision(
       fixtureType, document,
       revisionText,
-      modifiedByProgram);
+      modifiedByProgram, 0, "", GdtfMutationAudit::RevisionPolicy::RecordEffectiveChange);
   GdtfCanonicalizer::Options canonicalOptions;
   canonicalOptions.allowFixtureTypeIdRepair = true;
   canonicalOptions.stableIdSeed = gdtfPath;

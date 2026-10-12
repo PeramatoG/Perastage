@@ -42,7 +42,7 @@ Perastage currently mutates GDTF archives at the following integration points.
 
 | Module | File | Function(s) | Mutation scope |
 |---|---|---|---|
-| Core document mutation | `core/gdtf_document_mutation.cpp` | `gdtf::MutateDocument(...)` | Writes `FixtureType/@Description` and `PhysicalDescriptions/Properties` (`Weight`, `PowerConsumption`), appends a standard `Revision`, canonicalizes the description, reports structured diagnostics, and publishes through a unique sibling temporary archive before atomic replacement. |
+| Core document mutation | `core/gdtf_document_mutation.cpp` | `gdtf::MutateDocument(...)` | Writes `FixtureType/@Description`, canonical Weight, and safe existing Consumer/Properties electrical fields, appends a standard `Revision`, canonicalizes the description, reports structured diagnostics, and publishes through a unique sibling temporary archive before atomic replacement. |
 | Viewer 3D compatibility facade | `viewer3d/gdtfloader.cpp` | `SetGdtfProperties(...)`, `MutateGdtfDocumentWithResult(...)` | Preserves the legacy public API by delegating the transaction to Core and invalidates the corresponding Viewer3D loader cache entry after successful atomic replacement. |
 | Core standard symbol completion | `core/symbols/standard_gdtf_completion.cpp` + `standard_gdtf_svg.cpp` | Dedicated completion/repair API and standard serializer | Adds missing GDTF 1.2 Top/Side/Front resources using exact `Model/@File` paths and official offsets; preserves existing resources unless explicit repair/replacement is requested; appends one standard `Revision` for effective changes and publishes a canonical atomic derivative. |
 | Project fixture editor | `core/gdtf/editor/project_fixture_gdtf_apply_adapter.cpp` + `core/fixture_gdtf_derivative_publication.cpp` | `PrepareProjectDerivative(...)`, document mutation, `PublishPreparedDerivative(...)` | Mutates a private non-canonical project working copy, validates and atomically publishes before fixture rebinding. Project internal symbols are independent from GDTF publication; Bottom is never required for standard-view completeness. |
@@ -228,11 +228,11 @@ A GDTF mutation change is accepted only if all conditions below hold:
 
 ## Project Fixture apply adapter policy
 
-Project Fixture Weight and PowerConsumption edits are now owned by a non-GUI apply adapter. The adapter consumes a session-built apply request, validates the stable fixture UUID, resolved operational GDTF path, selected mode, finite non-negative physical values, and explicit `GdtfWritePolicy` before mutating files or project data.
+Project Fixture Weight and planning-power edits are owned by a non-GUI apply adapter. Planning power normally changes an instance override without archive mutation; explicit document power correction uses a safe canonical electrical target. The adapter consumes a session-built apply request, validates the stable fixture UUID, resolved operational GDTF path, selected mode, finite non-negative physical values, and explicit `GdtfWritePolicy` before mutating files or project data.
 
 `ReadOnly` rejects document mutation. `OverwriteOwnedFile` is reserved for verified Perastage-owned files. `CreateDerivativeBeforeMutation` creates or updates the stable Perastage derivative through the existing dictionary behavior before applying physical values, keeping the original source unchanged. Unsupported policies fail without project attachment. Any derivative created before a later write failure is reported as a partial external side effect and is not attached to the project.
 
-After a successful physical write, the adapter propagates Weight and PowerConsumption to fixtures in the resulting source/type family using fixture UUIDs, marks the values as GDTF-sourced, clears physical dirty state, and reports only positions whose effective Weight changed. Type, source reference, and mode context selections are applied to the target fixture; selected mode is not propagated to unrelated fixtures.
+After a successful physical write, the adapter propagates Weight and changed source power to fixtures in the resulting source/type family using fixture UUIDs, preserves project power overrides, and reports only positions whose effective Weight changed. Planning overrides remain instance-local and have precedence over source values. Type, source reference, and mode context selections are applied to the target fixture; selected mode is not propagated to unrelated fixtures.
 
 ## Project apply adapters
 
@@ -253,3 +253,11 @@ Project truss generation appends a standard revision whose `Text` summarizes the
 GDTF physical-property mutations write finite `float` values with locale-independent shortest-roundtrip text generated through `std::to_chars` in general format. The emitted token must parse back to the same finite `float`, use `.` as the decimal separator when a separator is needed, and avoid artificial precision caps or locale-dependent commas. NaN and positive or negative infinity are rejected before archive extraction or publication, reported through `GdtfDocumentMutationResult.errors`, and must leave the original archive bytes unchanged.
 
 GDTF archive entry names written by Perastage remain canonical ZIP logical paths: relative, traversal-free, and separated with `/`. Tests that read archive entries through `wxZipInputStream` normalize the wx-presented entry name before comparison because wxWidgets can expose nested names with native separators on Windows even when the central directory stores canonical `/` paths. Raw central-directory inspection remains the regression check for the actual stored archive names.
+
+## Electrical planning and corrections
+
+See [GDTF electrical power](gdtf_electrical_power.md) for input-power precedence,
+separate emitter totals, project overrides, presence and diagnostics. Power writes
+never fabricate topology or a PowerConsumption without Connector. Unsafe project
+corrections remain project overrides; effective GDTF corrections append standard
+Revisions.

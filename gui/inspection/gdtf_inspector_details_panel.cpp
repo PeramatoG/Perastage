@@ -46,6 +46,8 @@ wxString OverviewLabel(GdtfOverviewField field) {
   case GdtfOverviewField::Revision: return _("Revision");
   case GdtfOverviewField::Weight: return _("Weight");
   case GdtfOverviewField::PowerConsumption: return _("Power consumption");
+  case GdtfOverviewField::BeamPowerTotal: return _("Beam power (informational)");
+  case GdtfOverviewField::PlanningPowerSource: return _("Planning power source");
   case GdtfOverviewField::ModelColor: return "ModelColor";
   case GdtfOverviewField::TrussCrossSectionType:
     return _("Truss cross-section type");

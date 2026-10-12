@@ -47,14 +47,20 @@ std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
 }
 
 // Writes a canonical minimal GDTF 1.2 archive for mutation tests.
-std::string MakeBaseGdtf() {
+std::string MakeBaseGdtf(bool withPowerTarget = true) {
   const fs::path outPath = fs::temp_directory_path() /
                            (std::string("makebasegdtf_") +
                             std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) +
                             ".gdtf");
-  tests::gdtf::BuildMinimalValidFixture()
-      .WithArchiveEntry("resources/sentinel.bin", "sentinel-resource-bytes")
-      .WriteArchive(outPath);
+  auto builder = tests::gdtf::BuildMinimalValidFixture();
+  std::string xml = builder.BuildDescriptionXml();
+  if (withPowerTarget) xml.insert(xml.find("</PhysicalDescriptions>"), "<Properties><PowerConsumption Connector=\"PowerCON\" Value=\"100\"/></Properties>");
+  wxFileOutputStream output(WxPathUtils::WxStringFromFilesystemPath(outPath));
+  wxZipOutputStream zip(output);
+  zip.PutNextEntry("description.xml"); zip.Write(xml.data(), xml.size());
+  const std::string sentinel = "sentinel-resource-bytes";
+  zip.PutNextEntry("resources/sentinel.bin"); zip.Write(sentinel.data(), sentinel.size());
+  zip.Close(); output.Close();
   return outPath.string();
 }
 
@@ -256,8 +262,18 @@ int main() {
 
   VerifyInjectedPublicationFailurePreservesOriginal();
   VerifyPhysicalMutationStandardizesLegacySymbols();
+  const auto unsafePath = MakeBaseGdtf(false);
+  const auto unsafeBefore = ReadFileBytes(unsafePath);
+  GdtfDocumentMutationRequest unsafeRequest;
+  unsafeRequest.weightSet = true; unsafeRequest.weightKg = 12;
+  unsafeRequest.powerSet = true; unsafeRequest.powerW = 380;
+  const auto unsafeResult = MutateGdtfDocumentWithResult(unsafePath, unsafeRequest, "Tests");
+  assert(!unsafeResult.success && !unsafeResult.atomicReplacementCompleted);
+  assert(!unsafeResult.errors.empty());
+  assert(ReadFileBytes(unsafePath) == unsafeBefore);
+  fs::remove(unsafePath);
   VerifyFiniteFloatSerialization(0.0f);
-  VerifyFiniteFloatSerialization(-42.5f);
+
   VerifyFiniteFloatSerialization(12.345f);
   VerifyFiniteFloatSerialization(678.9f);
   VerifyFiniteFloatSerialization(1234567.0f);

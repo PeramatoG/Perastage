@@ -141,7 +141,7 @@ static bool FixtureNeedsPhysicalGdtfPatch(const Fixture &fixture,
     overrides.weightKg = fixture.weightKg;
     needsPatch = true;
   }
-  if (fixture.powerConsumptionW > 0.0f &&
+  if (!fixture.planningPowerOverrideW && fixture.powerConsumptionW > 0.0f &&
       (!hasGdtfProperties ||
        !NearlyEqualPhysicalValue(fixture.powerConsumptionW, gdtfPowerW))) {
     overrides.hasPowerW = true;

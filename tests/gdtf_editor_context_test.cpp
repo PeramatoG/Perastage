@@ -103,7 +103,7 @@ void AssertDirtyTracking() {
   assert(session.SetValue(gdtf::GdtfFieldId::ModeName, "Mode 2"));
   assert(session.IsFieldDirty(gdtf::GdtfFieldId::ModeName));
   const auto request = session.BuildApplyRequest();
-  assert(request.changedDocumentFields.count(gdtf::GdtfFieldId::PowerConsumption));
+  assert(request.changedContextFields.count(gdtf::GdtfFieldId::PowerConsumption));
   assert(request.changedContextFields.count(gdtf::GdtfFieldId::ModeName));
   session.Reset();
   assert(!session.IsDirty());
@@ -196,7 +196,7 @@ void AssertFixtureSessionCheckpoint08A() {
   assert(editable.SetValue(gdtf::GdtfFieldId::ModeName, "Mode 2"));
   assert(editable.IsFieldDirty(gdtf::GdtfFieldId::ModeName));
   assert(editable.SetValue(gdtf::GdtfFieldId::PowerConsumption, "650"));
-  assert(editable.BuildApplyRequest().changedDocumentFields.count(
+  assert(editable.BuildApplyRequest().changedContextFields.count(
       gdtf::GdtfFieldId::PowerConsumption));
   assert(!editable.SetValue(gdtf::GdtfFieldId::Weight, "bad"));
   assert(editable.SetValue(gdtf::GdtfFieldId::Weight, "-2"));
@@ -315,7 +315,7 @@ void AssertProjectFixtureCapabilities() {
   assert(gdtf::FindFieldCapability(context, gdtf::GdtfFieldId::Weight)
              ->operation == gdtf::GdtfFieldEditOperation::DocumentMutation);
   assert(gdtf::FindFieldCapability(context, gdtf::GdtfFieldId::PowerConsumption)
-             ->operation == gdtf::GdtfFieldEditOperation::DocumentMutation);
+             ->operation == gdtf::GdtfFieldEditOperation::ContextSelection);
   assert(gdtf::FindFieldCapability(context, gdtf::GdtfFieldId::FixtureTypeName)
              ->operation == gdtf::GdtfFieldEditOperation::ContextSelection);
   assert(gdtf::FindFieldCapability(context, gdtf::GdtfFieldId::FixtureTypeName)

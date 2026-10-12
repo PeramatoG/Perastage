@@ -35,6 +35,7 @@ struct ImportGdtfMetadata {
   std::string fixtureTypeId;
   float weightKg = 0.0f;
   float powerW = 0.0f;
+  bool powerPresent = false;
   bool hasProperties = false;
 };
 

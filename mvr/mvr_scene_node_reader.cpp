@@ -358,8 +358,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
           if (metadata.hasProperties) {
             if (metadata.weightKg > 0.0f)
               fixture.weightKg = metadata.weightKg;
-            if (metadata.powerW > 0.0f)
-              fixture.powerConsumptionW = metadata.powerW;
+            fixture.SetSourcePlanningPower(metadata.powerPresent ? std::optional<float>(metadata.powerW) : std::nullopt);
             fixture.physicalPropertiesSource =
                 FixturePhysicalPropertiesSource::Gdtf;
             fixture.physicalPropertiesDirty = false;
@@ -370,8 +369,9 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
           fixture.physicalPropertiesSource =
               FixturePhysicalPropertiesSource::LegacyMvrFixtureNode;
         }
-        if (fixture.powerConsumptionW <= 0.0f && hasLegacyPowerConsumption) {
+        if (!fixture.HasPlanningPower() && hasLegacyPowerConsumption) {
           fixture.powerConsumptionW = legacyPowerConsumptionW;
+          fixture.powerConsumptionWPresent = true;
           fixture.physicalPropertiesSource =
               FixturePhysicalPropertiesSource::LegacyMvrFixtureNode;
         }

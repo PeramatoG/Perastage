@@ -83,12 +83,16 @@ void CheckOverview() {
 
   source.powerConsumptionWPresent = true;
   source.powerConsumptionW = 250.0f;
+  source.electricalPower.beamTotalW = 760;
+  source.electricalPower.source = gdtf::PlanningPowerSource::WiringConsumer;
   const auto withPower =
       gui::inspection::BuildGdtfOverviewPresentation(source);
   assert(FindOverview(
              withPower,
              gui::inspection::GdtfOverviewField::PowerConsumption)
              .value.value == "250 W");
+  assert(FindOverview(withPower, gui::inspection::GdtfOverviewField::BeamPowerTotal).value.value == "760 W");
+  assert(FindOverview(withPower, gui::inspection::GdtfOverviewField::PlanningPowerSource).value.available);
 }
 
 // Verifies mode projection delegates hierarchy and detail semantics.

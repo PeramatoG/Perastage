@@ -22,3 +22,21 @@ Use source search, folding and copy controls to examine XML. Large documents may
 ## Issues and diagnostics
 
 **Issues** groups reported problems; **Diagnostics** provides more detail for investigation. A preview limitation alone does not mean the file is invalid. The Inspector does not repair packages or download missing resources. Use the normal editing workflows for corrections, or [export a diagnostic report](troubleshooting.md#logs-and-diagnostic-reports) when reporting a problem.
+
+## Fixture planning power
+
+Fixture power is the maximum input consumption used for planning. A missing value
+is shown as **—** in the fixture editor and table; an explicitly declared zero stays
+zero. Beam power is informational and never substitutes for missing input power.
+The GDTF overview shows the electrical source and informational Beam total. Review
+Issues/Diagnostics for ambiguous inputs, conflicting declarations or Beam totals
+above declared input.
+
+Editing power in the normal fixture editor or table creates a project correction
+for that fixture. Calculations use it immediately, and saving the PSTG preserves
+it without changing the source archive. Other instances keep their own values.
+Explicit GDTF document corrections require an existing safe electrical field;
+Perastage preserves connector information and records a standard Revision. If no
+safe field exists, keep the correction in the project rather than inventing a
+connector or power-input topology. Project power overrides are not automatically
+written into GDTFs during MVR export.
