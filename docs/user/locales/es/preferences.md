@@ -45,14 +45,14 @@ Elige qué tipos de objeto desplazan su grupo raíz durante las transformaciones
 
 ## Formatos
 
-### Completar definiciones GDTF
+### Recursos GDTF
 
-En **GDTF → GDTF definition completion**:
-
-- **Complete and improve GDTF definitions (recommended)** puede completar vistas estándar Top/Side/Front que falten a partir de la geometría, en un derivado `@Perastage.gdtf` auditado. Conserva las vistas originales existentes, incluidas las inutilizables que requieran reparación explícita.
-- **Preserve imported GDTF definitions** desactiva el completado automático.
-
-Ambas opciones permiten editar la escena y los GDTF explícitamente. Las vistas de Perastage aplicadas manualmente son símbolos del proyecto guardados en PSTG, no sustitutos de las vistas originales GDTF. Guarda el proyecto para conservarlas; no se exportan a MVR ni a los GDTF incrustados.
+Las preferencias GDTF gestionan las credenciales de Share. Perastage guarda
+automáticamente los símbolos Top/Front/Side/Bottom de la luminaria completa en
+PSTG. Guarda el proyecto para conservarlos, incluidas las sustituciones del
+usuario; no se convierten en recursos GDTF ni MVR. El editor permite inspeccionar
+los SVG originales de cada Model y conserva sus bytes y offsets. La edición
+explícita de propiedades físicas sigue disponible.
 
 ### Importación / exportación MVR
 

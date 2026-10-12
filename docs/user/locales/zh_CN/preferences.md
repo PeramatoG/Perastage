@@ -42,14 +42,12 @@
 
 ## 格式
 
-### GDTF 定义补全
+### GDTF 资源
 
-在 **GDTF → GDTF definition completion** 下：
-
-- **Complete and improve GDTF definitions (recommended)** 可基于几何体，在经过审核的 `@Perastage.gdtf` 派生文件中补全缺失的标准 Top/Side/Front 视图。已有原始视图会保留，包括无法使用、需要明确修复的视图。
-- **Preserve imported GDTF definitions** 禁用自动补全。
-
-两者都允许正常场景编辑及明确的 GDTF 编辑。手动应用的 Perastage 视图是保存在 PSTG 中的项目符号，不替换原始 GDTF 视图。保存项目以保留这些符号；它们不会导出到 MVR 或嵌入的 GDTF 中。
+GDTF 偏好设置管理 Share 登录凭据。Perastage 自动将整灯的
+Top/Front/Side/Bottom 符号保存到 PSTG。保存项目即可保留生成的符号和用户覆盖；
+这些符号不会成为 GDTF 或 MVR 资源。灯具编辑器按 Model 检查原始 SVG，
+并保留其字节和插入偏移。仍可明确编辑物理属性。
 
 ### MVR 导入 / 导出
 

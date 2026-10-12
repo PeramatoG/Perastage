@@ -21,6 +21,6 @@ assert 'wxEVT_TREEBOOK_PAGE_CHANGED' not in container, 'Navigation does not appl
 legacy = Path('gui/preferencesdialog_persistence.cpp').read_text()
 assert all(token in legacy for token in ['CaptureDirtyState', 'RestoreDirtyState', 'SaveUserConfig'])
 gdtf = Path('gui/preferences/gdtf_preferences_page.cpp').read_text()
-assert 'GdtfCredentialsPanel' in gdtf and 'GdtfMutationPolicyPanel' in gdtf
+assert 'GdtfCredentialsPanel' in gdtf and 'GdtfMutationPolicyPanel' not in gdtf
 print('OK: Preferences page ownership, navigation and persistence boundary')
 PYTHON

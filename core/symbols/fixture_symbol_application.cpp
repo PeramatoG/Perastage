@@ -1,15 +1,11 @@
 #include "symbols/fixture_symbol_application.h"
 
-#include "fixture_gdtf_derivative_publication.h"
 #include "gdtf/editor/gdtf_document.h"
-#include "gdtfdictionary.h"
 #include "symbols/Symbol2DSvg.h"
 #include "symbols/fixture_symbol_availability.h"
 #include "symbols/fixture_symbol_svg_cache.h"
 #include "symbols/fixture_symbol_resource_revision.h"
 #include "symbols/project_fixture_symbol_migration.h"
-#include "symbols/standard_gdtf_completion.h"
-#include "symbols/standard_gdtf_svg.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -47,13 +43,6 @@ std::vector<std::string> DefinitionInstances(
   }
   std::sort(instances.begin(), instances.end());
   return instances;
-}
-
-bool HasMissingStandardView(const StandardGdtfMutationResult &inspection) {
-  return inspection.success && std::any_of(
-      inspection.views.begin(), inspection.views.end(), [](const auto &view) {
-        return view.state == StandardGdtfViewState::Missing;
-      });
 }
 
 } // namespace
@@ -167,16 +156,18 @@ FixtureSymbolApplicationResult InheritFixtureProjectSymbols(
 bool NeedsAutomaticFixtureSymbolPreparation(
     const Fixture &fixture, const ProjectFixtureSymbolStore &store,
     const std::string &sourceGdtfPath, gdtf::MutationPolicy policy) {
+  (void)policy;
+  if (store.FindForFixture(fixture))
+    return false;
   const auto availability = symbol_cache::InspectFixtureSymbolAvailability(sourceGdtfPath);
-  return (!store.FindForFixture(fixture) && !availability.storedSvgUsable) ||
-      (gdtf::AllowsAutomaticCompletion(policy) &&
-       HasMissingStandardView(InspectStandardGdtfViews(sourceGdtfPath)));
+  return !availability.storedSvgUsable;
 }
 
 FixtureSymbolApplicationResult PrepareFixtureSymbols(
     MvrScene &scene, ProjectFixtureSymbolStore &store,
     const std::string &fixtureUuid, const std::string &sourceGdtfPath,
     const std::vector<Symbol2D> &symbols, gdtf::MutationPolicy policy) {
+  (void)policy;
   const auto availability = symbol_cache::InspectFixtureSymbolAvailability(sourceGdtfPath);
   FixtureSymbolApplicationResult result = InheritFixtureProjectSymbols(scene, store, fixtureUuid);
   if (!result.success)
@@ -191,11 +182,6 @@ FixtureSymbolApplicationResult PrepareFixtureSymbols(
       availability.resources.perastageViews.begin(),
       availability.resources.perastageViews.end(),
       [](const auto &view) { return view.usable && view.PerastageOwned(); });
-  if (result.symbolBindingConflict && hasRecognizedLegacy) {
-    result.warnings.push_back(
-        "Standard completion was skipped because conflicting project bindings prevent safely retaining every legacy symbol representation.");
-    return result;
-  }
   if (!result.symbolBindingConflict && !store.FindForFixture(selectedBefore->second) && hasRecognizedLegacy) {
     if (!MaterializeLegacyFixtureSymbols(scene, store,
             std::filesystem::path(sourceGdtfPath).parent_path().string(),
@@ -213,76 +199,7 @@ FixtureSymbolApplicationResult PrepareFixtureSymbols(
     result.projectSymbolsUpdated = result.projectSymbolsUpdated || generated.projectSymbolsUpdated;
     result.diagnostic = generated.diagnostic;
   }
-  if (!result.success || !gdtf::AllowsAutomaticCompletion(policy))
-    return result;
-  const auto standard = InspectStandardGdtfViews(sourceGdtfPath);
-  result.warnings.insert(result.warnings.end(), standard.diagnostics.begin(),
-                         standard.diagnostics.end());
-  if (!standard.success && !standard.errorMessage.empty())
-    result.warnings.push_back(standard.errorMessage);
-  if (!HasMissingStandardView(standard))
-    return result;
 
-  std::vector<StandardGdtfSvgCandidate> candidates;
-  for (const auto &symbol : symbols) {
-    SymbolViewKind view;
-    switch (symbol.view) {
-    case SymbolView::Top: view = SymbolViewKind::Top; break;
-    case SymbolView::Front: view = SymbolViewKind::Front; break;
-    case SymbolView::Left: view = SymbolViewKind::Left; break;
-    default: continue;
-    }
-    StandardGdtfSvgCandidate candidate;
-    std::string error;
-    if (!SerializeStandardGdtfSvg(symbol, view, candidate, error)) {
-      result.warnings.push_back(error);
-      return result;
-    }
-    candidates.push_back(std::move(candidate));
-  }
-  auto &selected = scene.fixtures.at(fixtureUuid);
-  const std::string originalSpec = selected.gdtfSpec;
-  const std::string originalType = selected.typeName;
-  const bool libraryBacked = scene.basePath.empty();
-  fixture_gdtf::PreparedDerivative prepared;
-  std::string error;
-  const bool preparedOk = libraryBacked
-      ? GdtfDictionary::PreparePerastageLibraryDerivative(originalType,
-            sourceGdtfPath, prepared, error)
-      : fixture_gdtf::PrepareProjectDerivative(sourceGdtfPath, scene.basePath,
-            GdtfDictionary::BuildPerastageCanonicalGdtfFileName(sourceGdtfPath),
-            prepared, error);
-  if (!preparedOk) {
-    result.warnings.push_back(error);
-    return result;
-  }
-  auto publication = libraryBacked
-      ? StandardGdtfPublication([&](const auto &target, std::string &publicationError) {
-          return GdtfDictionary::PublishPerastageLibraryDerivative(
-              originalType, target, selected.gdtfMode, selected.category,
-              publicationError).has_value();
-        })
-      : StandardGdtfPublication{};
-  const auto completion = CompleteStandardGdtfViews(sourceGdtfPath, prepared,
-      candidates, policy, "", publication);
-  result.warnings.insert(result.warnings.end(), completion.diagnostics.begin(),
-                         completion.diagnostics.end());
-  if (!completion.success) {
-    result.warnings.push_back(completion.errorMessage);
-    return result;
-  }
-  if (!completion.changed)
-    return result;
-  for (auto &[uuid, fixture] : scene.fixtures) {
-    if (uuid == fixtureUuid || (!originalSpec.empty() &&
-        fixture.gdtfSpec == originalSpec &&
-        (libraryBacked || fixture.typeName == originalType)))
-      fixture.gdtfSpec = prepared.publishedReference;
-  }
-  result.fixtureReferencesUpdated = true;
-  result.standardGdtfUpdated = true;
-  result.publishedGdtfPath = prepared.publishedPath.string();
-  symbol_cache::InvalidateFixtureSymbolCachesForPath(result.publishedGdtfPath);
   return result;
 }
 

@@ -21,15 +21,12 @@ a generator change or empty disposable cache does not regenerate them. Core owns
 resources. Save includes only referenced bundles and Load restores exact content;
 neither operation waits for the preparation queue or captures new geometry.
 
-Standard completion is a separate Core operation. In the default completion
-policy it adds missing GDTF 1.2 Top/Side/Front resources from captured geometry,
-using the dedicated standard serializer and official model offsets. Existing
-usable and unusable authored resources are preserved automatically. Preserve
-mode disables this GDTF mutation while allowing project fallbacks. Effective
-completion receives one standard Revision and a canonical atomic `@Perastage`
-derivative; a no-op adds none. Fixture references change only after successful
-publication. Standard and internal completeness are independent; Bottom is
-never a standard completeness requirement.
+Automatic capture never supplies standard GDTF Model SVG candidates. Missing
+standard views do not schedule capture if a valid project bundle exists. The
+historical mutation setting has no effect on PSTG preparation. No source GDTF
+bytes, offsets, revisions or fixture GDTF references change during preparation.
+Per-Model original previews use the neutral Core catalog and general SVG bitmap
+backend, independently from polygon conversion for runtime rendering.
 
 `fixture_symbol_availability.*` is the GUI-independent loading boundary for
 Viewer2D/Viewer3D, layout, legends, PDF, comparison previews, and preparation.
@@ -60,8 +57,8 @@ separate from hot rendering cache identity. Preparation does not persist queue,
 snapshot, or worker state. Persisted bundle metadata belongs to the project,
 not the coordinator.
 
-Recognized legacy internal views are materialized into project storage before
-automatic standard completion retargets a GDTF reference. Newly inserted
+Recognized legacy internal views are materialized into project storage without
+retargeting their GDTF reference. Newly inserted
 instances inherit an existing project symbol only when every bound instance of
 that exact nonempty source/mode agrees on the same content. Divergent overrides
 remain authoritative and are diagnosed rather than merged or regenerated.
@@ -69,7 +66,7 @@ remain authoritative and are diagnosed rather than merged or regenerated.
 Manual preview pauses matching automatic work. Applying records an explicit
 project override; closing without Apply restores automatic eligibility. A
 matching authoritative persisted override prevents automatic replacement.
-Core owns project application and standard completion rules; GUI owns capture,
+Core owns project application and exact Model mutation boundaries; GUI owns capture,
 progress, diagnostics, and refresh.
 
 ## Hot SVG cache

@@ -531,7 +531,7 @@ size_t HashMatrix(const Matrix &m) {
   return hash;
 }
 
-// Builds a version hash for fixture geometry-tree content.
+// Hash render content only; read-only Model inspection metadata does not change identity.
 size_t HashGeometryTreeVersion(const GdtfGeometryTree &tree) {
   size_t hash = HashCombine(HashString("nodes"), tree.nodes.size());
   for (const GdtfNode3D &node : tree.nodes) {

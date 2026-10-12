@@ -216,8 +216,7 @@ int main(int argc, char **argv) {
     assert(languageChoice->GetSelection() == (localizedBuild ? 1 : 0));
     auto updatesChoice = FindControls<wxChoice>(Page(book, "Updates")).at(0);
     assert(updatesChoice->GetSelection() == 1);
-    auto gdtfChoice = FindControls<wxChoice>(Page(book, "GDTF")).at(0);
-    assert(gdtfChoice->GetSelection() == 1);
+    assert(FindControls<wxChoice>(Page(book, "GDTF")).empty());
     auto mvrChoice = FindControls<wxChoice>(Page(book, "MVR Import / Export")).at(0);
     assert(mvrChoice->GetSelection() == 1);
     auto selectionChecks = FindControls<wxCheckBox>(Page(book, "Selection & Movement"));
@@ -244,7 +243,6 @@ int main(int argc, char **argv) {
     Select(unitChoices[1], 0);
     Select(languageChoice, localizedBuild ? 2 : 0);
     Select(updatesChoice, 0);
-    Select(gdtfChoice, 0);
     Select(mvrChoice, 0);
     for (auto *check : selectionChecks)
       check->SetValue(!check->GetValue());
@@ -288,7 +286,7 @@ int main(int argc, char **argv) {
     assert(preferences.GetValue("ui_weight_unit_system") == "metric");
     assert(preferences.GetValue("ui_language") == (localizedBuild ? "zh_CN" : "en"));
     assert(preferences.GetValue("app_update_startup_mode") == "startup");
-    assert(preferences.GetValue("gdtf_mutation_policy") == "complete_and_improve");
+    assert(preferences.GetValue("gdtf_mutation_policy") == "preserve_imported");
     assert(preferences.GetValue("mvr_truss_geometry_export_mode") == "standard");
     assert(preferences.GetValue("selection_group_move_fixture") == "0");
     assert(preferences.GetValue("selection_group_move_truss") == "1");

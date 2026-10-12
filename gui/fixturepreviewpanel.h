@@ -49,6 +49,9 @@ public:
     // Clears the previous preview before a replacement starts.
     void ResetPreview();
 
+    const GdtfGeometryTree &GetGeometryTree() const { return m_geometryTree; }
+    void ShowGeometry(int nodeIndex = -1);
+
 private:
     void OnPaint(wxPaintEvent& evt);
     void OnResize(wxSizeEvent& evt);
@@ -68,6 +71,8 @@ private:
 
     Viewer3DCamera m_camera;
     std::vector<GdtfObject> m_objects;
+    GdtfGeometryTree m_geometryTree;
+    int m_selectedGeometry = -1;
     bool m_hasModel = false;
     std::optional<runtime_storage::TemporaryWorkspace> m_previewWorkspace;
     float m_bbMin[3];

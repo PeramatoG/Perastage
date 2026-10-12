@@ -6,7 +6,7 @@ Comprueba la extensión `.mvr`, prueba otro archivo para aislar el problema y re
 
 ## Luminarias GDTF ausentes o incorrectas
 
-Comprueba la definición de la luminaria y el modo DMX seleccionado. Utiliza **Tools → Download GDTF** para perfiles y **Tools → Edit dictionaries** para asignaciones locales. Vuelve a abrir y revisar la escena tras corregir los perfiles que falten. Comprueba la [política de completado](preferences.md#completar-definiciones-gdtf) si las vistas generadas no son las esperadas.
+Comprueba la definición de la luminaria y el modo DMX seleccionado. Utiliza **Tools → Download GDTF** para perfiles y **Tools → Edit dictionaries** para asignaciones locales. Vuelve a abrir y revisar la escena tras corregir los perfiles que falten. Revisa el Model seleccionado en el editor; los símbolos del proyecto se guardan por separado en PSTG.
 
 ## Biblioteca de usuario
 

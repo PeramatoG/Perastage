@@ -6,7 +6,7 @@
 
 ## GDTF 灯具缺失或错误
 
-检查灯具定义和所选 DMX 模式。使用 **Tools → Download GDTF** 获取配置文件，使用 **Tools → Edit dictionaries** 管理本地映射。修正缺失配置文件后，重新打开并检查场景。如果生成视图与预期不同，请检查[定义补全策略](preferences.md#gdtf-定义补全)。
+检查灯具定义和所选 DMX 模式。使用 **Tools → Download GDTF** 获取配置文件，使用 **Tools → Edit dictionaries** 管理本地映射。修正缺失配置文件后，重新打开并检查场景。 在灯具编辑器中检查所选 Model；项目符号单独保存到 PSTG。
 
 ## 用户库
 
@@ -18,7 +18,7 @@
 
 ## 项目与运行问题
 
-尽可能另存一份项目，重启 Perastage 并重新打开。核对 2D、3D 和表格中的关键数据。3D 导航缓慢时，降低 [Model detail](preferences.md#3d-viewer) 或启用导航简化模型。与小型项目比较，判断是否为特定场景的问题。
+尽可能另存一份项目，重启 Perastage 并重新打开。核对 2D、3D 和表格中的关键数据。 在灯具编辑器中检查所选 Model；项目符号单独保存到 PSTG。与小型项目比较，判断是否为特定场景的问题。
 
 ## GDTF Share 凭据
 

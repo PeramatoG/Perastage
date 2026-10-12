@@ -45,6 +45,9 @@ struct GdtfNode3D {
     bool isLens = false;
     bool hasMesh = false;
     Mesh mesh;
+    std::string modelName;
+    std::string modelFile;
+    std::string geometryName;
 };
 
 struct GdtfGeometryTree {

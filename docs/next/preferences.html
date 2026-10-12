@@ -101,13 +101,12 @@ in <code>cache/</code>, rather than beside source assets.</p>
 <p>Choose which object types move their containing root group during mouse, Console and Magnet transforms. Grouped trusses move their group by default; fixtures, supports/hoists and scene objects move independently. Direct group selection moves the group. Table edits affect only the edited object.</p>
 <p><strong>Show anchor references while moving or inserting elements</strong> displays compatible Magnet anchors during movement or insertion. These guides are not scene or export content. Changing movement preferences does not change the project&#39;s hierarchy or mark it as edited.</p>
 <h2 id="formats">Formats</h2>
-<h3 id="gdtf-definition-completion">GDTF definition completion</h3>
-<p>Under <strong>GDTF → GDTF definition completion</strong>:</p>
-<ul>
-<li><strong>Complete and improve GDTF definitions (recommended)</strong> may fill missing standard Top/Side/Front views from geometry in an audited <code>@Perastage.gdtf</code> derivative. Existing authored views, including unusable ones needing explicit repair, are preserved.</li>
-<li><strong>Preserve imported GDTF definitions</strong> disables automatic completion.</li>
-</ul>
-<p>Both allow normal scene editing and explicit GDTF edits. Manually applied Perastage views are project symbols stored in PSTG, rather than replacements for authored GDTF views. Save the project to keep them; they are not exported into MVR or embedded GDTFs.</p>
+<h3 id="gdtf-resources">GDTF resources</h3>
+<p>GDTF preferences manage Share credentials. Perastage automatically stores
+fixture-wide Top/Front/Side/Bottom symbols in PSTG. Save the project to retain
+generated symbols and user overrides; they do not become GDTF or MVR resources.
+The Fixture Editor inspects authored SVGs per Model and preserves their bytes
+and offsets. Explicit physical-property edits remain available.</p>
 <h3 id="mvr-import--export">MVR Import / Export</h3>
 <p><strong>Truss geometry export mode</strong> offers:</p>
 <ul>

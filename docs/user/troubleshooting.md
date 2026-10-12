@@ -6,7 +6,7 @@ Confirm the extension is `.mvr`, try another file to isolate the problem, and re
 
 ## Missing or incorrect GDTF fixtures
 
-Check the fixture definition and selected DMX mode. Use **Tools → Download GDTF** for profiles and **Tools → Edit dictionaries** for local mappings. Reopen and review the scene after correcting missing profiles. Check the [definition completion policy](preferences.md#gdtf-definition-completion) if generated views differ from your expectations.
+Check the fixture definition and selected DMX mode. Use **Tools → Download GDTF** for profiles and **Tools → Edit dictionaries** for local mappings. Reopen and review the scene after correcting missing profiles. Review the selected Model in the Fixture Editor; project symbols are stored independently in PSTG.
 
 ## User library
 

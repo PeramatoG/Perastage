@@ -8,7 +8,7 @@ Perastage is an open-source desktop tool for lighting and rigging scene work and
 
 ## GDTF and GDTF Share
 
-Use fixture definitions and local dictionaries, [search/download GDTFs](gdtf-download.md), browse cached catalog data offline and review revisions and DMX modes. [Preferences](preferences.md#gdtf-definition-completion) controls automatic definition completion.
+Use fixture definitions and local dictionaries, [search/download GDTFs](gdtf-download.md), browse cached catalog data offline and review revisions and DMX modes. The Fixture Editor inspects Models and preserves authored GDTF resources.
 
 ## MVR / GDTF Inspector
 

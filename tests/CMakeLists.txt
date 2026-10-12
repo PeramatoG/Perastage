@@ -498,13 +498,24 @@ set_perastage_test_labels(InspectorXmlEditor
 
 add_executable(gdtf_resource_svg_bitmap_test
                gdtf_resource_svg_bitmap_test.cpp
+               fixture_editor_symbol_previews_test.cpp
+               support/gdtf_test_fixture_builder.cpp
+               ../gui/gdtf/fixture_symbol_comparison_panel.cpp
+               ../gui/gdtf/fixture_thumbnail_preview.cpp
+               ../core/gdtf_canonicalizer.cpp
+               ../core/symbols/fixture_symbol_availability.cpp
+               ../core/symbols/fixture_symbol_svg_cache.cpp
+               ../core/symbols/fixture_symbol_resource_revision.cpp
+               ../core/symbols/fixture_symbol_preview_model.cpp
                ../gui/windows/symbol_preview_drawing.cpp
                ../core/symbols/Symbol2DSvg.cpp
                ../gui/gdtf/gdtf_resource_bitmap_cache.cpp
                ../gui/gdtf/svg_preview_geometry.cpp)
 target_include_directories(gdtf_resource_svg_bitmap_test PRIVATE ../gui ../core)
+target_include_directories(gdtf_resource_svg_bitmap_test PRIVATE support)
 target_link_libraries(gdtf_resource_svg_bitmap_test
-                      PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+                      PRIVATE perastage_test_project_symbol_runtime perastage_uuid
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME GdtfResourceSvgBitmap COMMAND gdtf_resource_svg_bitmap_test)
 set_perastage_test_labels(GdtfResourceSvgBitmap
                           LAYER standard-strict
@@ -3994,7 +4005,6 @@ add_executable(preferences_dialog_test
                ../gui/preferences/selection_movement_preferences_page.cpp
                ../gui/preferences/gdtf_preferences_page.cpp
                ../gui/preferences/mvr_preferences_page.cpp
-               ../gui/preferences/gdtf_mutation_policy_panel.cpp
                ../gui/preferences/viewer3d_rendering_preferences_panel.cpp
                ../gui/update/update_check_preferences.cpp
                ../core/gdtf_mutation_policy.cpp
@@ -4106,3 +4116,32 @@ set_property(TARGET gdtf_description_header_compile_test
 add_test(NAME GdtfDescriptionHeaderCompile COMMAND gdtf_description_header_compile_test)
 set_perastage_test_labels(GdtfDescriptionHeaderCompile
                          LAYER standard-strict DOMAINS gdtf core architecture)
+
+add_executable(gdtf_model_svg_inspection_test
+               gdtf_model_svg_inspection_test.cpp
+               support/gdtf_test_fixture_builder.cpp
+               ../core/symbols/standard_gdtf_svg.cpp
+               ../core/symbols/standard_gdtf_completion.cpp
+               ../core/symbols/Symbol2DSvg.cpp
+               ../core/fixture_gdtf_derivative_contract.cpp
+               ../core/fixture_gdtf_derivative_publication.cpp
+               ../core/gdtf_canonicalizer.cpp)
+target_include_directories(gdtf_model_svg_inspection_test PRIVATE ../core support)
+target_link_libraries(gdtf_model_svg_inspection_test PRIVATE
+                      perastage_gdtf_filename_policy
+                      perastage_test_required_fixture_svg
+                      perastage_gdtf_publication_resources
+                      perastage_inspection_validation perastage_uuid
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME GdtfModelSvgInspection COMMAND gdtf_model_svg_inspection_test)
+set_perastage_test_labels(GdtfModelSvgInspection
+                         LAYER standard-strict DOMAINS core gdtf symbols zip)
+add_executable(gdtf_geometry_inspection_test gdtf_geometry_inspection_test.cpp)
+target_include_directories(gdtf_geometry_inspection_test PRIVATE ../viewer3d ../models)
+add_test(NAME GdtfGeometryInspection COMMAND gdtf_geometry_inspection_test)
+set_perastage_test_labels(GdtfGeometryInspection
+                         LAYER standard-strict DOMAINS viewer3d gdtf)
+
+add_bash_policy_test(GdtfModelSvgBoundary
+    ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_model_svg_boundary.sh
+    LABELS standard-strict architecture gdtf symbols)

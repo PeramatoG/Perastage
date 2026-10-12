@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "gdtfloader.h"
+#include "gdtf_geometry_inspection.h"
 #include "filesystem_path_utils.h"
 #include "gdtf_archive_reader.h"
 #include "gdtf_description_reader.h"
@@ -1403,12 +1404,16 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             auto it = geomMap.find(refName);
             if (it != geomMap.end()) {
                 const char* m = node->Attribute("Model");
+                const size_t instanceRoot = outTree.nodes.size();
                 ParseGeometry(it->second, transform, models, baseDir, geomMap,
                               rawFileMeshCache, dimensionedFileMeshCache,
                               primitiveMeshCache,
                               outTree, missingModels, failedModelLoads, parentNodeIndex,
                               archiveFilename, modeName, m ? m : overrideModel,
                               parentIsLens);
+                if (const char* name = node->Attribute("Name");
+                    name && instanceRoot < outTree.nodes.size())
+                    outTree.nodes[instanceRoot].geometryName = name;
             }
         }
         return;
@@ -1427,6 +1432,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
     const int currentNodeIndex = static_cast<int>(outTree.nodes.size());
     GdtfNode3D node3d;
     node3d.stableName = makeStableNodeName(parsedNodeType, node);
+    node3d.geometryName = node->Attribute("Name") ? node->Attribute("Name") : node->Name();
     node3d.type = parsedNodeType;
     node3d.parentIndex = parentNodeIndex;
     node3d.localTransform = local;
@@ -1434,9 +1440,11 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
     node3d.isLens = isLensGeometry;
 
     if (modelName) {
+        node3d.modelName = modelName;
         auto it = models.find(modelName);
         if (it != models.end()) {
             const GdtfModelInfo& modelInfo = it->second;
+            node3d.modelFile = modelInfo.file;
             Mesh mesh;
             bool haveMesh = false;
 
@@ -1750,11 +1758,7 @@ static bool BuildGdtfFlatObjectsFromCache(GdtfCacheEntry& entry,
     if (!BuildGdtfGeometryTreeFromCache(entry, modeName, tree))
         return false;
 
-    std::vector<GdtfObject> flat;
-    for (const GdtfNode3D& node : tree.nodes) {
-        if (node.hasMesh)
-            flat.push_back({node.mesh, node.worldTransform, node.isLens});
-    }
+    std::vector<GdtfObject> flat = GdtfInspectionObjects(tree);
     outObjects = flat;
     entry.flatObjectCache[modeKey] = std::move(flat);
     return !outObjects.empty();

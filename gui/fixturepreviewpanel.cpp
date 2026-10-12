@@ -35,6 +35,7 @@
 
 #include <wx/wx.h>
 #include "fixturepreviewpanel.h"
+#include "gdtf_geometry_inspection.h"
 #include "preview_resource.h"
 #include "filesystem_path_utils.h"
 #include "loader3ds.h"
@@ -243,11 +244,16 @@ bool FixturePreviewPanel::LoadDirectModel(const std::string& modelPath)
 void FixturePreviewPanel::LoadResource(const std::string& resourcePath)
 {
     m_objects.clear();
+    m_geometryTree = {};
+    m_selectedGeometry = -1;
     m_hasModel = false;
     const gui::PreviewResourceKind kind = gui::GetPreviewResourceKind(resourcePath);
     if(!resourcePath.empty()){
-        if (kind == gui::PreviewResourceKind::Gdtf)
-            m_hasModel = LoadGdtf(resourcePath, m_objects);
+        if (kind == gui::PreviewResourceKind::Gdtf) {
+            if (LoadGdtfGeometryTree(resourcePath, m_geometryTree))
+                m_objects = GdtfInspectionObjects(m_geometryTree);
+            m_hasModel = !m_objects.empty();
+        }
         else if (kind == gui::PreviewResourceKind::Glb ||
                  kind == gui::PreviewResourceKind::ThreeDs)
             m_hasModel = LoadDirectModel(resourcePath);
@@ -307,6 +313,8 @@ bool FixturePreviewPanel::ApplyPreparedMesh(Mesh mesh)
 void FixturePreviewPanel::ResetPreview()
 {
     m_objects.clear();
+    m_geometryTree = {};
+    m_selectedGeometry = -1;
     m_hasModel = false;
     m_previewWorkspace.reset();
     UpdateBoundsAndCamera();
@@ -317,6 +325,15 @@ void FixturePreviewPanel::ResetPreview()
 void FixturePreviewPanel::LoadFixture(const std::string& gdtfPath)
 {
     LoadResource(gdtfPath);
+}
+
+void FixturePreviewPanel::ShowGeometry(int nodeIndex)
+{
+    m_selectedGeometry = nodeIndex;
+    m_objects = GdtfInspectionObjects(m_geometryTree, nodeIndex);
+    m_hasModel = !m_objects.empty();
+    UpdateBoundsAndCamera();
+    Refresh();
 }
 
 // Updates the preview bounding box and camera framing for current objects.
@@ -394,7 +411,7 @@ void FixturePreviewPanel::Render()
             DrawMesh(obj.mesh, RENDER_SCALE);
             glPopMatrix();
         }
-    } else {
+    } else if (m_selectedGeometry < 0) {
         DrawCube(0.2f);
     }
     glFlush();
