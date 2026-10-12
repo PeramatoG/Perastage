@@ -91,8 +91,8 @@ Packaged offline Help still corresponds to the exact application release.
 The product landing, shared presentation assets and developer docs are not
 versioned. Localization and broader search metadata remain separate work.</p>
 <h2 id="translated-mirrors">Translated mirrors</h2>
-<p>Translated mirrors belong under <code>docs/user/locales/es/</code> and
-<code>docs/user/locales/zh_CN/</code>. Locale identifiers follow the existing
+<p>Translated mirrors belong under <code>docs/user/locales/es/</code>,
+<code>docs/user/locales/fr/</code>, <code>docs/user/locales/de/</code> and <code>docs/user/locales/zh_CN/</code>. Locale identifiers follow the existing
 <a href="localization.html">localization contract</a> and CMake&#39;s
 <code>PERASTAGE_TRANSLATION_LANGUAGES</code> registry; English (<code>en</code>) is the implicit source
 and fallback language. There is no separate manual locale registry.</p>
@@ -101,7 +101,7 @@ Translate explanatory prose and preserve exact UI labels according to
 <a href="documentation_policy.html">documentation policy</a> and localization policy.
 Preserve Console command grammar in English, and standards identifiers such as
 MVR, GDTF, DMX, XML, and UUID. The supported COMPLETE manual locales are
-<code>en</code>, <code>es</code>, and <code>zh_CN</code>. English remains the canonical source and fallback.
+<code>en</code>, <code>es</code>, <code>fr</code>, <code>de</code>, and <code>zh_CN</code>. English remains the canonical source and fallback.
 Translated mirrors must maintain exact filename parity with <code>docs/user/*.md</code>,
 including nonempty UTF-8 content and valid localized heading fragments.
 F1/Help selects the requested locale from <code>ui_language</code>; page-level English
@@ -115,13 +115,15 @@ only top-level Markdown pages, with no HTML conversion or new build dependency:<
     help/
         en/       # docs/user/*.md, including index.md
         es/       # docs/user/locales/es/*.md, complete mirror
+        fr/       # docs/user/locales/fr/*.md, complete mirror
+        de/       # docs/user/locales/de/*.md, complete mirror
         zh_CN/    # docs/user/locales/zh_CN/*.md, complete mirror
 </code></pre>
 <p>The asset root remains beside the executable on Windows/Linux and inside
-<code>Perastage.app/Contents/Resources</code> on macOS. All three complete manuals are required release payloads, including in builds
+<code>Perastage.app/Contents/Resources</code> on macOS. All five complete manuals are required release payloads, including in builds
 with UI localization disabled. CMake tolerates absent localized directories
 for development fixtures; release guards require every canonical filename in
-<code>help/en/</code>, <code>help/es/</code>, and <code>help/zh_CN/</code>, including <code>index.md</code>, with staged and
+<code>help/en/</code>, <code>help/es/</code>, <code>help/fr/</code>, <code>help/de/</code>, and <code>help/zh_CN/</code>, including <code>index.md</code>, with staged and
 installed files byte-identical to their source pages. Locales are never
 recursively copied into <code>help/en/</code>. Links to developer/reference documents still resolve in the
 repository/website; these documents are outside the packaged user-manual bundle.
@@ -158,6 +160,10 @@ and validates translated links and fragments using the offline anchor rules.
 manual. <code>UserManualDialog</code> exercises localized navigation and deliberate
 page-removal fallback; <code>UserManualStaging</code> verifies the production staging and
 installation owners with complete, partial and absent locale fixtures.
+<code>packaging/verify_localization.py</code> validates release payloads against the CMake
+locale registry and canonical user index, including compiled catalogs and exact
+manual bytes. Windows, macOS, Linux AppImage and Arch package guards share it;
+Arch also validates the final archive inventory.
 Developer links in mirrors use canonical repository URLs so they resolve both
 from the nested source directories and from the flat packaged locale folders.</p>
 </div>

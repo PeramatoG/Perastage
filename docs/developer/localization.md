@@ -1,6 +1,6 @@
 # Localization
 
-Perastage uses wxWidgets gettext catalogs for user-facing interface text. English is the source language and default language. Spanish and Simplified Chinese (`zh_CN`) are complete release languages.
+Perastage uses wxWidgets gettext catalogs for user-facing interface text. English is the source language and default language. Spanish (`es`), French (`fr`), German (`de`) and Simplified Chinese (`zh_CN`) are complete release languages. The display order is English, Español, Français, Deutsch, 简体中文.
 
 This guide owns localization policy and procedures. Repository and build-module
 ownership remain defined by [Repository Layout](repository_layout.md) and
@@ -8,8 +8,9 @@ ownership remain defined by [Repository Layout](repository_layout.md) and
 
 ## User manual ownership
 
-`docs/user/*.md` is the canonical English manual; `docs/user/locales/es/` and
-`docs/user/locales/zh_CN/` are complete translated mirrors with matching pages
+`docs/user/*.md` is the canonical English manual; `docs/user/locales/es/`,
+`docs/user/locales/fr/`, `docs/user/locales/de/` and `docs/user/locales/zh_CN/`
+are complete translated mirrors with matching pages
 and links. Repository browsing, the website, offline Help, and Console help
 consume this unified source. Generated Help is not an independent prose owner.
 See [User Manual Pipeline](user_manual_pipeline.md) for translation, runtime
@@ -22,6 +23,8 @@ The interface language is stored in user preferences under the stable key `ui_la
 
 - `en` for English
 - `es` for Spanish
+- `fr` for French
+- `de` for German
 - `zh_CN` for Simplified Chinese
 
 Missing, empty, malformed, or unsupported values fall back to English. Simplified Chinese accepts `zh_CN`, `zh-cn`, `zh_cn`, `ZH_CN`, `zh-Hans`, and `zh_Hans`, but persists the canonical `zh_CN` value only. The selected language is applied after restarting Perastage; the current UI is not rebuilt live.
@@ -66,7 +69,7 @@ The helper script behind these targets is `scripts/localization_catalog.py`. It 
 
 Developers may edit PO files directly or with Poedit. External translators can submit pull requests that change only `resources/locale/<language>/LC_MESSAGES/perastage.po`; maintainers should run `perastage_check_translations` and `perastage_translations` before merging.
 
-To add a new language, add it to the supported-language registry and native display-name list in code, initialize `resources/locale/<language>/LC_MESSAGES/perastage.po` from `resources/locale/perastage.pot`, add the language code to `PERASTAGE_TRANSLATION_LANGUAGES` in CMake, add it to `COMPLETE_LANGUAGES` or `DRAFT_LANGUAGES` in `scripts/localization_catalog.py`, provide complete translations before moving it out of the draft list, and add or update localization tests for language selection, catalog loading, fallback behavior, and packaging paths.
+To add a new language, add it to the supported-language registry and native display-name list in code, initialize `resources/locale/<language>/LC_MESSAGES/perastage.po` from `resources/locale/perastage.pot`, add the language code to `PERASTAGE_TRANSLATION_LANGUAGES` in CMake, provide complete catalogs and a complete manual mirror (the strict checker derives release languages from the CMake registry), and add or update localization tests for language selection, catalog loading, fallback behavior, and packaging paths.
 
 ## Regenerating catalogs
 
@@ -78,19 +81,23 @@ Regenerate catalogs through CMake so outputs stay in the build tree:
 cmake --build build --target perastage_translations
 ```
 
-`PERASTAGE_ENABLE_LOCALIZATION` defaults to `ON`. With localization enabled, gettext `msgfmt` is required at CMake configure time as a build-time tool only; it is not a Perastage runtime dependency. On macOS, Homebrew installs gettext as a keg-only package, so add `$(brew --prefix gettext)/bin` to `PATH` or otherwise make the tools visible before configuring CMake. On Windows, local builds should resolve gettext tools from the classic `$env{VCPKG_ROOT}/installed/x64-windows/tools/gettext/bin` tree; CI gets the same tools from the root vcpkg manifest host dependency. Do not add gettext or libintl as Perastage runtime dependencies, and end users do not need gettext installed. After dependency changes, clear the affected CMake cache or run the public root command `setup_windows.ps1 -CleanBuild -SkipBuild` so CMake resolves the vcpkg-provided tool from the active classic installation. The generated `perastage.mo` file is the only localization catalog artifact used at runtime. The application target depends on `perastage_translations`, then copies the generated `.mo` into the runtime locale directory for development builds and verifies that the runtime file exists. Install and packaging rules install the same generated file into the packaged runtime locale directory. Developers may explicitly configure with `-DPERASTAGE_ENABLE_LOCALIZATION=OFF` for an English-only development build that does not expose Spanish or Simplified Chinese in Preferences.
+`PERASTAGE_ENABLE_LOCALIZATION` defaults to `ON`. With localization enabled, gettext `msgfmt` is required at CMake configure time as a build-time tool only; it is not a Perastage runtime dependency. On macOS, Homebrew installs gettext as a keg-only package, so add `$(brew --prefix gettext)/bin` to `PATH` or otherwise make the tools visible before configuring CMake. On Windows, local builds should resolve gettext tools from the classic `$env{VCPKG_ROOT}/installed/x64-windows/tools/gettext/bin` tree; CI gets the same tools from the root vcpkg manifest host dependency. Do not add gettext or libintl as Perastage runtime dependencies, and end users do not need gettext installed. After dependency changes, clear the affected CMake cache or run the public root command `setup_windows.ps1 -CleanBuild -SkipBuild` so CMake resolves the vcpkg-provided tool from the active classic installation. The generated `perastage.mo` file is the only localization catalog artifact used at runtime. The application target depends on `perastage_translations`, then copies the generated `.mo` into the runtime locale directory for development builds and verifies that the runtime file exists. Install and packaging rules install the same generated file into the packaged runtime locale directory. Developers may explicitly configure with `-DPERASTAGE_ENABLE_LOCALIZATION=OFF` for an English-only development build that exposes only English in Preferences.
 
 Localization startup diagnostics report the requested language, active language, catalog-found state, catalog-load result, and the selected or expected catalog path suffixes. For Spanish startup, a successful run reports `requested=es active=es` and `catalog_loaded=1`. For Simplified Chinese startup with the complete catalog present, a successful run reports `Localization initialized: requested=zh_CN active=zh_CN catalog_found=1 catalog_loaded=1`.
 
 ## Complete-language review
 
-Spanish and Simplified Chinese catalogs must keep every active entry translated and non-fuzzy. Before a localization pull request is marked ready to merge:
+Spanish, French, German and Simplified Chinese catalogs must keep every active entry translated and non-fuzzy. Before a localization pull request is marked ready to merge:
 
-1. Fill every active `msgstr` in each COMPLETE release catalog (`es` and `zh_CN`).
+1. Fill every active `msgstr` in each COMPLETE release catalog (`es`, `fr`, `de` and `zh_CN`).
 2. Validate placeholders, accelerator markers, line breaks, and format flags against the source text.
-3. Keep release languages in `COMPLETE_LANGUAGES` in `scripts/localization_catalog.py`.
+3. Keep release languages in `PERASTAGE_TRANSLATION_LANGUAGES`; `scripts/localization_catalog.py` derives its COMPLETE list from that registry.
 4. Run strict catalog checks with `cmake --build build --target perastage_check_translations` or `python3 scripts/localization_catalog.py check-po`.
 5. Run runtime localization tests, including catalog-loading and fallback coverage.
 6. Only then mark the draft pull request ready to merge.
 
 Manual UI validation must also check CJK font coverage in native wxWidgets controls, custom-rendered tables, OpenGL/text overlays, printing, PDF/SVG output, and any bundled font path. Do not add a bundled CJK font unless a rendering failure is reproduced and licensing plus packaging impact is reviewed separately.
+
+French and German release translations are machine-assisted. Their catalogs and
+manuals are technically complete; optional native-speaker terminology and style
+review is welcome. Do not describe them as native-reviewed.

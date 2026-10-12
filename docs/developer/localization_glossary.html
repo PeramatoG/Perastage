@@ -5,18 +5,18 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Perastage Documentation • Localization glossary</title>
-<meta name="description" content="This glossary records preferred Spanish terminology for recurring Perastage UI strings. It guides translators and reviewers; gettext catalogs remain the source of…" />
+<meta name="description" content="This glossary records preferred terminology for recurring Perastage UI strings. It guides translators and reviewers; gettext catalogs remain the source of translated…" />
 <link rel="canonical" href="https://perastage.luismaperamato.com/developer/localization_glossary.html" />
 <meta name="theme-color" content="#080808" />
 <meta property="og:site_name" content="Perastage" />
 <meta property="og:type" content="website" />
 <meta property="og:title" content="Perastage Documentation • Localization glossary" />
-<meta property="og:description" content="This glossary records preferred Spanish terminology for recurring Perastage UI strings. It guides translators and reviewers; gettext catalogs remain the source of…" />
+<meta property="og:description" content="This glossary records preferred terminology for recurring Perastage UI strings. It guides translators and reviewers; gettext catalogs remain the source of translated…" />
 <meta property="og:url" content="https://perastage.luismaperamato.com/developer/localization_glossary.html" />
 <meta property="og:image" content="https://perastage.luismaperamato.com/assets/images/screenshots/hero-main.png" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Perastage Documentation • Localization glossary" />
-<meta name="twitter:description" content="This glossary records preferred Spanish terminology for recurring Perastage UI strings. It guides translators and reviewers; gettext catalogs remain the source of…" />
+<meta name="twitter:description" content="This glossary records preferred terminology for recurring Perastage UI strings. It guides translators and reviewers; gettext catalogs remain the source of translated…" />
 <meta name="twitter:image" content="https://perastage.luismaperamato.com/assets/images/screenshots/hero-main.png" />
 <link rel="icon" href="../assets/images/favicon.png" type="image/png" />
 <link rel="apple-touch-icon" href="../assets/images/apple-touch-icon.png" />
@@ -41,7 +41,7 @@
 <main class="content-panel">
 <nav class="breadcrumb" aria-label="Breadcrumb"><a href="../next/documentation.html">Documentation</a> / <a href="index.html">Developer</a> / <span id="pageTitle">Localization glossary</span></nav>
 <div id="content" tabindex="-1"><h1 id="localization-glossary">Localization glossary</h1>
-<p>This glossary records preferred Spanish terminology for recurring Perastage UI strings. It guides translators and reviewers; gettext catalogs remain the source of translated application text.</p>
+<p>This glossary records preferred terminology for recurring Perastage UI strings. It guides translators and reviewers; gettext catalogs remain the source of translated application text.</p>
 <table>
 <thead>
 <tr>
@@ -211,6 +211,115 @@
 <td>Interactive 2D or 3D viewport.</td>
 </tr>
 </tbody></table>
+<h2 id="french-and-german-guidance">French and German guidance</h2>
+<p>Use these terms in translated presentation and manual prose. Literal English UI
+labels in manuals remain unchanged under the existing manual policy; imported
+object names, filenames, config keys, channel/function names and machine syntax
+always remain exact. The FR/DE translations are machine-assisted, with optional
+native-speaker review welcome, particularly for rigging terminology.</p>
+<table>
+<thead>
+<tr>
+<th>English term</th>
+<th>French</th>
+<th>German</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Fixture</td>
+<td>projecteur</td>
+<td>Scheinwerfer</td>
+<td>Lighting fixture; not an imported type name.</td>
+</tr>
+<tr>
+<td>Truss</td>
+<td>structure</td>
+<td>Traverse</td>
+<td>Entertainment-rigging structure.</td>
+</tr>
+<tr>
+<td>Rigging</td>
+<td>accroche</td>
+<td>Rigging</td>
+<td>Professional stage-rigging workflow.</td>
+</tr>
+<tr>
+<td>Hoist</td>
+<td>palan</td>
+<td>Kettenzug</td>
+<td>Chain hoist; preserve imported motor names.</td>
+</tr>
+<tr>
+<td>Patch / Auto patch</td>
+<td>patch / patch automatique</td>
+<td>Patch / automatischer Patch</td>
+<td>DMX address assignment.</td>
+</tr>
+<tr>
+<td>Layout</td>
+<td>mise en page</td>
+<td>Layout</td>
+<td>Printable page presentation.</td>
+</tr>
+<tr>
+<td>Viewport</td>
+<td>vue</td>
+<td>Ansicht</td>
+<td>Interactive scene viewport.</td>
+</tr>
+<tr>
+<td>Symbol / Symdef</td>
+<td>symbole / Symdef</td>
+<td>Symbol / Symdef</td>
+<td>Preserve official Symbol/Symdef schema names.</td>
+</tr>
+<tr>
+<td>Gobo</td>
+<td>gobo</td>
+<td>Gobo</td>
+<td>Preserve official or imported wheel/slot names.</td>
+</tr>
+<tr>
+<td>Pan / Tilt</td>
+<td>Pan / Tilt</td>
+<td>Pan / Tilt</td>
+<td>Keep channel/function identifiers; translate explanatory motion prose.</td>
+</tr>
+<tr>
+<td>Inspector</td>
+<td>Inspecteur</td>
+<td>Inspektor</td>
+<td>Read-only package viewer.</td>
+</tr>
+<tr>
+<td>Preferences</td>
+<td>Préférences</td>
+<td>Einstellungen</td>
+<td>UI presentation.</td>
+</tr>
+<tr>
+<td>Model</td>
+<td>modèle</td>
+<td>Modell</td>
+<td>Preserve Model when naming the GDTF schema concept.</td>
+</tr>
+<tr>
+<td>Geometry</td>
+<td>géométrie</td>
+<td>Geometrie</td>
+<td>Preserve Geometry/Geometry3D for schema references.</td>
+</tr>
+<tr>
+<td>Dictionary</td>
+<td>dictionnaire</td>
+<td>Verzeichnis</td>
+<td>Perastage&#39;s editable profile mapping collection.</td>
+</tr>
+</tbody></table>
+<p>MVR, GDTF, DMX, Art-Net, sACN, OSC, MCP, UUID, XML, PSTG and GDTF Share
+remain unchanged. Preserve schema names including FixtureType, PrimitiveType,
+Revision, UserData, Symbol, Symdef and Geometry3D when used as identifiers.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

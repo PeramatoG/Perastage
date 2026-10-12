@@ -35,6 +35,9 @@ int main() {
                 code + " did not parse as Simplified Chinese.");
   }
 #else
+  for (const auto code : {"fr", "de"})
+    ok &= Check(ParseAppLanguageCode(code) == AppLanguage::English,
+                "New locale must fall back when localization is disabled.");
   ok &= Check(ParseAppLanguageCode("es") == AppLanguage::English,
               "es should fall back to English when localization is disabled.");
   ok &= Check(ParseAppLanguageCode("zh_CN") == AppLanguage::English,
@@ -42,11 +45,19 @@ int main() {
 #endif
   ok &= Check(ParseAppLanguageCode("") == AppLanguage::English,
               "Empty code did not fall back to English.");
-  ok &= Check(ParseAppLanguageCode("fr") == AppLanguage::English,
+  ok &= Check(ParseAppLanguageCode("xx_invalid") == AppLanguage::English,
               "Unsupported code did not fall back to English.");
   ok &= Check(AppLanguageCode(AppLanguage::English) == "en",
               "English canonical code regressed.");
 #if PERASTAGE_ENABLE_LOCALIZATION
+  for (const auto language : {AppLanguage::French, AppLanguage::German}) {
+    const auto code = language == AppLanguage::French ? "fr" : "de";
+    ok &= Check(ParseAppLanguageCode(code) == language, "New locale did not parse.");
+    ok &= Check(AppLanguageCode(language) == code, "New canonical code regressed.");
+    ok &= Check(!IsSourceLanguage(language), "New locale treated as source.");
+    ok &= Check(WxLanguageId(language) == (language == AppLanguage::French
+                    ? wxLANGUAGE_FRENCH : wxLANGUAGE_GERMAN), "wx language mapping.");
+  }
   ok &= Check(AppLanguageCode(AppLanguage::Spanish) == "es",
               "Spanish canonical code regressed.");
   ok &= Check(AppLanguageCode(AppLanguage::SimplifiedChinese) == "zh_CN",
@@ -55,6 +66,19 @@ int main() {
                   wxLANGUAGE_CHINESE_SIMPLIFIED,
               "Simplified Chinese wxWidgets language id regressed.");
 #endif
+  const auto &languages = SupportedAppLanguages();
+#if PERASTAGE_ENABLE_LOCALIZATION
+  const char *expectedCodes[] = {"en", "es", "fr", "de", "zh_CN"};
+  ok &= Check(languages.size() == 5, "Release language count regressed.");
+  for (size_t i = 0; i < languages.size() && i < 5; ++i)
+    ok &= Check(languages[i].code == expectedCodes[i], "Release language order.");
+#else
+  ok &= Check(languages.size() == 1 && languages.front().code == "en",
+              "English-only language list.");
+#endif
+  for (const auto code : {"../fr", "fr_FR", "de-DE", "de/", "invalid"})
+    ok &= Check(ParseAppLanguageCode(code) == AppLanguage::English,
+                "Unsupported or malformed value did not fall back.");
   ok &= Check(DefaultAppLanguage() == AppLanguage::English,
               "Default language is not English.");
   ok &= Check(IsSourceLanguage(AppLanguage::English),

@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
   for (const auto &entry : std::filesystem::directory_iterator(argv[1]))
     if (entry.path().extension() == ".md")
       std::filesystem::copy_file(entry.path(), root / "en" / entry.path().filename());
-  for (const std::string locale : {"es", "zh_CN"}) {
+  for (const std::string locale : {"es", "fr", "de", "zh_CN"}) {
     std::filesystem::create_directories(root / locale);
     for (const auto &entry : std::filesystem::directory_iterator(
              std::filesystem::path(argv[1]) / "locales" / locale))
@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
   if (!wxTheApp->CallOnInit()) return 1;
   int result = 0;
   try {
-    for (const std::string locale : {"en", "es", "zh_CN"}) {
+    for (const std::string locale : {"en", "es", "fr", "de", "zh_CN"}) {
       std::string openedUrl;
       UserManualDialog dialog(nullptr, root, locale,
           [&](const std::string &url) { openedUrl = url; });
@@ -45,8 +45,12 @@ int main(int argc, char **argv) {
       Check(dialog.CurrentPage().locale == expectedLocale, "Localized entry page");
       Check(!dialog.CurrentPage().englishFallback, "Complete entry must not fall back");
       const std::string exportFragment = expectedLocale == "es" ? "exportar-mvr" :
+          expectedLocale == "fr" ? "exporter-mvr" :
+          expectedLocale == "de" ? "mvr-exportieren" :
           expectedLocale == "zh_CN" ? "导出-mvr" : "export-mvr";
       const std::string movementFragment = expectedLocale == "es" ? "selección-y-movimiento" :
+          expectedLocale == "fr" ? "sélection-et-déplacement" :
+          expectedLocale == "de" ? "auswahl-und-bewegung" :
           expectedLocale == "zh_CN" ? "选择与移动" : "selection--movement";
       wxHtmlWindow *html = nullptr;
       for (auto *child : dialog.GetChildren())
@@ -102,7 +106,7 @@ int main(int argc, char **argv) {
     Check(onlineAvailable, "Online route available without offline files");
     Check(missingOnlineUrl == user_manual::kOnlineDocumentation,
           "Online Documentation button must use the canonical destination");
-    std::cout << "GUI complete en/es/zh_CN navigation and deliberate page-removal fallback passed\n";
+    std::cout << "GUI complete en/es/fr/de/zh_CN navigation and deliberate page-removal fallback passed\n";
   } catch (const std::exception &e) { std::cerr << e.what() << '\n'; result = 1; }
   wxTheApp->OnExit(); wxEntryCleanup();
   std::filesystem::remove_all(root);

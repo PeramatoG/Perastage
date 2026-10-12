@@ -29,6 +29,7 @@ makedepends=(
   'git'
   'ninja'
   'pkgconf'
+  'python'
   'libsecret'
 )
 source=()
@@ -86,6 +87,8 @@ build() {
 
 # Installs the built application into the Arch package root and exposes desktop metadata system-wide.
 package() {
+  local repo_root
+  repo_root="$(_resolve_repo_root)"
   DESTDIR="$pkgdir" cmake --install "$srcdir/build" --config Release
 
   install -d "$pkgdir/usr/bin"
@@ -114,7 +117,7 @@ package() {
   test -x "$pkgdir/opt/perastage/perastage-cli"
   test "$(readlink "$pkgdir/usr/bin/perastage-cli")" = /opt/perastage/perastage-cli
   test -d "$pkgdir/opt/perastage/resources"
-  test -f "$pkgdir/opt/perastage/resources/locale/es/LC_MESSAGES/perastage.mo"
+  python3 "$repo_root/packaging/verify_localization.py" --asset-root "$pkgdir/opt/perastage"
   test -d "$pkgdir/opt/perastage/library"
   test -d "$pkgdir/opt/perastage/licenses"
   test ! -e "$pkgdir/opt/perastage/help.md"

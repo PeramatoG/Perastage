@@ -92,6 +92,24 @@ include(cmake/PerastageInstall.cmake)
             installed /= 'Perastage.app/Contents/Resources'
         check_bundle(runtime, expected)
         check_bundle(installed, expected)
+        if scenario == 'complete':
+            validator = str(ROOT / 'packaging/verify_localization.py')
+            for payload in (runtime, installed):
+                run(sys.executable, validator, '--manual-only', '--asset-root', str(payload))
+            # Complete release validation must reject missing and unexpected pages.
+            french_page = installed / 'help/fr/quick-start.md'
+            content = french_page.read_bytes()
+            french_page.unlink()
+            result = subprocess.run([sys.executable, validator, '--manual-only',
+                                     '--asset-root', str(installed)], capture_output=True)
+            assert result.returncode != 0, 'missing release page was accepted'
+            french_page.write_bytes(content)
+            extra = installed / 'help/de/unregistered.md'
+            extra.write_text('not canonical')
+            result = subprocess.run([sys.executable, validator, '--manual-only',
+                                     '--asset-root', str(installed)], capture_output=True)
+            assert result.returncode != 0, 'extra release page was accepted'
+            extra.unlink()
         executable_root = source / 'out/install/Release'
         if sys.platform == 'darwin':
             executable_root /= 'Perastage.app/Contents/MacOS'
@@ -111,7 +129,7 @@ def main() -> None:
         parser.error('CMake is required for staging validation')
     for scenario in ('complete', 'absent', 'partial'):
         exercise(args.cmake, scenario)
-    print('OK: byte-identical complete runtime/install help/en, help/es, help/zh_CN; absent/partial locales, Markdown isolation and absence of root legacy help.')
+    print('OK: byte-identical runtime/install manuals for every registered release locale; absent/partial locales, Markdown isolation and absence of root legacy help.')
 
 
 if __name__ == '__main__':

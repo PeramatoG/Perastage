@@ -68,7 +68,7 @@ assert_command_available() {
 install_apt_dependencies() {
     sudo apt-get update
     sudo apt-get install -y         build-essential         cmake         ninja-build         git         curl         pkg-config         libgl1-mesa-dev         libglu1-mesa-dev         libglew-dev         libcurl4-openssl-dev         libtinyxml2-dev         libxml2-dev         libpodofo-dev         zlib1g-dev         libwxgtk3.2-dev         libsecret-1-dev         libmeshoptimizer-dev         libnanovg-dev         libbackward-cpp-dev         gettext         locales         ripgrep
-    sudo locale-gen es_ES.UTF-8 zh_CN.UTF-8
+    sudo locale-gen es_ES.UTF-8 fr_FR.UTF-8 de_DE.UTF-8 zh_CN.UTF-8
 }
 
 # Installs common Fedora build dependencies when dnf is available.

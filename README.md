@@ -63,7 +63,7 @@ Use the [online documentation](https://perastage.luismaperamato.com/documentatio
 - [Troubleshooting](docs/user/troubleshooting.md)
 - [Developer documentation](docs/developer/index.md)
 
-The installed offline user manual is available in English, Spanish and Simplified Chinese.
+The installed offline user manual is available in English, Spanish, French, German and Simplified Chinese.
 
 ## Contributing
 

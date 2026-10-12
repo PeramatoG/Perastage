@@ -3,6 +3,7 @@
 #include "localized_unit_labels.h"
 
 #include <cstdlib>
+#include <clocale>
 #include <filesystem>
 #include <iostream>
 #include <system_error>
@@ -232,6 +233,36 @@ int main() {
       ui::LocalizedLabelWithUnit(_("Fixture Weight"), "kg");
   ok &= Check(riggingWeight == wxString("Peso de aparatos (kg)"),
               "Spanish rigging dynamic weight header regressed.");
+
+  for (const auto language : {localization::AppLanguage::French,
+                              localization::AppLanguage::German}) {
+    const auto result = manager.Initialize(language);
+    ok &= Check(result.catalogFound && result.catalogLoaded &&
+                    result.activeLanguage == language, "FR/DE catalog loading.");
+    const bool french = language == localization::AppLanguage::French;
+    ok &= Check(_("Preferences") == wxString::FromUTF8(
+                    french ? "Préférences" : "Einstellungen"), "FR/DE Preferences.");
+    ok &= Check(_("Language") == wxString::FromUTF8(
+                    french ? "Langue" : "Sprache"), "FR/DE Language.");
+    ok &= Check(_("Fixture ID") == wxString::FromUTF8(
+                    french ? "ID du projecteur" : "Scheinwerfer-ID"), "FR/DE fixture label.");
+    ok &= Check(_("Interface language:") != "Interface language:",
+                "FR/DE Preferences page label still English.");
+    const wxString singular = "%zu fixture used a fallback GDTF.";
+    const wxString plural = "%zu fixtures used a fallback GDTF.";
+    for (unsigned count : {0u, 1u, 2u}) {
+      const bool singularForm = french ? count <= 1 : count == 1;
+      const char *expected = french
+          ? (singularForm ? "%zu projecteur a utilisé un GDTF de secours."
+                          : "%zu projecteurs ont utilisé un GDTF de secours.")
+          : (singularForm ? "%zu Scheinwerfer verwendete ein Ersatz-GDTF."
+                          : "%zu Scheinwerfer verwendeten ein Ersatz-GDTF.");
+      ok &= Check(wxGetTranslation(singular, plural, count) ==
+                      wxString::FromUTF8(expected), "FR/DE zero/singular/plural.");
+    }
+    ok &= Check(std::string(std::setlocale(LC_NUMERIC, nullptr)) == "C",
+                "UI language changed numeric serialization locale.");
+  }
 
   const auto repeatedEnglish = manager.Initialize(localization::AppLanguage::English);
   ok &= Check(repeatedEnglish.activeLanguage == localization::AppLanguage::English,

@@ -11,6 +11,8 @@ const std::vector<AppLanguageOption> kSupportedLanguages = {
     {AppLanguage::English, "en", "English"},
 #if PERASTAGE_ENABLE_LOCALIZATION
     {AppLanguage::Spanish, "es", "Spanish"},
+    {AppLanguage::French, "fr", "French"},
+    {AppLanguage::German, "de", "German"},
     {AppLanguage::SimplifiedChinese, "zh_CN", "Simplified Chinese"},
 #endif
 };

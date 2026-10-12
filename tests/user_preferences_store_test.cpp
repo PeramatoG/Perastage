@@ -64,6 +64,14 @@ int main() {
   missingSnapshot.Restore(completed);
   assert(!completed.GetValue(model_detail::kDetailConfigKey));
   assert(!completed.GetValue(model_detail::kMovingProxyConfigKey));
+  // Persisted language codes are stable strings; a restart must preserve them.
+  for (const char *code : {"en", "es", "fr", "de", "zh_CN"}) {
+    completed.SetValue("ui_language", code);
+    assert(completed.SaveToFile(out.string()));
+    UserPreferencesStore restarted;
+    assert(restarted.LoadFromFile(out.string()));
+    assert(restarted.GetValue("ui_language") == code);
+  }
   std::error_code ec;
   std::filesystem::remove(out, ec);
   return 0;

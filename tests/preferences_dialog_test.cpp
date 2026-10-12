@@ -8,6 +8,7 @@
 #include "guiconfigservices.h"
 #include "preferences/preferences_page.h"
 #include "preferences/units_preferences_page.h"
+#include "preferences/language_preferences_page.h"
 #include "preferences/rider_import_preferences_page.h"
 #include "model_detail_policy.h"
 #include "localization/app_language.h"
@@ -214,6 +215,12 @@ int main(int argc, char **argv) {
     assert(unitChoices.at(1)->GetSelection() == 1);
     auto languageChoice = FindControls<wxChoice>(Page(book, "Language")).at(0);
     assert(languageChoice->GetSelection() == (localizedBuild ? 1 : 0));
+    assert(languageChoice->GetCount() == (localizedBuild ? 5 : 1));
+    if (localizedBuild) {
+      const char *labels[] = {"English", "Español", "Français", "Deutsch", "简体中文"};
+      for (size_t i = 0; i < 5; ++i)
+        assert(languageChoice->GetString(i) == wxString::FromUTF8(labels[i]));
+    }
     auto updatesChoice = FindControls<wxChoice>(Page(book, "Updates")).at(0);
     assert(updatesChoice->GetSelection() == 1);
     assert(FindControls<wxChoice>(Page(book, "GDTF")).empty());
@@ -241,7 +248,7 @@ int main(int argc, char **argv) {
     riderFields[0]->ChangeValue("4.5");
     Select(unitChoices[0], 1, true);
     Select(unitChoices[1], 0);
-    Select(languageChoice, localizedBuild ? 2 : 0);
+    Select(languageChoice, localizedBuild ? 4 : 0);
     Select(updatesChoice, 0);
     Select(mvrChoice, 0);
     for (auto *check : selectionChecks)
@@ -327,6 +334,26 @@ int main(int argc, char **argv) {
     assert(dialog.ShowModal() == wxID_CANCEL);
     assert(preferences.values == appliedValues && preferences.floats == appliedFloats);
     assert(preferences.saves == 2);
+  }
+  // Each release language survives page recreation and applies its canonical code.
+  if (localizedBuild) {
+    Preferences languagePreferences;
+    for (const auto &option : localization::SupportedAppLanguages()) {
+      languagePreferences.SetValue("ui_language", std::string(option.code));
+      LanguagePreferencesPage page(frame);
+      page.LoadPreferences(languagePreferences);
+      assert(page.SelectedLanguage() == option.language);
+      const auto *choice = FindControls<wxChoice>(&page).at(0);
+      LanguagePreferencesPage changedPage(frame);
+      languagePreferences.SetValue("ui_language", "en");
+      changedPage.LoadPreferences(languagePreferences);
+      Select(FindControls<wxChoice>(&changedPage).at(0), choice->GetSelection());
+      changedPage.ApplyPreferences(languagePreferences);
+      assert(languagePreferences.GetValue("ui_language") == option.code);
+      LanguagePreferencesPage recreatedPage(frame);
+      recreatedPage.LoadPreferences(languagePreferences);
+      assert(recreatedPage.SelectedLanguage() == option.language);
+    }
   }
   // OK commits pending edits and closes using the same notification path.
   {

@@ -32,6 +32,8 @@ int main() {
     fixture.Write("en/next.md", "# Next");
     fixture.Write("en/café.md", "中文 & español");
     fixture.Write("es/index.md", "# Español");
+    fixture.Write("fr/index.md", "# Français");
+    fixture.Write("de/index.md", "# Deutsch");
     fixture.Write("zh_CN/index.md", "# 中文");
     ManualResolver english(fixture.root, "en"), spanish(fixture.root, "es"),
         chinese(fixture.root, "zh-Hans"), unknown(fixture.root, "../evil");
@@ -39,6 +41,12 @@ int main() {
     Check(!english.Load()->englishFallback, "English is not fallback");
     Check(spanish.Load()->markdown == (PERASTAGE_ENABLE_LOCALIZATION ? "# Español" : "# English"), "Spanish preferred");
     Check(chinese.Load()->markdown == (PERASTAGE_ENABLE_LOCALIZATION ? "# 中文" : "# English"), "Chinese alias and preference");
+    for (const auto code : {"fr", "de"}) {
+      ManualResolver resolver(fixture.root, code);
+      Check(resolver.RequestedLocale() == (PERASTAGE_ENABLE_LOCALIZATION ? code : "en"),
+            "French/German canonical manual locale");
+      Check(!resolver.Load()->englishFallback, "Complete French/German entry");
+    }
     Check(unknown.RequestedLocale() == "en", "Unknown locale canonicalizes to English");
     for (const auto *resolver : {&spanish, &chinese}) {
       const auto requested = resolver->RequestedLocale();
@@ -47,7 +55,7 @@ int main() {
       Check(page->fragment == "part", "Load preserves fragment");
       Check(resolver->RequestedLocale() == requested, "Fallback does not change requested locale");
     }
-    for (const std::string locale : {"es", "zh_CN"}) {
+    for (const std::string locale : {"es", "fr", "de", "zh_CN"}) {
       fixture.Write(locale + "/next.md", "# Localized next");
       ManualResolver resolver(fixture.root, locale);
       Check(!resolver.Load("next.md")->englishFallback, "Existing localized page resolves normally");

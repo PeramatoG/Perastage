@@ -1,6 +1,6 @@
 # Own gettext discovery, catalog builds, and translation maintenance targets.
 
-set(PERASTAGE_TRANSLATION_LANGUAGES es zh_CN)
+set(PERASTAGE_TRANSLATION_LANGUAGES es fr de zh_CN)
 set(PERASTAGE_LOCALE_SOURCE_DIR "${CMAKE_SOURCE_DIR}/resources/locale")
 set(PERASTAGE_POT_FILE "${PERASTAGE_LOCALE_SOURCE_DIR}/perastage.pot")
 set(PERASTAGE_GENERATED_LOCALE_DIR "${CMAKE_BINARY_DIR}/generated/locale")
