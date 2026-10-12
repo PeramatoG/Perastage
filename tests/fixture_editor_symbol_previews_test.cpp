@@ -118,9 +118,15 @@ void CheckFixtureEditorSymbolsAndThumbnails() {
     if (tip.Contains("User override")) projectAfter.push_back(tip);
   assert(projectBefore.size() == 4 && projectBefore == projectAfter);
 
-  const auto thumbnail = LoadGdtfThumbnailPreview(fixture.string(), wxSize(80, 80), *wxWHITE);
-  assert(thumbnail.decoded && thumbnail.diagnostic.starts_with("thumb.svg (canonical)"));
-  // SVG-only and PNG-only canonical thumbnails both use the production backend.
+  // When both canonical root formats exist, neither is hidden by format priority.
+  const auto thumbnail = LoadGdtfThumbnailPreview(fixture.string(), wxSize(220, 220), *wxWHITE);
+  assert(thumbnail.decoded);
+  assert(thumbnail.bitmap.GetWidth() == 220 && thumbnail.bitmap.GetHeight() == 220);
+  assert(thumbnail.diagnostic.find("thumb.svg (canonical)") != std::string::npos);
+  assert(thumbnail.diagnostic.find("thumb.png (canonical)") != std::string::npos);
+  assert(thumbnail.diagnostic.find("thumbnails/thumb.png") == std::string::npos);
+
+  // SVG-only and PNG-only canonical thumbnails both retain the production backend.
   for (const auto svgOnly : {true, false}) {
     const auto path = root / (svgOnly ? "svg.gdtf" : "png.gdtf");
     tests::gdtf::BuildMinimalValidFixture().WithFixtureTypeExtensionAttribute("Thumbnail", "thumb")
