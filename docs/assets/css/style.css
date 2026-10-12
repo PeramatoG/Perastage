@@ -1,21 +1,21 @@
 :root {
-  --bg-primary: #0b1220;
-  --bg-secondary: #111b2e;
-  --bg-card: #17233a;
-  --text-primary: #e6edf7;
-  --text-muted: #9fb0ca;
-  --accent: #63a4ff;
-  --accent-strong: #8cc0ff;
-  --border: #2a3b59;
-  --shadow: 0 12px 34px rgba(0, 0, 0, 0.35);
-  --radius: 14px;
+  --bg-primary: #080808;
+  --bg-secondary: #181818;
+  --bg-card: #121212;
+  --text-primary: #eeeeee;
+  --text-muted: #aaaaaa;
+  --accent: #00ff00;
+  --accent-strong: #ffb000;
+  --border: #3a3a3a;
+  --radius-technical: 2px;
+  --radius-action: 8px;
   --font-stack: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 * { box-sizing: border-box; }
 body {
   margin: 0;
   font-family: var(--font-stack);
-  background: radial-gradient(circle at top, #1a2741 0%, var(--bg-primary) 58%);
+  background: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.65;
 }
@@ -23,35 +23,38 @@ a { color: var(--accent); text-decoration: none; }
 a:hover, a:focus-visible { color: var(--accent-strong); }
 .skip-link { position: absolute; left: -9999px; }
 .skip-link:focus { left: 1rem; top: 1rem; z-index: 1000; }
-.page-shell { width: min(1150px, 94vw); margin: 0 auto; padding: 1.25rem 0 2rem; }
-.site-header { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem 1.1rem; background:rgba(17,27,46,.9); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); }
+.page-shell { width: min(1150px, 94vw); margin: 0 auto; padding: 0 0 2rem; }
+.site-header { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem 1.1rem; background:var(--bg-secondary); border-bottom:1px solid var(--border); }
 .brand { display:flex; align-items:center; gap:.9rem; color:var(--text-primary); }
 .brand img { width:48px; height:48px; object-fit:contain; }
 .brand h1 { margin:0; font-size:1.45rem; }
-.brand p { margin:.1rem 0 0; color:var(--text-muted); font-size:.95rem; }
-.menu-toggle { display:none; background:transparent; border:1px solid var(--border); color:var(--text-primary); padding:.45rem .65rem; border-radius:10px; }
+.brand p { display:none; } /* Frozen Stable retains its historical header tagline in HTML. */
+.menu-toggle { display:none; background:var(--bg-secondary); border:1px solid var(--border); color:var(--text-primary); padding:.45rem .65rem; border-radius:var(--radius-technical); min-width:44px; min-height:44px; font:inherit; }
 .layout { display:grid; grid-template-columns: 270px 1fr; gap:1rem; margin-top:1rem; }
-.nav-panel, .content-panel, .hero-panel { background:rgba(23,35,58,.9); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); }
+.nav-panel, .content-panel, .hero-panel { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-technical); }
 .nav-panel { padding:1rem; }
 .nav-links { list-style:none; margin:0; padding:0; display:grid; gap:.55rem; }
-.nav-links a { display:block; padding:.6rem .75rem; border-radius:10px; color:var(--text-primary); border:1px solid transparent; }
-.nav-links a:hover, .nav-links a:focus-visible { border-color:var(--accent); background:#1e2d49; }
-.nav-links a.active { border-color:var(--accent); background:#24395f; font-weight:600; }
+.nav-links a { display:block; padding:.6rem .75rem; border-radius:0; color:var(--text-primary); border:1px solid transparent; border-left:3px solid transparent; }
+.nav-links a:hover, .nav-links a:focus-visible { border-color:var(--border); background:var(--bg-secondary); }
+.nav-links a.active { border-color:var(--border); border-left-color:var(--accent); background:var(--bg-secondary); font-weight:700; text-decoration:underline; text-underline-offset:.2em; }
 .content-panel { min-width:0; overflow-wrap:anywhere; padding:1.5rem; min-height:60vh; }
 .hero-panel { padding:1.35rem; margin-top:1rem; }
-.doc-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:.75rem; margin-top:1rem; }
-.doc-card { display:block; padding:.85rem .95rem; border-radius:12px; background:#1b2b47; border:1px solid var(--border); color:var(--text-primary); }
+.doc-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr)); gap:.75rem; margin-top:1rem; }
+.doc-card { display:block; padding:.85rem .95rem; border-radius:var(--radius-technical); background:var(--bg-secondary); border:1px solid var(--border); color:var(--text-primary); }
 .doc-card span { display:block; color:var(--text-muted); font-size:.9rem; margin-top:.15rem; }
-.doc-card:hover, .doc-card:focus-visible { border-color:var(--accent); transform:translateY(-1px); }
-footer { margin-top:1rem; color:var(--text-muted); font-size:.92rem; text-align:center; }
+.doc-card:hover, .doc-card:focus-visible { border-color:var(--accent); }
+footer { margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border); color:var(--text-muted); font-size:.92rem; text-align:center; }
 #content h1, #content h2, #content h3, #content h4 { line-height:1.25; margin-top:1.3em; }
 #content p, #content li { color: var(--text-primary); }
 #content a:not(.doc-card) { text-decoration: underline; text-underline-offset: .16em; }
 #docGrid > section > h2 { font-size: 1.17rem; }
-#content code { background:#0d1628; padding:.1rem .35rem; border-radius:6px; }
-#content pre { background:#0d1628; padding:1rem; overflow:auto; border-radius:10px; border:1px solid var(--border); }
+#content code { background:var(--bg-primary); padding:.1rem .35rem; border:1px solid var(--border); border-radius:var(--radius-technical); }
+#content pre { background:var(--bg-primary); padding:1rem; overflow:auto; border-radius:var(--radius-technical); border:1px solid var(--border); }
+#content pre code { padding:0; border:0; }
 #content table { border-collapse: collapse; width:100%; }
 #content th, #content td { border:1px solid var(--border); padding:.55rem; }
+#content th { background:var(--bg-secondary); }
+#content tbody tr:nth-child(even) { background:var(--bg-primary); }
 #content blockquote { border-left:3px solid var(--accent); margin:1rem 0; padding:.15rem 1rem; color:var(--text-muted); }
 .breadcrumb { color:var(--text-muted); font-size:.9rem; margin-bottom:1rem; }
 .back-top { display:inline-block; margin-top:1.25rem; }
@@ -62,19 +65,9 @@ footer { margin-top:1rem; color:var(--text-muted); font-size:.92rem; text-align:
   .nav-panel.open { display:block; }
 }
 
-/* Product landing styles stay scoped to protect the shared documentation shell. */
+/* Landing layout and deliberate help/action treatments remain page-specific. */
 :focus-visible { outline: 3px solid var(--accent-strong); outline-offset: 4px; }
 .skip-link:focus { padding: .5rem 1rem; background: var(--bg-primary); border-radius: 6px; }
-.product-page {
-  --bg-primary: #080808;
-  --bg-secondary: #181818;
-  --text-primary: #eeeeee;
-  --text-muted: #aaaaaa;
-  --accent: #00ff00;
-  --accent-strong: #ffb000;
-  --border: #3a3a3a;
-  background: var(--bg-primary);
-}
 .product-page .skip-link:focus { color: var(--text-primary); }
 .product-shell { width: min(1320px, 94vw); padding-top: 0; }
 .product-header { background: var(--bg-secondary); border-bottom: 1px solid var(--border); }
@@ -113,7 +106,7 @@ footer { margin-top:1rem; color:var(--text-muted); font-size:.92rem; text-align:
 .product-workflow li { counter-increment: workflow; border-top: 2px solid var(--accent-strong); }
 .product-workflow li::before { content: counter(workflow, decimal-leading-zero); display: block; color: var(--accent-strong); font-size: 1.5rem; line-height: 1; font-variant-numeric: tabular-nums; font-weight: 700; margin-bottom: 1rem; }
 .product-help-grid { margin-top: 1.5rem; }
-.product-page .product-help-card { display: grid; grid-template-columns: 24px minmax(0, 1fr) 20px; column-gap: .75rem; align-content: start; border-radius: 8px; border-color: #806020; }
+.product-page .product-help-card { display: grid; grid-template-columns: 24px minmax(0, 1fr) 20px; column-gap: .75rem; align-content: start; border-radius: var(--radius-action); border-color: #806020; }
 .product-page .product-help-card .product-icon { color: var(--accent-strong); margin: 0; }
 .product-page .product-help-card h3 { align-self: center; }
 .product-page .product-help-card p { grid-column: 2 / 4; }
@@ -142,13 +135,10 @@ footer { margin-top:1rem; color:var(--text-muted); font-size:.92rem; text-align:
 @media (max-width: 480px) {
   .product-feature-grid { grid-template-columns: 1fr; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .doc-card:hover, .doc-card:focus-visible { transform: none; }
-}
 
 /* Canonical manual groups and a secondary developer entry. */
 .nav-group + .nav-group { margin-top: 1.25rem; }
-.nav-group h2 { font-size: 1rem; margin: 0 0 .5rem; }
+.nav-group h2 { color:var(--text-muted); font-size: 1rem; margin: 0 0 .5rem; }
 .developer-entry { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); }
 .developer-entry p { color: var(--text-muted); }
 .doc-card .doc-card-title { color: var(--text-primary); font-size: 1rem; }
@@ -159,9 +149,17 @@ footer { margin-top:1rem; color:var(--text-muted); font-size:.92rem; text-align:
 #content { overflow-x: auto; }
 #content img { max-width: 100%; height: auto; }
 
-/* A quiet channel indicator shares the existing documentation palette. */
+/* Compact technical controls keep the current channel identifiable without color. */
 .doc-channel { margin: .75rem 0 1.25rem; padding: .75rem 0; border-bottom: 1px solid var(--border); }
 .channel-label { font-weight: 600; }
-.channel-switcher { display: inline-flex; gap: .75rem; margin-left: 1rem; }
-.channel-switcher [aria-current] { color: var(--text-primary); text-decoration: underline; }
+.channel-switcher { display: inline-flex; flex-wrap:wrap; gap: .5rem; margin: .5rem 0 .5rem 1rem; }
+.channel-switcher a { padding:.35rem .65rem; border:1px solid var(--border); border-radius:var(--radius-technical); color:var(--text-primary); }
+.channel-switcher a:hover, .channel-switcher a:focus-visible { border-color:var(--accent); }
+.channel-switcher [aria-current] { border-left:3px solid var(--accent); background:var(--bg-secondary); font-weight:700; text-decoration:underline; text-underline-offset:.2em; }
 .doc-channel p { color: var(--text-muted); font-size: .9rem; margin: .4rem 0 0; }
+
+/* Branded, readable fallback pages need no client-side enhancement. */
+.compatibility-page .hero-panel { min-width:0; overflow-wrap:anywhere; }
+.compatibility-page p a, footer a { text-decoration:underline; text-underline-offset:.2em; }
+footer a { color:var(--text-muted); }
+footer a:hover, footer a:focus-visible { color:var(--accent-strong); }

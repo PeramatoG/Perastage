@@ -48,6 +48,8 @@ for (const page of context.pages) {
   for (const field of ['description', 'twitter:card', 'twitter:title', 'twitter:description', 'twitter:image']) assert(html.includes(`name="${field}"`));
   assert.equal((html.match(/<h1\b/g) || []).length, 1);
   assert(html.includes('alt="" width="48" height="48"'));
+  assert(html.includes(`<meta name="theme-color" content="${site.themeColor}"`));
+  assert(!html.includes('<p>MVR &amp; GDTF workflows</p>'));
   assert(html.includes('logo-web.png') && !html.includes('alt="Perastage logo"'));
   if (!page.developer) {
     assert(html.includes('content="noindex,follow"'));
@@ -75,7 +77,13 @@ assert(imageBytes('logo-web.png') < imageBytes('Perastage_logo.png') / 5);
 assert(imageBytes('favicon.png') < 10000);
 for (const [file, html] of first.outputs) {
   if (!file.endsWith('.html')) continue;
-  if (html.includes('Compatibility-only')) assert(html.includes('name="robots" content="noindex,follow"'));
+  if (html.includes('Compatibility-only')) {
+    assert(html.includes('name="robots" content="noindex,follow"'));
+    assert(html.includes(`name="theme-color" content="${site.themeColor}"`));
+    assert(html.includes('assets/css/style.css'));
+    assert(html.includes('assets/images/favicon.png') && html.includes('assets/images/logo-web.png'));
+    assert(html.includes('<header class="site-header">') && html.includes('<main class="hero-panel"'));
+  }
   assert(!/<script[^>]+src="https?:|<link[^>]+rel="stylesheet"[^>]+href="https?:/.test(html), 'no remote runtime dependencies');
 }
 assert(first.outputs.get(path.join(context.docs, 'documentation.html')).includes(`href="${publicUrl('stable/documentation.html')}"`));

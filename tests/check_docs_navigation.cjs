@@ -9,6 +9,7 @@ catch (error) {
 const fs = require('node:fs');
 const assert = require('node:assert/strict');
 const { checkMetadata, checkPresentation } = require('./docs_browser_metadata.cjs');
+const { checkVisualSystem } = require('./docs_browser_visual_system.cjs');
 const root = require('node:path').resolve(__dirname, '..');
 const index = fs.readFileSync(`${root}/docs/user/index.md`, 'utf8');
 const expected = [];
@@ -50,6 +51,7 @@ async function ready(page, base, route) {
     const errors = [];
     observe(page, errors);
     const base = process.env.DOCS_TEST_BASE_URL || 'http://127.0.0.1:8765/';
+    const visualContrast = await checkVisualSystem(browser, base, observe, errors);
     const stable = JSON.parse(fs.readFileSync(`${root}/docs/stable/manifest.json`, 'utf8'));
     const stableHas = route => stable.pages.includes(route);
     let contrast;
@@ -58,7 +60,7 @@ async function ready(page, base, route) {
       await page.waitForLoadState('networkidle');
       assert.equal(page.url(), base + route, 'normal pages must not redirect');
       await checkMetadata(page, route);
-      if (!route.startsWith('stable/')) contrast = await checkPresentation(page);
+      contrast = await checkPresentation(page);
     }
     await page.goto(base + 'index.html');
     await page.keyboard.press('Tab');
@@ -186,7 +188,7 @@ async function ready(page, base, route) {
     }
     assert.deepEqual(errors, []);
     await disabled.close();
-    console.log(`PASS: landing/404 desktop/mobile and DOM metadata, Stable/Next hubs and switchers, all 13 Next user routes, developer/nested routes, links, fragments, legacy/safe redirects, keyboard/mobile navigation, JavaScript-disabled content, WCAG AA palette (minimum ${contrast.toFixed(2)}:1), and zero console/local resource errors.`);
+    console.log(`PASS: unified visual system at 1440/1024/768/390/320px, all families with/without JavaScript, landing/404 desktop/mobile and DOM metadata, Stable/Next hubs and switchers, all 13 Next user routes, developer/nested routes, links, fragments, legacy/safe redirects, keyboard/mobile navigation, JavaScript-disabled content, WCAG AA palette (minimum ${Math.min(contrast, visualContrast).toFixed(2)}:1), and zero console/local resource errors.`);
   } finally {
     await browser.close();
   }
