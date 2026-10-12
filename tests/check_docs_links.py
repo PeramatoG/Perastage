@@ -173,6 +173,48 @@ for locale in sorted(allowed_locales):
 
 shell = DOCS / "assets" / "js" / "docs-shell.js"
 shell_text = shell.read_text(encoding="utf-8")
+# The Markdown index owns sections, titles, and order; JavaScript only mirrors it.
+index_text = (manual / "index.md").read_text(encoding="utf-8")
+canonical_navigation = []
+for heading, body in re.findall(r"^## ([^\n]+)\n(.*?)(?=^## |\Z)", index_text, re.MULTILINE | re.DOTALL):
+    entries = [(f"user/{path}", title) for title, path in link_pattern.findall(body)
+               if path in canonical_names and path != "index.md"]
+    if entries:
+        canonical_navigation.append((heading, entries))
+indexed_paths = [path for _, entries in canonical_navigation for path, _ in entries]
+expected_paths = {f"user/{name}" for name in canonical_names - {"index.md"}}
+if set(indexed_paths) != expected_paths or len(indexed_paths) != len(set(indexed_paths)):
+    failures.append("canonical user index must list every user page exactly once")
+
+presentation = shell_text.split("const docsPages", 1)[0]
+shell_navigation = []
+public_routes = []
+for heading, body in re.findall(r"\{ title: '([^']+)', pages: \[(.*?)\]\s*\}", presentation, re.DOTALL):
+    entries = re.findall(r"\{ md: '([^']+)', html: '([^']+)', title: '([^']+)'", body)
+    shell_navigation.append((heading, [(md, title) for md, _, title in entries]))
+    for md, route, _ in entries:
+        public_routes.append(route)
+        wrapper = DOCS / route
+        # Preserve the established filename routes, not just any existing wrapper.
+        if route != pathlib.PurePosixPath(md).with_suffix(".html").name:
+            failures.append(f"user navigation changes public route for {md}: {route}")
+        if not wrapper.is_file() or f"loadMarkdown('{md}')" not in wrapper.read_text(encoding="utf-8"):
+            failures.append(f"public user route is missing or loads the wrong Markdown: {route}")
+if shell_navigation != canonical_navigation:
+    failures.append("website user navigation must mirror canonical index sections, titles and order")
+if len(public_routes) != len(set(public_routes)):
+    failures.append("website user navigation has duplicate public routes")
+require_text(DOCS / "documentation.html", (
+    "docsSections.map", "section.pages.map", "Developer Documentation",
+    'href="doc.html?md=developer/index.md"', 'class="developer-entry"',
+))
+require_text(shell, (
+    'href="documentation.html">User Documentation',
+    'href="doc.html?md=developer/index.md">Developer Documentation',
+    'aria-label="Breadcrumb"', 'aria-controls="docNav"',
+    "toggle.setAttribute('aria-expanded', String(!expanded))",
+    "nav.classList.toggle('open')",
+))
 for md_path in re.findall(r"md: '([^']+\.md)'", shell_text):
     if not (DOCS / md_path).exists():
         failures.append(f"docs-shell.js navigation points to missing markdown: {md_path}")

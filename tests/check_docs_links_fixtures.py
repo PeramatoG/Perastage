@@ -34,6 +34,45 @@ def main() -> None:
                 assert expected in result.stderr, result.stderr
 
         check()
+        # Mutate the presentation mirror, leaving its canonical editorial owner intact.
+        shell = root / 'docs/assets/js/docs-shell.js'
+        original_shell = shell.read_text()
+        install_entry = re.search(r"\s+\{ md: 'user/installation.md'.*?\},", original_shell)[0]
+        quick_entry = re.search(r"\s+\{ md: 'user/quick-start.md'.*?\},", original_shell)[0]
+        swapped_entries = original_shell.replace(install_entry, 'ENTRY_PLACEHOLDER').replace(
+            quick_entry, install_entry).replace('ENTRY_PLACEHOLDER', quick_entry)
+        for payload, error in (
+                (original_shell.replace("title: 'Getting Started'", "title: 'Setup'"), 'mirror canonical index'),
+                (original_shell.replace("title: 'Installation'", "title: 'Install'"), 'mirror canonical index'),
+                (original_shell.replace(install_entry, ''), 'mirror canonical index'),
+                (original_shell.replace(install_entry, install_entry * 2), 'mirror canonical index'),
+                (swapped_entries, 'mirror canonical index'),
+                (original_shell.replace("html: 'installation.html'", "html: 'install.html'"), 'changes public route'),
+                (original_shell.replace("md: 'user/installation.md'", "md: 'developer/build.md'"), 'mirror canonical index'),
+                (original_shell.replace("title: 'Help'", "title: 'Reference'"), 'mirror canonical index')):
+            shell.write_text(payload)
+            check(error)
+            shell.write_text(original_shell)
+        # Moving an entry between groups must fail even when the total inventory is unchanged.
+        shell.write_text(original_shell.replace(install_entry, '').replace(
+            "{ title: 'Workflows', pages: [", "{ title: 'Workflows', pages: [" + install_entry))
+        check('mirror canonical index')
+        shell.write_text(original_shell)
+        index = root / 'docs/user/index.md'
+        original_index = index.read_text()
+        index.write_text(original_index.replace('- [Installation](installation.md)', ''))
+        check('index must list every user page exactly once')
+        index.write_text(original_index)
+        wrapper = root / 'docs/installation.html'
+        original_wrapper = wrapper.read_bytes()
+        wrapper.unlink()
+        check('public user route is missing')
+        wrapper.write_bytes(original_wrapper)
+        landing = root / 'docs/documentation.html'
+        original_landing = landing.read_text()
+        landing.write_text(original_landing.replace('href="doc.html?md=developer/index.md"', 'href="build.html"'))
+        check('missing required marker')
+        landing.write_text(original_landing)
         for locale in match[1].split():
             mirror = root / 'docs/user/locales' / locale
             page = mirror / pages[0].name
@@ -71,7 +110,7 @@ def main() -> None:
             check('rewrites an external URL')
             install.write_bytes(original_install)
         check()
-    print('OK: complete manual parity/link/fragment/encoding/Console guard failure fixtures.')
+    print('OK: canonical navigation/routes and complete manual parity/link/fragment/encoding/Console guard failure fixtures.')
 
 
 if __name__ == '__main__':
