@@ -37,7 +37,7 @@ a:hover, a:focus-visible { color: var(--accent-strong); }
 .nav-links a { display:block; padding:.6rem .75rem; border-radius:10px; color:var(--text-primary); border:1px solid transparent; }
 .nav-links a:hover, .nav-links a:focus-visible { border-color:var(--accent); background:#1e2d49; }
 .nav-links a.active { border-color:var(--accent); background:#24395f; font-weight:600; }
-.content-panel { padding:1.5rem; min-height:60vh; }
+.content-panel { min-width:0; overflow-wrap:anywhere; padding:1.5rem; min-height:60vh; }
 .hero-panel { padding:1.35rem; margin-top:1rem; }
 .doc-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:.75rem; margin-top:1rem; }
 .doc-card { display:block; padding:.85rem .95rem; border-radius:12px; background:#1b2b47; border:1px solid var(--border); color:var(--text-primary); }
@@ -117,3 +117,11 @@ footer { margin-top:1rem; color:var(--text-muted); font-size:.92rem; text-align:
 @media (prefers-reduced-motion: reduce) {
   .doc-card:hover, .doc-card:focus-visible { transform: none; }
 }
+
+/* Canonical manual groups and a secondary developer entry. */
+.nav-group + .nav-group { margin-top: 1.25rem; }
+.nav-group h2 { font-size: 1rem; margin: 0 0 .5rem; }
+.developer-entry { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.developer-entry p { color: var(--text-muted); }
+.doc-card .doc-card-title { color: var(--text-primary); font-size: 1rem; }
+.doc-card-title i { font-style: normal; }

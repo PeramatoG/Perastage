@@ -40,10 +40,10 @@ architecture or repository-layout specification.
   [GUI Shortcut Architecture](gui_shortcut_architecture.md),
   [Storage Policy](storage_policy.md), and
   [Text-to-scene Rules](text_to_scene_rules.md).
-- **Command line:** the [Developer CLI](cli.md) documents the headless executable,
-  current grammar, and development-only distribution contract. The standalone
-  [MCP adapter](mcp_adapter.md) documents its stdio tools bridge over that
-  stable machine interface.
+- **Command line:** `perastage-cli` ships experimentally with Perastage 1.7.0
+  packages as a separate headless executable. The [Developer CLI](cli.md) owns
+  its grammar and technical contract. The Rust [MCP adapter](mcp_adapter.md)
+  remains separately configured and is not packaged with Perastage.
 - **Semantic commands:** the [Command API contract](command_api.md) owns typed
   requests, results, headless execution context, transactional mutation, and
   versioned machine output independently of the current Console grammar.

@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="assets/css/style.css" />
   </head>
   <body id="top">
+    <a href="#content" class="skip-link">Skip to content</a>
     <div class="page-shell">
       <header class="site-header">
         <a class="brand" href="index.html" aria-label="Perastage home">
@@ -18,13 +19,17 @@
         </a>
       </header>
 
-      <section class="hero-panel">
+      <main id="content" class="hero-panel" tabindex="-1">
         <h2>Perastage User Guide</h2>
         <p>
           Perastage is a free, cross-platform desktop application for practical MVR and GDTF workflows, including inspection, editing and technical documentation.
         </p>
-        <div class="doc-grid" aria-label="Documentation sections" id="docGrid"></div>
-      </section>
+        <div id="docGrid"></div>
+        <section class="developer-entry" aria-labelledby="developer-title">
+          <h3 id="developer-title"><a href="doc.html?md=developer/index.md">Developer Documentation</a></h3>
+          <p>Source builds, architecture, integrations, packaging, and maintainer technical contracts.</p>
+        </section>
+      </main>
 
       <footer>
         <a href="https://github.com/PeramatoG/Perastage">Main GitHub repository</a>
@@ -35,12 +40,14 @@
 
     <script src="assets/js/docs-shell.js"></script>
     <script>
-      // Renders landing cards with section-specific preview text for each documentation entry.
+      // Renders the same canonical user groups as the documentation sidebar.
       function renderLandingGrid() {
         const grid = document.getElementById('docGrid');
-        grid.innerHTML = docsPages
-          .map((p) => `<a class="doc-card" href="${p.html}">${p.icon} ${p.title}<span>${p.summary}</span></a>`)
-          .join('');
+        grid.innerHTML = docsSections.map((section, index) => `
+          <section aria-labelledby="landing-section-${index}">
+            <h3 id="landing-section-${index}">${section.title}</h3>
+            <div class="doc-grid">${section.pages.map((p) => `<a class="doc-card" href="${p.html}"><span class="doc-card-title"><i aria-hidden="true">${p.icon}</i> ${p.title}</span><span>${p.summary}</span></a>`).join('')}</div>
+          </section>`).join('');
       }
       renderLandingGrid();
     </script>
