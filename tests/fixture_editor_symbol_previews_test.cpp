@@ -140,6 +140,34 @@ void CheckFixtureEditorSymbolsAndThumbnails() {
   assert(pngPreview.diagnostic.find("thumb.png (canonical)") != std::string::npos);
   assert(pngPreview.diagnostic.find("thumbnails/thumb.png") == std::string::npos);
 
+  auto *thumbnailPanel = new FixtureThumbnailPreviewPanel(&frame);
+  thumbnailPanel->SetArchivePath(fixture.string());
+  windows.clear();
+  Collect(thumbnailPanel, windows);
+  wxChoice *thumbnailSelector = nullptr;
+  for (auto *window : windows) {
+    auto *choice = dynamic_cast<wxChoice *>(window);
+    if (choice && choice->GetCount() == 2 && choice->GetString(0) == "SVG" &&
+        choice->GetString(1) == "PNG") {
+      thumbnailSelector = choice;
+      break;
+    }
+  }
+  assert(thumbnailSelector && thumbnailSelector->IsShown());
+  assert(thumbnailSelector->GetSelection() == 0);
+  const auto svgTips = Tips(thumbnailPanel);
+  assert(std::any_of(svgTips.begin(), svgTips.end(), [](const auto &tip) {
+    return tip.Contains("thumb.svg (canonical)");
+  }));
+  thumbnailSelector->SetSelection(1);
+  wxCommandEvent thumbnailChange(wxEVT_CHOICE, thumbnailSelector->GetId());
+  thumbnailChange.SetEventObject(thumbnailSelector);
+  thumbnailSelector->GetEventHandler()->ProcessEvent(thumbnailChange);
+  const auto pngTips = Tips(thumbnailPanel);
+  assert(std::any_of(pngTips.begin(), pngTips.end(), [](const auto &tip) {
+    return tip.Contains("thumb.png (canonical)");
+  }));
+
   // SVG-only and PNG-only canonical thumbnails retain the production backend.
   for (const auto svgOnly : {true, false}) {
     const auto path = root / (svgOnly ? "svg.gdtf" : "png.gdtf");
