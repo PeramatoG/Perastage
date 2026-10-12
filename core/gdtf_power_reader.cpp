@@ -1,4 +1,5 @@
 #include "gdtf_power_reader.h"
+#include <tinyxml2.h>
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>

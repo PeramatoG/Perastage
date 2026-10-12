@@ -1,5 +1,5 @@
 #include "gdtf_mutation_audit.h"
-#include "gdtf_power_reader.h"
+#include "gdtf_power_write_target.h"
 #include "gdtf_fixture_type_vocabulary.h"
 
 #include <array>

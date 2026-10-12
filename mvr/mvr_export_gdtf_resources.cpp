@@ -19,7 +19,7 @@
 
 #include "gdtf_canonicalizer.h"
 #include "gdtf_mutation_audit.h"
-#include "gdtf_power_reader.h"
+#include "gdtf_power_write_target.h"
 
 #include <algorithm>
 #include <array>

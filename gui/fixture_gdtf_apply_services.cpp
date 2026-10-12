@@ -1,7 +1,7 @@
 #include "fixture_gdtf_apply_services.h"
 
 #include "gdtf_mutation_audit.h"
-#include "gdtf_power_reader.h"
+#include "gdtf_power_write_target.h"
 #include "gdtf_archive_reader.h"
 #include "gdtf_description_reader.h"
 #include "gdtfdictionary.h"

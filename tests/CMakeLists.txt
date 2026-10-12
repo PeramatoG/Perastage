@@ -4079,3 +4079,11 @@ target_include_directories(gdtf_electrical_power_test PRIVATE ../core ../models 
 target_link_libraries(gdtf_electrical_power_test PRIVATE perastage_gdtf_read tinyxml2::tinyxml2)
 add_test(NAME GdtfElectricalPower COMMAND gdtf_electrical_power_test)
 set_perastage_test_labels(GdtfElectricalPower LAYER standard-strict DOMAINS gdtf core)
+
+add_executable(gdtf_description_header_compile_test
+               gdtf_description_header_compile_test.cpp)
+set_property(TARGET gdtf_description_header_compile_test
+             PROPERTY INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/core")
+add_test(NAME GdtfDescriptionHeaderCompile COMMAND gdtf_description_header_compile_test)
+set_perastage_test_labels(GdtfDescriptionHeaderCompile
+                         LAYER standard-strict DOMAINS gdtf core architecture)
