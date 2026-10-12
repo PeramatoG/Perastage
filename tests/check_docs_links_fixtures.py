@@ -21,6 +21,7 @@ def main() -> None:
         (root / 'tests').mkdir()
         checker = root / 'tests/check_docs_links.py'
         shutil.copyfile(ROOT / 'tests/check_docs_links.py', checker)
+        shutil.copyfile(ROOT / 'tests/docs_static_validation.py', root / 'tests/docs_static_validation.py')
         registry = (root / 'cmake/PerastageLocalization.cmake').read_text(encoding='utf-8')
         match = re.search(r'set\(PERASTAGE_TRANSLATION_LANGUAGES\s+([^)]+)\)', registry)
         assert match
@@ -29,35 +30,35 @@ def main() -> None:
 
         def check(expected: str | None = None) -> None:
             result = subprocess.run([sys.executable, str(checker)], capture_output=True, text=True)
-            assert (result.returncode == 0) == (expected is None), result.stdout + result.stderr
+            assert (result.returncode == 0) == (expected is None), f'Expected {expected}: ' + result.stdout + result.stderr
             if expected:
                 assert expected in result.stderr, result.stderr
 
         check()
-        # Mutate the presentation mirror, leaving its canonical editorial owner intact.
-        shell = root / 'docs/assets/js/docs-shell.js'
-        original_shell = shell.read_text(encoding='utf-8')
-        install_entry = re.search(r"\s+\{ md: 'user/installation.md'.*?\},", original_shell)[0]
-        quick_entry = re.search(r"\s+\{ md: 'user/quick-start.md'.*?\},", original_shell)[0]
-        swapped_entries = original_shell.replace(install_entry, 'ENTRY_PLACEHOLDER').replace(
+        # Mutate generated sidebar metadata while keeping the canonical owner intact.
+        page = root / 'docs/installation.html'
+        original_page = page.read_text(encoding='utf-8')
+        install_entry = '<li><a class="active" aria-current="page" href="installation.html">Installation</a></li>'
+        quick_entry = '<li><a href="quick-start.html">Quick Start</a></li>'
+        swapped = original_page.replace(install_entry, 'ENTRY_PLACEHOLDER').replace(
             quick_entry, install_entry).replace('ENTRY_PLACEHOLDER', quick_entry)
         for payload, error in (
-                (original_shell.replace("title: 'Getting Started'", "title: 'Setup'"), 'mirror canonical index'),
-                (original_shell.replace("title: 'Installation'", "title: 'Install'"), 'mirror canonical index'),
-                (original_shell.replace(install_entry, ''), 'mirror canonical index'),
-                (original_shell.replace(install_entry, install_entry * 2), 'mirror canonical index'),
-                (swapped_entries, 'mirror canonical index'),
-                (original_shell.replace("html: 'installation.html'", "html: 'install.html'"), 'changes public route'),
-                (original_shell.replace("md: 'user/installation.md'", "md: 'developer/build.md'"), 'mirror canonical index'),
-                (original_shell.replace("title: 'Help'", "title: 'Reference'"), 'mirror canonical index')):
-            shell.write_text(payload, encoding='utf-8')
+                (original_page.replace('>Getting Started</h2>', '>Setup</h2>'), 'mirror canonical index'),
+                (original_page.replace('>Installation</a>', '>Install</a>'), 'mirror canonical index'),
+                (original_page.replace(install_entry, ''), 'mirror canonical index'),
+                (original_page.replace(install_entry, install_entry * 2), 'mirror canonical index'),
+                (swapped, 'mirror canonical index'),
+                (original_page.replace('href="installation.html"', 'href="install.html"'), 'mirror canonical index'),
+                (original_page.replace('href="installation.html"', 'href="developer/build.html"'), 'mirror canonical index'),
+                (original_page.replace('>Help</h2>', '>Reference</h2>'), 'mirror canonical index'),
+                (re.sub(r'<h1\b[^>]*>', '<p>', original_page), 'lacks static content'),
+                (original_page.replace('Generated from canonical Markdown.', 'Hand edited.'), 'missing generated marker'),
+                (original_page.replace('assets/js/docs-nav.js', 'assets/js/marked.min.js'), 'runtime Markdown'),
+                (original_page.replace('href="preferences.html"', 'href="preferences.html#nonexistent"'), 'missing generated fragment'),
+                (original_page.replace('assets/images/Perastage_logo.png', 'assets/images/missing.png'), 'missing generated link/resource')):
+            page.write_text(payload, encoding='utf-8')
             check(error)
-            shell.write_text(original_shell, encoding='utf-8')
-        # Moving an entry between groups must fail even when the total inventory is unchanged.
-        shell.write_text(original_shell.replace(install_entry, '').replace(
-            "{ title: 'Workflows', pages: [", "{ title: 'Workflows', pages: [" + install_entry), encoding='utf-8')
-        check('mirror canonical index')
-        shell.write_text(original_shell, encoding='utf-8')
+            page.write_text(original_page, encoding='utf-8')
         index = root / 'docs/user/index.md'
         original_index = index.read_text(encoding='utf-8')
         index.write_text(original_index.replace('- [Installation](installation.md)', ''), encoding='utf-8')
@@ -70,7 +71,7 @@ def main() -> None:
         wrapper.write_bytes(original_wrapper)
         landing = root / 'docs/documentation.html'
         original_landing = landing.read_text(encoding='utf-8')
-        landing.write_text(original_landing.replace('href="doc.html?md=developer/index.md"', 'href="build.html"'), encoding='utf-8')
+        landing.write_text(original_landing.replace('href="developer/index.html"', 'href="build.html"'), encoding='utf-8')
         check('missing required marker')
         landing.write_text(original_landing, encoding='utf-8')
         for locale in match[1].split():
