@@ -73,3 +73,5 @@ It also verifies that dialog destruction joins an active worker safely.
 `GdtfCatalogBrowserBoundary` and `MainWindowGdtfDownloadBoundary` protect domain,
 presentation, and orchestration ownership. Existing import-matching and GDTF
 Share security regressions protect the adjacent consumers and session contract.
+
+Catalog storage and legacy migration use the [persistent cache service](persistent_caches.md).

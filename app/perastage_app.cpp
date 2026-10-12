@@ -30,6 +30,8 @@
 #include "mainwindow.h"
 #include "platform_locale.h"
 #include "projectutils.h"
+#include "cache_service.h"
+#include "apppaths.h"
 #include "splashscreen.h"
 #include "startup_profile.h"
 #include <filesystem>
@@ -267,6 +269,13 @@ bool MyApp::OnInit() {
 
   SplashScreen::Show();
   SplashScreen::SetMessage(_("Running library bootstrap..."));
+  for (const auto &root : {AppPaths::GetUserDataDir() / "library",
+                          AppPaths::GetUserDataTempFallbackDir() / "library",
+                          ProjectUtils::GetBaseLibraryPath("")}) {
+    const auto cleanup = CacheService::CleanupLegacyViewerCaches(root);
+    for (const auto &error : cleanup.errors)
+      diagnostics::DiagnosticLogger::Warning(error);
+  }
   ProjectUtils::RunStartupLibraryBootstrap();
 
   SplashScreen::SetMessage(_("Creating main window..."));

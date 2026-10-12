@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-11 18:03+0000\n"
+"POT-Creation-Date: 2026-10-12 17:33+0000\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -12,19 +12,19 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: app/perastage_app.cpp:269
+#: app/perastage_app.cpp:271
 msgid "Running library bootstrap..."
 msgstr "Inicializando la biblioteca..."
 
-#: app/perastage_app.cpp:272
+#: app/perastage_app.cpp:281
 msgid "Creating main window..."
 msgstr "Creando la ventana principal..."
 
-#: app/perastage_app.cpp:295
+#: app/perastage_app.cpp:304
 msgid "Loading last project..."
 msgstr "Cargando el último proyecto..."
 
-#: app/perastage_app.cpp:371
+#: app/perastage_app.cpp:380
 msgid ""
 "The Spanish translation catalog is not available in this build. Perastage is "
 "using English."
@@ -32,7 +32,7 @@ msgstr ""
 "El catálogo de traducción Spanish no está disponible en esta compilación. "
 "Perastage está usando inglés."
 
-#: app/perastage_app.cpp:373
+#: app/perastage_app.cpp:382
 msgid "Translation catalog unavailable"
 msgstr "Catálogo de traducción no disponible"
 
@@ -4364,6 +4364,61 @@ msgstr "Corriendo"
 msgid "%zu discovered, %zu incoming joined, %zu outgoing joined"
 msgstr "%zu descubierto, %zu entrante unido, %zu saliente unido"
 
+#: gui/preferences/cache_preferences_page.cpp:15
+msgid "Cache location:"
+msgstr "Ubicación de la caché:"
+
+#: gui/preferences/cache_preferences_page.cpp:25
+msgid "Clear Cache..."
+msgstr "Vaciar caché..."
+
+#: gui/preferences/cache_preferences_page.cpp:26
+msgid "Open Cache Folder"
+msgstr "Abrir carpeta de caché"
+
+#: gui/preferences/cache_preferences_page.cpp:31
+msgid ""
+"Cache maintenance takes effect immediately. Cached geometry and the GDTF "
+"catalog will be regenerated when needed."
+msgstr "El mantenimiento de la caché se aplica inmediatamente. La geometría y el catálogo GDTF almacenados en caché se regenerarán cuando sea necesario."
+
+#: gui/preferences/cache_preferences_page.cpp:48
+#, c-format
+msgid "Total cache size: %s"
+msgstr "Tamaño total de la caché: %s"
+
+#: gui/preferences/cache_preferences_page.cpp:49
+#, c-format
+msgid "Total cache size: %s (some files could not be read)"
+msgstr "Tamaño total de la caché: %s (no se pudieron leer algunos archivos)"
+
+#: gui/preferences/cache_preferences_page.cpp:55
+msgid ""
+"Clear all Perastage caches? Geometry will be regenerated and the GDTF "
+"catalog will be downloaded again when online. Your settings, libraries and "
+"projects will be preserved."
+msgstr "¿Vaciar todas las cachés de Perastage? La geometría se regenerará y el catálogo GDTF volverá a descargarse cuando haya conexión. Se conservarán la configuración, las bibliotecas y los proyectos."
+
+#: gui/preferences/cache_preferences_page.cpp:56
+#: gui/preferences/cache_preferences_page.cpp:66
+msgid "Clear Cache"
+msgstr "Vaciar caché"
+
+#: gui/preferences/cache_preferences_page.cpp:65
+#, c-format
+msgid ""
+"Some cache contents could not be cleared:\n"
+"%s"
+msgstr "No se pudieron eliminar algunos contenidos de la caché:\n%s"
+
+#: gui/preferences/cache_preferences_page.cpp:74
+msgid "The cache folder could not be opened."
+msgstr "No se pudo abrir la carpeta de caché."
+
+#: gui/preferences/cache_preferences_page.cpp:74 gui/preferencesdialog.cpp:58
+msgid "Cache"
+msgstr "Caché"
+
 #: gui/preferences/gdtf_credentials_panel.cpp:49
 #: gui/preferences/gdtf_credentials_panel.cpp:109
 #: gui/preferences/gdtf_credentials_panel.cpp:119
@@ -4446,7 +4501,7 @@ msgid "Interface language:"
 msgstr "Idioma de la interfaz:"
 
 #: gui/preferences/language_preferences_page.cpp:55
-#: gui/preferencesdialog.cpp:143
+#: gui/preferencesdialog.cpp:145
 msgid "Language changes will be applied after restarting Perastage."
 msgstr "Los cambios de idioma se aplicarán después de reiniciar Perastage."
 
@@ -4525,7 +4580,7 @@ msgid "LX%d margin (%s):"
 msgstr "Margen LX%d (%s):"
 
 #: gui/preferences/selection_movement_preferences_page.cpp:18
-#: gui/preferencesdialog.cpp:64
+#: gui/preferencesdialog.cpp:66
 msgid "Selection & Movement"
 msgstr "Selección y &movimiento"
 
@@ -4612,7 +4667,7 @@ msgstr ""
 "La búsqueda manual siempre está disponible en Ayuda > Buscar actualizaciones."
 
 #: gui/preferences/viewer3d_preferences_page.cpp:20
-#: gui/preferencesdialog.cpp:63
+#: gui/preferencesdialog.cpp:65
 msgid "3D Viewer"
 msgstr "Visor 3D"
 
@@ -4733,55 +4788,55 @@ msgstr "Por capa"
 msgid "By universe"
 msgstr "Por universo"
 
-#: gui/preferencesdialog.cpp:39
+#: gui/preferencesdialog.cpp:40
 #: tests/localization_catalog_integration_test.cpp:122
 #: tests/localization_catalog_integration_test.cpp:143
 #: tests/localization_catalog_integration_test.cpp:174
 msgid "Preferences"
 msgstr "Preferencias"
 
-#: gui/preferencesdialog.cpp:51
+#: gui/preferencesdialog.cpp:52
 msgid "General"
 msgstr "General"
 
-#: gui/preferencesdialog.cpp:53
+#: gui/preferencesdialog.cpp:54
 #: tests/localization_catalog_integration_test.cpp:176
 msgid "Language"
 msgstr "Idioma"
 
-#: gui/preferencesdialog.cpp:55
+#: gui/preferencesdialog.cpp:56
 msgid "Units"
 msgstr "Unidades"
 
-#: gui/preferencesdialog.cpp:56
+#: gui/preferencesdialog.cpp:57
 msgid "Updates"
 msgstr "Actualizaciones"
 
-#: gui/preferencesdialog.cpp:58
+#: gui/preferencesdialog.cpp:60
 msgid "Import"
 msgstr "Importación"
 
-#: gui/preferencesdialog.cpp:60
+#: gui/preferencesdialog.cpp:62
 msgid "Rider Import"
 msgstr "Importación del rider"
 
-#: gui/preferencesdialog.cpp:62
+#: gui/preferencesdialog.cpp:64
 msgid "Viewer"
 msgstr "Visor"
 
-#: gui/preferencesdialog.cpp:66
+#: gui/preferencesdialog.cpp:68
 msgid "Formats"
 msgstr "Formatos"
 
-#: gui/preferencesdialog.cpp:67
+#: gui/preferencesdialog.cpp:69
 msgid "GDTF"
 msgstr "GDTF"
 
-#: gui/preferencesdialog.cpp:68
+#: gui/preferencesdialog.cpp:70
 msgid "MVR Import / Export"
 msgstr "Importación y exportación MVR"
 
-#: gui/preferencesdialog.cpp:144
+#: gui/preferencesdialog.cpp:146
 msgid "Restart required"
 msgstr "Reinicio necesario"
 

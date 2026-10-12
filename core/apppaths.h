@@ -10,6 +10,13 @@ std::filesystem::path GetUserDataDir();
 // Returns the per-user fallback application-data directory inside the system temp folder.
 std::filesystem::path GetUserDataTempFallbackDir();
 
+// Canonical regenerable application cache paths. No source assets belong here.
+std::filesystem::path GetCacheRoot();
+std::filesystem::path GetViewer3DGdtfCacheDir();
+std::filesystem::path GetViewer3DMeshCacheDir();
+std::filesystem::path GetGdtfCatalogCachePath();
+std::filesystem::path GetCatalogCacheMigrationMarker();
+
 // Returns the full path to the per-user user_config.json file.
 std::filesystem::path GetUserConfigFilePath();
 

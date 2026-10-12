@@ -8,6 +8,19 @@ Abre **Edit → Preferences**. Cambiar de categoría conserva los cambios pendie
 - **Units:** elige las unidades de distancia y peso. Los cambios se aplican inmediatamente.
 - **Updates:** **Check on startup (recommended)** comprueba las actualizaciones como máximo una vez cada 24 horas. Puedes ocultar los recordatorios de una versión concreta. **Manual only** desactiva la comprobación al iniciar; **Help → Check for Updates** permite comprobarlas cuando quieras.
 
+### Caché
+
+**General → Caché** muestra la ubicación de solo lectura y el espacio ocupado.
+**Abrir carpeta de caché** abre la carpeta en el gestor de archivos del sistema.
+**Vaciar caché...** pide confirmación y elimina inmediatamente las cachés
+regenerables de Perastage, independientemente de Aplicar, Aceptar o Cancelar.
+La geometría se regenera cuando hace falta y el catálogo GDTF vuelve a descargarse
+cuando hay conexión. Se conservan la configuración, los registros, las
+credenciales, las bibliotecas, los archivos GDTF, los diccionarios y los proyectos.
+Si algún archivo no puede eliminarse, Perastage informa del fallo y actualiza el
+tamaño mostrado. Las cachés persistentes se guardan en `cache/` dentro de los
+datos de aplicación del usuario, en lugar de junto a los archivos originales.
+
 ## Importación
 
 **Rider Import** controla **Auto patch after import**, las capas automáticas por posición o tipo de luminaria, y las alturas, posiciones y márgenes LX predeterminados. Los campos de distancia siguen las unidades elegidas. Consulta [Create from text](create-from-text.md).

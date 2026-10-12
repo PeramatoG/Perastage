@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-11 18:03+0000\n"
+"POT-Creation-Date: 2026-10-12 17:33+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -12,25 +12,25 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: app/perastage_app.cpp:269
+#: app/perastage_app.cpp:271
 msgid "Running library bootstrap..."
 msgstr "正在初始化资源库..."
 
-#: app/perastage_app.cpp:272
+#: app/perastage_app.cpp:281
 msgid "Creating main window..."
 msgstr "正在创建主窗口..."
 
-#: app/perastage_app.cpp:295
+#: app/perastage_app.cpp:304
 msgid "Loading last project..."
 msgstr "正在加载上次项目..."
 
-#: app/perastage_app.cpp:371
+#: app/perastage_app.cpp:380
 msgid ""
 "The Spanish translation catalog is not available in this build. Perastage is "
 "using English."
 msgstr "Spanish 翻译目录在此版本中不可用。 Peraget 使用的是英语。"
 
-#: app/perastage_app.cpp:373
+#: app/perastage_app.cpp:382
 msgid "Translation catalog unavailable"
 msgstr "没有可用的 GDTF 目录。"
 
@@ -4260,6 +4260,61 @@ msgstr "运行于"
 msgid "%zu discovered, %zu incoming joined, %zu outgoing joined"
 msgstr "%zu 已发现，%zu 传入加入，%zu 传出加入"
 
+#: gui/preferences/cache_preferences_page.cpp:15
+msgid "Cache location:"
+msgstr "缓存位置："
+
+#: gui/preferences/cache_preferences_page.cpp:25
+msgid "Clear Cache..."
+msgstr "清除缓存..."
+
+#: gui/preferences/cache_preferences_page.cpp:26
+msgid "Open Cache Folder"
+msgstr "打开缓存文件夹"
+
+#: gui/preferences/cache_preferences_page.cpp:31
+msgid ""
+"Cache maintenance takes effect immediately. Cached geometry and the GDTF "
+"catalog will be regenerated when needed."
+msgstr "缓存维护立即生效。缓存的几何数据和 GDTF 目录将在需要时重新生成。"
+
+#: gui/preferences/cache_preferences_page.cpp:48
+#, c-format
+msgid "Total cache size: %s"
+msgstr "缓存总大小：%s"
+
+#: gui/preferences/cache_preferences_page.cpp:49
+#, c-format
+msgid "Total cache size: %s (some files could not be read)"
+msgstr "缓存总大小：%s（部分文件无法读取）"
+
+#: gui/preferences/cache_preferences_page.cpp:55
+msgid ""
+"Clear all Perastage caches? Geometry will be regenerated and the GDTF "
+"catalog will be downloaded again when online. Your settings, libraries and "
+"projects will be preserved."
+msgstr "要清除所有 Perastage 缓存吗？几何数据将重新生成，联网后 GDTF 目录会重新下载。您的设置、库和项目均会保留。"
+
+#: gui/preferences/cache_preferences_page.cpp:56
+#: gui/preferences/cache_preferences_page.cpp:66
+msgid "Clear Cache"
+msgstr "清除缓存"
+
+#: gui/preferences/cache_preferences_page.cpp:65
+#, c-format
+msgid ""
+"Some cache contents could not be cleared:\n"
+"%s"
+msgstr "部分缓存内容无法清除：\n%s"
+
+#: gui/preferences/cache_preferences_page.cpp:74
+msgid "The cache folder could not be opened."
+msgstr "无法打开缓存文件夹。"
+
+#: gui/preferences/cache_preferences_page.cpp:74 gui/preferencesdialog.cpp:58
+msgid "Cache"
+msgstr "缓存"
+
 #: gui/preferences/gdtf_credentials_panel.cpp:49
 #: gui/preferences/gdtf_credentials_panel.cpp:109
 #: gui/preferences/gdtf_credentials_panel.cpp:119
@@ -4333,7 +4388,7 @@ msgid "Interface language:"
 msgstr "界面语言："
 
 #: gui/preferences/language_preferences_page.cpp:55
-#: gui/preferencesdialog.cpp:143
+#: gui/preferencesdialog.cpp:145
 msgid "Language changes will be applied after restarting Perastage."
 msgstr "语言更改将在重启 Perastage 后生效。"
 
@@ -4408,7 +4463,7 @@ msgid "LX%d margin (%s):"
 msgstr "LX%d 间距（%s）："
 
 #: gui/preferences/selection_movement_preferences_page.cpp:18
-#: gui/preferencesdialog.cpp:64
+#: gui/preferencesdialog.cpp:66
 msgid "Selection & Movement"
 msgstr "选择与移动(&M)"
 
@@ -4491,7 +4546,7 @@ msgid "Manual checks are always available from Help -> Check for Updates."
 msgstr "始终可以通过“帮助 -> 检查更新”手动检查。"
 
 #: gui/preferences/viewer3d_preferences_page.cpp:20
-#: gui/preferencesdialog.cpp:63
+#: gui/preferencesdialog.cpp:65
 msgid "3D Viewer"
 msgstr "3D 查看器"
 
@@ -4607,55 +4662,55 @@ msgstr "按图层"
 msgid "By universe"
 msgstr "按 DMX 域"
 
-#: gui/preferencesdialog.cpp:39
+#: gui/preferencesdialog.cpp:40
 #: tests/localization_catalog_integration_test.cpp:122
 #: tests/localization_catalog_integration_test.cpp:143
 #: tests/localization_catalog_integration_test.cpp:174
 msgid "Preferences"
 msgstr "首选项"
 
-#: gui/preferencesdialog.cpp:51
+#: gui/preferencesdialog.cpp:52
 msgid "General"
 msgstr "常规"
 
-#: gui/preferencesdialog.cpp:53
+#: gui/preferencesdialog.cpp:54
 #: tests/localization_catalog_integration_test.cpp:176
 msgid "Language"
 msgstr "语言"
 
-#: gui/preferencesdialog.cpp:55
+#: gui/preferencesdialog.cpp:56
 msgid "Units"
 msgstr "单位"
 
-#: gui/preferencesdialog.cpp:56
+#: gui/preferencesdialog.cpp:57
 msgid "Updates"
 msgstr "更新"
 
-#: gui/preferencesdialog.cpp:58
+#: gui/preferencesdialog.cpp:60
 msgid "Import"
 msgstr "导入"
 
-#: gui/preferencesdialog.cpp:60
+#: gui/preferencesdialog.cpp:62
 msgid "Rider Import"
 msgstr "Rider 导入"
 
-#: gui/preferencesdialog.cpp:62
+#: gui/preferencesdialog.cpp:64
 msgid "Viewer"
 msgstr "查看器"
 
-#: gui/preferencesdialog.cpp:66
+#: gui/preferencesdialog.cpp:68
 msgid "Formats"
 msgstr "格式"
 
-#: gui/preferencesdialog.cpp:67
+#: gui/preferencesdialog.cpp:69
 msgid "GDTF"
 msgstr "GDTF"
 
-#: gui/preferencesdialog.cpp:68
+#: gui/preferencesdialog.cpp:70
 msgid "MVR Import / Export"
 msgstr "MVR 导入/导出"
 
-#: gui/preferencesdialog.cpp:144
+#: gui/preferencesdialog.cpp:146
 msgid "Restart required"
 msgstr "需要重启"
 

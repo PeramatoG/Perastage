@@ -8,6 +8,18 @@ Open **Edit → Preferences**. Switching categories retains pending edits. **App
 - **Units:** choose distance and weight units. Unit changes apply immediately.
 - **Updates:** **Check on startup (recommended)** checks at most once every 24 hours. You can suppress reminders for a specific version. **Manual only** disables startup checks; **Help → Check for Updates** still checks on demand.
 
+### Cache
+
+**General → Cache** shows the read-only cache location and current disk usage.
+**Open Cache Folder** opens the folder in your system file manager.
+**Clear Cache...** asks for confirmation and immediately deletes regenerable
+Perastage caches, independently of Apply, OK or Cancel. Geometry is rebuilt as
+needed; the GDTF catalog downloads again when online. Configuration, logs,
+credentials, libraries, GDTF files, dictionaries and projects are preserved.
+If some files cannot be deleted, Perastage reports the failure and updates the
+shown size. Persistent caches live under the per-user application data directory
+in `cache/`, rather than beside source assets.
+
 ## Import
 
 **Rider Import** controls **Auto patch after import**, automatic layers by position or fixture type, and default LX heights, positions and margins. Distance fields follow your unit settings. See [Create from Text](create-from-text.md).
