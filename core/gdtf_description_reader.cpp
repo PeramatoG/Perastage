@@ -64,37 +64,6 @@ bool ParseFloatAttribute(const tinyxml2::XMLElement *element,
   return false;
 }
 
-// Adds positive values only when an attribute can be parsed as a number.
-bool AddPositiveFloatAttribute(const tinyxml2::XMLElement *element,
-                               std::initializer_list<const char *> names,
-                               float &total) {
-  float parsed = 0.0f;
-  if (!ParseFloatAttribute(element, names, parsed) || parsed <= 0.0f)
-    return false;
-  total += parsed;
-  return true;
-}
-
-// Recursively sums consumer wiring-object payloads from a geometry subtree.
-float SumConsumerWiringPower(const tinyxml2::XMLElement *element) {
-  float total = 0.0f;
-  for (const tinyxml2::XMLElement *child =
-           element ? element->FirstChildElement() : nullptr;
-       child; child = child->NextSiblingElement()) {
-    const std::string name = child->Name() ? child->Name() : "";
-    if (name == "WiringObject") {
-      const char *componentType = child->Attribute("ComponentType");
-      if (componentType && std::string(componentType) == "Consumer") {
-        AddPositiveFloatAttribute(child, {"ElectricalPayLoad",
-                                          "ElectricalPayload"},
-                                  total);
-      }
-    }
-    total += SumConsumerWiringPower(child);
-  }
-  return total;
-}
-
 // Converts GDTF xyY color text to a display hex RGB value when possible.
 std::string ParseModelColorHex(const tinyxml2::XMLElement *fixtureType) {
   const tinyxml2::XMLElement *models =
@@ -342,17 +311,6 @@ GdtfDescriptionSnapshot ReadGdtfDescription(
         snapshot.weightKgPresent =
             ParseFloatAttribute(weight, {"Value", "value"}, snapshot.weightKg);
       }
-      float explicitPower = 0.0f;
-      for (const tinyxml2::XMLElement *power =
-               properties->FirstChildElement("PowerConsumption");
-           power; power = power->NextSiblingElement("PowerConsumption")) {
-        AddPositiveFloatAttribute(power, {"Value", "PowerConsumption", "value"},
-                                  explicitPower);
-      }
-      if (explicitPower > 0.0f) {
-        snapshot.powerConsumptionW = explicitPower;
-        snapshot.powerConsumptionWPresent = true;
-      }
     }
   }
   if (const tinyxml2::XMLElement *geometries =
@@ -365,15 +323,9 @@ GdtfDescriptionSnapshot ReadGdtfDescription(
     }
   }
 
-  if (!snapshot.powerConsumptionWPresent) {
-    const tinyxml2::XMLElement *geometries =
-        fixtureType->FirstChildElement("Geometries");
-    const float wiringPower = SumConsumerWiringPower(geometries);
-    if (wiringPower > 0.0f) {
-      snapshot.powerConsumptionW = wiringPower;
-      snapshot.powerConsumptionWPresent = true;
-    }
-  }
+  snapshot.electricalPower = ReadGdtfPower(fixtureType);
+  snapshot.powerConsumptionWPresent = snapshot.electricalPower.planningW.has_value();
+  snapshot.powerConsumptionW = snapshot.electricalPower.planningW.value_or(0.0f);
   snapshot.modelColorHex = ParseModelColorHex(fixtureType);
 
   if (const tinyxml2::XMLElement *wheels = fixtureType->FirstChildElement("Wheels")) {

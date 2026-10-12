@@ -19,6 +19,7 @@
 
 #include "gdtf_canonicalizer.h"
 #include "gdtf_mutation_audit.h"
+#include "gdtf_power_reader.h"
 
 #include <algorithm>
 #include <array>
@@ -113,6 +114,8 @@ bool ApplyRewriteRequest(tinyxml2::XMLDocument &document,
   if (!fixtureType)
     return false;
 
+  const char *powerAttribute = nullptr;
+  if (request.hasPowerW && !gdtf::FindPowerWriteTarget(fixtureType, powerAttribute)) return false;
   bool patched = false;
   if (!request.color.empty()) {
     tinyxml2::XMLElement *models = fixtureType->FirstChildElement("Models");

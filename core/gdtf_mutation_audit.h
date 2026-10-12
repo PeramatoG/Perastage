@@ -69,7 +69,8 @@ void StampPerastageMutationMetadata(tinyxml2::XMLElement *fixtureType,
 tinyxml2::XMLElement *EnsurePhysicalPropertiesNode(
     tinyxml2::XMLElement *fixtureType, tinyxml2::XMLDocument &doc);
 
-// Applies Weight/PowerConsumption values under PhysicalDescriptions/Properties.
+// Applies canonical Weight and power to an existing safe Consumer/Properties target.
+// Unsafe power writes fail atomically; connector/topology nodes are never fabricated.
 // Only values provided through optionals are written.
 // Returns true when at least one property was written.
 bool ApplyPhysicalProperties(
@@ -77,8 +78,7 @@ bool ApplyPhysicalProperties(
     const std::optional<float> &weightKg,
     const std::optional<float> &powerConsumptionW);
 
-// Applies physical properties and, when a mutation happened, stamps Perastage
-// mutation metadata and appends a revision.
+// Applies physical properties and records each correction in a standard Revision.
 // Returns true when at least one property was written.
 bool ApplyPhysicalPropertiesWithAudit(
     tinyxml2::XMLElement *fixtureType, tinyxml2::XMLDocument &doc,

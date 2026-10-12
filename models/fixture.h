@@ -19,6 +19,7 @@
 
 #include "types.h"
 #include <string>
+#include <optional>
 
 // Tracks where editable fixture physical properties came from.
 enum class FixturePhysicalPropertiesSource {
@@ -78,6 +79,24 @@ struct Fixture {
     bool dmxInvertTilt = false;   // Tilt inversion flag
 
     float powerConsumptionW = 0.0f; // Power consumption in watts
+    bool powerConsumptionWPresent = false;
+    std::optional<float> sourcePowerConsumptionW;
+    std::optional<float> planningPowerOverrideW;
+    bool HasPlanningPower() const {
+      return planningPowerOverrideW.has_value() || powerConsumptionWPresent || powerConsumptionW != 0.0f;
+    }
+    void SetSourcePlanningPower(std::optional<float> value) {
+      sourcePowerConsumptionW = value;
+      powerConsumptionWPresent = planningPowerOverrideW.has_value() || value.has_value();
+      powerConsumptionW = planningPowerOverrideW.value_or(value.value_or(0.0f));
+    }
+    void SetPlanningPowerOverride(float value) {
+      planningPowerOverrideW = value;
+      powerConsumptionW = value;
+      powerConsumptionWPresent = true;
+      physicalPropertiesSource = FixturePhysicalPropertiesSource::Manual;
+      physicalPropertiesDirty = true;
+    }
     float weightKg = 0.0f;          // Fixture weight in kilograms
     FixturePhysicalPropertiesSource physicalPropertiesSource =
       FixturePhysicalPropertiesSource::Unknown; // Source for editable physical

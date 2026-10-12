@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-11 18:03+0000\n"
+"POT-Creation-Date: 2026-10-12 13:27+0000\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -837,7 +837,7 @@ msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:1521 gui/dictionaryeditdialog.cpp:2276
 #: gui/fixtureeditdialog.cpp:770 gui/fixturetablepanel.cpp:525
-#: gui/mainwindow_fixture_replace.cpp:222 gui/mainwindow_menu.cpp:1005
+#: gui/mainwindow_fixture_replace.cpp:224 gui/mainwindow_menu.cpp:1005
 #: gui/mainwindow_menu.cpp:1028
 msgid "Select GDTF file"
 msgstr "Seleccione el archivo GDTF"
@@ -1217,11 +1217,11 @@ msgstr ""
 msgid "GDTF validation"
 msgstr "GDTF validación"
 
-#: gui/fixtureeditdialog.cpp:865
+#: gui/fixtureeditdialog.cpp:863
 msgid "No thumbnail image found in this GDTF."
 msgstr "No se encontró ninguna imagen en miniatura en este GDTF."
 
-#: gui/fixtureeditdialog.cpp:1147
+#: gui/fixtureeditdialog.cpp:1145 gui/fixtureeditdialog.cpp:1150
 msgid "GDTF update"
 msgstr "GDTF actualización"
 
@@ -1230,7 +1230,7 @@ msgid "Fixture ID"
 msgstr "ID del aparato"
 
 #: gui/fixturetable/fixture_table_columns.cpp:13 gui/hoisttablepanel.cpp:461
-#: gui/inspection/gdtf_inspector_details_panel.cpp:152
+#: gui/inspection/gdtf_inspector_details_panel.cpp:154
 #: gui/inspection/inspector_workspace_panel.cpp:476
 #: gui/inspection/inspector_workspace_panel.cpp:483 gui/summarypanel.cpp:260
 #: gui/summarypanel.cpp:269 mvr/mvrimporter.cpp:328
@@ -1967,7 +1967,7 @@ msgstr ""
 
 #: gui/inspection/gdtf_inspector_details_panel.cpp:20
 #: gui/inspection/gdtf_inspector_details_panel.cpp:31
-#: gui/inspection/gdtf_inspector_details_panel.cpp:122
+#: gui/inspection/gdtf_inspector_details_panel.cpp:124
 msgid "Unavailable"
 msgstr "No disponible"
 
@@ -1989,7 +1989,7 @@ msgid "Long name"
 msgstr "Nombre largo"
 
 #: gui/inspection/gdtf_inspector_details_panel.cpp:43
-#: gui/inspection/gdtf_inspector_details_panel.cpp:187
+#: gui/inspection/gdtf_inspector_details_panel.cpp:189
 msgid "Description"
 msgstr "Descripción"
 
@@ -2005,82 +2005,90 @@ msgstr "Fecha de creación"
 msgid "Power consumption"
 msgstr "Consumo de energía"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:51
+#: gui/inspection/gdtf_inspector_details_panel.cpp:49
+msgid "Beam power (informational)"
+msgstr "Potencia de los emisores (informativa)"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:50
+msgid "Planning power source"
+msgstr "Origen de la potencia de planificación"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:53
 msgid "Truss cross-section type"
 msgstr "Tipo de sección transversal de truss"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:53
+#: gui/inspection/gdtf_inspector_details_panel.cpp:55
 msgid "Truss cross-section"
 msgstr "Sección transversal de truss"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:68
-#: gui/inspection/gdtf_inspector_details_panel.cpp:130
+#: gui/inspection/gdtf_inspector_details_panel.cpp:70
+#: gui/inspection/gdtf_inspector_details_panel.cpp:132
 msgid "FixtureType metadata is unavailable."
 msgstr "Los metadatos de FixtureType no están disponibles."
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:71
-#: gui/inspection/gdtf_inspector_details_panel.cpp:144
+#: gui/inspection/gdtf_inspector_details_panel.cpp:73
+#: gui/inspection/gdtf_inspector_details_panel.cpp:146
 msgid "No DMX modes are available."
 msgstr "No hay modos DMX disponibles."
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:72
-#: gui/inspection/gdtf_inspector_details_panel.cpp:175
+#: gui/inspection/gdtf_inspector_details_panel.cpp:74
+#: gui/inspection/gdtf_inspector_details_panel.cpp:177
 msgid "No wheel or filter details are available."
 msgstr "No hay detalles de ruedas ni filtros disponibles."
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:100
+#: gui/inspection/gdtf_inspector_details_panel.cpp:102
 msgid "Overview / FixtureType"
 msgstr "Resumen / FixtureType"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:101
+#: gui/inspection/gdtf_inspector_details_panel.cpp:103
 msgid "Modes and channels"
 msgstr "Modos y canales"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:102
+#: gui/inspection/gdtf_inspector_details_panel.cpp:104
 msgid "Wheels / resources"
 msgstr "Ruedas / recursos"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:120
+#: gui/inspection/gdtf_inspector_details_panel.cpp:122
 msgid "Revision history"
 msgstr "Historial de revisiones"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:151
+#: gui/inspection/gdtf_inspector_details_panel.cpp:153
 msgid "Wheel"
 msgstr "Rueda"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:156
-#: gui/inspection/gdtf_inspector_details_panel.cpp:171 gui/layerpanel.cpp:87
+#: gui/inspection/gdtf_inspector_details_panel.cpp:158
+#: gui/inspection/gdtf_inspector_details_panel.cpp:173 gui/layerpanel.cpp:87
 #: gui/layerpanel.cpp:101 gui/summarypanel.cpp:264 gui/summarypanel.cpp:318
 #: viewer2d/viewer2drenderpanel.cpp:347
 msgid "Color"
 msgstr "Color"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:157
-#: gui/inspection/gdtf_inspector_details_panel.cpp:170
+#: gui/inspection/gdtf_inspector_details_panel.cpp:159
+#: gui/inspection/gdtf_inspector_details_panel.cpp:172
 msgid "Filter"
 msgstr "Filtro"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:158
+#: gui/inspection/gdtf_inspector_details_panel.cpp:160
 msgid "Media reference"
 msgstr "Referencia multimedia"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:160
+#: gui/inspection/gdtf_inspector_details_panel.cpp:162
 msgid "Archive resource"
 msgstr "Recurso del archivo"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:162
+#: gui/inspection/gdtf_inspector_details_panel.cpp:164
 msgid "Graphic wheel reference"
 msgstr "Referencia de rueda gráfica"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:164
+#: gui/inspection/gdtf_inspector_details_panel.cpp:166
 msgid "Graphic wheel resource"
 msgstr "Recurso de rueda gráfica"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:188
+#: gui/inspection/gdtf_inspector_details_panel.cpp:190
 msgid "Geometry"
 msgstr "Geometría"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:189
+#: gui/inspection/gdtf_inspector_details_panel.cpp:191
 msgid "Calculated footprint"
 msgstr "Huella calculada"
 
@@ -3010,82 +3018,82 @@ msgstr "Listo"
 msgid "Fixtures distributed between the selected truss points."
 msgstr "Luminarias distribuidas entre los puntos de truss seleccionados."
 
-#: gui/mainwindow_fixture_replace.cpp:112
+#: gui/mainwindow_fixture_replace.cpp:114
 msgid "Select fixture mode"
 msgstr "Seleccione el modo de dispositivo"
 
-#: gui/mainwindow_fixture_replace.cpp:112
+#: gui/mainwindow_fixture_replace.cpp:114
 #: gui/rider_fixture_resolution_dialog.cpp:275
 msgid "Fixture mode"
 msgstr "Modo de fijación"
 
-#: gui/mainwindow_fixture_replace.cpp:129
+#: gui/mainwindow_fixture_replace.cpp:131
 msgid "Select at least one fixture before running Replace Fixtures."
 msgstr ""
 "Seleccione al menos un dispositivo antes de ejecutar Reemplazar dispositivos."
 
-#: gui/mainwindow_fixture_replace.cpp:130
-#: gui/mainwindow_fixture_replace.cpp:140
-#: gui/mainwindow_fixture_replace.cpp:164
-#: gui/mainwindow_fixture_replace.cpp:174
-#: gui/mainwindow_fixture_replace.cpp:190
-#: gui/mainwindow_fixture_replace.cpp:204
-#: gui/mainwindow_fixture_replace.cpp:208
-#: gui/mainwindow_fixture_replace.cpp:235
-#: gui/mainwindow_fixture_replace.cpp:244
+#: gui/mainwindow_fixture_replace.cpp:132
+#: gui/mainwindow_fixture_replace.cpp:142
+#: gui/mainwindow_fixture_replace.cpp:166
+#: gui/mainwindow_fixture_replace.cpp:176
+#: gui/mainwindow_fixture_replace.cpp:192
+#: gui/mainwindow_fixture_replace.cpp:206
+#: gui/mainwindow_fixture_replace.cpp:210
+#: gui/mainwindow_fixture_replace.cpp:237
+#: gui/mainwindow_fixture_replace.cpp:246
 msgid "Replace Fixtures"
 msgstr "Reemplazar accesorios"
 
-#: gui/mainwindow_fixture_replace.cpp:135
+#: gui/mainwindow_fixture_replace.cpp:137
 msgid "Fixture from scene"
 msgstr "Accesorio de la escena"
 
-#: gui/mainwindow_fixture_replace.cpp:136
+#: gui/mainwindow_fixture_replace.cpp:138
 msgid "Fixture from dictionary"
 msgstr "Accesorio del diccionario"
 
-#: gui/mainwindow_fixture_replace.cpp:137
+#: gui/mainwindow_fixture_replace.cpp:139
 msgid "GDTF file"
 msgstr "Archivo GDTF"
 
-#: gui/mainwindow_fixture_replace.cpp:140
+#: gui/mainwindow_fixture_replace.cpp:142
 msgid "Choose the source for the replacement fixture:"
 msgstr "Elija la fuente para el accesorio de reemplazo:"
 
-#: gui/mainwindow_fixture_replace.cpp:155
+#: gui/mainwindow_fixture_replace.cpp:157
 msgid "(no mode)"
 msgstr "(sin modo)"
 
-#: gui/mainwindow_fixture_replace.cpp:158
+#: gui/mainwindow_fixture_replace.cpp:160
 #, c-format
 msgid "%s | %s | ID %d"
 msgstr "%s | %s | ID %d"
 
-#: gui/mainwindow_fixture_replace.cpp:163
+#: gui/mainwindow_fixture_replace.cpp:165
 msgid "There are no fixtures with GDTF data in the scene."
 msgstr "No hay aparatos con datos GDTF en la escena."
 
-#: gui/mainwindow_fixture_replace.cpp:174
+#: gui/mainwindow_fixture_replace.cpp:176
 msgid "Choose a fixture from the scene:"
 msgstr "Elija un dispositivo de la escena:"
 
-#: gui/mainwindow_fixture_replace.cpp:190
+#: gui/mainwindow_fixture_replace.cpp:192
 msgid "The fixture dictionary is empty."
 msgstr "El diccionario de aparatos está vacío."
 
-#: gui/mainwindow_fixture_replace.cpp:203
+#: gui/mainwindow_fixture_replace.cpp:205
 msgid "No dictionary entries contain a GDTF path."
 msgstr "Ninguna entrada del diccionario contiene una ruta GDTF."
 
-#: gui/mainwindow_fixture_replace.cpp:207
+#: gui/mainwindow_fixture_replace.cpp:209
 msgid "Choose a fixture from the dictionary:"
 msgstr "Elija un dispositivo del diccionario:"
 
-#: gui/mainwindow_fixture_replace.cpp:235
+#: gui/mainwindow_fixture_replace.cpp:237
 msgid "Invalid replacement fixture selection."
 msgstr "Selección de accesorio de reemplazo no válida."
 
-#: gui/mainwindow_fixture_replace.cpp:243
+#: gui/mainwindow_fixture_replace.cpp:245
 msgid "Could not read fixture modes from the selected GDTF."
 msgstr "No se pudieron leer los modos de dispositivo del GDTF seleccionado."
 

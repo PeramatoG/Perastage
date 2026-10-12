@@ -241,6 +241,8 @@ SerializeGdtfReportToJson(const GdtfInspectionResult &result,
          description.powerConsumptionWPresent
              ? nlohmann::json(description.powerConsumptionW)
              : nlohmann::json(nullptr)},
+        {"beam_total_w", description.electricalPower.beamTotalW ? nlohmann::json(*description.electricalPower.beamTotalW) : nlohmann::json(nullptr)},
+        {"planning_power_source", gdtf::ToString(description.electricalPower.source)},
         {"model_color_hex", description.modelColorHex},
         {"truss_cross_section_type", description.trussCrossSectionType},
         {"truss_cross_section", description.trussCrossSection},

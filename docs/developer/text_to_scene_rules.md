@@ -696,3 +696,8 @@ Perastage parses rider text by identifying sections, hang positions, fixture lin
   Isolated tests create that root before resolving the active dictionary so
   transient sources and normal user-data fallback storage never become test
   fixture ownership locations.
+
+GDTF metadata attached to generated fixtures uses Core electrical resolution.
+Planning power keeps explicit presence, including declared zero; ambiguous inputs
+and Beam-only definitions remain unknown. Project power overrides take precedence
+when metadata is refreshed.

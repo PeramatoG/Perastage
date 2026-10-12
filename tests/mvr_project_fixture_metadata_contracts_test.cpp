@@ -574,6 +574,11 @@ int main() {
          std::make_pair(std::string("Case B"),
                         std::string("dddddddd-dddd-4ddd-8ddd-ddddddddddd4")));
 
+  std::string powerFixtureUuid;
+  for (auto &[uuid, fixture] : config.GetScene().fixtures) {
+    if (fixture.instanceName == "Fixture A") { powerFixtureUuid = uuid; fixture.SetPlanningPowerOverride(380); }
+  }
+  assert(!powerFixtureUuid.empty());
   const fs::path firstProject = workspace.Path() / "first.pera";
   assert(config.SaveProject(firstProject.string()));
   const SceneSignature firstSignature =
@@ -591,6 +596,9 @@ int main() {
   config.Reset();
   assert(config.LoadProject(firstProject.string()));
   AssertRestoredScene(config.GetScene());
+  assert(config.GetScene().fixtures.at(powerFixtureUuid).planningPowerOverrideW == 380);
+  assert(config.GetScene().fixtures.at(powerFixtureUuid).powerConsumptionW == 380);
+  config.GetScene().fixtures.at(powerFixtureUuid).SetPlanningPowerOverride(0);
 
   const fs::path secondProject = workspace.Path() / "second.pera";
   assert(config.SaveProject(secondProject.string()));
@@ -606,5 +614,7 @@ int main() {
   config.Reset();
   assert(config.LoadProject(secondProject.string()));
   AssertRestoredScene(config.GetScene());
+  assert(config.GetScene().fixtures.at(powerFixtureUuid).planningPowerOverrideW == 0);
+  assert(config.GetScene().fixtures.at(powerFixtureUuid).HasPlanningPower());
   return 0;
 }

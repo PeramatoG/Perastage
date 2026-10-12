@@ -12,9 +12,7 @@ GdtfEditorContext BuildProjectFixtureGdtfEditorContext(
   context.sourceKind = input.sourceKind;
   context.writePolicy = input.writePolicy;
   context.document = input.document;
-  context.editingAllowed =
-      input.writePolicy != GdtfWritePolicy::ReadOnly &&
-      input.writePolicy != GdtfWritePolicy::UnsupportedNotYetAvailable;
+  context.editingAllowed = true; // Project planning overrides do not require archive write access.
   context.stableHostId = input.fixture.uuid;
   context.hostLabel = input.fixture.instanceName.empty()
                           ? input.fixture.typeName
@@ -23,7 +21,8 @@ GdtfEditorContext BuildProjectFixtureGdtfEditorContext(
   context.initialValues.modeName = input.fixture.gdtfMode;
   context.initialValues.fixtureTypeDescription = input.document.Description().description;
   context.initialValues.weightKg = input.fixture.weightKg;
-  context.initialValues.powerConsumptionW = input.fixture.powerConsumptionW;
+  if (input.fixture.HasPlanningPower())
+    context.initialValues.powerConsumptionW = input.fixture.powerConsumptionW;
   context.initialValues.sourceFileReference =
       !input.editorSourceFileReference.empty()
           ? input.editorSourceFileReference
@@ -39,7 +38,11 @@ GdtfEditorContext BuildProjectFixtureGdtfEditorContext(
       MakeDocumentEditCapability();
   context.fieldCapabilities[GdtfFieldId::Weight] = MakeDocumentEditCapability();
   context.fieldCapabilities[GdtfFieldId::PowerConsumption] =
-      MakeDocumentEditCapability();
+      MakeContextSelectionCapability();
+  if (input.writePolicy == GdtfWritePolicy::ReadOnly || input.writePolicy == GdtfWritePolicy::UnsupportedNotYetAvailable) {
+    context.fieldCapabilities[GdtfFieldId::Weight] = MakeReadOnlyCapability(GdtfFieldValueKind::DocumentValue);
+    context.fieldCapabilities[GdtfFieldId::FixtureTypeDescription] = MakeReadOnlyCapability(GdtfFieldValueKind::DocumentValue);
+  }
   context.fieldCapabilities[GdtfFieldId::ChannelCount] =
       MakeReadOnlyCapability(GdtfFieldValueKind::DerivedReadOnly);
   return context;

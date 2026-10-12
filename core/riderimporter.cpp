@@ -51,6 +51,8 @@
 #include "gdtf_fixture_category.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
+#include "gdtf_archive_reader.h"
+#include "gdtf_description_reader.h"
 #include "hoist_weight_distribution.h"
 #include "layer.h"
 #include "logger.h"
@@ -1768,16 +1770,14 @@ struct ImportedGdtfMetadata {
   std::string parsedFixtureName;
   bool hasProperties = false;
   float weightKg = 0.0f;
-  float powerConsumptionW = 0.0f;
+  std::optional<float> powerConsumptionW;
   std::string resolvedCategory;
   std::string categorySource;
   std::string categoryReason;
   bool hasChannelDerivedWashHint = false;
 };
-
 struct ImportedGdtfMetadataCache {
   std::unordered_map<std::string, ImportedGdtfMetadata> entries;
-
   // Returns parsed GDTF metadata cached by resolved path and mode.
   const ImportedGdtfMetadata &Get(const MvrScene &scene,
                                   const std::string &resolvedGdtfPath,
@@ -1786,11 +1786,11 @@ struct ImportedGdtfMetadataCache {
     auto found = entries.find(key);
     if (found != entries.end())
       return found->second;
-
     ImportedGdtfMetadata metadata;
     metadata.parsedFixtureName = Trim(GetGdtfFixtureName(resolvedGdtfPath));
-    metadata.hasProperties = GetGdtfProperties(
-        resolvedGdtfPath, metadata.weightKg, metadata.powerConsumptionW);
+    const auto description = gdtf::ReadGdtfDescription(gdtf::ReadGdtfArchive(resolvedGdtfPath).descriptionXml);
+    metadata.hasProperties = description.Success(); metadata.weightKg = description.weightKg;
+    metadata.powerConsumptionW = description.electricalPower.planningW;
 
     Fixture categoryProbe;
     categoryProbe.gdtfSpec = resolvedGdtfPath;
@@ -1846,8 +1846,8 @@ void ApplyImportedGdtfMetadata(Fixture &fixture,
   if (metadata.hasProperties) {
     if (fixture.weightKg <= 0.0f)
       fixture.weightKg = metadata.weightKg;
-    if (fixture.powerConsumptionW <= 0.0f)
-      fixture.powerConsumptionW = metadata.powerConsumptionW;
+    if (!fixture.HasPlanningPower())
+      fixture.SetSourcePlanningPower(metadata.powerConsumptionW);
   }
   if (fixture.category.empty() && !metadata.resolvedCategory.empty()) {
     fixture.category = metadata.resolvedCategory;

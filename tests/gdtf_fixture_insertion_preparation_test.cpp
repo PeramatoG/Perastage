@@ -200,8 +200,7 @@ void AssertWiringObjectPowerFallback(const fs::path &dir) {
                 "</Geometry></Geometries>")}}));
   auto preparation = gdtf::PrepareGdtfFixtureInsertion(archive);
   assert(preparation.success);
-  assert(preparation.powerConsumptionW.has_value());
-  assert(NearlyEqual(*preparation.powerConsumptionW, 42.0f));
+  assert(!preparation.powerConsumptionW.has_value());
 }
 
 // Verifies Unicode paths and unsafe archive paths are handled deterministically.

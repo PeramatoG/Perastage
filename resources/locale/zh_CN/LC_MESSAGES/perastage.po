@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-11 18:03+0000\n"
+"POT-Creation-Date: 2026-10-12 13:27+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -818,7 +818,7 @@ msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:1521 gui/dictionaryeditdialog.cpp:2276
 #: gui/fixtureeditdialog.cpp:770 gui/fixturetablepanel.cpp:525
-#: gui/mainwindow_fixture_replace.cpp:222 gui/mainwindow_menu.cpp:1005
+#: gui/mainwindow_fixture_replace.cpp:224 gui/mainwindow_menu.cpp:1005
 #: gui/mainwindow_menu.cpp:1028
 msgid "Select GDTF file"
 msgstr "选择 GDTF 文件"
@@ -1188,11 +1188,11 @@ msgstr "在应用之前修复格式错误的 GDTF 编辑器值。"
 msgid "GDTF validation"
 msgstr "GDTF 验证"
 
-#: gui/fixtureeditdialog.cpp:865
+#: gui/fixtureeditdialog.cpp:863
 msgid "No thumbnail image found in this GDTF."
 msgstr "在此 GDTF 中找不到缩略图。"
 
-#: gui/fixtureeditdialog.cpp:1147
+#: gui/fixtureeditdialog.cpp:1145 gui/fixtureeditdialog.cpp:1150
 msgid "GDTF update"
 msgstr "GDTF 更新"
 
@@ -1201,7 +1201,7 @@ msgid "Fixture ID"
 msgstr "灯具 ID"
 
 #: gui/fixturetable/fixture_table_columns.cpp:13 gui/hoisttablepanel.cpp:461
-#: gui/inspection/gdtf_inspector_details_panel.cpp:152
+#: gui/inspection/gdtf_inspector_details_panel.cpp:154
 #: gui/inspection/inspector_workspace_panel.cpp:476
 #: gui/inspection/inspector_workspace_panel.cpp:483 gui/summarypanel.cpp:260
 #: gui/summarypanel.cpp:269 mvr/mvrimporter.cpp:328
@@ -1915,7 +1915,7 @@ msgstr "仅当未关联电机灯具时，才能分配虚拟预设。"
 
 #: gui/inspection/gdtf_inspector_details_panel.cpp:20
 #: gui/inspection/gdtf_inspector_details_panel.cpp:31
-#: gui/inspection/gdtf_inspector_details_panel.cpp:122
+#: gui/inspection/gdtf_inspector_details_panel.cpp:124
 msgid "Unavailable"
 msgstr "不可用"
 
@@ -1937,7 +1937,7 @@ msgid "Long name"
 msgstr "长名称"
 
 #: gui/inspection/gdtf_inspector_details_panel.cpp:43
-#: gui/inspection/gdtf_inspector_details_panel.cpp:187
+#: gui/inspection/gdtf_inspector_details_panel.cpp:189
 msgid "Description"
 msgstr "描述"
 
@@ -1953,82 +1953,90 @@ msgstr "创建日期"
 msgid "Power consumption"
 msgstr "功耗"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:51
+#: gui/inspection/gdtf_inspector_details_panel.cpp:49
+msgid "Beam power (informational)"
+msgstr "光束功率（参考信息）"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:50
+msgid "Planning power source"
+msgstr "规划功率来源"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:53
 msgid "Truss cross-section type"
 msgstr "桁架横截面类型"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:53
+#: gui/inspection/gdtf_inspector_details_panel.cpp:55
 msgid "Truss cross-section"
 msgstr "桁架横截面"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:68
-#: gui/inspection/gdtf_inspector_details_panel.cpp:130
+#: gui/inspection/gdtf_inspector_details_panel.cpp:70
+#: gui/inspection/gdtf_inspector_details_panel.cpp:132
 msgid "FixtureType metadata is unavailable."
 msgstr "FixtureType 元数据不可用。"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:71
-#: gui/inspection/gdtf_inspector_details_panel.cpp:144
+#: gui/inspection/gdtf_inspector_details_panel.cpp:73
+#: gui/inspection/gdtf_inspector_details_panel.cpp:146
 msgid "No DMX modes are available."
 msgstr "没有可用的 DMX 模式。"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:72
-#: gui/inspection/gdtf_inspector_details_panel.cpp:175
+#: gui/inspection/gdtf_inspector_details_panel.cpp:74
+#: gui/inspection/gdtf_inspector_details_panel.cpp:177
 msgid "No wheel or filter details are available."
 msgstr "没有可用的色轮或滤光片详细信息。"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:100
+#: gui/inspection/gdtf_inspector_details_panel.cpp:102
 msgid "Overview / FixtureType"
 msgstr "概览 / FixtureType"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:101
+#: gui/inspection/gdtf_inspector_details_panel.cpp:103
 msgid "Modes and channels"
 msgstr "模式和通道"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:102
+#: gui/inspection/gdtf_inspector_details_panel.cpp:104
 msgid "Wheels / resources"
 msgstr "色轮 / 资源"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:120
+#: gui/inspection/gdtf_inspector_details_panel.cpp:122
 msgid "Revision history"
 msgstr "修订历史"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:151
+#: gui/inspection/gdtf_inspector_details_panel.cpp:153
 msgid "Wheel"
 msgstr "色轮"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:156
-#: gui/inspection/gdtf_inspector_details_panel.cpp:171 gui/layerpanel.cpp:87
+#: gui/inspection/gdtf_inspector_details_panel.cpp:158
+#: gui/inspection/gdtf_inspector_details_panel.cpp:173 gui/layerpanel.cpp:87
 #: gui/layerpanel.cpp:101 gui/summarypanel.cpp:264 gui/summarypanel.cpp:318
 #: viewer2d/viewer2drenderpanel.cpp:347
 msgid "Color"
 msgstr "颜色"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:157
-#: gui/inspection/gdtf_inspector_details_panel.cpp:170
+#: gui/inspection/gdtf_inspector_details_panel.cpp:159
+#: gui/inspection/gdtf_inspector_details_panel.cpp:172
 msgid "Filter"
 msgstr "滤光片"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:158
+#: gui/inspection/gdtf_inspector_details_panel.cpp:160
 msgid "Media reference"
 msgstr "媒体引用"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:160
+#: gui/inspection/gdtf_inspector_details_panel.cpp:162
 msgid "Archive resource"
 msgstr "存档资源"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:162
+#: gui/inspection/gdtf_inspector_details_panel.cpp:164
 msgid "Graphic wheel reference"
 msgstr "图形色轮引用"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:164
+#: gui/inspection/gdtf_inspector_details_panel.cpp:166
 msgid "Graphic wheel resource"
 msgstr "图形色轮资源"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:188
+#: gui/inspection/gdtf_inspector_details_panel.cpp:190
 msgid "Geometry"
 msgstr "几何体"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:189
+#: gui/inspection/gdtf_inspector_details_panel.cpp:191
 msgid "Calculated footprint"
 msgstr "计算占用通道数"
 
@@ -2937,81 +2945,81 @@ msgstr "就绪"
 msgid "Fixtures distributed between the selected truss points."
 msgstr "固定装置分布在选定的桁架点之间。"
 
-#: gui/mainwindow_fixture_replace.cpp:112
+#: gui/mainwindow_fixture_replace.cpp:114
 msgid "Select fixture mode"
 msgstr "选择夹具模式"
 
-#: gui/mainwindow_fixture_replace.cpp:112
+#: gui/mainwindow_fixture_replace.cpp:114
 #: gui/rider_fixture_resolution_dialog.cpp:275
 msgid "Fixture mode"
 msgstr "灯具类型"
 
-#: gui/mainwindow_fixture_replace.cpp:129
+#: gui/mainwindow_fixture_replace.cpp:131
 msgid "Select at least one fixture before running Replace Fixtures."
 msgstr "在运行替换夹具之前至少选择一个夹具。"
 
-#: gui/mainwindow_fixture_replace.cpp:130
-#: gui/mainwindow_fixture_replace.cpp:140
-#: gui/mainwindow_fixture_replace.cpp:164
-#: gui/mainwindow_fixture_replace.cpp:174
-#: gui/mainwindow_fixture_replace.cpp:190
-#: gui/mainwindow_fixture_replace.cpp:204
-#: gui/mainwindow_fixture_replace.cpp:208
-#: gui/mainwindow_fixture_replace.cpp:235
-#: gui/mainwindow_fixture_replace.cpp:244
+#: gui/mainwindow_fixture_replace.cpp:132
+#: gui/mainwindow_fixture_replace.cpp:142
+#: gui/mainwindow_fixture_replace.cpp:166
+#: gui/mainwindow_fixture_replace.cpp:176
+#: gui/mainwindow_fixture_replace.cpp:192
+#: gui/mainwindow_fixture_replace.cpp:206
+#: gui/mainwindow_fixture_replace.cpp:210
+#: gui/mainwindow_fixture_replace.cpp:237
+#: gui/mainwindow_fixture_replace.cpp:246
 msgid "Replace Fixtures"
 msgstr "替换灯具..."
 
-#: gui/mainwindow_fixture_replace.cpp:135
+#: gui/mainwindow_fixture_replace.cpp:137
 msgid "Fixture from scene"
 msgstr "场景中的固定装置"
 
-#: gui/mainwindow_fixture_replace.cpp:136
+#: gui/mainwindow_fixture_replace.cpp:138
 msgid "Fixture from dictionary"
 msgstr "字典中的夹具"
 
-#: gui/mainwindow_fixture_replace.cpp:137
+#: gui/mainwindow_fixture_replace.cpp:139
 msgid "GDTF file"
 msgstr "GDTF 文件"
 
-#: gui/mainwindow_fixture_replace.cpp:140
+#: gui/mainwindow_fixture_replace.cpp:142
 msgid "Choose the source for the replacement fixture:"
 msgstr "选择替换灯具的来源："
 
-#: gui/mainwindow_fixture_replace.cpp:155
+#: gui/mainwindow_fixture_replace.cpp:157
 msgid "(no mode)"
 msgstr "（无模式）"
 
-#: gui/mainwindow_fixture_replace.cpp:158
+#: gui/mainwindow_fixture_replace.cpp:160
 #, c-format
 msgid "%s | %s | ID %d"
 msgstr "%s | %s | ID %d"
 
-#: gui/mainwindow_fixture_replace.cpp:163
+#: gui/mainwindow_fixture_replace.cpp:165
 msgid "There are no fixtures with GDTF data in the scene."
 msgstr "场景中没有带有 GDTF 数据的灯具。"
 
-#: gui/mainwindow_fixture_replace.cpp:174
+#: gui/mainwindow_fixture_replace.cpp:176
 msgid "Choose a fixture from the scene:"
 msgstr "从场景中选择一个灯具："
 
-#: gui/mainwindow_fixture_replace.cpp:190
+#: gui/mainwindow_fixture_replace.cpp:192
 msgid "The fixture dictionary is empty."
 msgstr "所选布局为空。"
 
-#: gui/mainwindow_fixture_replace.cpp:203
+#: gui/mainwindow_fixture_replace.cpp:205
 msgid "No dictionary entries contain a GDTF path."
 msgstr "没有字典条目包含 GDTF 路径。"
 
-#: gui/mainwindow_fixture_replace.cpp:207
+#: gui/mainwindow_fixture_replace.cpp:209
 msgid "Choose a fixture from the dictionary:"
 msgstr "从字典中选择一个灯具："
 
-#: gui/mainwindow_fixture_replace.cpp:235
+#: gui/mainwindow_fixture_replace.cpp:237
 msgid "Invalid replacement fixture selection."
 msgstr "更换夹具选择无效。"
 
-#: gui/mainwindow_fixture_replace.cpp:243
+#: gui/mainwindow_fixture_replace.cpp:245
 msgid "Could not read fixture modes from the selected GDTF."
 msgstr "无法从选定的 GDTF 读取灯具模式。"
 

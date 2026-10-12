@@ -23,6 +23,8 @@ enum class GdtfOverviewField {
   Revision,
   Weight,
   PowerConsumption,
+  BeamPowerTotal,
+  PlanningPowerSource,
   ModelColor,
   TrussCrossSectionType,
   TrussCrossSection,

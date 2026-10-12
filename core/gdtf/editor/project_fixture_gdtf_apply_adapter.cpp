@@ -23,7 +23,7 @@ bool HasOnlySupportedFields(const GdtfApplyRequest &request,
       GdtfFieldId::PowerConsumption};
   const std::set<GdtfFieldId> contextFields = {
       GdtfFieldId::FixtureTypeName, GdtfFieldId::SourceFileReference,
-      GdtfFieldId::ModeName};
+      GdtfFieldId::ModeName, GdtfFieldId::PowerConsumption};
   for (const auto field : request.changedDocumentFields) {
     if (!documentFields.count(field)) {
       unsupportedField = std::to_string(static_cast<int>(field));
@@ -89,10 +89,22 @@ ProjectFixtureGdtfApplyResult ProjectFixtureGdtfApplyAdapter::Apply(
     return Fail("Fixture apply request contains unsupported field: " +
                 unsupportedField + ".");
 
+  if (ContainsField(request.changedDocumentFields, GdtfFieldId::PowerConsumption) && !request.values.powerConsumptionW)
+    return Fail("A GDTF power correction requires an explicit numeric value.");
+  if (ContainsField(request.changedDocumentFields, GdtfFieldId::PowerConsumption) &&
+      services_.canWritePlanningPower && !services_.canWritePlanningPower(request.sourcePath)) {
+    auto corrected = input;
+    corrected.request.changedDocumentFields.erase(GdtfFieldId::PowerConsumption);
+    corrected.request.changedContextFields.insert(GdtfFieldId::PowerConsumption);
+    auto retained = Apply(corrected);
+    retained.common.diagnostics.push_back("Planning power was retained as a project override; the GDTF has no safe canonical electrical write target.");
+    return retained;
+  }
   const bool descriptionChanged = ContainsField(
       request.changedDocumentFields, GdtfFieldId::FixtureTypeDescription);
   const bool weightChanged = ContainsField(request.changedDocumentFields, GdtfFieldId::Weight);
   const bool powerChanged = ContainsField(request.changedDocumentFields, GdtfFieldId::PowerConsumption);
+  const bool powerOverrideChanged = ContainsField(request.changedContextFields, GdtfFieldId::PowerConsumption);
   const bool documentChanged = descriptionChanged || weightChanged || powerChanged;
   const bool typeChanged = ContainsField(request.changedContextFields, GdtfFieldId::FixtureTypeName);
   const bool sourceChanged = ContainsField(request.changedContextFields, GdtfFieldId::SourceFileReference);
@@ -128,10 +140,10 @@ ProjectFixtureGdtfApplyResult ProjectFixtureGdtfApplyAdapter::Apply(
   result.resultingWeightKg = resultingWeight;
   result.resultingPowerConsumptionW = resultingPower;
 
-  if (!resultingMode.empty() && services_.modeExists &&
+  if ((modeChanged || sourceChanged || documentChanged) && !resultingMode.empty() && services_.modeExists &&
       !services_.modeExists(request.sourcePath, resultingMode))
     return Fail("Selected GDTF mode does not exist in the resolved document.");
-  if (!resultingMode.empty() && services_.channelCount)
+  if ((modeChanged || sourceChanged || documentChanged) && !resultingMode.empty() && services_.channelCount)
     result.derivedChannelCount = services_.channelCount(request.sourcePath, resultingMode);
 
   std::filesystem::path writablePath = request.sourcePath;
@@ -186,6 +198,8 @@ ProjectFixtureGdtfApplyResult ProjectFixtureGdtfApplyAdapter::Apply(
   preparedTarget.typeName = resultingType;
   preparedTarget.gdtfMode = resultingMode;
   preparedTarget.gdtfSpec = result.resultingSourceReference;
+  if (sourceChanged && services_.readPlanningPower)
+    preparedTarget.SetSourcePlanningPower(services_.readPlanningPower(request.sourcePath));
   result.contextSelectionChanged = typeChanged || sourceChanged || modeChanged || result.common.derivativeCreated;
 
   if (documentChanged) {
@@ -203,19 +217,33 @@ ProjectFixtureGdtfApplyResult ProjectFixtureGdtfApplyAdapter::Apply(
       updated.typeName = resultingType;
       updated.gdtfSpec = result.resultingSourceReference;
       updated.weightKg = resultingWeight;
-      updated.powerConsumptionW = resultingPower;
+      if (powerChanged) {
+        updated.SetSourcePlanningPower(resultingPower);
+      }
       updated.physicalPropertiesSource = FixturePhysicalPropertiesSource::Gdtf;
-      updated.physicalPropertiesDirty = false;
+      updated.physicalPropertiesDirty = updated.planningPowerOverrideW.has_value();
+      if (updated.planningPowerOverrideW) updated.physicalPropertiesSource = FixturePhysicalPropertiesSource::Manual;
       preparedUpdates.emplace(uuid, std::move(updated));
       result.affectedFixtureUuids.insert(uuid);
     }
     result.physicalPropagationOccurred = !result.affectedFixtureUuids.empty();
-  } else if (result.contextSelectionChanged) {
+  } else if (result.contextSelectionChanged || powerOverrideChanged) {
+
     preparedUpdates.emplace(request.stableHostId, std::move(preparedTarget));
     result.affectedFixtureUuids.insert(request.stableHostId);
   }
 
-  const bool changed = documentChanged || result.contextSelectionChanged;
+  if (powerOverrideChanged) {
+    auto &target = preparedUpdates[request.stableHostId];
+    if (target.uuid.empty()) target = preparedTarget;
+    if (request.values.powerConsumptionW) target.SetPlanningPowerOverride(*request.values.powerConsumptionW);
+    else {
+      target.planningPowerOverrideW.reset();
+      target.SetSourcePlanningPower(preparedTarget.sourcePowerConsumptionW);
+    }
+    result.resultingPowerConsumptionW = target.powerConsumptionW;
+  }
+  const bool changed = documentChanged || result.contextSelectionChanged || powerOverrideChanged;
   result.common.projectInstanceResynchronizationRequired = changed;
   result.common.viewerRefreshRequired = changed;
   result.common.hoistLoadRecalculationRequired = !result.changedWeightPositionNames.empty();

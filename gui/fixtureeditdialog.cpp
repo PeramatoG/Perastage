@@ -531,7 +531,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
           {GdtfPhysicalPropertyField::PowerConsumption, "Power",
            gui::gdtf_binding::ValueText(
                sessionValues, gdtf::GdtfFieldId::PowerConsumption,
-               std::string(powerValue.GetString().ToUTF8())),
+               std::string("—")),
            true,
            gdtfEditSession &&
                gui::gdtf_binding::IsEditable(
@@ -812,15 +812,13 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
     gdtfEditorPanel->SetIdentityValue(GdtfTypeIdentityField::FixtureTypeName, std::string(typeName.ToUTF8()));
     SetSessionValue(gdtf::GdtfFieldId::FixtureTypeName,
                     std::string(typeName.ToUTF8()));
-    float w = 0.f, p = 0.f;
-    GetGdtfProperties(std::string(path.ToUTF8()), w, p);
-    if (ctrls.size() > 16)
-      gdtfEditorPanel->SetPhysicalPropertyValue(
-          GdtfPhysicalPropertyField::PowerConsumption,
-          std::string(wxString::Format("%.1f", p).ToUTF8()));
-    if (ctrls.size() > 16)
-      SetSessionValue(gdtf::GdtfFieldId::PowerConsumption,
-                      std::string(wxString::Format("%.1f", p).ToUTF8()));
+    const auto description = gdtfEditSession ? gdtfEditSession->Document().Description() : gdtf::GdtfDescriptionSnapshot{};
+    const float w = description.weightKg;
+    const auto power = gdtf::GetEditableValue(gdtf::GdtfEditableValues{.powerConsumptionW = description.electricalPower.planningW}, gdtf::GdtfFieldId::PowerConsumption);
+    if (ctrls.size() > 16) {
+      gdtfEditorPanel->SetPhysicalPropertyValue(GdtfPhysicalPropertyField::PowerConsumption, power.value_or("—"));
+      SetSessionValue(gdtf::GdtfFieldId::PowerConsumption, power.value_or(""));
+    }
     if (ctrls.size() > 17)
       gdtfEditorPanel->SetPhysicalPropertyValue(
           GdtfPhysicalPropertyField::Weight,
@@ -1148,6 +1146,8 @@ bool FixtureEditDialog::ApplyChanges() {
                      wxOK | wxICON_WARNING, this);
         return false;
       }
+      if (!fixtureApplyResult.common.diagnostics.empty())
+        wxMessageBox(wxString::FromUTF8(fixtureApplyResult.common.diagnostics.front()), _("GDTF update"), wxOK | wxICON_WARNING, this);
       gdtfPath = fixtureApplyResult.common.resultingGdtfPath.empty()
                      ? gdtfPath
                      : fixtureApplyResult.common.resultingGdtfPath;
