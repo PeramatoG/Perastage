@@ -90,6 +90,7 @@ package() {
 
   install -d "$pkgdir/usr/bin"
   ln -s /opt/perastage/Perastage "$pkgdir/usr/bin/Perastage"
+  ln -s /opt/perastage/perastage-cli "$pkgdir/usr/bin/perastage-cli"
 
   # The project install rules keep Linux runtime assets beside the executable,
   # which is appropriate for the current application resource lookup behavior.
@@ -110,6 +111,8 @@ package() {
   ln -s /opt/perastage/THIRD_PARTY_NOTICES.md "$pkgdir/usr/share/licenses/$pkgname/THIRD_PARTY_NOTICES.md"
 
   test -x "$pkgdir/opt/perastage/Perastage"
+  test -x "$pkgdir/opt/perastage/perastage-cli"
+  test "$(readlink "$pkgdir/usr/bin/perastage-cli")" = /opt/perastage/perastage-cli
   test -d "$pkgdir/opt/perastage/resources"
   test -f "$pkgdir/opt/perastage/resources/locale/es/LC_MESSAGES/perastage.mo"
   test -d "$pkgdir/opt/perastage/library"

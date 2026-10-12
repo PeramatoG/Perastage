@@ -325,6 +325,7 @@ jobs:
           test -f out/install/Release/Perastage.app/Contents/Info.plist
           test -f out/install/Release/Perastage.app/Contents/MacOS/Perastage
           test -x out/install/Release/Perastage.app/Contents/MacOS/Perastage
+          test -x out/install/Release/Perastage.app/Contents/MacOS/perastage-cli
           test -f out/install/Release/Perastage.app/Contents/Resources/Perastage.icns
           test -f out/install/Release/Perastage.app/Contents/Resources/PerastageProject.icns
           test -f out/install/Release/Perastage.app/Contents/Resources/PerastageMVR.icns
@@ -348,6 +349,7 @@ jobs:
           set -euo pipefail
           APP_PATH="out/install/Release/Perastage.app"
           BIN_PATH="$APP_PATH/Contents/MacOS/Perastage"
+          CLI_PATH="$APP_PATH/Contents/MacOS/perastage-cli"
           FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
 
           mkdir -p "$FRAMEWORKS_PATH"
@@ -355,6 +357,7 @@ jobs:
           dylibbundler \
             -od -b \
             -x "$BIN_PATH" \
+            -x "$CLI_PATH" \
             -d "$FRAMEWORKS_PATH" \
             -p "@executable_path/../Frameworks/" \
             -s "$VCPKG_INSTALLED/$VCPKG_TRIPLET/lib" \
@@ -380,26 +383,10 @@ jobs:
           # Validate ad-hoc signature integrity.
           codesign --verify --deep --verbose=2 "$APP_PATH"
 
-          # Fail on missing non-system runtime dependencies.
-          MISSING_DEPS=0
-          while IFS= read -r macho_file; do
-            if ! file "$macho_file" | grep -q "Mach-O"; then
-              continue
-            fi
-
-            while IFS= read -r dep_line; do
-              dep_path="$(echo "$dep_line" | awk '{print $1}')"
-              case "$dep_path" in
-                "$macho_file"|"$(basename "$macho_file")":|@executable_path/*|@loader_path/*|/System/*|/usr/lib/*) ;;
-                *)
-                  echo "Unexpected runtime dependency in $macho_file: $dep_path"
-                  MISSING_DEPS=1
-                  ;;
-              esac
-            done < <(otool -L "$macho_file" | tail -n +2)
-          done < <(find "$APP_PATH/Contents" -type f)
-
-          test "$MISSING_DEPS" -eq 0
+          # Audit the CLI itself and every nested non-system dependency after relocation.
+          python3 .github/scripts/check_macos_bundle_dependencies.py "$APP_PATH"
+          "$CLI_PATH" --version
+          "$CLI_PATH" --help
 
       # ── 15. Validate macOS deployment targets ───────────────────────────────
       - name: Validate macOS deployment targets
@@ -535,6 +522,10 @@ jobs:
 
           test -d "$MOUNT_DIR/Perastage.app"
           test -x "$MOUNT_DIR/Perastage.app/Contents/MacOS/Perastage"
+          test -x "$MOUNT_DIR/Perastage.app/Contents/MacOS/perastage-cli"
+          python3 .github/scripts/check_macos_bundle_dependencies.py "$MOUNT_DIR/Perastage.app"
+          "$MOUNT_DIR/Perastage.app/Contents/MacOS/perastage-cli" --version
+          "$MOUNT_DIR/Perastage.app/Contents/MacOS/perastage-cli" --help
           test -f "$MOUNT_DIR/Perastage.app/Contents/Resources/resources/Perastage_logo.png"
           test -d "$MOUNT_DIR/Perastage.app/Contents/Resources/resources/icons"
           plutil -lint "$MOUNT_DIR/Perastage.app/Contents/Info.plist"

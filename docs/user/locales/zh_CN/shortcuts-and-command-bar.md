@@ -78,6 +78,25 @@
 4. 执行并在表格和查看器中核对结果。
 5. 重复修改时复用命令历史。
 
+## 实验性 CLI
+
+从 1.7.0 开始，Perastage 包含实验性 `perastage-cli`，用于自动化和高级工作流程。
+请在终端中运行：
+
+| 平台 | 示例 |
+| --- | --- |
+| Windows（PowerShell，默认安装位置） | `& "C:\Program Files\Perastage\perastage-cli.exe" --help` |
+| macOS（应用安装在 Applications 中） | `/Applications/Perastage.app/Contents/MacOS/perastage-cli --help` |
+| Linux AppImage（请替换为下载的文件名） | `./Perastage-1.7.0-x86_64.AppImage --cli --help` |
+| Arch Linux | `perastage-cli --help` |
+
+使用 `--version` 检查已安装的版本。Windows 和 macOS 不会将 CLI 添加到 PATH。
+命令和选项保持英文。`inspect` 只读取文件，不修改文件；`scene` 必须指定单独的输出文件，
+绝不会覆盖源文件；`live` 仅通过回环地址连接正在运行的本地 Perastage 实例。
+实验性描述的是公开支持和稳定性的成熟程度，现有的验证和原子性规则仍然适用。
+MCP 适配器需要单独配置，不包含在安装包中。详细语法请参阅
+[Developer CLI](../../../developer/cli.md)。
+
 <!-- PERASTAGE_CONSOLE_HELP_BEGIN -->
 
 ## Console 常用命令

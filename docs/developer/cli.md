@@ -1,9 +1,20 @@
 # Developer CLI
 
-Perastage provides a dedicated, headless command-line executable for development
-and automated testing. Its CMake target is `perastage_cli`; the produced binary
-is `perastage-cli` (`perastage-cli.exe` on Windows). It is not installed,
-staged, packaged, or shipped yet.
+Starting with Perastage 1.7.0, release packages ship `perastage-cli` as an
+**experimental** headless command-line interface for automation and advanced
+workflows. Its CMake target is `perastage_cli`; the produced console,
+non-bundle executable is `perastage-cli` (`perastage-cli.exe` on Windows).
+It remains separate from GUI startup, wxApp, MainWindow and viewer dependencies.
+
+Experimental describes the maturity of public support and stability; future
+releases may extend the surface. Existing safety, validation, atomicity and
+machine-contract rules still apply. Command grammar, help and protocol fields
+remain technical English. `inspect` is read-only; `scene` requires an explicit,
+separate output and never overwrites its source; `live` transport remains
+loopback-only. Platform locations and launch commands are documented in
+[Packaging](packaging.md) and the [user manual](../user/shortcuts-and-command-bar.md#experimental-cli).
+The Rust MCP adapter remains separately configured and is not installed with
+Perastage.
 
 ## Grammar
 
@@ -127,8 +138,8 @@ paths are passed directly through the standard C++ filesystem boundary.
 
 ## Automation contract
 
-The CLI is development-only today, but automation should use the executable
-name `perastage-cli`, the `inspect` command, and the
+The CLI is shipped experimentally starting with 1.7.0. Automation should use
+the executable name `perastage-cli`, the `inspect` command, and the
 `inspect <file> --json` form. For that machine-facing form, the compatibility
 surface is:
 

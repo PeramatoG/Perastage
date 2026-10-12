@@ -3,8 +3,11 @@ if(APPLE)
         BUNDLE DESTINATION .
         RUNTIME DESTINATION .
     )
+    install(TARGETS perastage_cli
+        RUNTIME DESTINATION "${PROJECT_NAME}.app/Contents/MacOS"
+    )
 else()
-    install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
+    install(TARGETS ${PROJECT_NAME} perastage_cli RUNTIME DESTINATION .)
 endif()
 
 if(UNIX AND NOT APPLE)
@@ -222,5 +225,5 @@ endif()
 add_custom_target(perastage_stage
     COMMAND ${CMAKE_COMMAND} -E rm -rf "${PERASTAGE_STAGE_PREFIX}"
     COMMAND ${CMAKE_COMMAND} --install "${CMAKE_BINARY_DIR}" --prefix "${PERASTAGE_STAGE_PREFIX}" ${PERASTAGE_STAGE_CONFIG}
-    DEPENDS ${PROJECT_NAME}
+    DEPENDS ${PROJECT_NAME} perastage_cli
 )

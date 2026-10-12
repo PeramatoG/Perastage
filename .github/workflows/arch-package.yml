@@ -209,6 +209,15 @@ jobs:
           file "$OUTPUT_NAME"
           tar -tf "$OUTPUT_NAME" | tee arch-package-contents.txt
           grep -q '^opt/perastage/Perastage$' arch-package-contents.txt
+          grep -q '^opt/perastage/perastage-cli$' arch-package-contents.txt
+          grep -q '^usr/bin/perastage-cli$' arch-package-contents.txt
+          CLI_PACKAGE_ROOT="$RUNNER_TEMP/perastage-cli-package"
+          mkdir -p "$CLI_PACKAGE_ROOT"
+          tar -xf "$OUTPUT_NAME" -C "$CLI_PACKAGE_ROOT"
+          test -x "$CLI_PACKAGE_ROOT/opt/perastage/perastage-cli"
+          test "$(readlink "$CLI_PACKAGE_ROOT/usr/bin/perastage-cli")" = /opt/perastage/perastage-cli
+          "$CLI_PACKAGE_ROOT/opt/perastage/perastage-cli" --version
+          "$CLI_PACKAGE_ROOT/opt/perastage/perastage-cli" --help
           grep -q '^opt/perastage/resources/' arch-package-contents.txt
           for lang in es zh_CN; do
             grep -q "^opt/perastage/resources/locale/${lang}/LC_MESSAGES/perastage.mo$" arch-package-contents.txt || { echo "Missing Arch package catalog for ${lang}"; exit 1; }

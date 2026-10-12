@@ -245,6 +245,9 @@ jobs:
           objcopy --add-gnu-debuglink="$SYMBOLS_DIR/Perastage.debug" "$STAGE_DIR/Perastage"
           (cd "$SYMBOLS_DIR" && zip -r "../../Perastage-$VERSION-Linux-symbols.zip" .)
           test -f "out/Perastage-$VERSION-Linux-symbols.zip" || { echo "Linux symbols ZIP was not created"; exit 1; }
+          test -x "$STAGE_DIR/perastage-cli"
+          "$STAGE_DIR/perastage-cli" --version
+          "$STAGE_DIR/perastage-cli" --help
           test -x "$STAGE_DIR/Perastage" || { echo "Staged executable is not executable"; exit 1; }
           test -d "$STAGE_DIR/resources" || { echo "Missing staged resources directory"; exit 1; }
           for lang in es zh_CN; do
@@ -298,6 +301,7 @@ jobs:
           mkdir -p "$APPDIR/usr/share/mime/packages"
 
           cp "$STAGE_DIR/Perastage" "$APPDIR/usr/bin/Perastage"
+          cp "$STAGE_DIR/perastage-cli" "$APPDIR/usr/bin/perastage-cli"
           cp -a "$STAGE_DIR/resources" "$APPDIR/usr/bin/"
           cp -a "$STAGE_DIR/library" "$APPDIR/usr/bin/"
           cp -a "$STAGE_DIR/licenses" "$APPDIR/usr/bin/"
@@ -313,6 +317,10 @@ jobs:
             'export GDK_BACKEND=x11' \
             'export QT_QPA_PLATFORM=xcb' \
             'export LD_LIBRARY_PATH="$APPDIR/usr/lib:$APPDIR/usr/bin:${LD_LIBRARY_PATH:-}"' \
+            'if [ "${1:-}" = "--cli" ]; then' \
+            '  shift' \
+            '  exec "$APPDIR/usr/bin/perastage-cli" "$@"' \
+            'fi' \
             'cd "$APPDIR/usr/bin"' \
             'exec "$APPDIR/usr/bin/Perastage" "$@"' > "$APPDIR/AppRun"
           chmod +x "$APPDIR/AppRun"
@@ -351,11 +359,10 @@ jobs:
             linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
 
-          # continuous currently points at upstream commit 8c8c91f762b412a19f4e8d2c4b35afb98f2d7c81;
-          # its verified content hash makes a mutable-asset change fail closed.
+          # Pin the stable release and its asset hash; continuous assets are replaced upstream.
           .github/scripts/download_verified.sh \
-            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage \
-            a6d71e2b6cd66f8e8d16c37ad164658985e0cf5fcaa950c90a482890cb9d13e0 \
+            https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage \
+            ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0 \
             appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
 
@@ -367,6 +374,8 @@ jobs:
 
           APPIMAGE_EXTRACT_AND_RUN=1 ./linuxdeploy-x86_64.AppImage \
             --appdir "$APPDIR" \
+            --executable "$APPDIR/usr/bin/Perastage" \
+            --executable "$APPDIR/usr/bin/perastage-cli" \
             --desktop-file "$APPDIR/Perastage.desktop" \
             --icon-file "$APPDIR/Perastage.png"
 
@@ -384,6 +393,9 @@ jobs:
           test -x squashfs-root/AppRun || { echo "Extracted AppRun is not executable"; exit 1; }
           test -f squashfs-root/Perastage.desktop || { echo "Extracted desktop file is missing"; exit 1; }
           test -f squashfs-root/Perastage.png || { echo "Extracted icon is missing"; exit 1; }
+          test -x squashfs-root/usr/bin/perastage-cli
+          squashfs-root/AppRun --cli --version
+          squashfs-root/AppRun --cli --help
           test -f squashfs-root/usr/bin/Perastage || { echo "Extracted executable is missing"; exit 1; }
           test -f squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "Extracted MIME metadata is missing"; exit 1; }
           test -d squashfs-root/usr/bin/resources || { echo "Extracted resources directory is missing"; exit 1; }
@@ -408,6 +420,13 @@ jobs:
         run: |
           set -euo pipefail
           python3 .github/scripts/check_appimage_abi.py squashfs-root | tee "$CI_LOG_DIR/appimage-abi.log"
+
+      - name: Smoke test final AppImage CLI
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          APPIMAGE_EXTRACT_AND_RUN=1 "./Perastage-${VERSION}-x86_64.AppImage" --cli --version
+          APPIMAGE_EXTRACT_AND_RUN=1 "./Perastage-${VERSION}-x86_64.AppImage" --cli --help
 
       - name: Smoke test final AppImage under X11
         run: |

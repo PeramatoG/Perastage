@@ -818,6 +818,9 @@ if(Python3_Interpreter_FOUND)
     add_repository_policy_test(PackagingOwnership ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_packaging_ownership.py
                                LABELS standard-strict policy cmake)
+    add_repository_policy_test(CliPackageRuntime ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_cli_package_runtime.py
+                               LABELS standard-strict policy cli packaging)
     add_repository_policy_test(PlatformCMakeOwnership ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_platform_cmake_ownership.py
                                LABELS standard-strict policy cmake)

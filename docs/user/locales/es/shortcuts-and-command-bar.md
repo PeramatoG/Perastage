@@ -78,6 +78,28 @@ Estos comandos admiten selecciones mixtas y también están disponibles en el me
 4. Ejecuta y comprueba el resultado en tablas y visores.
 5. Reutiliza el historial para cambios repetitivos.
 
+## CLI experimental
+
+A partir de la versión 1.7.0, Perastage incluye una interfaz experimental
+`perastage-cli` para automatización y flujos de trabajo avanzados. Ejecútela en
+una terminal:
+
+| Plataforma | Ejemplo |
+| --- | --- |
+| Windows (PowerShell, instalación predeterminada) | `& "C:\Program Files\Perastage\perastage-cli.exe" --help` |
+| macOS (aplicación instalada en Applications) | `/Applications/Perastage.app/Contents/MacOS/perastage-cli --help` |
+| Linux AppImage (sustituya el nombre por el archivo descargado) | `./Perastage-1.7.0-x86_64.AppImage --cli --help` |
+| Arch Linux | `perastage-cli --help` |
+
+Use `--version` para comprobar la versión instalada. Windows y macOS no añaden
+la CLI a PATH. Los comandos y opciones siguen en inglés. `inspect` lee archivos
+sin modificarlos; `scene` exige un archivo de salida separado y nunca sobrescribe
+el origen; `live` solo se conecta a una instancia local de Perastage en ejecución
+mediante loopback. Experimental describe la madurez del soporte y la estabilidad;
+las reglas de validación y atomicidad existentes siguen vigentes. El adaptador
+MCP se configura por separado y no está incluido en el instalador. Consulte la
+gramática detallada en [Developer CLI](../../../developer/cli.md).
+
 <!-- PERASTAGE_CONSOLE_HELP_BEGIN -->
 
 ## Comandos habituales de Console
