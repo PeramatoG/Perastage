@@ -205,9 +205,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Staged CLI --version failed" }
           & "./out/install/Release/perastage-cli.exe" --help
           if ($LASTEXITCODE -ne 0) { throw "Staged CLI --help failed" }
-          foreach ($lang in @('es', 'zh_CN')) {
-            if (-not (Test-Path "out/install/Release/resources/locale/$lang/LC_MESSAGES/perastage.mo")) { throw "Missing staged $lang catalog" }
-          }
+          python packaging/verify_localization.py --asset-root out/install/Release
+          if ($LASTEXITCODE -ne 0) { throw "Release localization payload validation failed" }
           Get-ChildItem out\install\Release
 
       - name: Collect Windows symbols
@@ -295,6 +294,8 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Installed CLI --version failed" }
             & (Join-Path $installDir "perastage-cli.exe") --help
             if ($LASTEXITCODE -ne 0) { throw "Installed CLI --help failed" }
+            python packaging/verify_localization.py --asset-root "$installDir"
+            if ($LASTEXITCODE -ne 0) { throw "Installed localization payload validation failed" }
           } finally {
             $uninstaller = Join-Path $installDir "unins000.exe"
             if (Test-Path $uninstaller) {

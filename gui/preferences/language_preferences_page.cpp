@@ -20,6 +20,10 @@ wxString NativeLanguageDisplayName(localization::AppLanguage language) {
     name += "ol";
     return name;
   }
+  case localization::AppLanguage::French:
+    return wxString::FromUTF8("Français");
+  case localization::AppLanguage::German:
+    return "Deutsch";
   case localization::AppLanguage::SimplifiedChinese: {
     wxString name;
     name += wxUniChar(0x7B80);

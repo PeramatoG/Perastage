@@ -15,7 +15,7 @@ workflows.
 - **Low / Standard / High 3D Model Detail** and reorganized Preferences.
 - An experimental **CLI included in release packages**, plus local OSC and a
   separately configured MCP integration path.
-- Unified **offline Help** in English, Spanish and Simplified Chinese.
+- Unified **offline Help** in English, Spanish, French, German and Simplified Chinese.
 
 ## MVR / GDTF Inspector
 
@@ -118,7 +118,7 @@ and [MCP adapter guide](developer/mcp_adapter.md) for setup and supported operat
 ## Documentation and Help
 
 - One canonical user manual now supplies repository documentation, the website
-  and packaged offline Help in **English, Spanish and Simplified Chinese**.
+  and packaged offline Help in **English, Spanish, French, German and Simplified Chinese**.
 - Console help comes from the same documentation source.
 
 ## Downloads

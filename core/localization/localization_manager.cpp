@@ -47,6 +47,10 @@ int WxLanguageId(AppLanguage language) {
   switch (language) {
   case AppLanguage::Spanish:
     return wxLANGUAGE_SPANISH;
+  case AppLanguage::French:
+    return wxLANGUAGE_FRENCH;
+  case AppLanguage::German:
+    return wxLANGUAGE_GERMAN;
   case AppLanguage::SimplifiedChinese:
     return wxLANGUAGE_CHINESE_SIMPLIFIED;
   case AppLanguage::English:

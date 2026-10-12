@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-12 20:33+0000\n"
+"POT-Creation-Date: 2026-10-12 21:51+0000\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -179,7 +179,7 @@ msgstr "Deseleccionar todo"
 msgid "Show available console commands and examples."
 msgstr "Mostrar comandos y ejemplos disponibles de la consola."
 
-#: gui/consolepanel.cpp:168 tests/localization_catalog_integration_test.cpp:199
+#: gui/consolepanel.cpp:168 tests/localization_catalog_integration_test.cpp:200
 msgid "Console commands"
 msgstr "Comandos de consola"
 
@@ -1226,6 +1226,7 @@ msgid "GDTF update"
 msgstr "GDTF actualización"
 
 #: gui/fixturetable/fixture_table_columns.cpp:12
+#: tests/localization_catalog_integration_test.cpp:247
 msgid "Fixture ID"
 msgstr "ID del aparato"
 
@@ -1310,7 +1311,7 @@ msgid "Power (W)"
 msgstr "Potencia (W)"
 
 #: gui/fixturetable/fixture_table_columns.cpp:20
-#: tests/localization_catalog_integration_test.cpp:185
+#: tests/localization_catalog_integration_test.cpp:186
 msgid "Weight (kg)"
 msgstr "Peso (kg)"
 
@@ -1322,8 +1323,8 @@ msgstr "Filtro de color"
 #: gui/hoisttablepanel.cpp:475 gui/hoisttablepanel.cpp:506
 #: gui/inspection/gdtf_inspector_details_panel.cpp:47
 #: gui/trusstablepanel.cpp:304 gui/trusstablepanel.cpp:340
-#: tests/localization_catalog_integration_test.cpp:213
-#: tests/localization_catalog_integration_test.cpp:216
+#: tests/localization_catalog_integration_test.cpp:214
+#: tests/localization_catalog_integration_test.cpp:217
 msgid "Weight"
 msgstr "Peso"
 
@@ -1829,7 +1830,7 @@ msgid "GDTF Share download failed."
 msgstr "Error al descargar desde GDTF Share."
 
 #: gui/gdtfsearchdialog.cpp:45
-#: tests/localization_catalog_integration_test.cpp:203
+#: tests/localization_catalog_integration_test.cpp:204
 msgid "Search GDTF"
 msgstr "Buscar GDTF"
 
@@ -1838,7 +1839,7 @@ msgid "Search:"
 msgstr "Buscar:"
 
 #: gui/gdtfsearchdialog.cpp:63 gui/inspection/inspector_workspace_panel.cpp:859
-#: tests/localization_catalog_integration_test.cpp:205
+#: tests/localization_catalog_integration_test.cpp:206
 msgid "Manufacturer:"
 msgstr "Fabricante:"
 
@@ -1859,7 +1860,7 @@ msgid "Page 1/1"
 msgstr "Página 1/1"
 
 #: gui/gdtfsearchdialog.cpp:111
-#: tests/localization_catalog_integration_test.cpp:207
+#: tests/localization_catalog_integration_test.cpp:208
 msgid "Download"
 msgstr "Descargar"
 
@@ -1974,7 +1975,7 @@ msgid "Use automatic value"
 msgstr "Usar valor automático"
 
 #: gui/hoisttablepanel.cpp:459
-#: tests/localization_catalog_integration_test.cpp:187
+#: tests/localization_catalog_integration_test.cpp:188
 msgid "Hoist ID"
 msgstr "ID del motor"
 
@@ -1993,13 +1994,13 @@ msgid "Dummy Preset"
 msgstr "Preajuste simulado"
 
 #: gui/hoisttablepanel.cpp:473 gui/hoisttablepanel.cpp:504
-#: tests/localization_catalog_integration_test.cpp:189
+#: tests/localization_catalog_integration_test.cpp:190
 msgid "Chain Length"
 msgstr "Longitud de cadena"
 
 #: gui/hoisttablepanel.cpp:474 gui/hoisttablepanel.cpp:505
-#: tests/localization_catalog_integration_test.cpp:225
-#: tests/localization_catalog_integration_test.cpp:228
+#: tests/localization_catalog_integration_test.cpp:226
+#: tests/localization_catalog_integration_test.cpp:229
 msgid "Capacity"
 msgstr "Capacidad"
 
@@ -2532,7 +2533,7 @@ msgid "Embedded in inspected MVR"
 msgstr "Incrustado en el MVR inspeccionado"
 
 #: gui/layerpanel.cpp:84 gui/layerpanel.cpp:100 gui/summarypanel.cpp:256
-#: gui/summarypanel.cpp:316 tests/localization_catalog_integration_test.cpp:191
+#: gui/summarypanel.cpp:316 tests/localization_catalog_integration_test.cpp:192
 msgid "Visible"
 msgstr "Visible"
 
@@ -2541,7 +2542,7 @@ msgid "Layer Color"
 msgstr "Color de capa"
 
 #: gui/layerpanel.cpp:300 gui/layerpanel.cpp:403
-#: tests/localization_catalog_integration_test.cpp:209
+#: tests/localization_catalog_integration_test.cpp:210
 msgid "Enter new layer name:"
 msgstr "Introduzca el nombre de la nueva capa:"
 
@@ -4551,11 +4552,12 @@ msgstr "Las credenciales son válidas, pero no se guardaron (%s)."
 msgid "Credentials are valid and were saved."
 msgstr "Las credenciales son válidas y fueron guardadas."
 
-#: gui/preferences/language_preferences_page.cpp:45
+#: gui/preferences/language_preferences_page.cpp:49
+#: tests/localization_catalog_integration_test.cpp:249
 msgid "Interface language:"
 msgstr "Idioma de la interfaz:"
 
-#: gui/preferences/language_preferences_page.cpp:55
+#: gui/preferences/language_preferences_page.cpp:59
 #: gui/preferencesdialog.cpp:145
 msgid "Language changes will be applied after restarting Perastage."
 msgstr "Los cambios de idioma se aplicarán después de reiniciar Perastage."
@@ -4844,9 +4846,10 @@ msgid "By universe"
 msgstr "Por universo"
 
 #: gui/preferencesdialog.cpp:40
-#: tests/localization_catalog_integration_test.cpp:122
-#: tests/localization_catalog_integration_test.cpp:143
-#: tests/localization_catalog_integration_test.cpp:174
+#: tests/localization_catalog_integration_test.cpp:123
+#: tests/localization_catalog_integration_test.cpp:144
+#: tests/localization_catalog_integration_test.cpp:175
+#: tests/localization_catalog_integration_test.cpp:243
 msgid "Preferences"
 msgstr "Preferencias"
 
@@ -4855,7 +4858,8 @@ msgid "General"
 msgstr "General"
 
 #: gui/preferencesdialog.cpp:54
-#: tests/localization_catalog_integration_test.cpp:176
+#: tests/localization_catalog_integration_test.cpp:177
+#: tests/localization_catalog_integration_test.cpp:245
 msgid "Language"
 msgstr "Idioma"
 
@@ -5096,7 +5100,7 @@ msgid "Loaded: %s"
 msgstr "Cargado: %s"
 
 #: gui/ridertextdialog.cpp:73 gui/ridertextdialog.cpp:82
-#: tests/localization_catalog_integration_test.cpp:201
+#: tests/localization_catalog_integration_test.cpp:202
 msgid "Create scene from text"
 msgstr "Crear escena desde texto"
 
@@ -5159,13 +5163,13 @@ msgstr ""
 msgid "Filtered text could not be decoded."
 msgstr "No se pudo decodificar el texto filtrado."
 
-#: gui/riggingpanel.cpp:182 tests/localization_catalog_integration_test.cpp:195
+#: gui/riggingpanel.cpp:182 tests/localization_catalog_integration_test.cpp:196
 msgid "Position"
 msgstr "Posición"
 
 #: gui/riggingpanel.cpp:193 gui/riggingpanel.cpp:258
-#: tests/localization_catalog_integration_test.cpp:197
-#: tests/localization_catalog_integration_test.cpp:232
+#: tests/localization_catalog_integration_test.cpp:198
+#: tests/localization_catalog_integration_test.cpp:233
 msgid "Fixture Weight"
 msgstr "Peso de aparatos"
 
@@ -5244,8 +5248,8 @@ msgstr "Rotación Z (grados):"
 #: gui/scene_object_primitive_dialogs.cpp:298
 #: gui/scene_object_primitive_dialogs.cpp:584 gui/trusstablepanel.cpp:304
 #: gui/trusstablepanel.cpp:337
-#: tests/localization_catalog_integration_test.cpp:219
-#: tests/localization_catalog_integration_test.cpp:222
+#: tests/localization_catalog_integration_test.cpp:220
+#: tests/localization_catalog_integration_test.cpp:223
 msgid "Length"
 msgstr "Longitud"
 
@@ -5356,7 +5360,7 @@ msgid "Loading Perastage..."
 msgstr "Cargando Perastage..."
 
 #: gui/summarypanel.cpp:258 gui/summarypanel.cpp:267 gui/summarypanel.cpp:317
-#: gui/summarypanel.cpp:347 tests/localization_catalog_integration_test.cpp:193
+#: gui/summarypanel.cpp:347 tests/localization_catalog_integration_test.cpp:194
 msgid "Count"
 msgstr "Cantidad"
 
@@ -5713,7 +5717,7 @@ msgstr "%s - cola finalizada"
 msgid "GDTF Share login"
 msgstr "Inicio de sesión en GDTF Share"
 
-#: tests/localization_catalog_integration_test.cpp:167
+#: tests/localization_catalog_integration_test.cpp:168
 msgid "Spanish"
 msgstr "Español"
 

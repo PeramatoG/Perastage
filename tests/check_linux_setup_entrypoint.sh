@@ -152,7 +152,7 @@ assert_file_contains "apt installs dependencies required by CMake discovery" \
 assert_file_contains "apt installs ripgrep for the complete Debug test suite" \
     'gettext locales ripgrep' "$COMMAND_LOG"
 assert_file_contains "apt generates locales used by the complete CTest suite" \
-    'sudo:locale-gen es_ES.UTF-8 zh_CN.UTF-8' "$COMMAND_LOG"
+    'sudo:locale-gen es_ES.UTF-8 fr_FR.UTF-8 de_DE.UTF-8 zh_CN.UTF-8' "$COMMAND_LOG"
 rm "$FAKE_BIN/apt-get"
 
 touch "$FAKE_BIN/dnf"

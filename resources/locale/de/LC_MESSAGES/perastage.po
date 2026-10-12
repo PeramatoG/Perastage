@@ -1,0 +1,5875 @@
+# Perastage de release catalog.
+# Machine-assisted translation; optional native-speaker review welcome.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Perastage 1.7.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-12 21:51+0000\n"
+"PO-Revision-Date: 2026-10-12 00:00+0000\n"
+"Last-Translator: Perastage contributors (machine-assisted)\n"
+"Language-Team: German\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: app/perastage_app.cpp:271
+msgid "Running library bootstrap..."
+msgstr "Bibliothek wird initialisiert…"
+
+#: app/perastage_app.cpp:281
+msgid "Creating main window..."
+msgstr "Hauptfenster wird erstellt…"
+
+#: app/perastage_app.cpp:304
+msgid "Loading last project..."
+msgstr "Letztes Projekt wird geladen…"
+
+#: app/perastage_app.cpp:380
+msgid ""
+"The Spanish translation catalog is not available in this build. Perastage is "
+"using English."
+msgstr ""
+"Der spanische Übersetzungskatalog ist in dieser Version nicht verfügbar. "
+"Perastage verwendet Englisch."
+
+#: app/perastage_app.cpp:382
+msgid "Translation catalog unavailable"
+msgstr "Übersetzungskatalog nicht verfügbar"
+
+#: gui/about_dialog.cpp:137
+msgid ""
+"Free and open-source MVR viewer/editor for lighting and stage projects, with "
+"integrated 2D/3D visualization, MVR import/export, and Create from Text "
+"tools."
+msgstr ""
+"Freier MVR-Viewer und -Editor für Licht- und Bühnenprojekte mit integrierter "
+"2D/3D-Darstellung, MVR-Import/-Export und Werkzeugen zur Szenenerstellung "
+"aus Text."
+
+#: gui/about_dialog.cpp:144
+msgid "Website"
+msgstr "Website"
+
+#: gui/about_dialog.cpp:151
+msgid "License"
+msgstr "Lizenz"
+
+#: gui/about_dialog.cpp:152
+msgid ""
+"This software is licensed under the GNU General Public License version 3 or "
+"later."
+msgstr ""
+"Diese Software steht unter der GNU General Public License, Version 3 oder "
+"höher."
+
+#: gui/about_dialog.cpp:153
+msgid "Author"
+msgstr "Autor"
+
+#: gui/about_dialog.cpp:155
+msgid "Open-source software notice"
+msgstr "Hinweis zu Open-Source-Software"
+
+#: gui/about_dialog.cpp:156
+msgid ""
+"Perastage is built with open-source technologies. Full dependency and "
+"license details are available in the project repository."
+msgstr ""
+"Perastage basiert auf Open-Source-Technologien. Einzelheiten zu "
+"Abhängigkeiten und Lizenzen finden Sie im Projekt-Repository."
+
+#: gui/about_dialog.cpp:166 gui/mainwindow_menu_builders.cpp:133
+msgid "About Perastage"
+msgstr "Über Perastage"
+
+#: gui/addfixturedialog.cpp:24 gui/mainwindow_menu.cpp:323
+msgid "Add Fixture"
+msgstr "Scheinwerfer hinzufügen"
+
+#: gui/addfixturedialog.cpp:29 gui/scene_object_primitive_dialogs.cpp:230
+#: gui/scene_object_primitive_dialogs.cpp:348
+#: gui/scene_object_primitive_dialogs.cpp:472
+msgid "Units:"
+msgstr "Einheiten:"
+
+#: gui/addfixturedialog.cpp:35
+msgid "Placement:"
+msgstr "Platzierung:"
+
+#: gui/addfixturedialog.cpp:38 gui/addsceneobjectdialog.cpp:26
+#: gui/addtrussdialog.cpp:97
+msgid "Place continuously in the viewer"
+msgstr "Fortlaufend in der Ansicht platzieren"
+
+#: gui/addfixturedialog.cpp:40
+msgid ""
+"Left-click places each fixture; right-click or Escape cancels the fixture "
+"currently attached to the pointer."
+msgstr ""
+"Linksklick platziert den jeweiligen Scheinwerfer; Rechtsklick oder Escape "
+"verwirft den aktuell am Zeiger hängenden Scheinwerfer."
+
+#: gui/addfixturedialog.cpp:45 gui/scene_object_primitive_dialogs.cpp:73
+msgid "Name:"
+msgstr "Name:"
+
+#: gui/addfixturedialog.cpp:49 gui/fixturepatchdialog.cpp:29
+msgid "Fixture ID:"
+msgstr "Scheinwerfer-ID:"
+
+#: gui/addfixturedialog.cpp:53
+msgid "Mode:"
+msgstr "Modus:"
+
+#: gui/addressdialog.cpp:21
+msgid "Edit Address"
+msgstr "Adresse bearbeiten"
+
+#: gui/addressdialog.cpp:26 gui/fixturepatchdialog.cpp:39
+msgid "Universe:"
+msgstr "Universum:"
+
+#: gui/addressdialog.cpp:30 gui/fixturepatchdialog.cpp:43
+msgid "Channel:"
+msgstr "Kanal:"
+
+#: gui/addsceneobjectdialog.cpp:11 gui/mainwindow_menu.cpp:330
+msgid "Add Scene Object"
+msgstr "Szenenobjekt hinzufügen"
+
+#: gui/addsceneobjectdialog.cpp:17 gui/addtrussdialog.cpp:79
+msgid "Quantity:"
+msgstr "Anzahl:"
+
+#: gui/addtrussdialog.cpp:45
+#, c-format
+msgid "Insertion point %s"
+msgstr "Einfügepunkt %s"
+
+#: gui/addtrussdialog.cpp:71 gui/mainwindow_menu.cpp:326
+msgid "Add Truss"
+msgstr "Traverse hinzufügen"
+
+#: gui/addtrussdialog.cpp:91
+msgid "Create group"
+msgstr "Gruppe erstellen"
+
+#: gui/columnselectiondialog.cpp:24
+msgid "Select Columns"
+msgstr "Spalten auswählen"
+
+#: gui/columnselectiondialog.cpp:53
+msgid "Up"
+msgstr "Nach oben"
+
+#: gui/columnselectiondialog.cpp:54
+msgid "Down"
+msgstr "Nach unten"
+
+#: gui/columnselectiondialog.cpp:62
+msgid "Select All"
+msgstr "Alles auswählen"
+
+#: gui/columnselectiondialog.cpp:63
+msgid "Deselect All"
+msgstr "Auswahl aufheben"
+
+#: gui/consolepanel.cpp:148
+msgid "Show available console commands and examples."
+msgstr "Verfügbare Console-Befehle und Beispiele anzeigen."
+
+#: gui/consolepanel.cpp:168 tests/localization_catalog_integration_test.cpp:200
+msgid "Console commands"
+msgstr "Console-Befehle"
+
+#: gui/dialogs/GenerateFixtureSymbolsDialog.cpp:12
+msgid "Select fixture type to generate symbols:"
+msgstr "Scheinwerfertyp zur Symbolerzeugung auswählen:"
+
+#: gui/dictionary_export_conflict_dialog.cpp:21
+msgid ""
+"The following files already exist with different content.\n"
+"Choose whether to keep the existing file or use the new exported file."
+msgstr ""
+"Die folgenden Dateien sind bereits mit anderem Inhalt vorhanden.\n"
+"Wählen Sie, ob die vorhandene oder die neu exportierte Datei verwendet "
+"werden soll."
+
+#: gui/dictionary_export_conflict_dialog.cpp:29
+#: gui/dictionaryeditdialog.cpp:515 gui/dictionaryeditdialog.cpp:571
+#: gui/inspection/inspector_workspace_panel.cpp:122 gui/mainwindow_menu.cpp:188
+msgid "File"
+msgstr "Datei"
+
+#: gui/dictionary_export_conflict_dialog.cpp:31
+msgid "Keep existing"
+msgstr "Vorhandene behalten"
+
+#: gui/dictionary_export_conflict_dialog.cpp:33
+msgid "Use new"
+msgstr "Neue verwenden"
+
+#: gui/dictionary_export_conflict_dialog.cpp:35
+msgid "Existing path"
+msgstr "Vorhandener Pfad"
+
+#: gui/dictionary_export_conflict_dialog.cpp:37
+msgid "New source"
+msgstr "Neue Quelle"
+
+#: gui/dictionary_export_conflict_dialog.cpp:43
+msgid "Select all existing"
+msgstr "Alle vorhandenen auswählen"
+
+#: gui/dictionary_export_conflict_dialog.cpp:44
+msgid "Select all new"
+msgstr "Alle neuen auswählen"
+
+#: gui/dictionary_selection_controls.cpp:34
+#: gui/dictionary_selection_controls.cpp:91
+msgid "Dictionary: -"
+msgstr "Verzeichnis: -"
+
+#: gui/dictionary_selection_controls.cpp:37
+#: gui/dictionary_selection_controls.cpp:96
+msgid "Path: -"
+msgstr "Pfad: -"
+
+#: gui/dictionary_selection_controls.cpp:39
+msgid "Open..."
+msgstr "Öffnen…"
+
+#: gui/dictionary_selection_controls.cpp:40
+msgid "New..."
+msgstr "Neu…"
+
+#: gui/dictionary_selection_controls.cpp:41
+msgid "More..."
+msgstr "Mehr…"
+
+#: gui/dictionary_selection_controls.cpp:43
+msgid "Duplicate Current..."
+msgstr "Aktuelles duplizieren…"
+
+#: gui/dictionary_selection_controls.cpp:44 gui/dictionaryeditdialog.cpp:939
+#: gui/dictionaryeditdialog.cpp:1340 gui/dictionaryeditdialog.cpp:1357
+msgid "Use Default"
+msgstr "Standard verwenden"
+
+#: gui/dictionary_selection_controls.cpp:46
+msgid "Reset Contents..."
+msgstr "Inhalt zurücksetzen…"
+
+#: gui/dictionary_selection_controls.cpp:92
+msgid "Dictionary: "
+msgstr "Verzeichnis: "
+
+#: gui/dictionary_selection_controls.cpp:97
+msgid "Path: "
+msgstr "Pfad: "
+
+#: gui/dictionaryeditdialog.cpp:244
+#, c-format
+msgid ""
+"Found file references in the loaded dictionary.\n"
+"\n"
+"Total entries: %zu\n"
+"Entries with file found: %zu\n"
+"Entries with missing file: %zu"
+msgstr ""
+"Dateiverweise im geladenen Verzeichnis gefunden.\n"
+"\n"
+"Einträge insgesamt: %zu\n"
+"Einträge mit gefundener Datei: %zu\n"
+"Einträge mit fehlender Datei: %zu"
+
+#: gui/dictionaryeditdialog.cpp:250
+msgid ""
+"\n"
+"Missing files:"
+msgstr ""
+"\n"
+"Fehlende Dateien:"
+
+#: gui/dictionaryeditdialog.cpp:256
+msgid ""
+"\n"
+"\n"
+"Do you want to export references only?"
+msgstr ""
+"\n"
+"\n"
+"Nur Verweise exportieren?"
+
+#: gui/dictionaryeditdialog.cpp:260
+msgid "Export references only"
+msgstr "Nur Verweise exportieren"
+
+#: gui/dictionaryeditdialog.cpp:260 gui/dictionaryeditdialog.cpp:293
+#: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
+#: gui/dictionaryeditdialog.cpp:941 gui/gdtfsearchdialog.cpp:112
+#: gui/layout2dviewdialog.cpp:75 gui/layouttextdialog.cpp:149
+#: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
+#: gui/scene_object_primitive_dialogs.cpp:139 mvr/mvrimporter.cpp:757
+msgid "Cancel"
+msgstr "Abbrechen"
+
+#: gui/dictionaryeditdialog.cpp:271
+#, c-format
+msgid ""
+"Some imported file references could not be resolved before applying:\n"
+"\n"
+"Checked entries: %zu\n"
+"Found entries: %zu\n"
+"Missing entries: %zu"
+msgstr ""
+"Einige importierte Dateiverweise konnten vor dem Anwenden nicht aufgelöst "
+"werden:\n"
+"\n"
+"Geprüfte Einträge: %zu\n"
+"Gefundene Einträge: %zu\n"
+"Fehlende Einträge: %zu"
+
+#: gui/dictionaryeditdialog.cpp:276
+msgid ""
+"\n"
+"\n"
+"Missing examples:"
+msgstr ""
+"\n"
+"\n"
+"Beispiele fehlender Dateien:"
+
+#: gui/dictionaryeditdialog.cpp:280
+msgid ""
+"\n"
+"\n"
+"Continue with import anyway?"
+msgstr ""
+"\n"
+"\n"
+"Import trotzdem fortsetzen?"
+
+#: gui/dictionaryeditdialog.cpp:291
+msgid "Rename (stable: <basename>_<hash>.<ext>)"
+msgstr "Umbenennen (stabil: <basename>_<hash>.<ext>)"
+
+#: gui/dictionaryeditdialog.cpp:292
+msgid "Overwrite existing file"
+msgstr "Vorhandene Datei überschreiben"
+
+#: gui/dictionaryeditdialog.cpp:298
+#, c-format
+msgid ""
+"The destination file already exists with different content.\n"
+"\n"
+"Source: %s\n"
+"Destination: %s\n"
+"\n"
+"Choose conflict policy:"
+msgstr ""
+"Die Zieldatei ist bereits mit anderem Inhalt vorhanden.\n"
+"\n"
+"Quelle: %s\n"
+"Ziel: %s\n"
+"\n"
+"Konfliktregel auswählen:"
+
+#: gui/dictionaryeditdialog.cpp:302
+msgid "File conflict"
+msgstr "Dateikonflikt"
+
+#: gui/dictionaryeditdialog.cpp:395
+#, c-format
+msgid ""
+"Added: %zu\n"
+"Overwritten: %zu\n"
+"Skipped: %zu\n"
+"Missing files: %zu\n"
+msgstr ""
+"Hinzugefügt: %zu\n"
+"Überschrieben: %zu\n"
+"Übersprungen: %zu\n"
+"Fehlende Dateien: %zu\n"
+
+#: gui/dictionaryeditdialog.cpp:399
+msgid "Missing file examples:"
+msgstr "Beispiele fehlender Dateien:"
+
+#: gui/dictionaryeditdialog.cpp:404
+#, c-format
+msgid "Errors: %zu"
+msgstr "Fehler: %zu"
+
+#: gui/dictionaryeditdialog.cpp:415 gui/dictionaryeditdialog.cpp:426
+msgid "AddMissing: insert only missing keys"
+msgstr "AddMissing: Nur fehlende Schlüssel einfügen"
+
+#: gui/dictionaryeditdialog.cpp:417 gui/dictionaryeditdialog.cpp:427
+msgid "AddAndOverwrite: insert new keys and overwrite matches"
+msgstr ""
+"AddAndOverwrite: Neue Schlüssel einfügen und übereinstimmende überschreiben"
+
+#: gui/dictionaryeditdialog.cpp:419 gui/dictionaryeditdialog.cpp:428
+msgid "ReplaceAll: discard current dictionary and use imported one"
+msgstr "ReplaceAll: Aktuelles Verzeichnis verwerfen und importiertes verwenden"
+
+#: gui/dictionaryeditdialog.cpp:421
+msgid "Unknown policy"
+msgstr "Unbekannte Regel"
+
+#: gui/dictionaryeditdialog.cpp:429
+msgid "Select import policy"
+msgstr "Importregel auswählen"
+
+#: gui/dictionaryeditdialog.cpp:430
+msgid "Dictionary import"
+msgstr "Verzeichnisimport"
+
+#: gui/dictionaryeditdialog.cpp:446
+msgid ""
+"This will replace all current entries in the fixtures dictionary.\n"
+"This action is destructive.\n"
+"\n"
+"Continue?"
+msgstr ""
+"Alle aktuellen Einträge im Scheinwerferverzeichnis werden ersetzt.\n"
+"Diese Aktion ist destruktiv.\n"
+"\n"
+"Fortfahren?"
+
+#: gui/dictionaryeditdialog.cpp:448
+msgid ""
+"This will replace all current entries in the trusses dictionary.\n"
+"This action is destructive.\n"
+"\n"
+"Continue?"
+msgstr ""
+"Alle aktuellen Einträge im Traversenverzeichnis werden ersetzt.\n"
+"Diese Aktion ist destruktiv.\n"
+"\n"
+"Fortfahren?"
+
+#: gui/dictionaryeditdialog.cpp:450
+msgid "Confirm replace all"
+msgstr "Vollständiges Ersetzen bestätigen"
+
+#: gui/dictionaryeditdialog.cpp:457
+msgid "Dictionary duplicated successfully."
+msgstr "Verzeichnis erfolgreich dupliziert."
+
+#: gui/dictionaryeditdialog.cpp:475
+msgid "Could not duplicate the dictionary."
+msgstr "Verzeichnis konnte nicht dupliziert werden."
+
+#: gui/dictionaryeditdialog.cpp:513 gui/dictionaryeditdialog.cpp:569
+#: gui/fixturetable/fixture_table_columns.cpp:12 gui/hoisttablepanel.cpp:460
+#: gui/inspection/inspector_workspace_panel.cpp:482
+#: gui/sceneobjecttablepanel.cpp:263 gui/trusstablepanel.cpp:300
+msgid "Name"
+msgstr "Name"
+
+#: gui/dictionaryeditdialog.cpp:517
+#: gui/fixturetable/fixture_table_columns.cpp:15
+#: gui/gdtf/gdtf_modes_panel.cpp:201 gui/gdtf_catalog_details_panel.cpp:51
+#: gui/rider_fixture_resolution_dialog.cpp:111
+msgid "Mode"
+msgstr "Modus"
+
+#: gui/dictionaryeditdialog.cpp:519 gui/dictionaryeditdialog.cpp:2236
+#: gui/fixturetable/fixture_table_columns.cpp:21 gui/fixturetablepanel.cpp:851
+msgid "Category"
+msgstr "Kategorie"
+
+#: gui/dictionaryeditdialog.cpp:524
+#: gui/fixturetable/fixture_table_columns.cpp:21
+msgid "Type Color"
+msgstr "Typfarbe"
+
+#: gui/dictionaryeditdialog.cpp:599 gui/mainwindow_layout.cpp:329
+#: gui/mainwindow_menu_builders.cpp:79 gui/mainwindow_print.cpp:640
+#: gui/riggingpanel.cpp:185 gui/summarypanel.cpp:137
+msgid "Fixtures"
+msgstr "Scheinwerfer"
+
+#: gui/dictionaryeditdialog.cpp:600 gui/mainwindow_layout.cpp:334
+#: gui/mainwindow_print.cpp:643 gui/riggingpanel.cpp:188
+#: gui/summarypanel.cpp:170
+msgid "Trusses"
+msgstr "Traversen"
+
+#: gui/dictionaryeditdialog.cpp:605 gui/hang_position_dialog.cpp:177
+#: gui/layerpanel.cpp:126 gui/layoutpanel.cpp:42
+msgid "Add"
+msgstr "Hinzufügen"
+
+#: gui/dictionaryeditdialog.cpp:606 gui/hang_position_dialog.cpp:179
+#: gui/layerpanel.cpp:127 gui/layoutpanel.cpp:44
+msgid "Delete"
+msgstr "Löschen"
+
+#: gui/dictionaryeditdialog.cpp:607
+msgid "Download Fixture GDTF..."
+msgstr "Scheinwerfer-GDTF herunterladen…"
+
+#: gui/dictionaryeditdialog.cpp:608
+msgid "Import..."
+msgstr "Importieren…"
+
+#: gui/dictionaryeditdialog.cpp:609
+msgid "Export..."
+msgstr "Exportieren…"
+
+#: gui/dictionaryeditdialog.cpp:610 gui/layout2dviewdialog.cpp:74
+#: gui/mvr_export_result_dialog.cpp:97
+#: gui/scene_object_primitive_dialogs.cpp:138 mvr/mvrimporter.cpp:759
+msgid "OK"
+msgstr "OK"
+
+#: gui/dictionaryeditdialog.cpp:865 gui/dictionaryeditdialog.cpp:936
+msgid "fixtures"
+msgstr "Scheinwerfer"
+
+#: gui/dictionaryeditdialog.cpp:866 gui/dictionaryeditdialog.cpp:936
+msgid "trusses"
+msgstr "Traversen"
+
+#: gui/dictionaryeditdialog.cpp:870
+#, c-format
+msgid "The %s dictionary page has unsaved table edits. Save them before %s?"
+msgstr ""
+"Die Seite des Verzeichnisses %s enthält ungespeicherte Tabellenänderungen. "
+"Vor dem Vorgang „%s“ speichern?"
+
+#: gui/dictionaryeditdialog.cpp:872
+msgid "Unsaved dictionary edits"
+msgstr "Ungespeicherte Verzeichnisänderungen"
+
+#: gui/dictionaryeditdialog.cpp:874 gui/mainwindow_menu.cpp:169
+msgid "Save"
+msgstr "Speichern"
+
+#: gui/dictionaryeditdialog.cpp:874
+msgid "Discard"
+msgstr "Verwerfen"
+
+#: gui/dictionaryeditdialog.cpp:938
+msgid "Open Another Dictionary..."
+msgstr "Anderes Verzeichnis öffnen…"
+
+#: gui/dictionaryeditdialog.cpp:940
+msgid "Recreate Active Custom Dictionary From Application Defaults..."
+msgstr ""
+"Aktives benutzerdefiniertes Verzeichnis aus Anwendungsstandards neu "
+"erstellen…"
+
+#: gui/dictionaryeditdialog.cpp:945
+#, c-format
+msgid ""
+"The active %s dictionary is invalid or missing, so writes are blocked until "
+"you choose an explicit recovery action."
+msgstr ""
+"Das aktive Verzeichnis %s ist ungültig oder fehlt. Schreibzugriffe bleiben "
+"gesperrt, bis Sie ausdrücklich eine Wiederherstellungsaktion wählen."
+
+#: gui/dictionaryeditdialog.cpp:947
+#, c-format
+msgid "Recover %s dictionary"
+msgstr "Verzeichnis %s wiederherstellen"
+
+#: gui/dictionaryeditdialog.cpp:957
+#, c-format
+msgid "Open %s dictionary"
+msgstr "Verzeichnis %s öffnen"
+
+#: gui/dictionaryeditdialog.cpp:972
+msgid ""
+"Could not open the selected dictionary.\n"
+"\n"
+msgstr ""
+"Ausgewähltes Verzeichnis konnte nicht geöffnet werden.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:974 gui/dictionaryeditdialog.cpp:987
+#: gui/dictionaryeditdialog.cpp:1002
+msgid "Recover dictionary"
+msgstr "Verzeichnis wiederherstellen"
+
+#: gui/dictionaryeditdialog.cpp:985
+msgid ""
+"Could not switch to the default dictionary.\n"
+"\n"
+msgstr ""
+"Wechsel zum Standardverzeichnis fehlgeschlagen.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:1000
+msgid ""
+"Could not recreate the active dictionary.\n"
+"\n"
+msgstr ""
+"Aktives Verzeichnis konnte nicht neu erstellt werden.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:1066
+msgid "Dictionary load error"
+msgstr "Fehler beim Laden des Verzeichnisses"
+
+#: gui/dictionaryeditdialog.cpp:1066
+msgid "Dictionary warning"
+msgstr "Verzeichniswarnung"
+
+#: gui/dictionaryeditdialog.cpp:1085
+msgid "opening a fixtures dictionary"
+msgstr "Scheinwerferverzeichnis öffnen"
+
+#: gui/dictionaryeditdialog.cpp:1089
+msgid "Open fixtures dictionary"
+msgstr "Scheinwerferverzeichnis öffnen"
+
+#: gui/dictionaryeditdialog.cpp:1098
+msgid ""
+"Could not open fixtures dictionary.\n"
+"\n"
+msgstr ""
+"Scheinwerferverzeichnis konnte nicht geöffnet werden.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:1100 gui/dictionaryeditdialog.cpp:1125
+msgid "Open dictionary"
+msgstr "Verzeichnis öffnen"
+
+#: gui/dictionaryeditdialog.cpp:1110
+msgid "opening a trusses dictionary"
+msgstr "Traversenverzeichnis öffnen"
+
+#: gui/dictionaryeditdialog.cpp:1114
+msgid "Open trusses dictionary"
+msgstr "Traversenverzeichnis öffnen"
+
+#: gui/dictionaryeditdialog.cpp:1123
+msgid ""
+"Could not open trusses dictionary.\n"
+"\n"
+msgstr ""
+"Traversenverzeichnis konnte nicht geöffnet werden.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:1135
+msgid "creating a fixtures dictionary"
+msgstr "Scheinwerferverzeichnis erstellen"
+
+#: gui/dictionaryeditdialog.cpp:1138 gui/dictionaryeditdialog.cpp:1178
+msgid "Empty dictionary"
+msgstr "Leeres Verzeichnis"
+
+#: gui/dictionaryeditdialog.cpp:1139 gui/dictionaryeditdialog.cpp:1179
+msgid "From application defaults (seed once)"
+msgstr "Aus Anwendungsstandards (einmalige Initialisierung)"
+
+#: gui/dictionaryeditdialog.cpp:1141
+msgid "Choose how to create the new fixtures dictionary."
+msgstr "Wählen Sie, wie das neue Scheinwerferverzeichnis erstellt werden soll."
+
+#: gui/dictionaryeditdialog.cpp:1142
+msgid "New fixtures dictionary"
+msgstr "Neues Scheinwerferverzeichnis"
+
+#: gui/dictionaryeditdialog.cpp:1145
+msgid "Create fixtures dictionary"
+msgstr "Scheinwerferverzeichnis erstellen"
+
+#: gui/dictionaryeditdialog.cpp:1163
+msgid ""
+"Could not create fixtures dictionary.\n"
+"\n"
+msgstr ""
+"Scheinwerferverzeichnis konnte nicht erstellt werden.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:1165 gui/dictionaryeditdialog.cpp:1205
+msgid "New dictionary"
+msgstr "Neues Verzeichnis"
+
+#: gui/dictionaryeditdialog.cpp:1175
+msgid "creating a trusses dictionary"
+msgstr "Traversenverzeichnis erstellen"
+
+#: gui/dictionaryeditdialog.cpp:1181
+msgid "Choose how to create the new trusses dictionary."
+msgstr "Wählen Sie, wie das neue Traversenverzeichnis erstellt werden soll."
+
+#: gui/dictionaryeditdialog.cpp:1182
+msgid "New trusses dictionary"
+msgstr "Neues Traversenverzeichnis"
+
+#: gui/dictionaryeditdialog.cpp:1185
+msgid "Create trusses dictionary"
+msgstr "Traversenverzeichnis erstellen"
+
+#: gui/dictionaryeditdialog.cpp:1203
+msgid ""
+"Could not create trusses dictionary.\n"
+"\n"
+msgstr ""
+"Traversenverzeichnis konnte nicht erstellt werden.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:1215
+msgid "duplicating the fixtures dictionary"
+msgstr "Scheinwerferverzeichnis duplizieren"
+
+#: gui/dictionaryeditdialog.cpp:1224 gui/dictionaryeditdialog.cpp:1244
+#: gui/dictionaryeditdialog.cpp:1253 gui/dictionaryeditdialog.cpp:1261
+msgid "Duplicate fixtures dictionary"
+msgstr "Scheinwerferverzeichnis duplizieren"
+
+#: gui/dictionaryeditdialog.cpp:1252 gui/dictionaryeditdialog.cpp:1310
+msgid ""
+"\n"
+"\n"
+"Do you want to activate the duplicate now?"
+msgstr ""
+"\n"
+"\n"
+"Duplikat jetzt aktivieren?"
+
+#: gui/dictionaryeditdialog.cpp:1254 gui/dictionaryeditdialog.cpp:1312
+msgid "Activate duplicate"
+msgstr "Duplikat aktivieren"
+
+#: gui/dictionaryeditdialog.cpp:1254 gui/dictionaryeditdialog.cpp:1312
+msgid "Keep current"
+msgstr "Aktuelles behalten"
+
+#: gui/dictionaryeditdialog.cpp:1259 gui/dictionaryeditdialog.cpp:1317
+msgid ""
+"The duplicate was created but could not be activated.\n"
+"\n"
+msgstr ""
+"Das Duplikat wurde erstellt, konnte aber nicht aktiviert werden.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:1274
+msgid "duplicating the trusses dictionary"
+msgstr "Traversenverzeichnis duplizieren"
+
+#: gui/dictionaryeditdialog.cpp:1282 gui/dictionaryeditdialog.cpp:1302
+#: gui/dictionaryeditdialog.cpp:1311 gui/dictionaryeditdialog.cpp:1319
+msgid "Duplicate trusses dictionary"
+msgstr "Traversenverzeichnis duplizieren"
+
+#: gui/dictionaryeditdialog.cpp:1334
+msgid "using the default fixtures dictionary path"
+msgstr "Standardpfad des Scheinwerferverzeichnisses verwenden"
+
+#: gui/dictionaryeditdialog.cpp:1338
+msgid ""
+"Could not use the default fixtures dictionary path.\n"
+"\n"
+msgstr ""
+"Standardpfad des Scheinwerferverzeichnisses konnte nicht verwendet werden.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:1351
+msgid "using the default trusses dictionary path"
+msgstr "Standardpfad des Traversenverzeichnisses verwenden"
+
+#: gui/dictionaryeditdialog.cpp:1355
+msgid ""
+"Could not use the default trusses dictionary path.\n"
+"\n"
+msgstr ""
+"Standardpfad des Traversenverzeichnisses konnte nicht verwendet werden.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:1389
+msgid ""
+"Could not copy fixture file into the library. The dictionary was not saved."
+msgstr ""
+"Scheinwerferdatei konnte nicht in die Bibliothek kopiert werden. Das "
+"Verzeichnis wurde nicht gespeichert."
+
+#: gui/dictionaryeditdialog.cpp:1391 gui/dictionaryeditdialog.cpp:1408
+#: gui/dictionaryeditdialog.cpp:1436
+msgid "Save fixtures dictionary"
+msgstr "Scheinwerferverzeichnis speichern"
+
+#: gui/dictionaryeditdialog.cpp:1406
+#, c-format
+msgid ""
+"Invalid color in row %d: '%s'\n"
+"Expected #RRGGBB."
+msgstr ""
+"Ungültige Farbe in Zeile %d: „%s“\n"
+"Erwartet: #RRGGBB."
+
+#: gui/dictionaryeditdialog.cpp:1434
+msgid ""
+"Could not save fixtures dictionary.\n"
+"\n"
+msgstr ""
+"Scheinwerferverzeichnis konnte nicht gespeichert werden.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:1478
+msgid ""
+"Could not ingest the truss file into dictionary-owned GDTF storage. The "
+"dictionary was not saved.\n"
+"\n"
+msgstr ""
+"Traversendatei konnte nicht in den GDTF-Speicher des Verzeichnisses "
+"übernommen werden. Das Verzeichnis wurde nicht gespeichert.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:1481 gui/dictionaryeditdialog.cpp:1502
+msgid "Save trusses dictionary"
+msgstr "Traversenverzeichnis speichern"
+
+#: gui/dictionaryeditdialog.cpp:1500
+msgid ""
+"Could not save trusses dictionary.\n"
+"\n"
+msgstr ""
+"Traversenverzeichnis konnte nicht gespeichert werden.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:1521 gui/dictionaryeditdialog.cpp:2276
+#: gui/fixtureeditdialog.cpp:671 gui/fixturetablepanel.cpp:525
+#: gui/mainwindow_fixture_replace.cpp:224 gui/mainwindow_menu.cpp:1005
+#: gui/mainwindow_menu.cpp:1028
+msgid "Select GDTF file"
+msgstr "GDTF-Datei auswählen"
+
+#: gui/dictionaryeditdialog.cpp:1537 gui/dictionaryeditdialog.cpp:2220
+#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:693
+msgid "Select DMX mode"
+msgstr "DMX-Modus auswählen"
+
+#: gui/dictionaryeditdialog.cpp:1537 gui/dictionaryeditdialog.cpp:2220
+#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:693
+msgid "DMX Mode"
+msgstr "DMX-Modus"
+
+#: gui/dictionaryeditdialog.cpp:1556 gui/dictionaryeditdialog.cpp:2307
+#: gui/mainwindow_menu.cpp:1061 gui/mainwindow_menu.cpp:1080
+#: gui/mainwindow_truss_replace.cpp:114
+msgid "Select Truss file"
+msgstr "Traversendatei auswählen"
+
+#: gui/dictionaryeditdialog.cpp:1742
+msgid "importing a dictionary"
+msgstr "Verzeichnis importieren"
+
+#: gui/dictionaryeditdialog.cpp:1758 gui/dictionaryeditdialog.cpp:1774
+#: gui/dictionaryeditdialog.cpp:1786
+msgid "Import fixtures dictionary"
+msgstr "Scheinwerferverzeichnis importieren"
+
+#: gui/dictionaryeditdialog.cpp:1772 gui/dictionaryeditdialog.cpp:1784
+msgid ""
+"Invalid fixtures dictionary file.\n"
+"\n"
+msgstr ""
+"Ungültige Scheinwerferverzeichnisdatei.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:1810 gui/dictionaryeditdialog.cpp:1898
+#, c-format
+msgid ""
+"Policy:\n"
+"%s\n"
+"\n"
+"Preview summary:\n"
+"%s\n"
+"\n"
+"Apply import?"
+msgstr ""
+"Regel:\n"
+"%s\n"
+"\n"
+"Vorschauübersicht:\n"
+"%s\n"
+"\n"
+"Import anwenden?"
+
+#: gui/dictionaryeditdialog.cpp:1812
+msgid "Confirm fixtures dictionary import"
+msgstr "Import des Scheinwerferverzeichnisses bestätigen"
+
+#: gui/dictionaryeditdialog.cpp:1817
+msgid "Fixtures import warning"
+msgstr "Warnung beim Scheinwerferimport"
+
+#: gui/dictionaryeditdialog.cpp:1831
+msgid ""
+"Fixtures dictionary import finished with errors.\n"
+"\n"
+msgstr ""
+"Import des Scheinwerferverzeichnisses mit Fehlern abgeschlossen.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:1832
+msgid ""
+"Fixtures dictionary import completed.\n"
+"\n"
+msgstr ""
+"Import des Scheinwerferverzeichnisses abgeschlossen.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:1834
+msgid "Fixtures dictionary import"
+msgstr "Import des Scheinwerferverzeichnisses"
+
+#: gui/dictionaryeditdialog.cpp:1846 gui/dictionaryeditdialog.cpp:1862
+#: gui/dictionaryeditdialog.cpp:1874
+msgid "Import trusses dictionary"
+msgstr "Traversenverzeichnis importieren"
+
+#: gui/dictionaryeditdialog.cpp:1860 gui/dictionaryeditdialog.cpp:1872
+msgid ""
+"Invalid trusses dictionary file.\n"
+"\n"
+msgstr ""
+"Ungültige Traversenverzeichnisdatei.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:1900
+msgid "Confirm trusses dictionary import"
+msgstr "Import des Traversenverzeichnisses bestätigen"
+
+#: gui/dictionaryeditdialog.cpp:1905
+msgid "Trusses import warning"
+msgstr "Warnung beim Traversenimport"
+
+#: gui/dictionaryeditdialog.cpp:1919
+msgid ""
+"Trusses dictionary import finished with errors.\n"
+"\n"
+msgstr ""
+"Import des Traversenverzeichnisses mit Fehlern abgeschlossen.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:1920
+msgid ""
+"Trusses dictionary import completed.\n"
+"\n"
+msgstr ""
+"Import des Traversenverzeichnisses abgeschlossen.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:1922
+msgid "Trusses dictionary import"
+msgstr "Import des Traversenverzeichnisses"
+
+#: gui/dictionaryeditdialog.cpp:1929
+msgid "JSON Snapshot"
+msgstr "JSON-Snapshot"
+
+#: gui/dictionaryeditdialog.cpp:1929
+msgid "Portable ZIP Bundle"
+msgstr "Portables ZIP-Paket"
+
+#: gui/dictionaryeditdialog.cpp:1932
+msgid "Export does not change the active dictionary. Choose the export format."
+msgstr ""
+"Der Export ändert das aktive Verzeichnis nicht. Wählen Sie das Exportformat."
+
+#: gui/dictionaryeditdialog.cpp:1933
+msgid "Export dictionary"
+msgstr "Verzeichnis exportieren"
+
+#: gui/dictionaryeditdialog.cpp:1959
+msgid "resetting a dictionary"
+msgstr "Verzeichnis zurücksetzen"
+
+#: gui/dictionaryeditdialog.cpp:1975
+msgid "Could not load fixtures dictionary for export."
+msgstr "Scheinwerferverzeichnis konnte nicht zum Export geladen werden."
+
+#: gui/dictionaryeditdialog.cpp:1976 gui/dictionaryeditdialog.cpp:1981
+#: gui/dictionaryeditdialog.cpp:1987 gui/dictionaryeditdialog.cpp:1999
+#: gui/dictionaryeditdialog.cpp:2004
+msgid "Export fixtures dictionary"
+msgstr "Scheinwerferverzeichnis exportieren"
+
+#: gui/dictionaryeditdialog.cpp:1998
+msgid "Could not write fixtures dictionary snapshot."
+msgstr ""
+"Snapshot des Scheinwerferverzeichnisses konnte nicht geschrieben werden."
+
+#: gui/dictionaryeditdialog.cpp:2003
+msgid "Fixtures dictionary snapshot exported successfully."
+msgstr "Snapshot des Scheinwerferverzeichnisses erfolgreich exportiert."
+
+#: gui/dictionaryeditdialog.cpp:2016
+msgid "Could not load trusses dictionary for export."
+msgstr "Traversenverzeichnis konnte nicht zum Export geladen werden."
+
+#: gui/dictionaryeditdialog.cpp:2017 gui/dictionaryeditdialog.cpp:2022
+#: gui/dictionaryeditdialog.cpp:2028 gui/dictionaryeditdialog.cpp:2040
+#: gui/dictionaryeditdialog.cpp:2045
+msgid "Export trusses dictionary"
+msgstr "Traversenverzeichnis exportieren"
+
+#: gui/dictionaryeditdialog.cpp:2039
+msgid "Could not write trusses dictionary snapshot."
+msgstr "Snapshot des Traversenverzeichnisses konnte nicht geschrieben werden."
+
+#: gui/dictionaryeditdialog.cpp:2044
+msgid "Trusses dictionary snapshot exported successfully."
+msgstr "Snapshot des Traversenverzeichnisses erfolgreich exportiert."
+
+#: gui/dictionaryeditdialog.cpp:2057
+msgid "Could not load fixtures dictionary for portable export."
+msgstr ""
+"Scheinwerferverzeichnis konnte nicht zum portablen Export geladen werden."
+
+#: gui/dictionaryeditdialog.cpp:2058 gui/dictionaryeditdialog.cpp:2064
+#: gui/dictionaryeditdialog.cpp:2076 gui/dictionaryeditdialog.cpp:2081
+msgid "Export portable fixtures bundle"
+msgstr "Portables Scheinwerferpaket exportieren"
+
+#: gui/dictionaryeditdialog.cpp:2074
+msgid "Could not write fixtures portable bundle.\n"
+msgstr "Portables Scheinwerferpaket konnte nicht geschrieben werden.\n"
+
+#: gui/dictionaryeditdialog.cpp:2080
+msgid "Fixtures portable bundle exported successfully."
+msgstr "Portables Scheinwerferpaket erfolgreich exportiert."
+
+#: gui/dictionaryeditdialog.cpp:2093
+msgid "Could not load trusses dictionary for portable export."
+msgstr "Traversenverzeichnis konnte nicht zum portablen Export geladen werden."
+
+#: gui/dictionaryeditdialog.cpp:2094 gui/dictionaryeditdialog.cpp:2100
+#: gui/dictionaryeditdialog.cpp:2112 gui/dictionaryeditdialog.cpp:2117
+msgid "Export portable trusses bundle"
+msgstr "Portables Traversenpaket exportieren"
+
+#: gui/dictionaryeditdialog.cpp:2110
+msgid "Could not write trusses portable bundle.\n"
+msgstr "Portables Traversenpaket konnte nicht geschrieben werden.\n"
+
+#: gui/dictionaryeditdialog.cpp:2116
+msgid "Trusses portable bundle exported successfully."
+msgstr "Portables Traversenpaket erfolgreich exportiert."
+
+#: gui/dictionaryeditdialog.cpp:2128
+msgid ""
+"Reset active fixtures dictionary to application defaults?\n"
+"Current entries will be replaced after a backup is created."
+msgstr ""
+"Aktives Scheinwerferverzeichnis auf Anwendungsstandards zurücksetzen?\n"
+"Die aktuellen Einträge werden nach Erstellung einer Sicherung ersetzt."
+
+#: gui/dictionaryeditdialog.cpp:2130 gui/dictionaryeditdialog.cpp:2150
+msgid "Reset fixtures dictionary"
+msgstr "Scheinwerferverzeichnis zurücksetzen"
+
+#: gui/dictionaryeditdialog.cpp:2147
+msgid ""
+"Fixtures dictionary reset finished with issues.\n"
+"\n"
+msgstr ""
+"Beim Zurücksetzen des Scheinwerferverzeichnisses sind Probleme aufgetreten.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:2148
+msgid ""
+"Fixtures dictionary restored to defaults.\n"
+"\n"
+msgstr ""
+"Scheinwerferverzeichnis auf Standardwerte zurückgesetzt.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:2161
+msgid ""
+"Reset active trusses dictionary to application defaults?\n"
+"Current entries will be replaced after a backup is created."
+msgstr ""
+"Aktives Traversenverzeichnis auf Anwendungsstandards zurücksetzen?\n"
+"Die aktuellen Einträge werden nach Erstellung einer Sicherung ersetzt."
+
+#: gui/dictionaryeditdialog.cpp:2163 gui/dictionaryeditdialog.cpp:2182
+msgid "Reset trusses dictionary"
+msgstr "Traversenverzeichnis zurücksetzen"
+
+#: gui/dictionaryeditdialog.cpp:2179
+msgid ""
+"Trusses dictionary reset finished with issues.\n"
+"\n"
+msgstr ""
+"Beim Zurücksetzen des Traversenverzeichnisses sind Probleme aufgetreten.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:2180
+msgid ""
+"Trusses dictionary restored to defaults.\n"
+"\n"
+msgstr ""
+"Traversenverzeichnis auf Standardwerte zurückgesetzt.\n"
+"\n"
+
+#: gui/dictionaryeditdialog.cpp:2236 gui/fixturetablepanel.cpp:851
+msgid "Select category"
+msgstr "Kategorie auswählen"
+
+#: gui/fixture_distribution_dialog.cpp:12
+msgid "Distribute fixtures"
+msgstr "Scheinwerfer verteilen"
+
+#: gui/fixture_distribution_dialog.cpp:15
+msgid "Distribution system:"
+msgstr "Verteilungssystem:"
+
+#: gui/fixture_distribution_dialog.cpp:18
+msgid "Exact spacing"
+msgstr "Exakter Abstand"
+
+#: gui/fixture_distribution_dialog.cpp:19
+msgid "Uniformly over the full truss"
+msgstr "Gleichmäßig über die gesamte Traverse"
+
+#: gui/fixture_distribution_dialog.cpp:20
+msgid "Uniformly between two points"
+msgstr "Gleichmäßig zwischen zwei Punkten"
+
+#: gui/fixture_distribution_dialog.cpp:25
+msgid "Spacing:"
+msgstr "Abstand:"
+
+#: gui/fixture_distribution_dialog.cpp:33
+msgid " m"
+msgstr " m"
+
+#: gui/fixture_distribution_dialog.cpp:37
+msgid "Fixture centers"
+msgstr "Scheinwerfermitten"
+
+#: gui/fixture_distribution_dialog.cpp:37
+msgid "Fixture edges"
+msgstr "Scheinwerferkanten"
+
+#: gui/fixture_distribution_dialog.cpp:39
+msgid "Spacing reference"
+msgstr "Abstandsbezug"
+
+#: gui/fixture_distribution_dialog.cpp:42
+msgid "Between two points, outside inward"
+msgstr "Zwischen zwei Punkten, von außen nach innen"
+
+#: gui/fixture_distribution_dialog.cpp:43
+msgid "From one point in the chosen direction"
+msgstr "Von einem Punkt in der gewählten Richtung"
+
+#: gui/fixture_distribution_dialog.cpp:44
+msgid "Placement"
+msgstr "Platzierung"
+
+#: gui/fixtureeditdialog.cpp:277
+msgid "Fixture instance"
+msgstr "Scheinwerferinstanz"
+
+#: gui/fixtureeditdialog.cpp:490
+msgid "Mode channels"
+msgstr "Moduskanäle"
+
+#: gui/fixtureeditdialog.cpp:500
+msgid ""
+"Type, source, and mode controls select project fixture context. Power and "
+"weight edits update the GDTF file and append a revision entry."
+msgstr ""
+"Typ-, Quellen- und Moduseinstellungen wählen den Scheinwerferkontext im "
+"Projekt. Änderungen an Leistung und Gewicht aktualisieren die GDTF-Datei und "
+"fügen einen Revisionseintrag hinzu."
+
+#: gui/fixtureeditdialog.cpp:516
+msgid "GDTF thumbnail"
+msgstr "GDTF-Vorschaubild"
+
+#: gui/fixtureeditdialog.cpp:521
+#: gui/inspection/inspector_workspace_panel.cpp:544
+msgid "Preview"
+msgstr "Vorschau"
+
+#: gui/fixtureeditdialog.cpp:524
+msgid "GDTF wheels"
+msgstr "GDTF-Räder"
+
+#: gui/fixtureeditdialog.cpp:531
+msgid "Symbols"
+msgstr "Symbole"
+
+#: gui/fixtureeditdialog.cpp:642 gui/trusseditdialog.cpp:520
+msgid "Fix malformed GDTF editor values before applying."
+msgstr "Ungültige GDTF-Editorwerte vor dem Anwenden korrigieren."
+
+#: gui/fixtureeditdialog.cpp:643 gui/fixtureeditdialog.cpp:662
+#: gui/trusseditdialog.cpp:521 gui/trusseditdialog.cpp:543
+msgid "GDTF validation"
+msgstr "GDTF-Validierung"
+
+#: gui/fixtureeditdialog.cpp:773
+msgid "No thumbnail image found in this GDTF."
+msgstr "Kein Vorschaubild in dieser GDTF-Datei gefunden."
+
+#: gui/fixtureeditdialog.cpp:1056 gui/fixtureeditdialog.cpp:1061
+msgid "GDTF update"
+msgstr "GDTF-Aktualisierung"
+
+#: gui/fixturetable/fixture_table_columns.cpp:12
+#: tests/localization_catalog_integration_test.cpp:247
+msgid "Fixture ID"
+msgstr "Scheinwerfer-ID"
+
+#: gui/fixturetable/fixture_table_columns.cpp:13 gui/hoisttablepanel.cpp:461
+#: gui/inspection/gdtf_inspector_details_panel.cpp:154
+#: gui/inspection/inspector_workspace_panel.cpp:476
+#: gui/inspection/inspector_workspace_panel.cpp:483 gui/summarypanel.cpp:260
+#: gui/summarypanel.cpp:269 mvr/mvrimporter.cpp:328
+msgid "Type"
+msgstr "Typ"
+
+#: gui/fixturetable/fixture_table_columns.cpp:13 gui/fixturetablepanel.cpp:742
+#: gui/hoisttablepanel.cpp:465 gui/hoisttablepanel.cpp:784
+#: gui/layerpanel.cpp:85 gui/sceneobjecttablepanel.cpp:264
+#: gui/sceneobjecttablepanel.cpp:432 gui/trusstablepanel.cpp:300
+#: gui/trusstablepanel.cpp:533
+msgid "Layer"
+msgstr "Ebene"
+
+#: gui/fixturetable/fixture_table_columns.cpp:14 gui/hoisttablepanel.cpp:466
+#: gui/trusstablepanel.cpp:300
+msgid "Hang Pos"
+msgstr "Hängeposition"
+
+#: gui/fixturetable/fixture_table_columns.cpp:14
+msgid "Universe"
+msgstr "Universum"
+
+#: gui/fixturetable/fixture_table_columns.cpp:15
+msgid "Channel"
+msgstr "Kanal"
+
+#: gui/fixturetable/fixture_table_columns.cpp:16
+msgid "Ch Count"
+msgstr "Kanalanzahl"
+
+#: gui/fixturetable/fixture_table_columns.cpp:16
+msgid "Model file"
+msgstr "Modelldatei"
+
+#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:280
+#: gui/fixturetablepanel.cpp:314 gui/hoisttablepanel.cpp:467
+#: gui/hoisttablepanel.cpp:500 gui/sceneobjecttablepanel.cpp:266
+#: gui/sceneobjecttablepanel.cpp:291 gui/trusstablepanel.cpp:301
+#: gui/trusstablepanel.cpp:334
+msgid "Pos X"
+msgstr "Pos X"
+
+#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:283
+#: gui/fixturetablepanel.cpp:317 gui/hoisttablepanel.cpp:468
+#: gui/hoisttablepanel.cpp:501 gui/sceneobjecttablepanel.cpp:267
+#: gui/sceneobjecttablepanel.cpp:292 gui/trusstablepanel.cpp:301
+#: gui/trusstablepanel.cpp:335
+msgid "Pos Y"
+msgstr "Pos Y"
+
+#: gui/fixturetable/fixture_table_columns.cpp:18 gui/fixturetablepanel.cpp:286
+#: gui/fixturetablepanel.cpp:320 gui/hoisttablepanel.cpp:469
+#: gui/hoisttablepanel.cpp:502 gui/sceneobjecttablepanel.cpp:268
+#: gui/sceneobjecttablepanel.cpp:293 gui/trusstablepanel.cpp:301
+#: gui/trusstablepanel.cpp:336
+msgid "Pos Z"
+msgstr "Pos Z"
+
+#: gui/fixturetable/fixture_table_columns.cpp:18 gui/hoisttablepanel.cpp:470
+#: gui/sceneobjecttablepanel.cpp:269
+msgid "Roll (X)"
+msgstr "Roll (X)"
+
+#: gui/fixturetable/fixture_table_columns.cpp:19 gui/hoisttablepanel.cpp:471
+#: gui/sceneobjecttablepanel.cpp:270
+msgid "Pitch (Y)"
+msgstr "Pitch (Y)"
+
+#: gui/fixturetable/fixture_table_columns.cpp:19 gui/hoisttablepanel.cpp:472
+#: gui/sceneobjecttablepanel.cpp:271
+msgid "Yaw (Z)"
+msgstr "Yaw (Z)"
+
+#: gui/fixturetable/fixture_table_columns.cpp:20
+msgid "Power (W)"
+msgstr "Leistung (W)"
+
+#: gui/fixturetable/fixture_table_columns.cpp:20
+#: tests/localization_catalog_integration_test.cpp:186
+msgid "Weight (kg)"
+msgstr "Gewicht (kg)"
+
+#: gui/fixturetable/fixture_table_columns.cpp:22
+msgid "Color Filter"
+msgstr "Farbfilter"
+
+#: gui/fixturetablepanel.cpp:289 gui/fixturetablepanel.cpp:323
+#: gui/hoisttablepanel.cpp:475 gui/hoisttablepanel.cpp:506
+#: gui/inspection/gdtf_inspector_details_panel.cpp:47
+#: gui/trusstablepanel.cpp:304 gui/trusstablepanel.cpp:340
+#: tests/localization_catalog_integration_test.cpp:214
+#: tests/localization_catalog_integration_test.cpp:217
+msgid "Weight"
+msgstr "Gewicht"
+
+#: gui/fixturetablepanel.cpp:742 gui/hoisttablepanel.cpp:784
+#: gui/sceneobjecttablepanel.cpp:432 gui/trusstablepanel.cpp:533
+msgid "Select layer"
+msgstr "Ebene auswählen"
+
+#: gui/fixturetablepanel.cpp:984 gui/hoisttablepanel.cpp:846
+#: gui/sceneobjecttablepanel.cpp:498 gui/trusstablepanel.cpp:675
+msgid "Edit value:"
+msgstr "Wert bearbeiten:"
+
+#: gui/fixturetablepanel.cpp:1035 gui/fixturetablepanel.cpp:1040
+#: gui/hoisttablepanel.cpp:894 gui/hoisttablepanel.cpp:899
+#: gui/sceneobjecttablepanel.cpp:544 gui/sceneobjecttablepanel.cpp:549
+#: gui/trusstablepanel.cpp:721 gui/trusstablepanel.cpp:726
+msgid "Invalid numeric value"
+msgstr "Ungültiger Zahlenwert"
+
+#: gui/fixturetablepanel.cpp:1035 gui/fixturetablepanel.cpp:1040
+#: gui/fixturetablepanel.cpp:1047 gui/fixturetablepanel.cpp:1053
+#: gui/fixturetablepanel.cpp:1061 gui/fixturetablepanel.cpp:1067
+#: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
+#: gui/gdtf_share_download_workflow.cpp:477
+#: gui/gdtf_share_download_workflow.cpp:481 gui/hoisttablepanel.cpp:894
+#: gui/hoisttablepanel.cpp:899 gui/hoisttablepanel.cpp:905
+#: gui/hoisttablepanel.cpp:912
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:283
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:509
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:652
+#: gui/mainwindow_io.cpp:251 gui/mainwindow_io.cpp:343
+#: gui/mainwindow_io.cpp:414 gui/mainwindow_io.cpp:449
+#: gui/mainwindow_io.cpp:471 gui/mainwindow_io.cpp:495
+#: gui/mainwindow_io.cpp:554 gui/mainwindow_io.cpp:687
+#: gui/mainwindow_io.cpp:697 gui/mainwindow_io.cpp:747
+#: gui/mainwindow_io.cpp:833 gui/mainwindow_io.cpp:874
+#: gui/mainwindow_io.cpp:892 gui/mainwindow_menu.cpp:1107
+#: gui/ridertextdialog.cpp:218 gui/ridertextdialog.cpp:224
+#: gui/ridertextdialog.cpp:233 gui/ridertextdialog.cpp:245
+#: gui/ridertextdialog.cpp:319 gui/ridertextdialog.cpp:334
+#: gui/ridertextdialog.cpp:346 gui/sceneobjecttablepanel.cpp:544
+#: gui/sceneobjecttablepanel.cpp:549 gui/sceneobjecttablepanel.cpp:555
+#: gui/sceneobjecttablepanel.cpp:562 gui/trusstablepanel.cpp:721
+#: gui/trusstablepanel.cpp:726 gui/trusstablepanel.cpp:732
+#: gui/trusstablepanel.cpp:739
+msgid "Error"
+msgstr "Fehler"
+
+#: gui/fixturetablepanel.cpp:1047 gui/fixturetablepanel.cpp:1061
+#: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
+#: gui/hoisttablepanel.cpp:905 gui/hoisttablepanel.cpp:912
+#: gui/sceneobjecttablepanel.cpp:555 gui/sceneobjecttablepanel.cpp:562
+#: gui/trusstablepanel.cpp:732 gui/trusstablepanel.cpp:739
+msgid "Invalid value"
+msgstr "Ungültiger Wert"
+
+#: gui/fixturetablepanel.cpp:1053 gui/fixturetablepanel.cpp:1067
+msgid "Channel out of range (1-512)"
+msgstr "Kanal außerhalb des Bereichs (1–512)"
+
+#: gui/gdtf/fixture_part_navigator.cpp:10
+#: gui/gdtf/fixture_part_navigator.cpp:25
+msgid "All fixture"
+msgstr "Gesamter Scheinwerfer"
+
+#: gui/gdtf/fixture_part_navigator.cpp:12
+msgid "Select a Geometry to inspect its subtree in Solo mode."
+msgstr "Eine Geometry auswählen, um ihren Teilbaum im Solo-Modus zu prüfen."
+
+#: gui/gdtf/fixture_part_navigator.cpp:36
+#, c-format
+msgid "%zu: %s [%s: %s]"
+msgstr "%zu: %s [%s: %s]"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:18
+msgid "Authored GDTF"
+msgstr "Original-GDTF"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:19
+msgid "Generated by Perastage"
+msgstr "Von Perastage erzeugt"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:20
+msgid "User override"
+msgstr "Benutzerüberschreibung"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:21
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:139
+msgid "Legacy Perastage"
+msgstr "Älteres Perastage"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:22
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:130
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:136
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:183
+msgid "N/A"
+msgstr "Nicht verfügbar"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:33
+msgid "Standard GDTF"
+msgstr "Standard-GDTF"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:33
+msgid "Perastage project (PSTG)"
+msgstr "Perastage-Projekt (PSTG)"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:55
+#: viewer2d/viewer2drenderpanel.cpp:109
+msgid "Top"
+msgstr "Oben"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:56
+#: viewer2d/viewer2drenderpanel.cpp:109
+msgid "Front"
+msgstr "Vorne"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:57
+#: viewer2d/viewer2drenderpanel.cpp:109
+msgid "Side"
+msgstr "Seite"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:59
+msgid "Bottom"
+msgstr "Unten"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:72
+#, c-format
+msgid "%s [%s]"
+msgstr "%s [%s]"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:99
+#, c-format
+msgid ""
+"Archive path: %s\n"
+"Provenance: %s\n"
+"Diagnostic: %s"
+msgstr ""
+"Archivpfad: %s\n"
+"Herkunft: %s\n"
+"Diagnose: %s"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:111
+#, c-format
+msgid ""
+"File: %s\n"
+"Dimensions (m): %g × %g × %g\n"
+"Primitive: %s\n"
+"Geometry references: %zu"
+msgstr ""
+"Datei: %s\n"
+"Abmessungen (m): %g × %g × %g\n"
+"Primitiv: %s\n"
+"Geometry-Verweise: %zu"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:114
+msgid "No Models available"
+msgstr "Keine Models verfügbar"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:137
+msgid "Present; preview unavailable"
+msgstr "Vorhanden; Vorschau nicht verfügbar"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:137
+msgid "Missing"
+msgstr "Fehlt"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:145
+msgid "Malformed SVG"
+msgstr "Fehlerhaftes SVG"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:147
+msgid "Ambiguous resource"
+msgstr "Mehrdeutige Ressource"
+
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:152
+#, c-format
+msgid ""
+"Archive path: %s\n"
+"Insertion offsets: %g, %g\n"
+"Diagnostic: %s"
+msgstr ""
+"Archivpfad: %s\n"
+"Einfügeversatz: %g, %g\n"
+"Diagnose: %s"
+
+#: gui/gdtf/gdtf_metadata_panel.cpp:64
+msgid "GDTF FixtureType description."
+msgstr "GDTF-FixtureType-Beschreibung."
+
+#: gui/gdtf/gdtf_modes_panel.cpp:204
+msgid "Channel count"
+msgstr "Kanalanzahl"
+
+#: gui/gdtf/gdtf_modes_panel.cpp:208
+msgid "DMX inspection"
+msgstr "DMX-Prüfung"
+
+#: gui/gdtf/gdtf_modes_panel.cpp:213 gui/gdtf/gdtf_modes_panel.cpp:379
+msgid "DMX value 0 of 65,535 · 0.00%"
+msgstr "DMX-Wert 0 von 65,535 · 0.00%"
+
+#: gui/gdtf/gdtf_modes_panel.cpp:214
+msgid "Value"
+msgstr "Wert"
+
+#: gui/gdtf/gdtf_modes_panel.cpp:222
+msgid "Active"
+msgstr "Aktiv"
+
+#: gui/gdtf/gdtf_modes_panel.cpp:226
+msgid "Mode and channel browser"
+msgstr "Modus- und Kanalbrowser"
+
+#: gui/gdtf/gdtf_modes_panel.cpp:232
+msgid "Item"
+msgstr "Element"
+
+#: gui/gdtf/gdtf_modes_panel.cpp:233
+msgid "DMX range"
+msgstr "DMX-Bereich"
+
+#: gui/gdtf/gdtf_modes_panel.cpp:234
+msgid "Physical range"
+msgstr "Physikalischer Bereich"
+
+#: gui/gdtf/gdtf_modes_panel.cpp:235
+msgid "Unit"
+msgstr "Einheit"
+
+#: gui/gdtf/gdtf_type_identity_panel.cpp:58
+msgid "..."
+msgstr "..."
+
+#: gui/gdtf/gdtf_wheel_inspector_panel.cpp:27
+msgid "DMX inspection details"
+msgstr "Details der DMX-Prüfung"
+
+#: gui/gdtf/gdtf_wheel_inspector_panel.cpp:55
+msgid "Wheel slots"
+msgstr "Radpositionen"
+
+#: gui/gdtf/gdtf_wheel_inspector_panel.cpp:58
+msgid "Slot"
+msgstr "Position"
+
+#: gui/gdtf_catalog_details_panel.cpp:18
+msgid "Selected revision"
+msgstr "Ausgewählte Revision"
+
+#: gui/gdtf_catalog_details_panel.cpp:23 gui/gdtfsearchdialog.cpp:91
+#: gui/inspection/gdtf_inspector_details_panel.cpp:40
+#: gui/trusstablepanel.cpp:303
+msgid "Manufacturer"
+msgstr "Hersteller"
+
+#: gui/gdtf_catalog_details_panel.cpp:23 gui/gdtfsearchdialog.cpp:93
+msgid "Fixture"
+msgstr "Scheinwerfer"
+
+#: gui/gdtf_catalog_details_panel.cpp:23 gui/gdtfsearchdialog.cpp:95
+#: gui/inspection/gdtf_inspector_details_panel.cpp:46
+msgid "Revision"
+msgstr "Revision"
+
+#: gui/gdtf_catalog_details_panel.cpp:23 gui/gdtfsearchdialog.cpp:101
+msgid "GDTF Version"
+msgstr "GDTF-Version"
+
+#: gui/gdtf_catalog_details_panel.cpp:24 gui/gdtfsearchdialog.cpp:97
+#: gui/ridertextdialog.cpp:98
+msgid "Source"
+msgstr "Quelle"
+
+#: gui/gdtf_catalog_details_panel.cpp:24
+msgid "Creator"
+msgstr "Ersteller"
+
+#: gui/gdtf_catalog_details_panel.cpp:24
+msgid "Created"
+msgstr "Erstellt"
+
+#: gui/gdtf_catalog_details_panel.cpp:24 gui/gdtfsearchdialog.cpp:99
+msgid "Last Modified"
+msgstr "Zuletzt geändert"
+
+#: gui/gdtf_catalog_details_panel.cpp:25
+msgid "File size"
+msgstr "Dateigröße"
+
+#: gui/gdtf_catalog_details_panel.cpp:44
+msgid "UUID"
+msgstr "UUID"
+
+#: gui/gdtf_catalog_details_panel.cpp:45
+msgid "RID"
+msgstr "RID"
+
+#: gui/gdtf_catalog_details_panel.cpp:46
+msgid "Rating"
+msgstr "Bewertung"
+
+#: gui/gdtf_catalog_details_panel.cpp:48
+msgid "Modes"
+msgstr "Modi"
+
+#: gui/gdtf_catalog_details_panel.cpp:52
+msgid "DMX channels"
+msgstr "DMX-Kanäle"
+
+#: gui/gdtf_catalog_details_panel.cpp:89
+msgid "--"
+msgstr "--"
+
+#: gui/gdtf_share_download_workflow.cpp:68 gui/gdtfsearchdialog.cpp:455
+msgid "Updating online catalog..."
+msgstr "Online-Katalog wird aktualisiert…"
+
+#: gui/gdtf_share_download_workflow.cpp:117
+#: gui/gdtf_share_download_workflow.cpp:319
+msgid "Please provide username and password."
+msgstr "Bitte Benutzername und Passwort eingeben."
+
+#: gui/gdtf_share_download_workflow.cpp:118
+#: gui/gdtf_share_download_workflow.cpp:320
+#: gui/gdtf_share_download_workflow.cpp:412
+msgid "Login Error"
+msgstr "Anmeldefehler"
+
+#: gui/gdtf_share_download_workflow.cpp:156
+msgid ""
+"GDTF Share credentials were authenticated for this operation, but the "
+"password could not be saved securely. You may need to enter it again after "
+"restart."
+msgstr ""
+"Die GDTF-Share-Zugangsdaten wurden für diesen Vorgang bestätigt, das "
+"Passwort konnte jedoch nicht sicher gespeichert werden. Nach einem Neustart "
+"müssen Sie es möglicherweise erneut eingeben."
+
+#: gui/gdtf_share_download_workflow.cpp:157
+#: gui/gdtf_share_download_workflow.cpp:345
+#: gui/preferences/gdtf_credentials_panel.cpp:84
+#: gui/preferences/gdtf_credentials_panel.cpp:95
+#: gui/preferences/gdtf_credentials_panel.cpp:100
+#: gui/rider_fixture_resolution_workflow.cpp:87
+#: gui/rider_fixture_resolution_workflow.cpp:253 mvr/mvrimporter.cpp:667
+msgid "GDTF Share credentials"
+msgstr "GDTF-Share-Zugangsdaten"
+
+#: gui/gdtf_share_download_workflow.cpp:190
+msgid ""
+"The GDTF catalog could not be loaded. Check your Internet connection and "
+"GDTF Share credentials."
+msgstr ""
+"GDTF-Katalog konnte nicht geladen werden. Prüfen Sie Ihre Internetverbindung "
+"und GDTF-Share-Zugangsdaten."
+
+#: gui/gdtf_share_download_workflow.cpp:191
+#: gui/rider_fixture_resolution_dialog.cpp:356
+msgid "GDTF catalog unavailable"
+msgstr "GDTF-Katalog nicht verfügbar"
+
+#: gui/gdtf_share_download_workflow.cpp:335
+msgid ""
+"This build does not include secure password storage. The username was saved, "
+"but the password must be entered again after restart."
+msgstr ""
+"Diese Version unterstützt keine sichere Passwortspeicherung. Der "
+"Benutzername wurde gespeichert; das Passwort muss nach einem Neustart erneut "
+"eingegeben werden."
+
+#: gui/gdtf_share_download_workflow.cpp:337
+msgid ""
+"The native secure password store is unavailable. The username was saved, but "
+"the password must be entered again after restart."
+msgstr ""
+"Der native sichere Passwortspeicher ist nicht verfügbar. Der Benutzername "
+"wurde gespeichert; das Passwort muss nach einem Neustart erneut eingegeben "
+"werden."
+
+#: gui/gdtf_share_download_workflow.cpp:340
+msgid ""
+"GDTF Share credentials were authenticated for this operation, but the non-"
+"secret username metadata could not be saved."
+msgstr ""
+"Die GDTF-Share-Zugangsdaten wurden für diesen Vorgang bestätigt, die nicht "
+"vertraulichen Benutzernamen-Metadaten konnten jedoch nicht gespeichert "
+"werden."
+
+#: gui/gdtf_share_download_workflow.cpp:342
+#, c-format
+msgid ""
+"GDTF Share credentials were authenticated for this operation, but the "
+"password was not saved (%s)."
+msgstr ""
+"Die GDTF-Share-Zugangsdaten wurden für diesen Vorgang bestätigt, das "
+"Passwort wurde jedoch nicht gespeichert (%s)."
+
+#: gui/gdtf_share_download_workflow.cpp:374
+msgid "Logging in to GDTF Share..."
+msgstr "Anmeldung bei GDTF Share…"
+
+#: gui/gdtf_share_download_workflow.cpp:431
+msgid "Save GDTF file"
+msgstr "GDTF-Datei speichern"
+
+#: gui/gdtf_share_download_workflow.cpp:441
+msgid "Downloading GDTF from GDTF Share..."
+msgstr "GDTF wird von GDTF Share heruntergeladen…"
+
+#: gui/gdtf_share_download_workflow.cpp:468
+msgid "GDTF downloaded successfully. Do you want to add it to the project now?"
+msgstr "GDTF erfolgreich heruntergeladen. Jetzt zum Projekt hinzufügen?"
+
+#: gui/gdtf_share_download_workflow.cpp:470
+#: gui/mvr_export_result_dialog.cpp:158 mvr/mvrimporter.cpp:1282
+msgid "Success"
+msgstr "Erfolgreich"
+
+#: gui/gdtf_share_download_workflow.cpp:481
+msgid "Download information missing."
+msgstr "Download-Informationen fehlen."
+
+#: gui/gdtf_share_message_formatter.cpp:22
+msgid "GDTF Share sign-in completed."
+msgstr "GDTF-Share-Anmeldung abgeschlossen."
+
+#: gui/gdtf_share_message_formatter.cpp:23
+msgid "GDTF Share download completed."
+msgstr "GDTF-Share-Download abgeschlossen."
+
+#: gui/gdtf_share_message_formatter.cpp:25
+#, c-format
+msgid "Could not reach GDTF Share: %s."
+msgstr "GDTF Share konnte nicht erreicht werden: %s."
+
+#: gui/gdtf_share_message_formatter.cpp:28
+msgid "GDTF Share sign-in timed out."
+msgstr "Zeitüberschreitung bei der GDTF-Share-Anmeldung."
+
+#: gui/gdtf_share_message_formatter.cpp:29
+msgid "GDTF Share download timed out."
+msgstr "Zeitüberschreitung beim GDTF-Share-Download."
+
+#: gui/gdtf_share_message_formatter.cpp:32
+#, c-format
+msgid "The GDTF Share username or password is invalid (HTTP %ld)."
+msgstr "GDTF-Share-Benutzername oder -Passwort ist ungültig (HTTP %ld)."
+
+#: gui/gdtf_share_message_formatter.cpp:39
+#, c-format
+msgid "GDTF Share rejected the sign-in request (HTTP %ld)."
+msgstr "GDTF Share hat die Anmeldung abgelehnt (HTTP %ld)."
+
+#: gui/gdtf_share_message_formatter.cpp:42
+#, c-format
+msgid "GDTF Share rejected the download request (HTTP %ld)."
+msgstr "GDTF Share hat den Download abgelehnt (HTTP %ld)."
+
+#: gui/gdtf_share_message_formatter.cpp:46
+msgid "GDTF Share rejected the sign-in request."
+msgstr "GDTF Share hat die Anmeldung abgelehnt."
+
+#: gui/gdtf_share_message_formatter.cpp:47
+msgid "GDTF Share rejected the download request."
+msgstr "GDTF Share hat den Download abgelehnt."
+
+#: gui/gdtf_share_message_formatter.cpp:51
+#, c-format
+msgid "GDTF Share returned HTTP %ld during sign-in."
+msgstr "GDTF Share hat bei der Anmeldung HTTP %ld zurückgegeben."
+
+#: gui/gdtf_share_message_formatter.cpp:53
+#, c-format
+msgid "GDTF Share returned HTTP %ld during download."
+msgstr "GDTF Share hat beim Download HTTP %ld zurückgegeben."
+
+#: gui/gdtf_share_message_formatter.cpp:57
+msgid ""
+"GDTF Share returned an invalid response. See the diagnostic log for details."
+msgstr ""
+"GDTF Share hat eine ungültige Antwort zurückgegeben. Einzelheiten stehen im "
+"Diagnoseprotokoll."
+
+#: gui/gdtf_share_message_formatter.cpp:59
+msgid "GDTF Share sign-in was cancelled."
+msgstr "GDTF-Share-Anmeldung abgebrochen."
+
+#: gui/gdtf_share_message_formatter.cpp:60
+msgid "GDTF Share download was cancelled."
+msgstr "GDTF-Share-Download abgebrochen."
+
+#: gui/gdtf_share_message_formatter.cpp:62
+msgid "Could not save the GDTF Share download locally."
+msgstr "GDTF-Share-Download konnte nicht lokal gespeichert werden."
+
+#: gui/gdtf_share_message_formatter.cpp:64
+msgid "GDTF Share sign-in failed."
+msgstr "GDTF-Share-Anmeldung fehlgeschlagen."
+
+#: gui/gdtf_share_message_formatter.cpp:65
+msgid "GDTF Share download failed."
+msgstr "GDTF-Share-Download fehlgeschlagen."
+
+#: gui/gdtfsearchdialog.cpp:45
+#: tests/localization_catalog_integration_test.cpp:204
+msgid "Search GDTF"
+msgstr "GDTF suchen"
+
+#: gui/gdtfsearchdialog.cpp:59
+msgid "Search:"
+msgstr "Suche:"
+
+#: gui/gdtfsearchdialog.cpp:63 gui/inspection/inspector_workspace_panel.cpp:859
+#: tests/localization_catalog_integration_test.cpp:206
+msgid "Manufacturer:"
+msgstr "Hersteller:"
+
+#: gui/gdtfsearchdialog.cpp:67
+msgid "Fixture:"
+msgstr "Scheinwerfer:"
+
+#: gui/gdtfsearchdialog.cpp:77
+msgid "< Prev"
+msgstr "< Zurück"
+
+#: gui/gdtfsearchdialog.cpp:78
+msgid "Next >"
+msgstr "Weiter >"
+
+#: gui/gdtfsearchdialog.cpp:79
+msgid "Page 1/1"
+msgstr "Seite 1/1"
+
+#: gui/gdtfsearchdialog.cpp:111
+#: tests/localization_catalog_integration_test.cpp:208
+msgid "Download"
+msgstr "Herunterladen"
+
+#: gui/gdtfsearchdialog.cpp:263
+#, c-format
+msgid "Page %zu/%zu (%zu results)"
+msgstr "Seite %zu/%zu (%zu Ergebnisse)"
+
+#: gui/gdtfsearchdialog.cpp:310
+msgid "This catalog row has no downloadable revision identifier."
+msgstr "Dieser Katalogeintrag hat keine herunterladbare Revisionskennung."
+
+#: gui/gdtfsearchdialog.cpp:426
+msgid "Online catalog refresh failed. Cached results remain available."
+msgstr ""
+"Aktualisierung des Online-Katalogs fehlgeschlagen. Zwischengespeicherte "
+"Ergebnisse bleiben verfügbar."
+
+#: gui/gdtfsearchdialog.cpp:431
+#, c-format
+msgid ""
+"Online GDTF catalog refresh failed.\n"
+"%s"
+msgstr ""
+"Aktualisierung des Online-GDTF-Katalogs fehlgeschlagen.\n"
+"%s"
+
+#: gui/gdtfsearchdialog.cpp:433
+msgid "GDTF catalog refresh"
+msgstr "GDTF-Katalogaktualisierung"
+
+#: gui/gdtfsearchdialog.cpp:441
+msgid ""
+"Please wait for the online catalog refresh to finish before downloading."
+msgstr ""
+"Bitte vor dem Download auf den Abschluss der Online-Katalogaktualisierung "
+"warten."
+
+#: gui/gdtfsearchdialog.cpp:465
+msgid "Showing online GDTF catalog."
+msgstr "Online-GDTF-Katalog wird angezeigt."
+
+#: gui/gdtfsearchdialog.cpp:470
+msgid "No GDTF catalog is available."
+msgstr "Kein GDTF-Katalog verfügbar."
+
+#: gui/gdtfsearchdialog.cpp:476
+msgid "Showing cached GDTF catalog. Sign in is required to download."
+msgstr ""
+"Zwischengespeicherter GDTF-Katalog wird angezeigt. Zum Herunterladen ist "
+"eine Anmeldung erforderlich."
+
+#: gui/gdtfsearchdialog.cpp:479
+#, c-format
+msgid ""
+"Showing cached GDTF catalog (last updated: %s). Sign in is required to "
+"download."
+msgstr ""
+"Zwischengespeicherter GDTF-Katalog wird angezeigt (zuletzt aktualisiert: "
+"%s). Zum Herunterladen ist eine Anmeldung erforderlich."
+
+#: gui/gdtfsearchdialog.cpp:485
+msgid "Showing cached GDTF catalog."
+msgstr "Zwischengespeicherter GDTF-Katalog wird angezeigt."
+
+#: gui/gdtfsearchdialog.cpp:488
+#, c-format
+msgid "Showing cached GDTF catalog (last updated: %s)."
+msgstr ""
+"Zwischengespeicherter GDTF-Katalog wird angezeigt (zuletzt aktualisiert: %s)."
+
+#: gui/hang_position_dialog.cpp:157
+msgid "Hang Position"
+msgstr "Hängeposition"
+
+#: gui/hang_position_dialog.cpp:169
+msgid "Select or manage a shared hang position:"
+msgstr "Gemeinsame Hängeposition auswählen oder verwalten:"
+
+#: gui/hang_position_dialog.cpp:178 gui/layoutpanel.cpp:43
+msgid "Rename"
+msgstr "Umbenennen"
+
+#: gui/hang_position_dialog.cpp:207 gui/hang_position_dialog.cpp:230
+msgid "Enter hang position name:"
+msgstr "Namen der Hängeposition eingeben:"
+
+#: gui/hang_position_dialog.cpp:208
+msgid "Add Hang Position"
+msgstr "Hängeposition hinzufügen"
+
+#: gui/hang_position_dialog.cpp:231
+msgid "Rename Hang Position"
+msgstr "Hängeposition umbenennen"
+
+#: gui/hang_position_dialog.cpp:262
+msgid "Delete this hang position from all affected items?"
+msgstr "Diese Hängeposition aus allen betroffenen Elementen löschen?"
+
+#: gui/hang_position_dialog.cpp:263
+msgid "Delete Hang Position"
+msgstr "Hängeposition löschen"
+
+#: gui/hoist_load_recalculation_prompt.cpp:57
+msgid "Recalculate hoist loads"
+msgstr "Lasten der Kettenzüge neu berechnen"
+
+#: gui/hoist_load_recalculation_prompt.cpp:106
+msgid "Hoist load warning"
+msgstr "Lastwarnung für Kettenzug"
+
+#: gui/hoisttablepanel.cpp:255
+msgid "Use automatic value"
+msgstr "Automatischen Wert verwenden"
+
+#: gui/hoisttablepanel.cpp:459
+#: tests/localization_catalog_integration_test.cpp:188
+msgid "Hoist ID"
+msgstr "Kettenzug-ID"
+
+#: gui/hoisttablepanel.cpp:462 gui/hoisttablepanel.cpp:700
+#: gui/hoisttablepanel.cpp:711
+msgid "Function"
+msgstr "Funktion"
+
+#: gui/hoisttablepanel.cpp:463
+msgid "Motor"
+msgstr "Motor"
+
+#: gui/hoisttablepanel.cpp:464 gui/hoisttablepanel.cpp:740
+#: gui/hoisttablepanel.cpp:764
+msgid "Dummy Preset"
+msgstr "Dummy-Voreinstellung"
+
+#: gui/hoisttablepanel.cpp:473 gui/hoisttablepanel.cpp:504
+#: tests/localization_catalog_integration_test.cpp:190
+msgid "Chain Length"
+msgstr "Kettenlänge"
+
+#: gui/hoisttablepanel.cpp:474 gui/hoisttablepanel.cpp:505
+#: tests/localization_catalog_integration_test.cpp:226
+#: tests/localization_catalog_integration_test.cpp:229
+msgid "Capacity"
+msgstr "Tragfähigkeit"
+
+#: gui/hoisttablepanel.cpp:476 gui/hoisttablepanel.cpp:507
+#: gui/trusstablepanel.cpp:304
+msgid "Load"
+msgstr "Last"
+
+#: gui/hoisttablepanel.cpp:698
+msgid "Other..."
+msgstr "Andere…"
+
+#: gui/hoisttablepanel.cpp:700
+msgid "Select function"
+msgstr "Funktion auswählen"
+
+#: gui/hoisttablepanel.cpp:711
+msgid "Enter function"
+msgstr "Funktion eingeben"
+
+#: gui/hoisttablepanel.cpp:740
+msgid "Select dummy preset"
+msgstr "Dummy-Voreinstellung auswählen"
+
+#: gui/hoisttablepanel.cpp:763
+msgid ""
+"Dummy preset can only be assigned when there is no linked motor fixture."
+msgstr ""
+"Eine Dummy-Voreinstellung kann nur ohne verknüpften Motorscheinwerfer "
+"zugewiesen werden."
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:20
+#: gui/inspection/gdtf_inspector_details_panel.cpp:31
+#: gui/inspection/gdtf_inspector_details_panel.cpp:124
+msgid "Unavailable"
+msgstr "Nicht verfügbar"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:38
+#: gui/rider_fixture_resolution_dialog.cpp:103 mvr/mvrimporter.cpp:735
+msgid "Fixture type"
+msgstr "Scheinwerfertyp"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:39
+msgid "Fixture type ID"
+msgstr "Scheinwerfertyp-ID"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:41
+msgid "Short name"
+msgstr "Kurzname"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:42
+msgid "Long name"
+msgstr "Langname"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:43
+#: gui/inspection/gdtf_inspector_details_panel.cpp:189
+msgid "Description"
+msgstr "Beschreibung"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:44
+msgid "Thumbnail reference"
+msgstr "Vorschaubildverweis"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:45
+msgid "Creation date"
+msgstr "Erstellungsdatum"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:48
+msgid "Power consumption"
+msgstr "Leistungsaufnahme"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:49
+msgid "Beam power (informational)"
+msgstr "Strahlleistung (Information)"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:50
+msgid "Planning power source"
+msgstr "Leistungsquelle für die Planung"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:53
+msgid "Truss cross-section type"
+msgstr "Traversenquerschnittstyp"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:55
+msgid "Truss cross-section"
+msgstr "Traversenquerschnitt"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:70
+#: gui/inspection/gdtf_inspector_details_panel.cpp:132
+msgid "FixtureType metadata is unavailable."
+msgstr "FixtureType-Metadaten nicht verfügbar."
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:73
+#: gui/inspection/gdtf_inspector_details_panel.cpp:146
+msgid "No DMX modes are available."
+msgstr "Keine DMX-Modi verfügbar."
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:74
+#: gui/inspection/gdtf_inspector_details_panel.cpp:177
+msgid "No wheel or filter details are available."
+msgstr "Keine Rad- oder Filterdetails verfügbar."
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:102
+msgid "Overview / FixtureType"
+msgstr "Übersicht / FixtureType"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:103
+msgid "Modes and channels"
+msgstr "Modi und Kanäle"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:104
+msgid "Wheels / resources"
+msgstr "Räder / Ressourcen"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:122
+msgid "Revision history"
+msgstr "Revisionsverlauf"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:153
+msgid "Wheel"
+msgstr "Rad"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:158
+#: gui/inspection/gdtf_inspector_details_panel.cpp:173 gui/layerpanel.cpp:87
+#: gui/layerpanel.cpp:101 gui/summarypanel.cpp:264 gui/summarypanel.cpp:318
+#: viewer2d/viewer2drenderpanel.cpp:347
+msgid "Color"
+msgstr "Farbe"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:159
+#: gui/inspection/gdtf_inspector_details_panel.cpp:172
+msgid "Filter"
+msgstr "Filter"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:160
+msgid "Media reference"
+msgstr "Medienverweis"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:162
+msgid "Archive resource"
+msgstr "Archivressource"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:164
+msgid "Graphic wheel reference"
+msgstr "Grafischer Radverweis"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:166
+msgid "Graphic wheel resource"
+msgstr "Grafische Radressource"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:190
+msgid "Geometry"
+msgstr "Geometrie"
+
+#: gui/inspection/gdtf_inspector_details_panel.cpp:191
+msgid "Calculated footprint"
+msgstr "Berechneter Flächenbedarf"
+
+#: gui/inspection/inspector_workspace_panel.cpp:118
+msgid "Folder"
+msgstr "Ordner"
+
+#: gui/inspection/inspector_workspace_panel.cpp:121
+msgid "Directory"
+msgstr "Verzeichnis"
+
+#: gui/inspection/inspector_workspace_panel.cpp:127
+msgid "Available"
+msgstr "Verfügbar"
+
+#: gui/inspection/inspector_workspace_panel.cpp:127
+msgid "Unsafe path"
+msgstr "Unsicherer Pfad"
+
+#: gui/inspection/inspector_workspace_panel.cpp:228
+msgid "(unresolved parent)"
+msgstr "(nicht aufgelöstes übergeordnetes Element)"
+
+#: gui/inspection/inspector_workspace_panel.cpp:340
+msgid "Canonical"
+msgstr "Kanonisch"
+
+#: gui/inspection/inspector_workspace_panel.cpp:341
+msgid "Compatibility accepted"
+msgstr "Kompatibilität akzeptiert"
+
+#: gui/inspection/inspector_workspace_panel.cpp:342
+#: gui/inspection/inspector_workspace_panel.cpp:344
+#: gui/inspection/inspector_workspace_panel.cpp:876
+msgid "Unusable"
+msgstr "Nicht verwendbar"
+
+#: gui/inspection/inspector_workspace_panel.cpp:400
+msgid "File:"
+msgstr "Datei:"
+
+#: gui/inspection/inspector_workspace_panel.cpp:404
+msgid "Diagnostics:"
+msgstr "Diagnosen:"
+
+#: gui/inspection/inspector_workspace_panel.cpp:408
+msgid "Validation layers:"
+msgstr "Validierungsebenen:"
+
+#: gui/inspection/inspector_workspace_panel.cpp:457
+msgid "Refresh"
+msgstr "Aktualisieren"
+
+#: gui/inspection/inspector_workspace_panel.cpp:458
+msgid "Open external..."
+msgstr "Externe Datei öffnen…"
+
+#: gui/inspection/inspector_workspace_panel.cpp:459
+msgid "Back to parent MVR"
+msgstr "Zurück zum übergeordneten MVR"
+
+#: gui/inspection/inspector_workspace_panel.cpp:460
+#: gui/inspection/inspector_workspace_panel.cpp:675
+#: gui/inspection/inspector_workspace_panel.cpp:1286
+msgid "Source: Current project MVR"
+msgstr "Quelle: MVR des aktuellen Projekts"
+
+#: gui/inspection/inspector_workspace_panel.cpp:461
+#: gui/inspection/inspector_workspace_panel.cpp:675
+#: gui/inspection/inspector_workspace_panel.cpp:1286
+msgid "Active project"
+msgstr "Aktives Projekt"
+
+#: gui/inspection/inspector_workspace_panel.cpp:475
+msgid "Path"
+msgstr "Pfad"
+
+#: gui/inspection/inspector_workspace_panel.cpp:477
+msgid "Resource kind"
+msgstr "Ressourcenart"
+
+#: gui/inspection/inspector_workspace_panel.cpp:478
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:180
+#: viewer2d/viewer2drenderpanel.cpp:380 viewer2d/viewer2drenderpanel.cpp:387
+#: viewer2d/viewer2drenderpanel.cpp:394
+msgid "Size"
+msgstr "Größe"
+
+#: gui/inspection/inspector_workspace_panel.cpp:479
+msgid "Availability"
+msgstr "Verfügbarkeit"
+
+#: gui/inspection/inspector_workspace_panel.cpp:486
+msgid "Package"
+msgstr "Paket"
+
+#: gui/inspection/inspector_workspace_panel.cpp:487
+msgid "Scene"
+msgstr "Szene"
+
+#: gui/inspection/inspector_workspace_panel.cpp:496
+msgid "Find previous"
+msgstr "Vorherigen Treffer suchen"
+
+#: gui/inspection/inspector_workspace_panel.cpp:497
+msgid "Find next"
+msgstr "Nächsten Treffer suchen"
+
+#: gui/inspection/inspector_workspace_panel.cpp:498
+msgid "Copy all"
+msgstr "Alles kopieren"
+
+#: gui/inspection/inspector_workspace_panel.cpp:499
+msgid "Fold all"
+msgstr "Alles einklappen"
+
+#: gui/inspection/inspector_workspace_panel.cpp:500
+msgid "Unfold all"
+msgstr "Alles aufklappen"
+
+#: gui/inspection/inspector_workspace_panel.cpp:501
+msgid "Load complete XML"
+msgstr "Vollständiges XML laden"
+
+#: gui/inspection/inspector_workspace_panel.cpp:503
+msgid "Find:"
+msgstr "Suchen:"
+
+#: gui/inspection/inspector_workspace_panel.cpp:512
+#: gui/inspection/inspector_workspace_panel.cpp:780
+msgid "Source: none"
+msgstr "Quelle: keine"
+
+#: gui/inspection/inspector_workspace_panel.cpp:527
+#: gui/mainwindow_layout.cpp:422 gui/mainwindow_menu_builders.cpp:85
+#: gui/summarypanel.cpp:112
+msgid "Summary"
+msgstr "Übersicht"
+
+#: gui/inspection/inspector_workspace_panel.cpp:528
+msgid "GDTF details"
+msgstr "GDTF-Details"
+
+#: gui/inspection/inspector_workspace_panel.cpp:529
+msgid "Issues"
+msgstr "Probleme"
+
+#: gui/inspection/inspector_workspace_panel.cpp:533
+msgid "Severity"
+msgstr "Schweregrad"
+
+#: gui/inspection/inspector_workspace_panel.cpp:534
+msgid "Domain"
+msgstr "Bereich"
+
+#: gui/inspection/inspector_workspace_panel.cpp:535
+msgid "Classification"
+msgstr "Klassifizierung"
+
+#: gui/inspection/inspector_workspace_panel.cpp:536
+msgid "Code"
+msgstr "Code"
+
+#: gui/inspection/inspector_workspace_panel.cpp:537
+msgid "Message"
+msgstr "Meldung"
+
+#: gui/inspection/inspector_workspace_panel.cpp:538
+msgid "Location"
+msgstr "Ort"
+
+#: gui/inspection/inspector_workspace_panel.cpp:539
+msgid "Copy diagnostic"
+msgstr "Diagnose kopieren"
+
+#: gui/inspection/inspector_workspace_panel.cpp:541
+msgid "Diagnostics"
+msgstr "Diagnosen"
+
+#: gui/inspection/inspector_workspace_panel.cpp:547
+#: gui/inspection/inspector_workspace_panel.cpp:783
+#: gui/inspection/inspector_workspace_panel.cpp:1131
+msgid "Select a package resource to preview it."
+msgstr "Eine Paketressource für die Vorschau auswählen."
+
+#: gui/inspection/inspector_workspace_panel.cpp:651
+msgid "Open MVR or GDTF file"
+msgstr "MVR- oder GDTF-Datei öffnen"
+
+#: gui/inspection/inspector_workspace_panel.cpp:652
+msgid ""
+"MVR and GDTF files (*.mvr;*.gdtf)|*.mvr;*.gdtf|MVR files (*.mvr)|*.mvr|GDTF "
+"files (*.gdtf)|*.gdtf"
+msgstr ""
+"MVR- und GDTF-Dateien (*.mvr;*.gdtf)|*.mvr;*.gdtf|MVR-Dateien (*.mvr)|*.mvr|"
+"GDTF-Dateien (*.gdtf)|*.gdtf"
+
+#: gui/inspection/inspector_workspace_panel.cpp:707
+msgid ""
+"The current project could not be inspected because of an unexpected error."
+msgstr ""
+"Das aktuelle Projekt konnte wegen eines unerwarteten Fehlers nicht geprüft "
+"werden."
+
+#: gui/inspection/inspector_workspace_panel.cpp:708
+#: gui/inspection/inspector_workspace_panel.cpp:717
+#: gui/inspection/inspector_workspace_panel.cpp:760
+#: gui/inspection/inspector_workspace_panel.cpp:1082
+#: gui/inspection/inspector_workspace_panel.cpp:1458
+#: gui/inspection/inspector_workspace_panel.cpp:1466
+#: gui/mainwindow_layout.cpp:452 gui/mainwindow_menu.cpp:234
+#: gui/mainwindow_menu_builders.cpp:71
+msgid "MVR / GDTF Inspector"
+msgstr "MVR / GDTF-Inspektor"
+
+#: gui/inspection/inspector_workspace_panel.cpp:717
+msgid "Only MVR and GDTF files can be inspected."
+msgstr "Nur MVR- und GDTF-Dateien können geprüft werden."
+
+#: gui/inspection/inspector_workspace_panel.cpp:723
+#: gui/inspection/inspector_workspace_panel.cpp:1002
+#: gui/inspection/inspector_workspace_panel.cpp:1289
+#, c-format
+msgid "Source: %s"
+msgstr "Quelle: %s"
+
+#: gui/inspection/inspector_workspace_panel.cpp:725
+#: gui/inspection/inspector_workspace_panel.cpp:1291
+msgid "External file - not part of the current project"
+msgstr "Externe Datei – kein Bestandteil des aktuellen Projekts"
+
+#: gui/inspection/inspector_workspace_panel.cpp:760
+msgid "The file could not be inspected because of an unexpected error."
+msgstr ""
+"Die Datei konnte wegen eines unerwarteten Fehlers nicht geprüft werden."
+
+#: gui/inspection/inspector_workspace_panel.cpp:806
+msgid "Inspecting source..."
+msgstr "Quelle wird geprüft…"
+
+#: gui/inspection/inspector_workspace_panel.cpp:839
+#: gui/inspection/inspector_workspace_panel.cpp:876
+msgid "Format:"
+msgstr "Format:"
+
+#: gui/inspection/inspector_workspace_panel.cpp:839
+#: gui/inspection/inspector_workspace_panel.cpp:876
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:146
+msgid "Status:"
+msgstr "Status:"
+
+#: gui/inspection/inspector_workspace_panel.cpp:840
+msgid "Embedded resource in parent MVR"
+msgstr "Eingebettete Ressource im übergeordneten MVR"
+
+#: gui/inspection/inspector_workspace_panel.cpp:851
+#: gui/inspection/inspector_workspace_panel.cpp:883
+msgid "Package entries:"
+msgstr "Paketeinträge:"
+
+#: gui/inspection/inspector_workspace_panel.cpp:853
+#: gui/inspection/inspector_workspace_panel.cpp:885
+msgid "Resources:"
+msgstr "Ressourcen:"
+
+#: gui/inspection/inspector_workspace_panel.cpp:858
+msgid "Fixture type:"
+msgstr "Scheinwerfertyp:"
+
+#: gui/inspection/inspector_workspace_panel.cpp:861
+msgid "DMX modes:"
+msgstr "DMX-Modi:"
+
+#: gui/inspection/inspector_workspace_panel.cpp:876
+msgid "Readable"
+msgstr "Lesbar"
+
+#: gui/inspection/inspector_workspace_panel.cpp:889
+msgid "MVR version:"
+msgstr "MVR-Version:"
+
+#: gui/inspection/inspector_workspace_panel.cpp:890
+msgid "Provider:"
+msgstr "Anbieter:"
+
+#: gui/inspection/inspector_workspace_panel.cpp:891
+msgid "Provider version:"
+msgstr "Anbieterversion:"
+
+#: gui/inspection/inspector_workspace_panel.cpp:909
+msgid "GDTF summary"
+msgstr "GDTF-Übersicht"
+
+#: gui/inspection/inspector_workspace_panel.cpp:909
+msgid "MVR summary"
+msgstr "MVR-Übersicht"
+
+#: gui/inspection/inspector_workspace_panel.cpp:1005
+msgid ""
+"Bounded XML preview; Find searches the loaded preview only, and the exact "
+"retained document is available on demand."
+msgstr ""
+"Begrenzte XML-Vorschau; die Suche durchsucht nur die geladene Vorschau. Das "
+"unveränderte vollständige Dokument ist auf Anfrage verfügbar."
+
+#: gui/inspection/inspector_workspace_panel.cpp:1007
+#: gui/inspection/inspector_workspace_panel.cpp:1035
+msgid "Complete exact XML"
+msgstr "Vollständiges unverändertes XML"
+
+#: gui/inspection/inspector_workspace_panel.cpp:1008
+#: gui/inspection/inspector_workspace_panel.cpp:1036
+msgid "Complete exact text"
+msgstr "Vollständiger unveränderter Text"
+
+#: gui/inspection/inspector_workspace_panel.cpp:1078
+msgid "Copy archive path"
+msgstr "Archivpfad kopieren"
+
+#: gui/inspection/inspector_workspace_panel.cpp:1082
+#: gui/inspection/inspector_workspace_panel.cpp:1458
+#: gui/inspection/inspector_workspace_panel.cpp:1465
+msgid "The clipboard could not be opened."
+msgstr "Zwischenablage konnte nicht geöffnet werden."
+
+#: gui/inspection/inspector_workspace_panel.cpp:1143
+msgid "This document is already shown in the Source pane."
+msgstr "Dieses Dokument wird bereits im Bereich Quelle angezeigt."
+
+#: gui/inspection/inspector_workspace_panel.cpp:1211
+msgid "This embedded GDTF exceeds the Inspector open limit."
+msgstr ""
+"Diese eingebettete GDTF-Datei überschreitet die Öffnungsgrenze des "
+"Inspektors."
+
+#: gui/inspection/inspector_workspace_panel.cpp:1310
+#: gui/inspection/inspector_workspace_panel.cpp:1382
+msgid "The selected resource could not be previewed."
+msgstr "Vorschau der ausgewählten Ressource konnte nicht angezeigt werden."
+
+#: gui/inspection/inspector_workspace_panel.cpp:1313
+#: gui/inspection/inspector_workspace_panel.cpp:1322
+#: gui/inspection/inspector_workspace_panel.cpp:1405
+msgid "The embedded GDTF could not be inspected."
+msgstr "Eingebettete GDTF-Datei konnte nicht geprüft werden."
+
+#: gui/inspection/inspector_workspace_panel.cpp:1316
+msgid "The source could not be inspected because of an unexpected error."
+msgstr ""
+"Die Quelle konnte wegen eines unerwarteten Fehlers nicht geprüft werden."
+
+#: gui/inspection/inspector_workspace_panel.cpp:1352
+msgid "The selected source is shown in the Source pane."
+msgstr "Die ausgewählte Quelle wird im Bereich Quelle angezeigt."
+
+#: gui/inspection/inspector_workspace_panel.cpp:1370
+msgid "Model preview loaded from prepared geometry."
+msgstr "Modellvorschau aus vorbereiteter Geometrie geladen."
+
+#: gui/inspection/inspector_workspace_panel.cpp:1371
+#: gui/inspection/inspector_workspace_panel.cpp:1379
+msgid "The model preview could not be loaded."
+msgstr "Modellvorschau konnte nicht geladen werden."
+
+#: gui/inspection/inspector_workspace_panel.cpp:1378
+msgid "Model preview loaded from temporary owned bytes."
+msgstr "Modellvorschau aus verwalteten temporären Daten geladen."
+
+#: gui/inspection/inspector_workspace_panel.cpp:1407
+msgid "The source could not be inspected."
+msgstr "Quelle konnte nicht geprüft werden."
+
+#: gui/inspection/inspector_workspace_panel.cpp:1442
+#, c-format
+msgid "Embedded GDTF: %s"
+msgstr "Eingebettetes GDTF: %s"
+
+#: gui/inspection/inspector_workspace_panel.cpp:1444
+msgid "Embedded in inspected MVR"
+msgstr "Im geprüften MVR eingebettet"
+
+#: gui/layerpanel.cpp:84 gui/layerpanel.cpp:100 gui/summarypanel.cpp:256
+#: gui/summarypanel.cpp:316 tests/localization_catalog_integration_test.cpp:192
+msgid "Visible"
+msgstr "Sichtbar"
+
+#: gui/layerpanel.cpp:276
+msgid "Layer Color"
+msgstr "Ebenenfarbe"
+
+#: gui/layerpanel.cpp:300 gui/layerpanel.cpp:403
+#: tests/localization_catalog_integration_test.cpp:210
+msgid "Enter new layer name:"
+msgstr "Namen der neuen Ebene eingeben:"
+
+#: gui/layerpanel.cpp:300 gui/layerpanel.cpp:307
+msgid "Add Layer"
+msgstr "Ebene hinzufügen"
+
+#: gui/layerpanel.cpp:325 gui/layerpanel.cpp:357
+msgid "Layer no longer exists."
+msgstr "Ebene existiert nicht mehr."
+
+#: gui/layerpanel.cpp:325 gui/layerpanel.cpp:331 gui/layerpanel.cpp:351
+#: gui/layerpanel.cpp:357 gui/layerpanel.cpp:363
+msgid "Delete Layer"
+msgstr "Ebene löschen"
+
+#: gui/layerpanel.cpp:331
+msgid "Cannot delete default layer."
+msgstr "Standardebene kann nicht gelöscht werden."
+
+#: gui/layerpanel.cpp:350
+msgid "Layer is not empty. Delete all elements?"
+msgstr "Ebene ist nicht leer. Alle Elemente löschen?"
+
+#: gui/layerpanel.cpp:398
+msgid "Cannot rename default layer."
+msgstr "Standardebene kann nicht umbenannt werden."
+
+#: gui/layerpanel.cpp:398 gui/layerpanel.cpp:403 gui/layerpanel.cpp:411
+msgid "Rename Layer"
+msgstr "Ebene umbenennen"
+
+#: gui/layout2dviewdialog.cpp:63
+msgid "Frame scale"
+msgstr "Rahmenskalierung"
+
+#: gui/layout2dviewdialog.cpp:65
+msgid "100%"
+msgstr "100%"
+
+#: gui/layout2dviewdialog.cpp:186
+#, c-format
+msgid "%d%%"
+msgstr "%d%%"
+
+#: gui/layoutimageutils.cpp:81
+msgid "Invalid image"
+msgstr "Ungültiges Bild"
+
+#: gui/layoutlegendeditdialog.cpp:70
+msgid "Show channel count column"
+msgstr "Spalte für Kanalanzahl anzeigen"
+
+#: gui/layoutlegendeditdialog.cpp:98
+msgid "Move Up"
+msgstr "Nach oben verschieben"
+
+#: gui/layoutlegendeditdialog.cpp:99
+msgid "Move Down"
+msgstr "Nach unten verschieben"
+
+#: gui/layoutpanel.cpp:35 gui/mainwindow_menu.cpp:368
+#: gui/mainwindow_print.cpp:210
+msgid "Layout"
+msgstr "Layout"
+
+#: gui/layoutpanel.cpp:46
+msgid "Export template"
+msgstr "Layoutvorlage exportieren"
+
+#: gui/layoutpanel.cpp:48 gui/layoutpanel.cpp:400
+msgid "Import template"
+msgstr "Layoutvorlage importieren"
+
+#: gui/layoutpanel.cpp:228 gui/viewer2dprintdialog.cpp:45
+msgid "Orientation"
+msgstr "Ausrichtung"
+
+#: gui/layoutpanel.cpp:257 gui/layoutpanel.cpp:298
+msgid "Enter new layout name:"
+msgstr "Namen des neuen Layouts eingeben:"
+
+#: gui/layoutpanel.cpp:257 gui/layoutpanel.cpp:267 gui/layoutpanel.cpp:279
+msgid "Add Layout"
+msgstr "Layout hinzufügen"
+
+#: gui/layoutpanel.cpp:267
+msgid "Layout already exists."
+msgstr "Layout existiert bereits."
+
+#: gui/layoutpanel.cpp:279
+msgid "Could not add layout."
+msgstr "Layout konnte nicht hinzugefügt werden."
+
+#: gui/layoutpanel.cpp:292 gui/layoutpanel.cpp:322
+msgid "No layout is available."
+msgstr "Kein Layout verfügbar."
+
+#: gui/layoutpanel.cpp:292 gui/layoutpanel.cpp:298 gui/layoutpanel.cpp:309
+msgid "Rename Layout"
+msgstr "Layout umbenennen"
+
+#: gui/layoutpanel.cpp:309
+msgid "Layout name is not available."
+msgstr "Layoutname ist nicht verfügbar."
+
+#: gui/layoutpanel.cpp:322 gui/layoutpanel.cpp:328 gui/layoutpanel.cpp:335
+msgid "Delete Layout"
+msgstr "Layout löschen"
+
+#: gui/layoutpanel.cpp:328
+msgid "Cannot delete the last layout."
+msgstr "Das letzte Layout kann nicht gelöscht werden."
+
+#: gui/layoutpanel.cpp:335
+msgid "Could not delete layout."
+msgstr "Layout konnte nicht gelöscht werden."
+
+#: gui/layoutpanel.cpp:357
+msgid "No layout is available to export."
+msgstr "Kein Layout zum Exportieren verfügbar."
+
+#: gui/layoutpanel.cpp:357 gui/layoutpanel.cpp:363 gui/layoutpanel.cpp:376
+#: gui/layoutpanel.cpp:381
+msgid "Export layout package"
+msgstr "Layoutpaket exportieren"
+
+#: gui/layoutpanel.cpp:374
+msgid "Could not export layout package.\n"
+msgstr "Layoutpaket konnte nicht exportiert werden.\n"
+
+#: gui/layoutpanel.cpp:380
+msgid "Layout package exported successfully."
+msgstr "Layoutpaket erfolgreich exportiert."
+
+#: gui/layoutpanel.cpp:386
+msgid "Import layout template"
+msgstr "Layoutvorlage importieren"
+
+#: gui/layoutpanel.cpp:398
+msgid "Could not import layout template.\n"
+msgstr "Layoutvorlage konnte nicht importiert werden.\n"
+
+#: gui/layouttextdialog.cpp:132
+msgid "Solid background"
+msgstr "Einfarbiger Hintergrund"
+
+#: gui/layouttextdialog.cpp:135
+msgid "Show outline"
+msgstr "Umriss anzeigen"
+
+#: gui/layouttextdialog.cpp:148
+msgid "Ok"
+msgstr "OK"
+
+#: gui/logindialog.cpp:21
+msgid "GDTF Share Login"
+msgstr "GDTF-Share-Anmeldung"
+
+#: gui/logindialog.cpp:28
+msgid ""
+"You must be registered at https://gdtf-share.com/ to download GDTF files."
+msgstr ""
+"Zum Herunterladen von GDTF-Dateien müssen Sie bei https://gdtf-share.com/ "
+"registriert sein."
+
+#: gui/logindialog.cpp:33 gui/preferences/gdtf_credentials_panel.cpp:35
+msgid "Username:"
+msgstr "Benutzername:"
+
+#: gui/logindialog.cpp:38 gui/preferences/gdtf_credentials_panel.cpp:40
+msgid "Password:"
+msgstr "Passwort:"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:57
+msgid "Create new UUIDs for imported objects"
+msgstr "Neue UUIDs für importierte Objekte erzeugen"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:58
+msgid "Replace existing project objects"
+msgstr "Vorhandene Projektobjekte ersetzen"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:59
+msgid "Skip incoming colliding objects"
+msgstr "Kollidierende importierte Objekte überspringen"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:62
+#, c-format
+msgid ""
+"The selected MVR contains %zu UUIDs that already exist in the current "
+"project. Choose how Perastage should handle those incoming objects."
+msgstr ""
+"Das ausgewählte MVR enthält %zu UUIDs, die bereits im aktuellen Projekt "
+"vorhanden sind. Wählen Sie, wie Perastage diese importierten Objekte "
+"behandeln soll."
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:66
+msgid "MVR Merge UUID Collisions"
+msgstr "UUID-Konflikte bei MVR-Zusammenführung"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:103
+msgid "Use current project definition for imported fixtures"
+msgstr "Aktuelle Projektdefinition für importierte Scheinwerfer verwenden"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:105
+#, c-format
+msgid "Keep imported definition by renaming it to \"%s\""
+msgstr "Importierte Definition durch Umbenennen in „%s“ behalten"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:107
+msgid "Cancel merge"
+msgstr "Zusammenführung abbrechen"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:120
+msgid "MVR Merge Fixture Type Conflict"
+msgstr "Scheinwerfertypkonflikt bei MVR-Zusammenführung"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:148
+msgid "Open as new project"
+msgstr "Als neues Projekt öffnen"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:149
+msgid "Merge into current project"
+msgstr "Mit aktuellem Projekt zusammenführen"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:151
+msgid "Choose how Perastage should import the selected MVR file."
+msgstr "Wählen Sie, wie Perastage die ausgewählte MVR-Datei importieren soll."
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:152
+#: gui/mainwindow_menu.cpp:175
+msgid "Import MVR"
+msgstr "MVR importieren"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:232
+msgid "Importing MVR file..."
+msgstr "MVR-Datei wird importiert…"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:239
+msgid "MVR import progress"
+msgstr "Fortschritt des MVR-Imports"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:282
+msgid "MVR import failed."
+msgstr "MVR-Import fehlgeschlagen."
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:283
+msgid "Failed to import MVR file."
+msgstr "MVR-Datei konnte nicht importiert werden."
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:323
+#, c-format
+msgid "MVR imported: %s"
+msgstr "MVR importiert: %s"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:380
+msgid "Import MVR file"
+msgstr "MVR-Datei importieren"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:493
+msgid "MVR merge: importing selected file..."
+msgstr "MVR-Zusammenführung: Ausgewählte Datei wird importiert…"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:508
+msgid "MVR merge failed."
+msgstr "MVR-Zusammenführung fehlgeschlagen."
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:509
+msgid "Failed to import MVR file for merge."
+msgstr "MVR-Datei konnte nicht zur Zusammenführung importiert werden."
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:530
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:542
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:560
+msgid "MVR merge cancelled."
+msgstr "MVR-Zusammenführung abgebrochen."
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:561
+msgid ""
+"The MVR merge was cancelled because fixture type definition conflicts were "
+"not resolved."
+msgstr ""
+"Die MVR-Zusammenführung wurde abgebrochen, da Scheinwerfertypkonflikte nicht "
+"gelöst wurden."
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:563
+msgid "MVR Merge Cancelled"
+msgstr "MVR-Zusammenführung abgebrochen"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:596
+#, c-format
+msgid "MVR merged: %s"
+msgstr "MVR zusammengeführt: %s"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:648
+msgid "loading a project"
+msgstr "Projekt laden"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:648
+#: gui/mainwindow_io.cpp:240
+msgid "Open Project"
+msgstr "Projekt öffnen"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:652
+#: gui/mainwindow_io.cpp:251
+msgid "Failed to load project."
+msgstr "Projekt konnte nicht geladen werden."
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:655
+msgid "Project load failed."
+msgstr "Laden des Projekts fehlgeschlagen."
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:666
+#, c-format
+msgid "Project loaded: %s"
+msgstr "Projekt geladen: %s"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:689
+msgid "Unsupported startup file format."
+msgstr "Nicht unterstütztes Startdateiformat."
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:695
+#, c-format
+msgid "Unsupported startup file. Use %s or .mvr files."
+msgstr "Nicht unterstützte Startdatei. Verwenden Sie %s- oder .mvr-Dateien."
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:697
+msgid "Unsupported file"
+msgstr "Nicht unterstützte Datei"
+
+#: gui/mainwindow.cpp:600 gui/mainwindow_menu_builders.cpp:80
+msgid "3D Viewport"
+msgstr "3D-Ansicht"
+
+#: gui/mainwindow.cpp:643 gui/mainwindow_menu_builders.cpp:81
+msgid "2D Viewport"
+msgstr "2D-Ansicht"
+
+#: gui/mainwindow.cpp:659 gui/mainwindow_menu_builders.cpp:82
+msgid "2D Render Options"
+msgstr "2D-Darstellungsoptionen"
+
+#: gui/mainwindow.cpp:776
+#, c-format
+msgid "Do you want to save changes before %s?"
+msgstr "Änderungen vor dem Vorgang „%s“ speichern?"
+
+#: gui/mainwindow.cpp:850
+#, c-format
+msgid "Please wait until the startup project loading finishes before %s."
+msgstr ""
+"Warten Sie vor dem Vorgang „%s“, bis das Laden des Startprojekts "
+"abgeschlossen ist."
+
+#: gui/mainwindow.cpp:852
+msgid "Perastage is still loading"
+msgstr "Perastage lädt noch"
+
+#: gui/mainwindow.cpp:881
+msgid "Project loading"
+msgstr "Projekt wird geladen"
+
+#: gui/mainwindow.cpp:907 gui/mainwindow.cpp:1118
+msgid "Loading project file..."
+msgstr "Projektdatei wird geladen…"
+
+#: gui/mainwindow.cpp:960
+msgid "Building scene..."
+msgstr "Szene wird aufgebaut…"
+
+#: gui/mainwindow.cpp:968
+msgid "Applying saved layout..."
+msgstr "Gespeichertes Layout wird angewendet…"
+
+#: gui/mainwindow.cpp:996
+msgid "Reloading fixture/truss/support tables..."
+msgstr "Scheinwerfer-, Traversen- und Stützentabellen werden neu geladen…"
+
+#: gui/mainwindow.cpp:1022
+msgid "Updating 3D viewport..."
+msgstr "3D-Ansicht wird aktualisiert…"
+
+#: gui/mainwindow.cpp:1036
+msgid "Updating 2D viewport..."
+msgstr "2D-Ansicht wird aktualisiert…"
+
+#: gui/mainwindow.cpp:1054 gui/mainwindow.cpp:1733
+msgid "Refreshing panels..."
+msgstr "Bereiche werden aktualisiert…"
+
+#: gui/mainwindow.cpp:1056
+msgid "Refreshing rigging..."
+msgstr "Rigging wird aktualisiert…"
+
+#: gui/mainwindow.cpp:1064
+msgid "Updating window title..."
+msgstr "Fenstertitel wird aktualisiert…"
+
+#: gui/mainwindow.cpp:1069
+msgid "Finalizing project load..."
+msgstr "Laden des Projekts wird abgeschlossen…"
+
+#: gui/mainwindow.cpp:1691
+msgid "Loading tables..."
+msgstr "Tabellen werden geladen…"
+
+#: gui/mainwindow_conversion.cpp:34
+msgid "Please select fixtures to convert first."
+msgstr "Zuerst zu konvertierende Scheinwerfer auswählen."
+
+#: gui/mainwindow_conversion.cpp:35 gui/mainwindow_conversion.cpp:47
+#: gui/mainwindow_conversion.cpp:63 gui/mainwindow_conversion.cpp:82
+#: gui/mainwindow_menu_builders.cpp:108
+msgid "Convert to Hoist"
+msgstr "In Kettenzug konvertieren"
+
+#: gui/mainwindow_conversion.cpp:46 gui/mainwindow_conversion.cpp:62
+msgid "The selected fixtures cannot be converted."
+msgstr "Ausgewählte Scheinwerfer können nicht konvertiert werden."
+
+#: gui/mainwindow_conversion.cpp:80
+#, c-format
+msgid "Converted %zu fixture(s) to hoists."
+msgstr "%zu Scheinwerfer in Kettenzüge konvertiert."
+
+#: gui/mainwindow_conversion.cpp:90
+msgid "Please select a scene object to convert first."
+msgstr "Zuerst ein zu konvertierendes Szenenobjekt auswählen."
+
+#: gui/mainwindow_conversion.cpp:91 gui/mainwindow_conversion.cpp:110
+#: gui/mainwindow_conversion.cpp:142 gui/mainwindow_menu_builders.cpp:110
+msgid "Convert Scene Objects to Truss"
+msgstr "Szenenobjekte in Traversen konvertieren"
+
+#: gui/mainwindow_conversion.cpp:109
+msgid "No scene objects with a valid model file were converted."
+msgstr "Keine Szenenobjekte mit gültiger Modelldatei konvertiert."
+
+#: gui/mainwindow_conversion.cpp:139
+#, c-format
+msgid "Converted %zu scene object(s) with model '%s' to truss."
+msgstr "%zu Szenenobjekte mit Modell „%s“ in Traverse konvertiert."
+
+#: gui/mainwindow_fixture_add_flow.cpp:86
+msgid "No GDTF file selected."
+msgstr "Keine GDTF-Datei ausgewählt."
+
+#: gui/mainwindow_fixture_add_flow.cpp:86
+#: gui/mainwindow_fixture_add_flow.cpp:103
+msgid "Add fixture"
+msgstr "Scheinwerfer hinzufügen"
+
+#: gui/mainwindow_fixture_add_flow.cpp:101
+msgid "Could not add the selected GDTF fixture.\n"
+msgstr "Ausgewählter GDTF-Scheinwerfer konnte nicht hinzugefügt werden.\n"
+
+#: gui/mainwindow_fixture_distribution.cpp:19
+msgid "Select at least two fixtures to distribute."
+msgstr "Mindestens zwei Scheinwerfer zur Verteilung auswählen."
+
+#: gui/mainwindow_fixture_distribution.cpp:21
+msgid "The fixture selection is no longer available."
+msgstr "Die Scheinwerferauswahl ist nicht mehr verfügbar."
+
+#: gui/mainwindow_fixture_distribution.cpp:22
+msgid ""
+"The selected fixtures must share one straight line on the same or connected "
+"trusses."
+msgstr ""
+"Die ausgewählten Scheinwerfer müssen auf einer geraden Linie auf derselben "
+"oder auf verbundenen Traversen liegen."
+
+#: gui/mainwindow_fixture_distribution.cpp:92
+msgid "Open a 2D or 3D scene viewport before distributing fixtures."
+msgstr ""
+"Vor dem Verteilen der Scheinwerfer eine 2D- oder 3D-Szenenansicht öffnen."
+
+#: gui/mainwindow_fixture_distribution.cpp:111
+msgid "Fixture geometry must be loaded before using edge-to-edge spacing."
+msgstr ""
+"Scheinwerfergeometrie muss vor Verwendung des Kantenabstands geladen sein."
+
+#: gui/mainwindow_fixture_distribution.cpp:116
+msgid "Choose a start point and then a direction on the truss line."
+msgstr "Startpunkt und dann Richtung auf der Traversenlinie wählen."
+
+#: gui/mainwindow_fixture_distribution.cpp:117
+msgid "Choose two limits on the truss line for outside-in distribution."
+msgstr ""
+"Zwei Grenzen auf der Traversenlinie für die Verteilung von außen nach innen "
+"wählen."
+
+#: gui/mainwindow_fixture_distribution.cpp:121
+msgid "Fixture distribution cancelled."
+msgstr "Scheinwerferverteilung abgebrochen."
+
+#: gui/mainwindow_fixture_distribution.cpp:152
+msgid ""
+"The selected fixtures do not fit on this truss line with the requested "
+"spacing."
+msgstr ""
+"Die ausgewählten Scheinwerfer passen mit dem gewünschten Abstand nicht auf "
+"diese Traversenlinie."
+
+#: gui/mainwindow_fixture_distribution.cpp:156
+#: gui/mainwindow_fixture_distribution.cpp:262
+msgid "Fixture distribution could not be completed."
+msgstr "Scheinwerferverteilung konnte nicht abgeschlossen werden."
+
+#: gui/mainwindow_fixture_distribution.cpp:162
+msgid "Fixtures distributed with the requested spacing."
+msgstr "Scheinwerfer mit gewünschtem Abstand verteilt."
+
+#: gui/mainwindow_fixture_distribution.cpp:202
+msgid "Activate a 2D or 3D scene viewport before distributing fixtures."
+msgstr ""
+"Vor dem Verteilen der Scheinwerfer eine 2D- oder 3D-Szenenansicht aktivieren."
+
+#: gui/mainwindow_fixture_distribution.cpp:221
+msgid "Fixtures distributed uniformly along the truss line."
+msgstr "Scheinwerfer gleichmäßig entlang der Traversenlinie verteilt."
+
+#: gui/mainwindow_fixture_distribution.cpp:232
+msgid "Activate a 2D or 3D scene viewport before choosing endpoints."
+msgstr ""
+"Vor der Auswahl der Endpunkte eine 2D- oder 3D-Szenenansicht aktivieren."
+
+#: gui/mainwindow_fixture_distribution.cpp:246
+msgid "Choose two points on the truss line, or press Esc to cancel."
+msgstr ""
+"Zwei Punkte auf der Traversenlinie wählen oder Esc zum Abbrechen drücken."
+
+#: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:481
+#: gui/mainwindow_startup_splash.cpp:63
+#: gui/services/fixture_symbol_preparation_service.cpp:488
+msgid "Ready"
+msgstr "Bereit"
+
+#: gui/mainwindow_fixture_distribution.cpp:268
+msgid "Fixtures distributed between the selected truss points."
+msgstr "Scheinwerfer zwischen den gewählten Traversenpunkten verteilt."
+
+#: gui/mainwindow_fixture_replace.cpp:114
+msgid "Select fixture mode"
+msgstr "Scheinwerfermodus auswählen"
+
+#: gui/mainwindow_fixture_replace.cpp:114
+#: gui/rider_fixture_resolution_dialog.cpp:275
+msgid "Fixture mode"
+msgstr "Scheinwerfermodus"
+
+#: gui/mainwindow_fixture_replace.cpp:131
+msgid "Select at least one fixture before running Replace Fixtures."
+msgstr "Vor dem Ersetzen mindestens einen Scheinwerfer auswählen."
+
+#: gui/mainwindow_fixture_replace.cpp:132
+#: gui/mainwindow_fixture_replace.cpp:142
+#: gui/mainwindow_fixture_replace.cpp:166
+#: gui/mainwindow_fixture_replace.cpp:176
+#: gui/mainwindow_fixture_replace.cpp:192
+#: gui/mainwindow_fixture_replace.cpp:206
+#: gui/mainwindow_fixture_replace.cpp:210
+#: gui/mainwindow_fixture_replace.cpp:237
+#: gui/mainwindow_fixture_replace.cpp:246
+msgid "Replace Fixtures"
+msgstr "Scheinwerfer ersetzen"
+
+#: gui/mainwindow_fixture_replace.cpp:137
+msgid "Fixture from scene"
+msgstr "Scheinwerfer aus der Szene"
+
+#: gui/mainwindow_fixture_replace.cpp:138
+msgid "Fixture from dictionary"
+msgstr "Scheinwerfer aus dem Verzeichnis"
+
+#: gui/mainwindow_fixture_replace.cpp:139
+msgid "GDTF file"
+msgstr "GDTF-Datei"
+
+#: gui/mainwindow_fixture_replace.cpp:142
+msgid "Choose the source for the replacement fixture:"
+msgstr "Quelle für den Ersatzscheinwerfer auswählen:"
+
+#: gui/mainwindow_fixture_replace.cpp:157
+msgid "(no mode)"
+msgstr "(kein Modus)"
+
+#: gui/mainwindow_fixture_replace.cpp:160
+#, c-format
+msgid "%s | %s | ID %d"
+msgstr "%s | %s | ID %d"
+
+#: gui/mainwindow_fixture_replace.cpp:165
+msgid "There are no fixtures with GDTF data in the scene."
+msgstr "Keine Scheinwerfer mit GDTF-Daten in der Szene vorhanden."
+
+#: gui/mainwindow_fixture_replace.cpp:176
+msgid "Choose a fixture from the scene:"
+msgstr "Scheinwerfer aus der Szene auswählen:"
+
+#: gui/mainwindow_fixture_replace.cpp:192
+msgid "The fixture dictionary is empty."
+msgstr "Das Scheinwerferverzeichnis ist leer."
+
+#: gui/mainwindow_fixture_replace.cpp:205
+msgid "No dictionary entries contain a GDTF path."
+msgstr "Kein Verzeichniseintrag enthält einen GDTF-Pfad."
+
+#: gui/mainwindow_fixture_replace.cpp:209
+msgid "Choose a fixture from the dictionary:"
+msgstr "Scheinwerfer aus dem Verzeichnis auswählen:"
+
+#: gui/mainwindow_fixture_replace.cpp:237
+msgid "Invalid replacement fixture selection."
+msgstr "Ungültige Auswahl des Ersatzscheinwerfers."
+
+#: gui/mainwindow_fixture_replace.cpp:245
+msgid "Could not read fixture modes from the selected GDTF."
+msgstr ""
+"Scheinwerfermodi konnten aus der ausgewählten GDTF-Datei nicht gelesen "
+"werden."
+
+#: gui/mainwindow_io.cpp:231 gui/mainwindow_io.cpp:367
+#, c-format
+msgid "Perastage files (*%s)|*%s"
+msgstr "Perastage-Dateien (*%s)|*%s"
+
+#: gui/mainwindow_io.cpp:342 gui/mainwindow_io.cpp:413
+msgid ""
+"Failed to save project.\n"
+"\n"
+msgstr ""
+"Projekt konnte nicht gespeichert werden.\n"
+"\n"
+
+#: gui/mainwindow_io.cpp:386
+msgid "Save Project"
+msgstr "Projekt speichern"
+
+#: gui/mainwindow_io.cpp:438 gui/ridertextdialog.cpp:201
+msgid "Import Rider"
+msgstr "Rider importieren"
+
+#: gui/mainwindow_io.cpp:449
+msgid "Failed to read rider."
+msgstr "Rider konnte nicht gelesen werden."
+
+#: gui/mainwindow_io.cpp:471 gui/ridertextdialog.cpp:233
+msgid "Failed to import rider."
+msgstr "Rider konnte nicht importiert werden."
+
+#: gui/mainwindow_io.cpp:495 gui/ridertextdialog.cpp:319
+#: gui/ridertextdialog.cpp:346
+msgid "Rider text is empty."
+msgstr "Rider-Text ist leer."
+
+#: gui/mainwindow_io.cpp:536
+msgid "Text scene creation progress"
+msgstr "Fortschritt der Szenenerstellung aus Text"
+
+#: gui/mainwindow_io.cpp:543
+#, c-format
+msgid "Text import: %s (%d/%d)"
+msgstr "Textimport: %s (%d/%d)"
+
+#: gui/mainwindow_io.cpp:549
+#, c-format
+msgid "Text import: %s"
+msgstr "Textimport: %s"
+
+#: gui/mainwindow_io.cpp:554
+msgid "Failed to import rider text."
+msgstr "Rider-Text konnte nicht importiert werden."
+
+#: gui/mainwindow_io.cpp:558
+msgid "Text import failed."
+msgstr "Textimport fehlgeschlagen."
+
+#: gui/mainwindow_io.cpp:580
+msgid "Text import completed."
+msgstr "Textimport abgeschlossen."
+
+#: gui/mainwindow_io.cpp:602
+msgid "Export MVR file"
+msgstr "MVR-Datei exportieren"
+
+#: gui/mainwindow_io.cpp:618
+msgid "Saving project..."
+msgstr "Projekt wird gespeichert…"
+
+#: gui/mainwindow_io.cpp:647
+msgid "No truss data available."
+msgstr "Keine Traversendaten verfügbar."
+
+#: gui/mainwindow_io.cpp:647 gui/mainwindow_io.cpp:706
+msgid "Export Truss"
+msgstr "Traverse exportieren"
+
+#: gui/mainwindow_io.cpp:675
+msgid "Save Truss"
+msgstr "Traverse speichern"
+
+#: gui/mainwindow_io.cpp:687 gui/mainwindow_io.cpp:874
+msgid "Model file not found."
+msgstr "Modelldatei nicht gefunden."
+
+#: gui/mainwindow_io.cpp:696
+msgid "Failed to export truss GDTF."
+msgstr "Traversen-GDTF konnte nicht exportiert werden."
+
+#: gui/mainwindow_io.cpp:706
+msgid "Truss exported successfully."
+msgstr "Traverse erfolgreich exportiert."
+
+#: gui/mainwindow_io.cpp:720
+msgid "No fixture data available."
+msgstr "Keine Scheinwerferdaten verfügbar."
+
+#: gui/mainwindow_io.cpp:720 gui/mainwindow_io.cpp:761
+#: gui/mainwindow_io.cpp:770 gui/mainwindow_io.cpp:778
+#: gui/mainwindow_io.cpp:837
+msgid "Export Fixture"
+msgstr "Scheinwerfer exportieren"
+
+#: gui/mainwindow_io.cpp:747
+msgid "GDTF file not found."
+msgstr "GDTF-Datei nicht gefunden."
+
+#: gui/mainwindow_io.cpp:760
+msgid "Could not create the Perastage fixture derivative."
+msgstr "Abgeleitete Perastage-Scheinwerferdatei konnte nicht erstellt werden."
+
+#: gui/mainwindow_io.cpp:769
+msgid "Could not update the Perastage fixture derivative."
+msgstr ""
+"Abgeleitete Perastage-Scheinwerferdatei konnte nicht aktualisiert werden."
+
+#: gui/mainwindow_io.cpp:801
+msgid "Save Fixture"
+msgstr "Scheinwerfer speichern"
+
+#: gui/mainwindow_io.cpp:813
+msgid ""
+"This will overwrite the original GDTF library asset. Perastage normally "
+"preserves originals and exports a derived copy instead.\n"
+"\n"
+"Do you want to overwrite the original GDTF file?"
+msgstr ""
+"Die ursprüngliche GDTF-Bibliotheksdatei wird überschrieben. Perastage "
+"bewahrt normalerweise Originale und exportiert eine abgeleitete Kopie.\n"
+"\n"
+"Ursprüngliche GDTF-Datei überschreiben?"
+
+#: gui/mainwindow_io.cpp:816
+msgid "Overwrite Original GDTF"
+msgstr "Original-GDTF überschreiben"
+
+#: gui/mainwindow_io.cpp:831
+#, c-format
+msgid "Failed to write file: %s"
+msgstr "Datei konnte nicht geschrieben werden: %s"
+
+#: gui/mainwindow_io.cpp:837
+msgid "Fixture exported successfully."
+msgstr "Scheinwerfer erfolgreich exportiert."
+
+#: gui/mainwindow_io.cpp:850
+msgid "No scene objects available."
+msgstr "Keine Szenenobjekte verfügbar."
+
+#: gui/mainwindow_io.cpp:850 gui/mainwindow_io.cpp:896
+msgid "Export Scene Object"
+msgstr "Szenenobjekt exportieren"
+
+#: gui/mainwindow_io.cpp:882
+msgid "Save Object"
+msgstr "Objekt speichern"
+
+#: gui/mainwindow_io.cpp:892
+msgid "Failed to copy file."
+msgstr "Datei konnte nicht kopiert werden."
+
+#: gui/mainwindow_io.cpp:896
+msgid "Object exported successfully."
+msgstr "Objekt erfolgreich exportiert."
+
+#: gui/mainwindow_io.cpp:913 gui/mainwindow_print.cpp:658
+msgid "Select table"
+msgstr "Tabelle auswählen"
+
+#: gui/mainwindow_io.cpp:913 gui/tableprinter.cpp:164 gui/tableprinter.cpp:172
+#: gui/tableprinter.cpp:207
+msgid "Export CSV"
+msgstr "CSV exportieren"
+
+#: gui/mainwindow_layout.cpp:339 gui/mainwindow_print.cpp:646
+#: gui/riggingpanel.cpp:191 gui/summarypanel.cpp:180
+msgid "Hoists"
+msgstr "Kettenzüge"
+
+#: gui/mainwindow_layout.cpp:344 gui/mainwindow_print.cpp:649
+#: gui/summarypanel.cpp:197
+msgid "Objects"
+msgstr "Objekte"
+
+#: gui/mainwindow_layout.cpp:352
+msgid "Data Views"
+msgstr "Datenansichten"
+
+#: gui/mainwindow_layout.cpp:366 gui/mainwindow_menu_builders.cpp:78
+msgid "Console"
+msgstr "Console"
+
+#: gui/mainwindow_layout.cpp:379 gui/mainwindow_menu_builders.cpp:83
+msgid "Layers"
+msgstr "Ebenen"
+
+#: gui/mainwindow_layout.cpp:393 gui/mainwindow_menu_builders.cpp:84
+msgid "Layouts"
+msgstr "Layouts"
+
+#: gui/mainwindow_layout.cpp:407
+msgid "Layout Viewer"
+msgstr "Layoutansicht"
+
+#: gui/mainwindow_layout.cpp:436 gui/mainwindow_menu_builders.cpp:86
+msgid "Rigging"
+msgstr "Rigging"
+
+#: gui/mainwindow_layout.cpp:482
+msgid "X: -- m  Y: -- m  Z: -- m"
+msgstr "X: -- m  Y: -- m  Z: -- m"
+
+#: gui/mainwindow_layout.cpp:484
+#, c-format
+msgid "Version %s"
+msgstr "Version %s"
+
+#: gui/mainwindow_layout.cpp:1146
+msgid "Layout view update skipped: target view not found."
+msgstr "Layoutansicht nicht aktualisiert: Zielansicht nicht gefunden."
+
+#: gui/mainwindow_layout.cpp:1176
+msgid "Layout view update failed."
+msgstr "Aktualisierung der Layoutansicht fehlgeschlagen."
+
+#: gui/mainwindow_menu.cpp:163
+msgid "New"
+msgstr "Neu"
+
+#: gui/mainwindow_menu.cpp:165
+msgid "Create a new project"
+msgstr "Neues Projekt erstellen"
+
+#: gui/mainwindow_menu.cpp:166
+msgid "Open"
+msgstr "Öffnen"
+
+#: gui/mainwindow_menu.cpp:168
+msgid "Open an existing project"
+msgstr "Vorhandenes Projekt öffnen"
+
+#: gui/mainwindow_menu.cpp:171
+msgid "Save the current project"
+msgstr "Aktuelles Projekt speichern"
+
+#: gui/mainwindow_menu.cpp:172
+msgid "Save As"
+msgstr "Speichern unter"
+
+#: gui/mainwindow_menu.cpp:174
+msgid "Save the current project with a new name"
+msgstr "Aktuelles Projekt unter neuem Namen speichern"
+
+#: gui/mainwindow_menu.cpp:177
+msgid "Import an MVR file"
+msgstr "MVR-Datei importieren"
+
+#: gui/mainwindow_menu.cpp:178
+msgid "Export MVR"
+msgstr "MVR exportieren"
+
+#: gui/mainwindow_menu.cpp:180
+msgid "Export the project to MVR"
+msgstr "Projekt als MVR exportieren"
+
+#: gui/mainwindow_menu.cpp:181 gui/mainwindow_print.cpp:215
+msgid "Print"
+msgstr "Drucken"
+
+#: gui/mainwindow_menu.cpp:183
+msgid "Choose what to print"
+msgstr "Druckinhalt auswählen"
+
+#: gui/mainwindow_menu.cpp:196
+msgid "Undo"
+msgstr "Rückgängig"
+
+#: gui/mainwindow_menu.cpp:198
+msgid "Undo last action"
+msgstr "Letzte Aktion rückgängig machen"
+
+#: gui/mainwindow_menu.cpp:199
+msgid "Redo"
+msgstr "Wiederholen"
+
+#: gui/mainwindow_menu.cpp:201
+msgid "Redo last undone action"
+msgstr "Zuletzt rückgängig gemachte Aktion wiederholen"
+
+#: gui/mainwindow_menu.cpp:203
+msgid "Cut"
+msgstr "Ausschneiden"
+
+#: gui/mainwindow_menu.cpp:205
+msgid "Cut selected scene elements"
+msgstr "Ausgewählte Szenenelemente ausschneiden"
+
+#: gui/mainwindow_menu.cpp:206
+msgid "Copy"
+msgstr "Kopieren"
+
+#: gui/mainwindow_menu.cpp:208
+msgid "Copy selected scene elements"
+msgstr "Ausgewählte Szenenelemente kopieren"
+
+#: gui/mainwindow_menu.cpp:209
+msgid "Paste"
+msgstr "Einfügen"
+
+#: gui/mainwindow_menu.cpp:211
+msgid "Paste copied scene elements"
+msgstr "Kopierte Szenenelemente einfügen"
+
+#: gui/mainwindow_menu.cpp:215
+msgid "Edit"
+msgstr "Bearbeiten"
+
+#: gui/mainwindow_menu.cpp:223 gui/mainwindow_menu_builders.cpp:68
+msgid "3D Layout View"
+msgstr "3D-Layoutansicht"
+
+#: gui/mainwindow_menu.cpp:225
+msgid "Switch to 3D Layout View"
+msgstr "Zur 3D-Layoutansicht wechseln"
+
+#: gui/mainwindow_menu.cpp:227 gui/mainwindow_menu_builders.cpp:69
+msgid "2D Layout View"
+msgstr "2D-Layoutansicht"
+
+#: gui/mainwindow_menu.cpp:229
+msgid "Switch to 2D Layout View"
+msgstr "Zur 2D-Layoutansicht wechseln"
+
+#: gui/mainwindow_menu.cpp:231
+msgid "Layout Mode"
+msgstr "Layoutmodus"
+
+#: gui/mainwindow_menu.cpp:233
+msgid "Switch to Layout Mode View"
+msgstr "Zur Layoutmodus-Ansicht wechseln"
+
+#: gui/mainwindow_menu.cpp:236
+msgid "Switch to MVR / GDTF Inspector"
+msgstr "Zum MVR / GDTF-Inspektor wechseln"
+
+#: gui/mainwindow_menu.cpp:239
+msgid "Top View"
+msgstr "Draufsicht"
+
+#: gui/mainwindow_menu.cpp:241
+msgid "Apply top view to active viewport"
+msgstr "Draufsicht auf aktive Ansicht anwenden"
+
+#: gui/mainwindow_menu.cpp:243
+msgid "Front View"
+msgstr "Vorderansicht"
+
+#: gui/mainwindow_menu.cpp:245
+msgid "Apply front view to active viewport"
+msgstr "Vorderansicht auf aktive Ansicht anwenden"
+
+#: gui/mainwindow_menu.cpp:247
+msgid "Side View"
+msgstr "Seitenansicht"
+
+#: gui/mainwindow_menu.cpp:249
+msgid "Apply side view to active viewport"
+msgstr "Seitenansicht auf aktive Ansicht anwenden"
+
+#: gui/mainwindow_menu.cpp:252
+msgid "Select Tool"
+msgstr "Auswahlwerkzeug"
+
+#: gui/mainwindow_menu.cpp:254
+msgid "Switch to standard selection mode"
+msgstr "Zum Standardauswahlmodus wechseln"
+
+#: gui/mainwindow_menu.cpp:256
+msgid "Measure Tool"
+msgstr "Messwerkzeug"
+
+#: gui/mainwindow_menu.cpp:258
+msgid "Toggle center-to-center measure tool"
+msgstr "Messwerkzeug für Mittenabstand umschalten"
+
+#: gui/mainwindow_menu.cpp:260
+msgid "Gap Measure Tool"
+msgstr "Abstandsmesswerkzeug"
+
+#: gui/mainwindow_menu.cpp:262
+msgid "Toggle edge-to-edge gap measure tool"
+msgstr "Messwerkzeug für Kantenabstand umschalten"
+
+#: gui/mainwindow_menu.cpp:264
+msgid "Axis Lock"
+msgstr "Achsensperre"
+
+#: gui/mainwindow_menu.cpp:265
+msgid "Toggle axis-constrained selection movement"
+msgstr "Achsengebundene Auswahlbewegung umschalten"
+
+#: gui/mainwindow_menu.cpp:268
+msgid "Drag Move"
+msgstr "Ziehen zum Verschieben"
+
+#: gui/mainwindow_menu.cpp:269
+msgid "Toggle left-click selection dragging"
+msgstr "Ziehen der Auswahl per Linksklick umschalten"
+
+#: gui/mainwindow_menu.cpp:272
+msgid "Local Axes"
+msgstr "Lokale Achsen"
+
+#: gui/mainwindow_menu.cpp:274
+msgid "Use local axes for viewport transforms"
+msgstr "Lokale Achsen für Ansichtstransformationen verwenden"
+
+#: gui/mainwindow_menu.cpp:277
+msgid "Magnet"
+msgstr "Magnet"
+
+#: gui/mainwindow_menu.cpp:278
+msgid "Toggle Magnet snapping while dragging"
+msgstr "Magnetisches Einrasten beim Ziehen umschalten"
+
+#: gui/mainwindow_menu.cpp:282
+msgid "Cross-table Actions"
+msgstr "Tabellenübergreifende Aktionen"
+
+#: gui/mainwindow_menu.cpp:284
+msgid "Toggle viewport actions across all tables"
+msgstr "Ansichtsaktionen über alle Tabellen umschalten"
+
+#: gui/mainwindow_menu.cpp:315 gui/mainwindow_menu_builders.cpp:87
+msgid "Layout Views"
+msgstr "Layoutansichten"
+
+#: gui/mainwindow_menu.cpp:325
+msgid "Insert a new fixture"
+msgstr "Neuen Scheinwerfer einfügen"
+
+#: gui/mainwindow_menu.cpp:328
+msgid "Insert a new truss"
+msgstr "Neue Traverse einfügen"
+
+#: gui/mainwindow_menu.cpp:331
+msgid "Insert a new scene object"
+msgstr "Neues Szenenobjekt einfügen"
+
+#: gui/mainwindow_menu.cpp:333 gui/mainwindow_menu.cpp:335
+#: mvr/mvrimporter.cpp:332
+msgid "Download GDTF"
+msgstr "GDTF herunterladen"
+
+#: gui/mainwindow_menu.cpp:336 gui/mainwindow_menu.cpp:338
+#: gui/ridertextdialog.cpp:77
+msgid "Create from text"
+msgstr "Aus Text erstellen"
+
+#: gui/mainwindow_menu.cpp:342
+msgid "Tools"
+msgstr "Werkzeuge"
+
+#: gui/mainwindow_menu.cpp:351
+msgid "Add 2D View"
+msgstr "2D-Ansicht hinzufügen"
+
+#: gui/mainwindow_menu.cpp:352
+msgid "Add 2D View to Layout"
+msgstr "2D-Ansicht zum Layout hinzufügen"
+
+#: gui/mainwindow_menu.cpp:353
+msgid "Add Legend"
+msgstr "Legende hinzufügen"
+
+#: gui/mainwindow_menu.cpp:355
+msgid "Add fixture legend to layout"
+msgstr "Scheinwerferlegende zum Layout hinzufügen"
+
+#: gui/mainwindow_menu.cpp:357
+msgid "Add Event Table"
+msgstr "Veranstaltungstabelle hinzufügen"
+
+#: gui/mainwindow_menu.cpp:358
+msgid "Add event table to layout"
+msgstr "Veranstaltungstabelle zum Layout hinzufügen"
+
+#: gui/mainwindow_menu.cpp:359
+msgid "Add Text"
+msgstr "Text hinzufügen"
+
+#: gui/mainwindow_menu.cpp:361
+msgid "Add text box to layout"
+msgstr "Textfeld zum Layout hinzufügen"
+
+#: gui/mainwindow_menu.cpp:362
+msgid "Add Image"
+msgstr "Bild hinzufügen"
+
+#: gui/mainwindow_menu.cpp:364
+msgid "Add image to layout"
+msgstr "Bild zum Layout hinzufügen"
+
+#: gui/mainwindow_menu.cpp:382 gui/mainwindow_menu.cpp:385
+msgid "creating a new project"
+msgstr "Neues Projekt erstellen"
+
+#: gui/mainwindow_menu.cpp:385
+msgid "New Project"
+msgstr "Neues Projekt"
+
+#: gui/mainwindow_menu.cpp:415
+msgid "Could not resolve writable user library path."
+msgstr ""
+"Pfad der beschreibbaren Benutzerbibliothek konnte nicht ermittelt werden."
+
+#: gui/mainwindow_menu.cpp:416 gui/mainwindow_menu.cpp:428
+#: gui/mainwindow_menu_builders.cpp:97
+msgid "Open user library folder"
+msgstr "Benutzerbibliotheksordner öffnen"
+
+#: gui/mainwindow_menu.cpp:427
+msgid "Could not open the user library folder."
+msgstr "Benutzerbibliotheksordner konnte nicht geöffnet werden."
+
+#: gui/mainwindow_menu.cpp:462
+msgid "No hoists available for weight distribution."
+msgstr "Keine Kettenzüge zur Lastverteilung verfügbar."
+
+#: gui/mainwindow_menu.cpp:463 gui/mainwindow_menu.cpp:474
+#: gui/mainwindow_menu.cpp:495
+msgid "Distribute hoist weights"
+msgstr "Kettenzuglasten verteilen"
+
+#: gui/mainwindow_menu.cpp:468
+msgid "All positions"
+msgstr "Alle Positionen"
+
+#: gui/mainwindow_menu.cpp:473
+msgid "Select hang position(s) to distribute hoist weights."
+msgstr "Hängepositionen zur Verteilung der Kettenzuglasten auswählen."
+
+#: gui/mainwindow_menu.cpp:494
+msgid "No hoists found for the selected position."
+msgstr "Keine Kettenzüge für die ausgewählte Position gefunden."
+
+#: gui/mainwindow_menu.cpp:634
+msgid "exiting"
+msgstr "Beenden"
+
+#: gui/mainwindow_menu.cpp:634
+msgid "Exit"
+msgstr "Beenden"
+
+#: gui/mainwindow_menu.cpp:727
+#, c-format
+msgid ""
+"Could not create the logs folder.\n"
+"\n"
+"%s"
+msgstr ""
+"Protokollordner konnte nicht erstellt werden.\n"
+"\n"
+"%s"
+
+#: gui/mainwindow_menu.cpp:729 gui/mainwindow_menu.cpp:747
+#: gui/mainwindow_menu.cpp:763 gui/mainwindow_menu.cpp:772
+msgid "Perastage Diagnostics"
+msgstr "Perastage-Diagnosen"
+
+#: gui/mainwindow_menu.cpp:745
+#, c-format
+msgid ""
+"Could not open the logs folder.\n"
+"\n"
+"%s"
+msgstr ""
+"Protokollordner konnte nicht geöffnet werden.\n"
+"\n"
+"%s"
+
+#: gui/mainwindow_menu.cpp:761
+#, c-format
+msgid ""
+"Could not export the diagnostic report.\n"
+"\n"
+"%s"
+msgstr ""
+"Diagnosebericht konnte nicht exportiert werden.\n"
+"\n"
+"%s"
+
+#: gui/mainwindow_menu.cpp:770
+#, c-format
+msgid ""
+"Diagnostic report exported successfully.\n"
+"\n"
+"%s"
+msgstr ""
+"Diagnosebericht erfolgreich exportiert.\n"
+"\n"
+"%s"
+
+#: gui/mainwindow_menu.cpp:791 gui/update/update_notification_dialog.cpp:30
+msgid "Perastage Updates"
+msgstr "Perastage-Aktualisierungen"
+
+#: gui/mainwindow_menu.cpp:793
+msgid ""
+"Could not check for updates.\n"
+"\n"
+msgstr ""
+"Suche nach Aktualisierungen fehlgeschlagen.\n"
+"\n"
+
+#: gui/mainwindow_menu.cpp:796
+msgid "Please verify your network connection and try again."
+msgstr "Bitte Netzwerkverbindung prüfen und erneut versuchen."
+
+#: gui/mainwindow_menu.cpp:805
+#, c-format
+msgid ""
+"Current version: %s\n"
+"Latest version: %s\n"
+"\n"
+msgstr ""
+"Aktuelle Version: %s\n"
+"Neueste Version: %s\n"
+"\n"
+
+#: gui/mainwindow_menu.cpp:809
+msgid "You are up to date."
+msgstr "Ihre Version ist aktuell."
+
+#: gui/mainwindow_menu.cpp:1105 gui/mainwindow_truss_replace.cpp:180
+msgid ""
+"Unsupported or unreadable truss file. Supported formats are GDTF, GTruss, "
+"GLB, and 3DS."
+msgstr ""
+"Nicht unterstützte oder unlesbare Traversendatei. Unterstützte Formate: "
+"GDTF, GTruss, GLB und 3DS."
+
+#: gui/mainwindow_menu.cpp:1288 gui/mainwindow_menu.cpp:1310
+msgid "Select Object file"
+msgstr "Objektdatei auswählen"
+
+#: gui/mainwindow_menu_builders.cpp:13
+msgid "New\tCtrl+N"
+msgstr "Neu\tCtrl+N"
+
+#: gui/mainwindow_menu_builders.cpp:15
+msgid "Load\tCtrl+L"
+msgstr "Laden\tCtrl+L"
+
+#: gui/mainwindow_menu_builders.cpp:16
+msgid "Save\tCtrl+S"
+msgstr "Speichern\tCtrl+S"
+
+#: gui/mainwindow_menu_builders.cpp:17
+msgid "Save As..."
+msgstr "Speichern unter…"
+
+#: gui/mainwindow_menu_builders.cpp:19
+msgid "Import MVR..."
+msgstr "MVR importieren…"
+
+#: gui/mainwindow_menu_builders.cpp:20
+msgid "Export MVR..."
+msgstr "MVR exportieren…"
+
+#: gui/mainwindow_menu_builders.cpp:21
+msgid "MVR-xchange..."
+msgstr "MVR-xchange…"
+
+#: gui/mainwindow_menu_builders.cpp:22
+msgid "Print Viewer 2D..."
+msgstr "2D-Ansicht drucken…"
+
+#: gui/mainwindow_menu_builders.cpp:23
+msgid "Print Layout..."
+msgstr "Layout drucken…"
+
+#: gui/mainwindow_menu_builders.cpp:24
+msgid "Print Table..."
+msgstr "Tabelle drucken…"
+
+#: gui/mainwindow_menu_builders.cpp:25
+msgid "Export CSV..."
+msgstr "CSV exportieren…"
+
+#: gui/mainwindow_menu_builders.cpp:27
+msgid "Close\tCtrl+Q"
+msgstr "Schließen\tCtrl+Q"
+
+#: gui/mainwindow_menu_builders.cpp:34
+msgid "Sphere..."
+msgstr "Kugel…"
+
+#: gui/mainwindow_menu_builders.cpp:35
+msgid "Cube..."
+msgstr "Würfel…"
+
+#: gui/mainwindow_menu_builders.cpp:36
+msgid "Cylinder..."
+msgstr "Zylinder…"
+
+#: gui/mainwindow_menu_builders.cpp:43
+msgid "Undo\tCtrl+Z"
+msgstr "Rückgängig\tCtrl+Z"
+
+#: gui/mainwindow_menu_builders.cpp:44
+msgid "Redo\tCtrl+Y"
+msgstr "Wiederholen\tCtrl+Y"
+
+#: gui/mainwindow_menu_builders.cpp:46
+msgid "Cut\tCtrl+X"
+msgstr "Ausschneiden\tCtrl+X"
+
+#: gui/mainwindow_menu_builders.cpp:47
+msgid "Copy\tCtrl+C"
+msgstr "Kopieren\tCtrl+C"
+
+#: gui/mainwindow_menu_builders.cpp:48
+msgid "Paste\tCtrl+V"
+msgstr "Einfügen\tCtrl+V"
+
+#: gui/mainwindow_menu_builders.cpp:50
+msgid "Add fixture..."
+msgstr "Scheinwerfer hinzufügen…"
+
+#: gui/mainwindow_menu_builders.cpp:51
+msgid "Add truss..."
+msgstr "Traverse hinzufügen…"
+
+#: gui/mainwindow_menu_builders.cpp:52
+msgid "Add scene object..."
+msgstr "Szenenobjekt hinzufügen…"
+
+#: gui/mainwindow_menu_builders.cpp:53
+msgid "Add basic geometry"
+msgstr "Grundgeometrie hinzufügen"
+
+#: gui/mainwindow_menu_builders.cpp:55
+msgid "Delete\tDel"
+msgstr "Löschen\tDel"
+
+#: gui/mainwindow_menu_builders.cpp:56
+msgid "Group\tCtrl+G"
+msgstr "Gruppieren\tCtrl+G"
+
+#: gui/mainwindow_menu_builders.cpp:57
+msgid "Ungroup\tCtrl+U"
+msgstr "Gruppierung aufheben\tCtrl+U"
+
+#: gui/mainwindow_menu_builders.cpp:58
+msgid "Replace fixtures..."
+msgstr "Scheinwerfer ersetzen…"
+
+#: gui/mainwindow_menu_builders.cpp:59
+msgid "Replace trusses..."
+msgstr "Traversen ersetzen…"
+
+#: gui/mainwindow_menu_builders.cpp:61
+msgid "Preferences..."
+msgstr "Einstellungen…"
+
+#: gui/mainwindow_menu_builders.cpp:70
+msgid "Layout Mode View"
+msgstr "Layoutmodus-Ansicht"
+
+#: gui/mainwindow_menu_builders.cpp:94
+msgid "Download GDTF fixture..."
+msgstr "GDTF-Scheinwerfer herunterladen…"
+
+#: gui/mainwindow_menu_builders.cpp:95
+msgid "Edit dictionaries..."
+msgstr "Verzeichnisse bearbeiten…"
+
+#: gui/mainwindow_menu_builders.cpp:98
+msgid "Create from text..."
+msgstr "Aus Text erstellen…"
+
+#: gui/mainwindow_menu_builders.cpp:100
+msgid "Distribute hoist weights..."
+msgstr "Kettenzuglasten verteilen…"
+
+#: gui/mainwindow_menu_builders.cpp:102
+msgid "Distribute fixtures...\tAlt+D"
+msgstr "Scheinwerfer verteilen…\tAlt+D"
+
+#: gui/mainwindow_menu_builders.cpp:103
+msgid "Export Fixture..."
+msgstr "Scheinwerfer exportieren…"
+
+#: gui/mainwindow_menu_builders.cpp:104
+msgid "Export Truss..."
+msgstr "Traverse exportieren…"
+
+#: gui/mainwindow_menu_builders.cpp:105
+msgid "Export Scene Object..."
+msgstr "Szenenobjekt exportieren…"
+
+#: gui/mainwindow_menu_builders.cpp:106
+msgid "Auto patch"
+msgstr "Automatischer Patch"
+
+#: gui/mainwindow_menu_builders.cpp:107
+msgid "Auto color"
+msgstr "Automatische Farbe"
+
+#: gui/mainwindow_menu_builders.cpp:113
+msgid "Generate Fixture Symbols..."
+msgstr "Scheinwerfersymbole erzeugen…"
+
+#: gui/mainwindow_menu_builders.cpp:117
+msgid "Auto-assign categories to selected fixtures..."
+msgstr "Ausgewählten Scheinwerfern automatisch Kategorien zuweisen…"
+
+#: gui/mainwindow_menu_builders.cpp:125
+msgid "Help\tF1"
+msgstr "Hilfe\tF1"
+
+#: gui/mainwindow_menu_builders.cpp:126 gui/user_manual_dialog.cpp:39
+msgid "Online Documentation"
+msgstr "Online-Dokumentation"
+
+#: gui/mainwindow_menu_builders.cpp:127
+msgid "Check for Updates..."
+msgstr "Nach Aktualisierungen suchen…"
+
+#: gui/mainwindow_menu_builders.cpp:129
+msgid "Open Logs Folder"
+msgstr "Protokollordner öffnen"
+
+#: gui/mainwindow_menu_builders.cpp:131
+msgid "Export Diagnostic Report..."
+msgstr "Diagnosebericht exportieren…"
+
+#: gui/mainwindow_menu_builders.cpp:142
+msgid "&File"
+msgstr "&Datei"
+
+#: gui/mainwindow_menu_builders.cpp:143
+msgid "&Edit"
+msgstr "&Bearbeiten"
+
+#: gui/mainwindow_menu_builders.cpp:144
+msgid "&View"
+msgstr "&Ansicht"
+
+#: gui/mainwindow_menu_builders.cpp:145
+msgid "&Tools"
+msgstr "&Werkzeuge"
+
+#: gui/mainwindow_menu_builders.cpp:146
+msgid "&Help"
+msgstr "&Hilfe"
+
+#: gui/mainwindow_print.cpp:211
+msgid "2D View"
+msgstr "2D-Ansicht"
+
+#: gui/mainwindow_print.cpp:212
+msgid "Table"
+msgstr "Tabelle"
+
+#: gui/mainwindow_print.cpp:214
+msgid "Select what to print:"
+msgstr "Druckinhalt auswählen:"
+
+#: gui/mainwindow_print.cpp:235 gui/mainwindow_print.cpp:382
+msgid "2D viewport is not available."
+msgstr "2D-Ansicht ist nicht verfügbar."
+
+#: gui/mainwindow_print.cpp:235 gui/mainwindow_print.cpp:265
+#: gui/mainwindow_print.cpp:295 gui/mainwindow_print.cpp:333
+#: gui/mainwindow_print.cpp:337
+msgid "Print Viewer 2D"
+msgstr "2D-Ansicht drucken"
+
+#: gui/mainwindow_print.cpp:255
+msgid "Save 2D view as"
+msgstr "2D-Ansicht speichern unter"
+
+#: gui/mainwindow_print.cpp:264
+msgid "Please choose a destination file for the 2D view."
+msgstr "Zieldatei für die 2D-Ansicht auswählen."
+
+#: gui/mainwindow_print.cpp:278
+msgid "Printing 2D view..."
+msgstr "2D-Ansicht wird gedruckt…"
+
+#: gui/mainwindow_print.cpp:294
+msgid "Unable to capture the 2D view for printing."
+msgstr "2D-Ansicht konnte nicht zum Drucken erfasst werden."
+
+#: gui/mainwindow_print.cpp:330
+#, c-format
+msgid "Failed to generate PDF plan: %s"
+msgstr "PDF-Plan konnte nicht erzeugt werden: %s"
+
+#: gui/mainwindow_print.cpp:332 gui/mainwindow_print.cpp:549
+msgid "Print failed. Please review the error and try again."
+msgstr "Drucken fehlgeschlagen. Bitte Fehler prüfen und erneut versuchen."
+
+#: gui/mainwindow_print.cpp:336
+#, c-format
+msgid "2D view saved to %s"
+msgstr "2D-Ansicht in %s gespeichert"
+
+#: gui/mainwindow_print.cpp:351
+msgid "No layout is selected."
+msgstr "Kein Layout ausgewählt."
+
+#: gui/mainwindow_print.cpp:351 gui/mainwindow_print.cpp:364
+#: gui/mainwindow_print.cpp:374 gui/mainwindow_print.cpp:382
+#: gui/mainwindow_print.cpp:415 gui/mainwindow_print.cpp:550
+#: gui/mainwindow_print.cpp:559
+msgid "Print Layout"
+msgstr "Layout drucken"
+
+#: gui/mainwindow_print.cpp:364
+msgid "Selected layout is not available."
+msgstr "Ausgewähltes Layout ist nicht verfügbar."
+
+#: gui/mainwindow_print.cpp:373
+msgid "The selected layout is empty."
+msgstr "Ausgewähltes Layout ist leer."
+
+#: gui/mainwindow_print.cpp:405
+msgid "Save layout as"
+msgstr "Layout speichern unter"
+
+#: gui/mainwindow_print.cpp:414
+msgid "Please choose a destination file for the layout."
+msgstr "Zieldatei für das Layout auswählen."
+
+#: gui/mainwindow_print.cpp:546
+#, c-format
+msgid "Failed to generate layout PDF: %s"
+msgstr "Layout-PDF konnte nicht erzeugt werden: %s"
+
+#: gui/mainwindow_print.cpp:554
+#, c-format
+msgid "Layout saved to %s"
+msgstr "Layout in %s gespeichert"
+
+#: gui/mainwindow_print.cpp:556
+#, c-format
+msgid ""
+"\n"
+"\n"
+"Symbol summary:\n"
+"Perastage symbols: %zu\n"
+"Rendered fallbacks: %zu"
+msgstr ""
+"\n"
+"\n"
+"Symbolübersicht:\n"
+"Perastage-Symbole: %zu\n"
+"Ersatzdarstellungen: %zu"
+
+#: gui/mainwindow_print.cpp:627
+msgid "Printing layout..."
+msgstr "Layout wird gedruckt…"
+
+#: gui/mainwindow_print.cpp:658
+msgid "Print Table"
+msgstr "Tabelle drucken"
+
+#: gui/mainwindow_truss_replace.cpp:45
+msgid "Truss from scene"
+msgstr "Traverse aus der Szene"
+
+#: gui/mainwindow_truss_replace.cpp:46
+msgid "Truss from dictionary"
+msgstr "Traverse aus dem Verzeichnis"
+
+#: gui/mainwindow_truss_replace.cpp:47
+msgid "Truss file"
+msgstr "Traversendatei"
+
+#: gui/mainwindow_truss_replace.cpp:49
+msgid "Choose the source for the replacement truss:"
+msgstr "Quelle für die Ersatztraverse auswählen:"
+
+#: gui/mainwindow_truss_replace.cpp:49 gui/mainwindow_truss_replace.cpp:60
+#: gui/mainwindow_truss_replace.cpp:68 gui/mainwindow_truss_replace.cpp:82
+#: gui/mainwindow_truss_replace.cpp:97 gui/mainwindow_truss_replace.cpp:102
+#: gui/mainwindow_truss_replace.cpp:170 gui/mainwindow_truss_replace.cpp:182
+msgid "Replace Trusses"
+msgstr "Traversen ersetzen"
+
+#: gui/mainwindow_truss_replace.cpp:59
+msgid "There are no reusable truss definitions in the scene."
+msgstr "Keine wiederverwendbaren Traversendefinitionen in der Szene vorhanden."
+
+#: gui/mainwindow_truss_replace.cpp:68
+msgid "Choose a truss from the scene:"
+msgstr "Traverse aus der Szene auswählen:"
+
+#: gui/mainwindow_truss_replace.cpp:82
+msgid "The truss dictionary is empty."
+msgstr "Das Traversenverzeichnis ist leer."
+
+#: gui/mainwindow_truss_replace.cpp:96
+msgid "No dictionary entries contain a truss file path."
+msgstr "Kein Verzeichniseintrag enthält einen Traversendateipfad."
+
+#: gui/mainwindow_truss_replace.cpp:101
+msgid "Choose a truss from the dictionary:"
+msgstr "Traverse aus dem Verzeichnis auswählen:"
+
+#: gui/mainwindow_truss_replace.cpp:169
+msgid "Select at least one truss before running Replace Trusses."
+msgstr "Vor dem Ersetzen mindestens eine Traverse auswählen."
+
+#: gui/mvr_export_result_dialog.cpp:50
+#, c-format
+msgid "%zu fixture used a fallback GDTF."
+msgid_plural "%zu fixtures used a fallback GDTF."
+msgstr[0] "%zu Scheinwerfer verwendete ein Ersatz-GDTF."
+msgstr[1] "%zu Scheinwerfer verwendeten ein Ersatz-GDTF."
+
+#: gui/mvr_export_result_dialog.cpp:51
+#, c-format
+msgid "%zu DMX address was omitted."
+msgid_plural "%zu DMX addresses were omitted."
+msgstr[0] "%zu DMX-Adresse wurde ausgelassen."
+msgstr[1] "%zu DMX-Adressen wurden ausgelassen."
+
+#: gui/mvr_export_result_dialog.cpp:52
+#, c-format
+msgid "%zu object identity was repaired."
+msgid_plural "%zu object identities were repaired."
+msgstr[0] "%zu Objektidentität wurde repariert."
+msgstr[1] "%zu Objektidentitäten wurden repariert."
+
+#: gui/mvr_export_result_dialog.cpp:53
+#, c-format
+msgid "%zu unresolved reference was omitted."
+msgid_plural "%zu unresolved references were omitted."
+msgstr[0] "%zu nicht aufgelöster Verweis wurde ausgelassen."
+msgstr[1] "%zu nicht aufgelöste Verweise wurden ausgelassen."
+
+#: gui/mvr_export_result_dialog.cpp:54
+#, c-format
+msgid "%zu third-party metadata block could not be preserved."
+msgid_plural "%zu third-party metadata blocks could not be preserved."
+msgstr[0] ""
+"%zu Metadatenblock eines Drittanbieters konnte nicht erhalten werden."
+msgstr[1] ""
+"%zu Metadatenblöcke von Drittanbietern konnten nicht erhalten werden."
+
+#: gui/mvr_export_result_dialog.cpp:55
+#, c-format
+msgid "%zu model texture dependency was omitted."
+msgid_plural "%zu model texture dependencies were omitted."
+msgstr[0] "%zu Modelltexturabhängigkeit wurde ausgelassen."
+msgstr[1] "%zu Modelltexturabhängigkeiten wurden ausgelassen."
+
+#: gui/mvr_export_result_dialog.cpp:57
+#, c-format
+msgid "%zu archive resource could not be preserved."
+msgid_plural "%zu archive resources could not be preserved."
+msgstr[0] "%zu Archivressource konnte nicht erhalten werden."
+msgstr[1] "%zu Archivressourcen konnten nicht erhalten werden."
+
+#: gui/mvr_export_result_dialog.cpp:59
+#, c-format
+msgid "%zu object used adjusted geometry."
+msgid_plural "%zu objects used adjusted geometry."
+msgstr[0] "%zu Objekt verwendete angepasste Geometrie."
+msgstr[1] "%zu Objekte verwendeten angepasste Geometrie."
+
+#: gui/mvr_export_result_dialog.cpp:60
+#, c-format
+msgid "%zu fixture numeric identifier was reassigned."
+msgid_plural "%zu fixture numeric identifiers were reassigned."
+msgstr[0] "%zu numerische Scheinwerferkennung wurde neu zugewiesen."
+msgstr[1] "%zu numerische Scheinwerferkennungen wurden neu zugewiesen."
+
+#: gui/mvr_export_result_dialog.cpp:61
+#, c-format
+msgid "%zu truss could not use the requested compatibility representation."
+msgid_plural ""
+"%zu trusses could not use the requested compatibility representation."
+msgstr[0] ""
+"%zu Traverse konnte die gewünschte Kompatibilitätsdarstellung nicht "
+"verwenden."
+msgstr[1] ""
+"%zu Traversen konnten die gewünschte Kompatibilitätsdarstellung nicht "
+"verwenden."
+
+#: gui/mvr_export_result_dialog.cpp:63
+#, c-format
+msgid "%zu GDTF resource could not be preserved as requested."
+msgid_plural "%zu GDTF resources could not be preserved as requested."
+msgstr[0] "%zu GDTF-Ressource konnte nicht wie gewünscht erhalten werden."
+msgstr[1] "%zu GDTF-Ressourcen konnten nicht wie gewünscht erhalten werden."
+
+#: gui/mvr_export_result_dialog.cpp:64
+#, c-format
+msgid "%zu export issue requires attention."
+msgid_plural "%zu export issues require attention."
+msgstr[0] "%zu Exportproblem erfordert Ihre Aufmerksamkeit."
+msgstr[1] "%zu Exportprobleme erfordern Ihre Aufmerksamkeit."
+
+#: gui/mvr_export_result_dialog.cpp:94 gui/mvr_export_result_dialog.cpp:112
+msgid "Show details..."
+msgstr "Details anzeigen…"
+
+#: gui/mvr_export_result_dialog.cpp:112
+msgid "Hide details"
+msgstr "Details ausblenden"
+
+#: gui/mvr_export_result_dialog.cpp:150
+msgid "MVR export failed"
+msgstr "MVR-Export fehlgeschlagen"
+
+#: gui/mvr_export_result_dialog.cpp:151
+msgid ""
+"The MVR file could not be created because export validation or file writing "
+"failed."
+msgstr ""
+"Die MVR-Datei konnte wegen eines Fehlers bei der Exportvalidierung oder beim "
+"Schreiben nicht erstellt werden."
+
+#: gui/mvr_export_result_dialog.cpp:154
+msgid "MVR exported with warnings"
+msgstr "MVR mit Warnungen exportiert"
+
+#: gui/mvr_export_result_dialog.cpp:155
+msgid ""
+"The MVR file was exported successfully, but some data had to be adjusted or "
+"could not be preserved."
+msgstr ""
+"Die MVR-Datei wurde erfolgreich exportiert, einige Daten mussten jedoch "
+"angepasst werden oder konnten nicht erhalten werden."
+
+#: gui/mvr_export_result_dialog.cpp:158
+msgid "MVR file exported successfully."
+msgstr "MVR-Datei erfolgreich exportiert."
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:115
+msgid "MVR-xchange"
+msgstr "MVR-xchange"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:122
+msgid ""
+"Publish the current scene or request advertised MVR revisions from "
+"compatible TCP Mode stations."
+msgstr ""
+"Aktuelle Szene veröffentlichen oder angekündigte MVR-Revisionen von "
+"kompatiblen TCP-Mode-Stationen anfordern."
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:127
+msgid "Station settings"
+msgstr "Stationseinstellungen"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:128
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:235
+msgid "Stopped"
+msgstr "Gestoppt"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:137
+msgid "Auto / All suitable interfaces"
+msgstr "Automatisch / Alle geeigneten Schnittstellen"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:152
+msgid "Station name:"
+msgstr "Stationsname:"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:153
+msgid "Group name:"
+msgstr "Gruppenname:"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:154
+msgid "Station UUID:"
+msgstr "Stations-UUID:"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:155
+msgid "TCP port:"
+msgstr "TCP-Port:"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:158
+msgid "Network interface:"
+msgstr "Netzwerkschnittstelle:"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:163
+msgid "Remote stations and MVR files"
+msgstr "Remote-Stationen und MVR-Dateien"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:164
+msgid "0 discovered, 0 incoming joined, 0 outgoing joined"
+msgstr "0 gefunden, 0 eingehende Beitritte, 0 ausgehende Beitritte"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:168
+msgid "Stations"
+msgstr "Stationen"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:170
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:178
+msgid "Station"
+msgstr "Station"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:171
+msgid "Membership"
+msgstr "Mitgliedschaft"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:172
+msgid "Endpoint"
+msgstr "Endpunkt"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:173
+msgid "Station UUID"
+msgstr "Stations-UUID"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:176
+msgid "Advertised MVR files"
+msgstr "Angekündigte MVR-Dateien"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:179
+msgid "MVR file"
+msgstr "MVR-Datei"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:181
+msgid "File UUID"
+msgstr "Datei-UUID"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:182
+msgid "Comment"
+msgstr "Kommentar"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:187
+msgid "Log"
+msgstr "Protokoll"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:190
+msgid "Copy Log"
+msgstr "Protokoll kopieren"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:199
+msgid "Start"
+msgstr "Starten"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:200
+msgid "Stop"
+msgstr "Stoppen"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:201
+msgid "Discover Now"
+msgstr "Jetzt suchen"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:202
+msgid "Publish Current MVR"
+msgstr "Aktuelles MVR veröffentlichen"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:203
+msgid "Request Selected MVR"
+msgstr "Ausgewähltes MVR anfordern"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:210
+msgid "Close"
+msgstr "Schließen"
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:235
+msgid "Running on "
+msgstr "Aktiv auf "
+
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:253
+#, c-format
+msgid "%zu discovered, %zu incoming joined, %zu outgoing joined"
+msgstr "%zu gefunden, %zu eingehende Beitritte, %zu ausgehende Beitritte"
+
+#: gui/preferences/cache_preferences_page.cpp:15
+msgid "Cache location:"
+msgstr "Cache-Speicherort:"
+
+#: gui/preferences/cache_preferences_page.cpp:25
+msgid "Clear Cache..."
+msgstr "Cache leeren…"
+
+#: gui/preferences/cache_preferences_page.cpp:26
+msgid "Open Cache Folder"
+msgstr "Cache-Ordner öffnen"
+
+#: gui/preferences/cache_preferences_page.cpp:31
+msgid ""
+"Cache maintenance takes effect immediately. Cached geometry and the GDTF "
+"catalog will be regenerated when needed."
+msgstr ""
+"Cache-Wartung wirkt sofort. Zwischengespeicherte Geometrie und GDTF-Katalog "
+"werden bei Bedarf neu erstellt."
+
+#: gui/preferences/cache_preferences_page.cpp:48
+#, c-format
+msgid "Total cache size: %s"
+msgstr "Gesamtgröße des Caches: %s"
+
+#: gui/preferences/cache_preferences_page.cpp:49
+#, c-format
+msgid "Total cache size: %s (some files could not be read)"
+msgstr ""
+"Gesamtgröße des Caches: %s (einige Dateien konnten nicht gelesen werden)"
+
+#: gui/preferences/cache_preferences_page.cpp:55
+msgid ""
+"Clear all Perastage caches? Geometry will be regenerated and the GDTF "
+"catalog will be downloaded again when online. Your settings, libraries and "
+"projects will be preserved."
+msgstr ""
+"Alle Perastage-Caches leeren? Geometrie wird neu erstellt und der GDTF-"
+"Katalog bei bestehender Internetverbindung erneut heruntergeladen. "
+"Einstellungen, Bibliotheken und Projekte bleiben erhalten."
+
+#: gui/preferences/cache_preferences_page.cpp:56
+#: gui/preferences/cache_preferences_page.cpp:66
+msgid "Clear Cache"
+msgstr "Cache leeren"
+
+#: gui/preferences/cache_preferences_page.cpp:65
+#, c-format
+msgid ""
+"Some cache contents could not be cleared:\n"
+"%s"
+msgstr ""
+"Einige Cache-Inhalte konnten nicht gelöscht werden:\n"
+"%s"
+
+#: gui/preferences/cache_preferences_page.cpp:74
+msgid "The cache folder could not be opened."
+msgstr "Cache-Ordner konnte nicht geöffnet werden."
+
+#: gui/preferences/cache_preferences_page.cpp:74 gui/preferencesdialog.cpp:58
+msgid "Cache"
+msgstr "Cache"
+
+#: gui/preferences/gdtf_credentials_panel.cpp:49
+#: gui/preferences/gdtf_credentials_panel.cpp:109
+#: gui/preferences/gdtf_credentials_panel.cpp:119
+#: gui/preferences/gdtf_credentials_panel.cpp:129
+#: gui/preferences/gdtf_credentials_panel.cpp:133
+msgid "Validate credentials"
+msgstr "Zugangsdaten prüfen"
+
+#: gui/preferences/gdtf_credentials_panel.cpp:83
+msgid ""
+"Only the username was saved. Enter a password to update the stored GDTF "
+"Share credentials."
+msgstr ""
+"Nur der Benutzername wurde gespeichert. Zum Aktualisieren der gespeicherten "
+"GDTF-Share-Zugangsdaten ein Passwort eingeben."
+
+#: gui/preferences/gdtf_credentials_panel.cpp:94 mvr/mvrimporter.cpp:657
+msgid ""
+"The username was saved, but secure password storage is unavailable. The "
+"password must be entered again after restart."
+msgstr ""
+"Der Benutzername wurde gespeichert, sichere Passwortspeicherung ist jedoch "
+"nicht verfügbar. Das Passwort muss nach einem Neustart erneut eingegeben "
+"werden."
+
+#: gui/preferences/gdtf_credentials_panel.cpp:98
+#, c-format
+msgid "GDTF Share credentials were not saved (%s)."
+msgstr "GDTF-Share-Zugangsdaten wurden nicht gespeichert (%s)."
+
+#: gui/preferences/gdtf_credentials_panel.cpp:108
+msgid "Please enter username and password first."
+msgstr "Zuerst Benutzername und Passwort eingeben."
+
+#: gui/preferences/gdtf_credentials_panel.cpp:126
+msgid ""
+"The credentials are valid, but secure storage is unavailable, so the "
+"password was not saved."
+msgstr ""
+"Die Zugangsdaten sind gültig, der sichere Speicher ist jedoch nicht "
+"verfügbar. Das Passwort wurde daher nicht gespeichert."
+
+#: gui/preferences/gdtf_credentials_panel.cpp:127
+#, c-format
+msgid "The credentials are valid, but they were not saved (%s)."
+msgstr "Die Zugangsdaten sind gültig, wurden jedoch nicht gespeichert (%s)."
+
+#: gui/preferences/gdtf_credentials_panel.cpp:132
+msgid "Credentials are valid and were saved."
+msgstr "Zugangsdaten sind gültig und wurden gespeichert."
+
+#: gui/preferences/language_preferences_page.cpp:49
+#: tests/localization_catalog_integration_test.cpp:249
+msgid "Interface language:"
+msgstr "Oberflächensprache:"
+
+#: gui/preferences/language_preferences_page.cpp:59
+#: gui/preferencesdialog.cpp:145
+msgid "Language changes will be applied after restarting Perastage."
+msgstr "Sprachänderungen werden nach einem Neustart von Perastage wirksam."
+
+#: gui/preferences/mvr_preferences_page.cpp:17
+msgid "Export"
+msgstr "Export"
+
+#: gui/preferences/mvr_preferences_page.cpp:21
+msgid "Truss geometry export mode:"
+msgstr "Exportmodus für Traversengeometrie:"
+
+#: gui/preferences/mvr_preferences_page.cpp:25
+msgid "Standard MVR representation"
+msgstr "Standard-MVR-Darstellung"
+
+#: gui/preferences/mvr_preferences_page.cpp:27
+msgid "Direct Geometry3D for truss symbols"
+msgstr "Direkte Geometry3D für Traversensymbole"
+
+#: gui/preferences/mvr_preferences_page.cpp:32
+msgid ""
+"Standard MVR representation: preserves imported Symbol/Symdef references "
+"when possible and is Perastage's canonical representation.\n"
+"Direct Geometry3D for truss symbols: expands truss Symbol/Symdef references "
+"into direct Geometry3D entries for compatibility with applications that do "
+"not correctly support Symbol/Symdef. Both modes are MVR 1.6 compliant."
+msgstr ""
+"Standard-MVR-Darstellung: Bewahrt importierte Symbol/Symdef-Verweise nach "
+"Möglichkeit und ist Perastages kanonische Darstellung.\n"
+"Direkte Geometry3D für Traversensymbole: Ersetzt Symbol/Symdef-Verweise von "
+"Traversen durch direkte Geometry3D-Einträge für Anwendungen, die Symbol/"
+"Symdef nicht korrekt unterstützen. Beide Modi entsprechen MVR 1.6."
+
+#: gui/preferences/rider_import_preferences_page.cpp:17
+msgid "Auto patch after import"
+msgstr "Automatischer Patch nach dem Import"
+
+#: gui/preferences/rider_import_preferences_page.cpp:20
+msgid "Auto-create layers by position"
+msgstr "Ebenen automatisch nach Position erstellen"
+
+#: gui/preferences/rider_import_preferences_page.cpp:23
+msgid "Auto-create layers by fixture type"
+msgstr "Ebenen automatisch nach Scheinwerfertyp erstellen"
+
+#: gui/preferences/rider_import_preferences_page.cpp:31
+#, c-format
+msgid "LX%d height:"
+msgstr "LX%d-Höhe:"
+
+#: gui/preferences/rider_import_preferences_page.cpp:37
+#, c-format
+msgid "LX%d position:"
+msgstr "LX%d-Position:"
+
+#: gui/preferences/rider_import_preferences_page.cpp:43
+#, c-format
+msgid "LX%d margin:"
+msgstr "LX%d-Rand:"
+
+#: gui/preferences/rider_import_preferences_page.cpp:111
+#, c-format
+msgid "LX%d height (%s):"
+msgstr "LX%d-Höhe (%s):"
+
+#: gui/preferences/rider_import_preferences_page.cpp:114
+#, c-format
+msgid "LX%d position (%s):"
+msgstr "LX%d-Position (%s):"
+
+#: gui/preferences/rider_import_preferences_page.cpp:117
+#, c-format
+msgid "LX%d margin (%s):"
+msgstr "LX%d-Rand (%s):"
+
+#: gui/preferences/selection_movement_preferences_page.cpp:18
+#: gui/preferencesdialog.cpp:66
+msgid "Selection & Movement"
+msgstr "Auswahl & Bewegung"
+
+#: gui/preferences/selection_movement_preferences_page.cpp:27
+msgid "Choose how interactive transforms handle objects inside groups."
+msgstr ""
+"Festlegen, wie interaktive Transformationen Objekte innerhalb von Gruppen "
+"behandeln."
+
+#: gui/preferences/selection_movement_preferences_page.cpp:34
+msgid "Grouped object movement"
+msgstr "Bewegung gruppierter Objekte"
+
+#: gui/preferences/selection_movement_preferences_page.cpp:37
+msgid "Fixtures move the containing group"
+msgstr "Scheinwerfer verschieben die übergeordnete Gruppe"
+
+#: gui/preferences/selection_movement_preferences_page.cpp:39
+msgid "Trusses move the containing group"
+msgstr "Traversen verschieben die übergeordnete Gruppe"
+
+#: gui/preferences/selection_movement_preferences_page.cpp:42
+msgid "Supports / Hoists move the containing group"
+msgstr "Stützen / Kettenzüge verschieben die übergeordnete Gruppe"
+
+#: gui/preferences/selection_movement_preferences_page.cpp:45
+msgid "Scene Objects move the containing group"
+msgstr "Szenenobjekte verschieben die übergeordnete Gruppe"
+
+#: gui/preferences/selection_movement_preferences_page.cpp:51
+msgid ""
+"When enabled, selecting this type inside a group moves the highest parent "
+"GroupObject during mouse, CLI, and Magnet transformations.\n"
+"Table edits always modify only the edited object.\n"
+"Selecting a GroupObject directly always moves that group."
+msgstr ""
+"Wenn aktiviert, verschiebt die Auswahl dieses Typs innerhalb einer Gruppe "
+"das oberste übergeordnete GroupObject bei Maus-, CLI- und Magnet-"
+"Transformationen.\n"
+"Tabellenänderungen ändern stets nur das bearbeitete Objekt.\n"
+"Die direkte Auswahl eines GroupObject verschiebt immer diese Gruppe."
+
+#: gui/preferences/selection_movement_preferences_page.cpp:60
+msgid "Magnet visual feedback"
+msgstr "Visuelle Magnetrückmeldung"
+
+#: gui/preferences/selection_movement_preferences_page.cpp:63
+msgid "Show anchor references while moving or inserting elements"
+msgstr "Ankerreferenzen beim Verschieben oder Einfügen von Elementen anzeigen"
+
+#: gui/preferences/units_preferences_page.cpp:19
+msgid "Distance system:"
+msgstr "Längeneinheiten:"
+
+#: gui/preferences/units_preferences_page.cpp:22
+#: gui/preferences/units_preferences_page.cpp:29
+msgid "Metric"
+msgstr "Metrisch"
+
+#: gui/preferences/units_preferences_page.cpp:23
+#: gui/preferences/units_preferences_page.cpp:30
+msgid "Imperial"
+msgstr "Imperial"
+
+#: gui/preferences/units_preferences_page.cpp:26
+msgid "Weight system:"
+msgstr "Gewichtseinheiten:"
+
+#: gui/preferences/updates_preferences_page.cpp:19
+msgid "Automatic update checks:"
+msgstr "Automatische Suche nach Aktualisierungen:"
+
+#: gui/preferences/updates_preferences_page.cpp:22
+msgid "Check on startup (recommended)"
+msgstr "Beim Start prüfen (empfohlen)"
+
+#: gui/preferences/updates_preferences_page.cpp:23
+msgid "Manual only"
+msgstr "Nur manuell"
+
+#: gui/preferences/updates_preferences_page.cpp:27
+msgid "Manual checks are always available from Help -> Check for Updates."
+msgstr ""
+"Manuelle Prüfungen sind jederzeit über Hilfe -> Nach Aktualisierungen suchen "
+"verfügbar."
+
+#: gui/preferences/viewer3d_preferences_page.cpp:20
+#: gui/preferencesdialog.cpp:65
+msgid "3D Viewer"
+msgstr "3D-Ansicht"
+
+#: gui/preferences/viewer3d_preferences_page.cpp:29
+msgid ""
+"Customize camera interaction and visualize the current navigation shortcuts."
+msgstr "Kamerabedienung anpassen und aktuelle Navigationskürzel anzeigen."
+
+#: gui/preferences/viewer3d_preferences_page.cpp:39
+msgid "Navigation"
+msgstr "Navigation"
+
+#: gui/preferences/viewer3d_preferences_page.cpp:42
+msgid "Invert orbit horizontal direction"
+msgstr "Horizontale Orbitrichtung umkehren"
+
+#: gui/preferences/viewer3d_preferences_page.cpp:48
+msgid "Invert orbit vertical direction"
+msgstr "Vertikale Orbitrichtung umkehren"
+
+#: gui/preferences/viewer3d_preferences_page.cpp:53
+msgid "Disabled by default to preserve the current behavior."
+msgstr "Standardmäßig deaktiviert, um das bisherige Verhalten zu bewahren."
+
+#: gui/preferences/viewer3d_preferences_page.cpp:66
+msgid "Current mouse and keyboard shortcuts"
+msgstr "Aktuelle Maus- und Tastaturkürzel"
+
+#: gui/preferences/viewer3d_preferences_page.cpp:69
+msgid ""
+"Orbit: Left drag or Right drag.\n"
+"Pan: Middle drag, Shift + drag, or Shift + Left drag.\n"
+"Zoom: Mouse wheel.\n"
+"Selection rectangle: Ctrl + Left drag."
+msgstr ""
+"Orbit: Mit linker oder rechter Maustaste ziehen.\n"
+"Verschieben: Mit mittlerer Maustaste, Umschalt + Ziehen oder Umschalt + "
+"linker Maustaste ziehen.\n"
+"Zoom: Mausrad.\n"
+"Auswahlrechteck: Strg + linke Maustaste ziehen."
+
+#: gui/preferences/viewer3d_preferences_page.cpp:77
+msgid "Informational only: shortcut remapping is not available yet."
+msgstr ""
+"Nur zur Information: Die Neubelegung von Kürzeln ist noch nicht verfügbar."
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:15
+msgid "Performance"
+msgstr "Leistung"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:17
+msgid "Model detail:"
+msgstr "Modelldetail:"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:20
+msgid "Low"
+msgstr "Niedrig"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:21
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:36
+msgid "Standard"
+msgstr "Standard"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:22
+msgid "High"
+msgstr "Hoch"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:26
+msgid "Use a simplified proxy while navigating"
+msgstr "Vereinfachtes Ersatzmodell während der Navigation verwenden"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:29
+msgid ""
+"Standard balances detail and performance. High preserves full model detail. "
+"Low simplifies heavy meshes more aggressively. GDTF resources stay unchanged."
+msgstr ""
+"Standard bietet einen Ausgleich zwischen Detail und Leistung. Hoch bewahrt "
+"volle Modelldetails. Niedrig vereinfacht große Netze stärker. GDTF-"
+"Ressourcen bleiben unverändert."
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:34
+#: viewer2d/viewer2drenderpanel.cpp:92
+msgid "Render mode"
+msgstr "Darstellungsmodus"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:39
+#: viewer2d/viewer2drenderpanel.cpp:90
+msgid "White"
+msgstr "Weiß"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:41
+msgid "Sketch mode"
+msgstr "Skizzenmodus"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:43
+msgid "Textured"
+msgstr "Texturiert"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:45
+#: viewer2d/viewer2drenderpanel.cpp:90
+msgid "Wireframe"
+msgstr "Drahtgitter"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:47
+#: viewer2d/viewer2drenderpanel.cpp:90
+msgid "By device type"
+msgstr "Nach Gerätetyp"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:49
+#: viewer2d/viewer2drenderpanel.cpp:91
+msgid "By layer"
+msgstr "Nach Ebene"
+
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:51
+#: viewer2d/viewer2drenderpanel.cpp:91
+msgid "By universe"
+msgstr "Nach Universum"
+
+#: gui/preferencesdialog.cpp:40
+#: tests/localization_catalog_integration_test.cpp:123
+#: tests/localization_catalog_integration_test.cpp:144
+#: tests/localization_catalog_integration_test.cpp:175
+#: tests/localization_catalog_integration_test.cpp:243
+msgid "Preferences"
+msgstr "Einstellungen"
+
+#: gui/preferencesdialog.cpp:52
+msgid "General"
+msgstr "Allgemein"
+
+#: gui/preferencesdialog.cpp:54
+#: tests/localization_catalog_integration_test.cpp:177
+#: tests/localization_catalog_integration_test.cpp:245
+msgid "Language"
+msgstr "Sprache"
+
+#: gui/preferencesdialog.cpp:56
+msgid "Units"
+msgstr "Einheiten"
+
+#: gui/preferencesdialog.cpp:57
+msgid "Updates"
+msgstr "Aktualisierungen"
+
+#: gui/preferencesdialog.cpp:60
+msgid "Import"
+msgstr "Import"
+
+#: gui/preferencesdialog.cpp:62
+msgid "Rider Import"
+msgstr "Rider-Import"
+
+#: gui/preferencesdialog.cpp:64
+msgid "Viewer"
+msgstr "Ansicht"
+
+#: gui/preferencesdialog.cpp:68
+msgid "Formats"
+msgstr "Formate"
+
+#: gui/preferencesdialog.cpp:69
+msgid "GDTF"
+msgstr "GDTF"
+
+#: gui/preferencesdialog.cpp:70
+msgid "MVR Import / Export"
+msgstr "MVR-Import / -Export"
+
+#: gui/preferencesdialog.cpp:146
+msgid "Restart required"
+msgstr "Neustart erforderlich"
+
+#: gui/rider_fixture_resolution_dialog.cpp:40
+#: gui/rider_fixture_resolution_workflow.cpp:321
+msgid "Resolve fixture types"
+msgstr "Scheinwerfertypen auflösen"
+
+#: gui/rider_fixture_resolution_dialog.cpp:82
+msgid "Review unknown rider fixture types before creating the scene."
+msgstr "Unbekannte Scheinwerfertypen im Rider vor der Szenenerstellung prüfen."
+
+#: gui/rider_fixture_resolution_dialog.cpp:85
+#: gui/rider_fixture_resolution_dialog.cpp:586
+msgid "Checking cached GDTF catalog..."
+msgstr "Zwischengespeicherter GDTF-Katalog wird geprüft…"
+
+#: gui/rider_fixture_resolution_dialog.cpp:101 gui/ridertextdialog.cpp:151
+msgid "Create"
+msgstr "Erstellen"
+
+#: gui/rider_fixture_resolution_dialog.cpp:105
+msgid "Qty"
+msgstr "Anz."
+
+#: gui/rider_fixture_resolution_dialog.cpp:107
+msgid "Positions"
+msgstr "Positionen"
+
+#: gui/rider_fixture_resolution_dialog.cpp:109 mvr/mvrimporter.cpp:737
+msgid "Selected GDTF"
+msgstr "Ausgewähltes GDTF"
+
+#: gui/rider_fixture_resolution_dialog.cpp:113 mvr/mvrimporter.cpp:739
+msgid "Status"
+msgstr "Status"
+
+#: gui/rider_fixture_resolution_dialog.cpp:115 mvr/mvrimporter.cpp:743
+msgid "Details"
+msgstr "Details"
+
+#: gui/rider_fixture_resolution_dialog.cpp:120
+msgid "Use suggested"
+msgstr "Vorschlag verwenden"
+
+#: gui/rider_fixture_resolution_dialog.cpp:121
+msgid "Search..."
+msgstr "Suchen…"
+
+#: gui/rider_fixture_resolution_dialog.cpp:122
+msgid "Use generic"
+msgstr "Generisches Profil verwenden"
+
+#: gui/rider_fixture_resolution_dialog.cpp:130
+msgid "Accept all suggestions"
+msgstr "Alle Vorschläge übernehmen"
+
+#: gui/rider_fixture_resolution_dialog.cpp:133
+msgid "Resolve and create"
+msgstr "Auflösen und erstellen"
+
+#: gui/rider_fixture_resolution_dialog.cpp:192
+#, c-format
+msgid ""
+"%zu fixture types will be created | %zu automatic matches | %zu generic | "
+"%zu skipped"
+msgstr ""
+"%zu Scheinwerfertypen werden erstellt | %zu automatische Treffer | %zu "
+"generisch | %zu übersprungen"
+
+#: gui/rider_fixture_resolution_dialog.cpp:203
+msgid "Automatic matching complete | No additional matches found"
+msgstr "Automatischer Abgleich abgeschlossen | Keine weiteren Treffer"
+
+#: gui/rider_fixture_resolution_dialog.cpp:207
+#, c-format
+msgid "Automatic matching complete | %zu matches | %zu generic fallbacks"
+msgstr ""
+"Automatischer Abgleich abgeschlossen | %zu Treffer | %zu generische "
+"Ersatzprofile"
+
+#: gui/rider_fixture_resolution_dialog.cpp:274
+msgid "Choose a valid mode for this fixture row."
+msgstr "Gültigen Modus für diese Scheinwerferzeile auswählen."
+
+#: gui/rider_fixture_resolution_dialog.cpp:347
+msgid ""
+"The cached catalog is still loading. Generic fallback remains available."
+msgstr ""
+"Der zwischengespeicherte Katalog wird noch geladen. Generische Ersatzprofile "
+"bleiben verfügbar."
+
+#: gui/rider_fixture_resolution_dialog.cpp:348
+msgid "GDTF catalog"
+msgstr "GDTF-Katalog"
+
+#: gui/rider_fixture_resolution_dialog.cpp:355
+msgid ""
+"The GDTF catalog is unavailable. You can use generic or cancel without "
+"changing the scene."
+msgstr ""
+"Der GDTF-Katalog ist nicht verfügbar. Sie können ein generisches Profil "
+"verwenden oder ohne Szenenänderung abbrechen."
+
+#: gui/rider_fixture_resolution_dialog.cpp:451
+msgid "Catalog unavailable; generic fallback remains available."
+msgstr "Katalog nicht verfügbar; generische Ersatzprofile bleiben verfügbar."
+
+#: gui/rider_fixture_resolution_dialog.cpp:467
+#: gui/rider_fixture_resolution_dialog.cpp:590
+msgid "Waiting for GDTF Share credentials..."
+msgstr "Warten auf GDTF-Share-Zugangsdaten…"
+
+#: gui/rider_fixture_resolution_dialog.cpp:474
+msgid "GDTF catalog sign-in cancelled - generic fallback remains available"
+msgstr ""
+"GDTF-Kataloganmeldung abgebrochen – generische Ersatzprofile bleiben "
+"verfügbar"
+
+#: gui/rider_fixture_resolution_dialog.cpp:479
+msgid "Connecting to GDTF Share..."
+msgstr "Verbindung zu GDTF Share wird hergestellt…"
+
+#: gui/rider_fixture_resolution_dialog.cpp:558
+#: gui/rider_fixture_resolution_dialog.cpp:622
+msgid "GDTF catalog unavailable - generic fallback remains available"
+msgstr ""
+"GDTF-Katalog nicht verfügbar – generische Ersatzprofile bleiben verfügbar"
+
+#: gui/rider_fixture_resolution_dialog.cpp:594
+#: gui/rider_fixture_resolution_workflow.cpp:77
+msgid "Signing in to GDTF Share..."
+msgstr "Anmeldung bei GDTF Share…"
+
+#: gui/rider_fixture_resolution_dialog.cpp:598
+msgid "Downloading GDTF catalog..."
+msgstr "GDTF-Katalog wird heruntergeladen…"
+
+#: gui/rider_fixture_resolution_dialog.cpp:602
+msgid "Parsing GDTF catalog..."
+msgstr "GDTF-Katalog wird eingelesen…"
+
+#: gui/rider_fixture_resolution_dialog.cpp:609
+#, c-format
+msgid "Matching GDTF candidates... %zu / %zu"
+msgstr "GDTF-Kandidaten werden abgeglichen… %zu / %zu"
+
+#: gui/rider_fixture_resolution_model.cpp:31
+msgid "Generic fallback"
+msgstr "Generisches Ersatzprofil"
+
+#: gui/rider_fixture_resolution_model.cpp:40
+msgid "-"
+msgstr "-"
+
+#: gui/rider_fixture_resolution_workflow.cpp:77
+msgid "GDTF Share"
+msgstr "GDTF Share"
+
+#: gui/rider_fixture_resolution_workflow.cpp:86
+#: gui/rider_fixture_resolution_workflow.cpp:252
+msgid ""
+"GDTF Share authentication succeeded, but the credentials could not be saved "
+"securely. You may need to enter them again after restart."
+msgstr ""
+"GDTF-Share-Authentifizierung erfolgreich, die Zugangsdaten konnten jedoch "
+"nicht sicher gespeichert werden. Nach einem Neustart müssen Sie sie "
+"möglicherweise erneut eingeben."
+
+#: gui/rider_fixture_resolution_workflow.cpp:92
+msgid "GDTF Share sign-in unavailable"
+msgstr "GDTF-Share-Anmeldung nicht verfügbar"
+
+#: gui/rider_fixture_resolution_workflow.cpp:321
+msgid "Downloading selected GDTF..."
+msgstr "Ausgewähltes GDTF wird heruntergeladen…"
+
+#: gui/rider_fixture_resolution_workflow.cpp:452
+#, c-format
+msgid ""
+"%zu fixture types used generic fallback because GDTF resolution failed. See "
+"the diagnostic log for details."
+msgstr ""
+"%zu Scheinwerfertypen verwenden generische Ersatzprofile, da die GDTF-"
+"Auflösung fehlgeschlagen ist. Einzelheiten stehen im Diagnoseprotokoll."
+
+#: gui/rider_fixture_resolution_workflow.cpp:454
+msgid "Fixture resolution warning"
+msgstr "Warnung bei der Scheinwerferauflösung"
+
+#: gui/ridertextdialog.cpp:50
+msgid "No source loaded."
+msgstr "Keine Quelle geladen."
+
+#: gui/ridertextdialog.cpp:51
+#, c-format
+msgid "Loaded: %s"
+msgstr "Geladen: %s"
+
+#: gui/ridertextdialog.cpp:73 gui/ridertextdialog.cpp:82
+#: tests/localization_catalog_integration_test.cpp:202
+msgid "Create scene from text"
+msgstr "Szene aus Text erstellen"
+
+#: gui/ridertextdialog.cpp:91
+msgid ""
+"Paste rider content or load a .txt/.pdf file, then refine before creating "
+"the scene."
+msgstr ""
+"Rider-Inhalt einfügen oder eine .txt/.pdf-Datei laden und vor der "
+"Szenenerstellung überarbeiten."
+
+#: gui/ridertextdialog.cpp:103
+msgid "Load rider..."
+msgstr "Rider laden…"
+
+#: gui/ridertextdialog.cpp:106
+msgid "Use example"
+msgstr "Beispiel verwenden"
+
+#: gui/ridertextdialog.cpp:111
+msgid "Rider text"
+msgstr "Rider-Text"
+
+#: gui/ridertextdialog.cpp:120
+msgid ""
+"Autocomplete: Up/Down move, Enter/Tab accept, Esc closes suggestions. "
+"Ranking: exact > prefix > fuzzy + recent use + context."
+msgstr ""
+"Autovervollständigung: Auf/Ab navigiert, Eingabe/Tab übernimmt, Esc schließt "
+"Vorschläge. Rangfolge: exakt > Präfix > unscharf + letzte Verwendung + "
+"Kontext."
+
+#: gui/ridertextdialog.cpp:150 gui/ridertextdialog.cpp:326
+msgid "Apply filter"
+msgstr "Filter anwenden"
+
+#: gui/ridertextdialog.cpp:218
+msgid "Unexpected error while loading rider file."
+msgstr "Unerwarteter Fehler beim Laden der Rider-Datei."
+
+#: gui/ridertextdialog.cpp:224
+msgid "Unexpected unknown error while loading rider file."
+msgstr "Unerwarteter unbekannter Fehler beim Laden der Rider-Datei."
+
+#: gui/ridertextdialog.cpp:245
+msgid "Loaded rider text could not be decoded."
+msgstr "Geladener Rider-Text konnte nicht dekodiert werden."
+
+#: gui/ridertextdialog.cpp:307
+msgid "Example text"
+msgstr "Beispieltext"
+
+#: gui/ridertextdialog.cpp:325
+msgid ""
+"No fixture lines were detected with the current parser rules after filtering."
+msgstr ""
+"Nach dem Filtern wurden mit den aktuellen Parserregeln keine "
+"Scheinwerferzeilen erkannt."
+
+#: gui/ridertextdialog.cpp:334
+msgid "Filtered text could not be decoded."
+msgstr "Gefilterter Text konnte nicht dekodiert werden."
+
+#: gui/riggingpanel.cpp:182 tests/localization_catalog_integration_test.cpp:196
+msgid "Position"
+msgstr "Position"
+
+#: gui/riggingpanel.cpp:193 gui/riggingpanel.cpp:258
+#: tests/localization_catalog_integration_test.cpp:198
+#: tests/localization_catalog_integration_test.cpp:233
+msgid "Fixture Weight"
+msgstr "Scheinwerfergewicht"
+
+#: gui/riggingpanel.cpp:196 gui/riggingpanel.cpp:260
+msgid "Truss Weight"
+msgstr "Traversengewicht"
+
+#: gui/riggingpanel.cpp:199 gui/riggingpanel.cpp:262
+msgid "Hoists Weight"
+msgstr "Kettenzuggewicht"
+
+#: gui/riggingpanel.cpp:202 gui/riggingpanel.cpp:264
+msgid "Extra Weight"
+msgstr "Zusatzgewicht"
+
+#: gui/riggingpanel.cpp:205 gui/riggingpanel.cpp:266
+msgid "Total Weight"
+msgstr "Gesamtgewicht"
+
+#: gui/riggingpanel.cpp:208 gui/riggingpanel.cpp:268
+msgid "Rounded Total Weight +5%"
+msgstr "Gerundetes Gesamtgewicht +5%"
+
+#: gui/scene_object_primitive_dialogs.cpp:130
+msgid "Save as Default"
+msgstr "Als Standard speichern"
+
+#: gui/scene_object_primitive_dialogs.cpp:132
+msgid "Load Default"
+msgstr "Standard laden"
+
+#: gui/scene_object_primitive_dialogs.cpp:136
+msgid "Apply"
+msgstr "Anwenden"
+
+#: gui/scene_object_primitive_dialogs.cpp:184
+msgid "Radius"
+msgstr "Radius"
+
+#: gui/scene_object_primitive_dialogs.cpp:238
+#: gui/scene_object_primitive_dialogs.cpp:356
+#: gui/scene_object_primitive_dialogs.cpp:480
+msgid "Position X"
+msgstr "Position X"
+
+#: gui/scene_object_primitive_dialogs.cpp:240
+#: gui/scene_object_primitive_dialogs.cpp:358
+#: gui/scene_object_primitive_dialogs.cpp:482
+msgid "Position Y"
+msgstr "Position Y"
+
+#: gui/scene_object_primitive_dialogs.cpp:242
+#: gui/scene_object_primitive_dialogs.cpp:360
+#: gui/scene_object_primitive_dialogs.cpp:484
+msgid "Position Z"
+msgstr "Position Z"
+
+#: gui/scene_object_primitive_dialogs.cpp:243
+#: gui/scene_object_primitive_dialogs.cpp:361
+#: gui/scene_object_primitive_dialogs.cpp:485
+msgid "Rotation X (deg):"
+msgstr "Rotation X (deg):"
+
+#: gui/scene_object_primitive_dialogs.cpp:244
+#: gui/scene_object_primitive_dialogs.cpp:362
+#: gui/scene_object_primitive_dialogs.cpp:486
+msgid "Rotation Y (deg):"
+msgstr "Rotation Y (deg):"
+
+#: gui/scene_object_primitive_dialogs.cpp:245
+#: gui/scene_object_primitive_dialogs.cpp:363
+#: gui/scene_object_primitive_dialogs.cpp:487
+msgid "Rotation Z (deg):"
+msgstr "Rotation Z (deg):"
+
+#: gui/scene_object_primitive_dialogs.cpp:298
+#: gui/scene_object_primitive_dialogs.cpp:584 gui/trusstablepanel.cpp:304
+#: gui/trusstablepanel.cpp:337
+#: tests/localization_catalog_integration_test.cpp:220
+#: tests/localization_catalog_integration_test.cpp:223
+msgid "Length"
+msgstr "Länge"
+
+#: gui/scene_object_primitive_dialogs.cpp:299
+#: gui/scene_object_primitive_dialogs.cpp:424
+#: gui/scene_object_primitive_dialogs.cpp:543 gui/trusstablepanel.cpp:304
+#: gui/trusstablepanel.cpp:339
+msgid "Height"
+msgstr "Höhe"
+
+#: gui/scene_object_primitive_dialogs.cpp:300
+#: gui/scene_object_primitive_dialogs.cpp:542 gui/trusstablepanel.cpp:304
+#: gui/trusstablepanel.cpp:338
+msgid "Width"
+msgstr "Breite"
+
+#: gui/scene_object_primitive_dialogs.cpp:422
+msgid "Top radius"
+msgstr "Oberer Radius"
+
+#: gui/scene_object_primitive_dialogs.cpp:423
+msgid "Bottom radius"
+msgstr "Unterer Radius"
+
+#: gui/scene_object_primitive_dialogs.cpp:535
+msgid "Edit Screen"
+msgstr "Bildschirm bearbeiten"
+
+#: gui/scene_object_primitive_dialogs.cpp:577
+msgid "Edit Pipe"
+msgstr "Rohr bearbeiten"
+
+#: gui/scene_object_primitive_dialogs.cpp:643
+msgid "Add Sphere"
+msgstr "Kugel hinzufügen"
+
+#: gui/scene_object_primitive_dialogs.cpp:657
+msgid "Add Cube"
+msgstr "Würfel hinzufügen"
+
+#: gui/scene_object_primitive_dialogs.cpp:671
+msgid "Add Cylinder"
+msgstr "Zylinder hinzufügen"
+
+#: gui/scene_object_primitive_dialogs.cpp:682
+msgid "Edit Sphere"
+msgstr "Kugel bearbeiten"
+
+#: gui/scene_object_primitive_dialogs.cpp:695
+msgid "Edit Cube"
+msgstr "Würfel bearbeiten"
+
+#: gui/scene_object_primitive_dialogs.cpp:708
+msgid "Edit Cylinder"
+msgstr "Zylinder bearbeiten"
+
+#: gui/sceneobjecttablepanel.cpp:265 gui/trusstablepanel.cpp:300
+msgid "Model File"
+msgstr "Modelldatei"
+
+#: gui/sceneobjecttablepanel.cpp:460
+msgid "Select Object Model"
+msgstr "Objektmodell auswählen"
+
+#: gui/selectfixturetypedialog.cpp:21
+msgid "Select Fixture Type"
+msgstr "Scheinwerfertyp auswählen"
+
+#: gui/selectfixturetypedialog.cpp:24
+msgid "Choose a fixture type:"
+msgstr "Scheinwerfertyp auswählen:"
+
+#: gui/selectfixturetypedialog.cpp:35 gui/selectnamedialog.cpp:38
+msgid "Add from file..."
+msgstr "Aus Datei hinzufügen…"
+
+#: gui/services/fixture_symbol_preparation_service.cpp:512
+msgid "fixture resource"
+msgstr "Scheinwerferressource"
+
+#: gui/services/fixture_symbol_preparation_service.cpp:515
+msgid "Preparing"
+msgstr "Vorbereitung"
+
+#: gui/services/fixture_symbol_preparation_service.cpp:519
+msgid "Capturing fixture views"
+msgstr "Scheinwerferansichten werden erfasst"
+
+#: gui/services/fixture_symbol_preparation_service.cpp:522
+msgid "Processing"
+msgstr "Verarbeitung"
+
+#: gui/services/fixture_symbol_preparation_service.cpp:525
+msgid "Publishing"
+msgstr "Veröffentlichung"
+
+#: gui/services/fixture_symbol_preparation_service.cpp:528
+msgid "Refreshing"
+msgstr "Aktualisierung"
+
+#: gui/services/fixture_symbol_preparation_service.cpp:533
+#, c-format
+msgid "Preparing fixture symbols: %s - %s - %zu pending"
+msgstr "Scheinwerfersymbole werden vorbereitet: %s - %s - %zu ausstehend"
+
+#: gui/splashscreen.cpp:151
+msgid "Loading Perastage..."
+msgstr "Perastage wird geladen…"
+
+#: gui/summarypanel.cpp:258 gui/summarypanel.cpp:267 gui/summarypanel.cpp:317
+#: gui/summarypanel.cpp:347 tests/localization_catalog_integration_test.cpp:194
+msgid "Count"
+msgstr "Anzahl"
+
+#: gui/tableprinter.cpp:172
+msgid "Failed to save file."
+msgstr "Datei konnte nicht gespeichert werden."
+
+#: gui/tableprinter.cpp:207
+msgid "CSV exported successfully."
+msgstr "CSV erfolgreich exportiert."
+
+#: gui/tools/fixture_category_assignment_tool.cpp:99
+msgid "Select at least one fixture first."
+msgstr "Zuerst mindestens einen Scheinwerfer auswählen."
+
+#: gui/tools/fixture_category_assignment_tool.cpp:100
+#: gui/tools/fixture_category_assignment_tool.cpp:169
+#: gui/tools/fixture_category_assignment_tool.cpp:181
+msgid "Auto-assign fixture categories"
+msgstr "Scheinwerferkategorien automatisch zuweisen"
+
+#: gui/tools/fixture_category_assignment_tool.cpp:168
+msgid "Selected fixtures are already up to date."
+msgstr "Ausgewählte Scheinwerfer sind bereits aktuell."
+
+#: gui/tools/fixture_category_assignment_tool.cpp:179
+#, c-format
+msgid "Auto-assigned categories to %zu fixture(s). Unknown: %zu."
+msgstr "Kategorien automatisch %zu Scheinwerfern zugewiesen. Unbekannt: %zu."
+
+#: gui/tools/fixture_symbol_generation_tool.cpp:90
+msgid "No fixtures available in this project."
+msgstr "Keine Scheinwerfer in diesem Projekt verfügbar."
+
+#: gui/tools/fixture_symbol_generation_tool.cpp:90
+#: gui/tools/fixture_symbol_generation_tool.cpp:107
+#: gui/tools/fixture_symbol_generation_tool.cpp:116
+#: gui/tools/fixture_symbol_generation_tool.cpp:129
+#: gui/tools/fixture_symbol_generation_tool.cpp:142
+msgid "Generate Fixture Symbols"
+msgstr "Scheinwerfersymbole erzeugen"
+
+#: gui/tools/fixture_symbol_generation_tool.cpp:106
+msgid "Could not prepare offscreen renderer."
+msgstr "Offscreen-Renderer konnte nicht vorbereitet werden."
+
+#: gui/tools/fixture_symbol_generation_tool.cpp:115
+msgid "Could not isolate a fixture instance for this fixture type."
+msgstr "Scheinwerferinstanz für diesen Typ konnte nicht isoliert werden."
+
+#: gui/trusseditdialog.cpp:198
+msgid "MVR instance"
+msgstr "MVR-Instanz"
+
+#: gui/trusseditdialog.cpp:386
+msgid ""
+"Editing these fields creates or updates the truss GDTF. MVR-only fields "
+"remain project-scoped."
+msgstr ""
+"Das Bearbeiten dieser Felder erstellt oder aktualisiert das Traversen-GDTF. "
+"Reine MVR-Felder bleiben auf das Projekt beschränkt."
+
+#: gui/trusseditdialog.cpp:676
+msgid "Truss GDTF"
+msgstr "Traversen-GDTF"
+
+#: gui/trusstablepanel.cpp:303
+msgid "Model"
+msgstr "Modell"
+
+#: gui/trusstablepanel.cpp:559
+msgid "Select Truss Model"
+msgstr "Traversenmodell auswählen"
+
+#: gui/update/update_notification_dialog.cpp:43
+msgid "Do not remind me again for this version"
+msgstr "Für diese Version nicht erneut erinnern"
+
+#: gui/update/update_notification_dialog.cpp:49
+msgid "Yes"
+msgstr "Ja"
+
+#: gui/update/update_notification_dialog.cpp:50
+msgid "No"
+msgstr "Nein"
+
+#: gui/user_manual_dialog.cpp:23
+msgid "Perastage Help"
+msgstr "Perastage-Hilfe"
+
+#: gui/user_manual_dialog.cpp:37
+msgid "Back"
+msgstr "Zurück"
+
+#: gui/user_manual_dialog.cpp:38
+msgid "Home"
+msgstr "Startseite"
+
+#: gui/user_manual_dialog.cpp:46
+msgid "Offline Help files are missing. Use Online Documentation."
+msgstr "Offline-Hilfedateien fehlen. Verwenden Sie die Online-Dokumentation."
+
+#: gui/viewer2dprintdialog.cpp:34
+msgid "Page size"
+msgstr "Seitengröße"
+
+#: gui/viewer2dprintdialog.cpp:36
+msgid "A3"
+msgstr "A3"
+
+#: gui/viewer2dprintdialog.cpp:38
+msgid "A4"
+msgstr "A4"
+
+#: gui/viewer2dprintdialog.cpp:46
+msgid "Portrait"
+msgstr "Hochformat"
+
+#: gui/viewer2dprintdialog.cpp:49
+msgid "Landscape"
+msgstr "Querformat"
+
+#: gui/viewer2dprintdialog.cpp:59
+msgid "Elements detail"
+msgstr "Elementdetail"
+
+#: gui/viewer2dprintdialog.cpp:60
+msgid "Detailed"
+msgstr "Detailliert"
+
+#: gui/viewer2dprintdialog.cpp:63
+msgid "Schematic"
+msgstr "Schematisch"
+
+#: gui/windows/SymbolPreviewWindow.cpp:143
+msgid "Export this view as SVG..."
+msgstr "Diese Ansicht als SVG exportieren…"
+
+#: gui/windows/SymbolPreviewWindow.cpp:147
+msgid "Apply views to fixture..."
+msgstr "Ansichten auf Scheinwerfer anwenden…"
+
+#: gui/windows/SymbolPreviewWindow.cpp:150
+msgid "No valid symbol views are available."
+msgstr "Keine gültigen Symbolansichten verfügbar."
+
+#: gui/windows/SymbolPreviewWindow.cpp:151
+msgid "Fixture Symbol Preview"
+msgstr "Vorschau des Scheinwerfersymbols"
+
+#: gui/windows/SymbolPreviewWindow.cpp:180
+msgid "Export Symbol View as SVG"
+msgstr "Symbolansicht als SVG exportieren"
+
+#: gui/windows/SymbolPreviewWindow.cpp:190
+#: gui/windows/SymbolPreviewWindow.cpp:194
+msgid "Export Symbol View"
+msgstr "Symbolansicht exportieren"
+
+#: gui/windows/SymbolPreviewWindow.cpp:194
+msgid "Symbol view exported successfully."
+msgstr "Symbolansicht erfolgreich exportiert."
+
+#: gui/windows/SymbolPreviewWindow.cpp:206
+msgid "The project fixture symbol was not updated."
+msgstr "Scheinwerfersymbol im Projekt wurde nicht aktualisiert."
+
+#: gui/windows/SymbolPreviewWindow.cpp:208
+#: gui/windows/SymbolPreviewWindow.cpp:223
+msgid "Apply Views to Fixture"
+msgstr "Ansichten auf Scheinwerfer anwenden"
+
+#: gui/windows/SymbolPreviewWindow.cpp:221
+msgid ""
+"Symbol views were applied to the unsaved project. Save the project to "
+"persist the symbol override."
+msgstr ""
+"Symbolansichten wurden auf das ungespeicherte Projekt angewendet. Speichern "
+"Sie das Projekt, um die Symbolüberschreibung zu behalten."
+
+#: gui/windows/SymbolPreviewWindow.cpp:222
+msgid ""
+"Symbol views were applied to the project. Save the project to persist the "
+"symbol override."
+msgstr ""
+"Symbolansichten wurden auf das Projekt angewendet. Speichern Sie das "
+"Projekt, um die Symbolüberschreibung zu behalten."
+
+#: mvr/mvrimporter.cpp:318
+msgid "Resolve GDTF source conflicts"
+msgstr "GDTF-Quellenkonflikte lösen"
+
+#: mvr/mvrimporter.cpp:321
+msgid "Choose which source to keep for each fixture type."
+msgstr "Für jeden Scheinwerfertyp die zu behaltende Quelle auswählen."
+
+#: mvr/mvrimporter.cpp:329
+msgid "MVR"
+msgstr "MVR"
+
+#: mvr/mvrimporter.cpp:330
+msgid "App"
+msgstr "Anwendung"
+
+#: mvr/mvrimporter.cpp:344 mvr/mvrimporter.cpp:345 mvr/mvrimporter.cpp:347
+msgid "Select all"
+msgstr "Alle auswählen"
+
+#: mvr/mvrimporter.cpp:661
+#, c-format
+msgid ""
+"GDTF Share credentials were authenticated for this operation, but were not "
+"saved (%s)."
+msgstr ""
+"GDTF-Share-Zugangsdaten wurden für diesen Vorgang bestätigt, aber nicht "
+"gespeichert (%s)."
+
+#: mvr/mvrimporter.cpp:678
+msgid "GDTF download queue"
+msgstr "GDTF-Download-Warteschlange"
+
+#: mvr/mvrimporter.cpp:712
+msgid "Selected fixture types for download"
+msgstr "Für den Download ausgewählte Scheinwerfertypen"
+
+#: mvr/mvrimporter.cpp:719
+msgid "Preparing download queue..."
+msgstr "Download-Warteschlange wird vorbereitet…"
+
+#: mvr/mvrimporter.cpp:741
+msgid "Progress"
+msgstr "Fortschritt"
+
+#: mvr/mvrimporter.cpp:748
+msgid "0 processed  |  0 downloaded  |  0 fallback"
+msgstr "0 verarbeitet  |  0 heruntergeladen  |  0 Ersatz"
+
+#: mvr/mvrimporter.cpp:788
+msgid "Cancel requested. Finishing current transfer..."
+msgstr "Abbruch angefordert. Aktuelle Übertragung wird abgeschlossen…"
+
+#: mvr/mvrimporter.cpp:844
+#, c-format
+msgid "%d/%zu processed  |  %d downloaded  |  %d fallback  |  %d canceled"
+msgstr ""
+"%d/%zu verarbeitet  |  %d heruntergeladen  |  %d Ersatz  |  %d abgebrochen"
+
+#: mvr/mvrimporter.cpp:905
+msgid "Fallback to App"
+msgstr "Ersatz aus Anwendung"
+
+#: mvr/mvrimporter.cpp:909
+msgid "Fallback to MVR"
+msgstr "Ersatz aus MVR"
+
+#: mvr/mvrimporter.cpp:910
+msgid "Fallback to dummy"
+msgstr "Dummy als Ersatz"
+
+#: mvr/mvrimporter.cpp:967
+msgid "Pending"
+msgstr "Ausstehend"
+
+#: mvr/mvrimporter.cpp:970
+msgid "Waiting to match catalog entry"
+msgstr "Warten auf Katalogtreffer"
+
+#: mvr/mvrimporter.cpp:980
+msgid "Loading GDTF catalog..."
+msgstr "GDTF-Katalog wird geladen…"
+
+#: mvr/mvrimporter.cpp:1085
+#, c-format
+msgid "Selected fixture types for download (catalog entries: %zu)"
+msgstr "Für den Download ausgewählte Scheinwerfertypen (Katalogeinträge: %zu)"
+
+#: mvr/mvrimporter.cpp:1090
+msgid "Downloading selected fixtures..."
+msgstr "Ausgewählte Scheinwerfer werden heruntergeladen…"
+
+#: mvr/mvrimporter.cpp:1141
+msgid "No catalog match found"
+msgstr "Kein Katalogtreffer gefunden"
+
+#: mvr/mvrimporter.cpp:1189 mvr/mvrimporter.cpp:1247
+msgid "Downloading"
+msgstr "Download läuft"
+
+#: mvr/mvrimporter.cpp:1190 mvr/mvrimporter.cpp:1249
+msgid "Fetching fixture package"
+msgstr "Scheinwerferpaket wird abgerufen"
+
+#: mvr/mvrimporter.cpp:1268
+msgid "Downloaded and assigned"
+msgstr "Heruntergeladen und zugewiesen"
+
+#: mvr/mvrimporter.cpp:1271
+#, c-format
+msgid " (Mode: %s)"
+msgstr " (Modus: %s)"
+
+#: mvr/mvrimporter.cpp:1292 mvr/mvrimporter.cpp:1317
+msgid "Canceled"
+msgstr "Abgebrochen"
+
+#: mvr/mvrimporter.cpp:1296
+msgid "Canceled by user"
+msgstr "Vom Benutzer abgebrochen"
+
+#: mvr/mvrimporter.cpp:1309
+msgid "Download failed"
+msgstr "Download fehlgeschlagen"
+
+#: mvr/mvrimporter.cpp:1318
+msgid "Canceled before download start"
+msgstr "Vor Downloadbeginn abgebrochen"
+
+#: mvr/mvrimporter.cpp:1323
+msgid "Queue canceled. Keeping downloaded fixtures."
+msgstr ""
+"Warteschlange abgebrochen. Heruntergeladene Scheinwerfer bleiben erhalten."
+
+#: mvr/mvrimporter.cpp:1325
+msgid "Queue finished."
+msgstr "Warteschlange abgeschlossen."
+
+#: mvr/mvrimporter.cpp:1330
+msgid "Catalog fetch/parsing failed."
+msgstr "Abruf oder Verarbeitung des Katalogs fehlgeschlagen."
+
+#: mvr/mvrimporter.cpp:1332
+#, c-format
+msgid "Selected fixture types for download (catalog load failed: %s)"
+msgstr ""
+"Für den Download ausgewählte Scheinwerfertypen (Laden des Katalogs "
+"fehlgeschlagen: %s)"
+
+#: mvr/mvrimporter.cpp:1337
+msgid "Failed to load catalog list"
+msgstr "Katalogliste konnte nicht geladen werden"
+
+#: mvr/mvrimporter.cpp:1342
+#, c-format
+msgid "Catalog load failed. %s. Keeping available fallbacks."
+msgstr ""
+"Laden des Katalogs fehlgeschlagen. %s. Verfügbare Ersatzquellen bleiben "
+"erhalten."
+
+#: mvr/mvrimporter.cpp:1348
+#, c-format
+msgid "%s - queue finished"
+msgstr "%s - Warteschlange abgeschlossen"
+
+#: mvr/mvrimporter.cpp:1355
+msgid "GDTF Share login"
+msgstr "GDTF-Share-Anmeldung"
+
+#: tests/localization_catalog_integration_test.cpp:168
+msgid "Spanish"
+msgstr "Español"
+
+#: viewer2d/viewer2dpanel.cpp:3579
+msgid "Gap measure: "
+msgstr "Abstandsmessung: "
+
+#: viewer2d/viewer2dpanel.cpp:3580
+msgid "Measure: "
+msgstr "Messung: "
+
+#: viewer2d/viewer2dpanel.cpp:3652 viewer3d/viewer3dpanel.cpp:2252
+msgid "Convert to Truss"
+msgstr "In Traverse konvertieren"
+
+#: viewer2d/viewer2dpanel.cpp:3738 viewer3d/viewer3dpanel.cpp:2269
+msgid "No position"
+msgstr "Keine Position"
+
+#: viewer2d/viewer2dpanel.cpp:3749 viewer3d/viewer3dpanel.cpp:2280
+msgid "Select by position"
+msgstr "Nach Position auswählen"
+
+#: viewer2d/viewer2drenderpanel.cpp:97
+msgid "Dark mode"
+msgstr "Dunkler Modus"
+
+#: viewer2d/viewer2drenderpanel.cpp:102
+msgid "Force bottom view"
+msgstr "Unteransicht erzwingen"
+
+#: viewer2d/viewer2drenderpanel.cpp:110
+msgid "View"
+msgstr "Ansicht"
+
+#: viewer2d/viewer2drenderpanel.cpp:115
+msgid "Grid"
+msgstr "Raster"
+
+#: viewer2d/viewer2drenderpanel.cpp:118
+msgid "Show grid"
+msgstr "Raster anzeigen"
+
+#: viewer2d/viewer2drenderpanel.cpp:122
+msgid "Lines"
+msgstr "Linien"
+
+#: viewer2d/viewer2drenderpanel.cpp:122
+msgid "Points"
+msgstr "Punkte"
+
+#: viewer2d/viewer2drenderpanel.cpp:122
+msgid "Crosses"
+msgstr "Kreuze"
+
+#: viewer2d/viewer2drenderpanel.cpp:123
+msgid "Grid style"
+msgstr "Rasterstil"
+
+#: viewer2d/viewer2drenderpanel.cpp:137
+msgid "Draw grid on top"
+msgstr "Raster im Vordergrund zeichnen"
+
+#: viewer2d/viewer2drenderpanel.cpp:141
+msgid "Ruler"
+msgstr "Lineal"
+
+#: viewer2d/viewer2drenderpanel.cpp:144
+msgid "Show ruler"
+msgstr "Lineal anzeigen"
+
+#: viewer2d/viewer2drenderpanel.cpp:233
+msgid "Labels"
+msgstr "Beschriftungen"
+
+#: viewer2d/viewer2drenderpanel.cpp:236 viewer2d/viewer2drenderpanel.cpp:449
+msgid "Global profile (all fixtures)"
+msgstr "Globales Profil (alle Scheinwerfer)"
+
+#: viewer2d/viewer2drenderpanel.cpp:238
+msgid "Show name"
+msgstr "Namen anzeigen"
+
+#: viewer2d/viewer2drenderpanel.cpp:259
+msgid "Show ID"
+msgstr "ID anzeigen"
+
+#: viewer2d/viewer2drenderpanel.cpp:280
+msgid "Show DMX"
+msgstr "DMX anzeigen"
+
+#: viewer2d/viewer2drenderpanel.cpp:356
+msgid "X ruler"
+msgstr "X-Lineal"
+
+#: viewer2d/viewer2drenderpanel.cpp:362
+msgid "Y ruler"
+msgstr "Y-Lineal"
+
+#: viewer2d/viewer2drenderpanel.cpp:368
+msgid "Z ruler"
+msgstr "Z-Lineal"
+
+#: viewer2d/viewer2drenderpanel.cpp:400
+msgid "Distance"
+msgstr "Abstand"
+
+#: viewer2d/viewer2drenderpanel.cpp:406
+msgid "Angle"
+msgstr "Winkel"
+
+#: viewer2d/viewer2drenderpanel.cpp:446
+#, c-format
+msgid "Selection profile active (%zu fixtures)"
+msgstr "Auswahlprofil aktiv (%zu Scheinwerfer)"
+
+#: viewer3d/labels/label_render_system.cpp:186
+#, c-format
+msgid "ID: %d"
+msgstr "ID: %d"
+
+#: viewer3d/viewer3dpanel.cpp:1348
+msgid "Cannot export while the 3D viewer is hidden."
+msgstr "Export nicht möglich, solange die 3D-Ansicht ausgeblendet ist."
+
+#: viewer3d/viewer3dpanel.cpp:1348 viewer3d/viewer3dpanel.cpp:1353
+#: viewer3d/viewer3dpanel.cpp:1365 viewer3d/viewer3dpanel.cpp:1370
+#: viewer3d/viewer3dpanel.cpp:1413 viewer3d/viewer3dpanel.cpp:1462
+msgid "Export image"
+msgstr "Bild exportieren"
+
+#: viewer3d/viewer3dpanel.cpp:1365 viewer3d/viewer3dpanel.cpp:1370
+msgid "OpenGL is not initialized yet."
+msgstr "OpenGL ist noch nicht initialisiert."
+
+#: viewer3d/viewer3dpanel.cpp:1412
+msgid "Failed to create an offscreen framebuffer for export."
+msgstr "Offscreen-Framebuffer für den Export konnte nicht erstellt werden."
+
+#: viewer3d/viewer3dpanel.cpp:1462
+msgid "Failed to save PNG image."
+msgstr "PNG-Bild konnte nicht gespeichert werden."
+
+#: viewer3d/viewer3dpanel.cpp:1716
+#, c-format
+msgid "Measure: %s"
+msgstr "Messung: %s"
+
+#: viewer3d/viewer3dpanel.cpp:2283
+msgid "Render style"
+msgstr "Darstellungsstil"
+
+#: viewer3d/viewer3dpanel.cpp:2285
+msgid "Export image..."
+msgstr "Bild exportieren…"

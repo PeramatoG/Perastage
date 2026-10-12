@@ -13,7 +13,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 POT = ROOT / "resources" / "locale" / "perastage.pot"
-COMPLETE_LANGUAGES = ["es", "zh_CN"]
+COMPLETE_LANGUAGES = re.search(
+    r"set\(PERASTAGE_TRANSLATION_LANGUAGES\s+([^)]*)\)",
+    (ROOT / "cmake" / "PerastageLocalization.cmake").read_text(encoding="utf-8"),
+).group(1).split()
 DRAFT_LANGUAGES: list[str] = []
 LANGUAGES = COMPLETE_LANGUAGES + DRAFT_LANGUAGES
 SOURCE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}

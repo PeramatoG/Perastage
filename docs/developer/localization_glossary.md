@@ -1,6 +1,6 @@
 # Localization glossary
 
-This glossary records preferred Spanish terminology for recurring Perastage UI strings. It guides translators and reviewers; gettext catalogs remain the source of translated application text.
+This glossary records preferred terminology for recurring Perastage UI strings. It guides translators and reviewers; gettext catalogs remain the source of translated application text.
 
 | English term | Spanish guidance | Notes |
 | --- | --- | --- |
@@ -39,3 +39,33 @@ This glossary records preferred Spanish terminology for recurring Perastage UI s
 | Hoist | 葫芦 | Chain-hoist UI; never alter object names. |
 | Layout | 布局 | Drawing/layout presentation. |
 | Viewport | 视口 | Interactive 2D or 3D viewport. |
+
+## French and German guidance
+
+Use these terms in translated presentation and manual prose. Literal English UI
+labels in manuals remain unchanged under the existing manual policy; imported
+object names, filenames, config keys, channel/function names and machine syntax
+always remain exact. The FR/DE translations are machine-assisted, with optional
+native-speaker review welcome, particularly for rigging terminology.
+
+| English term | French | German | Notes |
+| --- | --- | --- | --- |
+| Fixture | projecteur | Scheinwerfer | Lighting fixture; not an imported type name. |
+| Truss | structure | Traverse | Entertainment-rigging structure. |
+| Rigging | accroche | Rigging | Professional stage-rigging workflow. |
+| Hoist | palan | Kettenzug | Chain hoist; preserve imported motor names. |
+| Patch / Auto patch | patch / patch automatique | Patch / automatischer Patch | DMX address assignment. |
+| Layout | mise en page | Layout | Printable page presentation. |
+| Viewport | vue | Ansicht | Interactive scene viewport. |
+| Symbol / Symdef | symbole / Symdef | Symbol / Symdef | Preserve official Symbol/Symdef schema names. |
+| Gobo | gobo | Gobo | Preserve official or imported wheel/slot names. |
+| Pan / Tilt | Pan / Tilt | Pan / Tilt | Keep channel/function identifiers; translate explanatory motion prose. |
+| Inspector | Inspecteur | Inspektor | Read-only package viewer. |
+| Preferences | Préférences | Einstellungen | UI presentation. |
+| Model | modèle | Modell | Preserve Model when naming the GDTF schema concept. |
+| Geometry | géométrie | Geometrie | Preserve Geometry/Geometry3D for schema references. |
+| Dictionary | dictionnaire | Verzeichnis | Perastage's editable profile mapping collection. |
+
+MVR, GDTF, DMX, Art-Net, sACN, OSC, MCP, UUID, XML, PSTG and GDTF Share
+remain unchanged. Preserve schema names including FixtureType, PrimitiveType,
+Revision, UserData, Symbol, Symdef and Geometry3D when used as identifiers.

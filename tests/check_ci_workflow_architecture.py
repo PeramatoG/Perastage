@@ -46,11 +46,13 @@ coverage_preflight = coverage[
     coverage.index('      - name: Validate Linux test tools and locale'):
     coverage.index('      - name: Read pinned vcpkg baseline')
 ]
-assert 'sudo locale-gen es_ES.UTF-8 zh_CN.UTF-8' in coverage_preflight, (
-    'Core/MVR coverage must generate the Spanish and Simplified Chinese locales'
+assert 'sudo locale-gen es_ES.UTF-8 fr_FR.UTF-8 de_DE.UTF-8 zh_CN.UTF-8' in coverage_preflight, (
+    'Core/MVR coverage must generate all complete release locales'
 )
 for locale_name, locale_pattern in [
     ('es_ES.UTF-8', '^es_ES.utf8$'),
+    ('fr_FR.UTF-8', '^fr_FR.utf8$'),
+    ('de_DE.UTF-8', '^de_DE.utf8$'),
     ('zh_CN.UTF-8', '^zh_CN.utf8$'),
 ]:
     assert re.search(
@@ -310,7 +312,7 @@ for platform, text in sections.items():
     assert '--target all --verbose' in text, f'{platform} Debug must build the complete target set'
 
 linux = sections['linux']
-for needle in ['-DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"', '-DVCPKG_TARGET_TRIPLET=x64-linux', '-DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"', '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON', 'compile_commands.json was not generated', 'es_ES.UTF-8', 'zh_CN.UTF-8', 'xdpyinfo', 'xvfb-run -a', '--output-junit', '--verbose', 'ctest-inventory-linux-debug.txt', 'ctest-linux-debug-results.json', 'ci-linux-debug-test-results']:
+for needle in ['-DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"', '-DVCPKG_TARGET_TRIPLET=x64-linux', '-DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"', '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON', 'compile_commands.json was not generated', 'es_ES.UTF-8', 'fr_FR.UTF-8', 'de_DE.UTF-8', 'zh_CN.UTF-8', 'xdpyinfo', 'xvfb-run -a', '--output-junit', '--verbose', 'ctest-inventory-linux-debug.txt', 'ctest-linux-debug-results.json', 'ci-linux-debug-test-results']:
     assert needle in linux, f'Linux Debug is missing {needle}'
 policy_step = linux[linux.index('      - name: Run repository policy tests'):linux.index('      - name: Upload Linux test results')]
 assert 'export PERASTAGE_TEST_PYTHON="$(command -v python3)"' in policy_step
@@ -514,4 +516,14 @@ for artifact in contract['artifacts'].values():
     found = any(artifact in (WORKFLOWS / name).read_text() for name in builders) or artifact in minor
     assert found, f'artifact contract name is not produced or consumed: {artifact}'
 
+
+# Release localization checks must share the canonical registry/manual validator.
+for name in ('windows-installer.yml', 'macos-installer.yml',
+             'macos-15-manual-installer.yml', 'linux-installer.yml', 'arch-package.yml'):
+    assert 'packaging/verify_localization.py' in all_workflows[name], name
+    assert 'for lang in es zh_CN' not in all_workflows[name], name
+assert 'packaging/verify_localization.py' in Path('packaging/arch/PKGBUILD').read_text()
+
+assert 'cp -a "$STAGE_DIR/help" "$APPDIR/usr/bin/"' in all_workflows['linux-installer.yml']
+assert '--asset-root "squashfs-root/usr/bin"' in all_workflows['linux-installer.yml']
 print('OK: GitHub Actions architecture policies are enforced.')
