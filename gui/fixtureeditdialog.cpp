@@ -175,7 +175,6 @@ wxBitmap CreatePreviewPlaceholder(const wxString &label, const wxColour &backgro
   return fallback;
 }
 
-
 } // namespace
 
 // Destroys the host-owned GDTF edit session after the dialog closes.
@@ -358,7 +357,6 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     addLabeledControl(i, controlWindow, nestedSizer, gdtfColumns.count(i) > 0);
   }
 
-
   const std::filesystem::path initialGdtfPath = GetActiveResolvedGdtfPath();
 
   wxVariant typeValue;
@@ -513,8 +511,16 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   previewSizer->Add(preview, 2, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
   previewSizer->Add(new wxStaticLine(previewPage), 0, wxEXPAND | wxLEFT | wxRIGHT,
                     gui::gdtf_layout::SectionPadding(this));
-  previewSizer->Add(new wxStaticText(previewPage, wxID_ANY, _("GDTF thumbnail")),
-                    0, wxALIGN_CENTER_HORIZONTAL | wxTOP, 3);
+  auto *thumbnailHeader = new wxBoxSizer(wxHORIZONTAL);
+  thumbnailHeader->Add(new wxStaticText(previewPage, wxID_ANY, _("GDTF thumbnail")),
+                       0, wxALIGN_CENTER_VERTICAL | wxRIGHT,
+                       gui::gdtf_layout::CompactFieldGap(this));
+  fixtureThumbnailSelector = new wxChoice(previewPage, wxID_ANY);
+  fixtureThumbnailSelector->Hide();
+  fixtureThumbnailSelector->Bind(wxEVT_CHOICE,
+      [this](wxCommandEvent &) { UpdateVisualizers(); });
+  thumbnailHeader->Add(fixtureThumbnailSelector, 0, wxALIGN_CENTER_VERTICAL);
+  previewSizer->Add(thumbnailHeader, 0, wxALIGN_CENTER_HORIZONTAL | wxTOP, 3);
   fixtureImagePreview = new wxStaticBitmap(previewPage, wxID_ANY, wxBitmap(220, 220));
   previewSizer->Add(fixtureImagePreview, 1, wxALIGN_CENTER | wxALL,
                     gui::gdtf_layout::SectionPadding(this));
@@ -761,9 +767,37 @@ void FixtureEditDialog::UpdateVisualizers() {
   }
 
   if (fixtureImagePreview) {
+    const auto options = ListGdtfThumbnailPreviewOptions(path);
+    int selection = fixtureThumbnailSelector
+                        ? fixtureThumbnailSelector->GetSelection()
+                        : wxNOT_FOUND;
+    if (fixtureThumbnailSelector) {
+      fixtureThumbnailSelector->Freeze();
+      fixtureThumbnailSelector->Clear();
+      for (const auto &option : options)
+        fixtureThumbnailSelector->Append(option.svg ? "SVG" : "PNG");
+      if (options.size() > 1) {
+        fixtureThumbnailSelector->Show();
+        if (selection < 0 || static_cast<std::size_t>(selection) >= options.size())
+          selection = 0;
+        fixtureThumbnailSelector->SetSelection(selection);
+      } else {
+        fixtureThumbnailSelector->Hide();
+        selection = options.empty() ? wxNOT_FOUND : 0;
+        if (selection != wxNOT_FOUND)
+          fixtureThumbnailSelector->SetSelection(selection);
+      }
+      fixtureThumbnailSelector->Thaw();
+    }
+
+    std::string preferredArchivePath;
+    if (selection >= 0 && static_cast<std::size_t>(selection) < options.size())
+      preferredArchivePath = options[static_cast<std::size_t>(selection)].archivePath;
+
     const wxColour background =
         ResolvePreviewBackground(fixtureImagePreview->GetParent());
-    const auto thumbnail = LoadGdtfThumbnailPreview(path, wxSize(220, 220), background);
+    const auto thumbnail = LoadGdtfThumbnailPreview(
+        path, wxSize(220, 220), background, preferredArchivePath);
     if (thumbnail.decoded) {
       fixtureImagePreview->SetBitmap(thumbnail.bitmap);
       fixtureImagePreview->SetToolTip(wxString::FromUTF8(thumbnail.diagnostic));
@@ -953,7 +987,6 @@ void FixtureEditDialog::ReloadModeChannelDocument() {
   cachedWheelCatalog = gdtf::ReadGdtfWheelCatalog(archive.descriptionXml);
   cachedModeChannelSource = gdtfPath;
 }
-
 
 // Saves the Fixture Edit visual layout preferences on dialog close paths.
 void FixtureEditDialog::SaveLayoutPreferences() {
