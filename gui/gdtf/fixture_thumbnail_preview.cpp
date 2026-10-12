@@ -8,6 +8,7 @@
 
 #include <wx/choice.h>
 #include <wx/dcmemory.h>
+#include <wx/intl.h>
 #include <wx/settings.h>
 #include <wx/sizer.h>
 #include <wx/statbmp.h>
@@ -162,7 +163,7 @@ void FixtureThumbnailPreviewPanel::RefreshPreview() {
     bitmap->SetBitmap(thumbnail.bitmap);
     bitmap->SetToolTip(wxString::FromUTF8(thumbnail.diagnostic));
   } else {
-    bitmap->SetBitmap(CreatePreviewPlaceholder(_("No image"), background));
+    bitmap->SetBitmap(CreatePreviewPlaceholder("No image", background));
     bitmap->SetToolTip(thumbnail.diagnostic.empty()
                            ? _("No thumbnail image found in this GDTF.")
                            : wxString::FromUTF8(thumbnail.diagnostic));
