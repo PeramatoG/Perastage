@@ -76,6 +76,16 @@
 <li><strong>Units:</strong> choose distance and weight units. Unit changes apply immediately.</li>
 <li><strong>Updates:</strong> <strong>Check on startup (recommended)</strong> checks at most once every 24 hours. You can suppress reminders for a specific version. <strong>Manual only</strong> disables startup checks; <strong>Help → Check for Updates</strong> still checks on demand.</li>
 </ul>
+<h3 id="cache">Cache</h3>
+<p><strong>General → Cache</strong> shows the read-only cache location and current disk usage.
+<strong>Open Cache Folder</strong> opens the folder in your system file manager.
+<strong>Clear Cache...</strong> asks for confirmation and immediately deletes regenerable
+Perastage caches, independently of Apply, OK or Cancel. Geometry is rebuilt as
+needed; the GDTF catalog downloads again when online. Configuration, logs,
+credentials, libraries, GDTF files, dictionaries and projects are preserved.
+If some files cannot be deleted, Perastage reports the failure and updates the
+shown size. Persistent caches live under the per-user application data directory
+in <code>cache/</code>, rather than beside source assets.</p>
 <h2 id="import">Import</h2>
 <p><strong>Rider Import</strong> controls <strong>Auto patch after import</strong>, automatic layers by position or fixture type, and default LX heights, positions and margins. Distance fields follow your unit settings. See <a href="create-from-text.html">Create from Text</a>.</p>
 <h2 id="viewer">Viewer</h2>

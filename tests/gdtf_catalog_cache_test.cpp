@@ -1,4 +1,5 @@
 #include "apppaths.h"
+#include "cache_service.h"
 #include "gdtf_catalog_service.h"
 #include <cassert>
 #include <chrono>
@@ -27,16 +28,33 @@ int main() {
   assert(wx.IsOk());
   wxTheApp->SetAppName(testDirectory.filename().string());
   GdtfCatalogService service;
-  const auto cachePath = testDirectory / "gdtf_catalog_cache.json";
+  const auto cachePath = AppPaths::GetGdtfCatalogCachePath();
+  const auto legacyPath = testDirectory / "gdtf_catalog_cache.json";
+  assert(CacheService::EnsureDirectories());
   std::filesystem::create_directories(testDirectory);
+  std::ofstream(legacyPath) << nlohmann::json{{"list_data", "[]"}}.dump();
+  assert(!service.GetCatalogSnapshot());
+  assert(std::filesystem::exists(legacyPath) && !std::filesystem::exists(cachePath));
+  // A failed migration retains the valid original for a later retry.
+  std::filesystem::remove_all(cachePath.parent_path());
+  std::ofstream(cachePath.parent_path()) << "directory blocked";
+  std::ofstream(legacyPath) << nlohmann::json{{"list_data", catalog}}.dump();
+  assert(!service.GetCatalogSnapshot());
+  assert(std::filesystem::exists(legacyPath));
+  std::filesystem::remove(cachePath.parent_path());
+  assert(CacheService::EnsureDirectories());
   for (int version : {1, 2}) {
     const auto oldPayload = version == 1
         ? std::string(R"([{"revisionId":123,"model":"Legacy Spot"}])") : catalog;
-    std::ofstream(cachePath) << nlohmann::json{
+    std::filesystem::remove(cachePath);
+    std::filesystem::remove(AppPaths::GetCatalogCacheMigrationMarker());
+    std::ofstream(legacyPath) << nlohmann::json{
         {"version", version}, {"updated_at", "2026-10-08 09:00:00"},
         {"list_data", oldPayload}}.dump();
     const auto old = service.GetParsedCatalogSnapshot();
     assert(old && old->parsed.IsUsable());
+    assert(std::filesystem::exists(cachePath));
+    assert(!std::filesystem::exists(legacyPath));
     assert(old->snapshot.catalogTimestamp == (version == 1 ? "" : "1700000000"));
     if (version == 1)
       assert(!old->parsed.entries[0].fileSizeBytes);
@@ -44,7 +62,15 @@ int main() {
     assert(!GdtfCatalogService::IsCatalogStale(old->snapshot, "2026-10-08 09:59:59"));
     assert(GdtfCatalogService::IsCatalogStale(old->snapshot, "2026-10-08 10:00:00"));
   }
-  std::filesystem::remove(cachePath);
+  // A valid centralized catalog takes precedence over a different legacy one.
+  std::ofstream(legacyPath) << nlohmann::json{{"list_data", R"([{"revisionId":999,"model":"Other"}])"}}.dump();
+  assert(service.GetParsedCatalogSnapshot()->parsed.entries[0].fixtureName == "Spot");
+  assert(std::filesystem::exists(legacyPath));
+  assert(CacheService::Clear().Succeeded());
+  // A remaining valid legacy copy must not undo an explicit cache discard.
+  std::ofstream(legacyPath) << nlohmann::json{{"list_data", catalog}}.dump();
+  assert(!service.GetCatalogSnapshot());
+  std::filesystem::remove(legacyPath);
   int refreshes = 0;
   const auto refresh = [&](std::string &data) {
     ++refreshes;
@@ -93,7 +119,7 @@ int main() {
   }, "2026-10-08 13:01:01");
   assert(changed.metrics.refreshSucceeded && !changed.metrics.catalogUnchanged);
   assert(changed.parsedCatalog->entries[0].fixtureName == "Changed");
-  std::filesystem::remove_all(testDirectory);
+  assert(CacheService::Clear().Succeeded());
   const auto noCache = service.RefreshCatalogIfStale(failing, "2026-10-08 12:00:00");
   assert(!noCache.snapshot && !noCache.staleFallback && refreshes == 5);
   std::filesystem::remove_all(testDirectory);

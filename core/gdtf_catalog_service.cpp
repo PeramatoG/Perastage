@@ -1,5 +1,7 @@
 #include "gdtf_catalog_service.h"
 #include "apppaths.h"
+#include "cache_service.h"
+#include "filesystem_path_utils.h"
 #include "logger.h"
 #include "../mvr/gdtf_catalog_parser.h"
 
@@ -16,27 +18,6 @@
 namespace {
 
 namespace fs = std::filesystem;
-
-fs::path GetCatalogCachePath() {
-  fs::path dir = AppPaths::GetUserDataDir();
-  std::error_code ec;
-  fs::create_directories(dir, ec);
-  if (ec)
-    dir = AppPaths::GetUserDataTempFallbackDir();
-  const fs::path target = dir / "gdtf_catalog_cache.json";
-  const fs::path legacy =
-      fs::path(wxStandardPaths::Get().GetUserDataDir().ToStdString()) /
-      "gdtf_catalog_cache.json";
-  if (target != legacy && !fs::exists(target, ec) && fs::exists(legacy, ec)) {
-    ec.clear();
-    fs::copy_file(legacy, target, fs::copy_options::skip_existing, ec);
-    Logger::Instance().Log(
-        ec ? Logger::Level::Warn : Logger::Level::Info,
-        ec ? "Could not migrate GDTF catalog cache to local app data."
-           : "Migrated GDTF catalog cache to local app data.");
-  }
-  return target;
-}
 
 bool ParseIsoDateTimeUtc(const std::string &text, wxDateTime &out) {
   if (text.empty())
@@ -74,10 +55,12 @@ std::optional<long long> ComputeAgeSeconds(const std::string &updatedAt,
 }
 
 // Loads the last validated catalog snapshot and optionally returns parsed data.
-std::optional<GdtfCatalogSnapshot> LoadCacheSnapshot(
+std::optional<GdtfCatalogSnapshot> ReadCacheSnapshot(
+    const fs::path &cachePath,
     mvr::gdtf_catalog_parser::GdtfCatalogParseResult *parsedOut = nullptr) {
-  const fs::path cachePath = GetCatalogCachePath();
-  if (!fs::exists(cachePath))
+  std::error_code ec;
+  if (!CacheService::IsSafeDirectory(cachePath.parent_path()) ||
+      !fs::is_regular_file(fs::symlink_status(cachePath, ec)) || ec)
     return std::nullopt;
 
   std::ifstream input(cachePath, std::ios::binary);
@@ -135,6 +118,50 @@ std::optional<GdtfCatalogSnapshot> LoadCacheSnapshot(
   return snapshot;
 }
 
+fs::path MakeUniqueCacheSibling(const fs::path &, const std::string &);
+
+// Migrate only validated snapshots, publish without overwriting a current cache,
+// and retain legacy data whenever publication fails.
+std::optional<GdtfCatalogSnapshot> LoadCacheSnapshot(
+    mvr::gdtf_catalog_parser::GdtfCatalogParseResult *parsedOut = nullptr) {
+  const auto target = AppPaths::GetGdtfCatalogCachePath();
+  if (auto cached = ReadCacheSnapshot(target, parsedOut))
+    return cached;
+  std::error_code ec;
+  if (fs::exists(target, ec) || ec ||
+      fs::exists(AppPaths::GetCatalogCacheMigrationMarker(), ec) || ec)
+    return std::nullopt;
+  const auto standardDir = PathUtils::PathFromUtf8(
+      std::string(wxStandardPaths::Get().GetUserDataDir().ToUTF8()));
+  for (const auto &dir : {AppPaths::GetUserDataDir(), standardDir,
+                          AppPaths::GetUserDataTempFallbackDir()}) {
+    const auto legacy = dir / "gdtf_catalog_cache.json";
+    if (!ReadCacheSnapshot(legacy)) continue;
+    if (!CacheService::EnsureDirectories()) return std::nullopt;
+    const auto temporary = MakeUniqueCacheSibling(target, ".tmp.");
+    fs::copy_file(legacy, temporary, fs::copy_options::none, ec);
+    if (!ec && !ReadCacheSnapshot(temporary)) {
+      fs::remove(temporary, ec);
+      return std::nullopt;
+    }
+    if (!ec) fs::rename(temporary, target, ec);
+    if (ec) {
+      Logger::Instance().Log(Logger::Level::Warn, "Could not migrate GDTF catalog cache: " + ec.message());
+      fs::remove(temporary, ec);
+      return std::nullopt;
+    }
+    if (!CacheService::MarkCatalogMigrationComplete()) {
+      fs::remove(target, ec);
+      return std::nullopt;
+    }
+    fs::remove(legacy, ec);
+    if (ec)
+      Logger::Instance().Log(Logger::Level::Warn, "Could not remove migrated catalog cache: " + ec.message());
+    return ReadCacheSnapshot(target, parsedOut);
+  }
+  return std::nullopt;
+}
+
 fs::path MakeUniqueCacheSibling(const fs::path &cachePath,
                                 const std::string &tag) {
   for (int attempt = 0; attempt < 64; ++attempt) {
@@ -153,9 +180,10 @@ fs::path MakeUniqueCacheSibling(const fs::path &cachePath,
 }
 
 bool SaveCacheSnapshot(const GdtfCatalogSnapshot &snapshot) {
-  const fs::path cachePath = GetCatalogCachePath();
-  std::error_code mkdirError;
-  fs::create_directories(cachePath.parent_path(), mkdirError);
+  const fs::path cachePath = AppPaths::GetGdtfCatalogCachePath();
+  if (!CacheService::EnsureDirectories() ||
+      !CacheService::IsSafeCacheFile(cachePath))
+    return false;
 
   nlohmann::json root;
   root["version"] = 2;

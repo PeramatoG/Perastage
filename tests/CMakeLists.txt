@@ -2728,6 +2728,9 @@ set_library_env(SymbolFixtureApplierGdtfMutation)
 add_executable(gdtf_catalog_cache_test
                gdtf_catalog_cache_test.cpp
                ../core/gdtf_catalog_service.cpp
+               ../core/cache_paths.cpp
+               ../core/cache_service.cpp
+               ../core/filesystem_path_utils.cpp
                ../core/logger.cpp
                ../mvr/gdtf_catalog_parser.cpp)
 target_include_directories(gdtf_catalog_cache_test PRIVATE ../core ../third_party)
@@ -3982,6 +3985,10 @@ add_executable(preferences_dialog_test
                ../gui/preferences/language_preferences_page.cpp
                ../gui/preferences/units_preferences_page.cpp
                ../gui/preferences/updates_preferences_page.cpp
+               ../gui/preferences/cache_preferences_page.cpp
+               ../core/cache_paths.cpp
+               ../core/cache_service.cpp
+               ../core/filesystem_path_utils.cpp
                ../gui/preferences/rider_import_preferences_page.cpp
                ../gui/preferences/viewer3d_preferences_page.cpp
                ../gui/preferences/selection_movement_preferences_page.cpp
@@ -4072,6 +4079,18 @@ target_compile_definitions(console_help_test PRIVATE
     PERASTAGE_ENABLE_LOCALIZATION=$<BOOL:${PERASTAGE_ENABLE_LOCALIZATION}>)
 add_test(NAME ConsoleHelp COMMAND console_help_test ${CMAKE_SOURCE_DIR}/docs/user)
 set_tests_properties(ConsoleHelp PROPERTIES LABELS "standard-strict;unit;help")
+
+add_executable(cache_service_test cache_service_test.cpp
+               ../core/cache_paths.cpp ../core/cache_service.cpp
+               ../core/filesystem_path_utils.cpp
+               ../viewer3d/resources/mesh_processing.cpp)
+target_include_directories(cache_service_test PRIVATE ../core ../viewer3d ../models)
+target_link_libraries(cache_service_test PRIVATE meshoptimizer::meshoptimizer)
+add_test(NAME CacheService COMMAND cache_service_test)
+set_tests_properties(CacheService PROPERTIES LABELS "standard-strict;core;viewer3d")
+add_bash_policy_test(PersistentCacheBoundary
+                    ${CMAKE_CURRENT_SOURCE_DIR}/check_persistent_cache_boundary.sh
+                    LABELS standard-strict architecture core gui viewer3d)
 
 add_executable(gdtf_electrical_power_test gdtf_electrical_power_test.cpp
                ../core/gdtf_mutation_audit.cpp build_info_stub.cpp)

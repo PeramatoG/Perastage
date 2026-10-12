@@ -11,7 +11,7 @@ assert 'wxRESIZE_BORDER' in container
 assert 'page->ApplyPreferences(preferences)' in container
 assert 'EVT_UI_PREFERENCES_APPLIED' in container and 'EVT_UI_UNITS_CHANGED' in container
 assert 'ShowLanguageRestartNoticeIfNeeded' in container
-for name in ['language', 'units', 'updates', 'rider_import', 'viewer3d',
+for name in ['language', 'units', 'updates', 'cache', 'rider_import', 'viewer3d',
              'selection_movement', 'gdtf', 'mvr']:
     page = Path(f'gui/preferences/{name}_preferences_page.cpp').read_text()
     assert 'LoadPreferences(' in page and 'ApplyPreferences(' in page

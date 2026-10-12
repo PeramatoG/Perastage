@@ -1,4 +1,5 @@
 #include "mesh_processing.h"
+#include "cache_service.h"
 #include "filesystem_path_utils.h"
 #include "physical_asset_revision.h"
 
@@ -65,29 +66,6 @@ bool ReadVector(std::ifstream &in, std::vector<T> &values) {
   in.read(reinterpret_cast<char *>(values.data()),
           static_cast<std::streamsize>(sizeof(T) * values.size()));
   return in.good();
-}
-
-// Builds the disk cache path for a source asset.
-std::string BuildCachePath(const std::string &sourcePath) {
-  return sourcePath + ".cache";
-}
-
-// Builds a stable hash for mode-specific GDTF disk cache names.
-uint64_t HashCacheToken(const std::string &value) {
-  uint64_t hash = 1469598103934665603ull;
-  for (unsigned char c : value) {
-    hash ^= c;
-    hash *= 1099511628211ull;
-  }
-  return hash;
-}
-
-// Builds the disk cache path for a GDTF mode selection.
-std::string BuildGdtfCachePath(const std::string &sourcePath,
-                               const std::string &modeName) {
-  if (modeName.empty())
-    return BuildCachePath(sourcePath);
-  return sourcePath + "." + std::to_string(HashCacheToken(modeName)) + ".cache";
 }
 
 bool WriteMesh(std::ofstream &out, const Mesh &mesh) {
@@ -166,7 +144,9 @@ void OptimizeGdtfObjectsForRuntime(std::vector<GdtfObject> &objects) {
 }
 
 bool TryLoadMeshCache(const std::string &sourcePath, Mesh &outMesh) {
-  std::ifstream in(BuildCachePath(sourcePath), std::ios::binary);
+  const auto path = CacheService::ViewerCachePath(sourcePath, "", false);
+  if (!CacheService::IsSafeCacheFile(path)) return false;
+  std::ifstream in(path, std::ios::binary);
   if (!in.is_open())
     return false;
 
@@ -179,10 +159,12 @@ bool TryLoadMeshCache(const std::string &sourcePath, Mesh &outMesh) {
 // Saves a model mesh with the bounded source revision used for validation.
 bool TrySaveMeshCache(const std::string &sourcePath, const Mesh &mesh) {
   const PhysicalAssetRevision revision = ReadPhysicalAssetRevision(sourcePath);
-  if (!revision.metadataAvailable)
+  if (!revision.metadataAvailable || !CacheService::EnsureDirectories())
     return false;
 
-  std::ofstream out(BuildCachePath(sourcePath), std::ios::binary | std::ios::trunc);
+  const auto path = CacheService::ViewerCachePath(sourcePath, "", false);
+  if (!CacheService::IsSafeCacheFile(path)) return false;
+  std::ofstream out(path, std::ios::binary | std::ios::trunc);
   if (!out.is_open())
     return false;
 
@@ -198,7 +180,9 @@ bool TrySaveMeshCache(const std::string &sourcePath, const Mesh &mesh) {
 bool TryLoadGdtfCache(const std::string &gdtfPath,
                       const std::string &modeName,
                       std::vector<GdtfObject> &outObjects) {
-  std::ifstream in(BuildGdtfCachePath(gdtfPath, modeName), std::ios::binary);
+  const auto path = CacheService::ViewerCachePath(gdtfPath, modeName, true);
+  if (!CacheService::IsSafeCacheFile(path)) return false;
+  std::ifstream in(path, std::ios::binary);
   if (!in.is_open())
     return false;
 
@@ -228,10 +212,12 @@ bool TrySaveGdtfCache(const std::string &gdtfPath,
                       const std::string &modeName,
                       const std::vector<GdtfObject> &objects) {
   const PhysicalAssetRevision revision = ReadPhysicalAssetRevision(gdtfPath);
-  if (!revision.metadataAvailable)
+  if (!revision.metadataAvailable || !CacheService::EnsureDirectories())
     return false;
 
-  std::ofstream out(BuildGdtfCachePath(gdtfPath, modeName),
+  const auto path = CacheService::ViewerCachePath(gdtfPath, modeName, true);
+  if (!CacheService::IsSafeCacheFile(path)) return false;
+  std::ofstream out(path,
                     std::ios::binary | std::ios::trunc);
   if (!out.is_open())
     return false;

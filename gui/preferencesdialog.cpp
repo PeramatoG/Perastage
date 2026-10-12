@@ -25,6 +25,7 @@
 #include "preferences/units_preferences_page.h"
 #include "preferences/language_preferences_page.h"
 #include "preferences/updates_preferences_page.h"
+#include "preferences/cache_preferences_page.h"
 #include "preferences/gdtf_preferences_page.h"
 #include "preferences/mvr_preferences_page.h"
 #include "preferences/selection_movement_preferences_page.h"
@@ -54,6 +55,7 @@ PreferencesDialog::PreferencesDialog(
   unitsPage = new UnitsPreferencesPage(book);
   addPage(unitsPage, _("Units"));
   addPage(new UpdatesPreferencesPage(book), _("Updates"));
+  addPage(new CachePreferencesPage(book), _("Cache"));
 
   book->AddPage(nullptr, _("Import"));
   auto *riderPage = new RiderImportPreferencesPage(book);

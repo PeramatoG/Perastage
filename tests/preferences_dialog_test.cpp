@@ -1,4 +1,10 @@
 #include "preferencesdialog.h"
+#include "apppaths.h"
+#include "cache_service.h"
+#include <chrono>
+#include <fstream>
+#include <filesystem>
+#include <wx/button.h>
 #include "guiconfigservices.h"
 #include "preferences/preferences_page.h"
 #include "preferences/units_preferences_page.h"
@@ -22,6 +28,13 @@
 
 extern int preferencesTestCredentialLoads;
 extern int preferencesTestCredentialApplies;
+
+const auto cacheTestDir = std::filesystem::temp_directory_path() /
+    ("perastage-cache-preferences-" + std::to_string(
+        std::chrono::steady_clock::now().time_since_epoch().count()));
+namespace AppPaths {
+std::filesystem::path GetUserDataDir() { return cacheTestDir; }
+}
 
 class TestApp : public wxApp {
 public:
@@ -53,9 +66,15 @@ public:
 class Notices : public wxModalDialogHook {
 public:
   int restartNotices = 0;
+  int cacheNotices = 0;
+  int cacheResponse = wxID_NO;
 private:
   int Enter(wxDialog *dialog) override {
     if (dynamic_cast<wxMessageDialog *>(dialog)) {
+      if (dialog->GetTitle() == "Clear Cache") {
+        ++cacheNotices;
+        return cacheResponse;
+      }
       assert(dialog->GetTitle() == "Restart required");
       ++restartNotices;
       return wxID_OK;
@@ -146,17 +165,39 @@ int main(int argc, char **argv) {
     apply();
     return preferences.SaveUserConfig();
   };
+  assert(CacheService::EnsureDirectories());
+  const auto cachedFile = AppPaths::GetGdtfCatalogCachePath();
+  std::ofstream(cachedFile) << "cache";
   {
     PreferencesDialog dialog(frame, preferences, commit);
     dialog.Show();
     wxTheApp->Yield();
     auto *book = FindControls<wxTreebook>(&dialog).at(0);
-    assert(book->GetPageCount() == 12);
+    assert(book->GetPageCount() == 13);
     assert(book->GetPageText(0) == "General");
-    assert(book->GetPageText(4) == "Import");
-    assert(book->GetPageText(6) == "Viewer");
-    assert(book->GetPageText(9) == "Formats");
+    assert(book->GetPageText(5) == "Import");
+    assert(book->GetPageText(7) == "Viewer");
+    assert(book->GetPageText(10) == "Formats");
     assert(preferencesTestCredentialLoads == 1);
+    auto cacheFields = FindControls<wxTextCtrl>(Page(book, "Cache"));
+    assert(cacheFields.size() == 1 && !cacheFields[0]->IsEditable());
+    auto *cachePage = Page(book, "Cache");
+    auto cacheButtons = FindControls<wxButton>(cachePage);
+    auto *sizeLabel = FindControls<wxStaticText>(cachePage).at(1);
+    const auto initialCacheSize = sizeLabel->GetLabel();
+    assert(cacheButtons.size() == 2);
+    auto clearCache = [&] {
+      wxCommandEvent event(wxEVT_BUTTON, cacheButtons[0]->GetId());
+      cacheButtons[0]->ProcessWindowEvent(event);
+    };
+    clearCache();
+    assert(notices.cacheNotices == 1 && std::filesystem::exists(cachedFile));
+    notices.cacheResponse = wxID_YES;
+    clearCache();
+    assert(notices.cacheNotices == 2 && !std::filesystem::exists(cachedFile));
+    assert(CacheService::GetStatistics().bytes == 0);
+    assert(sizeLabel->GetLabel() != initialCacheSize);
+    assert(preferences.saves == 0 && preferences.values == originalValues);
     auto riderChecks = FindControls<wxCheckBox>(Page(book, "Rider Import"));
     assert(!riderChecks.at(0)->GetValue());
     auto riderRadios = FindControls<wxRadioButton>(Page(book, "Rider Import"));
@@ -299,6 +340,7 @@ int main(int argc, char **argv) {
     assert(preferences.saves == 3 && appliedEvents == 3 && unitEvents == 1);
     assert(model_detail::ReadPreferences(preferences).level == model_detail::Level::High);
   }
+  std::filesystem::remove_all(cacheTestDir);
   delete frame;
   wxTheApp->OnExit();
   wxEntryCleanup();

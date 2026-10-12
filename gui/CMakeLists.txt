@@ -151,6 +151,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/preferences/units_preferences_page.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preferences/language_preferences_page.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preferences/updates_preferences_page.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/preferences/cache_preferences_page.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preferences/gdtf_preferences_page.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preferences/mvr_preferences_page.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preferences/selection_movement_preferences_page.cpp
