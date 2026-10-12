@@ -33,6 +33,7 @@
 class FixtureTablePanel;
 class FixturePartNavigator;
 class FixtureSymbolComparisonPanel;
+class wxChoice;
 class wxStaticBitmap;
 class wxPanel;
 class wxNotebook;
@@ -78,6 +79,7 @@ private:
     GdtfWheelInspectorPanel* gdtfWheelInspectorPanel = nullptr;
     std::unique_ptr<gdtf::GdtfEditSession> gdtfEditSession;
     FixturePartNavigator* preview = nullptr;
+    wxChoice* fixtureThumbnailSelector = nullptr;
     wxStaticBitmap* fixtureImagePreview = nullptr;
     FixtureSymbolComparisonPanel* symbolComparison = nullptr;
     wxSplitterWindow* contextSplitter = nullptr;
