@@ -2,6 +2,7 @@
 #include "gdtf_canonicalizer.h"
 #include "gdtf_fixture_type_vocabulary.h"
 #include "support/zip_test_utils.h"
+#include "support/archive_entry_test_utils.h"
 #include "inspection/xml_schema_validation.h"
 
 #include <cassert>
@@ -204,6 +205,39 @@ int main() {
     GdtfCanonicalizer::Result result = GdtfCanonicalizer::CanonicalizeDescription(doc);
     assert(result.success);
     assert(!result.changed);
+  }
+
+  {
+    const auto tempDir = std::filesystem::temp_directory_path() /
+                         "gdtf_canonicalizer_logical_names_test";
+    std::filesystem::create_directories(tempDir);
+    const auto source = tempDir / "authored.gdtf";
+    const auto dest = tempDir / "preserved.gdtf";
+    const std::string description = MinimalGdtf(
+        "<AttributeDefinitions/><PhysicalDescriptions/><Models/><Geometries/><DMXModes/>");
+    const std::string resource = "<svg xmlns=\"http://www.w3.org/2000/svg\"/>";
+    std::string error;
+    assert(tests::archive::WriteStoredZipWithRawNames(source,
+        {{"description.xml", description}, {"models/svg/authored.svg", resource}}, error));
+    const auto original = tests::archive::ReadBinaryFile(source.string());
+    const auto preserved = GdtfCanonicalizer::CanonicalizeArchive(source, dest);
+    assert(preserved.success && !preserved.changed);
+    assert(tests::archive::ReadBinaryFile(dest.string()) == original);
+
+    const auto noncanonical = tempDir / "backslash.gdtf";
+    assert(tests::archive::WriteStoredZipWithRawNames(noncanonical,
+        {{"description.xml", description}, {"models\\svg\\authored.svg", resource}}, error));
+    const auto noncanonicalBytes = tests::archive::ReadBinaryFile(noncanonical.string());
+    const auto normalized = GdtfCanonicalizer::CanonicalizeArchive(noncanonical, dest);
+    assert(normalized.success);
+    const auto names = tests::archive::ReadRawCentralDirectoryEntryNames(dest.string(), error);
+    assert(error.empty());
+    assert((names == std::vector<std::string>{"description.xml", "models/svg/authored.svg"}));
+    std::string payload;
+    assert(tests::zip::ReadEntry(dest, "models/svg/authored.svg", &payload));
+    assert(payload == resource);
+    assert(tests::archive::ReadBinaryFile(noncanonical.string()) == noncanonicalBytes);
+    std::filesystem::remove_all(tempDir);
   }
 
   {

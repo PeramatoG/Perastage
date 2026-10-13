@@ -82,7 +82,8 @@ bool ReadZipEntries(const fs::path &path, std::vector<ZipEntryData> &entries,
     if (entry->IsDir())
       continue;
     ZipEntryData data;
-    const std::string originalName = entry->GetName().ToStdString();
+    // Compare ZIP logical names, not Windows-native path presentation.
+    const std::string originalName = entry->GetName(wxPATH_UNIX).ToStdString();
     data.name = NormalizeArchivePath(originalName);
     data.canonicalName = data.name == originalName;
     ReadCurrentZipEntry(zip, data.bytes);

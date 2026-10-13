@@ -85,3 +85,8 @@ source.
 - Follow `docs/developer/localization.md`: make new or changed GUI presentation text gettext-ready, synchronize catalogs, and keep every COMPLETE catalog free of missing or fuzzy entries.
 - Translate complete format strings and use gettext plural APIs. Keep Core locale-independent and do not translate stable domain/protocol/config identifiers, CLI grammar/help/output, or technical logs and diagnostics.
 - Do not use the localization audit allowlist to conceal translation debt, and keep `perastage_check_translations` passing.
+
+## Archive path comparison policy
+
+- Follow [GDTF mutation policy](docs/developer/gdtf_mutation_policy.md#float-serialization-and-archive-name-comparison-policy) when reading or comparing ZIP entry names. Use explicit ZIP logical paths rather than host-native path presentation; a Windows separator conversion must not trigger a rewrite of an authored archive.
+- Use raw ZIP name fixtures and central-directory checks when testing stored path spelling. Reuse `tests/support/archive_entry_test_utils.h` and `tests/support/zip_test_utils.h` rather than introducing another archive helper.
