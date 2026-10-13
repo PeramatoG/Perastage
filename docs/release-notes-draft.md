@@ -117,8 +117,9 @@ and [MCP adapter guide](developer/mcp_adapter.md) for setup and supported operat
 
 ## Documentation and Help
 
-- One canonical user manual now supplies repository documentation, the website
-  and packaged offline Help in **English, Spanish, French, German and Simplified Chinese**.
+- One canonical user manual now supplies repository documentation, the English
+  website and packaged offline Help. Offline Help is available in **English,
+  Spanish, French, German and Simplified Chinese**.
 - Console help comes from the same documentation source.
 
 ## Downloads
