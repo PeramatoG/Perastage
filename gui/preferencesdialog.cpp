@@ -81,6 +81,10 @@ PreferencesDialog::PreferencesDialog(
   topSizer->Add(book, 1, wxEXPAND | wxALL, FromDIP(8));
   topSizer->Add(CreateSeparatedButtonSizer(wxOK | wxCANCEL | wxAPPLY), 0,
                 wxALL | wxEXPAND, FromDIP(8));
+  // Own these labels in Perastage instead of relying on the optional wxstd catalog.
+  FindWindow(wxID_APPLY)->SetLabel(wxGetTranslation("Apply", "perastage"));
+  FindWindow(wxID_OK)->SetLabel(wxGetTranslation("OK", "perastage"));
+  FindWindow(wxID_CANCEL)->SetLabel(wxGetTranslation("Cancel", "perastage"));
   SetSizer(topSizer);
   SetMinSize(FromDIP(wxSize(760, 540)));
   SetSize(FromDIP(wxSize(940, 680)));

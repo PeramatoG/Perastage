@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import re
 import shutil
@@ -30,7 +31,7 @@ def check_bundle(asset_root: Path, expected: dict[str, bytes]) -> None:
     assert not (asset_root / 'help.md').exists()
 
 
-def exercise(cmake: str, scenario: str) -> None:
+def exercise(cmake: str, scenario: str, runtime_probe: Path | None = None) -> None:
     """Test complete, absent or partial locales using the actual staging/install owners."""
     with tempfile.TemporaryDirectory(prefix='perastage-manual-') as tmp:
         source = Path(tmp) / 'source with spaces'
@@ -92,6 +93,22 @@ include(cmake/PerastageInstall.cmake)
             installed /= 'Perastage.app/Contents/Resources'
         check_bundle(runtime, expected)
         check_bundle(installed, expected)
+        if scenario == 'complete' and runtime_probe:
+            for payload in (runtime, installed):
+                executable_dir = payload
+                if sys.platform == 'darwin':
+                    executable_dir = payload.parent / 'MacOS'
+                probe = executable_dir / runtime_probe.name
+                shutil.copyfile(runtime_probe, probe)
+                probe.chmod(0o755)
+                # Preserve test DLL lookup after moving the executable, with an unrelated cwd.
+                environment = os.environ.copy()
+                environment['PATH'] = str(runtime_probe.parent) + os.pathsep + environment.get('PATH', '')
+                result = subprocess.run([str(probe), '--runtime', str(payload),
+                                         str(ROOT / 'docs/user')], cwd=tmp,
+                                        env=environment, text=True, capture_output=True)
+                if result.returncode:
+                    raise RuntimeError(result.stdout + result.stderr)
         if scenario == 'complete':
             validator = str(ROOT / 'packaging/verify_localization.py')
             for payload in (runtime, installed):
@@ -124,11 +141,12 @@ def main() -> None:
     """Run complete and resilience scenarios with the configured CMake executable."""
     parser = argparse.ArgumentParser()
     parser.add_argument('--cmake', default=shutil.which('cmake'))
+    parser.add_argument('--runtime-probe', type=Path)
     args = parser.parse_args()
     if not args.cmake:
         parser.error('CMake is required for staging validation')
     for scenario in ('complete', 'absent', 'partial'):
-        exercise(args.cmake, scenario)
+        exercise(args.cmake, scenario, args.runtime_probe)
     print('OK: byte-identical runtime/install manuals for every registered release locale; absent/partial locales, Markdown isolation and absence of root legacy help.')
 
 

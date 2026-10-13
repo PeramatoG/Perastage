@@ -12,6 +12,8 @@
 #include "preferences/rider_import_preferences_page.h"
 #include "model_detail_policy.h"
 #include "localization/app_language.h"
+#include "localization/localization_manager.h"
+#include <wx/translation.h>
 #include <cassert>
 #include <cmath>
 #include <map>
@@ -364,6 +366,35 @@ int main(int argc, char **argv) {
     assert(dialog.ShowModal() == wxID_OK);
     assert(preferences.saves == 3 && appliedEvents == 3 && unitEvents == 1);
     assert(model_detail::ReadPreferences(preferences).level == model_detail::Level::High);
+  }
+  // Exercise actual catalog loading and actual standard-ID Preferences buttons.
+  if (localizedBuild) {
+    const std::map<std::string, std::vector<wxString>> labels = {
+        {"en", {"Apply", "OK", "Cancel"}},
+        {"es", {wxString::FromUTF8("Aplicar"), "Aceptar", "Cancelar"}},
+        {"fr", {"Appliquer", "OK", "Annuler"}},
+        {"de", {"Anwenden", "OK", "Abbrechen"}},
+        {"zh_CN", {wxString::FromUTF8("应用"), wxString::FromUTF8("确定"),
+                   wxString::FromUTF8("取消")}}};
+    auto &manager = localization::LocalizationManager::Get();
+    for (const auto &option : localization::SupportedAppLanguages()) {
+      const auto loaded = manager.Initialize(option.language);
+      assert(loaded.activeLanguage == option.language);
+      assert(option.code == "en" || loaded.catalogLoaded);
+      assert(!wxTranslations::Get() || !wxTranslations::Get()->IsLoaded("wxstd"));
+      PreferencesDialog dialog(frame, preferences, commit);
+      const auto &expected = labels.at(std::string(option.code));
+      std::size_t index = 0;
+      for (const int id : {wxID_APPLY, wxID_OK, wxID_CANCEL}) {
+        const auto *button = dynamic_cast<wxButton *>(dialog.FindWindow(id));
+        assert(button && button->GetId() == id);
+        if (button->GetLabelText() != expected.at(index))
+          std::cerr << option.code << " button " << id << ": "
+                    << button->GetLabelText() << '\n';
+        assert(button->GetLabelText() == expected.at(index++));
+      }
+    }
+    manager.Initialize(localization::AppLanguage::English);
   }
   std::filesystem::remove_all(cacheTestDir);
   delete frame;

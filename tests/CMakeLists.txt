@@ -3991,6 +3991,8 @@ endif()
 add_executable(preferences_dialog_test
                preferences_dialog_test.cpp
                preferences_dialog_backend_stubs.cpp
+               ../core/localization/localization_manager.cpp
+               localization_diagnostic_logger_stub.cpp
                ../gui/preferencesdialog.cpp
                ../gui/preferences/preferences_page.cpp
                ../gui/preferences/language_preferences_page.cpp
@@ -4023,6 +4025,11 @@ else()
   add_test(NAME PreferencesDialog COMMAND preferences_dialog_test)
 endif()
 set_tests_properties(PreferencesDialog PROPERTIES LABELS "gui;preferences" TIMEOUT 60)
+if(PERASTAGE_ENABLE_LOCALIZATION)
+  add_dependencies(preferences_dialog_test perastage_translations)
+  set_tests_properties(PreferencesDialog PROPERTIES
+      ENVIRONMENT "PERASTAGE_LOCALE_ROOT=${PERASTAGE_GENERATED_LOCALE_DIR}")
+endif()
 if(BASH_EXECUTABLE)
   add_bash_policy_test(PreferencesPageBoundary
                       ${CMAKE_CURRENT_SOURCE_DIR}/check_preferences_page_boundary.sh
@@ -4071,14 +4078,23 @@ set_tests_properties(MarkdownRenderer PROPERTIES LABELS "standard-strict;unit;he
 
 add_executable(user_manual_dialog_test user_manual_dialog_test.cpp
     ../gui/user_manual_dialog.cpp ../gui/mainwindow_menu_text_utils.cpp
+    ../core/projectutils.cpp ../core/apppaths.cpp ../core/library/library_bootstrap.cpp
     ../core/user_manual/manual_resolver.cpp ../core/localization/app_language.cpp
     ../core/filesystem_path_utils.cpp ../core/utf8_utils.cpp ../core/markdown.cpp)
 target_include_directories(user_manual_dialog_test PRIVATE ../core ../gui)
 target_compile_definitions(user_manual_dialog_test PRIVATE
     PERASTAGE_ENABLE_LOCALIZATION=$<BOOL:${PERASTAGE_ENABLE_LOCALIZATION}>)
-target_link_libraries(user_manual_dialog_test PRIVATE ${wxWidgets_LIBRARIES})
+target_link_libraries(user_manual_dialog_test PRIVATE
+    perastage_runtime_storage ${wxWidgets_LIBRARIES})
 add_test(NAME UserManualDialog COMMAND user_manual_dialog_test ${CMAKE_SOURCE_DIR}/docs/user)
 set_tests_properties(UserManualDialog PROPERTIES LABELS "standard-strict;integration;gui;help")
+if(Python3_Interpreter_FOUND AND PERASTAGE_ENABLE_LOCALIZATION)
+  add_test(NAME UserManualRuntimeStaging COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/check_user_manual_staging.py --cmake ${CMAKE_COMMAND}
+      --runtime-probe $<TARGET_FILE:user_manual_dialog_test>)
+  set_tests_properties(UserManualRuntimeStaging PROPERTIES
+      LABELS "standard-strict;integration;gui;help;cmake" TIMEOUT 120)
+endif()
 
 add_executable(console_help_test console_help_test.cpp
     ../core/user_manual/console_help.cpp ../core/user_manual/manual_resolver.cpp
