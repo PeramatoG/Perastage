@@ -1151,8 +1151,15 @@ ResourceSyncResult ResourceSyncSystem::Sync(
   result.workPending = state.workBudget.HasPending();
   result.resourcesProcessed = state.workBudget.Processed();
   performance::Count(performance::Work::UniqueResources, result.resourcesProcessed);
-  if (performance::Enabled() && !result.workPending)
-    Logger::Instance().Log(performance::Summary());
+  if (performance::Enabled() && !result.workPending) {
+    std::unordered_set<std::string> resolvedPaths;
+    for (const auto &[key, entry] : state.resolvedModelRefs)
+      if (!entry.resolvedPath.empty()) resolvedPaths.insert(entry.resolvedPath);
+    for (const auto &[key, entry] : state.resolvedGdtfSpecs)
+      if (!entry.resolvedPath.empty()) resolvedPaths.insert(entry.resolvedPath);
+    Logger::Instance().Log("unique_resolved_paths=" + std::to_string(resolvedPaths.size()) +
+                           " " + performance::Summary());
+  }
   return result;
 }
 
