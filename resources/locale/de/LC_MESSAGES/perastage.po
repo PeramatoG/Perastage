@@ -315,6 +315,7 @@ msgstr "Nur Verweise exportieren"
 #: gui/layout2dviewdialog.cpp:75 gui/layouttextdialog.cpp:149
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139 mvr/mvrimporter.cpp:757
+#: gui/preferencesdialog.cpp:87
 msgid "Cancel"
 msgstr "Abbrechen"
 
@@ -527,6 +528,7 @@ msgstr "Exportieren…"
 #: gui/dictionaryeditdialog.cpp:610 gui/layout2dviewdialog.cpp:74
 #: gui/mvr_export_result_dialog.cpp:97
 #: gui/scene_object_primitive_dialogs.cpp:138 mvr/mvrimporter.cpp:759
+#: gui/preferencesdialog.cpp:86
 msgid "OK"
 msgstr "OK"
 
@@ -4563,7 +4565,7 @@ msgid "Interface language:"
 msgstr "Oberflächensprache:"
 
 #: gui/preferences/language_preferences_page.cpp:59
-#: gui/preferencesdialog.cpp:145
+#: gui/preferencesdialog.cpp:149
 msgid "Language changes will be applied after restarting Perastage."
 msgstr "Sprachänderungen werden nach einem Neustart von Perastage wirksam."
 
@@ -4897,7 +4899,7 @@ msgstr "GDTF"
 msgid "MVR Import / Export"
 msgstr "MVR-Import / -Export"
 
-#: gui/preferencesdialog.cpp:146
+#: gui/preferencesdialog.cpp:150
 msgid "Restart required"
 msgstr "Neustart erforderlich"
 
@@ -5201,6 +5203,7 @@ msgid "Load Default"
 msgstr "Standard laden"
 
 #: gui/scene_object_primitive_dialogs.cpp:136
+#: gui/preferencesdialog.cpp:85
 msgid "Apply"
 msgstr "Anwenden"
 

@@ -304,6 +304,7 @@ msgstr "仅导出参考"
 #: gui/layout2dviewdialog.cpp:75 gui/layouttextdialog.cpp:149
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139 mvr/mvrimporter.cpp:757
+#: gui/preferencesdialog.cpp:87
 msgid "Cancel"
 msgstr "取消"
 
@@ -514,6 +515,7 @@ msgstr "导出 MVR..."
 #: gui/dictionaryeditdialog.cpp:610 gui/layout2dviewdialog.cpp:74
 #: gui/mvr_export_result_dialog.cpp:97
 #: gui/scene_object_primitive_dialogs.cpp:138 mvr/mvrimporter.cpp:759
+#: gui/preferencesdialog.cpp:86
 msgid "OK"
 msgstr "确定"
 
@@ -4444,7 +4446,7 @@ msgid "Interface language:"
 msgstr "界面语言："
 
 #: gui/preferences/language_preferences_page.cpp:59
-#: gui/preferencesdialog.cpp:145
+#: gui/preferencesdialog.cpp:149
 msgid "Language changes will be applied after restarting Perastage."
 msgstr "语言更改将在重启 Perastage 后生效。"
 
@@ -4768,7 +4770,7 @@ msgstr "GDTF"
 msgid "MVR Import / Export"
 msgstr "MVR 导入/导出"
 
-#: gui/preferencesdialog.cpp:146
+#: gui/preferencesdialog.cpp:150
 msgid "Restart required"
 msgstr "需要重启"
 
@@ -5053,6 +5055,7 @@ msgid "Load Default"
 msgstr "加载默认值"
 
 #: gui/scene_object_primitive_dialogs.cpp:136
+#: gui/preferencesdialog.cpp:85
 msgid "Apply"
 msgstr "应用"
 

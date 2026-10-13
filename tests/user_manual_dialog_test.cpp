@@ -1,4 +1,7 @@
 #include "user_manual_dialog.h"
+#include "projectutils.h"
+#include <fstream>
+#include <iterator>
 #include "localization/app_language.h"
 #include <filesystem>
 #include <chrono>
@@ -16,7 +19,39 @@ wxIMPLEMENT_APP_NO_MAIN(ManualTestApp);
 void Check(bool condition, const char *message) {
   if (!condition) throw std::runtime_error(message);
 }
+// Runs from a real staged/install payload, with a working directory elsewhere.
+void CheckRuntime(const std::filesystem::path &assets,
+                  const std::filesystem::path &source) {
+  const auto root = ProjectUtils::ResolveResourcePath("help");
+  Check(!root.empty() && std::filesystem::equivalent(root, assets / "help"),
+        "MainWindow help lookup must resolve the staged manual root");
+  for (const auto &option : localization::SupportedAppLanguages()) {
+    const std::string locale(option.code);
+    const auto canonical = locale == "en" ? source / "index.md" :
+        source / "locales" / locale / "index.md";
+    std::ifstream in(canonical, std::ios::binary);
+    Check(in.is_open(), "Canonical index must be readable");
+    const std::string expected((std::istreambuf_iterator<char>(in)), {});
+    UserManualDialog dialog(nullptr, root, locale);
+    dialog.Show(); wxTheApp->Yield();
+    Check(dialog.CurrentPage().name == "index.md" &&
+          dialog.CurrentPage().locale == locale &&
+          !dialog.CurrentPage().englishFallback, "Staged localized entry page");
+    Check(dialog.CurrentPage().markdown == expected,
+          "Dialog must load the actual canonical localized bytes");
+    std::cout << "Staged " << locale << "/index.md loaded from " << root << '\n';
+  }
+}
+
 int main(int argc, char **argv) {
+  if (argc == 4 && std::string(argv[1]) == "--runtime") {
+    if (!wxEntryStart(argc, argv) || !wxTheApp->CallOnInit()) return 1;
+    int result = 0;
+    try { CheckRuntime(argv[2], argv[3]); }
+    catch (const std::exception &e) { std::cerr << e.what() << '\n'; result = 1; }
+    wxTheApp->OnExit(); wxEntryCleanup();
+    return result;
+  }
   if (argc != 2) return 1;
   const auto root = std::filesystem::temp_directory_path() /
       ("perastage-dialog-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
@@ -78,6 +113,14 @@ int main(int argc, char **argv) {
         Check(dialog.NavigateLink("quick-start.md"), "Missing translation navigation");
         Check(dialog.CurrentPage().englishFallback && dialog.CurrentPage().locale == "en",
               "Deliberately removed page uses English fallback");
+        std::ofstream(root / expectedLocale / "quick-start.md", std::ios::binary).put('\xFF');
+        Check(dialog.NavigateLink("quick-start.md") && dialog.CurrentPage().englishFallback,
+              "Unreadable UTF-8 translation uses English fallback");
+        std::filesystem::copy_file(std::filesystem::path(argv[1]) / "locales" /
+            expectedLocale / "quick-start.md", root / expectedLocale / "quick-start.md",
+            std::filesystem::copy_options::overwrite_existing);
+        Check(dialog.NavigateLink("quick-start.md") && !dialog.CurrentPage().englishFallback &&
+              dialog.CurrentPage().locale == expectedLocale, "Restored page stops English fallback");
       }
       Check(dialog.NavigateLink("https://example.com"), "Browser external link");
       Check(openedUrl == "https://example.com", "External routed to browser");
