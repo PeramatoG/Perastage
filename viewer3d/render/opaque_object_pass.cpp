@@ -190,17 +190,14 @@ struct SceneObjectSymbolPartSignature {
   Matrix localTransform = MatrixUtils::Identity();
 };
 
-struct SceneObjectMeshPart {
-  const Mesh *mesh = nullptr;
-  Matrix localTransform = MatrixUtils::Identity();
-  std::string modelKey;
-  std::string instanceKey;
-};
+using SceneObjectMeshPart = ResourceSyncState::SceneObjectMeshPart;
 
 // Resolves all renderable mesh parts for a scene object.
-std::vector<SceneObjectMeshPart>
+const std::vector<SceneObjectMeshPart> &
 ResolveSceneObjectMeshParts(const ResourceSyncState &resourceSyncState,
                             const SceneObject &object) {
+  auto cached = resourceSyncState.resolvedObjectParts.find(&object);
+  if (cached != resourceSyncState.resolvedObjectParts.end()) return cached->second;
   std::vector<SceneObjectMeshPart> objectMeshParts;
   if (!object.geometries.empty()) {
     for (const auto &geo : object.geometries) {
@@ -252,7 +249,7 @@ ResolveSceneObjectMeshParts(const ResourceSyncState &resourceSyncState,
     }
   }
 
-  return objectMeshParts;
+  return resourceSyncState.resolvedObjectParts.emplace(&object, std::move(objectMeshParts)).first->second;
 }
 
 // Builds a cache signature for SceneObject symbol captures.
@@ -320,7 +317,7 @@ void OpaqueObjectPass::Render(
       const auto pickColor = getPickColor(uuid);
       glColor3f(pickColor[0], pickColor[1], pickColor[2]);
       const auto &object = sceneIt->second;
-      const auto objectMeshParts =
+      const auto &objectMeshParts =
           ResolveSceneObjectMeshParts(controller.m_resourceSyncState, object);
       if (!objectMeshParts.empty()) {
         glPushMatrix();
@@ -434,7 +431,7 @@ void OpaqueObjectPass::Render(
       return TransformPoint(captureTransform, p);
     };
 
-    const auto objectMeshParts =
+    const auto &objectMeshParts =
         ResolveSceneObjectMeshParts(controller.m_resourceSyncState, m);
 
     auto drawSceneObjectGeometry =
@@ -487,7 +484,8 @@ void OpaqueObjectPass::Render(
 
               controller.DrawMeshWithOutline(
                   controller.ResolveRenderMesh(
-                      *part.mesh, context.is2DViewer || controller.m_captureCanvas),
+                      *part.mesh, context.is2DViewer || controller.m_captureCanvas,
+                      context.skipOptionalWork && !isHighlighted && !isGroupHighlighted && !isSelected),
                   r, g, b, RENDER_SCALE, isHighlighted,
                   isGroupHighlighted, isSelected, cx, cy, cz, wireframe, mode,
                   partCaptureTransform, false, partMatrix, disableDepthBias,

@@ -4,8 +4,23 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 namespace CacheService {
+// Scoped to one immutable resource batch on the owning thread. Preparation and
+// source identity work are reused; file/ancestor symlink checks stay live.
+class ViewerCacheBatch {
+public:
+  ViewerCacheBatch();
+  ~ViewerCacheBatch();
+  ViewerCacheBatch(const ViewerCacheBatch &) = delete;
+  ViewerCacheBatch &operator=(const ViewerCacheBatch &) = delete;
+  bool prepared = false;
+  std::vector<std::filesystem::path> directories;
+  std::unordered_map<std::string, std::string> identities;
+private:
+  ViewerCacheBatch *previous = nullptr;
+};
 struct Result {
   std::uintmax_t bytes = 0;
   std::uintmax_t removedFiles = 0;

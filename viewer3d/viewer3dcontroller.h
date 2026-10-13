@@ -83,8 +83,9 @@ public:
 
   void InitializeGL();
   void Update();
-  void UpdateResourcesIfDirty();
+  void UpdateResourcesIfDirty(bool progressive = false);
   void UpdateFrameStateLightweight();
+  bool FinishPresentedFrame(bool navigating);
   void PrepareForSceneReplacement();
   void CompleteSceneReplacement();
   void MarkSceneTransformsDirty();
@@ -92,6 +93,7 @@ public:
   bool IsResourceSyncPending() const;
   bool ConsumeResourceSyncPending();
   void ResetDebugPerFrameCounters();
+  void RefreshModelDetailPreferences();
   int GetDebugUpdateResourcesCallsPerFrame() const;
 
   void RenderScene(bool wireframe = false,

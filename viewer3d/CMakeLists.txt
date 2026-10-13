@@ -1,4 +1,6 @@
 target_sources(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/resources/resource_work_budget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/resources/resource_request_queue.h
     ${CMAKE_CURRENT_SOURCE_DIR}/culling/bounds_cache_system.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/culling/primitive_bounds_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/culling/visibilitysystem.cpp

@@ -60,62 +60,62 @@ int main() {
     assert(mesh.flatVertices.empty() && mesh.flippedIndicesCache.empty());
   };
   auto release = [&](Mesh &) { ++releases; };
-  cache.ApplyPreferences({Level::High, false}, release);
+  // The first useful frame must not copy, simplify or upload optional meshes.
+  for (size_t i = 0; i < 10000; ++i) {
+    assert(&cache.Resolve(source, false, upload) == &source);
+    assert(&cache.Resolve(source, true, upload) == &source);
+  }
+  assert(uploads == 0 && cache.Size() == 0 && cache.HasPending());
+  assert(cache.PreparePending(upload, 1) == 1);
+  const Mesh &proxy = cache.Resolve(source, true, upload);
+  assert(&proxy != &source && proxy.indices.size() < source.indices.size());
   assert(&cache.Resolve(source, false, upload) == &source);
-  assert(&cache.Resolve(source, true, upload) == &source);
-  assert(uploads == 0 && cache.Size() == 0);
-
-  cache.ApplyPreferences({Level::Standard, false}, release);
+  assert(cache.PreparePending(upload, 1) == 1);
   const Mesh &standard = cache.Resolve(source, false, upload);
   const size_t standardIndices = standard.indices.size();
   assert(standardIndices < source.indices.size());
-  assert(&cache.Resolve(source, true, upload) == &standard);
-  assert(&cache.Resolve(source, false, upload) == &standard);
-  assert(uploads == 1);
-  cache.ApplyPreferences({Level::Standard, true}, release);
-  assert(&cache.Resolve(source, false, upload) == &standard);
-  const Mesh &proxy = cache.Resolve(source, true, upload);
-  assert(&proxy != &standard && proxy.indices.size() < standardIndices);
-  assert(uploads == 2 && cache.Size() == 2);
+  assert(uploads == 2 && cache.Size() == 2 && !cache.HasPending());
+  assert(&cache.Resolve(source, true, upload) == &proxy);
   cache.ApplyPreferences({Level::Standard, false}, release);
   assert(releases == 1 && cache.Size() == 1);
   assert(&cache.Resolve(source, true, upload) == &standard);
-
   cache.ApplyPreferences({Level::Low, false}, release);
   assert(cache.Size() == 0 && releases == 2);
-  const Mesh &low = cache.Resolve(source, false, upload);
-  assert(low.indices.size() < standardIndices);
-  assert(&cache.Resolve(source, true, upload) == &low);
+  assert(&cache.Resolve(source, false, upload) == &source);
+  assert(cache.PreparePending(upload, 1) == 1); // Low always prepares a moving proxy.
+  assert(&cache.Resolve(source, true, upload) != &source);
+  assert(cache.PreparePending(upload, 1) == 1);
+  assert(cache.Resolve(source, false, upload).indices.size() < standardIndices);
   assert(source.vertices == original.vertices && source.indices == original.indices);
   assert(source.flatVertices == original.flatVertices && source.vao == 7);
   assert(source.textureId == 9 && source.buffersReady);
 
-  // Replacement at the same address invalidates every detail/proxy entry.
-  cache.ApplyPreferences({Level::Low, true}, release);
-  cache.Resolve(source, true, upload);
-  assert(cache.Size() == 2);
-  cache.Invalidate(source, release);
-  assert(cache.Size() == 0 && releases == 4);
-  source = Grid(32);
-  assert(cache.Resolve(source, false, upload).indices.size() < source.indices.size());
-  const size_t beforeClear = releases;
+  // Invalidate queued references before replacement, even at the same address.
   cache.Clear(release);
-  assert(cache.Size() == 0 && releases == beforeClear + 1);
-  Mesh small = Grid(10);
-  assert(&cache.Resolve(small, true, upload) == &small);
+  cache.Resolve(source, true, upload);
+  assert(cache.HasPending());
+  cache.Invalidate(source, release);
+  assert(!cache.HasPending() && cache.PreparePending(upload) == 0);
+  source = Grid(32);
+  cache.Resolve(source, false, upload);
+  cache.Clear(release);
+  assert(!cache.HasPending());
+  cache.ApplyPreferences({Level::High, false}, release);
+  assert(&cache.Resolve(source, false, upload) == &source);
+  assert(&cache.Resolve(source, true, upload) == &source);
+  assert(!cache.HasPending());
   cache.ApplyPreferences({Level::High, true}, release);
   assert(&cache.Resolve(source, false, upload) == &source);
+  assert(cache.HasPending());
+  cache.PreparePending(upload);
   assert(&cache.Resolve(source, true, upload) != &source);
+  assert(&cache.Resolve(source, false, upload) == &source);
   RuntimeMeshCache independent;
-  independent.ApplyPreferences({Level::Low, false}, release);
-  const Mesh &independentMesh = independent.Resolve(source, false, upload);
-  const Mesh &otherViewerMesh = cache.Resolve(source, true, upload);
-  assert(&independentMesh != &otherViewerMesh);
-  Mesh otherSource = Grid(40);
-  const Mesh &otherRepresentation = independent.Resolve(otherSource, false, upload);
-  independent.Invalidate(source, release);
-  assert(independent.Size() == 1);
-  assert(&independent.Resolve(otherSource, false, upload) == &otherRepresentation);
-  independent.Clear(release);
+  independent.Resolve(source, true, upload);
+  independent.CancelPending();
+  assert(independent.PreparePending(upload) == 0 && cache.Size() == 1);
+  Mesh small = Grid(10);
+  assert(&independent.Resolve(small, true, upload) == &small);
+  assert(!independent.HasPending());
   return 0;
 }

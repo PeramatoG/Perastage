@@ -158,7 +158,6 @@ void Viewer3DPanel::OnZoomInteractionTimeout(wxTimerEvent &event) {
   m_runtimeState.EndInteraction();
   m_controller.SetInteracting(false);
   m_controller.SetCameraMoving(false);
-  m_controller.MarkResourceSyncPending();
   m_runtimeState.MarkPointerMoved();
   Refresh();
 }

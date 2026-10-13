@@ -30,11 +30,11 @@ in `cache/`, rather than beside source assets.
 
 Choose the rendering presentation and **Performance → Model detail**:
 
-- **Standard** (default) balances detail and performance.
-- **Low** simplifies heavy models more aggressively.
+- **Standard** (default) displays available geometry first and prepares reduced detail while idle.
+- **Low** simplifies heavy models more aggressively and always uses navigation proxies.
 - **High** shows all available authored detail.
 
-**Use a simplified proxy while navigating** is separate and disabled by default. It temporarily simplifies unselected fixtures during fast navigation, then restores the chosen detail. Apply changes on the next redraw without reopening the project. Source geometry, GDTF resources, 2D symbols and exported geometry remain unchanged.
+**Use a simplified proxy while navigating** is enabled by default in Standard and automatic in Low. High preserves full static detail; you can disable its navigation proxy for full-detail inspection. Available proxies temporarily simplify unselected fixtures during fast navigation, then restore the chosen detail. Large scenes fill in progressively so you can start navigating before every model is ready. Apply changes on the next redraw without reopening the project. Source geometry, GDTF resources, 2D symbols and exported geometry remain unchanged.
 
 ### Selection & Movement
 

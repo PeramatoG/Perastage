@@ -1,5 +1,7 @@
+#include "performance_metrics.h"
 #include "resource_sync_system.h"
 #include "filesystem_path_utils.h"
+#include "cache_service.h"
 #include "gdtfloader.h"
 #include "mesh_processing.h"
 #include "resource_path_search.h"
@@ -622,9 +624,11 @@ void EnsureModelLoaded(const std::string &path, ResourceSyncState &state,
   if (!loadedFromSource) {
     std::string loadException;
     try {
-      if (ext == ".3ds")
+      if (ext == ".3ds") {
+        performance::Scope metric(performance::Work::ThreeDsLoad);
         loadedFromSource = Load3DS(path, mesh,
                          meshProcessingOptions.applyThreeDsObjectTransforms);
+      }
       else if (ext == ".glb")
         loadedFromSource = LoadGLB(path, mesh);
       else if (ext == ".obj") {
@@ -701,11 +705,15 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     const std::vector<const std::pair<const std::string, SceneObject> *> &visibleObjects,
     const std::vector<const std::pair<const std::string, Fixture> *> &visibleFixtures,
     ResourceSyncState &state, const ResourceSyncCallbacks &callbacks) {
+  performance::Scope metric(performance::Work::ResourceSync);
   ResourceSyncResult result;
+  state.resolvedObjectParts.clear();
 
   const viewer3d::resources::MeshProcessingOptions meshProcessingOptions =
       callbacks.meshProcessingOptions.value_or(
           viewer3d::resources::MeshProcessingOptions{});
+  std::optional<CacheService::ViewerCacheBatch> cacheBatch;
+  if (meshProcessingOptions.enableDiskCache) cacheBatch.emplace();
 
   if (state.lastSceneBasePath != basePath) {
     for (auto &[path, mesh] : state.loadedMeshes) {
@@ -734,55 +742,87 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     result.assetsChanged = true;
   }
 
-  size_t sceneSignature = HashString(basePath);
-  for (const auto *entry : sceneTrusses) {
-    const auto &[uuid, t] = *entry;
-    sceneSignature = HashCombine(sceneSignature, HashString(uuid));
-    sceneSignature = HashCombine(sceneSignature, HashString(t.symbolFile));
-    sceneSignature = HashCombine(sceneSignature, HashMatrix(t.transform));
-    sceneSignature = HashCombine(sceneSignature, HashFloat(t.lengthMm));
-    sceneSignature = HashCombine(sceneSignature, HashFloat(t.widthMm));
-    sceneSignature = HashCombine(sceneSignature, HashFloat(t.heightMm));
-  }
-  for (const auto *entry : sceneObjects) {
-    const auto &[uuid, o] = *entry;
-    sceneSignature = HashCombine(sceneSignature, HashString(uuid));
-    sceneSignature = HashCombine(sceneSignature, HashString(o.modelFile));
-    sceneSignature = HashCombine(sceneSignature, HashMatrix(o.transform));
-    for (const auto &g : o.geometries) {
-      sceneSignature = HashCombine(sceneSignature, HashString(g.modelFile));
-      sceneSignature = HashCombine(sceneSignature, HashString(g.instanceKey));
-      sceneSignature = HashCombine(sceneSignature, HashString(g.sourceSymbolUuid));
-      sceneSignature = HashCombine(sceneSignature, HashString(g.sourceSymdefUuid));
-      sceneSignature = HashCombine(sceneSignature, HashMatrix(g.localTransform));
+  if (!callbacks.requestGeneration ||
+      callbacks.requestGeneration != state.lastRequestGeneration) {
+    performance::Scope signatureMetric(performance::Work::SceneSignature);
+    size_t sceneSignature = HashString(basePath);
+    for (const auto *entry : sceneTrusses) {
+      const auto &[uuid, t] = *entry;
+      sceneSignature = HashCombine(sceneSignature, HashString(uuid));
+      sceneSignature = HashCombine(sceneSignature, HashString(t.symbolFile));
+      sceneSignature = HashCombine(sceneSignature, HashMatrix(t.transform));
+      sceneSignature = HashCombine(sceneSignature, HashFloat(t.lengthMm));
+      sceneSignature = HashCombine(sceneSignature, HashFloat(t.widthMm));
+      sceneSignature = HashCombine(sceneSignature, HashFloat(t.heightMm));
     }
-  }
-  for (const auto *entry : sceneFixtures) {
-    const auto &[uuid, f] = *entry;
-    sceneSignature = HashCombine(sceneSignature, HashString(uuid));
-    sceneSignature = HashCombine(sceneSignature, HashString(f.gdtfSpec));
-    sceneSignature = HashCombine(sceneSignature, HashString(f.gdtfMode));
-    sceneSignature = HashCombine(sceneSignature, HashMatrix(f.transform));
-  }
+    for (const auto *entry : sceneObjects) {
+      const auto &[uuid, o] = *entry;
+      sceneSignature = HashCombine(sceneSignature, HashString(uuid));
+      sceneSignature = HashCombine(sceneSignature, HashString(o.modelFile));
+      sceneSignature = HashCombine(sceneSignature, HashMatrix(o.transform));
+      for (const auto &g : o.geometries) {
+        sceneSignature = HashCombine(sceneSignature, HashString(g.modelFile));
+        sceneSignature = HashCombine(sceneSignature, HashString(g.instanceKey));
+        sceneSignature = HashCombine(sceneSignature, HashString(g.sourceSymbolUuid));
+        sceneSignature = HashCombine(sceneSignature, HashString(g.sourceSymdefUuid));
+        sceneSignature = HashCombine(sceneSignature, HashMatrix(g.localTransform));
+      }
+    }
+    for (const auto *entry : sceneFixtures) {
+      const auto &[uuid, f] = *entry;
+      sceneSignature = HashCombine(sceneSignature, HashString(uuid));
+      sceneSignature = HashCombine(sceneSignature, HashString(f.gdtfSpec));
+      sceneSignature = HashCombine(sceneSignature, HashString(f.gdtfMode));
+      sceneSignature = HashCombine(sceneSignature, HashMatrix(f.transform));
+    }
 
-  if (!state.hasSceneSignature || sceneSignature != state.lastSceneSignature) {
-    state.lastSceneSignature = sceneSignature;
-    state.hasSceneSignature = true;
-    result.sceneChanged = true;
+    if (!state.hasSceneSignature || sceneSignature != state.lastSceneSignature) {
+      state.firstSyncTime = std::chrono::steady_clock::now();
+      state.firstVisibleRecorded = false;
+      state.lastSceneSignature = sceneSignature;
+      state.hasSceneSignature = true;
+      result.sceneChanged = true;
+      size_t references = sceneTrusses.size() + sceneFixtures.size();
+      for (const auto *entry : sceneObjects)
+        references += std::max(size_t(1), entry->second.geometries.size());
+      performance::Count(performance::Work::References, references);
 
-    // Retry previously failed GDTF loads whenever the visible scene changes.
-    // This prevents stale failure caches when a fixture GDTF path is updated
-    // (or a previously invalid file gets replaced) without changing basePath.
-    state.failedGdtfReasons.clear();
-    state.failedGdtfAttemptCounts.clear();
-    state.reportedGdtfFailureCounts.clear();
-    state.reportedGdtfFailureReasons.clear();
-    InvalidateNegativeResolutionCache(state.resolvedGdtfSpecs);
-    InvalidateNegativeResolutionCache(state.resolvedModelRefs);
+      // Retry previously failed GDTF loads whenever the visible scene changes.
+      // This prevents stale failure caches when a fixture GDTF path is updated
+      // (or a previously invalid file gets replaced) without changing basePath.
+      state.failedGdtfReasons.clear();
+      state.failedGdtfAttemptCounts.clear();
+      state.reportedGdtfFailureCounts.clear();
+      state.reportedGdtfFailureReasons.clear();
+      InvalidateNegativeResolutionCache(state.resolvedGdtfSpecs);
+      InvalidateNegativeResolutionCache(state.resolvedModelRefs);
+    }
+    state.lastRequestGeneration = callbacks.requestGeneration;
   }
   result.sceneSignature = state.lastSceneSignature;
   result.hasSceneSignature = state.hasSceneSignature;
 
+  // Synchronous callers intentionally revalidate; interactive continuation does
+  // no filesystem work for resource identities already completed this generation.
+  if (!callbacks.requestGeneration) state.workBudget.Cancel();
+  if (state.workBudget.Begin(callbacks.requestGeneration.value_or(0),
+                             callbacks.maxResources, callbacks.timeBudget)) {
+    state.workRequests.Clear();
+    for (const auto *entry : visibleFixtures)
+      state.workRequests.Add(entry->second.gdtfSpec, entry->second.gdtfMode, true);
+    for (const auto *entry : visibleTrusses)
+      state.workRequests.Add(entry->second.symbolFile);
+    for (const auto *entry : visibleObjects) {
+      if (entry->second.geometries.empty()) state.workRequests.Add(entry->second.modelFile);
+      else for (const auto &geometry : entry->second.geometries)
+        state.workRequests.Add(geometry.modelFile);
+    }
+  }
+  std::unordered_set<std::string> processedModelPaths;
+  auto loadResolvedModel = [&](const std::string &path) {
+    if (!path.empty() && processedModelPaths.insert(path).second)
+      EnsureModelLoaded(path, state, callbacks, meshProcessingOptions, result.assetsChanged);
+  };
   auto ensureGdtfResolvedPath = [&](const std::string &spec) {
     const std::string cleanSpec = TrimPathRef(spec);
     if (cleanSpec.empty())
@@ -830,8 +870,10 @@ ResourceSyncResult ResourceSyncSystem::Sync(
         viewer3d::resources::BuildResourceReferenceCacheKey(cleanModelRef);
     auto [it, inserted] =
         state.resolvedModelRefs.try_emplace(key, ResourceSyncState::PathResolutionEntry{});
-    if (!inserted && HasValidResolvedPath(it->second, callbacks))
+    if (!inserted && HasValidResolvedPath(it->second, callbacks)) {
+      loadResolvedModel(it->second.resolvedPath);
       return;
+    }
 
     const RetryClock::time_point now = CurrentRetryTime();
     if (ShouldSkipResolveAttempt(it->second, now))
@@ -848,6 +890,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       if (existence.exists && !existence.error) {
         LogRecursiveSearchDiagnostics(callbacks, recursiveDiagnostics);
         MarkResolutionSuccess(it->second, resolvedPath, now);
+        loadResolvedModel(resolvedPath);
         return;
       }
       if (existence.error)
@@ -861,66 +904,23 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     MarkResolutionFailure(it->second, now);
   };
 
-  for (const auto *entry : visibleTrusses)
-    ensureModelResolvedPath(entry->second.symbolFile);
-
-  for (const auto *entry : visibleObjects) {
-    const auto &obj = entry->second;
-    if (!obj.geometries.empty()) {
-      for (const auto &geo : obj.geometries)
-        ensureModelResolvedPath(geo.modelFile);
-    } else {
-      ensureModelResolvedPath(obj.modelFile);
-    }
-  }
-
-  for (const auto *entry : visibleFixtures)
-    ensureGdtfResolvedPath(entry->second.gdtfSpec);
-
-  for (const auto *entry : visibleTrusses) {
-    const auto &t = entry->second;
-    auto pathIt = state.resolvedModelRefs.find(
-        viewer3d::resources::BuildResourceReferenceCacheKey(t.symbolFile));
-    const std::string path =
-        (pathIt != state.resolvedModelRefs.end() && pathIt->second.attempted)
-            ? pathIt->second.resolvedPath
-            : std::string();
-    EnsureModelLoaded(path, state, callbacks, meshProcessingOptions, result.assetsChanged);
-  }
-
-  for (const auto *entry : visibleObjects) {
-    const auto &obj = entry->second;
-    if (!obj.geometries.empty()) {
-      for (const auto &geo : obj.geometries) {
-        auto pathIt = state.resolvedModelRefs.find(
-            viewer3d::resources::BuildResourceReferenceCacheKey(geo.modelFile));
-        const std::string path =
-            (pathIt != state.resolvedModelRefs.end() && pathIt->second.attempted)
-                ? pathIt->second.resolvedPath
-                : std::string();
-        EnsureModelLoaded(path, state, callbacks, meshProcessingOptions, result.assetsChanged);
-      }
-      continue;
-    }
-
-    auto pathIt = state.resolvedModelRefs.find(
-        viewer3d::resources::BuildResourceReferenceCacheKey(obj.modelFile));
-    const std::string path =
-        (pathIt != state.resolvedModelRefs.end() && pathIt->second.attempted)
-            ? pathIt->second.resolvedPath
-            : std::string();
-    EnsureModelLoaded(path, state, callbacks, meshProcessingOptions, result.assetsChanged);
-  }
-
   std::unordered_map<std::string, size_t> gdtfErrorCounts;
   std::unordered_map<std::string, std::string> gdtfErrorReasons;
   std::unordered_set<std::string> processedGdtfPaths;
   std::unordered_set<std::string> missingGdtfSpecs;
 
-  for (const auto *entry : visibleFixtures) {
-    const auto &f = entry->second;
-    if (f.gdtfSpec.empty())
+  while (!state.workRequests.Empty()) {
+    const auto &request = state.workRequests.Front();
+    if (!state.workBudget.Acquire(request.key)) break;
+    state.workRequests.Advance();
+    if (!request.gdtf) {
+      ensureModelResolvedPath(request.reference);
       continue;
+    }
+    Fixture f;
+    f.gdtfSpec = request.reference;
+    f.gdtfMode = request.mode;
+    ensureGdtfResolvedPath(f.gdtfSpec);
 
     auto gdtfPathIt = state.resolvedGdtfSpecs.find(
         viewer3d::resources::BuildResourceReferenceCacheKey(f.gdtfSpec));
@@ -938,6 +938,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     }
 
     const std::string resourceKey = BuildGdtfResourceKey(gdtfPath, f.gdtfMode);
+    if (!processedGdtfPaths.insert(resourceKey).second) continue;
     const auto currentRevision =
         viewer3d::resources::ReadPhysicalAssetRevision(gdtfPath);
     auto attemptedRevision = state.attemptedGdtfRevisions.find(resourceKey);
@@ -970,8 +971,6 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       state.failedGdtfReasons.erase(failedIt);
     }
 
-    if (!processedGdtfPaths.insert(resourceKey).second)
-      continue;
 
     if (state.loadedGdtf.find(resourceKey) == state.loadedGdtf.end()) {
       std::vector<GdtfObject> objs;
@@ -1148,6 +1147,12 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     }
   }
 
+  state.workBudget.Finish();
+  result.workPending = state.workBudget.HasPending();
+  result.resourcesProcessed = state.workBudget.Processed();
+  performance::Count(performance::Work::UniqueResources, result.resourcesProcessed);
+  if (performance::Enabled() && !result.workPending)
+    Logger::Instance().Log(performance::Summary());
   return result;
 }
 
@@ -1156,6 +1161,7 @@ bool ResourceSyncSystem::InvalidatePhysicalAsset(
     const std::string &physicalPath,
     const std::optional<std::string> &exactMode, ResourceSyncState &state,
     const ResourceSyncCallbacks &callbacks) {
+  state.resolvedObjectParts.clear();
   bool invalidated = false;
   const auto requestedRevision =
       viewer3d::resources::ReadPhysicalAssetRevision(physicalPath);

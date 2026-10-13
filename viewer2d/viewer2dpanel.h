@@ -256,6 +256,7 @@ private:
   void OnResize(wxSizeEvent &event);
   void OnCaptureLost(wxMouseCaptureLostEvent &event);
   void RequestRepaint();
+  void SynchronizeRenderResources(bool capture);
   void RequestRepaint(const wxRect &dirtyRect);
   void PresentInteractiveTransformFrame();
   void FinishInteractiveTransformPresentation();

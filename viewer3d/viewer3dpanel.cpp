@@ -40,6 +40,7 @@
 #endif
 
 #include "viewer3dpanel.h"
+#include "performance_metrics.h"
 #include "../core/pixel_coordinate_math.h"
 #include "mainwindow.h"
 #include "../gui/mainwindow/ids/tools_ids.h"
@@ -831,8 +832,7 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
         selection_movement_settings::IsAxisConstrainedMovementEnabled(
             ConfigManager::Get());
     SetBackgroundStyle(wxBG_STYLE_CUSTOM);
-  Bind(wxEVT_THREAD, &Viewer3DPanel::OnThreadRefresh, this,
-       wxEVT_VIEWER_REFRESH);
+  Bind(wxEVT_VIEWER_REFRESH, &Viewer3DPanel::OnThreadRefresh, this);
     m_zoomInteractionTimer.SetOwner(this);
     Bind(wxEVT_TIMER, &Viewer3DPanel::OnZoomInteractionTimeout, this,
          m_zoomInteractionTimer.GetId());
@@ -853,8 +853,7 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
 // Stops refresh work and releases OpenGL-owned panel resources.
 Viewer3DPanel::~Viewer3DPanel() {
     m_shuttingDown = true;
-  Unbind(wxEVT_THREAD, &Viewer3DPanel::OnThreadRefresh, this,
-         wxEVT_VIEWER_REFRESH);
+  Unbind(wxEVT_VIEWER_REFRESH, &Viewer3DPanel::OnThreadRefresh, this);
     Unbind(wxEVT_TIMER, &Viewer3DPanel::OnZoomInteractionTimeout, this,
            m_zoomInteractionTimer.GetId());
     m_zoomInteractionTimer.Stop();
@@ -981,11 +980,12 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
     }
 
     m_controller.ResetDebugPerFrameCounters();
+    performance::Scope frameMetric(performance::Work::Frame);
 
     const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
     if (m_controller.IsResourceSyncPending() && !pauseHeavyTasks &&
         !m_runtimeState.IsCameraMoving() && m_controller.ConsumeResourceSyncPending()) {
-        m_controller.UpdateResourcesIfDirty();
+        m_controller.UpdateResourcesIfDirty(true);
     }
 
     const std::uint64_t highlightRevisionAtFrameStart =
@@ -1284,6 +1284,9 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
         m_runtimeState.CompleteSelectionRefresh(selectionRevisionAtFrameStart);
 
     SwapBuffers(); // Swap after drawing labels to ensure they are visible
+    if (!pauseHeavyTasks && (m_controller.FinishPresentedFrame(m_runtimeState.IsCameraMoving()) ||
+                            m_controller.IsResourceSyncPending()))
+        Refresh(false);
     viewer3d::diagnostics::Log("OpenGL render frame end.");
 }
 
@@ -3959,7 +3962,7 @@ void Viewer3DPanel::UpdateScene() {
     if (!PrepareGlResourceSync("UpdateScene"))
         return;
     if (m_controller.ConsumeResourceSyncPending())
-        m_controller.UpdateResourcesIfDirty();
+        m_controller.UpdateResourcesIfDirty(true);
     if (Viewer2DPanel::Instance())
         Viewer2DPanel::Instance()->UpdateScene();
 }
@@ -4069,7 +4072,7 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent &event) {
                 return;
             m_runtimeState.AcceptResourceSyncCadence(now);
             if (m_controller.ConsumeResourceSyncPending())
-                m_controller.UpdateResourcesIfDirty();
+                m_controller.UpdateResourcesIfDirty(true);
         }
     }
 

@@ -465,6 +465,8 @@ target_link_libraries(perastage_gdtf_filename_policy PUBLIC
 target_link_libraries(${PROJECT_NAME} PRIVATE perastage_gdtf_filename_policy)
 
 target_sources(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/performance_metrics.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/packaged_resource_identity.h
     ${CMAKE_CURRENT_SOURCE_DIR}/geometry_bounds_resolver.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layer_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/truss_dimension_resolution.cpp

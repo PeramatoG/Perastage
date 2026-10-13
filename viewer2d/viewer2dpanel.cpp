@@ -1295,7 +1295,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
 
   // Keep controller resources/cache in sync in the 2D viewer as well.
   if (!framePlan.skipResourceSynchronization)
-    m_controller.UpdateResourcesIfDirty();
+    SynchronizeRenderResources(framePlan.captureActive);
   m_controller.SetDarkMode(framePlan.darkMode);
   if (framePlan.darkMode)
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);

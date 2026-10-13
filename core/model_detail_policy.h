@@ -12,7 +12,7 @@ inline constexpr const char *kMovingProxyConfigKey = "viewer3d_moving_proxy";
 
 struct Preferences {
   Level level = Level::Standard;
-  bool movingProxy = false;
+  bool movingProxy = true;
   bool operator==(const Preferences &) const = default;
 };
 
@@ -34,8 +34,10 @@ inline const char *ConfigValue(Level level) {
   }
 }
 template <typename Store> Preferences ReadPreferences(const Store &store) {
-  return {ParseLevel(store.GetValue(kDetailConfigKey)),
-          store.GetValue(kMovingProxyConfigKey) == "1"};
+  const auto level = ParseLevel(store.GetValue(kDetailConfigKey));
+  const auto proxy = store.GetValue(kMovingProxyConfigKey);
+  return {level, level == Level::Low ||
+                 (proxy == "1" || (proxy != "0" && level != Level::High))};
 }
 template <typename Store>
 void SavePreferences(Store &store, Preferences preferences) {

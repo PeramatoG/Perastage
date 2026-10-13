@@ -1,6 +1,8 @@
 #pragma once
 #include "runtime_mesh_simplification.h"
 #include <functional>
+#include <deque>
+#include <set>
 #include <map>
 #include <tuple>
 
@@ -14,12 +16,19 @@ public:
                         const Callback &release);
   const Mesh &Resolve(const Mesh &source, bool navigating,
                       const Callback &upload);
+  // Run after presenting a frame, on the owning GL thread while idle.
+  size_t PreparePending(const Callback &upload, size_t limit = 1);
+  void CancelPending() { pending.clear(); queued.clear(); }
+  bool HasPending() const { return !pending.empty(); }
   void Invalidate(const Mesh &source, const Callback &release);
   void Clear(const Callback &release);
   size_t Size() const { return meshes.size(); }
 private:
   using Key = std::tuple<const Mesh *, model_detail::Level, bool>;
   std::map<Key, Mesh> meshes;
+  std::deque<Key> pending;
+  std::set<Key> queued;
+  void Queue(const Mesh &source, bool proxy);
   model_detail::Preferences preferences;
 };
 } // namespace viewer3d::resources

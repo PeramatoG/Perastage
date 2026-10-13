@@ -4161,3 +4161,31 @@ set_perastage_test_labels(GdtfGeometryInspection
 add_bash_policy_test(GdtfModelSvgBoundary
     ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_model_svg_boundary.sh
     LABELS standard-strict architecture gdtf symbols)
+
+add_executable(viewer3d_progressive_resource_test
+    viewer3d_progressive_resource_test.cpp viewer3d_progressive_resource_stubs.cpp
+    ../viewer3d/resources/resource_sync_system.cpp
+    ../viewer3d/resources/resource_path_search.cpp
+    ../viewer3d/resources/mesh_processing.cpp
+    ../core/cache_paths.cpp ../core/cache_service.cpp)
+target_include_directories(viewer3d_progressive_resource_test BEFORE PRIVATE
+                           ../viewer3d ../core ../models ../third_party)
+target_link_libraries(viewer3d_progressive_resource_test PRIVATE
+                      perastage_runtime_storage meshoptimizer::meshoptimizer ${_wx_base_libs})
+add_test(NAME Viewer3DProgressiveResources COMMAND viewer3d_progressive_resource_test)
+set_tests_properties(Viewer3DProgressiveResources PROPERTIES LABELS "unit;viewer3d;performance")
+
+add_executable(packaged_viewer_cache_test packaged_viewer_cache_test.cpp
+    ../core/cache_paths.cpp ../core/cache_service.cpp
+    ../viewer3d/resources/mesh_processing.cpp)
+target_include_directories(packaged_viewer_cache_test BEFORE PRIVATE
+                           ../core ../viewer3d ../models ../mvr)
+target_link_libraries(packaged_viewer_cache_test PRIVATE perastage_mvr_read
+                      meshoptimizer::meshoptimizer ${_wx_base_libs})
+add_test(NAME PackagedViewerCache COMMAND packaged_viewer_cache_test)
+set_tests_properties(PackagedViewerCache PROPERTIES LABELS "unit;viewer3d;mvr;performance")
+if(BASH_EXECUTABLE)
+  add_bash_policy_test(Viewer3DPerformanceBoundary
+      ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer3d_performance_boundary.sh
+      LABELS architecture viewer3d performance)
+endif()

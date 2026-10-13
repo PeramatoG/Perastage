@@ -1,7 +1,9 @@
+#include "performance_metrics.h"
 #include "mesh_processing.h"
 #include "cache_service.h"
 #include "filesystem_path_utils.h"
 #include "physical_asset_revision.h"
+#include "packaged_resource_identity.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -21,6 +23,12 @@ constexpr uint32_t kMeshCacheMagic = 0x4843534Du; // MSCH
 constexpr uint32_t kGdtfCacheMagic = 0x48434747u; // GGCH
 constexpr uint32_t kCacheVersion = 4u;
 constexpr float kOverdrawThreshold = 1.05f;
+
+struct CacheLookupMetric {
+  bool hit = false;
+  CacheLookupMetric() { performance::Count(performance::Work::CacheLookup); }
+  ~CacheLookupMetric() { performance::Count(hit ? performance::Work::CacheHit : performance::Work::CacheMiss); }
+};
 
 struct CacheHeader {
   uint32_t magic = 0;
@@ -106,9 +114,11 @@ bool ValidateHeader(const CacheHeader &header, uint32_t expectedMagic,
                     const std::string &sourcePath) {
   if (header.magic != expectedMagic || header.version != kCacheVersion)
     return false;
-  const PhysicalAssetRevision revision = ReadPhysicalAssetRevision(sourcePath);
+  const PhysicalAssetRevision revision = ReadPhysicalAssetRevision(sourcePath, false);
   return revision.metadataAvailable &&
-         revision.modificationTimeNs == header.sourceTimestampNs &&
+         (packaged_resources::Lookup(PathUtils::PathFromUtf8(sourcePath))
+              ? header.sourceTimestampNs == 0
+              : revision.modificationTimeNs == header.sourceTimestampNs) &&
          revision.fileSize == header.sourceSize;
 }
 
@@ -135,6 +145,7 @@ void OptimizeIndices(Mesh &mesh) {
 } // namespace
 
 void OptimizeMeshForRuntime(Mesh &mesh) {
+  performance::Scope metric(performance::Work::MeshProcessing);
   OptimizeIndices(mesh);
 }
 
@@ -144,6 +155,8 @@ void OptimizeGdtfObjectsForRuntime(std::vector<GdtfObject> &objects) {
 }
 
 bool TryLoadMeshCache(const std::string &sourcePath, Mesh &outMesh) {
+  performance::Scope metric(performance::Work::CacheRead);
+  CacheLookupMetric lookup;
   const auto path = CacheService::ViewerCachePath(sourcePath, "", false);
   if (!CacheService::IsSafeCacheFile(path)) return false;
   std::ifstream in(path, std::ios::binary);
@@ -153,12 +166,15 @@ bool TryLoadMeshCache(const std::string &sourcePath, Mesh &outMesh) {
   CacheHeader header;
   if (!ReadRaw(in, header) || !ValidateHeader(header, kMeshCacheMagic, sourcePath))
     return false;
-  return ReadMesh(in, outMesh);
+  const bool loaded = ReadMesh(in, outMesh);
+  lookup.hit = loaded;
+  return loaded;
 }
 
 // Saves a model mesh with the bounded source revision used for validation.
 bool TrySaveMeshCache(const std::string &sourcePath, const Mesh &mesh) {
-  const PhysicalAssetRevision revision = ReadPhysicalAssetRevision(sourcePath);
+  performance::Scope metric(performance::Work::CacheWrite);
+  const PhysicalAssetRevision revision = ReadPhysicalAssetRevision(sourcePath, false);
   if (!revision.metadataAvailable || !CacheService::EnsureDirectories())
     return false;
 
@@ -171,7 +187,8 @@ bool TrySaveMeshCache(const std::string &sourcePath, const Mesh &mesh) {
   CacheHeader header;
   header.magic = kMeshCacheMagic;
   header.version = kCacheVersion;
-  header.sourceTimestampNs = revision.modificationTimeNs;
+  header.sourceTimestampNs = packaged_resources::Lookup(PathUtils::PathFromUtf8(sourcePath))
+      ? 0 : revision.modificationTimeNs;
   header.sourceSize = revision.fileSize;
   return WriteRaw(out, header) && WriteMesh(out, mesh);
 }
@@ -180,6 +197,8 @@ bool TrySaveMeshCache(const std::string &sourcePath, const Mesh &mesh) {
 bool TryLoadGdtfCache(const std::string &gdtfPath,
                       const std::string &modeName,
                       std::vector<GdtfObject> &outObjects) {
+  performance::Scope metric(performance::Work::CacheRead);
+  CacheLookupMetric lookup;
   const auto path = CacheService::ViewerCachePath(gdtfPath, modeName, true);
   if (!CacheService::IsSafeCacheFile(path)) return false;
   std::ifstream in(path, std::ios::binary);
@@ -204,6 +223,7 @@ bool TryLoadGdtfCache(const std::string &gdtfPath,
   }
 
   outObjects = std::move(loaded);
+  lookup.hit = true;
   return true;
 }
 
@@ -211,7 +231,8 @@ bool TryLoadGdtfCache(const std::string &gdtfPath,
 bool TrySaveGdtfCache(const std::string &gdtfPath,
                       const std::string &modeName,
                       const std::vector<GdtfObject> &objects) {
-  const PhysicalAssetRevision revision = ReadPhysicalAssetRevision(gdtfPath);
+  performance::Scope metric(performance::Work::CacheWrite);
+  const PhysicalAssetRevision revision = ReadPhysicalAssetRevision(gdtfPath, false);
   if (!revision.metadataAvailable || !CacheService::EnsureDirectories())
     return false;
 
@@ -225,7 +246,8 @@ bool TrySaveGdtfCache(const std::string &gdtfPath,
   CacheHeader header;
   header.magic = kGdtfCacheMagic;
   header.version = kCacheVersion;
-  header.sourceTimestampNs = revision.modificationTimeNs;
+  header.sourceTimestampNs = packaged_resources::Lookup(PathUtils::PathFromUtf8(gdtfPath))
+      ? 0 : revision.modificationTimeNs;
   header.sourceSize = revision.fileSize;
   if (!WriteRaw(out, header))
     return false;

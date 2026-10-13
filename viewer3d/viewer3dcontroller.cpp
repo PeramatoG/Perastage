@@ -1,3 +1,4 @@
+#include "performance_metrics.h"
 /*
  * This file is part of Perastage.
  * Copyright (C) 2025 Luisma Peramato
@@ -119,8 +120,9 @@ struct Viewer3DController::Impl {
       visibleSortedObjects;
   std::unordered_set<std::string> lastHiddenLayers;
   std::unordered_set<std::string> lastHiddenFixtureTypes;
-  size_t sceneLayerMembershipFingerprint = 0;
-  bool hasSceneLayerMembershipFingerprint = false;
+  size_t sceneMutationRevision = 0;
+  std::atomic<size_t> resourceSyncGeneration{0};
+  bool hasSceneMutationRevision = false;
   size_t hiddenLayersVersion = 0;
   bool sortedListsDirty = true;
   bool sortedListsLastWas2D = false;
@@ -338,32 +340,6 @@ static uint32_t HashString(std::string_view value) {
     hash *= 16777619u;
   }
   return hash;
-}
-
-// Combines one value into a stable size_t hash accumulator.
-static void CombineHashValue(size_t &seed, size_t value) {
-  seed ^= value + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
-}
-
-// Computes a stable fingerprint for scene elements whose layer controls
-// visibility.
-static size_t ComputeSceneLayerMembershipFingerprint(const MvrScene &scene) {
-  std::vector<std::string> entries;
-  entries.reserve(scene.fixtures.size() + scene.trusses.size() +
-                  scene.sceneObjects.size());
-  for (const auto &entry : scene.fixtures)
-    entries.push_back("f:" + entry.first + ":" + entry.second.layer + ":" +
-                      entry.second.typeName);
-  for (const auto &entry : scene.trusses)
-    entries.push_back("t:" + entry.first + ":" + entry.second.layer);
-  for (const auto &entry : scene.sceneObjects)
-    entries.push_back("o:" + entry.first + ":" + entry.second.layer);
-  std::sort(entries.begin(), entries.end());
-
-  size_t seed = 0;
-  for (const auto &entry : entries)
-    CombineHashValue(seed, std::hash<std::string>{}(entry));
-  return seed;
 }
 
 // Converts to RGB.
@@ -889,7 +865,10 @@ bool Viewer3DController::EnsureBoundsComputed(
 
 // Loads meshes or GDTF models referenced by scene objects. Called when the
 // scene is updated.
-void Viewer3DController::Update() { UpdateFrameStateLightweight(); }
+void Viewer3DController::Update() {
+  MarkResourceSyncPending();
+  UpdateFrameStateLightweight();
+}
 
 // Updates frame State Lightweight.
 void Viewer3DController::UpdateFrameStateLightweight() {
@@ -909,14 +888,13 @@ void Viewer3DController::UpdateFrameStateLightweight() {
     MarkResourceSyncPending();
   }
 
-  const size_t layerMembershipFingerprint =
-      ComputeSceneLayerMembershipFingerprint(cfg.GetScene());
-  if (!m_impl->hasSceneLayerMembershipFingerprint ||
-      layerMembershipFingerprint != m_impl->sceneLayerMembershipFingerprint) {
+  const size_t mutationRevision = cfg.GetRenderRevision();
+  if (!m_impl->hasSceneMutationRevision ||
+      mutationRevision != m_impl->sceneMutationRevision) {
     Logger::Instance().Log("visibility dirty reason: scene layer membership "
                            "changed vs last frame snapshot");
-    m_impl->sceneLayerMembershipFingerprint = layerMembershipFingerprint;
-    m_impl->hasSceneLayerMembershipFingerprint = true;
+    m_impl->sceneMutationRevision = mutationRevision;
+    m_impl->hasSceneMutationRevision = true;
     m_impl->visibilityChangedDirty = true;
     ControllerInvalidateVisibleSetLayerCandidateCacheOwnership(
         m_impl->layerVisibleCandidatesSceneVersion);
@@ -927,6 +905,10 @@ void Viewer3DController::UpdateFrameStateLightweight() {
 // Clears cached scene-entry pointers before the owning scene containers change.
 void Viewer3DController::PrepareForSceneReplacement() {
   m_impl->sceneReplacementActive.store(true, std::memory_order_release);
+  m_resourceSyncState.workBudget.Cancel();
+  m_resourceSyncState.workRequests.Clear();
+  m_resourceSyncState.runtimeMeshes.CancelPending();
+  m_resourceSyncState.resolvedObjectParts.clear();
   std::lock_guard<std::mutex> lock(m_impl->sortedListsMutex);
   m_impl->sortedFixtures.clear();
   m_impl->sortedTrusses.clear();
@@ -937,7 +919,7 @@ void Viewer3DController::PrepareForSceneReplacement() {
   m_impl->sortedListsDirty = true;
   m_impl->sceneChangedDirty = true;
   m_impl->visibilityChangedDirty = true;
-  m_impl->hasSceneLayerMembershipFingerprint = false;
+  m_impl->hasSceneMutationRevision = false;
   ControllerInvalidateVisibleSetLayerCandidateCacheOwnership(
       m_impl->layerVisibleCandidatesSceneVersion);
   MarkResourceSyncPending();
@@ -959,6 +941,7 @@ void Viewer3DController::MarkSceneTransformsDirty() {
 
 // Marks resource Sync Pending.
 void Viewer3DController::MarkResourceSyncPending() {
+  ++m_impl->resourceSyncGeneration;
   m_impl->resourceSyncPending.store(true, std::memory_order_relaxed);
 }
 
@@ -974,7 +957,9 @@ bool Viewer3DController::ConsumeResourceSyncPending() {
 
 // Resets debug Per Frame Counters.
 void Viewer3DController::ResetDebugPerFrameCounters() {
+  RefreshModelDetailPreferences();
   m_impl->updateResourcesCallsPerFrame = 0;
+  m_resourceSyncState.meshResolvedThisFrame = false;
 }
 
 // Returns debug Update Resources Calls Per Frame.
@@ -983,7 +968,7 @@ int Viewer3DController::GetDebugUpdateResourcesCallsPerFrame() const {
 }
 
 // Updates resources If Dirty.
-void Viewer3DController::UpdateResourcesIfDirty() {
+void Viewer3DController::UpdateResourcesIfDirty(bool progressive) {
   if (m_impl->sceneReplacementActive.load(std::memory_order_acquire))
     return;
   ++m_impl->updateResourcesCallsPerFrame;
@@ -1026,9 +1011,15 @@ void Viewer3DController::UpdateResourcesIfDirty() {
   }
 
   ResourceSyncCallbacks callbacks;
+  if (progressive) {
+    callbacks.requestGeneration = m_impl->resourceSyncGeneration.load(std::memory_order_relaxed);
+    callbacks.maxResources = 8;
+    callbacks.timeBudget = std::chrono::milliseconds(8);
+  }
   callbacks.setupMeshBuffers = [this](Mesh &mesh) { SetupMeshBuffers(mesh); };
   callbacks.releaseMeshBuffers = [this](Mesh &mesh) {
     ReleaseMeshBuffers(mesh);
+    m_impl->modelBounds.clear();
   };
   callbacks.appendConsoleMessage = [](const std::string &msg) {
     if (ConsolePanel::Instance())
@@ -1043,6 +1034,9 @@ void Viewer3DController::UpdateResourcesIfDirty() {
   const ResourceSyncResult syncResult = ResourceSyncSystem::Sync(
       base, sceneTrusses, sceneObjects, sceneFixtures, visibleTrusses,
       visibleObjects, visibleFixtures, m_impl->resourceSyncState, callbacks);
+
+  if (syncResult.workPending)
+    m_impl->resourceSyncPending.store(true, std::memory_order_relaxed);
 
   if (syncResult.sceneChanged) {
     Logger::Instance().Log(
@@ -1061,7 +1055,6 @@ void Viewer3DController::UpdateResourcesIfDirty() {
   }
   if (syncResult.assetsChanged) {
     m_impl->assetsChangedDirty = true;
-    m_impl->modelBounds.clear();
   }
 
   BoundsCacheSystem::Context boundsContext{
@@ -1671,6 +1664,7 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
   if (mesh.vertices.empty() || mesh.indices.empty())
     return;
 
+  performance::Scope metric(performance::Work::GpuUpload);
   const bool hasVertexBufferSupport = GLEW_VERSION_1_5;
   const bool hasVertexArraySupport =
       GLEW_VERSION_3_0 || GLEW_ARB_vertex_array_object;

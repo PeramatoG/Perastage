@@ -227,6 +227,8 @@ public:
   DirtyState CaptureDirtyState() const;
   void RestoreDirtyState(const DirtyState &state);
   void Touch();
+  size_t GetRenderRevision() const { return renderRevision; }
+  void InvalidateRenderState() { ++renderRevision; }
   void MarkSaved();
   void ResetDirty();
   ~ProjectSession();
@@ -243,4 +245,5 @@ private:
   std::shared_ptr<startup::Metrics> startupMetrics;
   size_t revision = 0;
   size_t savedRevision = 0;
+  size_t renderRevision = 0;
 };

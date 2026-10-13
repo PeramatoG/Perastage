@@ -8,6 +8,8 @@
 #include "sceneobject.h"
 #include "truss.h"
 #include "physical_asset_revision.h"
+#include "resource_work_budget.h"
+#include "resource_request_queue.h"
 
 #include <functional>
 #include <optional>
@@ -33,6 +35,20 @@ struct FixtureAnchorRegistryEntry {
 };
 
 struct ResourceSyncState {
+  std::chrono::steady_clock::time_point firstSyncTime{};
+  bool firstVisibleRecorded = false;
+  bool meshResolvedThisFrame = false;
+  struct SceneObjectMeshPart {
+    const Mesh *mesh = nullptr;
+    Matrix localTransform = Matrix{};
+    std::string modelKey;
+    std::string instanceKey;
+  };
+  mutable std::unordered_map<const SceneObject *, std::vector<SceneObjectMeshPart>>
+      resolvedObjectParts;
+  viewer3d::resources::ResourceWorkBudget workBudget;
+  viewer3d::resources::ResourceRequestQueue workRequests;
+  std::optional<size_t> lastRequestGeneration;
   viewer3d::resources::RuntimeMeshCache runtimeMeshes;
   struct PathResolutionEntry {
     std::string resolvedPath;
@@ -67,6 +83,11 @@ struct ResourceSyncState {
 };
 
 struct ResourceSyncCallbacks {
+  // Absent generation retains the synchronous refresh/validation contract for
+  // capture and direct callers. Interactive callers advance it on mutation.
+  std::optional<size_t> requestGeneration;
+  size_t maxResources = std::numeric_limits<size_t>::max();
+  std::chrono::milliseconds timeBudget{0};
   std::function<void(Mesh &)> setupMeshBuffers;
   std::function<void(Mesh &)> releaseMeshBuffers;
   std::function<void(const std::string &)> appendConsoleMessage;
@@ -74,6 +95,8 @@ struct ResourceSyncCallbacks {
 };
 
 struct ResourceSyncResult {
+  bool workPending = false;
+  size_t resourcesProcessed = 0;
   bool sceneChanged = false;
   bool assetsChanged = false;
   size_t sceneSignature = 0;

@@ -29,16 +29,19 @@ public:
   const std::filesystem::path &Path() const { return path_; }
   bool IsValid() const { return !path_.empty(); }
   void Cleanup() noexcept;
+  void KeepAlive(std::shared_ptr<const void> data) { retainedData_.push_back(std::move(data)); }
   std::shared_ptr<SceneResourceLease> TransferToSceneLease();
 
 private:
   std::filesystem::path path_;
   bool logActivity_ = true;
+  std::vector<std::shared_ptr<const void>> retainedData_;
 };
 
 class SceneResourceLease {
 public:
   explicit SceneResourceLease(std::filesystem::path path = {});
+  void KeepAlive(std::shared_ptr<const void> data) { retainedData_.push_back(std::move(data)); }
   ~SceneResourceLease() noexcept;
   SceneResourceLease(const SceneResourceLease &) = delete;
   SceneResourceLease &operator=(const SceneResourceLease &) = delete;
@@ -47,6 +50,7 @@ public:
 
 private:
   std::filesystem::path path_;
+  std::vector<std::shared_ptr<const void>> retainedData_;
 };
 
 using SceneResourceLeasePtr = std::shared_ptr<SceneResourceLease>;

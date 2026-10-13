@@ -67,6 +67,7 @@ public:
     // Access to current MVR scene (modifiable)
     MvrScene& GetScene();
     const MvrScene& GetScene() const;
+    size_t GetRenderRevision() const { return projectSession.GetRenderRevision(); }
     symbols::ProjectFixtureSymbolStore &GetProjectFixtureSymbols();
     const symbols::ProjectFixtureSymbolStore &GetProjectFixtureSymbols() const;
 
