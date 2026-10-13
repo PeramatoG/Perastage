@@ -13,6 +13,7 @@ truss = Path('gui/trusseditdialog.cpp').read_text()
 panel_h = Path('gui/gdtf/gdtf_editor_panel.h').read_text()
 panel = Path('gui/gdtf/gdtf_editor_panel.cpp').read_text()
 modes = Path('gui/gdtf/gdtf_modes_panel.cpp').read_text()
+thumbnail = Path('gui/gdtf/fixture_thumbnail_preview.cpp').read_text()
 metrics = Path('gui/gdtf/gdtf_editor_visual_metrics.h').read_text()
 prefs_h = Path('gui/gdtf/gdtf_editor_layout_preferences.h').read_text()
 prefs = Path('gui/gdtf/gdtf_editor_layout_preferences.cpp').read_text()
@@ -35,8 +36,8 @@ for tab in ['Preview', 'GDTF wheels', 'Symbols']:
     require(f'AddPage' in fixture and tab in fixture, f'Missing Fixture visual-resource tab: {tab}.')
 require(fixture.count('visualNotebook->AddPage') == 3,
         'Fixture visual-resource notebook must have exactly Preview, GDTF wheels and Symbols tabs.')
-require('fixtureImagePreview = new wxStaticBitmap(previewPage' in fixture,
-        'Fixture image must be placed below the 3D preview on the Preview tab.')
+require('fixtureThumbnailPreview = new FixtureThumbnailPreviewPanel(previewPage)' in fixture,
+        'Fixture thumbnail selector and full-size preview must be placed below the 3D preview.')
 comparison = Path('gui/gdtf/fixture_symbol_comparison_panel.cpp').read_text()
 navigator = Path('gui/gdtf/fixture_part_navigator.cpp').read_text()
 require('officialSymbolPreview' not in fixture_h + fixture,
@@ -49,8 +50,8 @@ require('FixturePartNavigator* preview' in fixture_h and 'FixturePartNavigator(p
         'Fixture Preview must delegate scalable part navigation.')
 require('All fixture' in navigator and 'ShowGeometry' in navigator,
         'Part navigation must retain All and read-only Geometry Solo modes.')
-require('LoadGdtfThumbnailPreview' in fixture,
-        'Fixture thumbnail must use the shared canonical SVG/PNG preview boundary.')
+require('ListGdtfThumbnailPreviewOptions' in thumbnail and 'LoadGdtfThumbnailPreview' in thumbnail,
+        'Fixture thumbnail panel must use the shared canonical SVG/PNG preview boundary.')
 require(fixture.count('new GdtfEditorPanel(') == 1,
         'Fixture Edit must instantiate exactly one GdtfEditorPanel.')
 for child in ['GdtfMetadataPanel', 'GdtfTypeIdentityPanel', 'GdtfPhysicalPropertiesPanel', 'GdtfModesPanel']:

@@ -118,15 +118,66 @@ void CheckFixtureEditorSymbolsAndThumbnails() {
     if (tip.Contains("User override")) projectAfter.push_back(tip);
   assert(projectBefore.size() == 4 && projectBefore == projectAfter);
 
-  const auto thumbnail = LoadGdtfThumbnailPreview(fixture.string(), wxSize(80, 80), *wxWHITE);
-  assert(thumbnail.decoded && thumbnail.diagnostic.starts_with("thumb.svg (canonical)"));
-  // SVG-only and PNG-only canonical thumbnails both use the production backend.
+  // Both canonical root formats are exposed as independent full-size options.
+  const auto thumbnailOptions = ListGdtfThumbnailPreviewOptions(fixture.string());
+  assert(thumbnailOptions.size() == 2);
+  assert(thumbnailOptions[0].svg && thumbnailOptions[0].archivePath == "thumb.svg");
+  assert(!thumbnailOptions[1].svg && thumbnailOptions[1].archivePath == "thumb.png");
+
+  const auto svgPreview = LoadGdtfThumbnailPreview(
+      fixture.string(), wxSize(220, 220), *wxWHITE,
+      thumbnailOptions[0].archivePath);
+  assert(svgPreview.decoded);
+  assert(svgPreview.bitmap.GetWidth() == 220 && svgPreview.bitmap.GetHeight() == 220);
+  assert(svgPreview.diagnostic.find("thumb.svg (canonical)") != std::string::npos);
+  assert(svgPreview.diagnostic.find("thumb.png") == std::string::npos);
+
+  const auto pngPreview = LoadGdtfThumbnailPreview(
+      fixture.string(), wxSize(220, 220), *wxWHITE,
+      thumbnailOptions[1].archivePath);
+  assert(pngPreview.decoded);
+  assert(pngPreview.bitmap.GetWidth() == 220 && pngPreview.bitmap.GetHeight() == 220);
+  assert(pngPreview.diagnostic.find("thumb.png (canonical)") != std::string::npos);
+  assert(pngPreview.diagnostic.find("thumbnails/thumb.png") == std::string::npos);
+
+  auto *thumbnailPanel = new FixtureThumbnailPreviewPanel(&frame);
+  thumbnailPanel->SetArchivePath(fixture.string());
+  windows.clear();
+  Collect(thumbnailPanel, windows);
+  wxChoice *thumbnailSelector = nullptr;
+  for (auto *window : windows) {
+    auto *choice = dynamic_cast<wxChoice *>(window);
+    if (choice && choice->GetCount() == 2 && choice->GetString(0) == "SVG" &&
+        choice->GetString(1) == "PNG") {
+      thumbnailSelector = choice;
+      break;
+    }
+  }
+  assert(thumbnailSelector && thumbnailSelector->IsShown());
+  assert(thumbnailSelector->GetSelection() == 0);
+  const auto svgTips = Tips(thumbnailPanel);
+  assert(std::any_of(svgTips.begin(), svgTips.end(), [](const auto &tip) {
+    return tip.Contains("thumb.svg (canonical)");
+  }));
+  thumbnailSelector->SetSelection(1);
+  wxCommandEvent thumbnailChange(wxEVT_CHOICE, thumbnailSelector->GetId());
+  thumbnailChange.SetEventObject(thumbnailSelector);
+  thumbnailSelector->GetEventHandler()->ProcessEvent(thumbnailChange);
+  const auto pngTips = Tips(thumbnailPanel);
+  assert(std::any_of(pngTips.begin(), pngTips.end(), [](const auto &tip) {
+    return tip.Contains("thumb.png (canonical)");
+  }));
+
+  // SVG-only and PNG-only canonical thumbnails retain the production backend.
   for (const auto svgOnly : {true, false}) {
     const auto path = root / (svgOnly ? "svg.gdtf" : "png.gdtf");
     tests::gdtf::BuildMinimalValidFixture().WithFixtureTypeExtensionAttribute("Thumbnail", "thumb")
         .WithArchiveEntry(svgOnly ? "thumb.svg" : "thumb.png", svgOnly ? svg : pngBytes)
         .WithArchiveEntry("thumbnails/thumb.png", pngBytes).WriteArchive(path);
-    const auto result = LoadGdtfThumbnailPreview(path.string(), wxSize(80, 80), *wxWHITE);
+    const auto options = ListGdtfThumbnailPreviewOptions(path.string());
+    assert(options.size() == 1 && options.front().svg == svgOnly);
+    const auto result = LoadGdtfThumbnailPreview(
+        path.string(), wxSize(80, 80), *wxWHITE, options.front().archivePath);
     assert(result.decoded);
     assert(result.diagnostic.find("(canonical)") != std::string::npos);
     assert(result.diagnostic.find("thumbnails/") == std::string::npos);
@@ -135,8 +186,11 @@ void CheckFixtureEditorSymbolsAndThumbnails() {
   tests::gdtf::BuildMinimalValidFixture().WithFixtureTypeExtensionAttribute("Thumbnail", "thumb")
       .WithArchiveEntry("thumb.svg", "<svg")
       .WithArchiveEntry("thumbnails/thumb.png", pngBytes).WriteArchive(unsupported);
+  const auto unsupportedOptions = ListGdtfThumbnailPreviewOptions(unsupported.string());
+  assert(unsupportedOptions.size() == 1 && unsupportedOptions.front().svg);
   const auto unsupportedPreview = LoadGdtfThumbnailPreview(
-      unsupported.string(), wxSize(80, 80), *wxWHITE);
+      unsupported.string(), wxSize(80, 80), *wxWHITE,
+      unsupportedOptions.front().archivePath);
   assert(!unsupportedPreview.decoded);
   assert(unsupportedPreview.diagnostic.find("(canonical)") != std::string::npos);
   assert(unsupportedPreview.diagnostic.find("thumbnails/") == std::string::npos);

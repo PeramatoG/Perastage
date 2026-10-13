@@ -152,30 +152,6 @@ void SetFixtureColorCell(wxDataViewListCtrl *table, int row,
   table->SetValue(colorValue, row, 19);
 }
 
-// Resolves the themed background color used by preview placeholders and margins.
-wxColour ResolvePreviewBackground(wxWindow *window) {
-  for (wxWindow *current = window; current; current = current->GetParent()) {
-    const wxColour colour = current->GetBackgroundColour();
-    if (colour.IsOk())
-      return colour;
-  }
-  return wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
-}
-
-// Creates a themed placeholder bitmap with centered text.
-wxBitmap CreatePreviewPlaceholder(const wxString &label, const wxColour &background) {
-  constexpr int kPreviewSize = 220;
-  wxBitmap fallback(kPreviewSize, kPreviewSize);
-  wxMemoryDC dc(fallback);
-  dc.SetBackground(wxBrush(background));
-  dc.Clear();
-  dc.SetTextForeground(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
-  dc.DrawLabel(label, wxRect(0, 0, kPreviewSize, kPreviewSize), wxALIGN_CENTER);
-  dc.SelectObject(wxNullBitmap);
-  return fallback;
-}
-
-
 } // namespace
 
 // Destroys the host-owned GDTF edit session after the dialog closes.
@@ -358,7 +334,6 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     addLabeledControl(i, controlWindow, nestedSizer, gdtfColumns.count(i) > 0);
   }
 
-
   const std::filesystem::path initialGdtfPath = GetActiveResolvedGdtfPath();
 
   wxVariant typeValue;
@@ -513,10 +488,8 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   previewSizer->Add(preview, 2, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
   previewSizer->Add(new wxStaticLine(previewPage), 0, wxEXPAND | wxLEFT | wxRIGHT,
                     gui::gdtf_layout::SectionPadding(this));
-  previewSizer->Add(new wxStaticText(previewPage, wxID_ANY, _("GDTF thumbnail")),
-                    0, wxALIGN_CENTER_HORIZONTAL | wxTOP, 3);
-  fixtureImagePreview = new wxStaticBitmap(previewPage, wxID_ANY, wxBitmap(220, 220));
-  previewSizer->Add(fixtureImagePreview, 1, wxALIGN_CENTER | wxALL,
+  fixtureThumbnailPreview = new FixtureThumbnailPreviewPanel(previewPage);
+  previewSizer->Add(fixtureThumbnailPreview, 1, wxALIGN_CENTER | wxALL,
                     gui::gdtf_layout::SectionPadding(this));
   visualNotebook->AddPage(previewPage, _("Preview"));
 
@@ -759,22 +732,8 @@ void FixtureEditDialog::UpdateVisualizers() {
     }
     symbolComparison->SetArchivePath(path, projectSource);
   }
-
-  if (fixtureImagePreview) {
-    const wxColour background =
-        ResolvePreviewBackground(fixtureImagePreview->GetParent());
-    const auto thumbnail = LoadGdtfThumbnailPreview(path, wxSize(220, 220), background);
-    if (thumbnail.decoded) {
-      fixtureImagePreview->SetBitmap(thumbnail.bitmap);
-      fixtureImagePreview->SetToolTip(wxString::FromUTF8(thumbnail.diagnostic));
-    } else {
-      fixtureImagePreview->SetBitmap(CreatePreviewPlaceholder("No image", background));
-      fixtureImagePreview->SetToolTip(thumbnail.diagnostic.empty()
-          ? _("No thumbnail image found in this GDTF.")
-          : wxString::FromUTF8(thumbnail.diagnostic));
-    }
-    Layout();
-  }
+  if (fixtureThumbnailPreview)
+    fixtureThumbnailPreview->SetArchivePath(path);
 }
 
 void FixtureEditDialog::UpdateMetadataSummary() {
@@ -953,7 +912,6 @@ void FixtureEditDialog::ReloadModeChannelDocument() {
   cachedWheelCatalog = gdtf::ReadGdtfWheelCatalog(archive.descriptionXml);
   cachedModeChannelSource = gdtfPath;
 }
-
 
 // Saves the Fixture Edit visual layout preferences on dialog close paths.
 void FixtureEditDialog::SaveLayoutPreferences() {
