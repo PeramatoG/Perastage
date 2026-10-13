@@ -257,7 +257,8 @@ int main(int argc, char **argv) {
       check->SetValue(!check->GetValue());
     for (auto *check : viewerChecks)
       check->SetValue(false);
-    Select(detailChoice, 0);
+    Select(detailChoice, 0, true);
+    assert(viewerChecks[2]->GetValue() && !viewerChecks[2]->IsEnabled());
     renderRadios[4]->SetValue(true);
     for (std::size_t i = 0; i < book->GetPageCount(); ++i)
       book->SetSelection(i);
@@ -306,12 +307,14 @@ int main(int argc, char **argv) {
     assert(preferences.GetValue("viewer3d_invert_orbit") == "0");
     assert(preferences.GetValue("viewer3d_render_style") == "wireframe");
     assert((model_detail::ReadPreferences(preferences) ==
-            model_detail::Preferences{model_detail::Level::Low, false}));
+            model_detail::Preferences{model_detail::Level::Low, true}));
+    assert(preferences.GetValue(model_detail::kMovingProxyConfigKey) == "1");
     SendButton(dialog, wxID_APPLY);
     assert(appliedEvents == 2 && unitEvents == 1 && notices.restartNotices == expectedRestartNotices);
     const auto appliedValues = preferences.values;
     const auto appliedFloats = preferences.floats;
-    Select(detailChoice, 2);
+    Select(detailChoice, 2, true);
+    assert(viewerChecks[2]->GetValue() && viewerChecks[2]->IsEnabled());
     riderFields[0]->ChangeValue("100");
     Select(languageChoice, localizedBuild ? 1 : 0);
     dialog.Hide();
