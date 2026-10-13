@@ -1,3 +1,4 @@
+#include "performance_metrics.h"
 /*
  * This file is part of Perastage.
  * Copyright (C) 2026 Luisma Peramato
@@ -26,6 +27,7 @@ MvrImportProjectApplication::MvrImportProjectApplication(ConfigManager &config)
 // Replaces the active project and migrates fixture-label keys from the result.
 ProjectApplicationResult
 MvrImportProjectApplication::Apply(const MvrImportResult &importResult) const {
+  performance::Scope metric(performance::Work::SceneApply);
   config_.Reset();
   config_.GetScene() = importResult.scene;
 
