@@ -11,6 +11,8 @@ gui/dictionaryeditdialog.cpp|gdtf_dictionary_bundle.zip|resource-path|Stable sug
 gui/dictionaryeditdialog.cpp|truss_dictionary_bundle.zip|resource-path|Stable suggested bundle filename.
 gui/dictionaryeditdialog.cpp|*.gdtf|technical-identifier|Stable file-extension wildcard.
 gui/fixtureeditdialog.cpp|*.gdtf|technical-identifier|Stable file-extension wildcard.
+gui/gdtf/fixture_thumbnail_preview.cpp|SVG|technical-identifier|Locale-independent image-format label shown by the thumbnail format selector.
+gui/gdtf/fixture_thumbnail_preview.cpp|PNG|technical-identifier|Locale-independent image-format label shown by the thumbnail format selector.
 gui/fixturetablepanel.cpp|*.gdtf|technical-identifier|Stable file-extension wildcard.
 gui/mainwindow_fixture_replace.cpp|*.gdtf|technical-identifier|Stable file-extension wildcard.
 gui/mainwindow_io.cpp|*.gdtf|technical-identifier|Stable file-extension wildcard.
