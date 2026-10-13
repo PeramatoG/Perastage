@@ -140,7 +140,7 @@ The normal publisher is retry-safe for the known safe states:
 
 Any other `main` SHA, any tag that peels to a different commit, or any situation requiring a force push is rejected. Tag checks use the peeled commit target (`tag^{commit}`), not the tag object's SHA, because release tags are annotated.
 
-Draft release creation is also idempotent. The publisher checks `gh release view` before creating a release. If no release exists, it creates a draft and attaches only the public final assets. If a matching draft exists, it updates the title, notes, and prerelease state and reuploads assets with `--clobber`. If a non-draft release exists, publication stops rather than editing an already-published release or creating a duplicate.
+Draft release creation is also idempotent. The publisher checks `gh release view` before creating a release. If no release exists, it creates a draft and attaches only the public final assets. If a matching draft exists, it updates the title and prerelease state and reuploads assets with `--clobber`, retaining the existing notes. The recovery workflow also refreshes notes from the validated release commit. If a non-draft release exists, publication stops rather than editing an already-published release or creating a duplicate.
 
 ### Recovering a validated but unpublished minor release
 

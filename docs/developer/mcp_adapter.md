@@ -5,7 +5,7 @@
 `tools/mcp/` contains a small standalone Rust server built with the official
 `rmcp` SDK. It is an external tools adapter, not a Perastage application
 module. It must not link to or import Perastage Core, GUI, scene models,
-MVR/GDTF readers, or local-IPC implementation. Instead, it launches the stable
+MVR/GDTF readers, or local-IPC implementation. Instead, it launches the experimental
 `perastage-cli` executable directly with an argv vector and consumes its JSON,
 exit status, and diagnostic stream. No request is passed through a shell.
 

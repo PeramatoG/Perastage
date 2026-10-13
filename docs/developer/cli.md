@@ -18,7 +18,7 @@ Perastage.
 
 ## Grammar
 
-The stable technical-English interface accepts these forms:
+The current technical-English interface accepts these forms:
 
 ```text
 perastage-cli -h
@@ -199,15 +199,12 @@ The focused MVR 1.5 Support check currently proves required `ChainLength`
 element presence; numeric value-domain validation remains unavailable without
 an applicable official schema.
 
-When the CLI is publicly released, a published machine-facing CLI/schema
-contract will not silently remove, rename, type-change, or semantically
-reinterpret existing behavior. Additive JSON fields remain permitted under the
-rules above; incompatible JSON changes require an explicit schema-version
-change. Incompatible command or exit-code changes require an intentional
-compatibility decision with corresponding documentation and regression tests.
-This policy establishes the compatibility baseline without treating the
-currently uninstalled binary as already shipped or promising stability for
-presentation text.
+The CLI is experimental and does not yet promise a stable public API. The
+versioned machine schemas retain the field and token rules above; incompatible
+JSON changes require an explicit schema-version change. Command or exit-code
+changes require an intentional compatibility decision with corresponding
+documentation and regression tests. These internal contract rules do not
+promise public CLI stability or stable presentation text.
 
 ## Inspection views
 
@@ -267,9 +264,9 @@ or local-IPC implementation. See [MCP adapter](mcp_adapter.md) for its typed
 tool surface and stdio startup contract.
 
 `cli/main.cpp` only adapts process arguments and invokes the independently
-testable standard-C++ runner. CLI sources depend only on public Core inspection
-headers and link the focused GDTF, MVR, resource, and report-serialization
-inspection targets. The semantic work stays in Inspection Core, including its private or
+testable standard-C++ runner. CLI sources consume public Core inspection,
+capability, Command, external-scene workflow and local-IPC boundaries.
+Inspection semantics stay in Inspection Core, including its private or
 transitive reader dependencies. CLI code does not include or directly call MVR
 or GDTF reader implementations. The neutral external-scene workflow composes
 the acquired-package reader, shared Command text processor, headless mutation
@@ -277,11 +274,12 @@ host, and canonical MVR exporter; CLI code owns only grammar, output policy,
 and result formatting.
 
 The command starts no `wxApp`, creates no window, and initializes no App, GUI,
-viewer, ConfigManager, localization, project state, networking, library, or
-credential service. The executable remains a Windows console program and a
-non-bundle macOS executable. It deliberately has no install or packaging rule;
-public distribution remains future work. Because the CLI never owns or loads
-credential storage, user-secret services, or networking state, those contents
+viewer, ConfigManager, localization, application project state, library, or
+credential service. `scene` owns an isolated headless scene; `live` uses only
+the loopback client transport. The executable remains a Windows console program
+and a non-bundle macOS executable, installed in normal release packages through
+`cmake/PerastageInstall.cmake`. Because the CLI never owns or loads
+credential storage, user-secret services, or application networking state, those contents
 cannot enter its output; adding such a dependency is forbidden rather than
 handled by output scrubbing. Reports expose the requested source path and
 archive/XML locations supplied by Inspection Core, but not private temporary
