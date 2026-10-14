@@ -19,4 +19,6 @@ for required_call in 'auiManager->Update()' 'Maximize(true)' 'Show(true)'; do
   fi
 done
 
+"${PERASTAGE_TEST_PYTHON:-python3}" "$repo_root/tests/check_project_gui_publication.py"
+
 echo "OK: MainWindow remains hidden until authoritative startup publication."

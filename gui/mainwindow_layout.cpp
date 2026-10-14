@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "native_gui_publication.h"
 #include "main_toolbar_pane_policy.h"
 #include "startup_profile.h"
 
@@ -460,6 +461,8 @@ void MainWindow::SetupLayout() {
                           .MaximizeButton(true)
                           .Hide());
 
+  gui::InitializeNativeGuiBackgrounds(*this);
+
   // Apply all changes to layout
   auiManager->Update();
 
@@ -545,7 +548,7 @@ void MainWindow::EnforceMainToolbarVisibility() {
 void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
                                    const std::optional<std::string> &perspective,
                                    bool layoutMode,
-                                   bool persistPerspective) {
+                                   bool persistPerspective, bool commitAui) {
   if (!auiManager)
     return;
 
@@ -632,9 +635,11 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
   }
   EnforceMainToolbarVisibility();
 
-  auiManager->Update();
-  if (startupSplashInitializationPending && startupMetrics_)
-    ++startupMetrics_->auiUpdates;
+  if (commitAui) {
+    auiManager->Update();
+    if (startupSplashInitializationPending && startupMetrics_)
+      ++startupMetrics_->auiUpdates;
+  }
 
   if (preset.name == "inspector_view")
     ActivateInspectorIfVisible();
@@ -700,7 +705,8 @@ void MainWindow::ApplySavedLayout() {
   startup::PrepareRequiredViewport(
       preset ? preset->name : viewMode,
       perspective ? &*perspective : nullptr,
-      [this]() { Ensure2DViewport(); }, [this]() { Ensure3DViewport(); });
+      [this]() { Ensure2DViewport(false); },
+      [this]() { Ensure3DViewport(false); });
 
   if (startupMetrics_)
     startupMetrics_->finalViewMode = preset ? preset->name : viewMode;
@@ -708,10 +714,10 @@ void MainWindow::ApplySavedLayout() {
   const bool savedLayoutMode = preset && preset->name == "layout_mode_view";
   bool usedSavedPerspective = false;
   if (preset && perspective) {
-    ApplyLayoutPreset(*preset, perspective, savedLayoutMode, false);
+    ApplyLayoutPreset(*preset, perspective, savedLayoutMode, false, false);
     usedSavedPerspective = true;
   } else if (preset) {
-    ApplyLayoutPreset(*preset, std::nullopt, savedLayoutMode, false);
+    ApplyLayoutPreset(*preset, std::nullopt, savedLayoutMode, false, false);
   }
 
   if (preset && usedSavedPerspective &&
@@ -719,7 +725,7 @@ void MainWindow::ApplySavedLayout() {
     Logger::Instance().Log(
         "Saved layout perspective is incompatible with preset '" +
         preset->name + "'; falling back to default layout.");
-    ApplyLayoutPreset(*preset, std::nullopt, savedLayoutMode, false);
+    ApplyLayoutPreset(*preset, std::nullopt, savedLayoutMode, false, false);
     cfg.RemoveKey("layout_perspective");
     cfg.SaveUserConfig();
   }
@@ -739,6 +745,8 @@ void MainWindow::ApplySavedLayout() {
 
 
   auiManager->Update();
+  if (startupSplashInitializationPending && startupMetrics_)
+    ++startupMetrics_->auiUpdates;
   SendSizeEvent();
   UpdateViewMenuChecks();
 }

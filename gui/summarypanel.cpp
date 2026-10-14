@@ -115,7 +115,9 @@ void SummaryPanel::UpdatePaneCaption(const wxString& suffix) {
         return;
 
     pane.Caption(caption);
-    manager->Update();
+    // A frozen composition is committed by MainWindow after all panel reloads.
+    if (!IsFrozen())
+        manager->Update();
 }
 
 void SummaryPanel::ShowSummary(

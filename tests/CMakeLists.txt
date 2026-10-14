@@ -2978,6 +2978,13 @@ add_executable(startup_profile_test
 target_include_directories(startup_profile_test PRIVATE ../core)
 add_test(NAME StartupProfile COMMAND startup_profile_test)
 
+add_executable(native_gui_publication_test
+               native_gui_publication_test.cpp ../gui/native_gui_publication.cpp)
+target_include_directories(native_gui_publication_test PRIVATE ../gui)
+target_link_libraries(native_gui_publication_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME NativeGuiPublication COMMAND native_gui_publication_test)
+set_tests_properties(NativeGuiPublication PROPERTIES LABELS "gui;startup;integration")
+
 add_executable(layout_view_preset_test
                layout_view_preset_test.cpp
                ../core/layoutviewpresets.cpp)
