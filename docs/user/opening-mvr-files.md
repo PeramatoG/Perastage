@@ -19,6 +19,13 @@ When a fixture type name refers to a different GDTF definition or mode, choose t
 
 Duplicate DMX patch addresses are non-blocking warnings in the Console. Review and correct the patch after merging.
 
+## Layers
+
+Imported layers retain their MVR UUIDs, including unnamed layers and layers with
+the same name. The layer list adds a UUID to labels when needed to distinguish
+these layers. Renaming a layer keeps its objects assigned to it, and export
+preserves the authored layer name independently of that display label.
+
 ## Resources and project storage
 
 Imported GDTFs, symbols and models are retained with project resources so they can be resolved after saving and reopening. Check missing profiles and modes before export; see [GDTF Download](gdtf-download.md) and [Troubleshooting](troubleshooting.md).

@@ -288,7 +288,7 @@ static void VerifyEmptyLayerUuidReceivesGeneratedUuid() {
 }
 
 // Verifies same-name layers with different UUIDs keep current layer state names.
-static void VerifySameLayerNameWithDifferentUuidRenamesIncomingLayer() {
+static void VerifySameLayerNameWithDifferentUuidPreservesBothLayers() {
   MvrScene target;
   target.layers["current-layer"] =
       MakeLayer("current-layer", "Rig", "#0000FF");
@@ -301,14 +301,13 @@ static void VerifySameLayerNameWithDifferentUuidRenamesIncomingLayer() {
 
   const mvr::MvrMergeAnalysis analysis =
       mvr::AnalyzeImportedSceneMerge(target, imported);
-  assert(analysis.incomingLayerNameRenames.at("Rig") == "Rig (Imported)");
   const mvr::MvrSceneMergeResult result =
       mvr::ApplyImportedSceneMerge(target, imported, analysis);
 
   assert(result.layersAdded == 1);
   assert(target.layers.at("current-layer").name == "Rig");
-  assert(target.layers.at("incoming-layer").name == "Rig (Imported)");
-  assert(target.fixtures.at("incoming-fixture").layer == "Rig (Imported)");
+  assert(target.layers.at("incoming-layer").name == "Rig");
+  assert(target.fixtures.at("incoming-fixture").layerUuid == "incoming-layer");
 }
 
 // Verifies Symdef UUID collisions remap Symbol-derived object references.
@@ -597,7 +596,7 @@ int main() {
   VerifyUseCurrentDefinitionDecisionAppliesToIncomingFixtures();
   VerifyRenameIncomingDefinitionDecisionAppliesToIncomingFixtures();
   VerifyEmptyLayerUuidReceivesGeneratedUuid();
-  VerifySameLayerNameWithDifferentUuidRenamesIncomingLayer();
+  VerifySameLayerNameWithDifferentUuidPreservesBothLayers();
   VerifySymdefUuidCollisionWithDifferentGeometryFilesRemapsSymbol();
   VerifyImportedResourcesAreRewrittenIntoTargetBasePath();
   VerifyMergeIntoEmptyBasePathCreatesResourceRoot();

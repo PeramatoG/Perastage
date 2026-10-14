@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "layer_identity.h"
 #include "layerpanel.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
@@ -177,7 +178,7 @@ void LayerPanel::ReloadLayers() {
   int sel = -1;
 
   auto addRow = [&](const layerdomain::LayerEntry &entry) {
-    const bool vis = hidden.find(entry.name) == hidden.end();
+    const bool vis = hidden.find(entry.uuid) == hidden.end();
     wxVector<wxVariant> cols;
     cols.push_back(wxVariant(vis));
     cols.push_back(wxVariant(wxtext::FromUtf8(entry.name)));
@@ -196,7 +197,7 @@ void LayerPanel::ReloadLayers() {
     cols.push_back(wxVariant(icon));
     list->AppendItem(cols);
     rowLayerUuids.push_back(entry.uuid);
-    if (entry.name == current)
+    if (entry.uuid == current)
       sel = idx;
     ++idx;
   };
@@ -326,7 +327,7 @@ void LayerPanel::OnDeleteLayer(wxCommandEvent&)
         return;
     }
     const std::string name = layerIt->second.name;
-    if (name == DEFAULT_LAYER_NAME)
+    if (uuid == layerdomain::DefaultLayerUuid())
     {
         wxMessageBox(_("Cannot delete default layer."), _("Delete Layer"), wxOK | wxICON_ERROR, this);
         return;
@@ -336,7 +337,7 @@ void LayerPanel::OnDeleteLayer(wxCommandEvent&)
     auto contains = [&](const auto &container) {
         for (const auto &[u, obj] : container) {
             (void)u;
-            if (obj.layer == name)
+            if (obj.layerUuid == uuid)
                 return true;
         }
         return false;
@@ -394,7 +395,7 @@ void LayerPanel::OnRenameLayer(wxDataViewEvent &evt) {
     if (uuid.empty() || layerIt == scene.layers.end())
         return;
     const std::string oldName = layerIt->second.name;
-    if (oldName == DEFAULT_LAYER_NAME) {
+    if (uuid == layerdomain::DefaultLayerUuid()) {
         wxMessageBox(_("Cannot rename default layer."), _("Rename Layer"),
                      wxOK | wxICON_ERROR, this);
         return;

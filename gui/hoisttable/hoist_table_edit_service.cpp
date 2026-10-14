@@ -1,3 +1,4 @@
+#include "layer_identity.h"
 #include "hoist_table_edit_service.h"
 
 #include "matrixutils.h"
@@ -140,7 +141,7 @@ Result UpdateSceneData(ISceneAdapter &adapter, const Request &request) {
           adapter.FindDummyProfileByDisplayName(next.dummyPreset);
       next.dummyProfileId = profile.has_value() ? profile->id : "";
     }
-    next.layer = readText(HoistColumn::Layer);
+    layerdomain::PrepareLayerEdit(scene, next, readText(HoistColumn::Layer));
     next.positionName = readText(HoistColumn::HangPosition);
 
     double xMm = old.transform.o[0];
@@ -243,7 +244,7 @@ Result UpdateSceneData(ISceneAdapter &adapter, const Request &request) {
         old.dummyPreset != next.dummyPreset ||
         NormalizeHoistDataSource(old.hoistDataSource) !=
             NormalizeHoistDataSource(next.hoistDataSource) ||
-        old.layer != next.layer || old.positionName != next.positionName ||
+        old.layer != next.layer || old.layerUuid != next.layerUuid || old.positionName != next.positionName ||
         transformChanged || old.chainLength != next.chainLength ||
         !Units::NearlyEqualWeightKilograms(old.capacityKg, next.capacityKg,
                                            0.001) ||
@@ -277,6 +278,7 @@ Result UpdateSceneData(ISceneAdapter &adapter, const Request &request) {
     }
     const Matrix requestedWorldTransform = next.transform;
     next.transform = old.transform;
+    layerdomain::CommitLayerEdit(scene, next);
     it->second = next;
     if (transformChanged)
       scene_node_operations::ApplyExactWorldTransform(

@@ -1,3 +1,4 @@
+#include "layer_identity.h"
 #include "hoist_symbol_renderer.h"
 
 #ifdef _WIN32
@@ -41,7 +42,7 @@ struct RgbColor {
 enum class HoistShape { Ton2, Ton1, TonHalf, TonQuarter, TonEighth };
 
 std::string NormalizedLayerName(const std::string &layer) {
-  return layer.empty() ? std::string(DEFAULT_LAYER_NAME) : layer;
+  return layer.empty() ? std::string(layerdomain::DefaultLayerUuid()) : layer;
 }
 
 bool IsLayerVisible(const std::unordered_set<std::string> &hiddenLayers,
@@ -95,10 +96,9 @@ bool TryParseHexColor(const std::string &hex, RgbColor &out) {
 }
 
 RgbColor ResolveHoistLayerColor(const MvrScene &scene, const Support &support) {
-  const std::string normalizedLayer = NormalizedLayerName(support.layer);
+  const std::string normalizedLayer = NormalizedLayerName(support.layerUuid);
   for (const auto &[layerUuid, layer] : scene.layers) {
-    (void)layerUuid;
-    if (layer.name != normalizedLayer)
+    if (layerUuid != normalizedLayer)
       continue;
     RgbColor parsed;
     if (TryParseHexColor(layer.color, parsed))
@@ -412,7 +412,7 @@ void Render(IRenderContext &renderContext, const RenderFrameContext &context) {
   const MvrScene &scene = ConfigManager::Get().GetScene();
   const auto &supports = scene.supports;
   for (const auto &[uuid, support] : supports) {
-    if (!IsLayerVisible(context.hiddenLayers, support.layer))
+    if (!IsLayerVisible(context.hiddenLayers, support.layerUuid))
       continue;
 
     const RgbColor color = ResolveHoistLayerColor(scene, support);

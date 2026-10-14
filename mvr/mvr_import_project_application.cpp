@@ -12,6 +12,7 @@
 #include "mvr_import_project_application.h"
 
 #include "configmanager.h"
+#include "layer_identity.h"
 #include "fixture_label_overrides.h"
 #include "logger.h"
 #include "mvr_import_types.h"
@@ -30,6 +31,8 @@ MvrImportProjectApplication::Apply(const MvrImportResult &importResult) const {
   performance::Scope metric(performance::Work::SceneApply);
   config_.Reset();
   config_.GetScene() = importResult.scene;
+  layerdomain::EnsureDefaultLayer(config_.GetScene());
+  layerdomain::MigrateLayerMembership(config_.GetScene());
 
   ProjectApplicationResult result;
   result.migratedFixtureLabelOverrides =

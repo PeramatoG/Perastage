@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "layer_identity.h"
 #include "configmanager.h"
 #include "model_detail_policy.h"
 #include "symbols/project_fixture_symbol_migration.h"
@@ -47,6 +48,7 @@
 
 namespace {
 constexpr const char *kHiddenLayersConfigKey = "view_hidden_layers";
+constexpr const char *kCurrentLayerConfigKey = "view_current_layer_uuid";
 
 struct RestoredUserPreference {
   const char *key = nullptr;
@@ -306,7 +308,8 @@ ConfigManager::ConfigManager() {
     SetSceneObjectPrintColumns({"position", "name", "type"});
   ApplyDefaults();
   layouts::LayoutManager::Get().LoadFromConfig(*this);
-  layerVisibilityState.SetCurrentLayer(DEFAULT_LAYER_NAME);
+  layerdomain::EnsureDefaultLayer(projectSession.GetScene());
+  layerVisibilityState.SetCurrentLayer(layerdomain::DefaultLayerUuid());
 }
 
 ConfigManager &ConfigManager::Get() {
@@ -413,16 +416,19 @@ void ConfigManager::SetSceneObjectPrintColumns(
 }
 
 std::unordered_set<std::string> ConfigManager::GetHiddenLayers() const {
-  return layerVisibilityState.GetHiddenLayers();
+  return layerdomain::ResolveLayerStateReferences(
+      GetScene(), layerVisibilityState.GetHiddenLayers());
 }
 
 void ConfigManager::SetHiddenLayers(
     const std::unordered_set<std::string> &layers) {
-  layerVisibilityState.SetHiddenLayers(layers);
+  layerVisibilityState.SetHiddenLayers(
+      layerdomain::ResolveLayerStateReferences(GetScene(), layers));
 }
 
 bool ConfigManager::IsLayerVisible(const std::string &layer) const {
-  return layerVisibilityState.IsLayerVisible(layer);
+  const auto uuid = layerdomain::ResolveLayerReference(GetScene(), layer);
+  return GetHiddenLayers().count(uuid.empty() ? layer : uuid) == 0;
 }
 
 std::unordered_set<std::string> ConfigManager::GetHiddenFixtureTypes() const {
@@ -459,7 +465,9 @@ const std::string &ConfigManager::GetCurrentLayer() const {
 }
 
 void ConfigManager::SetCurrentLayer(const std::string &name) {
-  layerVisibilityState.SetCurrentLayer(name);
+  const auto uuid = layerdomain::ResolveLayerReference(GetScene(), name);
+  layerVisibilityState.SetCurrentLayer(uuid.empty()
+      ? layerdomain::EnsureDefaultLayer(GetScene()).uuid : uuid);
 }
 
 // -- Scene access --
@@ -544,8 +552,9 @@ bool ConfigManager::SaveProject(const std::string &path) {
     return false;
   layouts::LayoutManager::Get().PrepareImageResourcesForSave();
   layouts::LayoutManager::Get().SaveToConfig(*this);
+  SetValue(kCurrentLayerConfigKey, GetCurrentLayer());
   SetValue(kHiddenLayersConfigKey,
-           SerializeHiddenLayerChecks(layerVisibilityState.GetHiddenLayers()));
+           SerializeHiddenLayerChecks(GetHiddenLayers()));
   SetValue(kHiddenFixtureTypesConfigKey,
            SerializeStringSet(GetHiddenFixtureTypes()));
   bool ok = projectSession.SaveProject(
@@ -734,8 +743,10 @@ bool ConfigManager::LoadProject(const std::string &path,
       }
     }
     LogFixtureMetadataNormalization("Project load", normalization);
-    layerVisibilityState.SetHiddenLayers(
+    SetHiddenLayers(
         DeserializeHiddenLayerChecks(GetValue(kHiddenLayersConfigKey)));
+    SetCurrentLayer(GetValue(kCurrentLayerConfigKey).value_or(
+        layerdomain::DefaultLayerUuid()));
     SetHiddenFixtureTypes(
         DeserializeStringSet(GetValue(kHiddenFixtureTypesConfigKey)));
     restoreUserPreferences();
@@ -799,7 +810,8 @@ void ConfigManager::Reset() {
   ApplyDefaults();
   layouts::LayoutManager::Get().ResetToDefault(*this);
   selectionState.Clear();
-  layerVisibilityState.SetCurrentLayer(DEFAULT_LAYER_NAME);
+  layerdomain::EnsureDefaultLayer(projectSession.GetScene());
+  layerVisibilityState.SetCurrentLayer(layerdomain::DefaultLayerUuid());
   ClearHistory();
   projectSession.ResetDirty();
 }

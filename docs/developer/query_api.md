@@ -91,3 +91,9 @@ revision; it must reuse Inspection Core rather than create another validator.
 Query operations never mutate scene or selection state, publish Undo, mark the
 project dirty, or trigger presentation work. Serialization and frontend
 adaptation remain separate from Query execution.
+
+Layer descriptors derive membership from object `layerUuid` ownership across all
+five scene object types, including descendants assigned to that Layer. Legacy
+`Layer::childUUIDs` compatibility lists do not override that ownership. Object and
+group descriptors' `layer_uuid` values are actual Layer identities, independently
+of presentation names. Queries continue to leave the supplied scene unchanged.

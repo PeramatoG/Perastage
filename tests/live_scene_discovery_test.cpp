@@ -8,6 +8,7 @@
 
 namespace {
 using Json = nlohmann::json;
+const std::string kLayerUuid = "c732a105-bca9-4bf3-9e73-70b61e8ecf21";
 
 class RecordingHost final : public perastage::command::ProjectMutationHost {
 public:
@@ -36,7 +37,9 @@ MvrScene BuildScene(bool reverse) {
   fixture.customId = 48;
   fixture.customIdType = 60;
   fixture.address = "2.101";
-  fixture.layer = "layer-a";
+  fixture.layerUuid = kLayerUuid;
+  // This legacy presentation cache must not control discovery or membership.
+  fixture.layer = "stale presentation label";
   fixture.parentGroupUuid = "group-a";
   fixture.transform = MatrixUtils::Identity();
   Fixture second = fixture;
@@ -49,6 +52,7 @@ MvrScene BuildScene(bool reverse) {
   truss.uuid = "truss-a";
   truss.name = "Front truss";
   truss.layer = fixture.layer;
+  truss.layerUuid = fixture.layerUuid;
   truss.unitNumber = 7;
   truss.transform = MatrixUtils::Identity();
   scene.trusses.emplace(truss.uuid, truss);
@@ -56,12 +60,14 @@ MvrScene BuildScene(bool reverse) {
   support.uuid = "support-a";
   support.name = "Front motor";
   support.layer = fixture.layer;
+  support.layerUuid = fixture.layerUuid;
   support.transform = MatrixUtils::Identity();
   scene.supports.emplace(support.uuid, support);
   SceneObject object;
   object.uuid = "object-a";
   object.name = "Riser";
   object.layer = fixture.layer;
+  object.layerUuid = fixture.layerUuid;
   object.modelFile = "riser.glb";
   object.fixtureIdText = "Scenic-A";
   object.fixtureIdNumeric = 17;
@@ -71,11 +77,12 @@ MvrScene BuildScene(bool reverse) {
   group.uuid = "group-a";
   group.name = "Blinders";
   group.layer = fixture.layer;
+  group.layerUuid = fixture.layerUuid;
   group.children = {{MvrNodeType::Fixture, second.uuid},
                     {MvrNodeType::Fixture, fixture.uuid}};
   scene.groupObjects.emplace(group.uuid, group);
   Layer layer;
-  layer.uuid = fixture.layer;
+  layer.uuid = fixture.layerUuid;
   layer.name = "Front";
   layer.color = "#123456";
   layer.childUUIDs = {truss.uuid, fixture.uuid, support.uuid, object.uuid,
@@ -124,7 +131,7 @@ int main() {
   assert(fixture["name"] == "Blinder \"Front\"" &&
          fixture["type_name"] == "LED Blinder");
   assert(fixture["resource"] == "Vendor@LED_Blinder.gdtf");
-  assert(fixture["layer"] == "layer-a" && fixture["parent_group"] == "group-a");
+  assert(fixture["layer"] == kLayerUuid && fixture["parent_group"] == "group-a");
   assert(fixture["fixture_id_text"] == "FOH-A" && fixture["fixture_id"] == 12);
   assert(fixture["fixture_id_numeric"] == 24 && fixture["unit_number"] == 36);
   assert(fixture["custom_id"] == 48 && fixture["custom_id_type"] == 60);
@@ -134,6 +141,7 @@ int main() {
   assert(found["ok"] == true && found["result"]["object"] == fixture);
   assert(found["result"]["diagnostics"].empty());
   for (const auto &object : objects) {
+    assert(object["layer"] == kLayerUuid);
     const auto lookup = Query("scene.object.get", context,
                               {{"kind", object["kind"]}, {"uuid", object["uuid"]}});
     assert(lookup["ok"] == true && lookup["result"]["object"] == object);
@@ -156,9 +164,20 @@ int main() {
   assert(layers == Query("scene.layers.list", other));
   assert(layers["result"]["layers"].size() == 1);
   assert(layers["result"]["layers"][0]["name"] == "Front");
-  assert(layers["result"]["layers"][0]["members"].size() == 5);
+  assert(layers["result"]["layers"][0]["uuid"] == kLayerUuid);
+  const auto &members = layers["result"]["layers"][0]["members"];
+  assert(members.size() == 6);
+  // UUID ownership includes fixture-z even though the legacy child list omits it.
+  for (const auto &object : objects) {
+    bool foundMember = false;
+    for (const auto &member : members)
+      if (member["kind"] == object["kind"] && member["uuid"] == object["uuid"])
+        foundMember = true;
+    assert(foundMember);
+  }
   const auto groups = Query("scene.groups.list", context);
   assert(groups == Query("scene.groups.list", other));
+  assert(groups["result"]["groups"][0]["layer"] == kLayerUuid);
   assert(groups["result"]["groups"][0]["children"][0]["uuid"] == "fixture-a");
   assert(Query("scene.summary", context)["result"]["fixtures"] == 2);
   assert(Query("scene.selection.get", context)["result"]["objects"].size() == 5);

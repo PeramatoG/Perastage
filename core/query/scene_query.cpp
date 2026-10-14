@@ -91,7 +91,7 @@ std::vector<ObjectDescriptor> ListObjects(const MvrScene &scene) {
   for (const auto &[uuid, value] : scene.fixtures) {
     ObjectDescriptor descriptor{
         scene_identity::ObjectKind::Fixture, uuid, value.instanceName,
-        value.layer, value.parentGroupUuid, value.typeName, value.gdtfSpec};
+        value.layerUuid, value.parentGroupUuid, value.typeName, value.gdtfSpec};
     descriptor.fixtureIdText = value.fixtureIdText;
     descriptor.fixtureId = value.fixtureId;
     descriptor.fixtureIdNumeric = value.fixtureIdNumeric;
@@ -104,7 +104,7 @@ std::vector<ObjectDescriptor> ListObjects(const MvrScene &scene) {
   }
   for (const auto &[uuid, value] : scene.trusses) {
     ObjectDescriptor descriptor{
-        scene_identity::ObjectKind::Truss, uuid, value.name, value.layer,
+        scene_identity::ObjectKind::Truss, uuid, value.name, value.layerUuid,
         value.parentGroupUuid, value.model, value.gdtfSpec};
     descriptor.unitNumber = value.unitNumber;
     descriptor.customId = value.customId;
@@ -114,7 +114,7 @@ std::vector<ObjectDescriptor> ListObjects(const MvrScene &scene) {
   }
   for (const auto &[uuid, value] : scene.supports) {
     ObjectDescriptor descriptor{
-        scene_identity::ObjectKind::Support, uuid, value.name, value.layer,
+        scene_identity::ObjectKind::Support, uuid, value.name, value.layerUuid,
         value.parentGroupUuid, value.hoistFunction, value.gdtfSpec};
     descriptor.gdtfMode = value.gdtfMode;
     result.push_back(std::move(descriptor));
@@ -123,7 +123,7 @@ std::vector<ObjectDescriptor> ListObjects(const MvrScene &scene) {
     ObjectDescriptor descriptor{scene_identity::ObjectKind::SceneObject,
                                 uuid,
                                 value.name,
-                                value.layer,
+                                value.layerUuid,
                                 value.parentGroupUuid,
                                 {},
                                 value.GetPrimaryModel()};
@@ -135,7 +135,7 @@ std::vector<ObjectDescriptor> ListObjects(const MvrScene &scene) {
     result.push_back({scene_identity::ObjectKind::Group,
                       uuid,
                       value.name,
-                      value.layer,
+                      value.layerUuid,
                       value.parentGroupUuid,
                       {},
                       {}});
@@ -168,9 +168,14 @@ std::vector<LayerDescriptor> ListLayers(const MvrScene &scene) {
   std::vector<LayerDescriptor> result;
   for (const auto &[uuid, layer] : scene.layers) {
     LayerDescriptor descriptor{uuid, layer.name, layer.color, {}};
-    for (const std::string &child : layer.childUUIDs)
-      if (const auto reference = FindReference(scene, child))
-        descriptor.members.push_back(*reference);
+    auto collect = [&](const auto &objects) {
+      for (const auto &[child, object] : objects)
+        if (object.layerUuid == uuid)
+          if (const auto reference = FindReference(scene, child))
+            descriptor.members.push_back(*reference);
+    };
+    collect(scene.fixtures); collect(scene.trusses); collect(scene.supports);
+    collect(scene.sceneObjects); collect(scene.groupObjects);
     std::sort(descriptor.members.begin(), descriptor.members.end(),
               ReferenceLess);
     descriptor.members.erase(
@@ -188,7 +193,7 @@ std::vector<GroupDescriptor> ListGroups(const MvrScene &scene) {
   std::vector<GroupDescriptor> result;
   for (const auto &[uuid, group] : scene.groupObjects) {
     GroupDescriptor descriptor{
-        uuid, group.name, group.layer, group.parentGroupUuid, {}};
+        uuid, group.name, group.layerUuid, group.parentGroupUuid, {}};
     for (const GroupObjectChildRef &child : group.children)
       descriptor.children.push_back({ToObjectKind(child.type), child.uuid});
     std::sort(descriptor.children.begin(), descriptor.children.end(),

@@ -2505,38 +2505,26 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
             .ToStdString());
   };
 
-  std::string defaultLayerUuid;
-  std::string defaultLayerName = DEFAULT_LAYER_NAME;
   for (const auto &[layerUuid, layer] : scene.layers) {
-    if (layer.name == DEFAULT_LAYER_NAME) {
-      defaultLayerUuid = layerUuid;
-      if (!layer.name.empty())
-        defaultLayerName = layer.name;
-    }
-  }
-
-  for (const auto &[layerUuid, layer] : scene.layers) {
-    if (layer.name == DEFAULT_LAYER_NAME)
-      continue;
     const std::string exportLayerUuid =
         layerUuid.empty() ? std::string{} : preparation.layerUuids.at(layerUuid);
     tinyxml2::XMLElement *childList =
         mvr_xml_serialization::CreateChildList(doc);
 
     for (const auto &[uid, group] : scene.groupObjects) {
-      if (group.layer != layer.name || !group.parentGroupUuid.empty())
+      if (group.layerUuid != layerUuid || !group.parentGroupUuid.empty())
         continue;
       exportGroupObject(exportGroupObject, childList, group);
     }
 
     for (const auto &[uid, f] : scene.fixtures) {
-      if (f.layer != layer.name || !f.parentGroupUuid.empty())
+      if (f.layerUuid != layerUuid || !f.parentGroupUuid.empty())
         continue;
       exportFixture(childList, f);
     }
 
     for (const auto &[uid, t] : scene.trusses) {
-      if (t.layer != layer.name)
+      if (t.layerUuid != layerUuid)
         continue;
       if (!t.parentGroupUuid.empty())
         continue;
@@ -2544,13 +2532,13 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     }
 
     for (const auto &[uid, s] : scene.supports) {
-      if (s.layer != layer.name || !s.parentGroupUuid.empty())
+      if (s.layerUuid != layerUuid || !s.parentGroupUuid.empty())
         continue;
       exportSupport(childList, s);
     }
 
     for (const auto &[uid, obj] : scene.sceneObjects) {
-      if (obj.layer != layer.name || !obj.parentGroupUuid.empty())
+      if (obj.layerUuid != layerUuid || !obj.parentGroupUuid.empty())
         continue;
       if (!exportSceneObject(childList, obj))
         sceneObjectExportFailed = true;
@@ -2560,48 +2548,9 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
         doc, layersNode, {exportLayerUuid, layer.name}, childList);
   }
 
-  // Objects with no layer
-  tinyxml2::XMLElement *rootChildList = mvr_xml_serialization::CreateChildList(doc);
-  for (const auto &[uid, group] : scene.groupObjects) {
-    if (!(group.layer == DEFAULT_LAYER_NAME || group.layer.empty()) ||
-        !group.parentGroupUuid.empty())
-      continue;
-    exportGroupObject(exportGroupObject, rootChildList, group);
-  }
-  for (const auto &[uid, f] : scene.fixtures) {
-    if ((f.layer == DEFAULT_LAYER_NAME || f.layer.empty()) &&
-        f.parentGroupUuid.empty())
-      exportFixture(rootChildList, f);
-  }
-  for (const auto &[uid, t] : scene.trusses) {
-    if ((t.layer == DEFAULT_LAYER_NAME || t.layer.empty()) &&
-        t.parentGroupUuid.empty())
-      exportTruss(rootChildList, t);
-  }
-  for (const auto &[uid, s] : scene.supports) {
-    if ((s.layer == DEFAULT_LAYER_NAME || s.layer.empty()) &&
-        s.parentGroupUuid.empty())
-      exportSupport(rootChildList, s);
-  }
-  for (const auto &[uid, obj] : scene.sceneObjects) {
-    if ((obj.layer == DEFAULT_LAYER_NAME || obj.layer.empty()) &&
-        obj.parentGroupUuid.empty())
-      if (!exportSceneObject(rootChildList, obj))
-        sceneObjectExportFailed = true;
-  }
   if (hierarchyRecursionDetected || sceneObjectExportFailed ||
-      fatalTrussGdtfGenerationFailure) {
+      fatalTrussGdtfGenerationFailure)
     return false;
-  }
-  if (rootChildList->FirstChild()) {
-    const std::string exportDefaultLayerUuid =
-        defaultLayerUuid.empty()
-            ? std::string{}
-            : preparation.layerUuids.at(defaultLayerUuid);
-    mvr_xml_serialization::AppendLayer(
-        doc, layersNode, {exportDefaultLayerUuid, defaultLayerName},
-        rootChildList);
-  }
 
   if (!fixtureTypeMetadata.empty()) {
     tinyxml2::XMLElement *rootPerastageDataForFixtures =

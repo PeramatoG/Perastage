@@ -265,7 +265,7 @@ nlohmann::json SceneToHashJson(const MvrScene &scene) {
   auto fixtures = nlohmann::json::array();
   for (const auto &[uuid, fixture] : std::map<std::string, Fixture>(
            scene.fixtures.begin(), scene.fixtures.end())) {
-    fixtures.push_back({uuid, fixture.layer, fixture.instanceName,
+    fixtures.push_back({uuid, fixture.layerUuid, fixture.instanceName,
                         fixture.typeName, fixture.gdtfSpec, fixture.gdtfMode,
                         fixture.visualColorHex,
                         MatrixToJson(fixture.transform)});
@@ -273,13 +273,13 @@ nlohmann::json SceneToHashJson(const MvrScene &scene) {
   auto trusses = nlohmann::json::array();
   for (const auto &[uuid, truss] : std::map<std::string, Truss>(
            scene.trusses.begin(), scene.trusses.end())) {
-    trusses.push_back({uuid, truss.layer, truss.name, truss.symbolFile,
+    trusses.push_back({uuid, truss.layerUuid, truss.name, truss.symbolFile,
                        truss.modelFile, MatrixToJson(truss.transform)});
   }
   auto supports = nlohmann::json::array();
   for (const auto &[uuid, support] : std::map<std::string, Support>(
            scene.supports.begin(), scene.supports.end())) {
-    supports.push_back({uuid, support.layer, support.name,
+    supports.push_back({uuid, support.layerUuid, support.name,
                         support.hoistFunction,
                         MatrixToJson(support.transform)});
   }
@@ -291,7 +291,7 @@ nlohmann::json SceneToHashJson(const MvrScene &scene) {
       geometries.push_back(
           {geometry.modelFile, MatrixToJson(geometry.localTransform)});
     }
-    objects.push_back({uuid, object.layer, object.name, object.modelFile,
+    objects.push_back({uuid, object.layerUuid, object.name, object.modelFile,
                        MatrixToJson(object.transform), geometries});
   }
   json["fixtures"] = fixtures;

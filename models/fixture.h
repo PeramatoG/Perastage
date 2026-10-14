@@ -47,7 +47,8 @@ struct Fixture {
     std::string gdtfMode;         // GDTF mode name (optional)
     std::string focus;            // Focus reference UUID (optional)
     std::string function;         // Function string (optional)
-    std::string layer;            // Layer to which the fixture belongs
+    std::string layer; // Derived presentation/legacy compatibility label.
+    std::string layerUuid; // Authoritative persistent Layer ownership.
 
     std::string position;         // Position reference UUID or raw vector (if applicable)
     std::string positionName;     // Resolved position name if available

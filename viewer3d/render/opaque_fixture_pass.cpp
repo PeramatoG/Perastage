@@ -693,7 +693,7 @@ void OpaqueFixturePass::Render(
       b = 0.2f;
     }
     if (mode == Viewer2DRenderMode::Wireframe) {
-      auto c = getLayerColor(f.layer);
+      auto c = getLayerColor(f.layerUuid);
       r = c[0];
       g = c[1];
       b = c[2];
@@ -703,7 +703,7 @@ void OpaqueFixturePass::Render(
       g = c[1];
       b = c[2];
     } else if (mode == Viewer2DRenderMode::ByLayer) {
-      auto c = getLayerColor(f.layer);
+      auto c = getLayerColor(f.layerUuid);
       r = c[0];
       g = c[1];
       b = c[2];

@@ -96,7 +96,6 @@ struct MvrMergeAnalysis {
       fixtureTypeDecisions;
   std::unordered_map<std::string, std::string> incomingFixtureTypeRenames;
   std::unordered_map<std::string, std::string> layerUuidMap;
-  std::unordered_map<std::string, std::string> incomingLayerNameRenames;
   std::unordered_set<std::string> skippedIncomingLayerUuids;
   std::size_t uuidCollisionsDetected = 0;
   std::size_t uuidCollisionsResolved = 0;

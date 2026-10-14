@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "layer_identity.h"
 #include "mvr_merge_applier.h"
 
 #include "mvr_merge_resource_rewriter.h"
@@ -95,18 +96,18 @@ std::size_t MergeObjectTable(std::unordered_map<std::string, T> &target,
   return added;
 }
 
-// Applies imported layer name remaps to object layer references.
+// Applies the prepared Layer UUID remap to object ownership.
 template <typename T>
-void RemapObjectLayerNames(std::unordered_map<std::string, T> &objects,
+void RemapObjectLayerUuids(std::unordered_map<std::string, T> &objects,
                            const MvrMergeAnalysis &analysis) {
   for (auto &[uuid, object] : objects) {
-    const auto renameIt = analysis.incomingLayerNameRenames.find(object.layer);
-    if (renameIt != analysis.incomingLayerNameRenames.end())
-      object.layer = renameIt->second;
+    const auto layerIt = analysis.layerUuidMap.find(object.layerUuid);
+    if (layerIt != analysis.layerUuidMap.end())
+      object.layerUuid = layerIt->second;
   }
 }
 
-// Adds imported layers after applying layer-specific UUID and name rules.
+// Adds imported layers after applying layer-specific UUID rules.
 std::size_t
 MergeLayerTable(std::unordered_map<std::string, Layer> &target,
                 const std::unordered_map<std::string, Layer> &imported,
@@ -121,9 +122,7 @@ MergeLayerTable(std::unordered_map<std::string, Layer> &target,
                                          : uuidIt->second;
     Layer merged = layer;
     merged.uuid = resolvedUuid;
-    const auto renameIt = analysis.incomingLayerNameRenames.find(merged.name);
-    if (renameIt != analysis.incomingLayerNameRenames.end())
-      merged.name = renameIt->second;
+
     target[resolvedUuid] = std::move(merged);
     ++added;
   }
@@ -200,11 +199,11 @@ void RemapImportedReferences(MvrScene &scene,
       child.uuid = RemapImportedUuidReference(child.uuid, analysis);
   }
 
-  RemapObjectLayerNames(scene.fixtures, analysis);
-  RemapObjectLayerNames(scene.trusses, analysis);
-  RemapObjectLayerNames(scene.supports, analysis);
-  RemapObjectLayerNames(scene.sceneObjects, analysis);
-  RemapObjectLayerNames(scene.groupObjects, analysis);
+  RemapObjectLayerUuids(scene.fixtures, analysis);
+  RemapObjectLayerUuids(scene.trusses, analysis);
+  RemapObjectLayerUuids(scene.supports, analysis);
+  RemapObjectLayerUuids(scene.sceneObjects, analysis);
+  RemapObjectLayerUuids(scene.groupObjects, analysis);
 
   for (auto &[uuid, layer] : scene.layers) {
     for (auto &childUuid : layer.childUUIDs)
@@ -229,7 +228,9 @@ MvrSceneMergeResult ApplyImportedSceneMerge(MvrScene &target,
   result.fixtureUuidRemap = analysis.fixtureUuidRemap;
 
   EnsureMergeResourceBasePath(target, imported);
+  layerdomain::MigrateLayerMembership(target);
   MvrScene importedCopy = imported;
+  layerdomain::MigrateLayerMembership(importedCopy);
   RewriteImportedSceneResourceReferences(target, importedCopy);
   ApplyFixtureTypeDecisions(importedCopy, analysis);
   RemapImportedReferences(importedCopy, analysis);
@@ -266,6 +267,7 @@ MvrSceneMergeResult ApplyImportedSceneMerge(MvrScene &target,
     target.provider = imported.provider;
   if (target.providerVersion.empty())
     target.providerVersion = imported.providerVersion;
+  layerdomain::MigrateLayerMembership(target);
   return result;
 }
 

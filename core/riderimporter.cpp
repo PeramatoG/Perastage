@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "layer_identity.h"
 #include "riderimporter.h"
 #include "filesystem_path_utils.h"
 #include "rider_text_semantics.h"
@@ -2018,7 +2019,7 @@ bool RiderImporter::ImportText(const std::string &text,
   std::unordered_map<std::string, Layer *> layerLookup;
   layerLookup.reserve(scene.layers.size() + 4);
   for (auto &[id, layer] : scene.layers)
-    layerLookup.emplace(layer.name, &layer);
+    layerLookup.emplace(layerdomain::PresentationName(scene, id), &layer);
 
   auto addToLayer = [&](const std::string &lname, const std::string &uid,
                         const std::string &layerColor = std::string()) {
@@ -2029,7 +2030,7 @@ bool RiderImporter::ImportText(const std::string &text,
       layerPtr = it->second;
     } else {
       Layer l;
-      l.uuid = name == DEFAULT_LAYER_NAME ? "layer_default" : GenerateUuid();
+      l.uuid = name == DEFAULT_LAYER_NAME ? layerdomain::DefaultLayerUuid() : GenerateUuid();
       l.name = name;
       l.color = layerColor;
       auto [insertedIt, inserted] = scene.layers.emplace(l.uuid, std::move(l));
@@ -2040,6 +2041,12 @@ bool RiderImporter::ImportText(const std::string &text,
       layerPtr->color = layerColor;
     }
     layerPtr->childUUIDs.push_back(uid);
+    auto assign = [&](auto &objects) {
+      if (auto object = objects.find(uid); object != objects.end())
+        object->second.layerUuid = layerPtr->uuid;
+    };
+    assign(scene.fixtures); assign(scene.trusses); assign(scene.supports);
+    assign(scene.sceneObjects); assign(scene.groupObjects);
   };
 
   std::istringstream iss(textToImport);
@@ -3989,19 +3996,8 @@ bool RiderImporter::ImportText(const std::string &text,
   AddRiderImportPhaseTime(timing, "assign fixture identities",
                           identityStartedAt);
 
-  bool hasDefaultLayer = false;
-  for (const auto &[uid, layer] : scene.layers) {
-    if (layer.name == DEFAULT_LAYER_NAME) {
-      hasDefaultLayer = true;
-      break;
-    }
-  }
-  if (!hasDefaultLayer) {
-    Layer l;
-    l.uuid = "layer_default";
-    l.name = DEFAULT_LAYER_NAME;
-    scene.layers[l.uuid] = l;
-  }
+  layerdomain::EnsureDefaultLayer(scene);
+  layerdomain::MigrateLayerMembership(scene);
 
   auto autoPref = cfg.GetValue("rider_autopatch");
   if (!autoPref || *autoPref != "0") {

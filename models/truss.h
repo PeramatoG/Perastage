@@ -48,7 +48,8 @@ struct Truss {
     std::string symbolFile; // 3D geometry file referenced by the Symbol
     std::string modelFile;  // Original model archive (.gtruss) if available
     std::string function;
-    std::string layer;
+    std::string layer; // Derived presentation/legacy compatibility label.
+    std::string layerUuid; // Authoritative persistent Layer ownership.
 
     // Metadata fields
     std::string manufacturer;

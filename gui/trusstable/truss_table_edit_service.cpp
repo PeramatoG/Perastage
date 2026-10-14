@@ -1,3 +1,4 @@
+#include "layer_identity.h"
 #include "truss_table_edit_service.h"
 
 #include "../resource_reference_sync.h"
@@ -90,7 +91,7 @@ Result UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     table->GetValue(value, row, ColumnIndex(TrussColumn::Name));
     next.name = std::string(value.GetString().mb_str());
     table->GetValue(value, row, ColumnIndex(TrussColumn::Layer));
-    next.layer = std::string(value.GetString().mb_str());
+    layerdomain::PrepareLayerEdit(scene, next, std::string(value.GetString().mb_str()));
 
     if (row < symbolPaths.size())
       next.symbolFile = gui::PreserveSceneResourceReferenceForTableSync(
@@ -196,7 +197,7 @@ Result UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     const bool weightChanged = !Units::NearlyEqualWeightKilograms(
         old.weightKg, next.weightKg, 0.001);
     const bool hangPositionChanged = old.positionName != next.positionName;
-    const bool trussChanged =
+    const bool rowChanged =
         old.name != next.name || old.layer != next.layer ||
         old.modelFile != next.modelFile || old.symbolFile != next.symbolFile ||
         hangPositionChanged || transformChanged ||
@@ -211,6 +212,7 @@ Result UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
         old.hasManualLoadOverride != next.hasManualLoadOverride ||
         !Units::NearlyEqualWeightKilograms(old.manualLoadKg, next.manualLoadKg,
                                            0.001);
+    const bool trussChanged = rowChanged || old.layerUuid != next.layerUuid;
 
     if (trussChanged) {
       pushUndoIfNeeded();
@@ -223,6 +225,7 @@ Result UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
       }
       const Matrix requestedWorldTransform = next.transform;
       next.transform = old.transform;
+      layerdomain::CommitLayerEdit(scene, next);
       it->second = next;
       if (transformChanged)
         scene_node_operations::ApplyExactWorldTransform(
@@ -235,7 +238,8 @@ Result UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
 
     const Truss &canonicalSource = trussChanged ? it->second : old;
     const std::string key = MakeTypeKey(canonicalSource);
-    if (trussChanged || !dimensionsByType.contains(key)) {
+    // Ownership migration must not replace the physical source for a type.
+    if (rowChanged || !dimensionsByType.contains(key)) {
       dimensionsByType[key] = {canonicalSource.lengthMm,
                                canonicalSource.widthMm,
                                canonicalSource.heightMm,

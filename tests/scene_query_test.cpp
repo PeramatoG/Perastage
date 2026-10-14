@@ -15,7 +15,7 @@ MvrScene BuildScene(bool reverse) {
   a.instanceName = "A";
   a.typeName = "Wash";
   a.gdtfSpec = "wash.gdtf";
-  a.layer = "layer";
+  a.layerUuid = "layer";
   a.address = "1.10";
   a.gdtfMode = "10";
   a.fixtureIdText = "FOH-101";
@@ -29,7 +29,7 @@ MvrScene BuildScene(bool reverse) {
   b.instanceName = "B";
   b.typeName = "Spot";
   b.gdtfSpec = "spot.gdtf";
-  b.layer = "layer";
+  b.layerUuid = "layer";
   b.parentGroupUuid = "group-child";
   b.address = "1.15";
   b.gdtfMode = "8";
@@ -43,7 +43,7 @@ MvrScene BuildScene(bool reverse) {
   Truss truss;
   truss.uuid = "truss";
   truss.name = "Truss";
-  truss.layer = "layer";
+  truss.layerUuid = "layer";
   truss.model = "H30V";
   truss.gdtfSpec = "truss.gdtf";
   truss.gdtfMode = "Default";
@@ -53,13 +53,13 @@ MvrScene BuildScene(bool reverse) {
   Support support;
   support.uuid = "support";
   support.name = "Hoist";
-  support.layer = "layer";
+  support.layerUuid = "layer";
   support.gdtfSpec = "motor.gdtf";
   support.gdtfMode = "Motor";
   SceneObject object;
   object.uuid = "object";
   object.name = "Podium";
-  object.layer = "layer";
+  object.layerUuid = "layer";
   object.modelFile = "podium.3ds";
   object.fixtureIdText = "PODIUM-1";
   object.fixtureIdNumeric = 601;
@@ -69,13 +69,13 @@ MvrScene BuildScene(bool reverse) {
   GroupObject child;
   child.uuid = "group-child";
   child.name = "Child";
-  child.layer = "layer";
+  child.layerUuid = "layer";
   child.parentGroupUuid = "group-root";
   child.children = {{MvrNodeType::Fixture, "fixture-b"}};
   GroupObject root;
   root.uuid = "group-root";
   root.name = "Root";
-  root.layer = "layer";
+  root.layerUuid = "layer";
   root.children = {{MvrNodeType::GroupObject, "group-child"},
                    {MvrNodeType::Fixture, "fixture-a"}};
   scene.groupObjects.emplace(child.uuid, child);
@@ -191,7 +191,7 @@ int main() {
          perastage::query::ListObjects(scene) == objects);
 
   const auto layers = perastage::query::ListLayers(scene);
-  assert(layers.size() == 1 && layers.front().members.size() == 4);
+  assert(layers.size() == 1 && layers.front().members.size() == 7);
   const auto groups = perastage::query::ListGroups(scene);
   assert(groups.size() == 2 && groups.front().parentGroupUuid == "group-root");
   assert(groups.back().children.size() == 2);

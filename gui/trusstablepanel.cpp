@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "layer_identity.h"
 #include "trusstablepanel.h"
 #include "dataview_deferred_selection_guard.h"
 #include "dataview_sort_profiles.h"
@@ -60,7 +61,6 @@
 #include <wx/choicdlg.h>
 #include <wx/wupdlock.h> // freeze/thaw UI during batch edits
 #include <wx/version.h>
-
 static TrussTablePanel* s_instance = nullptr;
 namespace fs = std::filesystem;
 
@@ -379,7 +379,7 @@ void TrussTablePanel::ReloadData() {
         wxVector<wxVariant> row;
 
         wxString name = wxString::FromUTF8(truss.name);
-        wxString layer = truss.layer == DEFAULT_LAYER_NAME ? wxString()
+        wxString layer = truss.layerUuid == layerdomain::DefaultLayerUuid() ? wxString()
                                                             : wxString::FromUTF8(truss.layer);
         std::string displayPath;
         std::string symbolFullPath;

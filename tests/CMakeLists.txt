@@ -4211,3 +4211,24 @@ if(BASH_EXECUTABLE)
       ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer3d_performance_boundary.sh
       LABELS architecture viewer3d performance)
 endif()
+
+# Shared Layer identity ownership for direct-source scene consumers.
+get_property(LAYER_DOMAIN_TESTS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(layer_test IN LISTS LAYER_DOMAIN_TESTS)
+  get_target_property(layer_type ${layer_test} TYPE)
+  if(layer_type STREQUAL "EXECUTABLE" OR layer_type STREQUAL "OBJECT_LIBRARY")
+    target_link_libraries(${layer_test} PRIVATE perastage_layer_identity)
+  endif()
+endforeach()
+
+# Reuse the established application import/export test adapters for Layer regressions.
+target_sources(mvr_exporter_compliance_test PRIVATE
+    mvr_layer_uuid_identity_test_support.cpp
+    mvr_exporter_geometry_test_support.cpp)
+target_link_libraries(mvr_exporter_compliance_test PRIVATE perastage_inspection_validation)
+add_test(NAME MvrLayerUuidIdentity COMMAND mvr_exporter_compliance_test layer-uuid)
+set_tests_properties(MvrLayerUuidIdentity PROPERTIES LABELS "standard-strict;mvr;layers;project"
+    ENVIRONMENT "PERASTAGE_LIBRARY_PATH=${PERASTAGE_TEST_LIBRARY_PATH}")
+if(BASH_EXECUTABLE)
+  add_bash_policy_test(LayerUuidIdentityBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layer_uuid_identity_boundary.sh)
+endif()

@@ -272,19 +272,6 @@ bool LayerValuesEqual(const Layer &current, const Layer &incoming) {
          current.childUUIDs == incoming.childUUIDs;
 }
 
-// Builds an imported layer name that does not shadow current layer state.
-std::string BuildUniqueImportedLayerName(
-    const std::string &layerName,
-    const std::unordered_set<std::string> &reservedLayerNames) {
-  const std::string base = !TrimAscii(layerName).empty()
-                               ? TrimAscii(layerName)
-                               : "Imported layer";
-  std::string candidate = base + " (Imported)";
-  int suffix = 2;
-  while (reservedLayerNames.contains(candidate))
-    candidate = base + " (Imported " + std::to_string(suffix++) + ")";
-  return candidate;
-}
 
 // Derives an unused deterministic replacement UUID.
 std::string
@@ -402,15 +389,11 @@ void PrepareSymdefLookupTables(const MvrScene &target, const MvrScene &imported,
   }
 }
 
-// Prepares layer UUID and name remaps without changing current layer names.
+// Prepares Layer UUID remaps; equal authored names remain independent.
 void PrepareLayerTable(const MvrScene &target, const MvrScene &imported,
                        std::unordered_set<std::string> &usedUuids,
                        MvrMergeAnalysis &analysis,
                        const MvrMergeOptions &options) {
-  std::unordered_set<std::string> reservedLayerNames;
-  for (const auto &[uuid, layer] : target.layers)
-    reservedLayerNames.insert(layer.name);
-
   for (const auto &uuid : SortedUuidKeys(imported.layers)) {
     const Layer &incoming = imported.layers.at(uuid);
     std::string resolvedUuid = uuid;
@@ -437,19 +420,6 @@ void PrepareLayerTable(const MvrScene &target, const MvrScene &imported,
 
     if (keepIncoming)
       analysis.layerUuidMap[uuid] = resolvedUuid;
-
-    if (!keepIncoming)
-      continue;
-    if (reservedLayerNames.contains(incoming.name) &&
-        (targetIt == target.layers.end() || resolvedUuid != uuid)) {
-      const std::string renamed =
-          BuildUniqueImportedLayerName(incoming.name, reservedLayerNames);
-      analysis.incomingLayerNameRenames[incoming.name] = renamed;
-      reservedLayerNames.insert(renamed);
-      ++analysis.nonObjectLookupConflictsResolved;
-    } else {
-      reservedLayerNames.insert(incoming.name);
-    }
   }
 }
 

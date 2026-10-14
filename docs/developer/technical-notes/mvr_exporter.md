@@ -119,3 +119,13 @@ Perastage can now request an advertised MVR revision from a compatible MVR-xchan
 The dialog lists advertised remote revisions from the discovered station list so the user can choose the exact MVR file to request. Publishing still uses `MVR_COMMIT` announcements, while requesting/importing keeps the MVR payload unchanged and relies on the existing importer for project integration. After a payload is received, Perastage shows the normal import choice so users can open it as a new project or merge it into the current project.
 
 Perastage binds the mDNS responder to the interface selected for the advertised MVR-xchange address. When multiple adapters exist on the same computer, select the same network interface in Perastage and the peer application so service discovery and TCP file exchange use the same local link.
+
+## Layer ownership and recovery
+
+The serializer selects children by `layerUuid` and serializes every stored Layer
+UUID/name independently, including unnamed and equal-named layers. It uses the
+same path for the application default Layer. Import and legacy project loading
+repair identities in editable state; export recovery remains a defensive pass
+on the private preparation copy, not a mutation of the live scene. Valid source
+UUIDs survive import/edit/export without warning suppression. See
+[Layer identity](../layer_identity.md) for the domain and migration contract.

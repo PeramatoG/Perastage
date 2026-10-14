@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "layer_identity.h"
 #include "hoisttablepanel.h"
 #include "dataview_deferred_selection_guard.h"
 #include "dataview_sort_profiles.h"
@@ -56,7 +57,6 @@
 #include <wx/notebook.h>
 #include <wx/version.h>
 #include <wx/wupdlock.h> // freeze/thaw UI during batch edits
-
 static HoistTablePanel *s_instance = nullptr;
 namespace {
 
@@ -575,7 +575,7 @@ void HoistTablePanel::ReloadData() {
     wxString motorName = wxString::FromUTF8(effective.motorName);
     wxString dummyPreset =
         wxString::FromUTF8(ResolveDummyProfileDisplayName(support));
-    wxString layer = support.layer == DEFAULT_LAYER_NAME
+    wxString layer = support.layerUuid == layerdomain::DefaultLayerUuid()
                          ? wxString()
                          : wxString::FromUTF8(support.layer);
     wxString posName = wxString::FromUTF8(support.positionName);

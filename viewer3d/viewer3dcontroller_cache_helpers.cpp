@@ -1,3 +1,4 @@
+#include "layer_identity.h"
 #include "viewer3dcontroller_cache_helpers.h"
 
 #include <algorithm>
@@ -17,7 +18,7 @@ std::unordered_set<std::string> ControllerSnapshotHiddenLayers(const ConfigManag
 bool ControllerIsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
                          const std::string &layer) {
   if (layer.empty())
-    return hidden.find(DEFAULT_LAYER_NAME) == hidden.end();
+    return hidden.find(layerdomain::DefaultLayerUuid()) == hidden.end();
   return hidden.find(layer) == hidden.end();
 }
 

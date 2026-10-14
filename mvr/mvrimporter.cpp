@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "layer_identity.h"
 #include "mvrimporter.h"
 #include "../gui/gdtf_resolution_status_style.h"
 #include "apppaths.h"
@@ -1612,17 +1613,9 @@ ApplyApplicationSceneEnrichment(MvrImportResult &result,
     if (progress && (completed == total || completed % 50 == 0))
       progress({"Resolving GDTF modes...", completed, total});
   }
-  const bool hasDefault =
-      std::any_of(result.scene.layers.begin(), result.scene.layers.end(),
-                  [](const auto &entry) {
-                    return entry.second.name == DEFAULT_LAYER_NAME;
-                  });
-  if (!hasDefault) {
-    Layer layer;
-    layer.uuid = "layer_default";
-    layer.name = DEFAULT_LAYER_NAME;
-    result.scene.layers[layer.uuid] = layer;
-  }
+  layerdomain::EnsureDefaultLayer(result.scene);
+  layerdomain::MigrateLayerMembership(result.scene);
+
 }
 
 // Persists manually authored fixture categories after an application import.

@@ -1,3 +1,4 @@
+#include "layer_identity.h"
 #include "configservices.h"
 #include "filesystem_path_utils.h"
 #include "apppaths.h"
@@ -709,47 +710,28 @@ bool LayerVisibilityState::IsLayerVisible(const std::string &layer) const {
 
 void LayerVisibilityState::SetLayerColor(MvrScene &scene, const std::string &layer,
                                          const std::string &color) {
-  std::string name = layer.empty() ? DEFAULT_LAYER_NAME : layer;
-  for (auto &[uuid, l] : scene.layers) {
-    (void)uuid;
-    if (l.name == name) {
-      l.color = color;
-      return;
-    }
-  }
+  const auto uuid = layerdomain::ResolveLayerReference(scene, layer);
+  if (auto it = scene.layers.find(uuid); it != scene.layers.end())
+    it->second.color = color;
 }
 
 std::optional<std::string>
 LayerVisibilityState::GetLayerColor(const MvrScene &scene,
                                     const std::string &layer) const {
-  std::string name = layer.empty() ? DEFAULT_LAYER_NAME : layer;
-  for (const auto &[uuid, l] : scene.layers) {
-    if (l.name == name && !l.color.empty())
-      return l.color;
-  }
-  return std::nullopt;
+  const auto uuid = layerdomain::ResolveLayerReference(scene, layer);
+  const auto *resolved = layerdomain::FindLayer(scene, uuid);
+  return resolved && !resolved->color.empty()
+             ? std::optional<std::string>(resolved->color) : std::nullopt;
 }
 
 std::vector<std::string>
 LayerVisibilityState::GetLayerNames(const MvrScene &scene) const {
+  MvrScene snapshot = scene;
+  layerdomain::MigrateLayerMembership(snapshot);
+  layerdomain::EnsureDefaultLayer(snapshot);
   std::set<std::string> names;
-  for (const auto &[uuid, layer] : scene.layers)
-    names.insert(layer.name);
-  auto collect = [&](const std::string &ln) {
-    if (!ln.empty())
-      names.insert(ln);
-  };
-  for (const auto &[u, f] : scene.fixtures)
-    collect(f.layer);
-  for (const auto &[u, t] : scene.trusses)
-    collect(t.layer);
-  for (const auto &[u, s] : scene.supports)
-    collect(s.layer);
-  for (const auto &[u, o] : scene.sceneObjects)
-    collect(o.layer);
-  for (const auto &[u, g] : scene.groupObjects)
-    collect(g.layer);
-  names.insert(DEFAULT_LAYER_NAME);
+  for (const auto &[uuid, layer] : snapshot.layers)
+    names.insert(layerdomain::PresentationName(snapshot, uuid));
   return {names.begin(), names.end()};
 }
 

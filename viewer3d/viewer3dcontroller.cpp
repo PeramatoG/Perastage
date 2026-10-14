@@ -1006,17 +1006,17 @@ void Viewer3DController::UpdateResourcesIfDirty(bool progressive, bool deferBoun
     visibleFixtures.reserve(fixtures.size());
     for (const auto &entry : trusses) {
       sceneTrusses.push_back(&entry);
-      if (ControllerIsLayerVisibleCached(hiddenLayers, entry.second.layer))
+      if (ControllerIsLayerVisibleCached(hiddenLayers, entry.second.layerUuid))
         visibleTrusses.push_back(&entry);
     }
     for (const auto &entry : objects) {
       sceneObjects.push_back(&entry);
-      if (ControllerIsLayerVisibleCached(hiddenLayers, entry.second.layer))
+      if (ControllerIsLayerVisibleCached(hiddenLayers, entry.second.layerUuid))
         visibleObjects.push_back(&entry);
     }
     for (const auto &entry : fixtures) {
       sceneFixtures.push_back(&entry);
-      if (ControllerIsLayerVisibleCached(hiddenLayers, entry.second.layer) &&
+      if (ControllerIsLayerVisibleCached(hiddenLayers, entry.second.layerUuid) &&
           cfg.IsFixtureTypeVisible(entry.second.typeName))
         visibleFixtures.push_back(&entry);
     }

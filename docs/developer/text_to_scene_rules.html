@@ -777,6 +777,13 @@ fixture ownership locations.</li>
 Planning power keeps explicit presence, including declared zero; ambiguous inputs
 and Beam-only definitions remain unknown. Project power overrides take precedence
 when metadata is refreshed.</p>
+<h3 id="layer-identity-at-the-rider-boundary">Layer identity at the rider boundary</h3>
+<p>Rider generation keeps its existing position/type naming rules as presentation
+metadata. Every generated Layer receives a canonical UUID immediately; the
+application default uses <code>DeriveDeterministicUuid(&quot;mvr:layer:default&quot;)</code>. Generated
+objects acquire UUID ownership at the rider/domain boundary, including objects
+moved between rider layers during generation. No rider path emits
+<code>layer_default</code>. See <a href="layer_identity.html">Layer identity</a> for legacy compatibility.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "layer_identity.h"
 #include "about_dialog.h"
 #include "filesystem_path_utils.h"
 #include "gdtf_share_download_workflow.h"
@@ -532,17 +533,7 @@ void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
   };
   const std::string trussColor = "#D3D3D3";
 
-  std::set<std::string> layerNames;
-  for (const auto &[uuid, layer] : scene.layers)
-    layerNames.insert(layer.name);
-  for (const auto &[u, f] : scene.fixtures)
-    layerNames.insert(f.layer);
-  for (const auto &[u, t] : scene.trusses)
-    layerNames.insert(t.layer);
-  for (const auto &[u, o] : scene.sceneObjects)
-    layerNames.insert(o.layer);
-  layerNames.insert(DEFAULT_LAYER_NAME);
-
+  const auto layerNames = cfg.GetLayerNames();
   for (const auto &name : layerNames) {
     auto current = cfg.GetLayerColor(name);
     if (!current || current->empty()) {
@@ -1135,20 +1126,7 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
 
   auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
   std::string layerName = cfg.GetCurrentLayer();
-  bool hasLayer = false;
-  for (const auto &[uid, layer] : scene.layers) {
-    if (layer.name == layerName) {
-      hasLayer = true;
-      break;
-    }
-  }
-  if (!hasLayer) {
-    Layer layer;
-    layer.uuid = wxString::Format("layer_%lld", static_cast<long long>(baseId))
-                     .ToStdString();
-    layer.name = layerName;
-    scene.layers[layer.uuid] = layer;
-  }
+
 
   std::vector<std::string> addedTrussUuids;
   addedTrussUuids.reserve(static_cast<size_t>(qty));
@@ -1161,7 +1139,7 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
       t.name = defaultName + " " + std::to_string(i + 1);
     else
       t.name = defaultName;
-    t.layer = layerName;
+    layerdomain::AssignLayer(scene, t, layerName);
     t.parentGroupUuid.clear();
     t.hasLocalTransform = false;
     t.transform.o = {addRequest.insertionPointMm[0] + trussSpacingMm * i,
@@ -1356,20 +1334,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
 
   auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
   std::string layerName = cfg.GetCurrentLayer();
-  bool hasLayer = false;
-  for (const auto &[uid, layer] : scene.layers) {
-    if (layer.name == layerName) {
-      hasLayer = true;
-      break;
-    }
-  }
-  if (!hasLayer) {
-    Layer layer;
-    layer.uuid = wxString::Format("layer_%lld", static_cast<long long>(baseId))
-                     .ToStdString();
-    layer.name = layerName;
-    scene.layers[layer.uuid] = layer;
-  }
+
 
   std::vector<std::string> addedObjectUuids;
   addedObjectUuids.reserve(static_cast<size_t>(qty));
@@ -1386,7 +1351,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     } else {
       obj.modelFile = path;
     }
-    obj.layer = layerName;
+    layerdomain::AssignLayer(scene, obj, layerName);
     scene.sceneObjects[obj.uuid] = obj;
     addedObjectUuids.push_back(obj.uuid);
   }

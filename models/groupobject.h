@@ -38,7 +38,8 @@ struct GroupObjectChildRef {
 struct GroupObject {
   std::string uuid;
   std::string name;
-  std::string layer;
+  std::string layer; // Derived presentation/legacy compatibility label.
+  std::string layerUuid; // Authoritative persistent Layer ownership.
   std::string parentGroupUuid;
   Matrix transform{};
   Matrix localTransform{};

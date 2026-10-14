@@ -1,3 +1,4 @@
+#include "layer_identity.h"
 #include "fixture_table_edit_service.h"
 
 #include "fixture_table_columns.h"
@@ -189,7 +190,7 @@ void ApplyFullRowChanges(
 
     table->GetValue(
         v, i, FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Layer));
-    next.layer = std::string(v.GetString().ToUTF8());
+    layerdomain::PrepareLayerEdit(scene, next, std::string(v.GetString().ToUTF8()));
 
     table->GetValue(v, i,
                     FixtureTableColumns::ToIndex(
@@ -353,7 +354,7 @@ void ApplyFullRowChanges(
     const bool fixtureChanged =
         old.gdtfSpec != next.gdtfSpec ||
         old.instanceName != next.instanceName ||
-        old.fixtureId != next.fixtureId || old.layer != next.layer ||
+        old.fixtureId != next.fixtureId || old.layer != next.layer || old.layerUuid != next.layerUuid ||
         old.positionName != next.positionName || old.address != next.address ||
         old.typeName != next.typeName || old.gdtfMode != next.gdtfMode ||
         transformChanged || old.powerConsumptionW != next.powerConsumptionW ||
@@ -374,6 +375,7 @@ void ApplyFullRowChanges(
     }
     const Matrix requestedWorldTransform = next.transform;
     next.transform = old.transform;
+    layerdomain::CommitLayerEdit(scene, next);
     it->second = next;
     if (transformChanged) {
       scene_node_operations::ApplyExactWorldTransform(

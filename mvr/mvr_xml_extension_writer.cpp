@@ -83,7 +83,10 @@ tinyxml2::XMLElement *FindOrCreateDataNode(tinyxml2::XMLDocument &document,
   tinyxml2::XMLElement *userData = FindPerastageUserData(node);
   if (!userData) {
     userData = document.NewElement("UserData");
-    node->InsertEndChild(userData);
+    if (std::string(node->Name()) == "GeneralSceneDescription")
+      node->InsertFirstChild(userData);
+    else
+      node->InsertEndChild(userData);
   }
   for (tinyxml2::XMLElement *data = userData->FirstChildElement("Data"); data;
        data = data->NextSiblingElement("Data")) {

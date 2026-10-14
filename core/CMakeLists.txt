@@ -17,6 +17,16 @@ target_link_libraries(perastage_project_fixture_symbols PUBLIC perastage_uuid
     PRIVATE tinyxml2::tinyxml2 perastage_gdtf_read ${_wx_base_libs})
 target_link_libraries(${PROJECT_NAME} PRIVATE perastage_project_fixture_symbols)
 
+add_library(perastage_layer_identity STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/layer_identity.cpp
+)
+target_compile_features(perastage_layer_identity PUBLIC cxx_std_20)
+target_include_directories(perastage_layer_identity PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
+)
+target_link_libraries(perastage_layer_identity PUBLIC perastage_uuid)
+target_link_libraries(${PROJECT_NAME} PRIVATE perastage_layer_identity)
+
 add_library(perastage_layer_validation STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/layer_validation.cpp
 )
@@ -25,14 +35,14 @@ target_include_directories(perastage_layer_validation PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
 )
 target_link_libraries(perastage_layer_validation PUBLIC
-    perastage_mvr_core_support
+    perastage_mvr_core_support perastage_layer_identity
 )
 target_compile_features(perastage_mvr_core_support PUBLIC cxx_std_20)
 target_include_directories(perastage_mvr_core_support
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
 )
 target_link_libraries(perastage_mvr_core_support
-    PUBLIC perastage_uuid
+    PUBLIC perastage_uuid perastage_layer_identity
     PRIVATE tinyxml2::tinyxml2 ${_wx_base_libs}
 )
 

@@ -269,6 +269,7 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
     const int keepFixtureId = target.fixtureId;
     const std::string keepName = target.instanceName;
     const std::string keepLayer = target.layer;
+    const std::string keepLayerUuid = target.layerUuid;
     const std::string keepPositionName = target.positionName;
     const std::string keepAddress = target.address;
     const Matrix keepTransform = target.transform;
@@ -287,6 +288,7 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
     target.fixtureId = keepFixtureId;
     target.instanceName = keepName;
     target.layer = keepLayer;
+    target.layerUuid = keepLayerUuid;
     target.positionName = keepPositionName;
     target.address = keepAddress;
     target.transform = keepTransform;

@@ -134,7 +134,7 @@ int main() {
   const tinyxml2::XMLElement *group =
       children->FirstChildElement("GroupObject");
   assert(group && group->FirstChildElement("Matrix"));
-  assert(!group->FirstChildElement("ChildList"));
+  assert(group->FirstChildElement("ChildList"));
 
   const tinyxml2::XMLElement *fixtureNode =
       children->FirstChildElement("Fixture");

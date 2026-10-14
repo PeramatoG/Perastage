@@ -417,7 +417,7 @@ void OpaqueObjectPass::Render(
     }
     if (mode == Viewer2DRenderMode::Wireframe ||
         mode == Viewer2DRenderMode::ByLayer) {
-      auto c = getLayerColor(m.layer);
+      auto c = getLayerColor(m.layerUuid);
       r = c[0];
       g = c[1];
       b = c[2];

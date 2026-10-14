@@ -1,3 +1,4 @@
+#include "layer_identity.h"
 #include "performance_metrics.h"
 #include "visibilitysystem.h"
 #include "primitive_bounds_utils.h"
@@ -34,7 +35,7 @@ namespace {
 bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
                           const std::string &layer) {
   if (layer.empty())
-    return hidden.find(DEFAULT_LAYER_NAME) == hidden.end();
+    return hidden.find(layerdomain::DefaultLayerUuid()) == hidden.end();
   return hidden.find(layer) == hidden.end();
 }
 
@@ -198,7 +199,7 @@ bool VisibilitySystem::EnsureBoundsComputed(
       return true;
     auto fit = fixtures.find(uuid);
     if (fit == fixtures.end() ||
-        !IsLayerVisibleCached(hiddenLayers, fit->second.layer))
+        !IsLayerVisibleCached(hiddenLayers, fit->second.layerUuid))
       return false;
 
     IVisibilityContext::BoundingBox bb;
@@ -281,7 +282,7 @@ bool VisibilitySystem::EnsureBoundsComputed(
       return true;
     auto tit = trusses.find(uuid);
     if (tit == trusses.end() ||
-        !IsLayerVisibleCached(hiddenLayers, tit->second.layer))
+        !IsLayerVisibleCached(hiddenLayers, tit->second.layerUuid))
       return false;
 
     IVisibilityContext::BoundingBox bb;
@@ -364,7 +365,7 @@ bool VisibilitySystem::EnsureBoundsComputed(
   if (m_controller.GetObjectBounds().find(uuid) != m_controller.GetObjectBounds().end())
     return true;
   auto oit = objects.find(uuid);
-  if (oit == objects.end() || !IsLayerVisibleCached(hiddenLayers, oit->second.layer))
+  if (oit == objects.end() || !IsLayerVisibleCached(hiddenLayers, oit->second.layerUuid))
     return false;
 
   IVisibilityContext::BoundingBox bb;
@@ -526,7 +527,7 @@ bool VisibilitySystem::TryBuildLayerVisibleCandidates(
       continue;
     const auto &uuid = entry->first;
     const auto &obj = entry->second;
-    if (!IsLayerVisibleCached(hiddenLayers, obj.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, obj.layerUuid))
       continue;
     if (sceneObjects.find(uuid) != sceneObjects.end())
       out.objectUuids.push_back(uuid);
@@ -538,7 +539,7 @@ bool VisibilitySystem::TryBuildLayerVisibleCandidates(
       continue;
     const auto &uuid = entry->first;
     const auto &truss = entry->second;
-    if (!IsLayerVisibleCached(hiddenLayers, truss.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, truss.layerUuid))
       continue;
     if (trusses.find(uuid) != trusses.end())
       out.trussUuids.push_back(uuid);
@@ -550,7 +551,7 @@ bool VisibilitySystem::TryBuildLayerVisibleCandidates(
       continue;
     const auto &uuid = entry->first;
     const auto &fixture = entry->second;
-    if (!IsLayerVisibleCached(hiddenLayers, fixture.layer) ||
+    if (!IsLayerVisibleCached(hiddenLayers, fixture.layerUuid) ||
         !ConfigManager::Get().IsFixtureTypeVisible(fixture.typeName))
       continue;
     if (fixtures.find(uuid) != fixtures.end())

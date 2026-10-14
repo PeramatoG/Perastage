@@ -701,3 +701,12 @@ GDTF metadata attached to generated fixtures uses Core electrical resolution.
 Planning power keeps explicit presence, including declared zero; ambiguous inputs
 and Beam-only definitions remain unknown. Project power overrides take precedence
 when metadata is refreshed.
+
+### Layer identity at the rider boundary
+
+Rider generation keeps its existing position/type naming rules as presentation
+metadata. Every generated Layer receives a canonical UUID immediately; the
+application default uses `DeriveDeterministicUuid("mvr:layer:default")`. Generated
+objects acquire UUID ownership at the rider/domain boundary, including objects
+moved between rider layers during generation. No rider path emits
+`layer_default`. See [Layer identity](layer_identity.md) for legacy compatibility.

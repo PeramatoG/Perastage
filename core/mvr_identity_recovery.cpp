@@ -1,3 +1,4 @@
+#include "layer_identity.h"
 #include "mvr_identity_recovery.h"
 
 #include "configservices.h"
@@ -252,16 +253,17 @@ void RecoverLayers(MvrScene &scene, const std::string &sourceContext,
   std::sort(keys.begin(), keys.end());
 
   std::vector<Layer> layers;
-  std::set<std::string> names;
+  IdentityAliasResolver layerAliases;
   std::set<std::string> used;
   for (const std::string &key : keys) {
     Layer layer = scene.layers.at(key);
-    names.insert(layer.name);
     const std::string field = layer.uuid;
     const std::string canonicalKey = CanonicalizeUuid(key);
     const std::string canonicalField = CanonicalizeUuid(field);
     std::string replacement =
         !canonicalField.empty() ? canonicalField : canonicalKey;
+    if (replacement.empty() && (key == "layer_default" || field == "layer_default"))
+      replacement = layerdomain::DefaultLayerUuid();
     if (replacement.empty() || used.contains(replacement)) {
       if (!replacement.empty())
         AddDiagnostic(result, "Layer", layer.name, sourceContext,
@@ -274,48 +276,32 @@ void RecoverLayers(MvrScene &scene, const std::string &sourceContext,
     DiagnoseIdentityInputs(result, "Layer", layer.name, sourceContext, key,
                            field, replacement);
     used.insert(replacement);
+    layerAliases.Register(key, replacement);
+    layerAliases.Register(field, replacement);
+    layerAliases.Register(replacement, replacement);
     layer.uuid = replacement;
     layers.push_back(std::move(layer));
-  }
-
-  auto infer = [&](const std::string &rawName) {
-    const std::string name = rawName.empty() ? DEFAULT_LAYER_NAME : rawName;
-    if (names.insert(name).second) {
-      Layer layer;
-      layer.name = name;
-      layer.uuid = DeriveUnique(
-          "mvr:identity:" + sourceContext + ":Layer:inferred:" + name, used);
-      used.insert(layer.uuid);
-      AddDiagnostic(result, "Layer", name, sourceContext, "object-assignment",
-                    {}, layer.uuid, RecoveryReason::InferredLayer);
-      layers.push_back(std::move(layer));
-    }
-  };
-  infer(DEFAULT_LAYER_NAME);
-  for (const auto &[uuid, object] : scene.fixtures) {
-    (void)uuid;
-    infer(object.layer);
-  }
-  for (const auto &[uuid, object] : scene.trusses) {
-    (void)uuid;
-    infer(object.layer);
-  }
-  for (const auto &[uuid, object] : scene.supports) {
-    (void)uuid;
-    infer(object.layer);
-  }
-  for (const auto &[uuid, object] : scene.sceneObjects) {
-    (void)uuid;
-    infer(object.layer);
-  }
-  for (const auto &[uuid, object] : scene.groupObjects) {
-    (void)uuid;
-    infer(object.layer);
   }
 
   scene.layers.clear();
   for (Layer &layer : layers)
     scene.layers.emplace(layer.uuid, std::move(layer));
+  auto rewrite = [&](auto &objects) {
+    for (auto &[uuid, object] : objects) {
+      (void)uuid;
+      RewriteReference(object.layerUuid, "Layer membership", ObjectName(object),
+                       "layer", sourceContext, layerAliases, result);
+    }
+  };
+  rewrite(scene.fixtures); rewrite(scene.trusses); rewrite(scene.supports);
+  rewrite(scene.sceneObjects); rewrite(scene.groupObjects);
+  layerdomain::MigrateLayerMembership(scene);
+  layerdomain::EnsureDefaultLayer(scene);
+  for (const auto &[uuid, layer] : scene.layers)
+    if (!used.contains(uuid))
+      AddDiagnostic(result, "Layer", layer.name, sourceContext, "object-assignment",
+                    {}, uuid, RecoveryReason::InferredLayer);
+
 }
 
 } // namespace

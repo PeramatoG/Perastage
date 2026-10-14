@@ -1,3 +1,4 @@
+#include "layer_identity.h"
 #include "label_render_system.h"
 
 #ifdef _WIN32
@@ -308,7 +309,7 @@ std::unordered_set<std::string> SnapshotHiddenLayers(const ConfigManager &cfg) {
 bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
                           const std::string &layer) {
   if (layer.empty())
-    return hidden.find(DEFAULT_LAYER_NAME) == hidden.end();
+    return hidden.find(layerdomain::DefaultLayerUuid()) == hidden.end();
   return hidden.find(layer) == hidden.end();
 }
 
@@ -781,7 +782,7 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   candidates.reserve(fixtures.size());
   for (const auto &[uuid, f] : fixtures) {
-    if (!IsLayerVisibleCached(hiddenLayers, f.layer) ||
+    if (!IsLayerVisibleCached(hiddenLayers, f.layerUuid) ||
         !cfg.IsFixtureTypeVisible(f.typeName))
       continue;
 
@@ -1031,7 +1032,7 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
   constexpr float kSupportLineSpacingPx = 2.0f;
 
   for (const auto &[uuid, support] : supports) {
-    if (!IsLayerVisibleCached(hiddenLayers, support.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, support.layerUuid))
       continue;
 
     const double wx = support.transform.o[0] * RENDER_SCALE;

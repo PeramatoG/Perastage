@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "layer_identity.h"
 #include "fixturetablepanel.h"
 #include "dataview_deferred_selection_guard.h"
 #include "dataview_sort_profiles.h"
@@ -67,7 +68,6 @@
 #include <wx/wupdlock.h>
 namespace fs = std::filesystem;
 namespace {
-
 // Converts UUID selection order into the current row indexes for row-based edits.
 std::vector<int> BuildRowsFromSelectionOrderUuids(
     const std::vector<std::string> &selectionOrderUuids,
@@ -362,7 +362,7 @@ void FixtureTablePanel::ReloadData() {
 
     wxString name = wxString::FromUTF8(fixture->instanceName);
     long fixtureID = static_cast<long>(fixture->fixtureId);
-    wxString layer = fixture->layer == DEFAULT_LAYER_NAME
+    wxString layer = fixture->layerUuid == layerdomain::DefaultLayerUuid()
                          ? wxString()
                          : wxString::FromUTF8(fixture->layer);
     long universe = 0;
