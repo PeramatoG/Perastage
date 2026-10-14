@@ -94,6 +94,14 @@ scene supplied by their caller.</p>
 <code>scene.mvr</code>: window perspectives, splitter positions, selections, preferences,
 toolbar state, caches, revision/dirty bookkeeping, and machine-specific paths.
 Only portable state that describes or supplements the scene belongs in MVR.</p>
+<p>Layer UUIDs and object <code>layerUuid</code> ownership are authoritative. Names, including
+empty and duplicate names, are preserved independently; generated GUI labels
+never replace authored MVR names. The default layer has a canonical deterministic
+UUID before export. See <a href="../layer_identity.html">Layer identity</a> for default policy,
+legacy <code>layer_default</code> migration, workspace state, and compatibility boundaries.</p>
+<p>Root <code>UserData</code> precedes <code>Scene</code>, as required by the official XSD. Every exported
+GroupObject retains its required <code>ChildList</code>, including empty groups. These
+representation rules preserve standards-valid identity round-trips.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

@@ -127,6 +127,7 @@ void ApplyTrussReplacement(Truss &target, const Truss &replacement) {
   const std::string keepUuid = target.uuid;
   const std::string keepName = target.name;
   const std::string keepLayer = target.layer;
+  const std::string keepLayerUuid = target.layerUuid;
   const std::string keepPosition = target.position;
   const std::string keepPositionName = target.positionName;
   const int keepUnitNumber = target.unitNumber;
@@ -144,6 +145,7 @@ void ApplyTrussReplacement(Truss &target, const Truss &replacement) {
   target.uuid = keepUuid;
   target.name = keepName;
   target.layer = keepLayer;
+  target.layerUuid = keepLayerUuid;
   target.position = keepPosition;
   target.positionName = keepPositionName;
   target.unitNumber = keepUnitNumber;

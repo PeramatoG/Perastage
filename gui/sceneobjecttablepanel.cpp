@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "layer_identity.h"
 #include "runtime_storage.h"
 #include "sceneobjecttablepanel.h"
 #include "dataview_deferred_selection_guard.h"
@@ -321,7 +322,7 @@ void SceneObjectTablePanel::ReloadData() {
         wxVector<wxVariant> row;
 
         wxString name = wxString::FromUTF8(obj.name);
-    wxString layer = obj.layer == DEFAULT_LAYER_NAME
+    wxString layer = obj.layerUuid == layerdomain::DefaultLayerUuid()
                          ? wxString()
                                                           : wxString::FromUTF8(obj.layer);
         const std::string primaryModel = obj.GetPrimaryModel();
@@ -828,10 +829,7 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges) {
 
     table->GetValue(v, i, ColumnIndex(SceneObjectColumn::Layer));
         std::string layerStr = std::string(v.GetString().ToUTF8());
-        if (layerStr.empty())
-            next.layer.clear();
-        else
-            next.layer = layerStr;
+        layerdomain::PrepareLayerEdit(scene, next, layerStr);
 
     const bool hasPrimitiveModel =
         old.GetPrimaryModel().rfind("primitive:", 0) == 0;
@@ -910,7 +908,7 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges) {
         }
 
     const bool objectChanged =
-        old.name != next.name || old.layer != next.layer ||
+        old.name != next.name || old.layer != next.layer || old.layerUuid != next.layerUuid ||
         old.modelFile != next.modelFile || transformChanged;
         if (!objectChanged)
             continue;
@@ -919,6 +917,7 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges) {
         anyChanged = true;
         const Matrix requestedWorldTransform = next.transform;
         next.transform = old.transform;
+        layerdomain::CommitLayerEdit(scene, next);
         it->second = next;
         if (transformChanged) {
             scene_node_operations::ApplyExactWorldTransform(

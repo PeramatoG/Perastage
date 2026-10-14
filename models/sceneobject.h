@@ -41,7 +41,8 @@ struct GeometryInstance {
 struct SceneObject {
     std::string uuid;
     std::string name;
-    std::string layer;
+    std::string layer; // Derived presentation/legacy compatibility label.
+    std::string layerUuid; // Authoritative persistent Layer ownership.
     std::string modelFile; // Referenced 3D model file (Geometry3D or Symdef)
     std::vector<GeometryInstance> geometries;
     Matrix transform;

@@ -521,13 +521,19 @@ int main() {
     assert(savedSceneDocument.Parse(sceneDescription.c_str(),
                                     sceneDescription.size()) ==
            tinyxml2::XML_SUCCESS);
-    tinyxml2::XMLElement *savedFixture =
-        savedSceneDocument.RootElement()
-            ->FirstChildElement("Scene")
-            ->FirstChildElement("Layers")
-            ->FirstChildElement("Layer")
-            ->FirstChildElement("ChildList")
-            ->FirstChildElement("Fixture");
+    const auto *savedLayers = savedSceneDocument.RootElement()
+        ->FirstChildElement("Scene")->FirstChildElement("Layers");
+    const tinyxml2::XMLElement *savedFixture = nullptr;
+    for (auto *savedLayer = savedLayers->FirstChildElement("Layer"); savedLayer;
+         savedLayer = savedLayer->NextSiblingElement("Layer")) {
+      if (std::string(savedLayer->Attribute("uuid")) != layer.uuid)
+        continue;
+      for (auto *candidate = savedLayer->FirstChildElement("ChildList")
+                                 ->FirstChildElement("Fixture"); candidate;
+           candidate = candidate->NextSiblingElement("Fixture"))
+        if (std::string(candidate->Attribute("uuid")) == f.uuid)
+          savedFixture = candidate;
+    }
     assert(savedFixture != nullptr);
     const char *savedGdtfText =
         savedFixture->FirstChildElement("GDTFSpec")->GetText();

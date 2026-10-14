@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "layer_identity.h"
 #include "filesystem_path_utils.h"
 #include "mainwindow.h"
 #include "uuidutils.h"
@@ -154,20 +155,7 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
 
   auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
   std::string layerName = cfg.GetCurrentLayer();
-  bool hasLayer = false;
-  for (const auto &[uid, layer] : sceneRef.layers) {
-    if (layer.name == layerName) {
-      hasLayer = true;
-      break;
-    }
-  }
-  if (!hasLayer) {
-    Layer layer;
-    layer.uuid = wxString::Format("layer_%lld", static_cast<long long>(baseId))
-                     .ToStdString();
-    layer.name = layerName;
-    sceneRef.layers[layer.uuid] = layer;
-  }
+
 
   int maxId = 0;
   for (const auto &[uuid, fix] : sceneRef.fixtures) {
@@ -188,7 +176,7 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
     f.fixtureId = startId + i;
     f.gdtfSpec = spec;
     f.gdtfMode = mode;
-    f.layer = layerName;
+    layerdomain::AssignLayer(sceneRef, f, layerName);
     f.weightKg = weight;
     f.SetSourcePlanningPower(preparation.powerConsumptionW);
     f.physicalPropertiesSource = FixturePhysicalPropertiesSource::Gdtf;

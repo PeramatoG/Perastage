@@ -1,3 +1,4 @@
+#include "layer_identity.h"
 #include "layer_service.h"
 
 #include "configmanager.h"
@@ -66,13 +67,13 @@ LayerResult NormalizeLayerName(const std::string &name, std::string &out) {
   return {};
 }
 
-// Returns the layer name for an existing UUID.
-std::optional<std::string> FindLayerName(const MvrScene &scene,
+// Returns the presentation label for an existing UUID.
+std::optional<std::string> FindLayerLabel(const MvrScene &scene,
                                          const std::string &uuid) {
   const auto it = scene.layers.find(uuid);
   if (it == scene.layers.end())
     return std::nullopt;
-  return it->second.name;
+  return PresentationName(scene, uuid);
 }
 
 // Generates a canonical UUID that does not collide with existing layers.
@@ -85,29 +86,12 @@ std::optional<std::string> GenerateLayerUuid(const MvrScene &scene) {
   return std::nullopt;
 }
 
-// Renames all object layer references that belong to one unique layer name.
-void RenameObjectLayers(MvrScene &scene, const std::string &oldName,
-                        const std::string &newName) {
-  auto rename = [&](auto &container) {
-    for (auto &[uuid, object] : container) {
-      (void)uuid;
-      if (object.layer == oldName)
-        object.layer = newName;
-    }
-  };
-  rename(scene.fixtures);
-  rename(scene.trusses);
-  rename(scene.supports);
-  rename(scene.sceneObjects);
-  rename(scene.groupObjects);
-}
-
-// Deletes all objects assigned to the given layer name and cleans selections.
-void DeleteLayerContents(ConfigManager &config, const std::string &name) {
+// Deletes all objects assigned to the given layer UUID and cleans selections.
+void DeleteLayerContents(ConfigManager &config, const std::string &layerUuid) {
   MvrScene &scene = config.GetScene();
   auto eraseLayer = [&](auto &container) {
     for (auto it = container.begin(); it != container.end();) {
-      if (it->second.layer == name)
+      if (it->second.layerUuid == layerUuid)
         it = container.erase(it);
       else
         ++it;
@@ -153,24 +137,15 @@ void DeleteLayerContents(ConfigManager &config, const std::string &name) {
 
 // Returns every canonical layer, including names inferred from all object types.
 std::vector<LayerEntry> EnumerateLayers(const MvrScene &scene) {
-  std::map<std::string, LayerEntry> byName;
-  byName[DEFAULT_LAYER_NAME] = {
-      DeriveDeterministicUuid("mvr:layer:default"), DEFAULT_LAYER_NAME, {}};
-  for (const auto &[uuid, layer] : scene.layers)
-    byName[layer.name] = {uuid, layer.name, layer.color};
-  auto collect = [&](const std::string &name) {
-    if (!name.empty() && byName.find(name) == byName.end())
-      byName[name] = {DeriveDeterministicUuid("mvr:layer:inferred:" + name),
-                      name, {}};
-  };
-  for (const auto &[uuid, object] : scene.fixtures) { (void)uuid; collect(object.layer); }
-  for (const auto &[uuid, object] : scene.trusses) { (void)uuid; collect(object.layer); }
-  for (const auto &[uuid, object] : scene.supports) { (void)uuid; collect(object.layer); }
-  for (const auto &[uuid, object] : scene.sceneObjects) { (void)uuid; collect(object.layer); }
-  for (const auto &[uuid, object] : scene.groupObjects) { (void)uuid; collect(object.layer); }
+  MvrScene snapshot = scene;
+  MigrateLayerMembership(snapshot);
+  EnsureDefaultLayer(snapshot);
   std::vector<LayerEntry> out;
-  for (const auto &[name, entry] : byName)
-    out.push_back(entry);
+  for (const auto &[uuid, layer] : snapshot.layers)
+    out.push_back({uuid, PresentationName(snapshot, uuid), layer.color});
+  std::sort(out.begin(), out.end(), [](const auto &a, const auto &b) {
+    return a.name < b.name;
+  });
   return out;
 }
 
@@ -190,7 +165,7 @@ LayerResult CreateLayer(ConfigManager &config, const std::string &name) {
     return {LayerStatus::InvalidUuid, "Could not generate a unique layer UUID"};
   config.PushUndoState("add layer");
   scene.layers[*uuid] = Layer{*uuid, normalized, {}, {}};
-  config.SetCurrentLayer(normalized);
+  config.SetCurrentLayer(*uuid);
   result = {LayerStatus::Success, {}, *uuid, normalized, {}};
   result.changes.layerStructureChanged = true;
   result.changes.currentLayerChanged = true;
@@ -198,14 +173,15 @@ LayerResult CreateLayer(ConfigManager &config, const std::string &name) {
   return result;
 }
 
-// Renames one existing layer by UUID and updates object references atomically.
+// Renames presentation metadata; persistent object ownership never changes.
 LayerResult RenameLayer(ConfigManager &config, const std::string &uuid,
                         const std::string &newName) {
   MvrScene &scene = config.GetScene();
-  const auto oldName = FindLayerName(scene, uuid);
+  const auto oldName = scene.layers.contains(uuid)
+      ? std::optional<std::string>(scene.layers.at(uuid).name) : std::nullopt;
   if (!oldName)
     return {LayerStatus::NotFound, "Layer UUID was not found", uuid};
-  if (*oldName == DEFAULT_LAYER_NAME)
+  if (uuid == DefaultLayerUuid())
     return {LayerStatus::ValidationFailure, "Default layer cannot be renamed", uuid};
   std::string normalized;
   LayerResult result = NormalizeLayerName(newName, normalized);
@@ -218,21 +194,15 @@ LayerResult RenameLayer(ConfigManager &config, const std::string &uuid,
       return {LayerStatus::DuplicateName, "Layer name already exists", uuid,
               normalized};
   }
-  const MvrScene before = scene;
-  config.PushUndoState("rename layer");
-  scene.layers[uuid].name = normalized;
-  RenameObjectLayers(scene, *oldName, normalized);
-  auto hidden = config.GetHiddenLayers();
-  if (hidden.erase(*oldName))
-    hidden.insert(normalized);
-  config.SetHiddenLayers(hidden);
-  if (config.GetCurrentLayer() == *oldName)
-    config.SetCurrentLayer(normalized);
-  result = ValidateSceneLayers(scene);
-  if (result.status != LayerStatus::Success) {
-    scene = before;
+  MvrScene candidate = scene;
+  MigrateLayerMembership(candidate);
+  candidate.layers[uuid].name = normalized;
+  RefreshLayerLabels(candidate);
+  result = ValidateSceneLayers(candidate);
+  if (result.status != LayerStatus::Success)
     return result;
-  }
+  config.PushUndoState("rename layer");
+  scene = std::move(candidate);
   result = {LayerStatus::Success, {}, uuid, normalized, {}};
   result.changes.layerStructureChanged = true;
   result.changes.sceneContentChanged = true;
@@ -243,19 +213,21 @@ LayerResult RenameLayer(ConfigManager &config, const std::string &uuid,
 // Deletes one existing layer by UUID together with its assigned objects.
 LayerResult DeleteLayer(ConfigManager &config, const std::string &uuid) {
   MvrScene &scene = config.GetScene();
-  const auto name = FindLayerName(scene, uuid);
+  const auto name = FindLayerLabel(scene, uuid);
   if (!name)
     return {LayerStatus::NotFound, "Layer UUID was not found", uuid};
-  if (*name == DEFAULT_LAYER_NAME)
+  if (uuid == DefaultLayerUuid())
     return {LayerStatus::ValidationFailure, "Default layer cannot be deleted", uuid};
   config.PushUndoState("delete layer");
-  DeleteLayerContents(config, *name);
+  MigrateLayerMembership(scene);
+  DeleteLayerContents(config, uuid);
   scene.layers.erase(uuid);
+  RefreshLayerLabels(scene);
   auto hidden = config.GetHiddenLayers();
-  hidden.erase(*name);
+  hidden.erase(uuid);
   config.SetHiddenLayers(hidden);
-  if (config.GetCurrentLayer() == *name)
-    config.SetCurrentLayer(DEFAULT_LAYER_NAME);
+  if (config.GetCurrentLayer() == uuid)
+    config.SetCurrentLayer(DefaultLayerUuid());
   LayerResult result{LayerStatus::Success, {}, uuid, *name, {}};
   result.changes.layerStructureChanged = true;
   result.changes.sceneContentChanged = true;
@@ -283,35 +255,35 @@ LayerResult SetLayerColor(ConfigManager &config, const std::string &uuid,
   return result;
 }
 
-// Changes layer visibility by UUID using the current name-backed compatibility state.
+// Changes layer visibility by UUID in the UUID-backed workspace state.
 LayerResult SetLayerVisibility(ConfigManager &config, const std::string &uuid,
                                bool visible) {
-  const auto name = FindLayerName(config.GetScene(), uuid);
+  const auto name = FindLayerLabel(config.GetScene(), uuid);
   if (!name)
     return {LayerStatus::NotFound, "Layer UUID was not found", uuid};
   auto hidden = config.GetHiddenLayers();
-  const bool wasVisible = hidden.count(*name) == 0;
+  const bool wasVisible = hidden.count(uuid) == 0;
   if (wasVisible == visible)
     return {LayerStatus::NoChange, {}, uuid, *name};
   config.PushUndoState("change layer visibility");
   if (visible)
-    hidden.erase(*name);
+    hidden.erase(uuid);
   else
-    hidden.insert(*name);
+    hidden.insert(uuid);
   config.SetHiddenLayers(hidden);
   LayerResult result{LayerStatus::Success, {}, uuid, *name, {}};
   result.changes.layerVisibilityChanged = true;
   return result;
 }
 
-// Sets the current layer by UUID using centralized name compatibility mapping.
+// Sets the current layer by UUID.
 LayerResult SetCurrentLayer(ConfigManager &config, const std::string &uuid) {
-  const auto name = FindLayerName(config.GetScene(), uuid);
+  const auto name = FindLayerLabel(config.GetScene(), uuid);
   if (!name)
     return {LayerStatus::NotFound, "Layer UUID was not found", uuid};
-  if (config.GetCurrentLayer() == *name)
+  if (config.GetCurrentLayer() == uuid)
     return {LayerStatus::NoChange, {}, uuid, *name};
-  config.SetCurrentLayer(*name);
+  config.SetCurrentLayer(uuid);
   LayerResult result{LayerStatus::Success, {}, uuid, *name, {}};
   result.changes.currentLayerChanged = true;
   return result;
@@ -341,6 +313,7 @@ LayerResult ReconcileLegacyLayers(MvrScene &scene) {
   if (repairs.empty())
     return {LayerStatus::NoChange, "No legacy repairs needed"};
 
+  MigrateLayerMembership(scene);
   bool repaired = false;
   int recoveredSuffix = 2;
   for (const auto &repair : repairs) {
@@ -358,12 +331,13 @@ LayerResult ReconcileLegacyLayers(MvrScene &scene) {
       } while (reservedNames.count(finalName) > 0);
     }
 
-    RenameObjectLayers(scene, repair.originalName, finalName);
+
     layerIt->second.name = finalName;
     reservedNames.insert(finalName);
     repaired = true;
   }
 
+  RefreshLayerLabels(scene);
   const auto validation = ValidateSceneLayers(scene);
   if (validation.status != LayerStatus::Success)
     return validation;

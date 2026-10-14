@@ -1,3 +1,4 @@
+#include "layer_identity.h"
 #include "viewer2d_support_selection.h"
 
 #ifdef _WIN32
@@ -30,7 +31,7 @@ namespace {
 constexpr int kHoistHitRadiusPixels = 14;
 
 std::string NormalizeLayerName(const std::string &layer) {
-  return layer.empty() ? std::string(DEFAULT_LAYER_NAME) : layer;
+  return layer.empty() ? std::string(layerdomain::DefaultLayerUuid()) : layer;
 }
 
 bool IsLayerVisible(const std::unordered_set<std::string> &hiddenLayers,
@@ -98,7 +99,7 @@ bool FindHoistAtScreenPoint(int mouseX, int mouseY, int viewportHeight,
   bool found = false;
   int bestDistanceSquared = std::numeric_limits<int>::max();
   for (const auto &[uuid, support] : scene.supports) {
-    if (!IsLayerVisible(hiddenLayers, support.layer))
+    if (!IsLayerVisible(hiddenLayers, support.layerUuid))
       continue;
 
     wxPoint projected;
@@ -135,7 +136,7 @@ GetHoistsInScreenRect(int x1, int y1, int x2, int y2, int viewportWidth,
   selection.reserve(scene.supports.size());
 
   for (const auto &[uuid, support] : scene.supports) {
-    if (!IsLayerVisible(hiddenLayers, support.layer))
+    if (!IsLayerVisible(hiddenLayers, support.layerUuid))
       continue;
 
     wxPoint projected;

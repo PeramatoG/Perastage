@@ -42,16 +42,34 @@
 <nav class="breadcrumb" aria-label="Breadcrumb"><a href="../next/documentation.html">Documentation</a> / <a href="index.html">Developer</a> / <span id="pageTitle">MVR identity recovery</span></nav>
 <div id="content" tabindex="-1"><h1 id="mvr-identity-recovery">MVR identity recovery</h1>
 <p>Perastage treats UUIDs as scene-instance identity, independently of display names, row order, GDTF filenames, and filesystem paths. Canonical editable and exported identity uses lowercase RFC 4122 text with hyphens.</p>
-<p><code>mvridentity::RecoverSceneIdentities</code> is the GUI-independent transaction boundary used before strict MVR serialization. It preserves canonical UUIDs, accepts uppercase, surrounding whitespace, braces, and unhyphenated UUID text, and deterministically replaces missing, malformed, duplicate, or key-versus-field-conflicting identities. It rebuilds scene maps and rewrites GroupObject parent and child references in the same transaction. Default and legacy name-only layers are materialized once with deterministic UUIDs; subsequent save, reload, and export preserve that stored value.</p>
+<p><code>mvridentity::RecoverSceneIdentities</code> is the GUI-independent transaction boundary used before strict MVR serialization. It preserves canonical UUIDs, accepts uppercase, surrounding whitespace, braces, and unhyphenated UUID text, and deterministically replaces missing, malformed, duplicate, or key-versus-field-conflicting identities. It rebuilds scene maps and rewrites GroupObject parent and child references in the same transaction. The explicit import/domain migration boundary materializes default and legacy name-only layers once; the final export recovery remains defensive.</p>
 <p>Each material change produces a structured diagnostic with object kind, display name, source context, original identity, replacement identity, and reason. A genuinely new object should still receive <code>GenerateUuid()</code> when it is created; deterministic recovery is reserved for imported or persisted identity damage.</p>
 <p>Identity scopes follow the MVR 1.6 contract rather than assuming that every UUID-bearing element shares one global namespace. Normal scene objects are checked together. Layers, Positions, Symbols, and Symdefs retain their separate owned resolution paths, and references must resolve inside the applicable scope.</p>
 <h2 id="specification-provenance">Specification provenance</h2>
-<p>The authoritative schema reference is <code>mvrdevelopment/tools/mvr.xsd</code> at commit <code>16f9ff3624d3e715798a28b2c460579c55820853</code> (Git blob <code>b250b81a1a98f5dbeaf7eb55c54e21409d83f829</code>, 28,286 bytes, SHA-256 <code>c6dadedf91d9bd93148f2fdb3843cfca9c8f8ec0b86f035cbb4110def74af5ef</code>). The XSD declares <code>Layer/ChildList</code> with <code>minOccurs=&quot;0&quot;</code>. Perastage&#39;s exactly-one-ChildList output is an intentional deterministic canonical-output policy and remains valid, but it is not an MVR 1.6 schema requirement.</p>
+<p>The authoritative specification basis is <code>mvrdevelopment/spec</code> at
+<code>098d3791f77f0895bd859adf01864b4826e2006f</code>. Validation uses the exact official
+<code>mvrdevelopment/tools/mvr.xsd</code> at <code>e199c6ed635de23cb5ebf9654ee54a358775a065</code>,
+embedded with the repository&#39;s current XSD provenance and offline hash guard.
+The XSD permits empty/duplicate Layer names and optional <code>Layer/ChildList</code>.
+Perastage&#39;s exactly-one-ChildList output is an intentional deterministic
+canonical-output policy, not an additional MVR identity mechanism.</p>
 <h2 id="persisted-reference-ownership">Persisted reference ownership</h2>
 <p>The shared scene-object alias scope rewrites Fixture, Truss, Support, SceneObject, and GroupObject parent links; GroupObject children; <code>Support::motorFixtureUuid</code>; and Layer child UUID compatibility lists. Exact and canonical source spellings are transaction aliases. An alias that targets multiple recovered objects is ambiguous, is never guessed, and produces a structured diagnostic. Unresolved or ambiguous supported references are cleared after diagnosis so the repaired model cannot retain a misleading target and a second recovery is idempotent.</p>
 <p>Fixture Focus and Fixture/Truss/Support Position references remain in their existing separately resolved scopes. Truss and geometry Symbol/Symdef fields remain owned by the exporter/importer Symbol and Symdef resolvers. The current model does not persist general MVR multipatch, classing, mapping, or connection references, so identity recovery does not invent those unsupported fields or targets.</p>
 <h2 id="mutation-and-dirty-state-policy">Mutation and dirty-state policy</h2>
-<p>Import and project load already normalize several identity scopes, while export remains the defensive boundary for damaged editable or legacy project state. When defensive recovery changes the scene, export marks the project dirty before serialization. A successful project save persists the repaired scene and then marks it saved. Standalone MVR export leaves the repaired editable scene dirty, making the side effect visible. If publication later fails, the deterministic repair remains in memory and remains dirty rather than being silently rolled back or lost; retrying recovery is idempotent and uses the same service.</p>
+<p>Import and legacy project load normalize Layer identities and ownership in the
+editable scene. Production-created Layers receive canonical UUIDs immediately.
+Export preparation calls recovery on a private copy. Neither standalone export
+nor a read-only canonical snapshot mutates, migrates, or marks the live scene
+dirty because recovery occurred. Project save serializes canonical MVR without
+publishing defensive repairs back into the editable scene. Identity damage
+introduced later can therefore still be diagnosed on subsequent exports; normal
+Layer import/default creation no longer creates such damage in the first place.</p>
+<p>Layer aliases rewrite <code>layerUuid</code> ownership for all five scene object types.
+<code>Layer::name</code> never determines persistent membership. Default creation uses
+<code>DeriveDeterministicUuid(&quot;mvr:layer:default&quot;)</code>; legacy <code>layer_default</code> loads map
+to that same identity. Unnamed and equal-named foreign Layers remain independent.
+See <a href="layer_identity.html">Layer identity</a> for migration and presentation adapters.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

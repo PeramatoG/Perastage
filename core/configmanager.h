@@ -110,10 +110,10 @@ public:
     void SetLayerColor(const std::string& layer, const std::string& color);
     std::optional<std::string> GetLayerColor(const std::string& layer) const;
 
-    // Retrieve all existing layer names
+    // Retrieve unique presentation labels for existing layers
     std::vector<std::string> GetLayerNames() const;
 
-    // Currently selected layer name
+    // Currently selected Layer UUID (legacy names accepted by the setter)
     const std::string& GetCurrentLayer() const;
     void SetCurrentLayer(const std::string& name);
 

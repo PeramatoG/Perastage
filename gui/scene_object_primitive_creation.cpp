@@ -1,3 +1,4 @@
+#include "layer_identity.h"
 #include "scene_object_primitive_creation.h"
 
 #include "configmanager.h"
@@ -17,16 +18,8 @@ namespace {
 constexpr const char *kSceneObjectsLayerName = "3D Objects";
 constexpr double kCylinderRoundToleranceMeters = 1e-6;
 
-void EnsureCurrentLayerExists(MvrScene &scene, const std::string &layerName) {
-  for (const auto &[uid, layer] : scene.layers) {
-    if (layer.name == layerName)
-      return;
-  }
-
-  Layer layer;
-  layer.uuid = GenerateUuid();
-  layer.name = layerName;
-  scene.layers[layer.uuid] = layer;
+std::string EnsureCurrentLayerExists(MvrScene &scene, const std::string &layerName) {
+  return layerdomain::EnsureLayerReference(scene, layerName);
 }
 
 long long NextBaseId() {
@@ -46,7 +39,7 @@ void AddPrimitiveObjects(MvrScene &scene, const std::string &layerName,
       obj.name = baseName + " " + std::to_string(i + 1);
     else
       obj.name = baseName;
-    obj.layer = layerName;
+    layerdomain::AssignLayer(scene, obj, layerName);
     obj.geometries.push_back({primitiveToken, localTransform});
     scene.sceneObjects[obj.uuid] = obj;
   }
@@ -59,8 +52,8 @@ void AddSphereObjects(ConfigManager &cfg, const SphereRequest &request) {
   const long long baseId = NextBaseId();
   const std::string layerName = kSceneObjectsLayerName;
 
-  EnsureCurrentLayerExists(scene, layerName);
-  AddPrimitiveObjects(scene, layerName, request.name, "primitive:sphere",
+  const auto layerUuid = EnsureCurrentLayerExists(scene, layerName);
+  AddPrimitiveObjects(scene, layerUuid, request.name, "primitive:sphere",
                       BuildSphereScaleTransform(request.radiusMeters),
                       request.quantity, baseId);
 }
@@ -70,8 +63,8 @@ void AddCubeObjects(ConfigManager &cfg, const CubeRequest &request) {
   const long long baseId = NextBaseId();
   const std::string layerName = kSceneObjectsLayerName;
 
-  EnsureCurrentLayerExists(scene, layerName);
-  AddPrimitiveObjects(scene, layerName, request.name, "primitive:cube",
+  const auto layerUuid = EnsureCurrentLayerExists(scene, layerName);
+  AddPrimitiveObjects(scene, layerUuid, request.name, "primitive:cube",
                       BuildCubeScaleTransform(request.lengthMeters,
                                               request.heightMeters,
                                               request.widthMeters),

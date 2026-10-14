@@ -131,6 +131,7 @@ ConversionResult ConvertFixtureToSupport(MvrScene &scene,
   support.position = fixture.position;
   support.positionName = fixture.positionName;
   support.layer = fixture.layer;
+  support.layerUuid = fixture.layerUuid;
   support.loadKg = fixture.weightKg;
   support.motorName =
       fixture.instanceName.empty() ? fixture.typeName : fixture.instanceName;

@@ -1,6 +1,7 @@
 #include "scene_grouping.h"
 
 #include "matrixutils.h"
+#include "uuidutils.h"
 
 #include <algorithm>
 #include <cassert>
@@ -320,6 +321,10 @@ int main() {
       existingGroupScene.fixtures[addedFixture.uuid].transform.o[0], 500.0f));
 
   existingGroupScene.fixtures[addedFixture.uuid].layer = "MAC500";
+  assert(scene_grouping::SynchronizeGroupObjectLayerOwnership(
+             existingGroupScene) == 0);
+  existingGroupScene.fixtures[addedFixture.uuid].layerUuid =
+      DeriveDeterministicUuid("mvr:layer:inferred:MAC500");
   assert(scene_grouping::SynchronizeGroupObjectLayerOwnership(
              existingGroupScene) == 1);
   assert(existingGroupScene.fixtures[addedFixture.uuid].layer == "LX1");

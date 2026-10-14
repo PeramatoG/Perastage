@@ -1,3 +1,4 @@
+#include "layer_identity.h"
 #include "selectionsystem.h"
 
 #include "picking_coordinate_utils.h"
@@ -60,7 +61,7 @@ std::unordered_set<std::string> SnapshotHiddenLayers(const ConfigManager &cfg) {
 bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
                          const std::string &layer) {
   if (layer.empty())
-    return hidden.find(DEFAULT_LAYER_NAME) == hidden.end();
+    return hidden.find(layerdomain::DefaultLayerUuid()) == hidden.end();
   return hidden.find(layer) == hidden.end();
 }
 
@@ -480,7 +481,7 @@ bool IsUuidValidForTarget(const std::string &uuid,
     const auto &fixtures = SceneDataManager::Instance().GetFixtures();
     auto fixtureIt = fixtures.find(uuid);
     if (fixtureIt == fixtures.end() ||
-        !IsLayerVisibleCached(hiddenLayers, fixtureIt->second.layer)) {
+        !IsLayerVisibleCached(hiddenLayers, fixtureIt->second.layerUuid)) {
       return false;
     }
     const ISelectionContext::BoundingBox *bbPtr =
@@ -495,7 +496,7 @@ bool IsUuidValidForTarget(const std::string &uuid,
     const auto &trusses = SceneDataManager::Instance().GetTrusses();
     auto trussIt = trusses.find(uuid);
     if (trussIt == trusses.end() ||
-        !IsLayerVisibleCached(hiddenLayers, trussIt->second.layer)) {
+        !IsLayerVisibleCached(hiddenLayers, trussIt->second.layerUuid)) {
       return false;
     }
     const ISelectionContext::BoundingBox *bbPtr = controller.FindTrussBounds(uuid);
@@ -509,7 +510,7 @@ bool IsUuidValidForTarget(const std::string &uuid,
     const auto &objects = SceneDataManager::Instance().GetSceneObjects();
     auto objectIt = objects.find(uuid);
     if (objectIt == objects.end() ||
-        !IsLayerVisibleCached(hiddenLayers, objectIt->second.layer)) {
+        !IsLayerVisibleCached(hiddenLayers, objectIt->second.layerUuid)) {
       return false;
     }
     const ISelectionContext::BoundingBox *bbPtr = controller.FindObjectBounds(uuid);
@@ -840,7 +841,7 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
     if (fixtureIt == fixtures.end())
       continue;
     const auto &f = fixtureIt->second;
-    if (!IsLayerVisibleCached(hiddenLayers, f.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, f.layerUuid))
       continue;
     const ISelectionContext::BoundingBox *bbPtr =
         m_controller.FindFixtureBounds(uuid);
@@ -1036,7 +1037,7 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
     if (trussIt == trusses.end())
       continue;
     const auto &t = trussIt->second;
-    if (!IsLayerVisibleCached(hiddenLayers, t.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, t.layerUuid))
       continue;
     const ISelectionContext::BoundingBox *bbPtr =
         m_controller.FindTrussBounds(uuid);
@@ -1217,7 +1218,7 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
     if (objectIt == objs.end())
       continue;
     const auto &o = objectIt->second;
-    if (!IsLayerVisibleCached(hiddenLayers, o.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, o.layerUuid))
       continue;
     const ISelectionContext::BoundingBox *bbPtr =
         m_controller.FindObjectBounds(uuid);

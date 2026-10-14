@@ -23,26 +23,13 @@ bool IsCanonicalColor(const std::string &color) {
   });
 }
 
-// Trims ASCII whitespace without changing interior layer text.
-std::string TrimLayerName(const std::string &name) {
-  auto isSpace = [](unsigned char value) { return std::isspace(value) != 0; };
-  size_t first = 0;
-  size_t last = name.size();
-  while (first < last && isSpace(static_cast<unsigned char>(name[first])))
-    ++first;
-  while (last > first && isSpace(static_cast<unsigned char>(name[last - 1])))
-    --last;
-  return name.substr(first, last - first);
-}
-
 } // namespace
 
-// Validates layer UUIDs, names, colors, and duplicate canonical names.
+// Validates layer UUIDs, authored UTF-8 names, colors, and membership.
 LayerResult ValidateSceneLayers(const MvrScene &scene) {
-  std::set<std::string> names;
   std::set<std::string> uuids;
   for (const auto &[uuid, layer] : scene.layers) {
-    if (CanonicalizeUuid(uuid).empty())
+    if (CanonicalizeUuid(uuid) != uuid || uuid.empty() || layer.uuid != uuid)
       return {LayerStatus::InvalidUuid, "Layer UUID is malformed", uuid,
               layer.name};
     if (!uuids.insert(uuid).second)
@@ -53,10 +40,17 @@ LayerResult ValidateSceneLayers(const MvrScene &scene) {
     if (!IsCanonicalColor(layer.color))
       return {LayerStatus::InvalidColor, "Layer color is invalid", uuid,
               layer.name};
-    if (!names.insert(TrimLayerName(layer.name)).second)
-      return {LayerStatus::DuplicateName, "Layer name is duplicated", uuid,
-              layer.name};
   }
+  auto validMembership = [&](const auto &objects) {
+    for (const auto &[uuid, object] : objects)
+      if (object.layerUuid.empty() || !scene.layers.contains(object.layerUuid))
+        return false;
+    return true;
+  };
+  if (!validMembership(scene.fixtures) || !validMembership(scene.trusses) ||
+      !validMembership(scene.supports) || !validMembership(scene.sceneObjects) ||
+      !validMembership(scene.groupObjects))
+    return {LayerStatus::InvalidUuid, "Layer membership is unresolved"};
   return {};
 }
 

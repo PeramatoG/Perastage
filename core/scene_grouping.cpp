@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "layer_identity.h"
 #include "scene_grouping.h"
 
 #include "matrixutils.h"
@@ -33,7 +34,7 @@ namespace {
 struct SelectedObjectRef {
   MvrNodeType type = MvrNodeType::Fixture;
   std::string uuid;
-  std::string layer;
+  std::string layerUuid;
   std::string parentGroupUuid;
   Matrix worldTransform{};
 };
@@ -153,7 +154,7 @@ CollectSelectedObjects(const MvrScene &scene,
       auto it = table.find(uuid);
       if (it == table.end() || !seen.insert({type, uuid}).second)
         continue;
-      refs.push_back({type, uuid, it->second.layer, it->second.parentGroupUuid,
+      refs.push_back({type, uuid, it->second.layerUuid, it->second.parentGroupUuid,
                       it->second.transform});
     }
   };
@@ -202,31 +203,31 @@ std::optional<std::string> LayerForObject(const MvrScene &scene,
     auto it = scene.fixtures.find(uuid);
     return it == scene.fixtures.end()
                ? std::nullopt
-                                      : std::optional<std::string>(it->second.layer);
+                                      : std::optional<std::string>(it->second.layerUuid);
   }
   case MvrNodeType::Truss: {
     auto it = scene.trusses.find(uuid);
     return it == scene.trusses.end()
                ? std::nullopt
-                                     : std::optional<std::string>(it->second.layer);
+                                     : std::optional<std::string>(it->second.layerUuid);
   }
   case MvrNodeType::Support: {
     auto it = scene.supports.find(uuid);
     return it == scene.supports.end()
                ? std::nullopt
-                                      : std::optional<std::string>(it->second.layer);
+                                      : std::optional<std::string>(it->second.layerUuid);
   }
   case MvrNodeType::SceneObject: {
     auto it = scene.sceneObjects.find(uuid);
     return it == scene.sceneObjects.end()
                ? std::nullopt
-               : std::optional<std::string>(it->second.layer);
+               : std::optional<std::string>(it->second.layerUuid);
   }
   case MvrNodeType::GroupObject: {
     auto it = scene.groupObjects.find(uuid);
     return it == scene.groupObjects.end()
                ? std::nullopt
-                                          : std::optional<std::string>(it->second.layer);
+                                          : std::optional<std::string>(it->second.layerUuid);
   }
   }
   return std::nullopt;
@@ -240,11 +241,11 @@ AuthoritativeGroupLayer(const MvrScene &scene,
   if (!parentGroupUuid.empty()) {
     auto parentIt = scene.groupObjects.find(parentGroupUuid);
     if (parentIt != scene.groupObjects.end())
-      return parentIt->second.layer;
+      return parentIt->second.layerUuid;
   }
   for (const auto &object : objects) {
     if (object.type == MvrNodeType::Truss)
-      return object.layer;
+      return object.layerUuid;
   }
   for (const auto &object : objects) {
     if (object.type == MvrNodeType::GroupObject) {
@@ -253,7 +254,7 @@ AuthoritativeGroupLayer(const MvrScene &scene,
         return *layer;
     }
   }
-  return objects.empty() ? std::string{} : objects.front().layer;
+  return objects.empty() ? std::string{} : objects.front().layerUuid;
 }
 
 // Applies the authoritative parent GroupObject layer to one child node.
@@ -262,37 +263,37 @@ bool ApplyGroupLayerToChild(MvrScene &scene, const GroupObjectChildRef &child,
   switch (child.type) {
   case MvrNodeType::Fixture: {
     auto it = scene.fixtures.find(child.uuid);
-    if (it == scene.fixtures.end() || it->second.layer == layer)
+    if (it == scene.fixtures.end() || it->second.layerUuid == layer)
       return false;
-    it->second.layer = layer;
+    layerdomain::AssignLayer(scene, it->second, layer);
     return true;
   }
   case MvrNodeType::Truss: {
     auto it = scene.trusses.find(child.uuid);
-    if (it == scene.trusses.end() || it->second.layer == layer)
+    if (it == scene.trusses.end() || it->second.layerUuid == layer)
       return false;
-    it->second.layer = layer;
+    layerdomain::AssignLayer(scene, it->second, layer);
     return true;
   }
   case MvrNodeType::Support: {
     auto it = scene.supports.find(child.uuid);
-    if (it == scene.supports.end() || it->second.layer == layer)
+    if (it == scene.supports.end() || it->second.layerUuid == layer)
       return false;
-    it->second.layer = layer;
+    layerdomain::AssignLayer(scene, it->second, layer);
     return true;
   }
   case MvrNodeType::SceneObject: {
     auto it = scene.sceneObjects.find(child.uuid);
-    if (it == scene.sceneObjects.end() || it->second.layer == layer)
+    if (it == scene.sceneObjects.end() || it->second.layerUuid == layer)
       return false;
-    it->second.layer = layer;
+    layerdomain::AssignLayer(scene, it->second, layer);
     return true;
   }
   case MvrNodeType::GroupObject: {
     auto it = scene.groupObjects.find(child.uuid);
-    if (it == scene.groupObjects.end() || it->second.layer == layer)
+    if (it == scene.groupObjects.end() || it->second.layerUuid == layer)
       return false;
-    it->second.layer = layer;
+    layerdomain::AssignLayer(scene, it->second, layer);
     return true;
   }
   }
@@ -370,7 +371,7 @@ SynchronizeGroupObjectLayerOwnershipFrom(MvrScene &scene,
     return 0;
 
   std::size_t repairedCount = 0;
-  const std::string groupLayer = groupIt->second.layer;
+  const std::string groupLayer = groupIt->second.layerUuid;
   const std::vector<GroupObjectChildRef> children = groupIt->second.children;
   for (const auto &child : children) {
     if (ApplyGroupLayerToChild(scene, child, groupLayer))
@@ -609,35 +610,35 @@ BuildSelectedObjectRefForTarget(const MvrScene &scene,
   if (target.type == MvrNodeType::GroupObject) {
     auto it = scene.groupObjects.find(target.uuid);
     if (it != scene.groupObjects.end())
-      return {target.type, target.uuid, it->second.layer,
+      return {target.type, target.uuid, it->second.layerUuid,
               it->second.parentGroupUuid, it->second.transform};
   }
   switch (target.type) {
   case MvrNodeType::Fixture: {
     auto it = scene.fixtures.find(target.uuid);
     if (it != scene.fixtures.end())
-      return {target.type, target.uuid, it->second.layer,
+      return {target.type, target.uuid, it->second.layerUuid,
               it->second.parentGroupUuid, it->second.transform};
     break;
   }
   case MvrNodeType::Truss: {
     auto it = scene.trusses.find(target.uuid);
     if (it != scene.trusses.end())
-      return {target.type, target.uuid, it->second.layer,
+      return {target.type, target.uuid, it->second.layerUuid,
               it->second.parentGroupUuid, it->second.transform};
     break;
   }
   case MvrNodeType::Support: {
     auto it = scene.supports.find(target.uuid);
     if (it != scene.supports.end())
-      return {target.type, target.uuid, it->second.layer,
+      return {target.type, target.uuid, it->second.layerUuid,
               it->second.parentGroupUuid, it->second.transform};
     break;
   }
   case MvrNodeType::SceneObject: {
     auto it = scene.sceneObjects.find(target.uuid);
     if (it != scene.sceneObjects.end())
-      return {target.type, target.uuid, it->second.layer,
+      return {target.type, target.uuid, it->second.layerUuid,
               it->second.parentGroupUuid, it->second.transform};
     break;
   }
@@ -721,6 +722,7 @@ void UngroupRootTarget(MvrScene &scene, const std::string &groupUuid,
 // Repairs GroupObject child layers so parent group ownership stays
 // authoritative.
 std::size_t SynchronizeGroupObjectLayerOwnership(MvrScene &scene) {
+  layerdomain::MigrateLayerMembership(scene);
   std::size_t repairedCount = 0;
   for (auto &[groupUuid, group] : scene.groupObjects) {
     if (group.parentGroupUuid.empty()) {
@@ -734,6 +736,7 @@ std::size_t SynchronizeGroupObjectLayerOwnership(MvrScene &scene) {
 // Creates a new GroupObject and reparents the selected scene entities.
 OperationResult GroupSelection(MvrScene &scene,
                                const ObjectSelection &selection) {
+  layerdomain::MigrateLayerMembership(scene);
   OperationResult result;
   std::vector<SelectedObjectRef> objects =
       CollectSelectedObjects(scene, selection);
@@ -758,7 +761,8 @@ OperationResult GroupSelection(MvrScene &scene,
   GroupObject group;
   group.uuid = GenerateUuid();
   group.name = "Group " + std::to_string(scene.groupObjects.size() + 1);
-  group.layer = AuthoritativeGroupLayer(scene, objects, parentGroupUuid);
+  layerdomain::AssignLayer(scene, group,
+      AuthoritativeGroupLayer(scene, objects, parentGroupUuid));
   group.parentGroupUuid = parentGroupUuid;
   group.transform = groupWorldTransform;
   group.localTransform =
@@ -775,7 +779,7 @@ OperationResult GroupSelection(MvrScene &scene,
     RemoveChildFromGroups(scene, object.type, object.uuid);
     const Matrix localTransform = MatrixUtils::Multiply(
         inverseGroupWorldTransform, object.worldTransform);
-    ApplyParentAndLayer(scene, object, group.uuid, localTransform, group.layer);
+    ApplyParentAndLayer(scene, object, group.uuid, localTransform, group.layerUuid);
     group.children.push_back({object.type, object.uuid});
     AppendAffectedTarget(result, scene, object.type, object.uuid);
   }
@@ -800,6 +804,7 @@ OperationResult GroupSelection(MvrScene &scene,
 OperationResult AddSelectionToGroup(MvrScene &scene,
                                     const ObjectSelection &selection,
                                     const std::string &groupUuid) {
+  layerdomain::MigrateLayerMembership(scene);
   OperationResult result;
   auto groupIt = scene.groupObjects.find(groupUuid);
   if (groupIt == scene.groupObjects.end())
@@ -814,7 +819,7 @@ OperationResult AddSelectionToGroup(MvrScene &scene,
     const Matrix localTransform = MatrixUtils::Multiply(
         InverseMatrix(groupIt->second.transform), object.worldTransform);
     ApplyParentAndLayer(scene, object, groupUuid, localTransform,
-                        groupIt->second.layer);
+                        groupIt->second.layerUuid);
     groupIt->second.children.push_back({object.type, object.uuid});
     AppendAffectedTarget(result, scene, object.type, object.uuid);
     result.changed = true;
@@ -827,6 +832,7 @@ OperationResult AddSelectionToGroup(MvrScene &scene,
 // preserving world placement.
 OperationResult RemoveSelectionFromGroup(MvrScene &scene,
                                          const ObjectSelection &selection) {
+  layerdomain::MigrateLayerMembership(scene);
   OperationResult result;
   std::vector<SelectedObjectRef> objects =
       CollectSelectedObjects(scene, selection);
@@ -844,6 +850,7 @@ OperationResult RemoveSelectionFromGroup(MvrScene &scene,
 // Removes selected effective groups and promotes their direct children.
 OperationResult UngroupSelection(MvrScene &scene,
                                  const ObjectSelection &selection) {
+  layerdomain::MigrateLayerMembership(scene);
   OperationResult result;
   const auto targets = BuildTransformTargets(scene, selection);
   for (const auto &target : targets) {

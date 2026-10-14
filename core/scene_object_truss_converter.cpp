@@ -32,6 +32,7 @@ Truss BuildTrussFromSceneObject(const SceneObject &object,
   truss.symbolFile = modelFile;
   truss.modelFile = modelFile;
   truss.layer = object.layer;
+  truss.layerUuid = object.layerUuid;
   truss.transform = object.transform;
   truss.localTransform = object.localTransform;
   truss.hasLocalTransform = object.hasLocalTransform;

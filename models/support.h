@@ -40,7 +40,8 @@ struct Support {
     float chainLength = 0.0f;
     std::string position;
     std::string positionName;
-    std::string layer;
+    std::string layer; // Derived presentation/legacy compatibility label.
+    std::string layerUuid; // Authoritative persistent Layer ownership.
     std::string modelFile;
     std::vector<GeometryInstance> geometries;
 

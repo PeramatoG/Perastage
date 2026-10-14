@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "layer_identity.h"
 #include "mvr_scene_node_reader.h"
 #include "mvr_scene_node_reader_detail.h"
 #include "mvr_scene_node_reader_neutral.h"
@@ -1282,6 +1283,12 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
         if (layerUuid.empty() || nodeUuid.empty())
           return;
         services.recordNodeLayerUuid(nodeUuid, layerUuid);
+        auto assign = [&](auto &objects) {
+          if (auto it = objects.find(nodeUuid); it != objects.end())
+            it->second.layerUuid = layerUuid;
+        };
+        assign(scene.fixtures); assign(scene.trusses); assign(scene.supports);
+        assign(scene.sceneObjects); assign(scene.groupObjects);
         if (directLayerChildren)
           services.recordDirectLayerChildUuid(layerUuid, nodeUuid);
       };
@@ -1429,17 +1436,27 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
         layerStr.clear();
       }
     }
-    bool isDefaultLayer = layerStr.empty();
+
 
     const char *uuidAttr = layer->Attribute("uuid");
-    const std::string layerUuid = uuidAttr ? uuidAttr : "";
-    services.recordAuthoredLayer(layerUuid, layerStr);
+    const std::string authoredUuid = uuidAttr ? uuidAttr : "";
+    std::string layerUuid = authoredUuid == "layer_default"
+        ? layerdomain::DefaultLayerUuid() : CanonicalizeUuid(authoredUuid);
+    if (layerUuid.empty() || scene.layers.contains(layerUuid)) {
+      size_t suffix = 0;
+      do {
+        layerUuid = DeriveDeterministicUuid("mvr:layer:import:" + authoredUuid +
+                                           ":" + std::to_string(suffix++));
+      } while (scene.layers.contains(layerUuid));
+      services.logWarning("Repaired malformed or conflicting Layer UUID: " + authoredUuid);
+    }
+    services.recordAuthoredLayer(authoredUuid, layerStr);
     tinyxml2::XMLElement *childList = layer->FirstChildElement("ChildList");
     if (childList)
-      parseChildList(childList, isDefaultLayer ? DEFAULT_LAYER_NAME : layerStr,
+      parseChildList(childList, layerStr,
                      layerUuid, MatrixUtils::Identity(), "", "", true);
 
-    if (!isDefaultLayer) {
+    {
       Layer l;
       l.uuid = layerUuid;
       l.name = layerStr;
@@ -1464,6 +1481,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
   }
 
   services.model.reconcileLayers(scene);
+  layerdomain::MigrateLayerMembership(scene);
 
   if (preservedGroupObjectCount > 0) {
     services.logInfo("MVR import preserved GroupObject count=" +

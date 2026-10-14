@@ -59,3 +59,13 @@ The `.pstg` container continues to own application and workspace state outside
 `scene.mvr`: window perspectives, splitter positions, selections, preferences,
 toolbar state, caches, revision/dirty bookkeeping, and machine-specific paths.
 Only portable state that describes or supplements the scene belongs in MVR.
+
+Layer UUIDs and object `layerUuid` ownership are authoritative. Names, including
+empty and duplicate names, are preserved independently; generated GUI labels
+never replace authored MVR names. The default layer has a canonical deterministic
+UUID before export. See [Layer identity](../layer_identity.md) for default policy,
+legacy `layer_default` migration, workspace state, and compatibility boundaries.
+
+Root `UserData` precedes `Scene`, as required by the official XSD. Every exported
+GroupObject retains its required `ChildList`, including empty groups. These
+representation rules preserve standards-valid identity round-trips.

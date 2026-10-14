@@ -1,3 +1,4 @@
+#include "layer_identity.h"
 #include "performance_metrics.h"
 #ifdef _WIN32
 #ifndef NOMINMAX
@@ -28,7 +29,7 @@ namespace {
 static bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
                                  const std::string &layer) {
   if (layer.empty())
-    return hidden.find(DEFAULT_LAYER_NAME) == hidden.end();
+    return hidden.find(layerdomain::DefaultLayerUuid()) == hidden.end();
   return hidden.find(layer) == hidden.end();
 }
 
@@ -95,7 +96,7 @@ void BoundsCacheSystem::RebuildIfDirty(
       for (auto it = boundsMap.begin(); it != boundsMap.end();) {
         auto itemIt = items.find(it->first);
         if (itemIt == items.end() ||
-            !IsLayerVisibleCached(hiddenLayers, itemIt->second.layer)) {
+            !IsLayerVisibleCached(hiddenLayers, itemIt->second.layerUuid)) {
           it = boundsMap.erase(it);
         } else {
           ++it;
@@ -113,7 +114,7 @@ void BoundsCacheSystem::RebuildIfDirty(
 
   context.fixtureBounds.clear();
   for (const auto &[uuid, f] : fixtures) {
-    if (!IsLayerVisibleCached(hiddenLayers, f.layer) ||
+    if (!IsLayerVisibleCached(hiddenLayers, f.layerUuid) ||
         !ConfigManager::Get().IsFixtureTypeVisible(f.typeName))
       continue;
     Viewer3DBoundingBox bb;
@@ -197,7 +198,7 @@ void BoundsCacheSystem::RebuildIfDirty(
 
   context.trussBounds.clear();
   for (const auto &[uuid, t] : trusses) {
-    if (!IsLayerVisibleCached(hiddenLayers, t.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, t.layerUuid))
       continue;
     Viewer3DBoundingBox bb;
     Matrix tm = t.transform;
@@ -280,7 +281,7 @@ void BoundsCacheSystem::RebuildIfDirty(
 
   context.objectBounds.clear();
   for (const auto &[uuid, obj] : objects) {
-    if (!IsLayerVisibleCached(hiddenLayers, obj.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, obj.layerUuid))
       continue;
     Viewer3DBoundingBox bb;
     Matrix tm = obj.transform;

@@ -217,16 +217,13 @@ void AppendLayer(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *layers,
   layers->InsertEndChild(layer);
 }
 
-// Appends a standard GroupObject with matrix and optional populated ChildList.
+// Appends a standard GroupObject with matrix and the required ChildList.
 void AppendGroupObject(tinyxml2::XMLDocument &document,
                        tinyxml2::XMLElement *parent, const ObjectValues &values,
                        const Matrix &matrix, tinyxml2::XMLElement *childList) {
   tinyxml2::XMLElement *group = CreateObject(document, "GroupObject", values);
   AppendText(document, group, "Matrix", MatrixUtils::FormatMatrix(matrix));
-  if (childList->FirstChild())
-    group->InsertEndChild(childList);
-  else
-    document.DeleteNode(childList);
+  group->InsertEndChild(childList);
   parent->InsertEndChild(group);
 }
 
