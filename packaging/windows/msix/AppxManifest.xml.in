@@ -5,8 +5,9 @@
          xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
          xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
          xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+         xmlns:desktop7="http://schemas.microsoft.com/appx/manifest/desktop/windows10/7"
          xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-         IgnorableNamespaces="uap uap3 uap5 uap10 desktop6 rescap">
+         IgnorableNamespaces="uap uap3 uap5 uap10 desktop6 desktop7 rescap">
   <Identity Name="@IDENTITY_NAME@" Publisher="@IDENTITY_PUBLISHER@"
             Version="@PACKAGE_VERSION@" ProcessorArchitecture="x64" />
   <Properties>
@@ -39,6 +40,7 @@
           <uap3:FileTypeAssociation Name="perastage.project" Parameters="&quot;%1&quot;" MultiSelectModel="Single">
             <uap:DisplayName>Perastage Project</uap:DisplayName>
             <uap:Logo>StoreAssets\ProjectFile.png</uap:Logo>
+            <desktop7:Logo>StoreAssets\ProjectFile.ico</desktop7:Logo>
             <uap:SupportedFileTypes><uap:FileType>.pstg</uap:FileType></uap:SupportedFileTypes>
           </uap3:FileTypeAssociation>
         </uap3:Extension>
@@ -46,6 +48,7 @@
           <uap3:FileTypeAssociation Name="perastage.mvr" Parameters="&quot;%1&quot;" MultiSelectModel="Single">
             <uap:DisplayName>MVR Scene</uap:DisplayName>
             <uap:Logo>StoreAssets\MvrFile.png</uap:Logo>
+            <desktop7:Logo>StoreAssets\MvrFile.ico</desktop7:Logo>
             <uap:SupportedFileTypes><uap:FileType>.mvr</uap:FileType></uap:SupportedFileTypes>
           </uap3:FileTypeAssociation>
         </uap3:Extension>
