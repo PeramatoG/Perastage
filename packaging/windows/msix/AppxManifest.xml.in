@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+         xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+         xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+         xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+         xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+         xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+         IgnorableNamespaces="uap uap3 uap5 uap10 desktop6 rescap">
+  <Identity Name="@IDENTITY_NAME@" Publisher="@IDENTITY_PUBLISHER@"
+            Version="@PACKAGE_VERSION@" ProcessorArchitecture="x64" />
+  <Properties>
+    <DisplayName>Perastage</DisplayName>
+    <PublisherDisplayName>@PUBLISHER_DISPLAY_NAME@</PublisherDisplayName>
+    <Description>Stage design and MVR/GDTF workflows</Description>
+    <Logo>StoreAssets\StoreLogo.png</Logo>
+    <!-- Preserve data shared with direct installs and external CLI processes. -->
+    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
+    <desktop6:RegistryWriteVirtualization>disabled</desktop6:RegistryWriteVirtualization>
+  </Properties>
+  <Resources>
+    <Resource Language="en-US" />
+    <Resource Language="es" />
+    <Resource Language="zh-CN" />
+  </Resources>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0"
+                        MaxVersionTested="10.0.19041.0" />
+    <PackageDependency Name="Microsoft.VCLibs.140.00.UWPDesktop"
+                       Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+                       MinVersion="@VCLIBS_VERSION@" />
+  </Dependencies>
+  <Applications>
+    <Application Id="Perastage" Executable="Perastage.exe"
+                 uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
+      <uap:VisualElements DisplayName="Perastage" Description="Stage design and MVR/GDTF workflows"
+                          Square150x150Logo="StoreAssets\Square150x150Logo.png"
+                          Square44x44Logo="StoreAssets\Square44x44Logo.png" BackgroundColor="transparent" />
+      <Extensions>
+        <uap3:Extension Category="windows.fileTypeAssociation">
+          <uap3:FileTypeAssociation Name="perastage.project" Parameters="&quot;%1&quot;" MultiSelectModel="Single">
+            <uap:DisplayName>Perastage Project</uap:DisplayName>
+            <uap:Logo>StoreAssets\ProjectFile.png</uap:Logo>
+            <uap:SupportedFileTypes><uap:FileType>.pstg</uap:FileType></uap:SupportedFileTypes>
+          </uap3:FileTypeAssociation>
+        </uap3:Extension>
+        <uap3:Extension Category="windows.fileTypeAssociation">
+          <uap3:FileTypeAssociation Name="perastage.mvr" Parameters="&quot;%1&quot;" MultiSelectModel="Single">
+            <uap:DisplayName>MVR Scene</uap:DisplayName>
+            <uap:Logo>StoreAssets\MvrFile.png</uap:Logo>
+            <uap:SupportedFileTypes><uap:FileType>.mvr</uap:FileType></uap:SupportedFileTypes>
+          </uap3:FileTypeAssociation>
+        </uap3:Extension>
+      </Extensions>
+    </Application>
+    <Application Id="PerastageCLI" Executable="perastage-cli.exe"
+                 uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL"
+                 uap10:Subsystem="console" uap10:SupportsMultipleInstances="true">
+      <uap:VisualElements DisplayName="Perastage CLI" Description="Perastage command line"
+                          Square150x150Logo="StoreAssets\Square150x150Logo.png"
+                          Square44x44Logo="StoreAssets\Square44x44Logo.png"
+                          BackgroundColor="transparent" AppListEntry="none" />
+      <Extensions>
+        <uap5:Extension Category="windows.appExecutionAlias" Executable="perastage-cli.exe">
+          <uap5:AppExecutionAlias uap10:Subsystem="console">
+            <uap5:ExecutionAlias Alias="perastage-cli.exe" />
+          </uap5:AppExecutionAlias>
+        </uap5:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
+  </Capabilities>
+</Package>
