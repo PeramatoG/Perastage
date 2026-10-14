@@ -1,6 +1,9 @@
 #include "native_gui_publication.h"
 
 #include <wx/glcanvas.h>
+#include <wx/dataview.h>
+#include <wx/settings.h>
+#include <wx/textctrl.h>
 #include <wx/window.h>
 
 namespace {
@@ -14,6 +17,19 @@ bool ContainsGlCanvas(wxWindow &window) {
   return false;
 }
 
+void InitializeNativeSubtree(wxWindow &window) {
+  if (!window.UseBackgroundColour()) {
+    const bool contentControl = dynamic_cast<wxDataViewCtrl *>(&window) ||
+                                dynamic_cast<wxTextCtrl *>(&window);
+    window.SetOwnBackgroundColour(wxSystemSettings::GetColour(
+        contentControl ? wxSYS_COLOUR_WINDOW : wxSYS_COLOUR_BTNFACE));
+  }
+  for (wxWindow *child : window.GetChildren()) {
+    if (!child->IsTopLevel())
+      InitializeNativeSubtree(*child);
+  }
+}
+
 void UpdateNativeSubtree(wxWindow &window) {
   window.Update();
   // MSW Update() paints only this HWND. Native DataView internals are painted
@@ -23,6 +39,17 @@ void UpdateNativeSubtree(wxWindow &window) {
       UpdateNativeSubtree(*child);
   }
 }
+}
+
+void gui::InitializeNativeGuiBackgrounds(wxWindow &root) {
+  for (wxWindow *child : root.GetChildren()) {
+    if (child->IsTopLevel() || dynamic_cast<wxGLCanvas *>(child))
+      continue;
+    if (ContainsGlCanvas(*child))
+      InitializeNativeGuiBackgrounds(*child);
+    else
+      InitializeNativeSubtree(*child);
+  }
 }
 
 void gui::PublishNativeGuiChildren(wxWindow &root) {

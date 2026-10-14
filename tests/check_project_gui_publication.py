@@ -28,19 +28,21 @@ assert 'CompleteStartupSplashInitialization();' not in (root / 'app/perastage_ap
 
 idle = function('gui/mainwindow_startup_splash.cpp',
                 'void MainWindow::OnStartupSplashCloseIdle')
-ordered(idle, 'startupProjectLoadPending', 'if (!initialMainWindowPublished)',
-        'PublishInitialMainWindow();', 'event.RequestMore();', 'return;',
-        'auiManager->Update();', 'Layout();', 'SendSizeEvent();',
-        'gui::PublishNativeGuiChildren(*this);',
-        'CompleteStartupSplashInitialization();')
+ordered(idle, 'startupProjectLoadPending', 'initialMainWindowPublished',
+        'PublishInitialMainWindow();',
+        'CallAfter(&MainWindow::CompleteStartupSplashInitialization);')
+assert 'event.RequestMore()' not in idle
 publish = function('gui/mainwindow_startup_splash.cpp',
                    'void MainWindow::PublishInitialMainWindow')
-ordered(publish, 'wxWindowUpdateLocker composition(this);', 'Maximize(true);',
+ordered(publish, 'gui::InitializeNativeGuiBackgrounds(*this);',
+        'wxWindowUpdateLocker composition(this);', 'Maximize(true);',
         'auiManager->Update();', 'Layout();', 'Show(true);', 'SendSizeEvent();')
 complete = function('gui/mainwindow_startup_splash.cpp',
                     'void MainWindow::CompleteStartupSplashInitialization')
 assert 'PublishInitialMainWindow();' not in complete
-ordered(complete, 'startupSplashInitializationPending = false;',
+ordered(complete, '!initialMainWindowPublished', 'auiManager->Update();',
+        'Layout();', 'SendSizeEvent();', 'gui::PublishNativeGuiChildren(*this);',
+        'startupSplashInitializationPending = false;',
         'SplashScreen::Hide();', 'ScheduleScan();')
 load = function('gui/mainwindow.cpp', 'bool MainWindow::LoadProjectFromPath')
 ordered(load, 'std::make_unique<wxWindowDisabler>()',
@@ -53,7 +55,8 @@ ordered(load, 'LegacyConfigManager().LoadProject(', 'return false;',
         'hoistPanel->ReloadData();', 'sceneObjPanel->ReloadData();',
         'layerPanel->ReloadLayers();', 'RefreshSummary();', 'RefreshRigging();',
         'auiManager->Update();', 'Layout();', 'SendSizeEvent();',
-        'guiComposition.reset();', 'gui::PublishNativeGuiChildren(*this);',
+        'gui::InitializeNativeGuiBackgrounds(*this);', 'guiComposition.reset();',
+        'gui::PublishNativeGuiChildren(*this);',
         'projectLoadProgressStep = kProjectLoadProgressSteps;',
         'projectLoadProgressDialog.reset();', 'projectLoadDisabler.reset();')
 for marker in ('SetStatusText(message, 0)', 'projectLoadProgressDialog->Pulse(message)',
@@ -71,4 +74,6 @@ ordered(layout, 'Ensure2DViewport(false)', 'Ensure3DViewport(false)',
         'ApplyLayoutPreset(*preset, perspective, savedLayoutMode, false, false)',
         'dataPane.MinSize', 'view3dPane.MinSize', 'view2dPane.MinSize',
         'auiManager->Update();', 'SendSizeEvent();')
+assert 'Preparing scene for navigation' not in idle + publish + complete
+assert 'GetResourceLoadProgress' not in idle + publish + complete
 print('OK: startup and project-open GUI publication ordering and progress contracts.')

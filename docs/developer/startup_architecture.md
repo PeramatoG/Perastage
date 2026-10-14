@@ -19,8 +19,8 @@ the visible startup experience.
 6. Apply the saved AUI perspective and activate the saved project layout.
 7. Refresh visible summaries and rigging data and perform the final AUI update.
 8. Maximize and show MainWindow with its authoritative layout under an update
-   lock. Return to the native event loop for show/maximize sizing and shell
-   painting, commit final sizes, and publish native child controls once.
+   lock. Queue a continuation for show/maximize sizing and shell publication,
+   commit final sizes, and publish native child controls once.
    Only then emit `InteractiveReady` and dismiss the splash.
 9. Schedule non-essential fixture-symbol preparation.
 
@@ -31,11 +31,13 @@ result from being published into a replacement project.
 
 ## InteractiveReady
 
-`InteractiveReady` is emitted once from the idle-driven splash completion pass.
-The first pass shows the previously hidden MainWindow under an update lock.
-A subsequent idle pass resolves final native sizes, commits AUI/layout, and
-explicitly refreshes and updates native control subtrees before dismissing the
-splash. Showing the frame alone is not treated as completion of native painting.
+`InteractiveReady` is emitted once from the queued splash completion pass.
+The initial idle pass shows the previously hidden MainWindow under an update
+lock. It queues a `CallAfter` continuation to resolve final native sizes, commit
+AUI/layout, and explicitly refresh and update native control subtrees before
+splash dismissal. Completion does not require another idle event: ongoing
+progressive viewport activity can delay idle delivery after the frame becomes
+visible. Showing the frame alone is not treated as completion of native painting.
 At that point the authoritative scene and configuration are loaded, the saved
 view and active layout are selected, required panes exist, visible project
 panels have current data, and no startup callback remains that will replace the
@@ -176,7 +178,14 @@ project-load AUI/layout/size commit includes them.
 At the publication boundary the frame thaws and native GUI subtrees are
 refreshed/updated once before completing the progress dialog's auto-hide range
 and releasing the load disabler. `PublishNativeGuiChildren` excludes GL canvases
-and any ancestor containing one, including Inspector preview canvases. MSW
+and any ancestor containing one, including Inspector preview canvases.
+Before exposing controls, native erase backgrounds are initialized from the
+active system theme: content controls use the window colour and shell controls
+use the button-face colour. Explicit colours (such as Console's black
+background) are preserved. Initialization also excludes GL-containing subtrees
+and is applied to initially hidden native controls so that later activation has
+the same background. It does not change scene clear colours or render resources.
+MSW
 `Update()` only paints the target HWND, so wx child controls are also updated.
 GTK can recursively refresh/update native children, which is why simply
 calling `MainWindow::Update()` would be unsafe for this purpose. No platform
@@ -199,8 +208,10 @@ and repeat each scenario with 2D, 3D, Layout Mode and Inspector presets:
 3. Cancel the file chooser, then attempt to open an invalid project archive.
    Confirm the frame remains enabled, repainting and usable after failure.
 4. With 3D visible, confirm resources can continue loading after the splash or
-   project dialog disappears, the status bar can still say “Loading scene: …”,
-   and navigation keeps its existing progressive-loading responsiveness.
+   project dialog disappears, the status bar can still say “Loading scene: …” or
+   “Preparing scene for navigation: …”, and navigation keeps its existing
+   progressive-loading responsiveness. A populated shell must not retain the
+   splash solely because navigation representations are still being prepared.
 
 Native publication intentionally excludes the viewports: it neither waits for
 all resources nor synchronizes them to obtain a finished scene image. Where

@@ -985,6 +985,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   }
   Layout();
   SendSizeEvent();
+  gui::InitializeNativeGuiBackgrounds(*this);
   guiComposition.reset();
   if (IsShown())
     gui::PublishNativeGuiChildren(*this);

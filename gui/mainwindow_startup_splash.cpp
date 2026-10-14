@@ -22,31 +22,21 @@ void MainWindow::RequestStartupSplashCompletion() {
 // Completes a deferred splash close from the idle event loop.
 void MainWindow::OnStartupSplashCloseIdle(wxIdleEvent &event) {
   event.Skip();
-  if (!startupSplashCloseRequested || startupProjectLoadPending)
+  if (!startupSplashCloseRequested || startupProjectLoadPending ||
+      initialMainWindowPublished)
     return;
 
-  if (!initialMainWindowPublished) {
-    PublishInitialMainWindow();
-    // Return to the native event loop for show/maximize sizing and shell paint.
-    event.RequestMore();
-    return;
-  }
-  if (auiManager) {
-    auiManager->Update();
-    if (startupSplashInitializationPending && startupMetrics_)
-      ++startupMetrics_->auiUpdates;
-  }
-  Layout();
-  SendSizeEvent();
-  gui::PublishNativeGuiChildren(*this);
-  startupSplashCloseRequested = false;
-  CompleteStartupSplashInitialization();
+  PublishInitialMainWindow();
+  // A second idle event can be starved by progressive viewport work. Queue the
+  // native publication boundary without waiting for scene/resource completion.
+  CallAfter(&MainWindow::CompleteStartupSplashInitialization);
 }
 
 // Publishes the fully composed initial frame exactly once behind the splash.
 void MainWindow::PublishInitialMainWindow() {
   if (initialMainWindowPublished)
     return;
+  gui::InitializeNativeGuiBackgrounds(*this);
   wxWindowUpdateLocker composition(this);
   Maximize(true);
   if (auiManager) {
@@ -62,9 +52,18 @@ void MainWindow::PublishInitialMainWindow() {
 
 // Publishes the final frame, hides the splash, and opens deferred startup paths.
 void MainWindow::CompleteStartupSplashInitialization() {
-  if (!startupSplashInitializationPending)
+  if (!startupSplashInitializationPending || !initialMainWindowPublished)
     return;
 
+  if (auiManager) {
+    auiManager->Update();
+    if (startupMetrics_)
+      ++startupMetrics_->auiUpdates;
+  }
+  Layout();
+  SendSizeEvent();
+  gui::PublishNativeGuiChildren(*this);
+  startupSplashCloseRequested = false;
   startupSplashInitializationPending = false;
   const long long interactiveReadyMs = startupMetrics_
       ? std::chrono::duration_cast<std::chrono::milliseconds>(

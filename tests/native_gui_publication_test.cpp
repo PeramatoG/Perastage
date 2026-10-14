@@ -3,6 +3,8 @@
 #include <cassert>
 #include <stdexcept>
 #include <wx/app.h>
+#include <wx/dataview.h>
+#include <wx/settings.h>
 #include <wx/frame.h>
 #include <wx/glcanvas.h>
 #include <wx/panel.h>
@@ -53,6 +55,20 @@ int main(int argc, char **argv) {
   auto *sibling = new NativeProbe(mixed);
   auto *hidden = new NativeProbe(frame);
   hidden->Hide();
+  auto *table = new wxDataViewListCtrl(native, wxID_ANY);
+  auto *custom = new NativeProbe(frame);
+  const wxColour consoleBackground(8, 9, 10);
+  custom->SetBackgroundColour(consoleBackground);
+  native->SetBackgroundColour(wxNullColour);
+  table->SetBackgroundColour(wxNullColour);
+  gui::InitializeNativeGuiBackgrounds(*frame);
+  assert(native->GetBackgroundColour() ==
+         wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+  assert(table->GetBackgroundColour() ==
+         wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
+  assert(custom->GetBackgroundColour() == consoleBackground);
+  assert(gl->refreshes == 0 && gl->updates == 0);
+  assert(mixed->refreshes == 0 && mixed->updates == 0);
   auto *otherFrame = new wxFrame(frame, wxID_ANY, "Unrelated loading UI");
   auto *other = new NativeProbe(otherFrame);
   frame->Show();
@@ -62,7 +78,15 @@ int main(int argc, char **argv) {
   native->refreshes = native->updates = nested->updates = 0;
   mixed->refreshes = mixed->updates = gl->refreshes = gl->updates = 0;
   sibling->refreshes = sibling->updates = hidden->updates = other->updates = 0;
-  gui::PublishNativeGuiChildren(*frame);
+  // The completion continuation must run without another native idle event.
+  int idleEvents = 0;
+  frame->Bind(wxEVT_IDLE, [&idleEvents](wxIdleEvent &event) {
+    ++idleEvents;
+    event.Skip();
+  });
+  frame->CallAfter([frame]() { gui::PublishNativeGuiChildren(*frame); });
+  wxTheApp->ProcessPendingEvents();
+  assert(idleEvents == 0);
   assert(native->refreshes == 1 && native->updates == 1);
   assert(nested->updates == 1);
   assert(mixed->refreshes == 0 && mixed->updates == 0);

@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "native_gui_publication.h"
 #include "main_toolbar_pane_policy.h"
 #include "startup_profile.h"
 
@@ -459,6 +460,8 @@ void MainWindow::SetupLayout() {
                           .CloseButton(true)
                           .MaximizeButton(true)
                           .Hide());
+
+  gui::InitializeNativeGuiBackgrounds(*this);
 
   // Apply all changes to layout
   auiManager->Update();
