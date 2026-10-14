@@ -16,6 +16,8 @@ void MainWindow::Ensure3DViewport(bool commitAui) {
   int halfWidth = GetClientSize().GetWidth() / 2;
   viewportPanel = new Viewer3DPanel(this);
   Viewer3DPanel::SetInstance(viewportPanel);
+  if (startupSplashInitializationPending)
+    viewportPanel->Bind(wxEVT_PAINT, &MainWindow::OnStartupScenePaint, this);
   viewportPanel->LoadCameraFromConfig();
   auiManager->AddPane(viewportPanel, wxAuiPaneInfo()
                                          .Name("3DViewport")

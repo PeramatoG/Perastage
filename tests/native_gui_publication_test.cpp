@@ -45,6 +45,15 @@ static void FailedComposition(wxWindow &window, bool throws) {
 }
 
 int main(int argc, char **argv) {
+  // 3D startup waits through source loading and a real presentation. Optional
+  // navigation preparation is deliberately absent from this GUI policy.
+  assert(!gui::CanDismissStartupSplash(false, true, true, false, true, false));
+  assert(!gui::CanDismissStartupSplash(true, true, false, false, true, false));
+  assert(!gui::CanDismissStartupSplash(true, true, true, true, true, false));
+  assert(!gui::CanDismissStartupSplash(true, true, true, false, false, false));
+  assert(!gui::CanDismissStartupSplash(true, true, true, false, true, true));
+  assert(gui::CanDismissStartupSplash(true, true, true, false, true, false));
+  assert(gui::CanDismissStartupSplash(true, false, false, true, true, false));
   assert(wxEntryStart(argc, argv));
   assert(wxTheApp->CallOnInit());
   auto *frame = new wxFrame(nullptr, wxID_ANY, "Publication test");

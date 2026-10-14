@@ -91,6 +91,11 @@ public:
     const Viewer3DCamera& GetCamera() const { return m_camera; }
     bool ShouldPauseHeavyTasks();
     bool IsCameraMoving() const { return m_runtimeState.IsCameraMoving(); }
+    // Read-only presentation query: navigation representations are optional here.
+    bool HasPendingSourceResourceLoading() const {
+        const auto progress = m_controller.GetResourceLoadProgress();
+        return m_controller.IsResourceSyncPending() || progress.completed < progress.total;
+    }
     bool HasPendingScenePreparation() const {
         return m_controller.IsResourceSyncPending() || m_controller.GetResourceLoadProgress().Pending();
     }

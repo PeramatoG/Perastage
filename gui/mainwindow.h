@@ -324,6 +324,12 @@ private:
                           const wxString &dialogTitle);
   void CompleteStartupSplashInitialization();
   void PublishInitialMainWindow();
+  void OnStartupScenePaint(wxPaintEvent &event);
+  void TryFinishStartupPresentation();
+  void FinishStartupSplashInitialization();
+  bool startupNativeGuiPublished = false;
+  bool startupScenePaintCheckQueued = false;
+  bool startupSceneSourcesPresented = false;
   void RequestStartupSplashCompletion();
   void QueueDeferredStartupOpenPath(const std::string &path);
   void ProcessDeferredStartupOpenPath();

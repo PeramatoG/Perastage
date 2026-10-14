@@ -42,8 +42,26 @@ complete = function('gui/mainwindow_startup_splash.cpp',
 assert 'PublishInitialMainWindow();' not in complete
 ordered(complete, '!initialMainWindowPublished', 'auiManager->Update();',
         'Layout();', 'SendSizeEvent();', 'gui::PublishNativeGuiChildren(*this);',
-        'startupSplashInitializationPending = false;',
-        'SplashScreen::Hide();', 'ScheduleScan();')
+        'startupNativeGuiPublished = true;', 'TryFinishStartupPresentation();')
+finish = function('gui/mainwindow_startup_splash.cpp',
+                  'void MainWindow::FinishStartupSplashInitialization')
+ordered(finish, 'startupSplashInitializationPending = false;',
+        'viewportPanel->Unbind(wxEVT_PAINT', 'SplashScreen::Hide();',
+        'viewportPanel->SetFocus();', 'ScheduleScan();')
+scene_paint = function('gui/mainwindow_startup_splash.cpp',
+                       'void MainWindow::OnStartupScenePaint')
+ordered(scene_paint, 'event.Skip();', 'CallAfter(',
+        'viewportPanel->IsEnabled()',
+        '!viewportPanel->HasPendingSourceResourceLoading()',
+        'TryFinishStartupPresentation();')
+for forbidden in ('Refresh(', 'UpdateScene(', 'wxYield', 'HasPendingScenePreparation'):
+    assert forbidden not in scene_paint
+assert 'OnStartupScenePaint' in (root / 'gui/mainwindow_viewport_creation.cpp').read_text()
+source_query = function('viewer3d/viewer3dpanel.h',
+                        'bool HasPendingSourceResourceLoading')
+assert 'progress.completed < progress.total' in source_query
+assert 'IsResourceSyncPending()' in source_query
+assert 'representationsPending' not in source_query
 load = function('gui/mainwindow.cpp', 'bool MainWindow::LoadProjectFromPath')
 ordered(load, 'std::make_unique<wxWindowDisabler>()',
         'LegacyConfigManager().LoadProject(', 'projectLoadProgressDialog.reset();',

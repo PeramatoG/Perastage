@@ -21,7 +21,10 @@ the visible startup experience.
 8. Maximize and show MainWindow with its authoritative layout under an update
    lock. Queue a continuation for show/maximize sizing and shell publication,
    commit final sizes, and publish native child controls once.
-   Only then emit `InteractiveReady` and dismiss the splash.
+   For a visible 3D view, retain the splash until all source resources have
+   completed and a natural scene paint has presented them with input enabled.
+   Only then emit `InteractiveReady` and dismiss the splash; optional navigation
+   representations may continue preparing.
 9. Schedule non-essential fixture-symbol preparation.
 
 The UI thread owns wxWidgets controls, AUI perspective commits, viewport
@@ -34,10 +37,19 @@ result from being published into a replacement project.
 `InteractiveReady` is emitted once from the queued splash completion pass.
 The initial idle pass shows the previously hidden MainWindow under an update
 lock. It queues a `CallAfter` continuation to resolve final native sizes, commit
-AUI/layout, and explicitly refresh and update native control subtrees before
-splash dismissal. Completion does not require another idle event: ongoing
+AUI/layout, and explicitly refresh and update native control subtrees to
+establish the native shell boundary. For visible 3D startup, an observer of normal viewer
+paint events queues a readiness check after the renderer has returned. Splash
+dismissal requires source loading to finish, a scene presentation, an enabled
+frame/viewer and no viewport interaction lock. It does not wait for optional
+navigation representations. Completion does not require another idle event: ongoing
 progressive viewport activity can delay idle delivery after the frame becomes
 visible. Showing the frame alone is not treated as completion of native painting.
+The readiness check uses the read-only `HasPendingSourceResourceLoading()` query,
+including resource synchronization not yet initialized, rather than status text
+or a progress percentage. It never requests a scene paint or synchronizes resources.
+The queued observer also records a scene presentation preceding shell publication,
+so empty projects do not require another paint just to close the splash.
 At that point the authoritative scene and configuration are loaded, the saved
 view and active layout are selected, required panes exist, visible project
 panels have current data, and no startup callback remains that will replace the
@@ -136,8 +148,8 @@ phase durations; project archive open, traversal, scene extraction, cache
 transfer and MVR restore values; layout and AUI commits; viewport ensures and
 constructions; and authoritative table/layer reloads. A second diagnostic-log
 record identifies post-startup fixture-symbol scan scheduling. This boundary
-measures the GUI publication boundary, not compositor completion or progressive
-3D scene completion.
+measures the selected-view presentation boundary, not compositor completion or
+completion of optional progressive navigation/quality representations.
 
 Reusable project panels use an explicit initial-population policy. MainWindow
 requests deferred population so startup data is built once after project load;
@@ -207,14 +219,22 @@ and repeat each scenario with 2D, 3D, Layout Mode and Inspector presets:
    positions are exposed during reconstruction.
 3. Cancel the file chooser, then attempt to open an invalid project archive.
    Confirm the frame remains enabled, repainting and usable after failure.
-4. With 3D visible, confirm resources can continue loading after the splash or
-   project dialog disappears, the status bar can still say “Loading scene: …” or
-   “Preparing scene for navigation: …”, and navigation keeps its existing
-   progressive-loading responsiveness. A populated shell must not retain the
-   splash solely because navigation representations are still being prepared.
+4. With 3D visible, confirm optional representations can continue preparing after
+   the startup splash disappears. File → Open may also keep loading source
+   resources after its project dialog disappears; status reporting remains live.
+   For 3D startup specifically, the splash must remain through “Loading scene: …”
+   and may close at “Preparing scene for navigation: …” after source geometry has
+   been presented. Check orbit, pan, wheel zoom and keyboard camera actions after
+   closure. The visible viewer must be enabled, interaction unlocked, and keyboard
+   focus restored to it. Optional representations use the original source mesh
+   until ready; dense scenes may navigate less smoothly until proxies finish.
+   A populated shell must not retain the splash solely because optional navigation
+   representations are still being prepared.
 
-Native publication intentionally excludes the viewports: it neither waits for
-all resources nor synchronizes them to obtain a finished scene image. Where
+Native shell publication excludes the viewports. Startup separately waits for
+source-resource completion and a natural scene paint, but not for optional
+navigation/quality preparation. Neither boundary synchronizes resources or
+requests extra viewport frames. Where
 diagnostics are available, compare the same project and preset before/after for
 resource synchronization count, scene paint count and load duration. Separate
 the one-time native control publication cost from ongoing scene rendering.
