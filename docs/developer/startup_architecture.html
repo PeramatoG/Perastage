@@ -58,8 +58,10 @@ perspectives are inspected only when no recognized semantic mode exists.</li>
 <li>Populate project tables and layers from the authoritative scene.</li>
 <li>Apply the saved AUI perspective and activate the saved project layout.</li>
 <li>Refresh visible summaries and rigging data and perform the final AUI update.</li>
-<li>Maximize and publish MainWindow with its authoritative layout, emit
-<code>InteractiveReady</code>, and then dismiss the splash.</li>
+<li>Maximize and show MainWindow with its authoritative layout under an update
+lock. Return to the native event loop for show/maximize sizing and shell
+painting, commit final sizes, and publish native child controls once.
+Only then emit <code>InteractiveReady</code> and dismiss the splash.</li>
 <li>Schedule non-essential fixture-symbol preparation.</li>
 </ol>
 <p>The UI thread owns wxWidgets controls, AUI perspective commits, viewport
@@ -68,9 +70,10 @@ inputs after <code>InteractiveReady</code>; their existing project epoch checks 
 result from being published into a replacement project.</p>
 <h2 id="interactiveready">InteractiveReady</h2>
 <p><code>InteractiveReady</code> is emitted once from the idle-driven splash completion pass.
-That pass performs the final AUI update and publishes the previously hidden
-MainWindow before dismissing the splash, so the structural setup layout is
-never exposed as an intermediate application frame.
+The first pass shows the previously hidden MainWindow under an update lock.
+A subsequent idle pass resolves final native sizes, commits AUI/layout, and
+explicitly refreshes and updates native control subtrees before dismissing the
+splash. Showing the frame alone is not treated as completion of native painting.
 At that point the authoritative scene and configuration are loaded, the saved
 view and active layout are selected, required panes exist, visible project
 panels have current data, and no startup callback remains that will replace the
@@ -153,7 +156,8 @@ phase durations; project archive open, traversal, scene extraction, cache
 transfer and MVR restore values; layout and AUI commits; viewport ensures and
 constructions; and authoritative table/layer reloads. A second diagnostic-log
 record identifies post-startup fixture-symbol scan scheduling. This boundary
-does not claim to measure the first completed paint.</p>
+measures the GUI publication boundary, not compositor completion or progressive
+3D scene completion.</p>
 <p>Reusable project panels use an explicit initial-population policy. MainWindow
 requests deferred population so startup data is built once after project load;
 standalone construction defaults to immediate population. Layout2DViewDialog
@@ -167,6 +171,55 @@ enforced. The manual 3D, 2D, and Layout commands use explicit pane visibility
 and docking recipes rather than perspectives captured from mutable runtime
 state. This makes transitions history-independent even when a heavyweight
 viewport is constructed for the first time after Layout Mode.</p>
+<h2 id="gui-publication-during-file-→-open">GUI publication during File → Open</h2>
+<p>Archive parsing, project restoration, and resource processing retain their
+existing paths. After a successful archive restore, a scoped
+<code>wxWindowUpdateLocker</code> holds the visible frame through saved-layout selection,
+table/layer reloads and summary/rigging refreshes. The separate modal progress
+dialog remains live; progress updates can dispatch events without publishing
+partially rebuilt frame controls. Its auto-hide terminal value is reserved for
+the final GUI publication call, because archive sub-stages can each report a
+completed range before GUI composition begins. Status messages continue to be
+recorded.
+An archive-load failure occurs before this lock; an exception or early exit
+inside the composition scope automatically thaws the frame.</p>
+<p>Saved-layout application configures newly required viewport panes, perspective,
+visibility, docking and minimum sizes before its AUI commit. Interactive
+viewport construction and manual preset commands retain their own commits.
+Summary captions defer their AUI commit while the frame is frozen; the final
+project-load AUI/layout/size commit includes them.</p>
+<p>At the publication boundary the frame thaws and native GUI subtrees are
+refreshed/updated once before completing the progress dialog&#39;s auto-hide range
+and releasing the load disabler. <code>PublishNativeGuiChildren</code> excludes GL canvases
+and any ancestor containing one, including Inspector preview canvases. MSW
+<code>Update()</code> only paints the target HWND, so wx child controls are also updated.
+GTK can recursively refresh/update native children, which is why simply
+calling <code>MainWindow::Update()</code> would be unsafe for this purpose. No platform
+specific branch, new yield, timer, sleep, or resource-completion threshold is
+used. Shell painting, structural readiness, and progressive scene completion
+remain separate boundaries. The Viewer3D 12 ms work budget, 128-resource batch
+limit and 150 ms presentation cadence are unchanged.</p>
+<h2 id="manual-visual-regression-procedure">Manual visual regression procedure</h2>
+<p>Use STG MAHOU or another very large project on Windows, Linux and macOS. Save
+and repeat each scenario with 2D, 3D, Layout Mode and Inspector presets:</p>
+<ol>
+<li>Restore the project as the last project at startup. Confirm the splash stays
+visible through composition and the interface appears in its final docking
+positions with populated fixture, truss, layer, summary and rigging controls.</li>
+<li>Open the project through File → Open while another project is already open.
+Confirm progress continues and no empty/white controls or intermediate pane
+positions are exposed during reconstruction.</li>
+<li>Cancel the file chooser, then attempt to open an invalid project archive.
+Confirm the frame remains enabled, repainting and usable after failure.</li>
+<li>With 3D visible, confirm resources can continue loading after the splash or
+project dialog disappears, the status bar can still say “Loading scene: …”,
+and navigation keeps its existing progressive-loading responsiveness.</li>
+</ol>
+<p>Native publication intentionally excludes the viewports: it neither waits for
+all resources nor synchronizes them to obtain a finished scene image. Where
+diagnostics are available, compare the same project and preset before/after for
+resource synchronization count, scene paint count and load duration. Separate
+the one-time native control publication cost from ongoing scene rendering.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

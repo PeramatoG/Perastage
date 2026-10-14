@@ -127,6 +127,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_background_work.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_selection_refresh.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/native_gui_publication.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_viewport_creation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_startup_splash.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow/controllers/mainwindow_io_controller.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow/controllers/mainwindow_view_controller.cpp

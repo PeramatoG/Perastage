@@ -16,6 +16,8 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "native_gui_publication.h"
+#include <wx/wupdlock.h>
 #include "services/fixture_symbol_preparation_service.h"
 #include "fixture_visual_color.h"
 #include "diagnostics/DiagnosticLogger.h"
@@ -584,99 +586,6 @@ MainWindow::~MainWindow() {
   ProjectUtils::SaveLastProjectPath(currentProjectPath);
 }
 
-void MainWindow::Ensure3DViewport() {
-  if (startupSplashInitializationPending && startupMetrics_)
-    ++startupMetrics_->ensure3DCalls;
-  if (viewportPanel)
-    return;
-  if (startupSplashInitializationPending && startupMetrics_)
-    ++startupMetrics_->viewer3DConstructions;
-  int halfWidth = GetClientSize().GetWidth() / 2;
-  viewportPanel = new Viewer3DPanel(this);
-  Viewer3DPanel::SetInstance(viewportPanel);
-  viewportPanel->LoadCameraFromConfig();
-  auiManager->AddPane(viewportPanel, wxAuiPaneInfo()
-                                         .Name("3DViewport")
-                                         .Caption(_("3D Viewport"))
-                                         .Center()
-                                         .Dockable(true)
-                                         .CaptionVisible(true)
-                                         .PaneBorder(false)
-                                         .BestSize(halfWidth, 600)
-                                         .MinSize(wxSize(200, 600))
-                                         .CloseButton(true)
-                                         .MaximizeButton(true));
-  auiManager->Update();
-  if (startupSplashInitializationPending && startupMetrics_)
-    ++startupMetrics_->auiUpdates;
-
-  if (summaryPanel)
-    summaryPanel->SetVisibleRefreshTargets(viewport2DPanel, viewportPanel);
-  ApplyViewportMovementToolState();
-}
-
-void MainWindow::Ensure2DViewport() {
-  if (startupSplashInitializationPending && startupMetrics_)
-    ++startupMetrics_->ensure2DCalls;
-  if (viewport2DPanel)
-    return;
-  if (startupSplashInitializationPending && startupMetrics_)
-    ++startupMetrics_->viewer2DConstructions;
-  int halfWidth = GetClientSize().GetWidth() / 2;
-  viewport2DPanel = new Viewer2DPanel(this);
-  std::weak_ptr<int> lifetimeToken = cursorStatusCallbackLifetimeToken;
-  viewport2DPanel->SetCursorWorldPositionCallback(
-      [this,
-       lifetimeToken](const std::optional<std::array<float, 3>> &positionMeters,
-          bool highlighted) {
-        if (lifetimeToken.expired() || !GetStatusBar())
-          return;
-        if (highlighted)
-          UpdateHighlightedWorldPositionInStatusBar(positionMeters);
-        else
-          UpdateCursorWorldPositionInStatusBar(positionMeters);
-      });
-  Viewer2DPanel::SetInstance(viewport2DPanel);
-  viewport2DPanel->LoadViewFromConfig();
-  auiManager->AddPane(viewport2DPanel, wxAuiPaneInfo()
-                                           .Name("2DViewport")
-                                           .Caption(_("2D Viewport"))
-                                           .Center()
-                                           .Dockable(true)
-                                           .CaptionVisible(true)
-                                           .PaneBorder(false)
-                                           .BestSize(halfWidth, 600)
-                                           .MinSize(wxSize(200, 600))
-                                           .CloseButton(true)
-                                           .MaximizeButton(true)
-                                           .Hide());
-  viewport2DPanel->UpdateScene();
-
-  viewport2DRenderPanel = new Viewer2DRenderPanel(this);
-  Viewer2DRenderPanel::SetInstance(viewport2DRenderPanel);
-  auiManager->AddPane(viewport2DRenderPanel, wxAuiPaneInfo()
-                                                 .Name("2DRenderOptions")
-                                                 .Caption(_("2D Render Options"))
-                                                 .Right()
-                                                 .Layer(0)
-                                                 .Row(0)
-                                                 .Position(0)
-                                                 .BestSize(220, 100)
-                                                 .CloseButton(true)
-                                                 .MaximizeButton(true)
-                                                 .PaneBorder(true)
-                                                 .Hide());
-
-  if (summaryPanel)
-    summaryPanel->SetVisibleRefreshTargets(viewport2DPanel, viewportPanel);
-  ApplyViewportMovementToolState();
-
-  auiManager->Update();
-  if (startupSplashInitializationPending && startupMetrics_)
-    ++startupMetrics_->auiUpdates;
-
-}
-
 // Updates the status bar with a world-space position formatted in the active
 // distance units.
 void MainWindow::UpdateCursorWorldPositionInStatusBar(
@@ -867,7 +776,8 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   std::unique_ptr<wxProgressDialog> projectLoadProgressDialog;
   auto reportProjectLoadProgress = [&](const wxString &message,
                                        bool advanceStep = false,
-                                       int completed = -1, int total = -1) {
+                                       int completed = -1, int total = -1,
+                                       bool guiPublished = false) {
     if (advanceStep)
       projectLoadProgressStep =
           std::min(projectLoadProgressStep + 1, kProjectLoadProgressSteps);
@@ -885,7 +795,11 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
         const int safeTotal = std::max(total, 1);
         const int safeCompleted = std::clamp(completed, 0, safeTotal);
         projectLoadProgressDialog->SetRange(safeTotal);
-        projectLoadProgressDialog->Update(safeCompleted, message);
+        // Only GUI publication may reach the auto-hide terminal value; archive
+        // sub-stages also report their maximum while composition is still pending.
+        const int displayedCompleted = guiPublished
+            ? safeCompleted : std::min(safeCompleted, safeTotal - 1);
+        projectLoadProgressDialog->Update(displayedCompleted, message);
       } else {
         projectLoadProgressDialog->Pulse(message);
       }
@@ -898,12 +812,9 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
       "project_load_layout_startup");
   loadProfiler.BeginPhase("project_archive_load");
 
-  if (showBlockingLoadUi) {
-    blockingProjectLoadDisabler = std::make_unique<wxWindowDisabler>();
-    blockingProjectLoadOverlay.reset();
-  } else {
-    blockingProjectLoadOverlay.reset();
-  }
+  // Scope the input disabler to this load, including failure/exception exits.
+  auto projectLoadDisabler = showBlockingLoadUi
+      ? std::make_unique<wxWindowDisabler>() : nullptr;
   reportProjectLoadProgress(_("Loading project file..."));
 
   LockViewportInteraction();
@@ -920,7 +831,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
                                       completed, total);
           })) {
     projectLoadProgressDialog.reset();
-    ClearBlockingProjectLoadUi();
+    projectLoadDisabler.reset();
     if (viewportPanel) {
       viewportPanel->CompleteSceneReplacement();
       viewportPanel->UpdateScene();
@@ -936,6 +847,10 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
         diagnostics::DiagnosticLogger::FileNameOnly(path));
     return false;
   }
+  // Progress-dialog updates can dispatch paint events between panel mutations.
+  // Freeze only the GUI composition phase, after archive loading succeeds.
+  auto guiComposition = IsShown()
+      ? std::make_unique<wxWindowUpdateLocker>(this) : nullptr;
   InvalidateSceneClipboard();
   if (viewportPanel)
     viewportPanel->CompleteSceneReplacement();
@@ -1063,15 +978,25 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   loadProfiler.BeginPhase("finalize_project_load");
   reportProjectLoadProgress(_("Updating window title..."), true);
   UpdateTitle();
+  if (auiManager) {
+    auiManager->Update();
+    if (startupSplashInitializationPending && startupMetrics_)
+      ++startupMetrics_->auiUpdates;
+  }
+  Layout();
+  SendSizeEvent();
+  guiComposition.reset();
+  if (IsShown())
+    gui::PublishNativeGuiChildren(*this);
   projectLoadProgressStep = kProjectLoadProgressSteps;
   // Complete the modal progress dialog before destroying it so wxWidgets does
   // not leave its modal event loop waiting for an unfinished range.
   reportProjectLoadProgress(_("Finalizing project load..."), false,
                             projectLoadProgressStep,
-                            kProjectLoadProgressSteps);
+                            kProjectLoadProgressSteps, true);
   projectLoadProgressDialog.reset();
   if (showBlockingLoadUi)
-    ClearBlockingProjectLoadUi();
+    projectLoadDisabler.reset();
   finishLoad();
   loadProfiler.Finish("project_load_completed");
   diagnostics::DiagnosticLogger::Info(
@@ -1080,11 +1005,6 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   if (!startupSplashInitializationPending)
     fixtureSymbolPreparationService->ScheduleScan();
   return true;
-}
-
-void MainWindow::ClearBlockingProjectLoadUi() {
-  blockingProjectLoadOverlay.reset();
-  blockingProjectLoadDisabler.reset();
 }
 
 void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
@@ -1746,10 +1666,6 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     }
     ResetProject(true);
     ApplySavedLayout();
-    // Some platforms can delay or skip idle delivery during startup.
-    // Force an explicit completion pass so deferred startup open paths
-    // can be processed deterministically after startup reset.
-    CallAfter([this]() { CompleteStartupSplashInitialization(); });
     SetStartupProjectLoadPending(false);
     ReapplyStartupLayoutAfterProjectLoad();
     RequestStartupSplashCompletion();

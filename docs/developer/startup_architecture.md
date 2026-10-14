@@ -18,8 +18,10 @@ the visible startup experience.
 5. Populate project tables and layers from the authoritative scene.
 6. Apply the saved AUI perspective and activate the saved project layout.
 7. Refresh visible summaries and rigging data and perform the final AUI update.
-8. Maximize and publish MainWindow with its authoritative layout, emit
-   `InteractiveReady`, and then dismiss the splash.
+8. Maximize and show MainWindow with its authoritative layout under an update
+   lock. Return to the native event loop for show/maximize sizing and shell
+   painting, commit final sizes, and publish native child controls once.
+   Only then emit `InteractiveReady` and dismiss the splash.
 9. Schedule non-essential fixture-symbol preparation.
 
 The UI thread owns wxWidgets controls, AUI perspective commits, viewport
@@ -30,9 +32,10 @@ result from being published into a replacement project.
 ## InteractiveReady
 
 `InteractiveReady` is emitted once from the idle-driven splash completion pass.
-That pass performs the final AUI update and publishes the previously hidden
-MainWindow before dismissing the splash, so the structural setup layout is
-never exposed as an intermediate application frame.
+The first pass shows the previously hidden MainWindow under an update lock.
+A subsequent idle pass resolves final native sizes, commits AUI/layout, and
+explicitly refreshes and updates native control subtrees before dismissing the
+splash. Showing the frame alone is not treated as completion of native painting.
 At that point the authoritative scene and configuration are loaded, the saved
 view and active layout are selected, required panes exist, visible project
 panels have current data, and no startup callback remains that will replace the
@@ -131,7 +134,8 @@ phase durations; project archive open, traversal, scene extraction, cache
 transfer and MVR restore values; layout and AUI commits; viewport ensures and
 constructions; and authoritative table/layer reloads. A second diagnostic-log
 record identifies post-startup fixture-symbol scan scheduling. This boundary
-does not claim to measure the first completed paint.
+measures the GUI publication boundary, not compositor completion or progressive
+3D scene completion.
 
 Reusable project panels use an explicit initial-population policy. MainWindow
 requests deferred population so startup data is built once after project load;
@@ -148,3 +152,58 @@ enforced. The manual 3D, 2D, and Layout commands use explicit pane visibility
 and docking recipes rather than perspectives captured from mutable runtime
 state. This makes transitions history-independent even when a heavyweight
 viewport is constructed for the first time after Layout Mode.
+
+## GUI publication during File → Open
+
+Archive parsing, project restoration, and resource processing retain their
+existing paths. After a successful archive restore, a scoped
+`wxWindowUpdateLocker` holds the visible frame through saved-layout selection,
+table/layer reloads and summary/rigging refreshes. The separate modal progress
+dialog remains live; progress updates can dispatch events without publishing
+partially rebuilt frame controls. Its auto-hide terminal value is reserved for
+the final GUI publication call, because archive sub-stages can each report a
+completed range before GUI composition begins. Status messages continue to be
+recorded.
+An archive-load failure occurs before this lock; an exception or early exit
+inside the composition scope automatically thaws the frame.
+
+Saved-layout application configures newly required viewport panes, perspective,
+visibility, docking and minimum sizes before its AUI commit. Interactive
+viewport construction and manual preset commands retain their own commits.
+Summary captions defer their AUI commit while the frame is frozen; the final
+project-load AUI/layout/size commit includes them.
+
+At the publication boundary the frame thaws and native GUI subtrees are
+refreshed/updated once before completing the progress dialog's auto-hide range
+and releasing the load disabler. `PublishNativeGuiChildren` excludes GL canvases
+and any ancestor containing one, including Inspector preview canvases. MSW
+`Update()` only paints the target HWND, so wx child controls are also updated.
+GTK can recursively refresh/update native children, which is why simply
+calling `MainWindow::Update()` would be unsafe for this purpose. No platform
+specific branch, new yield, timer, sleep, or resource-completion threshold is
+used. Shell painting, structural readiness, and progressive scene completion
+remain separate boundaries. The Viewer3D 12 ms work budget, 128-resource batch
+limit and 150 ms presentation cadence are unchanged.
+
+## Manual visual regression procedure
+
+Use STG MAHOU or another very large project on Windows, Linux and macOS. Save
+and repeat each scenario with 2D, 3D, Layout Mode and Inspector presets:
+
+1. Restore the project as the last project at startup. Confirm the splash stays
+   visible through composition and the interface appears in its final docking
+   positions with populated fixture, truss, layer, summary and rigging controls.
+2. Open the project through File → Open while another project is already open.
+   Confirm progress continues and no empty/white controls or intermediate pane
+   positions are exposed during reconstruction.
+3. Cancel the file chooser, then attempt to open an invalid project archive.
+   Confirm the frame remains enabled, repainting and usable after failure.
+4. With 3D visible, confirm resources can continue loading after the splash or
+   project dialog disappears, the status bar can still say “Loading scene: …”,
+   and navigation keeps its existing progressive-loading responsiveness.
+
+Native publication intentionally excludes the viewports: it neither waits for
+all resources nor synchronizes them to obtain a finished scene image. Where
+diagnostics are available, compare the same project and preset before/after for
+resource synchronization count, scene paint count and load duration. Separate
+the one-time native control publication cost from ongoing scene rendering.

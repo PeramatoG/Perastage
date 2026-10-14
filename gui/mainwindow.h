@@ -135,8 +135,8 @@ private:
       const std::optional<std::array<float, 3>> &positionMeters);
   void ClearCursorWorldPositionInStatusBar();
   void UpdateTitle();   // Refresh window title
-  void Ensure3DViewport();
-  void Ensure2DViewport();
+  void Ensure3DViewport(bool commitAui = true);
+  void Ensure2DViewport(bool commitAui = true);
   void OnProjectLoaded(wxCommandEvent &event);
   void OnUiUnitsChanged(wxCommandEvent &event);
   void OnPreferencesApplied(wxCommandEvent &event);
@@ -301,7 +301,8 @@ private:
   void ActivateInspectorIfVisible();
   void ApplyLayoutPreset(const LayoutViewPreset &preset,
                          const std::optional<std::string> &perspective,
-                         bool layoutMode, bool persistPerspective);
+                         bool layoutMode, bool persistPerspective,
+                         bool commitAui = true);
   void ApplyCanonicalPaneDocking();
   void EnforceMainToolbarVisibility();
   void ApplyLayoutModePerspective();
@@ -321,7 +322,6 @@ private:
   bool GuardStartupProjectLoadAction(const wxString &actionLabel);
   bool ConfirmSaveIfDirty(const wxString &actionLabel,
                           const wxString &dialogTitle);
-  void ClearBlockingProjectLoadUi();
   void CompleteStartupSplashInitialization();
   void PublishInitialMainWindow();
   void RequestStartupSplashCompletion();
@@ -347,8 +347,6 @@ private:
   std::optional<std::string> deferredStartupOpenPath;
   bool userConfigPersistedOnClose = false;
   int viewportInteractionLockDepth = 0;
-  std::unique_ptr<wxWindowDisabler> blockingProjectLoadDisabler;
-  std::unique_ptr<wxBusyInfo> blockingProjectLoadOverlay;
   scene_clipboard::Service sceneClipboard;
   std::uint64_t sceneClipboardEpoch = 1;
 

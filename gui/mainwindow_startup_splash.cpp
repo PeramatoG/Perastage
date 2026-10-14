@@ -1,4 +1,6 @@
 #include "mainwindow.h"
+#include "native_gui_publication.h"
+#include <wx/wupdlock.h>
 
 #include "splashscreen.h"
 
@@ -14,14 +16,29 @@ void MainWindow::RequestStartupSplashCompletion() {
   if (!startupSplashInitializationPending)
     return;
   startupSplashCloseRequested = true;
+  wxWakeUpIdle();
 }
 
 // Completes a deferred splash close from the idle event loop.
 void MainWindow::OnStartupSplashCloseIdle(wxIdleEvent &event) {
   event.Skip();
-  if (!startupSplashCloseRequested)
+  if (!startupSplashCloseRequested || startupProjectLoadPending)
     return;
 
+  if (!initialMainWindowPublished) {
+    PublishInitialMainWindow();
+    // Return to the native event loop for show/maximize sizing and shell paint.
+    event.RequestMore();
+    return;
+  }
+  if (auiManager) {
+    auiManager->Update();
+    if (startupSplashInitializationPending && startupMetrics_)
+      ++startupMetrics_->auiUpdates;
+  }
+  Layout();
+  SendSizeEvent();
+  gui::PublishNativeGuiChildren(*this);
   startupSplashCloseRequested = false;
   CompleteStartupSplashInitialization();
 }
@@ -30,11 +47,16 @@ void MainWindow::OnStartupSplashCloseIdle(wxIdleEvent &event) {
 void MainWindow::PublishInitialMainWindow() {
   if (initialMainWindowPublished)
     return;
-  if (auiManager)
-    auiManager->Update();
-  Layout();
+  wxWindowUpdateLocker composition(this);
   Maximize(true);
+  if (auiManager) {
+    auiManager->Update();
+    if (startupSplashInitializationPending && startupMetrics_)
+      ++startupMetrics_->auiUpdates;
+  }
+  Layout();
   Show(true);
+  SendSizeEvent();
   initialMainWindowPublished = true;
 }
 
@@ -43,7 +65,6 @@ void MainWindow::CompleteStartupSplashInitialization() {
   if (!startupSplashInitializationPending)
     return;
 
-  PublishInitialMainWindow();
   startupSplashInitializationPending = false;
   const long long interactiveReadyMs = startupMetrics_
       ? std::chrono::duration_cast<std::chrono::milliseconds>(
