@@ -13,6 +13,7 @@ import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 import zipfile
+from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("perastage_msix", ROOT / "packaging/windows/msix/msix.py")
@@ -51,6 +52,7 @@ class StorePackagingTests(unittest.TestCase):
         for directory in ("resources", "library"):
             (self.stage / directory).mkdir()
         (self.stage / "resources/中文 with spaces.txt").write_text("UTF-8 fixture", encoding="utf-8")
+        (self.stage / "resources/literal%20 and %2520.txt").write_text("Literal percent fixture", encoding="utf-8")
         self.layout = self.root / "layout"
 
     def test_version_mapping_and_output_name(self) -> None:
@@ -202,13 +204,15 @@ class StorePackagingTests(unittest.TestCase):
         MSIX.prepare(self.stage, self.layout, "1.7.0", IDENTITY, VCLIBS_VERSION)
         package = self.root / MSIX.artifact_name("1.7.0")
 
-        def archive(extra: str | None = None, omit: str | None = None, corrupt: bool = False) -> None:
+        def archive(extra: str | None = None, omit: str | None = None, corrupt: bool = False,
+                    encoded: bool = True) -> None:
             with zipfile.ZipFile(package, "w") as output:
                 for path in self.layout.rglob("*"):
                     if path.is_file():
                         name = path.relative_to(self.layout).as_posix()
                         if name != omit:
-                            output.writestr(name, b"altered" if corrupt and name == "Perastage.exe" else path.read_bytes())
+                            output.writestr(quote(name, safe="/") if encoded else name,
+                                            b"altered" if corrupt and name == "Perastage.exe" else path.read_bytes())
                 for name in ("AppxBlockMap.xml", "[Content_Types].xml"):
                     output.writestr(name, "fixture")
                 if extra:

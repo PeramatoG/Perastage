@@ -14,6 +14,7 @@ import sys
 from xml.sax.saxutils import escape
 import xml.etree.ElementTree as ET
 import zipfile
+from urllib.parse import unquote
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -175,9 +176,12 @@ def verify_archive(package: Path, layout: Path, version: str) -> None:
         raise ValueError(f"Unexpected MSIX output name: {package.name}")
     expected = {path.relative_to(layout).as_posix(): path for path in layout.rglob("*") if path.is_file()}
     with zipfile.ZipFile(package) as archive:
-        names = archive.namelist()
-        if len(names) != len(set(names)):
+        raw_names = archive.namelist()
+        # MakeAppx uses OPC part URIs, including percent-encoded spaces/Unicode.
+        decoded_names = [unquote(name, encoding="utf-8", errors="strict") for name in raw_names]
+        if len(decoded_names) != len(set(decoded_names)):
             raise ValueError("Duplicate MSIX archive entries")
+        names = dict(zip(decoded_names, raw_names))
         extra = set(names) - set(expected)
         if extra - {"AppxBlockMap.xml", "[Content_Types].xml"}:
             raise ValueError(f"Unexpected MSIX content (including signatures/symbols): {sorted(extra)}")
@@ -185,7 +189,7 @@ def verify_archive(package: Path, layout: Path, version: str) -> None:
             raise ValueError("MSIX content is incomplete")
         for name, path in expected.items():
             digest = hashlib.sha256()
-            with archive.open(name) as stream:
+            with archive.open(names[name]) as stream:
                 for chunk in iter(lambda: stream.read(1024 * 1024), b""):
                     digest.update(chunk)
             original = hashlib.sha256()
