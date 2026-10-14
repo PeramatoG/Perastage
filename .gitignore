@@ -406,3 +406,10 @@ resources/locale/**/LC_MESSAGES/*.mo
 
 # Rust build output
 /tools/mcp/target/
+
+# Store identities for local packaging and development signing material.
+/packaging/windows/msix/identity.local.json
+*.msix
+*.msixupload
+*.pfx
+*.p12

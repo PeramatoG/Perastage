@@ -45,6 +45,14 @@ package). See [Developer CLI](cli.md) for grammar and safety contracts.
 
 The official Windows installer workflow uses Inno Setup:
 
+Microsoft Store packaging is an additional opt-in MSIX target consuming the same
+validated release stage. It preserves full-trust Win32 behavior, registers file
+types and a CLI execution alias, and keeps user data outside the package. See the
+[Store packaging maintainer guide](../../packaging/windows/msix/README.md) for
+identity setup, builds, virtualization audit, local testing, WACK and submission.
+Its unsigned Store-only CI artifact is excluded from public GitHub releases;
+Inno Setup remains the normal Windows direct download.
+
 - Workflow: `.github/workflows/windows-installer.yml`
 - Script: `packaging/windows/Perastage.iss`
 - Build Release and run `perastage_stage` before compiling the installer.
