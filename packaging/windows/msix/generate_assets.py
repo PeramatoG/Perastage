@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Regenerate checked-in PNG variants once from original repository artwork."""
 from pathlib import Path
+import shutil
 
 from PIL import Image
 
@@ -18,9 +19,15 @@ def main() -> None:
                        ("Square150x150Logo.png", 150)):
         source.resize((size, size), Image.Resampling.LANCZOS).save(assets / name)
     for icon, name in (("PerastageProject.ico", "ProjectFile.png"), ("PerastageMVR.ico", "MvrFile.png")):
+        shutil.copyfile(RESOURCES / icon, assets / Path(name).with_suffix(".ico"))
         with Image.open(RESOURCES / icon) as image:
             source = image.ico.getimage(max(image.ico.sizes(), key=lambda size: size[0])).convert("RGBA")
-        source.resize((32, 32), Image.Resampling.LANCZOS).save(assets / name)
+        # The legacy PNG logo is 44px; remove only exterior transparent padding.
+        source = source.crop(source.getchannel("A").getbbox())
+        source.thumbnail((44, 44), Image.Resampling.LANCZOS)
+        fallback = Image.new("RGBA", (44, 44))
+        fallback.alpha_composite(source, ((44 - source.width) // 2, (44 - source.height) // 2))
+        fallback.save(assets / name)
 
 
 if __name__ == "__main__":

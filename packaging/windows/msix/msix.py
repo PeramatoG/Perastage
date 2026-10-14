@@ -28,7 +28,8 @@ release_languages = LOCALIZATION.release_languages
 NS = {"f": "http://schemas.microsoft.com/appx/manifest/foundation/windows10"}
 IDENTITY_KEYS = ("Name", "Publisher", "PublisherDisplayName")
 ASSETS = {"StoreLogo.png": 50, "Square44x44Logo.png": 44,
-          "Square150x150Logo.png": 150, "ProjectFile.png": 32, "MvrFile.png": 32}
+          "Square150x150Logo.png": 150, "ProjectFile.png": 44, "MvrFile.png": 44}
+FILE_ICONS = {"ProjectFile.ico": "PerastageProject.ico", "MvrFile.ico": "PerastageMVR.ico"}
 PRIVATE_SUFFIXES = {".pdb", ".ilk", ".lib", ".exp", ".obj", ".pfx", ".p12",
                     ".pem", ".key", ".cer", ".msix", ".msixupload", ".appx"}
 RESERVED = {"appxmanifest.xml", "appxblockmap.xml", "appxsignature.p7x",
@@ -158,6 +159,13 @@ def verify_assets(directory: Path) -> None:
         if (len(header) != 24 or header[:8] != b"\x89PNG\r\n\x1a\n" or
                 header[12:16] != b"IHDR" or struct.unpack(">II", header[16:24]) != (size, size)):
             raise ValueError(f"Expected {size}x{size} PNG MSIX asset: {path}")
+    for name, original in FILE_ICONS.items():
+        path = directory / name
+        if not path.is_file():
+            raise ValueError(f"Missing MSIX file association icon: {path}")
+        # Keep every native size/alpha channel from the canonical Inno artwork.
+        if path.read_bytes() != (ROOT / "resources" / original).read_bytes():
+            raise ValueError(f"MSIX file association icon differs from canonical artwork: {path}")
 
 
 def prepare(stage: Path, layout: Path, version: str, identity: dict[str, str],
@@ -176,7 +184,7 @@ def prepare(stage: Path, layout: Path, version: str, identity: dict[str, str],
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(path, target)
     (layout / "StoreAssets").mkdir()
-    for name in ASSETS:
+    for name in (*ASSETS, *FILE_ICONS):
         shutil.copyfile(assets / name, layout / "StoreAssets" / name)
     (layout / "AppxManifest.xml").write_bytes(xml)
     for path in layout.rglob("*"):

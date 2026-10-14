@@ -87,6 +87,34 @@ is used. See [Store version numbering][requirements].
   review regenerated PNGs. Store listing screenshots/artwork are separate manual
   Partner Center requirements; reuse existing branding. See [listing images][images].
 
+### Explorer file icons
+
+The old association logos were single 32px PNGs. This loses the classic ICO's
+native size variants and uses Windows' packaged PNG document presentation;
+transparent margins can make the artwork look smaller still.
+Each association now declares both a legacy `uap:Logo` PNG and a
+[desktop7:Logo][desktop-logo] ICO. On Windows builds supporting desktop7 (19645
+and later), the dedicated `StoreAssets/ProjectFile.ico` and `MvrFile.ico` reuse
+the original Inno artwork byte-for-byte, including 16/32/48/64/128/256px images.
+No PNG target-size/scale variants or resource-index generation are needed for
+this native multi-image ICO path. App tile/Store logos are unchanged.
+
+`desktop7` is ignorable so the minimum OS remains 19041. Older Windows builds
+retain the PNG fallback and may still show Windows' document backing. The
+fallbacks are now 44px, generated once from original ICO artwork with exterior
+transparent margins cropped, preserving aspect ratio. This follows Microsoft's
+[file icon size/padding guidance][file-icons]. Regenerate with
+`python packaging/windows/msix/generate_assets.py` (Pillow required locally).
+Packaging checks require the ICOs to match their canonical resource originals.
+
+After installing/upgrading a development-signed package, select Perastage as the
+default for both extensions and compare Explorer small/medium/large/extra-large
+views at 100%, 150% and 200% DPI on Windows 11 and the minimum Windows 10 build.
+Verify double-click opening still works. If Explorer shows cached old icons,
+restart Explorer/sign out before comparing; do not modify association registry
+entries. Native rendering and older-OS fallback appearance require this visual
+check on Windows; schema validation alone cannot confirm their appearance.
+
 ## Audit before implementation
 
 Audit base: main `02fbb16f47483a59a0e36e45c1b7a7cfcd83e834` (VERSION 1.6.145).
@@ -279,6 +307,8 @@ rerun packaging/checklist/WACK, and upload the higher-version MSIX manually.
 [virtualization]: https://learn.microsoft.com/en-us/windows/msix/desktop/flexible-virtualization
 [runtime]: https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-behind-the-scenes
 [association]: https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/uapmanifestschema/element-uap3-filetypeassociation
+[desktop-logo]: https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/uapmanifestschema/element-desktop7-logo
+[file-icons]: https://learn.microsoft.com/en-us/windows/apps/develop/launch/handle-file-activation#step-2-add-the-proper-icons
 [alias]: https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/uapmanifestschema/element-uap5-appexecutionalias
 [extensions]: https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/desktop-to-uwp-extensions
 [images]: https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/screenshots-and-images

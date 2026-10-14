@@ -25,6 +25,7 @@ NS = {**MSIX.NS, "uap": "http://schemas.microsoft.com/appx/manifest/uap/windows1
       "uap5": "http://schemas.microsoft.com/appx/manifest/uap/windows10/5",
       "uap10": "http://schemas.microsoft.com/appx/manifest/uap/windows10/10",
       "desktop6": "http://schemas.microsoft.com/appx/manifest/desktop/windows10/6",
+      "desktop7": "http://schemas.microsoft.com/appx/manifest/desktop/windows10/7",
       "rescap": "http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"}
 # Deliberately synthetic: never use fixture identity for a Store submission.
 VCLIBS_VERSION = "14.0.33519.0"  # Synthetic fixture version; production reads the SDK framework.
@@ -145,6 +146,46 @@ class StorePackagingTests(unittest.TestCase):
         if "zh_CN" in canonical:
             self.assertIn("zh-CN", languages)
         self.assertNotIn("zh_CN", languages)
+
+    def test_file_association_icon_assets_and_manifest_references(self) -> None:
+        tree = ET.fromstring(MSIX.manifest("1.7.0", IDENTITY, VCLIBS_VERSION))
+        self.assertIn("desktop7", tree.get("IgnorableNamespaces").split())
+        associations = tree.findall("f:Applications/f:Application/f:Extensions/uap3:Extension/uap3:FileTypeAssociation", NS)
+        expected = {"perastage.project": ("ProjectFile", "PerastageProject.ico"),
+                    "perastage.mvr": ("MvrFile", "PerastageMVR.ico")}
+        MSIX.prepare(self.stage, self.layout, "1.7.0", IDENTITY, VCLIBS_VERSION)
+        for association in associations:
+            stem, original = expected[association.get("Name")]
+            self.assertEqual(association.findtext("uap:Logo", namespaces=NS), f"StoreAssets\\{stem}.png")
+            self.assertEqual(association.findtext("desktop7:Logo", namespaces=NS), f"StoreAssets\\{stem}.ico")
+            png = (self.layout / "StoreAssets" / f"{stem}.png").read_bytes()
+            self.assertEqual(struct.unpack(">II", png[16:24]), (44, 44))
+            ico = (self.layout / "StoreAssets" / f"{stem}.ico").read_bytes()
+            self.assertEqual(ico, (ROOT / "resources" / original).read_bytes())
+            reserved, kind, count = struct.unpack_from("<HHH", ico)
+            self.assertEqual((reserved, kind), (0, 1))
+            sizes = set()
+            for index in range(count):
+                width, height, _, _, _, _, length, offset = struct.unpack_from("<BBBBHHII", ico, 6 + index * 16)
+                sizes.add((width or 256, height or 256))
+                self.assertGreater(length, 0)
+                self.assertGreaterEqual(offset, 6 + count * 16)
+                self.assertLessEqual(offset + length, len(ico))
+            self.assertTrue({(size, size) for size in (16, 32, 48, 64, 128, 256)} <= sizes)
+
+    def test_missing_or_modified_file_association_icons_fail(self) -> None:
+        assets = self.root / "assets"
+        shutil.copytree(MSIX.HERE / "assets", assets)
+        for name in ("ProjectFile.ico", "MvrFile.ico"):
+            icon = assets / name
+            original = icon.read_bytes()
+            icon.unlink()
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, "Missing MSIX file association icon"):
+                MSIX.verify_assets(assets)
+            icon.write_bytes(b"Invalid icon")
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, "differs from canonical artwork"):
+                MSIX.verify_assets(assets)
+            icon.write_bytes(original)
 
     def test_manifest_languages_track_future_registry_changes(self) -> None:
         with patch.object(MSIX, "release_languages", return_value=["es", "it", "zh_CN"]):
