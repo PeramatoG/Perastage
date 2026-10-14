@@ -121,6 +121,8 @@ class StorePackagingTests(unittest.TestCase):
         self.assertEqual(len(apps), 1, "Microsoft Store requires one Application, including hidden entries")
         self.assertEqual(apps[0].get("Id"), "Perastage")
         self.assertEqual(apps[0].get("Executable"), "Perastage.exe")
+        self.assertEqual(apps[0].get(f"{{{NS['uap10']}}}SupportsMultipleInstances"), "true")
+        self.assertNotEqual(apps[0].get(f"{{{NS['uap10']}}}Subsystem"), "console")
         for app in apps:
             self.assertEqual(app.get(f"{{{NS['uap10']}}}RuntimeBehavior"), "packagedClassicApp")
             self.assertEqual(app.get(f"{{{NS['uap10']}}}TrustLevel"), "mediumIL")

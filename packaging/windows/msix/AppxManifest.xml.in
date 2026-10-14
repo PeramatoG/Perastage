@@ -31,7 +31,8 @@
   </Dependencies>
   <Applications>
     <Application Id="Perastage" Executable="Perastage.exe"
-                 uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
+                 uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL"
+                 uap10:SupportsMultipleInstances="true">
       <uap:VisualElements DisplayName="Perastage" Description="Stage design and MVR/GDTF workflows"
                           Square150x150Logo="StoreAssets\Square150x150Logo.png"
                           Square44x44Logo="StoreAssets\Square44x44Logo.png" BackgroundColor="transparent" />

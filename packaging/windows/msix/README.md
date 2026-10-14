@@ -77,7 +77,10 @@ is used. See [Store version numbering][requirements].
 - The single GUI Application owns a `uap5:Extension` explicitly targeting
   `perastage-cli.exe` with `packagedClassicApp`/`mediumIL`, containing the
   console `uap5:AppExecutionAlias`. The CLI stays in the payload without a second
-  Application entry (including a hidden entry). Windows requires the `.exe`
+  Application entry (including a hidden entry). The Application declares
+  `uap10:SupportsMultipleInstances="true"`, required by MakeAppx for a console
+  alias; its subsystem remains GUI/default while only the alias is console.
+  Windows requires the `.exe`
   suffix in the declaration; normal shells also resolve `perastage-cli` through
   PATHEXT. There is no PATH mutation. Users may disable the alias in Settings,
   and an earlier PATH entry can shadow it. See [alias schema][alias] and
@@ -280,6 +283,13 @@ not a successful WACK result for the corrected package.
   `perastage-cli.exe` as a full-trust console executable. The main GUI AUMID and
   file-association parameters remain unchanged. See [extension executable and
   runtime attributes][alias-extension] and [Desktop Bridge WACK tests][bridge-tests].
+  The [Application schema][application] requires explicit multi-instancing for
+  console activations. SDK semantic validation also requires that declaration
+  on the owning Application, even when the alias targets a different executable.
+  This allows repeated packaged GUI activations as well; the native startup has
+  no singleton redirection and direct installs already allow separate GUI
+  processes. Retest repeated GUI/file opens and the existing local-live endpoint
+  ownership alongside concurrent CLI commands. No GUI console subsystem is set.
 - **Blocked Executables: classify before correcting.** Microsoft's optional
   test concerns Windows S restrictions; it is not evidence that an imported
   process API or a matching string was actually executed. The audit found:
