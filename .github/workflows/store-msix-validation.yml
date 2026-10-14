@@ -1,0 +1,24 @@
+name: Store MSIX Packaging Validation
+
+on:
+  pull_request:
+    paths:
+      - 'packaging/windows/msix/**'
+      - 'tests/check_windows_msix_packaging.py'
+      - '.github/workflows/windows-installer.yml'
+      - '.github/workflows/store-msix-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  manifest-and-packaging:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate input contracts and manifest with Windows SDK
+        shell: pwsh
+        run: |
+          python tests/check_windows_msix_packaging.py -v
+          if ($LASTEXITCODE -ne 0) { throw 'MSIX packaging validation failed' }
