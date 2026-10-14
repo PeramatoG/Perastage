@@ -8,7 +8,7 @@ There is no schema migration or GDTF LOD interpretation.
 | Config key | Canonical values | Missing/unknown default |
 | --- | --- | --- |
 | `viewer3d_model_detail` | `low`, `standard`, `high` | `standard` |
-| `viewer3d_moving_proxy` | `0`, `1` | `0` (only `1` enables it) |
+| `viewer3d_moving_proxy` | `0`, `1` | `1` for Standard/Low; `0` for High; Low always enables it |
 
 These user settings participate in MainWindow preference snapshots/reset and
 Core project-load preference preservation. MVR open/merge restores a raw optional
@@ -39,14 +39,20 @@ all representations; the overdraw threshold is 1.05.
 
 `viewer3d/resources/runtime_mesh_simplification.cpp` is the extracted existing
 moving-proxy meshoptimizer implementation, parameterized by the Core policy.
-It copies a source mesh, discards copied GPU handles (including textures) and
-flat/mirrored triangle caches, and simplifies only the copy. High resolves to
+It copies only source geometry/material arrays, retaining no GPU handles or
+flat/mirrored caches, and simplifies only the runtime copy. High resolves to
 the source mesh directly. No generated detail representation is written to a
 GDTF or to the existing full-geometry disk cache.
 
 `RuntimeMeshCache` belongs to one `ResourceSyncState` and therefore one viewer
 and GL context. Its key contains source mesh identity, selected detail policy,
-and whether it is a moving proxy. It builds/uploads once on a cache miss.
+and whether it is a moving proxy. A cache miss queues work and returns the
+source immediately. Once source loading finishes, GUI refresh slices build/upload
+representations within a 12 ms cooperative deadline and a 128-item cap,
+prioritizing moving proxies. Preparation does not
+require a full redraw per representation. Camera movement uses prepared
+representations without invoking simplification. Generation remains on the
+owning GL thread; one exceptionally large mesh is still indivisible.
 Changing detail clears generated detail and proxy buffers; toggling only the
 proxy clears proxy entries and preserves static detail entries. Unrelated
 preferences do not clear this cache. Resolution observes the current preferences
@@ -55,12 +61,12 @@ on redraw, so Apply requires no project reload or base-asset reload.
 `Viewer3DController::ReleaseMeshBuffers` invalidates representations for the
 source before resource replacement/removal. Existing physical revision and mode
 resource keys remain authoritative upstream; callback invalidation prevents
-address reuse from retaining stale geometry. Controller teardown clears its
-runtime cache and GPU buffers. The cache is intentionally in memory only.
+address reuse from retaining stale geometry. Scene replacement cancels queued references before scene destruction. Controller
+teardown clears its runtime cache and GPU buffers. The cache is intentionally in memory only.
 
 Fixture instancing continues independently of simplification. All persistent
-3D mesh draw paths resolve the same policy, including selection styling. The
-existing navigation batching path alone requests temporary fixture proxies.
+3D mesh draw paths resolve the same policy, including selection styling. Navigation requests temporary proxies for unselected/unhighlighted fixtures,
+trusses and SceneObjects; fixture instancing retains its existing batching path.
 2D contexts and capture paths bypass detail resolution; picking and bounds keep
 full geometry. No Layout/PDF policy changes are introduced.
 

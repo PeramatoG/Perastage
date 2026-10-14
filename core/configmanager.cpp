@@ -844,6 +844,7 @@ bool ConfigManager::CanRedo() const { return historyManager.CanRedo(); }
 std::string ConfigManager::Undo() {
   if (!historyManager.CanUndo())
     return {};
+  projectSession.InvalidateRenderState();
   std::optional<std::string> layoutsCollection;
   std::optional<std::string> fixtureLabelOverrides =
       GetValue(project_identity::kFixtureLabelOverridesConfigKey);
@@ -869,6 +870,7 @@ std::string ConfigManager::Undo() {
 std::string ConfigManager::Redo() {
   if (!historyManager.CanRedo())
     return {};
+  projectSession.InvalidateRenderState();
   projectSession.Touch();
   std::optional<std::string> layoutsCollection;
   std::optional<std::string> fixtureLabelOverrides =

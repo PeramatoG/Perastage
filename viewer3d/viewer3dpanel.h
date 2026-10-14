@@ -26,6 +26,7 @@
 
 #include "continuous_placement_type.h"
 #include "../gui/mouse_capture_ownership.h"
+#include "../gui/viewer_load_status.h"
 #include "scene_grouping.h"
 #include "continuous_placement_state.h"
 #include <wx/glcanvas.h>
@@ -90,6 +91,9 @@ public:
     const Viewer3DCamera& GetCamera() const { return m_camera; }
     bool ShouldPauseHeavyTasks();
     bool IsCameraMoving() const { return m_runtimeState.IsCameraMoving(); }
+    bool HasPendingScenePreparation() const {
+        return m_controller.IsResourceSyncPending() || m_controller.GetResourceLoadProgress().Pending();
+    }
     void SetStandardView(Viewer2DView view);
     bool FrameSceneToFit();
     bool ResetCameraToIsometric();
@@ -269,6 +273,11 @@ private:
     std::string m_hoverUuid;
 
     bool m_paintInProgress = false;
+    ViewerLoadStatus m_loadStatus;
+    viewer3d::resources::ProgressiveLoadCadence m_loadPresentationCadence;
+    bool ProcessProgressiveResourceRefresh();
+    void ResourceLoadingPresented(bool paused);
+    bool m_loadCompletionReported = false;
     interactive_frame::Cadence m_interactivePresentationCadence;
     std::vector<scene_grouping::SceneTransformTarget> m_activeTransformTargets;
 

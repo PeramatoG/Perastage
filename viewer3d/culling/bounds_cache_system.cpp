@@ -1,3 +1,4 @@
+#include "performance_metrics.h"
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -88,6 +89,7 @@ void BoundsCacheSystem::RebuildIfDirty(
     return;
   }
 
+  performance::Scope metric(performance::Work::Bounds);
   if (context.visibilityChangedDirty) {
     const auto eraseHidden = [&](auto &boundsMap, const auto &items) {
       for (auto it = boundsMap.begin(); it != boundsMap.end();) {

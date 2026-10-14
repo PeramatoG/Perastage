@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
         panel->LoadPreferences(preferences);
         Preferences applied;
         panel->ApplyPreferences(applied);
-        assert((model_detail::ReadPreferences(applied) == model_detail::Preferences{level, proxy}));
+        assert((model_detail::ReadPreferences(applied) == model_detail::Preferences{level, proxy || level == model_detail::Level::Low}));
         assert(applied.GetValue("viewer3d_render_style") == style);
       }
     }
@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
   panel->LoadPreferences(preferences);
   panel->ApplyPreferences(preferences);
   assert(preferences.GetValue(model_detail::kDetailConfigKey) == "standard");
-  assert(preferences.GetValue(model_detail::kMovingProxyConfigKey) == "0");
+  assert(preferences.GetValue(model_detail::kMovingProxyConfigKey) == "1");
   delete frame;
   wxTheApp->OnExit();
   wxEntryCleanup();

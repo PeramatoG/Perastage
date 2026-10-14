@@ -1,3 +1,6 @@
+#include "packaged_resource_identity.h"
+#include "file_import_utils.h"
+#include "performance_metrics.h"
 /*
  * This file is part of Perastage.
  * Copyright (C) 2026 Luisma Peramato
@@ -94,14 +97,17 @@ std::string EscapeArchiveIdentity(const std::string &identity) {
 }
 
 // Extracts an MVR stream while preserving archive safety and collision rules.
-bool ExtractArchive(wxInputStream &input, const fs::path &destination,
+bool ExtractArchive(wxInputStream &input, runtime_storage::TemporaryWorkspace &workspace,
                     std::unordered_map<std::string, std::string> &pathRemap,
                     std::vector<MvrImportDiagnostic> &diagnostics,
                     bool logActivity) {
+  performance::Scope metric(performance::Work::Extraction);
+  const fs::path &destination = workspace.Path();
   wxZipInputStream zipStream(input);
   std::unique_ptr<wxZipEntry> entry;
   std::unordered_map<std::string, std::string> identityByFoldedKey;
   std::unordered_map<std::string, fs::path> extractedPathByIdentity;
+  std::unordered_map<std::string, std::string> payloadHashes;
   std::unordered_set<std::string> ambiguousFoldedKeys;
 
   auto discardCurrentEntry = [&]() {
@@ -250,6 +256,8 @@ bool ExtractArchive(wxInputStream &input, const fs::path &destination,
         Logger::Instance().Log(Logger::Level::Warn, warning.str());
     }
 
+
+    FileImportUtils::detail::Sha256State contentHash;
     char buffer[4096];
     while (true) {
       zipStream.Read(buffer, sizeof(buffer));
@@ -257,9 +265,34 @@ bool ExtractArchive(wxInputStream &input, const fs::path &destination,
       if (bytes == 0)
         break;
       output.write(buffer, bytes);
+      FileImportUtils::detail::UpdateSha256(contentHash,
+            reinterpret_cast<const uint8_t *>(buffer), bytes);
     }
+    const bool written = output.good();
     output.close();
+    if (written && output.good())
+      payloadHashes[archiveIdentity] = FileImportUtils::detail::FinalizeSha256(contentHash);
     extractedPathByIdentity[archiveIdentity] = fullPath;
+  }
+  // Include the complete package namespace, including external textures. Equal
+  // model bytes in packages with different companion resources must not alias.
+  std::vector<std::string> manifest;
+  for (const auto &[identity, path] : extractedPathByIdentity) {
+    const auto hash = payloadHashes.find(identity);
+    if (hash != payloadHashes.end())
+      manifest.push_back(std::to_string(identity.size()) + ":" + identity + hash->second);
+  }
+  std::sort(manifest.begin(), manifest.end());
+  FileImportUtils::detail::Sha256State packageHash;
+  for (const auto &entry : manifest)
+    FileImportUtils::detail::UpdateSha256(packageHash,
+        reinterpret_cast<const uint8_t *>(entry.data()), entry.size());
+  const auto packageIdentity = FileImportUtils::detail::FinalizeSha256(packageHash);
+  for (const auto &[identity, path] : extractedPathByIdentity) {
+    const auto extension = ToLowerAscii(path.extension().string());
+    if (extension == ".3ds" || extension == ".gdtf")
+      workspace.KeepAlive(packaged_resources::Register(path,
+          packageIdentity + ":" + std::to_string(identity.size()) + ":" + identity));
   }
   return true;
 }
@@ -318,7 +351,7 @@ AcquireImportPackage(wxInputStream &input,
 
   const fs::path rootPath = workspace.Path();
   std::unordered_map<std::string, std::string> pathRemap;
-  if (!ExtractArchive(input, rootPath, pathRemap, diagnostics, logActivity)) {
+  if (!ExtractArchive(input, workspace, pathRemap, diagnostics, logActivity)) {
     if (logActivity)
       Logger::Instance().Log("Failed to extract MVR file.");
     return std::nullopt;

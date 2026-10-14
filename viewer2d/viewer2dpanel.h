@@ -89,6 +89,7 @@ struct RenderFramePlan;
 
 class Viewer2DPanel : public wxGLCanvas {
 public:
+  bool HasPendingResourceLoading() const { return m_controller.IsResourceSyncPending(); }
   explicit Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender = false,
                          bool persistViewState = true,
                          bool enableSelection = true);
@@ -256,6 +257,7 @@ private:
   void OnResize(wxSizeEvent &event);
   void OnCaptureLost(wxMouseCaptureLostEvent &event);
   void RequestRepaint();
+  void SynchronizeRenderResources(bool capture);
   void RequestRepaint(const wxRect &dirtyRect);
   void PresentInteractiveTransformFrame();
   void FinishInteractiveTransformPresentation();

@@ -1,4 +1,5 @@
 target_sources(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel_resource_sync.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas2d.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/font_metrics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_exporter.cpp

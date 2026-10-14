@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <wx/string.h>
 
 #include "symbols/FixtureSymbolDiagnostics.h"
 #include "symbols/Symbol2D.h"
@@ -72,12 +73,16 @@ private:
       work_;
   std::unordered_map<std::string, symbols::FixtureSymbolPreparationKey>
       manualWork_;
+  std::unordered_map<symbols::FixtureSymbolPreparationKey,
+                     symbols::FixtureSymbolPreparationPriority,
+                     symbols::FixtureSymbolPreparationKeyHash> deferredRequests_;
   std::unordered_set<symbols::FixtureSymbolPreparationKey,
                      symbols::FixtureSymbolPreparationKeyHash>
       fallbackDiagnostics_;
   std::shared_ptr<int> lifetime_ = std::make_shared<int>(0);
   std::uint64_t epoch_ = 0;
   bool stepScheduled_ = false;
+  wxString lastStatusText_;
   std::optional<symbols::FixtureSymbolPreparationKey> currentKey_;
   std::deque<std::string> scanFixtureUuids_;
   std::unordered_set<symbols::FixtureSymbolPreparationKey,

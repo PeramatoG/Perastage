@@ -1,3 +1,4 @@
+#include "performance_metrics.h"
 #include "visibilitysystem.h"
 #include "primitive_bounds_utils.h"
 
@@ -514,6 +515,7 @@ bool VisibilitySystem::TryBuildLayerVisibleCandidates(
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
 
   std::lock_guard<std::mutex> lock(m_controller.GetSortedListsMutex());
+  performance::Scope metric(performance::Work::VisibleSet);
   out.objectUuids.clear();
   out.trussUuids.clear();
   out.fixtureUuids.clear();

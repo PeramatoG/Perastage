@@ -6,6 +6,7 @@
 
 #include <wx/app.h>
 #include <wx/event.h>
+#include <wx/statusbr.h>
 
 #include "configmanager.h"
 #include "diagnostics/DiagnosticLogger.h"
@@ -66,6 +67,7 @@ void FixtureSymbolPreparationService::BeginProjectEpoch(bool scheduleScan) {
   epoch_ = coordinator_.BeginProjectEpoch();
   work_.clear();
   manualWork_.clear();
+  deferredRequests_.clear();
   fallbackDiagnostics_.clear();
   currentKey_.reset();
   scanFixtureUuids_.clear();
@@ -93,6 +95,14 @@ void FixtureSymbolPreparationService::Request(
     symbols::FixtureSymbolPreparationPriority priority) {
   if (effectiveGdtfPath.empty())
     return;
+  if (window_.ShouldDeferAutomaticSceneWork()) {
+    auto [deferred, inserted] = deferredRequests_.try_emplace(
+        symbols::FixtureSymbolPreparationKey{effectiveGdtfPath, exactGdtfMode}, priority);
+    if (!inserted && priority == symbols::FixtureSymbolPreparationPriority::Manual)
+      deferred->second = priority;
+    ScheduleNextStep();
+    return;
+  }
   const symbols::FixtureSymbolPreparationKey key{
       CanonicalResourcePath(effectiveGdtfPath), exactGdtfMode};
   for (const auto &[fixtureUuid, manualKey] : manualWork_) {
@@ -228,9 +238,17 @@ void FixtureSymbolPreparationService::ScheduleNextStep() {
 
 // Executes at most one bounded automatic work slice per idle activation.
 void FixtureSymbolPreparationService::OnIdle(wxIdleEvent &event) {
-  if (!stepScheduled_)
+  // Retain scheduled work without an idle spin while loading or modal/close
+  // confirmation owns the scene. Normal GUI events wake idle after resumption.
+  if (!stepScheduled_ || window_.ShouldDeferAutomaticSceneWork())
     return;
   stepScheduled_ = false;
+  if (!deferredRequests_.empty()) {
+    const auto request = *deferredRequests_.begin();
+    deferredRequests_.erase(deferredRequests_.begin());
+    Request(request.first.effectiveGdtfPath, request.first.exactGdtfMode, request.second);
+    if (!deferredRequests_.empty()) ScheduleNextStep();
+  }
   if (!scanFixtureUuids_.empty()) {
     const std::string fixtureUuid = std::move(scanFixtureUuids_.front());
     scanFixtureUuids_.pop_front();
@@ -483,9 +501,13 @@ void FixtureSymbolPreparationService::FailCurrent(
 
 // Displays concise aggregate non-modal progress and clears it when idle.
 void FixtureSymbolPreparationService::UpdateStatus() {
+  if (window_.ShouldDeferAutomaticSceneWork()) return;
   const std::size_t pending = coordinator_.PendingCount();
   if (pending == 0) {
-    window_.SetStatusText(_("Ready"), 0);
+    auto *bar = window_.GetStatusBar();
+    if (bar && !lastStatusText_.empty() && bar->GetStatusText(0) == lastStatusText_)
+      window_.SetStatusText(_("Ready"), 0);
+    lastStatusText_.clear();
     return;
   }
   const WorkContext *statusWork = nullptr;
@@ -529,10 +551,9 @@ void FixtureSymbolPreparationService::UpdateStatus() {
       break;
     }
   }
-  window_.SetStatusText(
-      wxString::Format(_("Preparing fixture symbols: %s - %s - %zu pending"),
-                       context, phase, pending),
-      0);
+  lastStatusText_ = wxString::Format(_("Preparing fixture symbols: %s - %s - %zu pending"),
+                                   context, phase, pending);
+  window_.SetStatusText(lastStatusText_, 0);
 }
 
 // Finds a current-project fixture that owns the exact preparation identity.

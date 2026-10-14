@@ -24,6 +24,11 @@ Viewer3DRenderingPreferencesPanel::Viewer3DRenderingPreferencesPanel(wxWindow *p
   performance->Add(row, 0, wxALL | wxEXPAND, 8);
   movingProxyCheck = new wxCheckBox(performance->GetStaticBox(), wxID_ANY,
       _("Use a simplified proxy while navigating"));
+  detailChoice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &) {
+    const bool low = detailChoice->GetSelection() == static_cast<int>(model_detail::Level::Low);
+    if (low) movingProxyCheck->SetValue(true);
+    movingProxyCheck->Enable(!low);
+  });
   performance->Add(movingProxyCheck, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
   auto *hint = new wxStaticText(performance->GetStaticBox(), wxID_ANY,
       _("Standard balances detail and performance. High preserves full model detail. "
@@ -76,6 +81,7 @@ void Viewer3DRenderingPreferencesPanel::LoadPreferences(
   const auto detail = model_detail::ReadPreferences(preferences);
   detailChoice->SetSelection(static_cast<int>(detail.level));
   movingProxyCheck->SetValue(detail.movingProxy);
+  movingProxyCheck->Enable(detail.level != model_detail::Level::Low);
   const Viewer3DRenderStyle renderStyle = ParseViewer3DRenderStyle(
       preferences.GetValue("viewer3d_render_style"));
   viewer3dStandardRenderRadio->SetValue(renderStyle ==

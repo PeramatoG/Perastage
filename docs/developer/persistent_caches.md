@@ -16,9 +16,27 @@ belong to `CachePreferencesPage`. Clearing is immediate and Apply/OK do not
 repeat it. Files under this root must be regenerable; settings, diagnostics,
 credentials, dictionaries, projects and libraries must remain outside it.
 
-Viewer keys use full SHA-256 of length-delimited normalized physical path
-identity and GDTF mode, with separate model/GDTF namespaces. Binary headers
-retain format version, source size and nanosecond modification-time validation.
+Filesystem viewer keys use full SHA-256 of length-delimited normalized physical
+path identity and GDTF mode, with separate model/GDTF namespaces. Extracted MVR
+3DS/GDTF keys instead use a deterministic package payload manifest digest and
+normalized archive resource identity, independent of temporary extraction paths.
+The manifest includes companion resources such as textures and is independent
+of ZIP entry order/compression/timestamps. Payloads are hashed during extraction.
+Workspace/scene leases retain these identities across history snapshots; no
+registration outlives its resources. A subsequent physical modification rejects
+the registered identity. OBJ/GLB remain filesystem keyed pending dependency-aware
+packaged caching.
+
+Binary headers retain format version and source size. Filesystem assets validate
+nanosecond modification time; registered packaged assets use the immutable
+package identity and a zero timestamp marker, allowing reuse after re-extraction.
+No source or canonical scene metadata changes. This shares persistent cached
+processing across reopenings; CPU/GPU geometry sharing across different logical
+resources is a separate optimization.
+
+`ViewerCacheBatch` validates/prepares directories once per resource batch and
+memoizes source identity calculation. Per-file and owned-ancestor symlink checks
+remain live, including after a directory is replaced during a batch.
 Writes recreate directories after deletion. Existing runtime geometry stays
 usable; subsequent disk misses regenerate caches through the normal loaders.
 Catalog refresh reads disk each time and treats deletion as a miss.

@@ -19,9 +19,11 @@ struct PhysicalAssetRevision {
 };
 
 // Reads the cheap physical identity used by runtime and disk asset caches.
-inline PhysicalAssetRevision ReadPhysicalAssetRevision(const std::string &path) {
+inline PhysicalAssetRevision ReadPhysicalAssetRevision(const std::string &path,
+                                                        bool resolveIdentity = true) {
   PhysicalAssetRevision revision;
-  revision.physicalPathIdentity = PathUtils::BuildFilesystemIdentityKey(path);
+  if (resolveIdentity)
+    revision.physicalPathIdentity = PathUtils::BuildFilesystemIdentityKey(path);
   std::error_code sizeError;
   revision.fileSize =
       std::filesystem::file_size(PathUtils::PathFromUtf8(path), sizeError);

@@ -173,7 +173,8 @@ TemporaryWorkspace::~TemporaryWorkspace() noexcept { Cleanup(); }
 
 // Moves temporary workspace ownership.
 TemporaryWorkspace::TemporaryWorkspace(TemporaryWorkspace &&other) noexcept
-    : path_(std::move(other.path_)), logActivity_(other.logActivity_) {
+    : path_(std::move(other.path_)), logActivity_(other.logActivity_),
+      retainedData_(std::move(other.retainedData_)) {
   other.path_.clear();
 }
 
@@ -184,6 +185,7 @@ TemporaryWorkspace::operator=(TemporaryWorkspace &&other) noexcept {
     Cleanup();
     path_ = std::move(other.path_);
     logActivity_ = other.logActivity_;
+    retainedData_ = std::move(other.retainedData_);
     other.path_.clear();
   }
   return *this;
@@ -191,6 +193,7 @@ TemporaryWorkspace::operator=(TemporaryWorkspace &&other) noexcept {
 
 // Removes the workspace immediately when still owned.
 void TemporaryWorkspace::Cleanup() noexcept {
+  retainedData_.clear();
   RemoveOwnedPath(path_, "temporary workspace", logActivity_);
   path_.clear();
 }
@@ -198,6 +201,8 @@ void TemporaryWorkspace::Cleanup() noexcept {
 // Transfers operation workspace ownership to a scene/session lease.
 std::shared_ptr<SceneResourceLease> TemporaryWorkspace::TransferToSceneLease() {
   auto lease = std::make_shared<SceneResourceLease>(path_);
+  for (auto &data : retainedData_) lease->KeepAlive(std::move(data));
+  retainedData_.clear();
   path_.clear();
   return lease;
 }
@@ -212,6 +217,7 @@ SceneResourceLease::~SceneResourceLease() noexcept { Cleanup(); }
 
 // Removes scene/session runtime resources immediately when still owned.
 void SceneResourceLease::Cleanup() noexcept {
+  retainedData_.clear();
   RemoveOwnedPath(path_, "scene resource workspace");
   path_.clear();
 }

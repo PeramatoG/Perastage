@@ -1394,15 +1394,17 @@ ProjectSession::DirtyState ProjectSession::CaptureDirtyState() const {
 
 // Restores project revision counters after a cancelled or failed operation.
 void ProjectSession::RestoreDirtyState(const DirtyState &state) {
+  ++renderRevision;
   revision = state.revision;
   savedRevision = state.savedRevision;
 }
 
-void ProjectSession::Touch() { ++revision; }
+void ProjectSession::Touch() { ++revision; ++renderRevision; }
 
 void ProjectSession::MarkSaved() { savedRevision = revision; }
 
 void ProjectSession::ResetDirty() {
+  ++renderRevision;
   revision = 0;
   savedRevision = 0;
 }

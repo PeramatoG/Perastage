@@ -3,6 +3,22 @@
 #include <cassert>
 
 int main() {
+  {
+    ProjectSession session;
+    const auto initial = session.GetRenderRevision();
+    session.Touch();
+    assert(session.GetRenderRevision() > initial);
+    const auto state = session.CaptureDirtyState();
+    const auto touched = session.GetRenderRevision();
+    session.ResetDirty();
+    assert(session.GetRenderRevision() > touched);
+    const auto reset = session.GetRenderRevision();
+    session.RestoreDirtyState(state);
+    assert(session.GetRenderRevision() > reset);
+    const auto restored = session.GetRenderRevision();
+    session.MarkSaved();
+    assert(session.GetRenderRevision() == restored);
+  }
   ProjectSession session;
   assert(!session.IsDirty());
   session.Touch();

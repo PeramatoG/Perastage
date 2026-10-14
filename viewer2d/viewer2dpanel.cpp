@@ -1295,7 +1295,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
 
   // Keep controller resources/cache in sync in the 2D viewer as well.
   if (!framePlan.skipResourceSynchronization)
-    m_controller.UpdateResourcesIfDirty();
+    SynchronizeRenderResources(framePlan.captureActive);
   m_controller.SetDarkMode(framePlan.darkMode);
   if (framePlan.darkMode)
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -1666,6 +1666,7 @@ bool Viewer2DPanel::RenderToRGBABackBufferFallback(
 // Handles paint events by refreshing interaction state and rendering the view.
 void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   wxPaintDC dc(this);
+  if (!IsEnabled()) return;
   if (m_paintInProgress)
     return;
   m_paintInProgress = true;

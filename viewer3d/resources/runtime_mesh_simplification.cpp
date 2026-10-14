@@ -1,26 +1,22 @@
+#include "performance_metrics.h"
 #include "runtime_mesh_simplification.h"
 #include <meshoptimizer.h>
 
 namespace viewer3d::resources {
 Mesh BuildRuntimeRepresentation(const Mesh &source,
                                 model_detail::SimplificationPolicy policy) {
-  Mesh proxy = source;
-  proxy.buffersReady = false;
-  proxy.vao = 0;
-  proxy.vboVertices = 0;
-  proxy.vboNormals = 0;
-  proxy.vboTexCoords = 0;
-  proxy.vboFlatVertices = 0;
-  proxy.vboFlatNormals = 0;
-  proxy.eboTriangles = 0;
-  proxy.eboLines = 0;
-  proxy.textureId = 0;
-  proxy.triangleIndexCount = proxy.flatVertexCount = proxy.lineIndexCount = 0;
-  proxy.flatVertices.clear();
-  proxy.flatNormals.clear();
-  proxy.flippedIndicesCache.clear();
-  proxy.flippedFlatVertices.clear();
-  proxy.flippedFlatNormals.clear();
+  performance::Scope metric(performance::Work::Representation);
+  Mesh proxy;
+  proxy.vertices = source.vertices;
+  proxy.indices = source.indices;
+  proxy.normals = source.normals;
+  proxy.texcoords = source.texcoords;
+  proxy.textureRgba = source.textureRgba;
+  proxy.textureWidth = source.textureWidth;
+  proxy.textureHeight = source.textureHeight;
+  proxy.materialBaseColor = source.materialBaseColor;
+  proxy.hasMaterialBaseColor = source.hasMaterialBaseColor;
+  proxy.windingChecked = source.windingChecked;
 
   const size_t vertexCount = proxy.vertices.size() / 3;
   if (vertexCount >= 3 && proxy.indices.size() >= 3) {

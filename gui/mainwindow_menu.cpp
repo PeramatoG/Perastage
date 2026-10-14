@@ -629,13 +629,18 @@ void MainWindow::OnClose(wxCommandEvent &event) {
 // destroying the main window. Finalizes shutdown by saving state and stopping
 // runtime services.
 void MainWindow::OnCloseWindow(wxCloseEvent &event) {
+  diagnostics::DiagnosticLogger::Info("Application close requested; viewport work paused.");
+  LockViewportInteraction();
   CancelActiveSceneClipboardPlacement();
-  SaveUserConfigWithViewport2DState();
   if (!ConfirmSaveIfDirty(_("exiting"), _("Exit"))) {
+    UnlockViewportInteraction();
+    diagnostics::DiagnosticLogger::Info("Application close cancelled; viewport work resumed.");
     event.Veto();
     return;
   }
 
+  diagnostics::DiagnosticLogger::Info("Application close confirmed.");
+  SaveUserConfigWithViewport2DState();
   userConfigPersistedOnClose = true;
   InvalidateSceneClipboard();
   NotifyFixtureSymbolProjectReplaced(false);

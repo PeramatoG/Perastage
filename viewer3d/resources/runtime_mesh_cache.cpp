@@ -4,6 +4,8 @@ namespace viewer3d::resources {
 void RuntimeMeshCache::ApplyPreferences(model_detail::Preferences next,
                                        const Callback &release) {
   if (next == preferences) return;
+  pending.clear();
+  queued.clear();
   if (next.level != preferences.level) {
     Clear(release);
   } else {
@@ -18,20 +20,52 @@ void RuntimeMeshCache::ApplyPreferences(model_detail::Preferences next,
 }
 const Mesh &RuntimeMeshCache::Resolve(const Mesh &source, bool navigating,
                                      const Callback &upload) {
-  const bool proxy = navigating && preferences.movingProxy;
+  (void)upload; // Drawing only resolves; optional work is prepared after display.
+  const bool movingProxy = preferences.movingProxy || preferences.level == model_detail::Level::Low;
+  const bool proxy = navigating && movingProxy;
+  if (movingProxy) Queue(source, true);
   const auto policy = model_detail::ResolvePolicy(source.indices.size() / 3,
                                                  preferences.level, proxy);
   if (policy.targetTriangles >= source.indices.size() / 3) return source;
   const Key key{&source, preferences.level, proxy};
+  Queue(source, proxy);
   auto it = meshes.find(key);
-  if (it == meshes.end()) {
-    Mesh mesh = BuildRuntimeRepresentation(source, policy);
+  return it == meshes.end() ? source : it->second;
+}
+void RuntimeMeshCache::Queue(const Mesh &source, bool proxy) {
+  const Key key{&source, preferences.level, proxy};
+  if (model_detail::ResolvePolicy(source.indices.size() / 3, preferences.level,
+                                  proxy).targetTriangles >= source.indices.size() / 3 ||
+      meshes.contains(key) || !queued.insert(key).second) return;
+  // Prepare interaction representations before optional idle quality work.
+  if (proxy) pending.push_front(key);
+  else pending.push_back(key);
+}
+size_t RuntimeMeshCache::PreparePending(const Callback &upload, size_t limit,
+                                       std::chrono::milliseconds duration) {
+  size_t prepared = 0;
+  const auto started = std::chrono::steady_clock::now();
+  while (!pending.empty() && prepared < limit) {
+    if (prepared > 0 && duration.count() > 0 &&
+        std::chrono::steady_clock::now() - started >= duration) break;
+    const Key key = pending.front();
+    pending.pop_front();
+    queued.erase(key);
+    const Mesh &source = *std::get<0>(key);
+    Mesh mesh = BuildRuntimeRepresentation(source, model_detail::ResolvePolicy(
+        source.indices.size() / 3, std::get<1>(key), std::get<2>(key)));
     if (upload) upload(mesh);
-    it = meshes.emplace(key, std::move(mesh)).first;
+    meshes.emplace(key, std::move(mesh));
+    ++prepared;
   }
-  return it->second;
+  return prepared;
 }
 void RuntimeMeshCache::Invalidate(const Mesh &source, const Callback &release) {
+  std::erase_if(pending, [&](const Key &key) {
+    if (std::get<0>(key) != &source) return false;
+    queued.erase(key);
+    return true;
+  });
   for (auto it = meshes.begin(); it != meshes.end();) {
     if (std::get<0>(it->first) == &source) {
       if (release) release(it->second);
@@ -40,6 +74,8 @@ void RuntimeMeshCache::Invalidate(const Mesh &source, const Callback &release) {
   }
 }
 void RuntimeMeshCache::Clear(const Callback &release) {
+  pending.clear();
+  queued.clear();
   if (release) for (auto &[key, mesh] : meshes) release(mesh);
   meshes.clear();
 }

@@ -1,3 +1,4 @@
+#include "performance_metrics.h"
 /*
  * This file is part of Perastage.
  * Copyright (C) 2026 Luisma Peramato
@@ -159,6 +160,7 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
                             MvrReadContext *context,
                             MvrReadProgressCallback progressCallback,
                             MvrReadLogCallback logCallback) {
+  performance::Scope metric(performance::Work::SceneParse);
   if (context) {
     context->gdtfConflicts.clear();
     context->manualCategoryUpdates.clear();

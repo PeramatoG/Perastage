@@ -89,6 +89,7 @@ public:
   bool IsStartupProjectLoadPending() const { return startupProjectLoadPending; }
   bool IsStartupInitializationPending() const { return startupSplashInitializationPending; }
   bool IsMvrImportPipelineActive() const { return mvrImportPipelineActive; }
+  bool ShouldDeferAutomaticSceneWork() const;
   bool CanProcessExternalOpenPath() const;
   wxString GetCurrentProjectDisplayName() const;
 

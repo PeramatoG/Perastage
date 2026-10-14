@@ -2,6 +2,8 @@
 #include "apppaths.h"
 #include "file_import_utils.h"
 #include "filesystem_path_utils.h"
+#include "packaged_resource_identity.h"
+#include "performance_metrics.h"
 
 #include <algorithm>
 #include <cctype>
@@ -10,6 +12,23 @@
 namespace fs = std::filesystem;
 namespace CacheService {
 namespace {
+thread_local ViewerCacheBatch *activeBatch = nullptr;
+
+// Recheck the owned tree without repeating canonicalization/directory creation.
+bool IsSafePreparedParent(const fs::path &directory) {
+  if (!activeBatch || !activeBatch->prepared ||
+      std::find(activeBatch->directories.begin(), activeBatch->directories.end(),
+                directory) == activeBatch->directories.end())
+    return IsSafeDirectory(directory);
+  const auto data = AppPaths::GetUserDataDir();
+  for (auto current = directory; ; current = current.parent_path()) {
+    std::error_code ec;
+    const auto status = fs::symlink_status(current, ec);
+    if (ec || !fs::is_directory(status) || fs::is_symlink(status)) return false;
+    if (current == data) return true;
+    if (current.empty() || current == current.parent_path()) return false;
+  }
+}
 void Error(Result &result, const fs::path &path, const std::string &message) {
   result.errors.push_back(PathUtils::PathToUtf8(path) + ": " + message);
 }
@@ -152,7 +171,7 @@ bool IsSafeDirectory(const fs::path &directory) {
 }
 
 bool IsSafeCacheFile(const fs::path &file) {
-  if (!IsSafeDirectory(file.parent_path())) return false;
+  if (!IsSafePreparedParent(file.parent_path())) return false;
   std::error_code ec;
   const auto status = fs::symlink_status(file, ec);
   return ec == std::errc::no_such_file_or_directory ||
@@ -160,6 +179,8 @@ bool IsSafeCacheFile(const fs::path &file) {
 }
 
 bool EnsureDirectories() {
+  if (activeBatch) return activeBatch->prepared;
+  performance::Count(performance::Work::CacheRoot);
   for (const auto &dir : {AppPaths::GetViewer3DGdtfCacheDir(),
                           AppPaths::GetViewer3DMeshCacheDir(),
                           AppPaths::GetGdtfCatalogCachePath().parent_path()}) {
@@ -201,7 +222,17 @@ Result Clear() {
 
 fs::path ViewerCachePath(const std::string &sourcePath,
                          const std::string &mode, bool gdtf) {
-  const auto identity = PathUtils::BuildFilesystemIdentityKey(sourcePath);
+  std::string identity;
+  if (activeBatch) {
+    const auto it = activeBatch->identities.find(sourcePath);
+    if (it != activeBatch->identities.end()) identity = it->second;
+  }
+  if (identity.empty()) {
+    const auto packaged = packaged_resources::Lookup(PathUtils::PathFromUtf8(sourcePath));
+    identity = packaged.value_or("");
+    if (identity.empty()) identity = PathUtils::BuildFilesystemIdentityKey(sourcePath);
+    if (activeBatch) activeBatch->identities[sourcePath] = identity;
+  }
   // Length-delimit identity and mode to avoid ambiguous token concatenations.
   const auto token = std::to_string(identity.size()) + ":" + identity +
                      std::to_string(mode.size()) + ":" + mode;
@@ -209,6 +240,13 @@ fs::path ViewerCachePath(const std::string &sourcePath,
                : AppPaths::GetViewer3DMeshCacheDir()) /
          (FileImportUtils::ComputeBytesSha256(token.data(), token.size()) + ".cache");
 }
+
+ViewerCacheBatch::ViewerCacheBatch() : previous(activeBatch) {
+  prepared = previous ? previous->prepared : EnsureDirectories();
+  directories = {AppPaths::GetViewer3DGdtfCacheDir(), AppPaths::GetViewer3DMeshCacheDir()};
+  activeBatch = this;
+}
+ViewerCacheBatch::~ViewerCacheBatch() { activeBatch = previous; }
 
 Result CleanupLegacyViewerCaches(const fs::path &libraryRoot) {
   Result result;
