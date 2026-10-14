@@ -36,6 +36,12 @@ is used. See [Store version numbering][requirements].
 
 ## Manifest and runtime choices
 
+- The manifest language list derives from the existing `release_languages()`
+  reader in `packaging/verify_localization.py`, whose owner is
+  `PERASTAGE_TRANSLATION_LANGUAGES` in `cmake/PerastageLocalization.cmake`.
+  Default English (`en-US`) is first; internal locale underscores become BCP-47
+  hyphens (`zh_CN` → `zh-CN`). Generation and tests reject missing, unexpected,
+  incorrectly mapped or reordered default language declarations.
 - A sealed x64 `Windows.Desktop` package, using the documented modern
   `uap10:RuntimeBehavior="packagedClassicApp"` and `uap10:TrustLevel="mediumIL"`
   combination with `runFullTrust`. No UWP/AppContainer migration or bootstrapper.

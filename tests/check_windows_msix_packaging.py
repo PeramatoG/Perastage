@@ -11,6 +11,7 @@ import struct
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 import xml.etree.ElementTree as ET
 import zipfile
 from urllib.parse import quote
@@ -134,6 +135,35 @@ class StorePackagingTests(unittest.TestCase):
             self.assertEqual(tree.findtext(f"f:Properties/desktop6:{kind}WriteVirtualization", namespaces=NS), "disabled")
         self.assertEqual({c.get("Name") for c in tree.findall("f:Capabilities/rescap:Capability", NS)},
                          {"runFullTrust", "unvirtualizedResources"})
+
+    def test_manifest_languages_follow_canonical_release_registry(self) -> None:
+        tree = ET.fromstring(MSIX.manifest("1.7.0", IDENTITY, VCLIBS_VERSION))
+        languages = [resource.get("Language") for resource in tree.findall("f:Resources/f:Resource", NS)]
+        canonical = MSIX.LOCALIZATION.release_languages()
+        self.assertEqual(languages, ["en-US", *(language.replace("_", "-") for language in canonical)])
+        self.assertEqual(languages[0], "en-US")
+        if "zh_CN" in canonical:
+            self.assertIn("zh-CN", languages)
+        self.assertNotIn("zh_CN", languages)
+
+    def test_manifest_languages_track_future_registry_changes(self) -> None:
+        with patch.object(MSIX, "release_languages", return_value=["es", "it", "zh_CN"]):
+            tree = ET.fromstring(MSIX.manifest("1.7.0", IDENTITY, VCLIBS_VERSION))
+        self.assertEqual([resource.get("Language") for resource in tree.findall("f:Resources/f:Resource", NS)],
+                         ["en-US", "es", "it", "zh-CN"])
+
+    def test_manifest_language_drift_is_rejected(self) -> None:
+        template = (MSIX.HERE / "AppxManifest.xml.in").read_text(encoding="utf-8")
+        languages = ["en-US", *(language.replace("_", "-") for language in MSIX.LOCALIZATION.release_languages())]
+        cases = [(f"missing {language}", [item for item in languages if item != language]) for language in languages]
+        cases += [("unexpected language", [*languages, "it"]),
+                  ("internal Chinese locale", ["zh_CN" if item == "zh-CN" else item for item in languages]),
+                  ("English no longer first", [*languages[1:], "en-US"])]
+        for label, declared in cases:
+            resources = "\n    ".join(f'<Resource Language="{language}" />' for language in declared)
+            (self.root / "AppxManifest.xml.in").write_text(template.replace("@LANGUAGE_RESOURCES@", resources), encoding="utf-8")
+            with self.subTest(case=label), patch.object(MSIX, "HERE", self.root), self.assertRaisesRegex(ValueError, "MSIX languages differ"):
+                MSIX.manifest("1.7.0", IDENTITY, VCLIBS_VERSION)
 
     def test_framework_identity_and_version_are_read_from_retail_x64_package(self) -> None:
         framework = self.root / "framework.appx"

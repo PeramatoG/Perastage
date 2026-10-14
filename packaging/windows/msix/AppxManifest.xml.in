@@ -19,9 +19,7 @@
     <desktop6:RegistryWriteVirtualization>disabled</desktop6:RegistryWriteVirtualization>
   </Properties>
   <Resources>
-    <Resource Language="en-US" />
-    <Resource Language="es" />
-    <Resource Language="zh-CN" />
+    @LANGUAGE_RESOURCES@
   </Resources>
   <Dependencies>
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0"

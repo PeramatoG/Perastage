@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -11,13 +12,19 @@ import re
 import shutil
 import struct
 import sys
-from xml.sax.saxutils import escape
+from xml.sax.saxutils import escape, quoteattr
 import xml.etree.ElementTree as ET
 import zipfile
 from urllib.parse import unquote
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
+# Reuse the release validator's canonical CMake registry reader without importing
+# the unrelated third-party Python package named "packaging".
+LOCALIZATION_SPEC = importlib.util.spec_from_file_location("perastage_release_localization", ROOT / "packaging/verify_localization.py")
+LOCALIZATION = importlib.util.module_from_spec(LOCALIZATION_SPEC)
+LOCALIZATION_SPEC.loader.exec_module(LOCALIZATION)
+release_languages = LOCALIZATION.release_languages
 NS = {"f": "http://schemas.microsoft.com/appx/manifest/foundation/windows10"}
 IDENTITY_KEYS = ("Name", "Publisher", "PublisherDisplayName")
 ASSETS = {"StoreLogo.png": 50, "Square44x44Logo.png": 44,
@@ -79,13 +86,19 @@ def framework_version(package: Path) -> str:
 
 
 def manifest(version: str, identity: dict[str, str], vclibs_version: str) -> bytes:
+    languages = ["en-US", *(language.replace("_", "-") for language in release_languages())]
+    resources = "\n    ".join(
+        f"<Resource Language={quoteattr(language)} />" for language in languages)
     replacements = {"IDENTITY_NAME": identity["Name"], "IDENTITY_PUBLISHER": identity["Publisher"],
                     "PUBLISHER_DISPLAY_NAME": identity["PublisherDisplayName"],
                     "PACKAGE_VERSION": package_version(version), "VCLIBS_VERSION": vclibs_version}
     source = (HERE / "AppxManifest.xml.in").read_text(encoding="utf-8")
+    source = source.replace("@LANGUAGE_RESOURCES@", resources)
     rendered = re.sub(r"@([A-Z_]+)@", lambda match: escape(replacements[match[1]], {'"': "&quot;"}), source)
     result = rendered.encode("utf-8")
     tree = ET.fromstring(result)
+    if [resource.get("Language") for resource in tree.findall("f:Resources/f:Resource", NS)] != languages:
+        raise ValueError("MSIX languages differ from default English and the canonical release locale registry")
     entry = tree.find("f:Identity", NS)
     if entry is None or entry.get("Name") != identity["Name"] or entry.get("Publisher") != identity["Publisher"]:
         raise ValueError("Generated manifest identity differs from Partner Center input")
