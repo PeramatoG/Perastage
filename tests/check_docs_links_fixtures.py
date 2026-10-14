@@ -56,7 +56,7 @@ def main() -> None:
     """Exercise parity, encoding, stable syntax and link failures in an isolated tree."""
     with tempfile.TemporaryDirectory(prefix='perastage-doc-links-') as tmp:
         root = Path(tmp)
-        for directory in ('docs', 'cmake', '.github'):
+        for directory in ('docs', 'cmake', '.github', 'packaging'):
             shutil.copytree(ROOT / directory, root / directory)
         for name in ('README.md', 'AGENTS.md', '.gitattributes'):
             shutil.copyfile(ROOT / name, root / name)
