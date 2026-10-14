@@ -16,7 +16,7 @@ supplied for Perastage:
 | `Package/Identity/Name` | `LuismaPeramato.Perastage` |
 | `Package/Identity/Publisher` | `CN=B827ED57-156E-455A-8B2D-C8B1FEC883AE` |
 | `Package/Properties/PublisherDisplayName` | `Luisma Peramato` |
-| PFN (informational/testing only) | `LuismaPeramato.Perastage_yrw2ms6ps8f0j` |
+| PFN (informational/testing only) | `LuismaPeramato.Perastage_vrw2ms6ps8f0j` |
 
 The build uses that committed identity by default. `-IdentityFile` permits an
 explicit local/test JSON input; `identity.example.json` documents its structure.

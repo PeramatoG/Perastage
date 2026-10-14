@@ -81,7 +81,7 @@ class StorePackagingTests(unittest.TestCase):
                  "PublisherDisplayName": "Luisma Peramato"}
         self.assertEqual(MSIX.read_identity(None), exact)
         data = json.loads((MSIX.HERE / "identity.json").read_text())
-        self.assertEqual(data["PackageFamilyName"], "LuismaPeramato.Perastage_yrw2ms6ps8f0j")
+        self.assertEqual(data["PackageFamilyName"], "LuismaPeramato.Perastage_vrw2ms6ps8f0j")
         rendered = ET.fromstring(MSIX.manifest("1.7.0", MSIX.read_identity(None), VCLIBS_VERSION))
         self.assertEqual(rendered.find("f:Identity", NS).get("Name"), exact["Name"])
         self.assertEqual(rendered.find("f:Identity", NS).get("Publisher"), exact["Publisher"])
