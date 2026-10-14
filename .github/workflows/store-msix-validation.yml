@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   manifest-and-packaging:
@@ -22,3 +23,11 @@ jobs:
         run: |
           python tests/check_windows_msix_packaging.py -v
           if ($LASTEXITCODE -ne 0) { throw 'MSIX packaging validation failed' }
+
+  # Reuse the authoritative release lane: one build/stage for Inno and Store.
+  store-release:
+    needs: manifest-and-packaging
+    uses: ./.github/workflows/windows-installer.yml
+    with:
+      source_ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      build_msix: true

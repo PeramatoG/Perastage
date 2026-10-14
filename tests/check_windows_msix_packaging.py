@@ -11,7 +11,6 @@ import struct
 import subprocess
 import tempfile
 import unittest
-from unittest.mock import patch
 import xml.etree.ElementTree as ET
 import zipfile
 
@@ -73,8 +72,17 @@ class StorePackagingTests(unittest.TestCase):
         for key in ("Name", "Publisher"):
             self.assertEqual(tree.find("f:Identity", NS).get(key), exact[key])
         self.assertEqual(tree.findtext("f:Properties/f:PublisherDisplayName", namespaces=NS), exact["PublisherDisplayName"])
-        with patch.dict(os.environ, {"PERASTAGE_MSIX_" + key.upper(): value for key, value in exact.items()}):
-            self.assertEqual(MSIX.read_identity(None), exact)
+
+    def test_partner_center_identity_matches_supplied_values_exactly(self) -> None:
+        exact = {"Name": "LuismaPeramato.Perastage", "Publisher": "CN=B827ED57-156E-455A-8B2D-C8B1FEC883AE",
+                 "PublisherDisplayName": "Luisma Peramato"}
+        self.assertEqual(MSIX.read_identity(None), exact)
+        data = json.loads((MSIX.HERE / "identity.json").read_text())
+        self.assertEqual(data["PackageFamilyName"], "LuismaPeramato.Perastage_yrw2ms6ps8f0j")
+        rendered = ET.fromstring(MSIX.manifest("1.7.0", MSIX.read_identity(None), VCLIBS_VERSION))
+        self.assertEqual(rendered.find("f:Identity", NS).get("Name"), exact["Name"])
+        self.assertEqual(rendered.find("f:Identity", NS).get("Publisher"), exact["Publisher"])
+        self.assertEqual(rendered.findtext("f:Properties/f:PublisherDisplayName", namespaces=NS), exact["PublisherDisplayName"])
 
     def test_missing_placeholder_and_invalid_identity_fail(self) -> None:
         identity_file = self.root / "identity.json"
@@ -118,7 +126,7 @@ class StorePackagingTests(unittest.TestCase):
         self.assertEqual(apps[1].get(f"{{{NS['uap10']}}}SupportsMultipleInstances"), "true")
         self.assertEqual(apps[1].find("uap:VisualElements", NS).get("AppListEntry"), "none")
         alias = apps[1].find("f:Extensions/uap5:Extension", NS)
-        self.assertEqual(alias.get("Executable"), "perastage-cli.exe")
+        self.assertEqual(alias.get("Executable", apps[1].get("Executable")), "perastage-cli.exe")
         self.assertEqual(alias.find("uap5:AppExecutionAlias/uap5:ExecutionAlias", NS).get("Alias"), "perastage-cli.exe")
         for kind in ("FileSystem", "Registry"):
             self.assertEqual(tree.findtext(f"f:Properties/desktop6:{kind}WriteVirtualization", namespaces=NS), "disabled")

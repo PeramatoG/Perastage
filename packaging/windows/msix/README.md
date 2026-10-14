@@ -8,22 +8,23 @@ does not bump it to 1.7.0 or automatically publish anything to Microsoft Store.
 
 ## Identity and version
 
-Copy `identity.example.json` to ignored `identity.local.json` and replace every
-placeholder with Product management > Product identity values from Partner
-Center. Alternatively set these **non-secret** repository/environment variables:
+The canonical `identity.json` contains the exact Partner Center Product Identity
+supplied for Perastage:
 
-| Manifest field | Variable |
+| Manifest field | Exact value |
 | --- | --- |
-| `Package/Identity/Name` | `PERASTAGE_MSIX_NAME` |
-| `Package/Identity/Publisher` | `PERASTAGE_MSIX_PUBLISHER` |
-| `Package/Properties/PublisherDisplayName` | `PERASTAGE_MSIX_PUBLISHERDISPLAYNAME` |
+| `Package/Identity/Name` | `LuismaPeramato.Perastage` |
+| `Package/Identity/Publisher` | `CN=B827ED57-156E-455A-8B2D-C8B1FEC883AE` |
+| `Package/Properties/PublisherDisplayName` | `Luisma Peramato` |
+| PFN (informational/testing only) | `LuismaPeramato.Perastage_yrw2ms6ps8f0j` |
 
-JSON input wins when `-IdentityFile` is supplied. Values are used verbatim,
+The build uses that committed identity by default. `-IdentityFile` permits an
+explicit local/test JSON input; `identity.example.json` documents its structure.
+Never change the production values for a release. Values are used verbatim,
 including case, punctuation and internal spaces; invalid/surrounding whitespace
 is rejected, never trimmed. XML escaping preserves the decoded original value.
-The task supplied placeholders, so **no real Partner Center identity is committed
-or assumed**. PFN is informational only: obtain it from Partner Center and verify
-it against the installed package; never use it as `Identity/Name` or generate one.
+PFN is informational only: verify it against the installed package; never use it
+as `Identity/Name` or generate one.
 Keep Name, Publisher and Application IDs stable across releases.
 See [Store identity requirements][requirements] and [Identity schema][identity].
 
@@ -114,9 +115,9 @@ Then, from the repository root:
 
 ```powershell
 python tests/check_windows_msix_packaging.py -v
-./packaging/windows/msix/build.ps1 -IdentityFile packaging/windows/msix/identity.local.json
+./packaging/windows/msix/build.ps1
 # If SDK/framework discovery is unavailable or multiple installations exist:
-./packaging/windows/msix/build.ps1 -IdentityFile packaging/windows/msix/identity.local.json `
+./packaging/windows/msix/build.ps1 `
   -SdkBinDir 'C:\path\to\Windows Kits\10\bin\SDK-version\x64' `
   -VCLibsPackage 'C:\path\to\matching\retail-x64-Desktop-framework.appx'
 ```
@@ -136,12 +137,14 @@ across different SDK/toolchain versions are not promised; record the logged SDK
 and framework version with the release. See [MakeAppx validation][makeappx].
 
 In `.github/workflows/windows-installer.yml`, opt in using `build_msix=true` or
-repository variable `PERASTAGE_STORE_MSIX_ENABLED=true` after setting identity
-variables and providing the runner's matching SDK framework. Missing identity
+repository variable `PERASTAGE_STORE_MSIX_ENABLED=true` with the committed exact
+identity and the runner's matching SDK framework. Missing identity
 in an enabled target fails; a disabled target reports its status. There is one
-dependency/application build and no Store publication. The cheap
-`store-msix-validation.yml` PR workflow validates a **synthetic test package**
-with MakeAppx; it does not upload or certify an application release.
+dependency/application build and no Store publication. The
+`store-msix-validation.yml` PR workflow first validates a **synthetic test package**
+with MakeAppx, then calls this same Windows release lane with `build_msix=true`.
+This exercises both packaging targets without an independent application build.
+It uploads a Store-only artifact and does not certify or publish the application.
 
 **1.7.0 policy: Store-only CI artifact (B).**
 `Store-Perastage-windows-msix` deliberately does not match the minor release's
@@ -161,7 +164,7 @@ subject, a non-exportable local key and a **copy** of the Store package. Keep th
 Store output unchanged; never upload/distribute the development copy or cert.
 
 ```powershell
-$identity = Get-Content packaging/windows/msix/identity.local.json -Raw | ConvertFrom-Json
+$identity = Get-Content packaging/windows/msix/identity.json -Raw | ConvertFrom-Json
 $version = (Get-Content VERSION -Raw).Trim()
 $devDir = Join-Path $env:TEMP 'Perastage-store-local-test'
 New-Item -ItemType Directory $devDir -Force | Out-Null
@@ -244,7 +247,7 @@ every-PR hosted-runner test. Review the desktop test workflow/report and record
 any actionable failure before submission. **WACK has not been executed as part
 of the Linux source implementation.** See [WACK procedure][wack].
 
-Partner Center manual steps: supply/confirm exact identity, reserve the Perastage
+Partner Center manual steps: confirm the committed exact identity, reserve the Perastage
 display name, enable Store packaging, build the actual 1.7.0 stage, complete the
 runtime/upgrade checklist and WACK, explain restricted capabilities, upload the
 unsigned MSIX, complete listing screenshots/descriptions/age ratings/privacy and

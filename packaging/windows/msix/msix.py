@@ -48,8 +48,7 @@ def artifact_name(version: str) -> str:
 
 
 def read_identity(path: Path | None) -> dict[str, str]:
-    values = json.loads(path.read_text(encoding="utf-8")) if path else {
-        key: os.environ.get("PERASTAGE_MSIX_" + key.upper(), "") for key in IDENTITY_KEYS}
+    values = json.loads((path or HERE / "identity.json").read_text(encoding="utf-8"))
     if not isinstance(values, dict):
         raise ValueError("Partner Center identity must be a JSON object")
     for key in IDENTITY_KEYS:

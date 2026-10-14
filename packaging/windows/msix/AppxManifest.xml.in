@@ -61,7 +61,7 @@
                           Square44x44Logo="StoreAssets\Square44x44Logo.png"
                           BackgroundColor="transparent" AppListEntry="none" />
       <Extensions>
-        <uap5:Extension Category="windows.appExecutionAlias" Executable="perastage-cli.exe">
+        <uap5:Extension Category="windows.appExecutionAlias">
           <uap5:AppExecutionAlias uap10:Subsystem="console">
             <uap5:ExecutionAlias Alias="perastage-cli.exe" />
           </uap5:AppExecutionAlias>

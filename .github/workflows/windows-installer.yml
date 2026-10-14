@@ -23,7 +23,7 @@ on:
         type: string
         default: ""
       build_msix:
-        description: Build Store MSIX (requires exact Partner Center repository variables).
+        description: Build Store MSIX with the committed Partner Center identity.
         required: false
         type: boolean
         default: false
@@ -329,10 +329,6 @@ jobs:
       - name: Build Store submission MSIX
         if: ${{ inputs.build_msix || vars.PERASTAGE_STORE_MSIX_ENABLED == 'true' }}
         shell: pwsh
-        env:
-          PERASTAGE_MSIX_NAME: ${{ vars.PERASTAGE_MSIX_NAME }}
-          PERASTAGE_MSIX_PUBLISHER: ${{ vars.PERASTAGE_MSIX_PUBLISHER }}
-          PERASTAGE_MSIX_PUBLISHERDISPLAYNAME: ${{ vars.PERASTAGE_MSIX_PUBLISHERDISPLAYNAME }}
         run: ./packaging/windows/msix/build.ps1
 
       # Store-only name deliberately excludes the public release's Perastage-* glob.
@@ -348,7 +344,7 @@ jobs:
         if: ${{ !(inputs.build_msix || vars.PERASTAGE_STORE_MSIX_ENABLED == 'true') }}
         shell: pwsh
         run: |
-          'Store MSIX target disabled. Supply exact Partner Center variables and opt in with build_msix or PERASTAGE_STORE_MSIX_ENABLED=true; see packaging/windows/msix/README.md.' >> $env:GITHUB_STEP_SUMMARY
+          'Store MSIX target disabled. Opt in with build_msix or PERASTAGE_STORE_MSIX_ENABLED=true; the exact Partner Center identity is committed in packaging/windows/msix/identity.json.' >> $env:GITHUB_STEP_SUMMARY
 
       - name: Upload final CI diagnostics
         if: ${{ failure() }}
