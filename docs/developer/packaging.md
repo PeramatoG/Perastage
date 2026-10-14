@@ -53,6 +53,14 @@ identity setup, builds, virtualization audit, local testing, WACK and submission
 Its unsigned Store-only CI artifact is excluded from public GitHub releases;
 Inno Setup remains the normal Windows direct download.
 
+Windows GUI and CLI builds embed native application manifests through the shared
+CMake Windows helper. The GUI declares system DPI awareness; the console CLI
+leaves rendering to its terminal host. MSIX keeps one Application entry and
+targets the CLI from its execution-alias extension. Store packaging validates
+the embedded manifests in the same release stage consumed by Inno Setup.
+The maintainer guide records STORE-110 WACK findings and the required runtime,
+DPI and certification retests; schema validation alone does not certify the app.
+
 - Workflow: `.github/workflows/windows-installer.yml`
 - Script: `packaging/windows/Perastage.iss`
 - Build Release and run `perastage_stage` before compiling the installer.

@@ -65,6 +65,9 @@ if ($LASTEXITCODE -ne 0 -or [string]$cliVersion -notmatch "(?<![0-9.])$([regex]:
 }
 & $cli --help
 if ($LASTEXITCODE -ne 0) { throw 'Staged CLI --help failed' }
+& $Python (Join-Path $repoRoot 'packaging/windows/verify_executable_manifests.py') `
+    --gui (Join-Path $StageDir 'Perastage.exe') --cli $cli --mt (Join-Path $SdkBinDir 'mt.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Staged Windows executable manifest validation failed' }
 & $Python (Join-Path $repoRoot 'packaging/verify_localization.py') --asset-root $StageDir
 if ($LASTEXITCODE -ne 0) { throw 'Release localization payload validation failed' }
 

@@ -52,17 +52,8 @@
             <uap:SupportedFileTypes><uap:FileType>.mvr</uap:FileType></uap:SupportedFileTypes>
           </uap3:FileTypeAssociation>
         </uap3:Extension>
-      </Extensions>
-    </Application>
-    <Application Id="PerastageCLI" Executable="perastage-cli.exe"
-                 uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL"
-                 uap10:Subsystem="console" uap10:SupportsMultipleInstances="true">
-      <uap:VisualElements DisplayName="Perastage CLI" Description="Perastage command line"
-                          Square150x150Logo="StoreAssets\Square150x150Logo.png"
-                          Square44x44Logo="StoreAssets\Square44x44Logo.png"
-                          BackgroundColor="transparent" AppListEntry="none" />
-      <Extensions>
-        <uap5:Extension Category="windows.appExecutionAlias">
+        <uap5:Extension Category="windows.appExecutionAlias" Executable="perastage-cli.exe"
+                        uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
           <uap5:AppExecutionAlias uap10:Subsystem="console">
             <uap5:ExecutionAlias Alias="perastage-cli.exe" />
           </uap5:AppExecutionAlias>

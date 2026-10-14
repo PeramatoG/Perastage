@@ -29,3 +29,7 @@ target_sources(perastage_cli PRIVATE main.cpp)
 target_compile_features(perastage_cli PRIVATE cxx_std_20)
 target_link_libraries(perastage_cli PRIVATE perastage_cli_support)
 set_target_properties(perastage_cli PROPERTIES OUTPUT_NAME "perastage-cli")
+if(WIN32)
+    perastage_add_windows_manifest(perastage_cli
+        "${CMAKE_SOURCE_DIR}/resources/perastage-cli.exe.manifest.in")
+endif()
