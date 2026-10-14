@@ -89,6 +89,7 @@ struct RenderFramePlan;
 
 class Viewer2DPanel : public wxGLCanvas {
 public:
+  bool HasPendingResourceLoading() const { return m_controller.IsResourceSyncPending(); }
   explicit Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender = false,
                          bool persistViewState = true,
                          bool enableSelection = true);

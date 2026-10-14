@@ -907,6 +907,8 @@ void Viewer3DController::PrepareForSceneReplacement() {
   m_impl->sceneReplacementActive.store(true, std::memory_order_release);
   m_resourceSyncState.workBudget.Cancel();
   m_resourceSyncState.workRequests.Clear();
+  m_resourceSyncState.visibleFixtureInstances.clear();
+  m_resourceSyncState.resourcesFailed = 0;
   m_resourceSyncState.runtimeMeshes.CancelPending();
   m_resourceSyncState.resolvedObjectParts.clear();
   std::lock_guard<std::mutex> lock(m_impl->sortedListsMutex);
@@ -944,6 +946,10 @@ void Viewer3DController::MarkResourceSyncPending() {
   ++m_impl->resourceSyncGeneration;
   m_impl->resourceSyncPending.store(true, std::memory_order_relaxed);
 }
+// Navigation settling resumes the cursor without rebuilding its generation.
+void Viewer3DController::ResumeResourceSync() {
+  m_impl->resourceSyncPending.store(true, std::memory_order_relaxed);
+}
 
 // Checks whether resource Sync Pending.
 bool Viewer3DController::IsResourceSyncPending() const {
@@ -968,7 +974,7 @@ int Viewer3DController::GetDebugUpdateResourcesCallsPerFrame() const {
 }
 
 // Updates resources If Dirty.
-void Viewer3DController::UpdateResourcesIfDirty(bool progressive) {
+void Viewer3DController::UpdateResourcesIfDirty(bool progressive, bool deferBounds) {
   if (m_impl->sceneReplacementActive.load(std::memory_order_acquire))
     return;
   ++m_impl->updateResourcesCallsPerFrame;
@@ -976,6 +982,10 @@ void Viewer3DController::UpdateResourcesIfDirty(bool progressive) {
   ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = ControllerSnapshotHiddenLayers(cfg);
   const std::string &base = cfg.GetScene().basePath;
+  const size_t generation = m_impl->resourceSyncGeneration.load(std::memory_order_relaxed);
+  const bool rebuildInputs = !progressive ||
+      m_resourceSyncState.lastRequestGeneration != generation ||
+      m_resourceSyncState.lastSceneBasePath != base;
 
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &objects = SceneDataManager::Instance().GetSceneObjects();
@@ -987,34 +997,36 @@ void Viewer3DController::UpdateResourcesIfDirty(bool progressive) {
   std::vector<const std::pair<const std::string, Truss> *> visibleTrusses;
   std::vector<const std::pair<const std::string, SceneObject> *> visibleObjects;
   std::vector<const std::pair<const std::string, Fixture> *> visibleFixtures;
-  sceneTrusses.reserve(trusses.size());
-  sceneObjects.reserve(objects.size());
-  sceneFixtures.reserve(fixtures.size());
-  visibleTrusses.reserve(trusses.size());
-  visibleObjects.reserve(objects.size());
-  visibleFixtures.reserve(fixtures.size());
-  for (const auto &entry : trusses) {
-    sceneTrusses.push_back(&entry);
-    if (ControllerIsLayerVisibleCached(hiddenLayers, entry.second.layer))
-      visibleTrusses.push_back(&entry);
-  }
-  for (const auto &entry : objects) {
-    sceneObjects.push_back(&entry);
-    if (ControllerIsLayerVisibleCached(hiddenLayers, entry.second.layer))
-      visibleObjects.push_back(&entry);
-  }
-  for (const auto &entry : fixtures) {
-    sceneFixtures.push_back(&entry);
-    if (ControllerIsLayerVisibleCached(hiddenLayers, entry.second.layer) &&
-        cfg.IsFixtureTypeVisible(entry.second.typeName))
-      visibleFixtures.push_back(&entry);
+  if (rebuildInputs) {
+    sceneTrusses.reserve(trusses.size());
+    sceneObjects.reserve(objects.size());
+    sceneFixtures.reserve(fixtures.size());
+    visibleTrusses.reserve(trusses.size());
+    visibleObjects.reserve(objects.size());
+    visibleFixtures.reserve(fixtures.size());
+    for (const auto &entry : trusses) {
+      sceneTrusses.push_back(&entry);
+      if (ControllerIsLayerVisibleCached(hiddenLayers, entry.second.layer))
+        visibleTrusses.push_back(&entry);
+    }
+    for (const auto &entry : objects) {
+      sceneObjects.push_back(&entry);
+      if (ControllerIsLayerVisibleCached(hiddenLayers, entry.second.layer))
+        visibleObjects.push_back(&entry);
+    }
+    for (const auto &entry : fixtures) {
+      sceneFixtures.push_back(&entry);
+      if (ControllerIsLayerVisibleCached(hiddenLayers, entry.second.layer) &&
+          cfg.IsFixtureTypeVisible(entry.second.typeName))
+        visibleFixtures.push_back(&entry);
+    }
   }
 
   ResourceSyncCallbacks callbacks;
   if (progressive) {
-    callbacks.requestGeneration = m_impl->resourceSyncGeneration.load(std::memory_order_relaxed);
-    callbacks.maxResources = 8;
-    callbacks.timeBudget = std::chrono::milliseconds(8);
+    callbacks.requestGeneration = generation;
+    callbacks.maxResources = viewer3d::resources::ProgressiveLoadCadence::kMaximumResources;
+    callbacks.timeBudget = viewer3d::resources::ProgressiveLoadCadence::kWorkSlice;
   }
   callbacks.setupMeshBuffers = [this](Mesh &mesh) { SetupMeshBuffers(mesh); };
   callbacks.releaseMeshBuffers = [this](Mesh &mesh) {
@@ -1056,7 +1068,19 @@ void Viewer3DController::UpdateResourcesIfDirty(bool progressive) {
   if (syncResult.assetsChanged) {
     m_impl->assetsChangedDirty = true;
   }
+  m_impl->lastHiddenLayers = hiddenLayers;
+  m_impl->lastHiddenFixtureTypes = cfg.GetHiddenFixtureTypes();
+  if (!deferBounds) SynchronizeResourceBounds();
+}
 
+// Coalesce world bounds and culling invalidation at presentation boundaries.
+void Viewer3DController::SynchronizeResourceBounds() {
+  ConfigManager &cfg = ConfigManager::Get();
+  const auto hiddenLayers = ControllerSnapshotHiddenLayers(cfg);
+  if (m_impl->assetsChangedDirty) {
+    // New meshes replace fallback bounds even if the camera never moves.
+    ++m_impl->sceneVersion;
+  }
   BoundsCacheSystem::Context boundsContext{
       m_impl->resourceSyncState,      m_impl->modelBounds,
       m_impl->fixtureBounds,          m_impl->trussBounds,
@@ -1065,10 +1089,8 @@ void Viewer3DController::UpdateResourcesIfDirty(bool progressive) {
       m_impl->sceneChangedDirty,      m_impl->assetsChangedDirty,
       m_impl->visibilityChangedDirty, m_impl->sortedListsMutex,
       m_impl->sortedListsDirty};
-  BoundsCacheSystem::RebuildIfDirty(boundsContext, hiddenLayers, trusses,
-                                    objects, fixtures);
-  m_impl->lastHiddenLayers = hiddenLayers;
-  m_impl->lastHiddenFixtureTypes = cfg.GetHiddenFixtureTypes();
+  BoundsCacheSystem::RebuildIfDirty(boundsContext, hiddenLayers,
+      cfg.GetScene().trusses, cfg.GetScene().sceneObjects, cfg.GetScene().fixtures);
 }
 
 // Attempts to build Layer Visible Candidates.

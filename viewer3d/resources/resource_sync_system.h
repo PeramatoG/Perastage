@@ -10,6 +10,7 @@
 #include "physical_asset_revision.h"
 #include "resource_work_budget.h"
 #include "resource_request_queue.h"
+#include "progressive_load_policy.h"
 
 #include <functional>
 #include <optional>
@@ -48,6 +49,13 @@ struct ResourceSyncState {
       resolvedObjectParts;
   viewer3d::resources::ResourceWorkBudget workBudget;
   viewer3d::resources::ResourceRequestQueue workRequests;
+  size_t resourcesFailed = 0;
+  // Owned registry inputs survive continuation without retaining scene pointers.
+  struct FixtureResourceInstance {
+    std::string uuid, gdtfSpec, gdtfMode;
+    Matrix transform;
+  };
+  std::vector<FixtureResourceInstance> visibleFixtureInstances;
   std::optional<size_t> lastRequestGeneration;
   viewer3d::resources::RuntimeMeshCache runtimeMeshes;
   struct PathResolutionEntry {

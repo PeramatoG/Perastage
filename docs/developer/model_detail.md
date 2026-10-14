@@ -47,8 +47,10 @@ GDTF or to the existing full-geometry disk cache.
 `RuntimeMeshCache` belongs to one `ResourceSyncState` and therefore one viewer
 and GL context. Its key contains source mesh identity, selected detail policy,
 and whether it is a moving proxy. A cache miss queues work and returns the
-source immediately. After presentation, an idle frame builds/uploads at most one
-representation, prioritizing moving proxies. Camera movement uses prepared
+source immediately. Once source loading finishes, GUI refresh slices build/upload
+representations within a 12 ms cooperative deadline and a 128-item cap,
+prioritizing moving proxies. Preparation does not
+require a full redraw per representation. Camera movement uses prepared
 representations without invoking simplification. Generation remains on the
 owning GL thread; one exceptionally large mesh is still indivisible.
 Changing detail clears generated detail and proxy buffers; toggling only the

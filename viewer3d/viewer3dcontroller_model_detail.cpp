@@ -84,8 +84,20 @@ bool Viewer3DController::FinishPresentedFrame(bool navigating) {
     m_resourceSyncState.firstVisibleRecorded = true;
     if (performance::Enabled()) Logger::Instance().Log(performance::Summary());
   }
-  const bool prepared = !navigating &&
-      cache.PreparePending([this](Mesh &mesh) { EnsureMeshGpuBuffers(mesh); }) > 0;
-  // Repaint once more for the last completed static representation as well.
-  return prepared || cache.HasPending();
+  return cache.HasPending();
+}
+
+viewer3d::resources::ResourceLoadProgress Viewer3DController::GetResourceLoadProgress() const {
+  return {m_resourceSyncState.workRequests.Completed(), m_resourceSyncState.workRequests.Size(),
+          m_resourceSyncState.resourcesFailed, m_resourceSyncState.runtimeMeshes.PendingCount()};
+}
+
+// Source loading takes precedence over optional navigation/quality processing.
+bool Viewer3DController::PreparePendingRenderMeshes() {
+  if (IsResourceSyncPending()) return false;
+  RefreshModelDetailPreferences();
+  return m_resourceSyncState.runtimeMeshes.PreparePending(
+      [this](Mesh &mesh) { EnsureMeshGpuBuffers(mesh); },
+      viewer3d::resources::ProgressiveLoadCadence::kMaximumResources,
+      viewer3d::resources::ProgressiveLoadCadence::kWorkSlice) > 0;
 }

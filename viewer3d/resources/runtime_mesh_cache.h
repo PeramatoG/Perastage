@@ -5,6 +5,7 @@
 #include <set>
 #include <map>
 #include <tuple>
+#include <chrono>
 
 namespace viewer3d::resources {
 // Owned by a single viewer/context. Source invalidation must precede asset
@@ -17,9 +18,11 @@ public:
   const Mesh &Resolve(const Mesh &source, bool navigating,
                       const Callback &upload);
   // Run after presenting a frame, on the owning GL thread while idle.
-  size_t PreparePending(const Callback &upload, size_t limit = 1);
+  size_t PreparePending(const Callback &upload, size_t limit = 1,
+                        std::chrono::milliseconds duration = std::chrono::milliseconds{0});
   void CancelPending() { pending.clear(); queued.clear(); }
   bool HasPending() const { return !pending.empty(); }
+  size_t PendingCount() const { return pending.size(); }
   void Invalidate(const Mesh &source, const Callback &release);
   void Clear(const Callback &release);
   size_t Size() const { return meshes.size(); }

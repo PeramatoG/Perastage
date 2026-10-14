@@ -17,12 +17,14 @@ public:
   void Clear() { requests.clear(); keys.clear(); cursor = 0; }
   void Add(const std::string &reference, const std::string &mode = {}, bool gdtf = false) {
     const auto normalized = BuildResourceReferenceCacheKey(reference);
-    if (normalized.empty()) return;
+    if (normalized.empty() || (!gdtf && normalized.starts_with("primitive:"))) return;
     const auto key = (gdtf ? "gdtf:" : "model:") +
         std::to_string(normalized.size()) + ":" + normalized + mode;
     if (keys.insert(key).second) requests.push_back({reference, mode, key, gdtf});
   }
   bool Empty() const { return cursor == requests.size(); }
+  size_t Size() const { return requests.size(); }
+  size_t Completed() const { return cursor; }
   const ResourceRequest &Front() const { return requests[cursor]; }
   void Advance() { ++cursor; }
 private:

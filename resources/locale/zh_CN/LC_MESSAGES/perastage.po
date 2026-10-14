@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-12 21:51+0000\n"
+"POT-Creation-Date: 2026-10-13 23:57+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -302,9 +302,9 @@ msgstr "仅导出参考"
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
 #: gui/dictionaryeditdialog.cpp:941 gui/gdtfsearchdialog.cpp:112
 #: gui/layout2dviewdialog.cpp:75 gui/layouttextdialog.cpp:149
-#: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
-#: gui/scene_object_primitive_dialogs.cpp:139 mvr/mvrimporter.cpp:757
-#: gui/preferencesdialog.cpp:87
+#: gui/preferencesdialog.cpp:87 gui/rider_fixture_resolution_dialog.cpp:134
+#: gui/ridertextdialog.cpp:152 gui/scene_object_primitive_dialogs.cpp:139
+#: mvr/mvrimporter.cpp:757
 msgid "Cancel"
 msgstr "取消"
 
@@ -513,9 +513,8 @@ msgid "Export..."
 msgstr "导出 MVR..."
 
 #: gui/dictionaryeditdialog.cpp:610 gui/layout2dviewdialog.cpp:74
-#: gui/mvr_export_result_dialog.cpp:97
+#: gui/mvr_export_result_dialog.cpp:97 gui/preferencesdialog.cpp:86
 #: gui/scene_object_primitive_dialogs.cpp:138 mvr/mvrimporter.cpp:759
-#: gui/preferencesdialog.cpp:86
 msgid "OK"
 msgstr "确定"
 
@@ -819,9 +818,9 @@ msgstr ""
 "\n"
 
 #: gui/dictionaryeditdialog.cpp:1521 gui/dictionaryeditdialog.cpp:2276
-#: gui/fixtureeditdialog.cpp:671 gui/fixturetablepanel.cpp:525
-#: gui/mainwindow_fixture_replace.cpp:224 gui/mainwindow_menu.cpp:1005
-#: gui/mainwindow_menu.cpp:1028
+#: gui/fixtureeditdialog.cpp:644 gui/fixturetablepanel.cpp:525
+#: gui/mainwindow_fixture_replace.cpp:224 gui/mainwindow_menu.cpp:1010
+#: gui/mainwindow_menu.cpp:1033
 msgid "Select GDTF file"
 msgstr "选择 GDTF 文件"
 
@@ -836,7 +835,7 @@ msgid "DMX Mode"
 msgstr "DMX 模式"
 
 #: gui/dictionaryeditdialog.cpp:1556 gui/dictionaryeditdialog.cpp:2307
-#: gui/mainwindow_menu.cpp:1061 gui/mainwindow_menu.cpp:1080
+#: gui/mainwindow_menu.cpp:1066 gui/mainwindow_menu.cpp:1085
 #: gui/mainwindow_truss_replace.cpp:114
 msgid "Select Truss file"
 msgstr "选择桁架文件"
@@ -1148,15 +1147,15 @@ msgstr "从选定方向的一点开始"
 msgid "Placement"
 msgstr "放置："
 
-#: gui/fixtureeditdialog.cpp:277
+#: gui/fixtureeditdialog.cpp:253
 msgid "Fixture instance"
 msgstr "灯具类型"
 
-#: gui/fixtureeditdialog.cpp:490
+#: gui/fixtureeditdialog.cpp:465
 msgid "Mode channels"
 msgstr "通道"
 
-#: gui/fixtureeditdialog.cpp:500
+#: gui/fixtureeditdialog.cpp:475
 msgid ""
 "Type, source, and mode controls select project fixture context. Power and "
 "weight edits update the GDTF file and append a revision entry."
@@ -1164,37 +1163,29 @@ msgstr ""
 "类型、源和模式控件选择项目夹具上下文。功率和重量编辑更新 GDTF 文件并附加修订"
 "条目。"
 
-#: gui/fixtureeditdialog.cpp:516
-msgid "GDTF thumbnail"
-msgstr "GDTF 缩略图"
-
-#: gui/fixtureeditdialog.cpp:521
+#: gui/fixtureeditdialog.cpp:494
 #: gui/inspection/inspector_workspace_panel.cpp:544
 msgid "Preview"
 msgstr "< 上一页"
 
-#: gui/fixtureeditdialog.cpp:524
+#: gui/fixtureeditdialog.cpp:497
 msgid "GDTF wheels"
 msgstr "GDTF Share 凭据"
 
-#: gui/fixtureeditdialog.cpp:531
+#: gui/fixtureeditdialog.cpp:504
 msgid "Symbols"
 msgstr "Symbols"
 
-#: gui/fixtureeditdialog.cpp:642 gui/trusseditdialog.cpp:520
+#: gui/fixtureeditdialog.cpp:615 gui/trusseditdialog.cpp:520
 msgid "Fix malformed GDTF editor values before applying."
 msgstr "在应用之前修复格式错误的 GDTF 编辑器值。"
 
-#: gui/fixtureeditdialog.cpp:643 gui/fixtureeditdialog.cpp:662
+#: gui/fixtureeditdialog.cpp:616 gui/fixtureeditdialog.cpp:635
 #: gui/trusseditdialog.cpp:521 gui/trusseditdialog.cpp:543
 msgid "GDTF validation"
 msgstr "GDTF 验证"
 
-#: gui/fixtureeditdialog.cpp:773
-msgid "No thumbnail image found in this GDTF."
-msgstr "在此 GDTF 中找不到缩略图。"
-
-#: gui/fixtureeditdialog.cpp:1056 gui/fixtureeditdialog.cpp:1061
+#: gui/fixtureeditdialog.cpp:1014 gui/fixtureeditdialog.cpp:1019
 msgid "GDTF update"
 msgstr "GDTF 更新"
 
@@ -1335,7 +1326,7 @@ msgstr "无效的数值"
 #: gui/mainwindow_io.cpp:554 gui/mainwindow_io.cpp:687
 #: gui/mainwindow_io.cpp:697 gui/mainwindow_io.cpp:747
 #: gui/mainwindow_io.cpp:833 gui/mainwindow_io.cpp:874
-#: gui/mainwindow_io.cpp:892 gui/mainwindow_menu.cpp:1107
+#: gui/mainwindow_io.cpp:892 gui/mainwindow_menu.cpp:1112
 #: gui/ridertextdialog.cpp:218 gui/ridertextdialog.cpp:224
 #: gui/ridertextdialog.cpp:233 gui/ridertextdialog.cpp:245
 #: gui/ridertextdialog.cpp:319 gui/ridertextdialog.cpp:334
@@ -1483,6 +1474,14 @@ msgstr ""
 "归档路径：%s\n"
 "插入偏移：%g, %g\n"
 "诊断：%s"
+
+#: gui/gdtf/fixture_thumbnail_preview.cpp:107
+msgid "GDTF thumbnail"
+msgstr "GDTF 缩略图"
+
+#: gui/gdtf/fixture_thumbnail_preview.cpp:168
+msgid "No thumbnail image found in this GDTF."
+msgstr "在此 GDTF 中找不到缩略图。"
 
 #: gui/gdtf/gdtf_metadata_panel.cpp:64
 msgid "GDTF FixtureType description."
@@ -3006,7 +3005,8 @@ msgstr "选择桁架线上的两个点，或按 Esc 键取消。"
 
 #: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:481
 #: gui/mainwindow_startup_splash.cpp:63
-#: gui/services/fixture_symbol_preparation_service.cpp:488
+#: gui/services/fixture_symbol_preparation_service.cpp:509
+#: gui/viewer_load_status.cpp:26
 msgid "Ready"
 msgstr "就绪"
 
@@ -3634,15 +3634,15 @@ msgstr "选择悬挂位置以分配提升重量。"
 msgid "No hoists found for the selected position."
 msgstr "设置所选对象的 X 坐标。"
 
-#: gui/mainwindow_menu.cpp:634
+#: gui/mainwindow_menu.cpp:635
 msgid "exiting"
 msgstr "退出"
 
-#: gui/mainwindow_menu.cpp:634
+#: gui/mainwindow_menu.cpp:635
 msgid "Exit"
 msgstr "退出"
 
-#: gui/mainwindow_menu.cpp:727
+#: gui/mainwindow_menu.cpp:732
 #, c-format
 msgid ""
 "Could not create the logs folder.\n"
@@ -3653,12 +3653,12 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:729 gui/mainwindow_menu.cpp:747
-#: gui/mainwindow_menu.cpp:763 gui/mainwindow_menu.cpp:772
+#: gui/mainwindow_menu.cpp:734 gui/mainwindow_menu.cpp:752
+#: gui/mainwindow_menu.cpp:768 gui/mainwindow_menu.cpp:777
 msgid "Perastage Diagnostics"
 msgstr "后期诊断"
 
-#: gui/mainwindow_menu.cpp:745
+#: gui/mainwindow_menu.cpp:750
 #, c-format
 msgid ""
 "Could not open the logs folder.\n"
@@ -3669,7 +3669,7 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:761
+#: gui/mainwindow_menu.cpp:766
 #, c-format
 msgid ""
 "Could not export the diagnostic report.\n"
@@ -3680,7 +3680,7 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:770
+#: gui/mainwindow_menu.cpp:775
 #, c-format
 msgid ""
 "Diagnostic report exported successfully.\n"
@@ -3691,11 +3691,11 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:791 gui/update/update_notification_dialog.cpp:30
+#: gui/mainwindow_menu.cpp:796 gui/update/update_notification_dialog.cpp:30
 msgid "Perastage Updates"
 msgstr "后期更新"
 
-#: gui/mainwindow_menu.cpp:793
+#: gui/mainwindow_menu.cpp:798
 msgid ""
 "Could not check for updates.\n"
 "\n"
@@ -3703,11 +3703,11 @@ msgstr ""
 "无法检查更新。\n"
 "\n"
 
-#: gui/mainwindow_menu.cpp:796
+#: gui/mainwindow_menu.cpp:801
 msgid "Please verify your network connection and try again."
 msgstr "请验证您的网络连接并重试。"
 
-#: gui/mainwindow_menu.cpp:805
+#: gui/mainwindow_menu.cpp:810
 #, c-format
 msgid ""
 "Current version: %s\n"
@@ -3718,17 +3718,17 @@ msgstr ""
 "最新版本：%s\n"
 "\n"
 
-#: gui/mainwindow_menu.cpp:809
+#: gui/mainwindow_menu.cpp:814
 msgid "You are up to date."
 msgstr "你是最新的。"
 
-#: gui/mainwindow_menu.cpp:1105 gui/mainwindow_truss_replace.cpp:180
+#: gui/mainwindow_menu.cpp:1110 gui/mainwindow_truss_replace.cpp:180
 msgid ""
 "Unsupported or unreadable truss file. Supported formats are GDTF, GTruss, "
 "GLB, and 3DS."
 msgstr "桁架文件不受支持或不可读。支持的格式有 GDTF、GTruss、GLB 和 3DS。"
 
-#: gui/mainwindow_menu.cpp:1288 gui/mainwindow_menu.cpp:1310
+#: gui/mainwindow_menu.cpp:1293 gui/mainwindow_menu.cpp:1315
 msgid "Select Object file"
 msgstr "选择对象文件"
 
@@ -4662,7 +4662,7 @@ msgid "Low"
 msgstr "低"
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:21
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:36
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:41
 msgid "Standard"
 msgstr "标准"
 
@@ -4674,7 +4674,7 @@ msgstr "高"
 msgid "Use a simplified proxy while navigating"
 msgstr "导航时使用简化的替代模型"
 
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:29
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:34
 msgid ""
 "Standard balances detail and performance. High preserves full model detail. "
 "Low simplifies heavy meshes more aggressively. GDTF resources stay unchanged."
@@ -4682,40 +4682,40 @@ msgstr ""
 "标准级别兼顾细节与性能。高级别保留模型的全部细节。低级别会更大幅度地简化复杂"
 "网格。GDTF 资源保持不变。"
 
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:34
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:39
 #: viewer2d/viewer2drenderpanel.cpp:92
 msgid "Render mode"
 msgstr "渲染模式"
 
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:39
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:44
 #: viewer2d/viewer2drenderpanel.cpp:90
 msgid "White"
 msgstr "白色"
 
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:41
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:46
 msgid "Sketch mode"
 msgstr "草图模式"
 
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:43
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:48
 msgid "Textured"
 msgstr "纹理"
 
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:45
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:50
 #: viewer2d/viewer2drenderpanel.cpp:90
 msgid "Wireframe"
 msgstr "线框"
 
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:47
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:52
 #: viewer2d/viewer2drenderpanel.cpp:90
 msgid "By device type"
 msgstr "按设备类型"
 
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:49
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:54
 #: viewer2d/viewer2drenderpanel.cpp:91
 msgid "By layer"
 msgstr "按图层"
 
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:51
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:56
 #: viewer2d/viewer2drenderpanel.cpp:91
 msgid "By universe"
 msgstr "按 DMX 域"
@@ -4769,6 +4769,10 @@ msgstr "GDTF"
 #: gui/preferencesdialog.cpp:70
 msgid "MVR Import / Export"
 msgstr "MVR 导入/导出"
+
+#: gui/preferencesdialog.cpp:85 gui/scene_object_primitive_dialogs.cpp:136
+msgid "Apply"
+msgstr "应用"
 
 #: gui/preferencesdialog.cpp:150
 msgid "Restart required"
@@ -5054,11 +5058,6 @@ msgstr "保存为默认值"
 msgid "Load Default"
 msgstr "加载默认值"
 
-#: gui/scene_object_primitive_dialogs.cpp:136
-#: gui/preferencesdialog.cpp:85
-msgid "Apply"
-msgstr "应用"
-
 #: gui/scene_object_primitive_dialogs.cpp:184
 msgid "Radius"
 msgstr "半径"
@@ -5180,31 +5179,31 @@ msgstr "选择灯具类型："
 msgid "Add from file..."
 msgstr "从文件添加..."
 
-#: gui/services/fixture_symbol_preparation_service.cpp:512
+#: gui/services/fixture_symbol_preparation_service.cpp:534
 msgid "fixture resource"
 msgstr "灯具资源"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:515
+#: gui/services/fixture_symbol_preparation_service.cpp:537
 msgid "Preparing"
 msgstr "正在准备"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:519
+#: gui/services/fixture_symbol_preparation_service.cpp:541
 msgid "Capturing fixture views"
 msgstr "正在捕获灯具视图"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:522
+#: gui/services/fixture_symbol_preparation_service.cpp:544
 msgid "Processing"
 msgstr "正在处理"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:525
+#: gui/services/fixture_symbol_preparation_service.cpp:547
 msgid "Publishing"
 msgstr "正在发布"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:528
+#: gui/services/fixture_symbol_preparation_service.cpp:550
 msgid "Refreshing"
 msgstr "正在刷新"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:533
+#: gui/services/fixture_symbol_preparation_service.cpp:554
 #, c-format
 msgid "Preparing fixture symbols: %s - %s - %zu pending"
 msgstr "正在准备灯具符号：%s - %s - %zu 个待处理"
@@ -5346,6 +5345,26 @@ msgstr "详细信息"
 #: gui/viewer2dprintdialog.cpp:63
 msgid "Schematic"
 msgstr "示意图"
+
+#: gui/viewer_load_status.cpp:15
+#, c-format
+msgid "Scene loading paused while navigating: %zu/%zu (%d%%)"
+msgstr "导航期间暂停加载场景：%zu/%zu（%d%%）"
+
+#: gui/viewer_load_status.cpp:16
+#, c-format
+msgid "Loading scene: %zu/%zu (%d%%)"
+msgstr "正在加载场景：%zu/%zu（%d%%）"
+
+#: gui/viewer_load_status.cpp:19
+#, c-format
+msgid "Preparing scene for navigation: %zu item remaining"
+msgid_plural "Preparing scene for navigation: %zu items remaining"
+msgstr[0] "正在为导航准备场景：剩余 %zu 项"
+
+#: gui/viewer_load_status.cpp:26
+msgid "Scene loaded. Some resources are unavailable; see Console."
+msgstr "场景已加载。部分资源不可用；请查看控制台。"
 
 #: gui/windows/SymbolPreviewWindow.cpp:143
 msgid "Export this view as SVG..."
@@ -5562,23 +5581,23 @@ msgstr "登录 GDTF Share"
 msgid "Spanish"
 msgstr "西班牙语"
 
-#: viewer2d/viewer2dpanel.cpp:3579
+#: viewer2d/viewer2dpanel.cpp:3580
 msgid "Gap measure: "
 msgstr "测量工具"
 
-#: viewer2d/viewer2dpanel.cpp:3580
+#: viewer2d/viewer2dpanel.cpp:3581
 msgid "Measure: "
 msgstr "测量工具"
 
-#: viewer2d/viewer2dpanel.cpp:3652 viewer3d/viewer3dpanel.cpp:2252
+#: viewer2d/viewer2dpanel.cpp:3653 viewer3d/viewer3dpanel.cpp:2255
 msgid "Convert to Truss"
 msgstr "转换为电动葫芦"
 
-#: viewer2d/viewer2dpanel.cpp:3738 viewer3d/viewer3dpanel.cpp:2269
+#: viewer2d/viewer2dpanel.cpp:3739 viewer3d/viewer3dpanel.cpp:2272
 msgid "No position"
 msgstr "位置"
 
-#: viewer2d/viewer2dpanel.cpp:3749 viewer3d/viewer3dpanel.cpp:2280
+#: viewer2d/viewer2dpanel.cpp:3750 viewer3d/viewer3dpanel.cpp:2283
 msgid "Select by position"
 msgstr "选择"
 
@@ -5680,38 +5699,38 @@ msgstr "选择配置文件处于活动状态（%zu 灯具）"
 msgid "ID: %d"
 msgstr "ID：%d"
 
-#: viewer3d/viewer3dpanel.cpp:1348
+#: viewer3d/viewer3dpanel.cpp:1351
 msgid "Cannot export while the 3D viewer is hidden."
 msgstr "3D 查看器隐藏时无法导出。"
 
-#: viewer3d/viewer3dpanel.cpp:1348 viewer3d/viewer3dpanel.cpp:1353
-#: viewer3d/viewer3dpanel.cpp:1365 viewer3d/viewer3dpanel.cpp:1370
-#: viewer3d/viewer3dpanel.cpp:1413 viewer3d/viewer3dpanel.cpp:1462
+#: viewer3d/viewer3dpanel.cpp:1351 viewer3d/viewer3dpanel.cpp:1356
+#: viewer3d/viewer3dpanel.cpp:1368 viewer3d/viewer3dpanel.cpp:1373
+#: viewer3d/viewer3dpanel.cpp:1416 viewer3d/viewer3dpanel.cpp:1465
 msgid "Export image"
 msgstr "导出"
 
-#: viewer3d/viewer3dpanel.cpp:1365 viewer3d/viewer3dpanel.cpp:1370
+#: viewer3d/viewer3dpanel.cpp:1368 viewer3d/viewer3dpanel.cpp:1373
 msgid "OpenGL is not initialized yet."
 msgstr "OpenGL 尚未初始化。"
 
-#: viewer3d/viewer3dpanel.cpp:1412
+#: viewer3d/viewer3dpanel.cpp:1415
 msgid "Failed to create an offscreen framebuffer for export."
 msgstr "无法创建用于导出的离屏帧缓冲区。"
 
-#: viewer3d/viewer3dpanel.cpp:1462
+#: viewer3d/viewer3dpanel.cpp:1465
 msgid "Failed to save PNG image."
 msgstr "保存 PNG 图像失败。"
 
-#: viewer3d/viewer3dpanel.cpp:1716
+#: viewer3d/viewer3dpanel.cpp:1719
 #, c-format
 msgid "Measure: %s"
 msgstr "测量：%s"
 
-#: viewer3d/viewer3dpanel.cpp:2283
+#: viewer3d/viewer3dpanel.cpp:2286
 msgid "Render style"
 msgstr "渲染模式"
 
-#: viewer3d/viewer3dpanel.cpp:2285
+#: viewer3d/viewer3dpanel.cpp:2288
 msgid "Export image..."
 msgstr "导出灯具..."
 

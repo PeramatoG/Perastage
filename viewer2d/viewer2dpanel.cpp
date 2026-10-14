@@ -1666,6 +1666,7 @@ bool Viewer2DPanel::RenderToRGBABackBufferFallback(
 // Handles paint events by refreshing interaction state and rendering the view.
 void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   wxPaintDC dc(this);
+  if (!IsEnabled()) return;
   if (m_paintInProgress)
     return;
   m_paintInProgress = true;

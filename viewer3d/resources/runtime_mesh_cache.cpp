@@ -41,9 +41,13 @@ void RuntimeMeshCache::Queue(const Mesh &source, bool proxy) {
   if (proxy) pending.push_front(key);
   else pending.push_back(key);
 }
-size_t RuntimeMeshCache::PreparePending(const Callback &upload, size_t limit) {
+size_t RuntimeMeshCache::PreparePending(const Callback &upload, size_t limit,
+                                       std::chrono::milliseconds duration) {
   size_t prepared = 0;
+  const auto started = std::chrono::steady_clock::now();
   while (!pending.empty() && prepared < limit) {
+    if (prepared > 0 && duration.count() > 0 &&
+        std::chrono::steady_clock::now() - started >= duration) break;
     const Key key = pending.front();
     pending.pop_front();
     queued.erase(key);

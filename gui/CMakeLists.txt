@@ -88,6 +88,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspector_workspace_panel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hang_position_dialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/highlight_status_bar.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/viewer_load_status.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/viewer_load_status.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hoist_load_limit_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hoist_load_recalculation_prompt.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hoisttable/hoist_table_edit_service.cpp
@@ -123,6 +125,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/legendsymbolcapture.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/logindialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_background_work.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_selection_refresh.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_startup_splash.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow/controllers/mainwindow_io_controller.cpp

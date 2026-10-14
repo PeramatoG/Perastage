@@ -1,6 +1,7 @@
 target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/resource_work_budget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/resource_request_queue.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/resources/progressive_load_policy.h
     ${CMAKE_CURRENT_SOURCE_DIR}/culling/bounds_cache_system.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/culling/primitive_bounds_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/culling/visibilitysystem.cpp
@@ -52,6 +53,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dcontroller_cache_helpers.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dpanel_presentation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dpanel_resource_loading.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dpanel_camera_input.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dviewfit.cpp
 )

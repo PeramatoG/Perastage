@@ -36,6 +36,10 @@ Choose the rendering presentation and **Performance → Model detail**:
 
 **Use a simplified proxy while navigating** is enabled by default in Standard and automatic in Low. High preserves full static detail; you can disable its navigation proxy for full-detail inspection. Available proxies temporarily simplify unselected fixtures during fast navigation, then restore the chosen detail. Large scenes fill in progressively so you can start navigating before every model is ready. Apply changes on the next redraw without reopening the project. Source geometry, GDTF resources, 2D symbols and exported geometry remain unchanged.
 
+During loading, the bottom-left status bar shows completed resource requests, the total and a percentage. New geometry appears automatically, without moving the camera. Loading pauses during navigation and resumes from the same position afterwards. A separate preparation message covers navigation proxies; **Ready** appears after the final scene update. If a resource is unavailable, the status bar points to the Console when loading finishes.
+
+Closing the application pauses viewport work before asking whether to save. **Cancel** resumes pending loading; confirming the close discards remaining runtime preparation.
+
 ### Selection & Movement
 
 Choose which object types move their containing root group during mouse, Console and Magnet transforms. Grouped trusses move their group by default; fixtures, supports/hoists and scene objects move independently. Direct group selection moves the group. Table edits affect only the edited object.

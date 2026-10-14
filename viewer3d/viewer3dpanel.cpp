@@ -962,7 +962,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
     }
     ScopedBoolFlag paintScope(m_paintInProgress);
     viewer3d::diagnostics::Log("OpenGL render frame start.");
-    if (!IsShownOnScreen() || m_modalDialogActive) {
+    if (!IsShownOnScreen() || !IsEnabled() || m_modalDialogActive) {
     viewer3d::diagnostics::Log("OpenGL render frame skipped because the panel "
                                "is hidden or modal-blocked.");
         return;
@@ -983,10 +983,13 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
     performance::Scope frameMetric(performance::Work::Frame);
 
     const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
+    m_controller.UpdateFrameStateLightweight();
     if (m_controller.IsResourceSyncPending() && !pauseHeavyTasks &&
         !m_runtimeState.IsCameraMoving() && m_controller.ConsumeResourceSyncPending()) {
         m_controller.UpdateResourcesIfDirty(true);
     }
+    if (!pauseHeavyTasks && !m_runtimeState.IsCameraMoving())
+        m_controller.SynchronizeResourceBounds();
 
     const std::uint64_t highlightRevisionAtFrameStart =
         m_runtimeState.HighlightRevision();
@@ -996,8 +999,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
         m_runtimeState.SelectionRevision();
     const size_t cameraFingerprint = ComputeCameraFingerprint(m_camera);
     const auto hiddenLayers = ConfigManager::Get().GetHiddenLayers();
-
-    m_controller.UpdateFrameStateLightweight();
 
     const int updateResourcesCallsPerFrame =
         m_controller.GetDebugUpdateResourcesCallsPerFrame();
@@ -1284,9 +1285,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
         m_runtimeState.CompleteSelectionRefresh(selectionRevisionAtFrameStart);
 
     SwapBuffers(); // Swap after drawing labels to ensure they are visible
-    if (!pauseHeavyTasks && (m_controller.FinishPresentedFrame(m_runtimeState.IsCameraMoving()) ||
-                            m_controller.IsResourceSyncPending()))
-        Refresh(false);
+    m_controller.FinishPresentedFrame(m_runtimeState.IsCameraMoving());
+    ResourceLoadingPresented(pauseHeavyTasks);
     viewer3d::diagnostics::Log("OpenGL render frame end.");
 }
 
@@ -4056,6 +4056,7 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent &event) {
     m_refreshEventPending.store(false, std::memory_order_release);
     if (m_shuttingDown || m_modalDialogActive || !m_glContext || IsBeingDeleted())
         return;
+    if (ProcessProgressiveResourceRefresh()) return;
 
     const bool resourceSyncPending = m_controller.IsResourceSyncPending();
     const bool hasRelevantVisualChange =
@@ -4064,17 +4065,6 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent &event) {
              m_rectSelecting, m_navigationSession.IsActive()});
     if (!hasRelevantVisualChange)
         return;
-
-    if (resourceSyncPending && !m_runtimeState.IsCameraMoving()) {
-        const auto now = std::chrono::steady_clock::now();
-        if (m_runtimeState.IsResourceSyncCadenceDue(now)) {
-            if (!PrepareGlResourceSync("OnThreadRefresh"))
-                return;
-            m_runtimeState.AcceptResourceSyncCadence(now);
-            if (m_controller.ConsumeResourceSyncPending())
-                m_controller.UpdateResourcesIfDirty(true);
-        }
-    }
 
     viewer3d::diagnostics::Log("Thread refresh requested panel repaint.");
     Refresh();
@@ -4095,7 +4085,7 @@ bool Viewer3DPanel::ShouldPauseHeavyTasks() {
         m_controller.SetCameraMoving(false);
     }
     if (decision.requestDeferredResourceSync)
-        m_controller.MarkResourceSyncPending();
+        m_controller.ResumeResourceSync();
     if (decision.markHoverDirty)
         m_runtimeState.MarkPointerDirty();
     return decision.pauseHeavyTasks;

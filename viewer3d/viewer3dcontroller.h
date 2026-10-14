@@ -29,6 +29,7 @@
 #include "ivisibilitycontext.h"
 #include "symbolcache.h"
 #include "viewer3d_types.h"
+#include "resources/progressive_load_policy.h"
 #include <array>
 #include <functional>
 #include <memory>
@@ -83,7 +84,11 @@ public:
 
   void InitializeGL();
   void Update();
-  void UpdateResourcesIfDirty(bool progressive = false);
+  void UpdateResourcesIfDirty(bool progressive = false, bool deferBounds = false);
+  void SynchronizeResourceBounds();
+  void ResumeResourceSync();
+  viewer3d::resources::ResourceLoadProgress GetResourceLoadProgress() const;
+  bool PreparePendingRenderMeshes();
   void UpdateFrameStateLightweight();
   bool FinishPresentedFrame(bool navigating);
   void PrepareForSceneReplacement();

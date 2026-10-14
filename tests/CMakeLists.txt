@@ -4175,6 +4175,21 @@ target_link_libraries(viewer3d_progressive_resource_test PRIVATE
 add_test(NAME Viewer3DProgressiveResources COMMAND viewer3d_progressive_resource_test)
 set_tests_properties(Viewer3DProgressiveResources PROPERTIES LABELS "unit;viewer3d;performance")
 
+add_executable(progressive_load_policy_test progressive_load_policy_test.cpp)
+target_include_directories(progressive_load_policy_test PRIVATE ../viewer3d)
+add_test(NAME ProgressiveLoadPolicy COMMAND progressive_load_policy_test)
+set_tests_properties(ProgressiveLoadPolicy PROPERTIES LABELS "unit;viewer3d;performance")
+
+add_executable(viewer_load_status_test viewer_load_status_test.cpp ../gui/viewer_load_status.cpp)
+target_include_directories(viewer_load_status_test PRIVATE ../gui)
+target_link_libraries(viewer_load_status_test PRIVATE ${wxWidgets_LIBRARIES})
+if(PERASTAGE_XVFB_RUN)
+  add_test(NAME ViewerLoadStatus COMMAND "${PERASTAGE_XVFB_RUN}" -a "$<TARGET_FILE:viewer_load_status_test>")
+else()
+  add_test(NAME ViewerLoadStatus COMMAND viewer_load_status_test)
+endif()
+set_tests_properties(ViewerLoadStatus PROPERTIES LABELS "gui;viewer3d;performance")
+
 add_executable(packaged_viewer_cache_test packaged_viewer_cache_test.cpp
     ../core/cache_paths.cpp ../core/cache_service.cpp
     ../viewer3d/resources/mesh_processing.cpp)

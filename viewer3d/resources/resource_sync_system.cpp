@@ -707,7 +707,6 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     ResourceSyncState &state, const ResourceSyncCallbacks &callbacks) {
   performance::Scope metric(performance::Work::ResourceSync);
   ResourceSyncResult result;
-  state.resolvedObjectParts.clear();
 
   const viewer3d::resources::MeshProcessingOptions meshProcessingOptions =
       callbacks.meshProcessingOptions.value_or(
@@ -716,6 +715,8 @@ ResourceSyncResult ResourceSyncSystem::Sync(
   if (meshProcessingOptions.enableDiskCache) cacheBatch.emplace();
 
   if (state.lastSceneBasePath != basePath) {
+    state.workBudget.Cancel();
+    state.lastRequestGeneration.reset();
     for (auto &[path, mesh] : state.loadedMeshes) {
       (void)path;
       if (callbacks.releaseMeshBuffers)
@@ -744,6 +745,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
 
   if (!callbacks.requestGeneration ||
       callbacks.requestGeneration != state.lastRequestGeneration) {
+    state.resolvedObjectParts.clear();
     performance::Scope signatureMetric(performance::Work::SceneSignature);
     size_t sceneSignature = HashString(basePath);
     for (const auto *entry : sceneTrusses) {
@@ -805,11 +807,17 @@ ResourceSyncResult ResourceSyncSystem::Sync(
   // Synchronous callers intentionally revalidate; interactive continuation does
   // no filesystem work for resource identities already completed this generation.
   if (!callbacks.requestGeneration) state.workBudget.Cancel();
-  if (state.workBudget.Begin(callbacks.requestGeneration.value_or(0),
-                             callbacks.maxResources, callbacks.timeBudget)) {
+  const bool newGeneration = state.workBudget.Begin(
+      callbacks.requestGeneration.value_or(0), callbacks.maxResources, callbacks.timeBudget);
+  if (newGeneration) {
     state.workRequests.Clear();
-    for (const auto *entry : visibleFixtures)
+    state.resourcesFailed = 0;
+    state.visibleFixtureInstances.clear();
+    for (const auto *entry : visibleFixtures) {
       state.workRequests.Add(entry->second.gdtfSpec, entry->second.gdtfMode, true);
+      const auto &f = entry->second;
+      state.visibleFixtureInstances.push_back({entry->first, f.gdtfSpec, f.gdtfMode, f.transform});
+    }
     for (const auto *entry : visibleTrusses)
       state.workRequests.Add(entry->second.symbolFile);
     for (const auto *entry : visibleObjects) {
@@ -915,6 +923,10 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     state.workRequests.Advance();
     if (!request.gdtf) {
       ensureModelResolvedPath(request.reference);
+      const auto key = viewer3d::resources::BuildResourceReferenceCacheKey(request.reference);
+      const auto path = state.resolvedModelRefs.find(key);
+      if (path == state.resolvedModelRefs.end() ||
+          !state.loadedMeshes.contains(path->second.resolvedPath)) ++state.resourcesFailed;
       continue;
     }
     Fixture f;
@@ -930,6 +942,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
             : std::string();
 
     if (gdtfPath.empty()) {
+      ++state.resourcesFailed;
       ++gdtfErrorCounts[f.gdtfSpec];
       gdtfErrorReasons[f.gdtfSpec] = "GDTF file not found";
       if (!missingGdtfSpecs.insert(f.gdtfSpec).second)
@@ -964,6 +977,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     if (failedIt != state.failedGdtfReasons.end()) {
       const size_t attempts = state.failedGdtfAttemptCounts[resourceKey];
       if (attempts >= 3) {
+        ++state.resourcesFailed;
         ++gdtfErrorCounts[resourceKey];
         gdtfErrorReasons[resourceKey] = failedIt->second;
         continue;
@@ -1023,6 +1037,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
 
         result.assetsChanged = true;
       } else {
+        ++state.resourcesFailed;
         std::string reason = gdtfError.empty() ? "Failed to load GDTF" : gdtfError;
         state.failedGdtfReasons[resourceKey] = reason;
         state.attemptedGdtfRevisions[resourceKey] = currentRevision;
@@ -1034,93 +1049,97 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     }
   }
 
-  std::unordered_set<std::string> visibleFixtureUuids;
-  visibleFixtureUuids.reserve(visibleFixtures.size());
-  for (const auto *entry : visibleFixtures)
-    visibleFixtureUuids.insert(entry->first);
+  // Model-only continuation needs no fixture traversal or transform hashing.
+  if (newGeneration || !processedGdtfPaths.empty()) {
+    const auto &instances = state.visibleFixtureInstances;
+    std::unordered_set<std::string> visibleFixtureUuids;
+    visibleFixtureUuids.reserve(instances.size());
+    for (const auto &fixture : instances)
+      visibleFixtureUuids.insert(fixture.uuid);
 
-  for (auto it = state.fixtureNodeRegistry.begin();
-       it != state.fixtureNodeRegistry.end();) {
-    if (visibleFixtureUuids.find(it->first) != visibleFixtureUuids.end()) {
-      ++it;
-      continue;
-    }
-    const std::string uuidToRemove = it->first;
-    it = state.fixtureNodeRegistry.erase(it);
-    state.fixtureAnchorRegistry.erase(uuidToRemove);
-    state.fixtureRegistrySignatureByUuid.erase(uuidToRemove);
-  }
-
-  for (const auto *entry : visibleFixtures) {
-    const auto &[uuid, fixture] = *entry;
-    if (fixture.gdtfSpec.empty()) {
-      state.fixtureNodeRegistry.erase(uuid);
-      state.fixtureAnchorRegistry.erase(uuid);
-      state.fixtureRegistrySignatureByUuid.erase(uuid);
-      continue;
+    for (auto it = state.fixtureNodeRegistry.begin();
+         it != state.fixtureNodeRegistry.end();) {
+      if (visibleFixtureUuids.find(it->first) != visibleFixtureUuids.end()) {
+        ++it;
+        continue;
+      }
+      const std::string uuidToRemove = it->first;
+      it = state.fixtureNodeRegistry.erase(it);
+      state.fixtureAnchorRegistry.erase(uuidToRemove);
+      state.fixtureRegistrySignatureByUuid.erase(uuidToRemove);
     }
 
-    auto gdtfPathIt = state.resolvedGdtfSpecs.find(
-        viewer3d::resources::BuildResourceReferenceCacheKey(fixture.gdtfSpec));
-    if (gdtfPathIt == state.resolvedGdtfSpecs.end() || !gdtfPathIt->second.attempted ||
-        gdtfPathIt->second.resolvedPath.empty()) {
-      state.fixtureNodeRegistry.erase(uuid);
-      state.fixtureAnchorRegistry.erase(uuid);
-      state.fixtureRegistrySignatureByUuid.erase(uuid);
-      continue;
+    for (const auto &fixture : instances) {
+      const auto &uuid = fixture.uuid;
+      if (fixture.gdtfSpec.empty()) {
+        state.fixtureNodeRegistry.erase(uuid);
+        state.fixtureAnchorRegistry.erase(uuid);
+        state.fixtureRegistrySignatureByUuid.erase(uuid);
+        continue;
+      }
+
+      auto gdtfPathIt = state.resolvedGdtfSpecs.find(
+          viewer3d::resources::BuildResourceReferenceCacheKey(fixture.gdtfSpec));
+      if (gdtfPathIt == state.resolvedGdtfSpecs.end() || !gdtfPathIt->second.attempted ||
+          gdtfPathIt->second.resolvedPath.empty()) {
+        state.fixtureNodeRegistry.erase(uuid);
+        state.fixtureAnchorRegistry.erase(uuid);
+        state.fixtureRegistrySignatureByUuid.erase(uuid);
+        continue;
+      }
+
+      const std::string resourceKey =
+          BuildGdtfResourceKey(gdtfPathIt->second.resolvedPath, fixture.gdtfMode);
+      auto treeIt = state.loadedGdtfGeometryTrees.find(resourceKey);
+      if (treeIt == state.loadedGdtfGeometryTrees.end()) {
+        state.fixtureNodeRegistry.erase(uuid);
+        state.fixtureAnchorRegistry.erase(uuid);
+        state.fixtureRegistrySignatureByUuid.erase(uuid);
+        continue;
+      }
+
+      auto versionIt = state.geometryTreeVersionByResolvedGdtfPath.find(
+          resourceKey);
+      const size_t geometryTreeVersion = versionIt != state.geometryTreeVersionByResolvedGdtfPath.end()
+                                             ? versionIt->second
+                                             : HashGeometryTreeVersion(treeIt->second);
+      const size_t fixtureSignature = BuildFixtureRegistrySignature(
+          uuid, resourceKey, fixture.transform, geometryTreeVersion);
+
+      auto signatureIt = state.fixtureRegistrySignatureByUuid.find(uuid);
+      const bool hasStableRegistry = signatureIt != state.fixtureRegistrySignatureByUuid.end() &&
+                                     signatureIt->second == fixtureSignature &&
+                                     state.fixtureNodeRegistry.find(uuid) != state.fixtureNodeRegistry.end() &&
+                                     state.fixtureAnchorRegistry.find(uuid) != state.fixtureAnchorRegistry.end();
+      if (hasStableRegistry)
+        continue;
+
+      std::vector<FixtureSceneNode> instancedNodes;
+      instancedNodes.reserve(treeIt->second.nodes.size() + 1);
+
+      FixtureSceneNode rootNode;
+      rootNode.stableName = "Fixture_" + uuid;
+      rootNode.parentIndex = -1;
+      rootNode.localTransform = fixture.transform;
+      rootNode.worldTransform = fixture.transform;
+      instancedNodes.push_back(rootNode);
+
+      FixtureAnchorRegistryEntry anchors;
+      anchors.fixtureRootName = rootNode.stableName;
+
+      for (const GdtfNode3D &templateNode : treeIt->second.nodes) {
+        FixtureSceneNode node = BuildInstancedFixtureNode(templateNode, fixture.transform, 0);
+        if (node.isAxis)
+          anchors.axisNodes.push_back(node);
+        if (node.isEmitter)
+          anchors.emitterNodes.push_back(node);
+        instancedNodes.push_back(std::move(node));
+      }
+
+      state.fixtureNodeRegistry[uuid] = std::move(instancedNodes);
+      state.fixtureAnchorRegistry[uuid] = std::move(anchors);
+      state.fixtureRegistrySignatureByUuid[uuid] = fixtureSignature;
     }
-
-    const std::string resourceKey =
-        BuildGdtfResourceKey(gdtfPathIt->second.resolvedPath, fixture.gdtfMode);
-    auto treeIt = state.loadedGdtfGeometryTrees.find(resourceKey);
-    if (treeIt == state.loadedGdtfGeometryTrees.end()) {
-      state.fixtureNodeRegistry.erase(uuid);
-      state.fixtureAnchorRegistry.erase(uuid);
-      state.fixtureRegistrySignatureByUuid.erase(uuid);
-      continue;
-    }
-
-    auto versionIt = state.geometryTreeVersionByResolvedGdtfPath.find(
-        resourceKey);
-    const size_t geometryTreeVersion = versionIt != state.geometryTreeVersionByResolvedGdtfPath.end()
-                                           ? versionIt->second
-                                           : HashGeometryTreeVersion(treeIt->second);
-    const size_t fixtureSignature = BuildFixtureRegistrySignature(
-        uuid, resourceKey, fixture.transform, geometryTreeVersion);
-
-    auto signatureIt = state.fixtureRegistrySignatureByUuid.find(uuid);
-    const bool hasStableRegistry = signatureIt != state.fixtureRegistrySignatureByUuid.end() &&
-                                   signatureIt->second == fixtureSignature &&
-                                   state.fixtureNodeRegistry.find(uuid) != state.fixtureNodeRegistry.end() &&
-                                   state.fixtureAnchorRegistry.find(uuid) != state.fixtureAnchorRegistry.end();
-    if (hasStableRegistry)
-      continue;
-
-    std::vector<FixtureSceneNode> instancedNodes;
-    instancedNodes.reserve(treeIt->second.nodes.size() + 1);
-
-    FixtureSceneNode rootNode;
-    rootNode.stableName = "Fixture_" + uuid;
-    rootNode.parentIndex = -1;
-    rootNode.localTransform = fixture.transform;
-    rootNode.worldTransform = fixture.transform;
-    instancedNodes.push_back(rootNode);
-
-    FixtureAnchorRegistryEntry anchors;
-    anchors.fixtureRootName = rootNode.stableName;
-
-    for (const GdtfNode3D &templateNode : treeIt->second.nodes) {
-      FixtureSceneNode node = BuildInstancedFixtureNode(templateNode, fixture.transform, 0);
-      if (node.isAxis)
-        anchors.axisNodes.push_back(node);
-      if (node.isEmitter)
-        anchors.emitterNodes.push_back(node);
-      instancedNodes.push_back(std::move(node));
-    }
-
-    state.fixtureNodeRegistry[uuid] = std::move(instancedNodes);
-    state.fixtureAnchorRegistry[uuid] = std::move(anchors);
-    state.fixtureRegistrySignatureByUuid[uuid] = fixtureSignature;
   }
 
   if (callbacks.appendConsoleMessage) {
@@ -1150,6 +1169,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
   state.workBudget.Finish();
   result.workPending = state.workBudget.HasPending();
   result.resourcesProcessed = state.workBudget.Processed();
+  if (result.assetsChanged) state.resolvedObjectParts.clear();
   performance::Count(performance::Work::UniqueResources, result.resourcesProcessed);
   if (performance::Enabled() && !result.workPending) {
     std::unordered_set<std::string> resolvedPaths;

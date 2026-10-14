@@ -29,8 +29,12 @@ bool LoadGdtf(const std::string &, std::vector<GdtfObject> &objects,
   ++fixtureLoads;
   objects.resize(1); objects[0].mesh = Triangle(); return true;
 }
-bool LoadGdtfGeometryTree(const std::string &, GdtfGeometryTree &,
-                          const std::string &, std::string *) { return false; }
+bool LoadGdtfGeometryTree(const std::string &, GdtfGeometryTree &tree,
+                          const std::string &, std::string *) {
+  GdtfNode3D node;
+  node.stableName = "Axis"; node.type = GdtfNodeType::Axis;
+  tree.nodes = {node}; return true;
+}
 namespace ProjectUtils {
 std::filesystem::path GetBaseLibraryPath(const std::string &) { return {}; }
 std::string GetWritableLibraryPath(const std::string &) { return {}; }

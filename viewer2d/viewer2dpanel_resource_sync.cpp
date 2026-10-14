@@ -7,6 +7,7 @@ void Viewer2DPanel::SynchronizeRenderResources(bool capture) {
     m_controller.UpdateResourcesIfDirty();
     return;
   }
+  if (!IsEnabled()) return;
   m_controller.UpdateFrameStateLightweight();
   if (m_controller.ConsumeResourceSyncPending())
     m_controller.UpdateResourcesIfDirty(true);

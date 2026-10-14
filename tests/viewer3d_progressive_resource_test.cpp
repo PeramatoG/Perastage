@@ -49,12 +49,18 @@ int main() {
   };
   auto result = sync();
   assert(result.workPending && modelLoads == 8 && uploads == 8);
+  assert(state.workRequests.Size() == 4490 && state.workRequests.Completed() == 8);
   size_t passes = 1;
   while (result.workPending) {
-    result = sync(); ++passes;
+    // Continuation consumes owned requests, with no repeated scene traversal.
+    result = ResourceSyncSystem::Sync(root.string(), {}, {}, {}, {}, {}, {}, state, callbacks);
+    assert(result.resourcesProcessed <= 8);
+    ++passes;
     assert(passes < 1000);
   }
   assert(modelLoads == 4490 && uploads == 4490 && passes == 562);
+  assert(state.workRequests.Completed() == state.workRequests.Size());
+  assert(state.resourcesFailed == 0);
   assert(performance::samples[static_cast<size_t>(performance::Work::SceneSignature)].count == 1);
   const auto completed = modelLoads;
   assert(!sync().workPending && modelLoads == completed);
@@ -112,6 +118,23 @@ int main() {
       fixtures, {}, visible, fixtures, state, callbacks);
   assert(fixtureResult.workPending && fixtureLoads == 2);
   assert(state.loadedGdtf.size() == 2);
+  assert(state.fixtureNodeRegistry.size() == 1000);
+  fixtureScene.clear(); // Registry continuation owns its UUIDs and transforms.
+  const auto fixtureContinuation = ResourceSyncSystem::Sync(root.string(), {}, {}, {},
+      {}, {}, {}, state, callbacks);
+  assert(!fixtureContinuation.workPending && state.fixtureNodeRegistry.size() == 1000);
+  // Failed resources count as completed attempts, so progress can finish honestly.
+  SceneObject unavailable;
+  unavailable.modelFile = "missing.3ds";
+  std::pair<const std::string, SceneObject> unavailableEntry("missing", unavailable);
+  SceneObject primitive;
+  primitive.modelFile = "primitive:cube";
+  std::pair<const std::string, SceneObject> primitiveEntry("primitive", primitive);
+  callbacks.requestGeneration = 9;
+  const auto failure = ResourceSyncSystem::Sync(root.string(), {}, {}, {}, {},
+      {&unavailableEntry, &primitiveEntry}, {}, state, callbacks);
+  assert(!failure.workPending && state.workRequests.Size() == 1);
+  assert(state.workRequests.Completed() == 1 && state.resourcesFailed == 1);
   std::cout << "objects=10000 unique_resources=4490 batch_limit=8 passes=" << passes << '\n';
   fs::remove_all(root);
 }
