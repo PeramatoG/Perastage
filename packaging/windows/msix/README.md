@@ -74,8 +74,13 @@ is used. See [Store version numbering][requirements].
   available in Open With; Windows/user consent controls defaults. MSIX has no
   Inno-style optional association checkbox, so MVR registration is present but
   users choose whether to use it. See [FileTypeAssociation schema][association].
-- A hidden, multi-instance full-trust console Application owns the
-  `uap5:AppExecutionAlias` for `perastage-cli.exe`. Windows requires the `.exe`
+- The single GUI Application owns a `uap5:Extension` explicitly targeting
+  `perastage-cli.exe` with `packagedClassicApp`/`mediumIL`, containing the
+  console `uap5:AppExecutionAlias`. The CLI stays in the payload without a second
+  Application entry (including a hidden entry). The Application declares
+  `uap10:SupportsMultipleInstances="true"`, required by MakeAppx for a console
+  alias; its subsystem remains GUI/default while only the alias is console.
+  Windows requires the `.exe`
   suffix in the declaration; normal shells also resolve `perastage-cli` through
   PATHEXT. There is no PATH mutation. Users may disable the alias in Settings,
   and an earlier PATH entry can shadow it. See [alias schema][alias] and
@@ -265,6 +270,93 @@ SDK/compiler, OS build, account and each result. Back up user data first.
 
 ## WACK and submission readiness
 
+### STORE-110 findings and corrections
+
+Maintainer testing of `LuismaPeramato.Perastage_1.6.145.0_x64__vrw2ms6ps8f0j`
+reported overall **WARNING**, with an Application Count failure, optional
+Blocked Executables findings and a DPI warning. This is the original report,
+not a successful WACK result for the corrected package.
+
+- **Application Count: actual manifest issue.** Previously there were two
+  Applications (`Perastage` and hidden `PerastageCLI`). There is now only
+  `Perastage`/`Perastage.exe`; its alias extension explicitly launches
+  `perastage-cli.exe` as a full-trust console executable. The main GUI AUMID and
+  file-association parameters remain unchanged. See [extension executable and
+  runtime attributes][alias-extension] and [Desktop Bridge WACK tests][bridge-tests].
+  The [Application schema][application] requires explicit multi-instancing for
+  console activations. SDK semantic validation also requires that declaration
+  on the owning Application, even when the alias targets a different executable.
+  This allows repeated packaged GUI activations as well; the native startup has
+  no singleton redirection and direct installs already allow separate GUI
+  processes. Retest repeated GUI/file opens and the existing local-live endpoint
+  ownership alongside concurrent CLI commands. No GUI console subsystem is set.
+- **Blocked Executables: classify before correcting.** Microsoft's optional
+  test concerns Windows S restrictions; it is not evidence that an imported
+  process API or a matching string was actually executed. The audit found:
+
+  | Finding class | Source/meaning | Certification note |
+  | --- | --- | --- |
+  | Actual process launch | `gui/mainwindow_menu.cpp`, `OnOpenLogsFolder`, uses `wxExecute("explorer ...")` on Windows. | Opens the diagnostics directory; no command interpreter. Retain and verify on the supported OS. |
+  | Default handlers | `mainwindow_menu.cpp`, `mainwindow.cpp`, `user_manual_dialog.cpp` and `preferences/cache_preferences_page.cpp` use `wxLaunchDefaultBrowser`/`wxLaunchDefaultApplication`. | User-requested URLs, documentation and directories delegated to Windows handlers; retain functionality. |
+  | wxWidgets DLL imports | Generic `wxExecute` uses `CreateProcess`; default handlers can use ShellExecute. | Framework machinery, not proof of launching a forbidden utility. The [pinned wxWidgets source][wx-execute] confirms direct CreateProcess for wxExecute. |
+  | Utility names in dependency binaries | The supplied report examples mention cmd/reg/bash/PowerShell strings. | A string alone is not a launch path. Attach the exact DLL/version/offset from the full report and inspect reachability before claiming a specific match is benign. |
+  | Documentation and bundled GDTF matches | Non-executable text/resource data. | False positives as process-launch evidence; do not alter user documentation or authored fixture data. |
+
+  Repository production C/C++ searches found no `system`, `popen`, direct
+  CreateProcess/ShellExecute call or cmd.exe/PowerShell launch. An unused
+  `popen` macro definition is not a call. Build/test PowerShell and other shell
+  tooling is not application runtime. No dependency or data was removed to
+  suppress the scanner. A real runtime dependency on a blocked command utility,
+  if found in the full report or dynamic testing, requires a separate targeted
+  correction; no such call was established by this source audit.
+- **DPI: missing explicit executable metadata; processing error not diagnosed.**
+  The original GUI RC only declared an icon; no application-owned DPI manifest
+  was embedded by CMake. Both Windows executables now embed native manifests
+  requesting `asInvoker`, without UIAccess. GUI declarations are `dpiAware=true`
+  and `dpiAwareness=System`; the headless CLI deliberately has no GUI DPI setting
+  because the terminal host owns its display. Native manifest versions derive
+  from CMake PROJECT_VERSION/root VERSION and do not alter MSIX identity/version.
+
+  System DPI is the conservative baseline supported by the pinned wxWidgets
+  high-DPI guidance. Perastage has some FromDIP sizing but also fixed pixel
+  sizes and custom GL rendering; toolkit support alone does not establish safe
+  per-monitor behavior. No PerMonitorV2 claim or runtime DPI API override is
+  added. Mixed-monitor bitmap scaling and a WACK preference for PerMonitorV2
+  may remain. Verify controls, dialogs, GL views and picking at 100/150/200%
+  and while moving between monitors. See [Microsoft DPI declarations][dpi] and
+  [wxWidgets high-DPI guidance][wx-dpi].
+
+  MSVC uses CMake's normal manifest merge/embedding; non-MSVC Windows uses an
+  explicit RC resource. The same declarations apply to direct/Inno and Store
+  builds. Packaging extracts resource #1 from both actual staged executables
+  using SDK mt.exe and checks the declarations. This addresses missing metadata;
+  the original WACK "could not be processed" diagnostic still requires the
+  detailed report/tool log, not an assumption that the new declarations fix it.
+
+### Repeat validation locally
+
+Build/stage the new canonical version and generate the unsigned MSIX using the
+normal command above. Sign only a development copy and install the matching
+VCLibs dependency as described in the local-test section. Run:
+
+```powershell
+$alias = Join-Path $env:LOCALAPPDATA 'Microsoft/WindowsApps/perastage-cli.exe'
+# This explicit path avoids an unpackaged CLI earlier in PATH.
+& $alias --version
+& $alias --help
+& $alias capabilities --json
+python tests/perastage_cli_smoke_test.py $alias (Get-Content VERSION -Raw).Trim()
+# Launch the GUI, then verify the local IPC workflow:
+& $alias live query scene.summary
+```
+
+Also repeat inspect/scene workflows with known GDTF/MVR inputs, stdout/stderr
+redirection, exit codes, two concurrent CLI invocations, `.pstg`/`.mvr`
+double-clicks, user-library writes, and the existing upgrade/persistence checklist.
+Repeat GUI DPI checks for the direct installer as well as MSIX. Record alias
+runtime results separately from schema validation: hosted CI does not install a
+trusted development certificate or exercise the real WindowsApps alias.
+
 On a Windows test machine with the current Windows App Certification Kit,
 an active interactive user session and the trusted development copy/dependency:
 
@@ -274,6 +366,16 @@ $wack = "${env:ProgramFiles(x86)}\Windows Kits\10\App Certification Kit\appcert.
 & $wack test -appxpackagepath $devPackage -reportoutputpath (Join-Path $devDir 'wack-report.xml')
 # Review every report result, not just the process exit status.
 ```
+
+Use a fresh report filename for the corrected version and record installed
+Name/Publisher/Version/PackageFamilyName, SDK/WACK version and Windows build.
+Expect Application Count to have one entry; inspect the native DPI results
+separately for GUI and console CLI. Optional string/import findings may remain.
+Attach their classification and exact flagged binary/data evidence to Partner
+Center certification notes; do not claim that all findings were dynamically
+cleared. Required failures, unprocessed-executable diagnostics and any actual
+blocked-utility launches remain actionable. **WACK has not been rerun by this
+implementation; final Store certification remains manual.**
 
 WACK can activate the GUI and measure hardware-dependent behavior and requires
 an active session (not Session0). It is a maintainer readiness command, not an
@@ -310,6 +412,11 @@ rerun packaging/checklist/WACK, and upload the higher-version MSIX manually.
 [desktop-logo]: https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/uapmanifestschema/element-desktop7-logo
 [file-icons]: https://learn.microsoft.com/en-us/windows/apps/develop/launch/handle-file-activation#step-2-add-the-proper-icons
 [alias]: https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/uapmanifestschema/element-uap5-appexecutionalias
+[alias-extension]: https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/uapmanifestschema/element-uap5-extension
+[bridge-tests]: https://learn.microsoft.com/en-us/windows/uwp/debug-test-perf/windows-desktop-bridge-app-tests
+[dpi]: https://learn.microsoft.com/en-us/windows/win32/hidpi/setting-the-default-dpi-awareness-for-a-process
+[wx-dpi]: https://github.com/wxWidgets/wxWidgets/blob/v3.3.3/docs/doxygen/overviews/high_dpi.md
+[wx-execute]: https://github.com/wxWidgets/wxWidgets/blob/v3.3.3/src/msw/utilsexc.cpp
 [extensions]: https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/desktop-to-uwp-extensions
 [images]: https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/screenshots-and-images
 [makeappx]: https://learn.microsoft.com/en-us/windows/msix/package/create-app-package-with-makeappx-tool

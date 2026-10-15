@@ -1,4 +1,7 @@
 # Configure Windows application resources and GUI subsystem behavior.
+include("${CMAKE_CURRENT_LIST_DIR}/PerastageWindowsManifests.cmake")
+perastage_add_windows_manifest(${PROJECT_NAME}
+    "${CMAKE_SOURCE_DIR}/resources/Perastage.exe.manifest.in")
 target_sources(${PROJECT_NAME} PRIVATE
     resources/Perastage.rc
 )

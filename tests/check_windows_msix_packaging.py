@@ -20,6 +20,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("perastage_msix", ROOT / "packaging/windows/msix/msix.py")
 MSIX = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MSIX)
+NATIVE_SPEC = importlib.util.spec_from_file_location("perastage_windows_manifests", ROOT / "packaging/windows/verify_executable_manifests.py")
+NATIVE = importlib.util.module_from_spec(NATIVE_SPEC)
+NATIVE_SPEC.loader.exec_module(NATIVE)
 NS = {**MSIX.NS, "uap": "http://schemas.microsoft.com/appx/manifest/uap/windows10",
       "uap3": "http://schemas.microsoft.com/appx/manifest/uap/windows10/3",
       "uap5": "http://schemas.microsoft.com/appx/manifest/uap/windows10/5",
@@ -115,7 +118,11 @@ class StorePackagingTests(unittest.TestCase):
         self.assertEqual(dependency.get("Publisher"), MSIX.VCLIBS_PUBLISHER)
         self.assertEqual(dependency.get("MinVersion"), VCLIBS_VERSION)
         apps = tree.findall("f:Applications/f:Application", NS)
-        self.assertEqual([app.get("Executable") for app in apps], ["Perastage.exe", "perastage-cli.exe"])
+        self.assertEqual(len(apps), 1, "Microsoft Store requires one Application, including hidden entries")
+        self.assertEqual(apps[0].get("Id"), "Perastage")
+        self.assertEqual(apps[0].get("Executable"), "Perastage.exe")
+        self.assertEqual(apps[0].get(f"{{{NS['uap10']}}}SupportsMultipleInstances"), "true")
+        self.assertNotEqual(apps[0].get(f"{{{NS['uap10']}}}Subsystem"), "console")
         for app in apps:
             self.assertEqual(app.get(f"{{{NS['uap10']}}}RuntimeBehavior"), "packagedClassicApp")
             self.assertEqual(app.get(f"{{{NS['uap10']}}}TrustLevel"), "mediumIL")
@@ -126,11 +133,14 @@ class StorePackagingTests(unittest.TestCase):
             self.assertEqual(association.get("Parameters"), '"%1"')
             self.assertEqual(association.get("MultiSelectModel"), "Single")
             self.assertFalse(any("TakeOver" in key for key in association.attrib))
-        self.assertEqual(apps[1].get(f"{{{NS['uap10']}}}Subsystem"), "console")
-        self.assertEqual(apps[1].get(f"{{{NS['uap10']}}}SupportsMultipleInstances"), "true")
-        self.assertEqual(apps[1].find("uap:VisualElements", NS).get("AppListEntry"), "none")
-        alias = apps[1].find("f:Extensions/uap5:Extension", NS)
-        self.assertEqual(alias.get("Executable", apps[1].get("Executable")), "perastage-cli.exe")
+        aliases = apps[0].findall("f:Extensions/uap5:Extension", NS)
+        self.assertEqual(len(aliases), 1)
+        alias = aliases[0]
+        self.assertEqual(alias.get("Category"), "windows.appExecutionAlias")
+        self.assertEqual(alias.get("Executable"), "perastage-cli.exe")
+        self.assertEqual(alias.get(f"{{{NS['uap10']}}}RuntimeBehavior"), "packagedClassicApp")
+        self.assertEqual(alias.get(f"{{{NS['uap10']}}}TrustLevel"), "mediumIL")
+        self.assertEqual(alias.find("uap5:AppExecutionAlias", NS).get(f"{{{NS['uap10']}}}Subsystem"), "console")
         self.assertEqual(alias.find("uap5:AppExecutionAlias/uap5:ExecutionAlias", NS).get("Alias"), "perastage-cli.exe")
         for kind in ("FileSystem", "Registry"):
             self.assertEqual(tree.findtext(f"f:Properties/desktop6:{kind}WriteVirtualization", namespaces=NS), "disabled")
@@ -270,6 +280,46 @@ class StorePackagingTests(unittest.TestCase):
             MSIX.prepare(self.stage, self.layout, "1.7.0", IDENTITY, VCLIBS_VERSION, self.root / "missing")
         with self.assertRaisesRegex(ValueError, "outside"):
             MSIX.prepare(self.stage, self.stage / "layout", "1.7.0", IDENTITY, VCLIBS_VERSION)
+
+    def test_native_windows_manifest_policy(self) -> None:
+        for name, gui in (("Perastage", True), ("perastage-cli", False)):
+            content = (ROOT / "resources" / f"{name}.exe.manifest.in").read_bytes()
+            content = content.replace(b"@PROJECT_VERSION@", b"1.7.0")
+            NATIVE.validate_manifest(content, gui=gui)
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, "asInvoker"):
+                NATIVE.validate_manifest(content.replace(b"asInvoker", b"requireAdministrator"), gui=gui)
+        gui_content = (ROOT / "resources/Perastage.exe.manifest.in").read_bytes()
+        for old, new in ((b">System<", b">PerMonitorV2<"), (b">true<", b">false<")):
+            with self.assertRaisesRegex(ValueError, "system DPI"):
+                NATIVE.validate_manifest(gui_content.replace(old, new), gui=True)
+        with self.assertRaisesRegex(ValueError, "must not declare GUI DPI"):
+            NATIVE.validate_manifest(gui_content, gui=False)
+
+    @unittest.skipUnless(os.name == "nt", "Native manifest embedding requires the Windows compiler/SDK")
+    def test_native_manifest_embedding_with_windows_toolchain(self) -> None:
+        # Build tiny executables through the real CMake helper, not a hand-made PE.
+        source = self.root / "native manifests source"
+        build = self.root / "native manifests build"
+        source.mkdir()
+        (source / "gui.cpp").write_text('#include <windows.h>\nint WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) { return 0; }\n')
+        (source / "cli.cpp").write_text('int main() { return 0; }\n')
+        (source / "CMakeLists.txt").write_text(
+            'cmake_minimum_required(VERSION 3.20)\nproject(NativeManifestFixture VERSION 1.7.0 LANGUAGES CXX RC)\n'
+            f'include("{ROOT.as_posix()}/cmake/platform/PerastageWindowsManifests.cmake")\n'
+            'add_executable(gui WIN32 gui.cpp)\nadd_executable(cli cli.cpp)\n'
+            f'perastage_add_windows_manifest(gui "{ROOT.as_posix()}/resources/Perastage.exe.manifest.in")\n'
+            f'perastage_add_windows_manifest(cli "{ROOT.as_posix()}/resources/perastage-cli.exe.manifest.in")\n')
+        for command in (["cmake", "-S", str(source), "-B", str(build)],
+                        ["cmake", "--build", str(build), "--config", "Release"]):
+            result = subprocess.run(command, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        sdk = Path(os.environ["ProgramFiles(x86)"]) / "Windows Kits/10/bin"
+        tools = sorted(sdk.glob("10.0.*/x64/mt.exe"),
+                       key=lambda p: tuple(map(int, p.parents[1].name.split("."))), reverse=True)
+        self.assertTrue(tools, "Windows SDK mt.exe is required")
+        for name, gui in (("gui", True), ("cli", False)):
+            binary = next(build.rglob(f"{name}.exe"))
+            NATIVE.verify_executable(binary, tools[0], gui=gui)
 
     def test_archive_content_validation(self) -> None:
         MSIX.prepare(self.stage, self.layout, "1.7.0", IDENTITY, VCLIBS_VERSION)
