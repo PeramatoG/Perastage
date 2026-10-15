@@ -125,6 +125,7 @@ jobs:
     uses: ./.github/workflows/windows-installer.yml
     with:
       source_ref: ${{ needs.stage-release-commit.outputs.release_sha }}
+      build_msix: true
   linux-installer:
     needs: stage-release-commit
     uses: ./.github/workflows/linux-installer.yml

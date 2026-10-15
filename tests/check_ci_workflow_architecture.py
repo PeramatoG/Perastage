@@ -464,6 +464,27 @@ for builder in ['windows-installer.yml','linux-installer.yml','macos-15-manual-i
 assert 'uses: ./.github/workflows/ci-tests.yml' not in minor, 'minor package creation must not depend on Debug CI'
 assert re.search(r'stage-release-commit:[\s\S]+needs: resolve-release', minor), 'stage-release-commit must depend only on release metadata resolution'
 assert 'validate-release-assets' in minor and 'publish-release' in minor
+
+# Skipping staging on a dry run must skip every builder and publication job.
+minor_jobs = dict(re.findall(r'^  ([a-z0-9-]+):\n(.*?)(?=^  [a-z0-9-]+:|\Z)', minor, re.M | re.S))
+assert "if: ${{ needs.resolve-release.outputs.dry_run != 'true' }}" in minor_jobs['stage-release-commit']
+assert "if: ${{ needs.resolve-release.outputs.dry_run == 'true' }}" in minor_jobs['dry-run-summary']
+for name, job in minor_jobs.items():
+    if name in ('resolve-release', 'dry-run-summary', 'cleanup-temp-ref'):
+        continue
+    if name != 'stage-release-commit':
+        assert re.search(r'^    needs: .*stage-release-commit', job, re.M), name
+        assert not re.search(r'^    if:', job, re.M), f'{name} must retain the default success dependency gate'
+for name in ('resolve-release', 'dry-run-summary'):
+    job = minor_jobs[name]
+    assert 'uses: ./.github/workflows/' not in job
+    assert not re.search(r'git (commit|push|tag)\b|gh release|build_msix|build\.ps1', job)
+assert 'node tools/docs/build_static_docs.cjs --check' in minor_jobs['resolve-release']
+windows_release = minor_jobs['windows-installer']
+assert 'uses: ./.github/workflows/windows-installer.yml' in windows_release
+assert '      source_ref: ${{ needs.stage-release-commit.outputs.release_sha }}' in windows_release
+assert '      build_msix: true' in windows_release, 'official MINOR releases must explicitly build the Store MSIX'
+
 assert 'python3 .github/scripts/assemble_debug_symbols.py' in minor
 assert 'validate_final_release_assets.py' in minor and 'release-provenance.json' in minor
 assert 'symbol-files.txt' not in minor, 'final symbol archive must not be a path list only'
