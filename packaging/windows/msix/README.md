@@ -185,6 +185,12 @@ with MakeAppx, then calls this same Windows release lane with `build_msix=true`.
 This exercises both packaging targets without an independent application build.
 It uploads a Store-only artifact and does not certify or publish the application.
 
+Official `Minor Draft Release` runs explicitly pass `build_msix: true`, producing
+the Inno Setup installer and unsigned Store submission MSIX from the same release
+source and validated stage, independently of the repository variable. With
+`dry_run=true`, only preflight validation runs: no release commit, installers,
+MSIX, tags or releases are created. Partner Center submission remains manual.
+
 **1.7.0 policy: Store-only CI artifact (B).**
 `Store-Perastage-windows-msix` deliberately does not match the minor release's
 `Perastage-*` artifact download glob. The public artifact contract and minor

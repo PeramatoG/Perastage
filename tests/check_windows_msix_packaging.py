@@ -2,6 +2,7 @@
 """Focused Store input contracts; Windows additionally runs SDK schema validation."""
 from __future__ import annotations
 
+import fnmatch
 import importlib.util
 import json
 import os
@@ -354,8 +355,23 @@ class StorePackagingTests(unittest.TestCase):
         self.assertIn("name: Perastage-windows-installer", workflow)
         release = (ROOT / ".github/workflows/minor-draft-release.yml").read_text()
         self.assertIn("pattern: Perastage-*", release)
+        self.assertFalse(fnmatch.fnmatchcase("Store-Perastage-windows-msix", "Perastage-*"))
+        self.assertTrue(fnmatch.fnmatchcase("Perastage-windows-installer", "Perastage-*"))
+        self.assertIn("single Windows 'Perastage_*_Setup.exe'", release)
+        assembly = release.split("  validate-release-assets:", 1)[1].split("  publish-release:", 1)[0]
+        self.assertNotIn("msix", assembly.lower())
+        self.assertNotIn("Store-Perastage", assembly)
+        publication = release.split("  publish-release:", 1)[1].split("  cleanup-temp-ref:", 1)[0]
+        self.assertIn("name: Perastage-validated-release-assets", publication)
+        self.assertIn('find release-assets/final -maxdepth 1 -type f', publication)
+        self.assertIn('"${public_assets[@]}"', publication)
+        self.assertNotIn("msix", publication.lower())
+        self.assertNotIn("Store-Perastage", publication)
         contract = json.loads((ROOT / ".github/release-artifact-contract.json").read_text())
         self.assertFalse(any("msix" in value for value in contract["artifacts"].values()))
+        self.assertEqual(contract["artifacts"]["windowsPackage"], "Perastage-windows-installer")
+        self.assertEqual(contract["packages"]["windows"], "Perastage_*_Setup.exe")
+        self.assertFalse(any("msix" in value for value in contract["packages"].values()))
 
     @unittest.skipUnless(os.name == "nt", "Windows SDK MakeAppx validation requires Windows")
     def test_windows_sdk_manifest_schema(self) -> None:

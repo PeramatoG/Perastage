@@ -45,13 +45,18 @@ package). See [Developer CLI](cli.md) for grammar and safety contracts.
 
 The official Windows installer workflow uses Inno Setup:
 
-Microsoft Store packaging is an additional opt-in MSIX target consuming the same
-validated release stage. It preserves full-trust Win32 behavior, registers file
-types and a CLI execution alias, and keeps user data outside the package. See the
+Microsoft Store packaging is an additional MSIX target consuming the same
+validated release stage. Official MINOR releases explicitly enable `build_msix: true`
+and build both the normal Inno Setup installer and the unsigned Store submission
+MSIX from the same release source. Dry runs perform preflight validation only
+and build neither package. Other Windows builds can opt in to MSIX packaging.
+MSIX preserves full-trust Win32 behavior, registers file types and a CLI execution
+alias, and keeps user data outside the package. See the
 [Store packaging maintainer guide](../../packaging/windows/msix/README.md) for
 identity setup, builds, virtualization audit, local testing, WACK and submission.
 Its unsigned Store-only CI artifact is excluded from public GitHub releases;
-Inno Setup remains the normal Windows direct download.
+Inno Setup remains the normal Windows direct download. Partner Center submission
+remains manual.
 
 Windows GUI and CLI builds embed native application manifests through the shared
 CMake Windows helper. The GUI declares system DPI awareness; the console CLI

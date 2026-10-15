@@ -93,6 +93,25 @@ staged/final payload (including an installed Windows payload and extracted Arch
 package). See <a href="cli.html">Developer CLI</a> for grammar and safety contracts.</p>
 <h2 id="windows-packaging">Windows Packaging</h2>
 <p>The official Windows installer workflow uses Inno Setup:</p>
+<p>Microsoft Store packaging is an additional MSIX target consuming the same
+validated release stage. Official MINOR releases explicitly enable <code>build_msix: true</code>
+and build both the normal Inno Setup installer and the unsigned Store submission
+MSIX from the same release source. Dry runs perform preflight validation only
+and build neither package. Other Windows builds can opt in to MSIX packaging.
+MSIX preserves full-trust Win32 behavior, registers file types and a CLI execution
+alias, and keeps user data outside the package. See the
+<a href="https://github.com/PeramatoG/Perastage/blob/main/packaging/windows/msix/README.md">Store packaging maintainer guide</a> for
+identity setup, builds, virtualization audit, local testing, WACK and submission.
+Its unsigned Store-only CI artifact is excluded from public GitHub releases;
+Inno Setup remains the normal Windows direct download. Partner Center submission
+remains manual.</p>
+<p>Windows GUI and CLI builds embed native application manifests through the shared
+CMake Windows helper. The GUI declares system DPI awareness; the console CLI
+leaves rendering to its terminal host. MSIX keeps one Application entry and
+targets the CLI from its execution-alias extension. Store packaging validates
+the embedded manifests in the same release stage consumed by Inno Setup.
+The maintainer guide records STORE-110 WACK findings and the required runtime,
+DPI and certification retests; schema validation alone does not certify the app.</p>
 <ul>
 <li>Workflow: <code>.github/workflows/windows-installer.yml</code></li>
 <li>Script: <code>packaging/windows/Perastage.iss</code></li>
