@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
-#include <charconv>
+#include "decimal_parse.h"
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
@@ -506,11 +506,10 @@ bool ParseCompoundPolygonPath(const char *data, PerastageSvgPolygon &polygon) {
   };
   auto readNumber = [&](double &value) {
     skipSeparators();
-    const auto result = std::from_chars(
-        remaining.data(), remaining.data() + remaining.size(), value);
-    if (result.ec != std::errc{} || !std::isfinite(value))
+    size_t consumed = 0;
+    if (!perastage::numeric::ParseDecimalPrefix(remaining, value, consumed))
       return false;
-    remaining.remove_prefix(static_cast<size_t>(result.ptr - remaining.data()));
+    remaining.remove_prefix(consumed);
     return true;
   };
   PerastageSvgPolygon parsed;

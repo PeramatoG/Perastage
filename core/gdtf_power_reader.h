@@ -1,7 +1,7 @@
 #pragma once
 #include <optional>
 #include <cmath>
-#include <charconv>
+#include "decimal_parse.h"
 #include <string_view>
 #include <string>
 #include <vector>
@@ -14,8 +14,9 @@ inline std::optional<float> ParseNonnegativePower(std::string_view text) {
   text = text.substr(begin, text.find_last_not_of(" \t\r\n") - begin + 1);
   if (!text.empty() && text.front() == '+') text.remove_prefix(1);
   float value = 0;
-  const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value);
-  if (parsed.ec == std::errc{} && parsed.ptr == text.data() + text.size() && std::isfinite(value) && value >= 0)
+  size_t consumed = 0;
+  if (perastage::numeric::ParseDecimalPrefix(text, value, consumed) &&
+      consumed == text.size() && value >= 0)
     return value;
   return std::nullopt;
 }

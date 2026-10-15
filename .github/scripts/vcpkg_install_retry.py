@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 TRANSIENT_PATTERNS = [
+    # curl 35 is a connection/handshake failure, unlike certificate validation.
+    re.compile(r"\bSSL connect error\b", re.I),
     re.compile(r"\b(?:HTTP|response code)\s*(?:408|425|429|500|502|503|504)\b", re.I),
     re.compile(r"curl.*(?:timed? out|timeout|operation timed out|couldn't connect|connection.*(?:reset|refused)|temporarily unavailable)", re.I),
     re.compile(r"(?:could not|couldn't|failed to) resolve (?:host|hostname)", re.I),
