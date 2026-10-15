@@ -15,6 +15,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   decimal-parsing:
@@ -41,9 +42,20 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.x'
+      - name: Install structural check tools
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
       - run: python -m pip install pytest
       - run: python -m pytest -q tests/ci/test_vcpkg_install_retry.py
       - run: bash tests/check_perastage_tree_modules.sh
       - run: bash tests/check_no_configmanager_get_in_gui.sh
       - run: python tests/check_source_file_size.py
       - run: python tests/check_repository_hygiene.py
+
+  macos15-package:
+    uses: ./.github/workflows/macos-15-manual-installer.yml
+    with:
+      source_ref: ${{ github.event.pull_request.head.sha || github.sha }}
+  arch-package:
+    uses: ./.github/workflows/arch-package.yml
+    with:
+      source_ref: ${{ github.event.pull_request.head.sha || github.sha }}
