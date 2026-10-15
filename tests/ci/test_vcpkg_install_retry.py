@@ -1,4 +1,5 @@
 import os
+import importlib.util
 import stat
 import subprocess
 import sys
@@ -195,3 +196,40 @@ sys.exit(42)
     assert result.stdout.count("vcpkg install attempt") == 1
     assert "failed permanently" in result.stdout
     assert "Transient vcpkg failure detected" not in result.stdout
+
+
+@pytest.fixture
+def retry_module():
+    spec = importlib.util.spec_from_file_location("vcpkg_install_retry", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize(("output", "transient"), [
+    ("curl operation failed with error code 35 (SSL connect error)", True),
+    ("SSL connect error", True),
+    ("curl: (28) Operation timed out", True),
+    ("curl: (56) Recv failure: Connection reset by peer", True),
+    ("compilation failed: error C2143", False),
+    ("configuration failed: missing dependency", False),
+    ("ABI error: incompatible dependency", False),
+    ("manifest validation failed: invalid dependency", False),
+    ("curl: (60) SSL peer certificate cannot be authenticated", False),
+    ("curl operation failed with error code 35", False),
+])
+def test_classify_failure(retry_module, output, transient):
+    assert retry_module.classify_failure(output).transient is transient
+
+
+def test_ssl_connect_failure_retries_are_bounded(tmp_path):
+    exe = fake_vcpkg(tmp_path, """#!/usr/bin/env python3
+import sys
+print('curl operation failed with error code 35 (SSL connect error)')
+sys.exit(35)
+""")
+    result = run_wrapper(tmp_path, exe, attempts=4)
+    assert result.returncode == 35
+    assert result.stdout.count("vcpkg install attempt") == 4
+    assert "failed after 4 transient attempts" in result.stdout

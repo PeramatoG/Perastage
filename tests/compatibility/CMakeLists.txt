@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.20)
+project(PerastageDecimalCompatibility LANGUAGES CXX)
+enable_testing()
+add_executable(decimal_parse_test ../decimal_parse_test.cpp)
+target_include_directories(decimal_parse_test PRIVATE ../../core)
+target_compile_features(decimal_parse_test PRIVATE cxx_std_20)
+add_test(NAME DecimalParsingCompatibility COMMAND decimal_parse_test)

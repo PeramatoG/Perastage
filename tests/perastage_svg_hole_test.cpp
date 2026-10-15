@@ -187,7 +187,11 @@ void CheckLegacyAndMalformedPaths() {
   for (const char *data : {"", "M 0,0 L 10,0 Z", "M 0,0 L 10,0 L 0,10",
                            "M 0,0 C 10,0 0,10 0,0 Z",
                            "M 0,0 L 10,0 L 0,10 Z M 1,1 L nan,1 L 1,2 Z",
-                           "M 0,0 L 10,0 L 0,10 Z junk"}) {
+                           "M 0,0 L 10,0 L 0,10 Z junk",
+                           "M 0,0 L 1e9999,0 L 0,10 Z",
+                           "M 0,0 L 1e-9999,0 L 0,10 Z",
+                           "M 0,0 L +10,0 L 0,10 Z",
+                           "M 0,0 L 10x,0 L 0,10 Z"}) {
     const std::string invalid =
         "<svg viewBox='0 0 10 10' data-perastage-symbol-version='1'>"
         "<polyline points='0,0 10,10'/><path fill-rule='evenodd' d='" +

@@ -1,0 +1,49 @@
+name: Pre-release parsing and retry compatibility
+
+on:
+  pull_request:
+    paths:
+      - core/decimal_parse.h
+      - core/gdtf_power_reader.h
+      - core/symbols/PerastageSvgSymbol.cpp
+      - .github/scripts/vcpkg_install_retry.py
+      - tests/decimal_parse_test.cpp
+      - tests/compatibility/**
+      - tests/ci/test_vcpkg_install_retry.py
+      - .github/workflows/pre-release-compatibility.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  decimal-parsing:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-26, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Select the macOS 15 release toolchain
+        if: matrix.os == 'macos-15'
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+      - name: Configure focused parsing tests
+        run: cmake -S tests/compatibility -B build/decimal-compatibility -DCMAKE_BUILD_TYPE=Debug -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
+      - name: Build focused parsing tests
+        run: cmake --build build/decimal-compatibility --config Debug
+      - name: Run focused parsing tests
+        run: ctest --test-dir build/decimal-compatibility -C Debug --output-on-failure
+  retry-and-guards:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      - run: python -m pip install pytest
+      - run: python -m pytest -q tests/ci/test_vcpkg_install_retry.py
+      - run: bash tests/check_perastage_tree_modules.sh
+      - run: bash tests/check_no_configmanager_get_in_gui.sh
+      - run: python tests/check_source_file_size.py
+      - run: python tests/check_repository_hygiene.py

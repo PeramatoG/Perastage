@@ -4235,3 +4235,8 @@ set_tests_properties(MvrLayerUuidIdentity PROPERTIES LABELS "standard-strict;mvr
 if(BASH_EXECUTABLE)
   add_bash_policy_test(LayerUuidIdentityBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layer_uuid_identity_boundary.sh)
 endif()
+
+add_executable(decimal_parse_test decimal_parse_test.cpp)
+target_include_directories(decimal_parse_test PRIVATE ../core)
+target_compile_features(decimal_parse_test PRIVATE cxx_std_20)
+add_test(NAME DecimalParsingCompatibility COMMAND decimal_parse_test)
