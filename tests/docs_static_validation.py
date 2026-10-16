@@ -89,7 +89,10 @@ def validate_static_docs(root: Path, canonical_navigation, failures: list[str]) 
     manifest = json.loads((docs / 'stable/manifest.json').read_text(encoding='utf-8'))
     stable_navigation = []
     for heading, body in re.findall(r'^## ([^\n]+)\n(.*?)(?=^## |\Z)', manifest['user_index'], re.MULTILINE | re.DOTALL):
-        entries = [(md, title) for title, md in re.findall(r'\[([^\]]+)\]\(([^)]+)\)', body)]
+        # Only listed user pages form navigation; prose links can point to developer docs.
+        entries = [(md, title) for title, md in re.findall(
+            r'^\s*(?:[-+*]|\d+[.)])\s+\[([^\]]+)\]\(([a-z\d_-]+\.md)\)',
+            body, re.MULTILINE | re.IGNORECASE)]
         if entries:
             stable_navigation.append((heading, entries))
     generated_files = []

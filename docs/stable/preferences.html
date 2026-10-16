@@ -5,9 +5,21 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Perastage Documentation • Preferences</title>
-
+<meta name="description" content="Open Edit → Preferences. Switching categories retains pending edits. Apply saves without closing, OK saves and closes, and Cancel discards changes since the last Apply." />
 <link rel="canonical" href="https://perastage.luismaperamato.com/stable/preferences.html" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%2F%3E" />
+<meta name="theme-color" content="#080808" />
+<meta property="og:site_name" content="Perastage" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Perastage Documentation • Preferences" />
+<meta property="og:description" content="Open Edit → Preferences. Switching categories retains pending edits. Apply saves without closing, OK saves and closes, and Cancel discards changes since the last Apply." />
+<meta property="og:url" content="https://perastage.luismaperamato.com/stable/preferences.html" />
+<meta property="og:image" content="https://perastage.luismaperamato.com/assets/images/screenshots/hero-main.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Perastage Documentation • Preferences" />
+<meta name="twitter:description" content="Open Edit → Preferences. Switching categories retains pending edits. Apply saves without closing, OK saves and closes, and Cancel discards changes since the last Apply." />
+<meta name="twitter:image" content="https://perastage.luismaperamato.com/assets/images/screenshots/hero-main.png" />
+<link rel="icon" href="../assets/images/favicon.png" type="image/png" />
+<link rel="apple-touch-icon" href="../assets/images/apple-touch-icon.png" />
 <link rel="stylesheet" href="../assets/css/style.css" />
 <script src="../assets/js/docs-nav.js" defer></script>
 </head>
@@ -16,83 +28,93 @@
 <div class="page-shell">
 <header class="site-header">
 <a class="brand" href="../index.html" aria-label="Perastage home">
-<img src="../assets/images/Perastage_logo.png" alt="Perastage logo" />
-<div><span class="product-brand-name">Perastage</span><p>Lighting and Rigging visualization tool</p></div>
+<img src="../assets/images/logo-web.png" alt="" width="48" height="48" />
+<span class="product-brand-name">Perastage</span>
 </a>
 <button id="menuToggle" class="menu-toggle" aria-expanded="false" aria-controls="docNav" hidden>Menu</button>
 </header>
 <div class="layout">
 <aside id="docNav" class="nav-panel"><nav aria-label="Documentation navigation"><section class="nav-group" aria-labelledby="nav-section-0">
-<h2 id="nav-section-0">Core guides</h2>
+<h2 id="nav-section-0">Getting Started</h2>
 <ul class="nav-links"><li><a href="installation.html">Installation</a></li>
 <li><a href="quick-start.html">Quick Start</a></li>
-<li><a href="opening-mvr-files.html">Opening MVR Files</a></li>
-<li><a href="gdtf-download.html">GDTF Download</a></li>
+<li><a href="opening-mvr-files.html">Opening MVR Files</a></li></ul>
+</section>
+<section class="nav-group" aria-labelledby="nav-section-1">
+<h2 id="nav-section-1">Workflows</h2>
+<ul class="nav-links"><li><a href="gdtf-download.html">GDTF Download</a></li>
+<li><a href="inspector.html">MVR / GDTF Inspector</a></li>
+<li><a href="create-from-text.html">Create from Text</a></li>
 <li><a href="views.html">Views</a></li>
-<li><a class="active" aria-current="page" href="preferences.html">Preferences</a></li>
-<li><a href="troubleshooting.html">Troubleshooting</a></li>
-<li><a href="faq.html">FAQ</a></li>
+<li><a href="layouts.html">Layouts and PDF</a></li></ul>
+</section>
+<section class="nav-group" aria-labelledby="nav-section-2">
+<h2 id="nav-section-2">Reference</h2>
+<ul class="nav-links"><li><a class="active" aria-current="page" href="preferences.html">Preferences</a></li>
+<li><a href="shortcuts-and-command-bar.html">Shortcuts and Command Bar</a></li>
 <li><a href="features.html">Feature Overview</a></li></ul>
+</section>
+<section class="nav-group" aria-labelledby="nav-section-3">
+<h2 id="nav-section-3">Help</h2>
+<ul class="nav-links"><li><a href="faq.html">FAQ</a></li>
+<li><a href="troubleshooting.html">Troubleshooting</a></li></ul>
 </section></nav></aside>
 <main class="content-panel">
-<nav class="breadcrumb" aria-label="Breadcrumb"><a href="documentation.html">Documentation</a> / Core guides / <span id="pageTitle">Preferences</span></nav>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="documentation.html">Documentation</a> / Reference / <span id="pageTitle">Preferences</span></nav>
 <div class="doc-channel">
-<span class="channel-label">Stable 1.6.0</span>
-<nav aria-label="Documentation version" class="channel-switcher"><a href="preferences.html" aria-current="true">Stable</a><a href="../next/preferences.html">Next</a></nav>
+<span class="channel-label">Stable 1.7.0</span>
+<nav aria-label="Documentation version" class="channel-switcher"><a href="preferences.html" aria-current="page">Stable</a><a href="../next/preferences.html">Next</a></nav>
 
 
 </div>
 <div id="content" tabindex="-1"><h1 id="preferences">Preferences</h1>
-<p>Perastage includes a Preferences dialog for user-level behavior and display settings.</p>
-<h2 id="common-settings">Common settings</h2>
-<p>Current user-facing preferences include:</p>
+<p>Open <strong>Edit → Preferences</strong>. Switching categories retains pending edits. <strong>Apply</strong> saves without closing, <strong>OK</strong> saves and closes, and <strong>Cancel</strong> discards changes since the last Apply.</p>
+<h2 id="general">General</h2>
 <ul>
-<li>Distance units</li>
-<li>Weight units</li>
-<li>GDTF-related settings</li>
-<li>Update check behavior (startup recommended or manual only)</li>
-<li>MVR import/export settings</li>
+<li><strong>Language:</strong> choose the interface language; restart Perastage to apply it.</li>
+<li><strong>Units:</strong> choose distance and weight units. Unit changes apply immediately.</li>
+<li><strong>Updates:</strong> <strong>Check on startup (recommended)</strong> checks at most once every 24 hours. You can suppress reminders for a specific version. <strong>Manual only</strong> disables startup checks; <strong>Help → Check for Updates</strong> still checks on demand.</li>
 </ul>
-<h2 id="why-preferences-matter">Why preferences matter</h2>
+<h3 id="cache">Cache</h3>
+<p><strong>General → Cache</strong> shows the read-only cache location and current disk usage.
+<strong>Open Cache Folder</strong> opens the folder in your system file manager.
+<strong>Clear Cache...</strong> asks for confirmation and immediately deletes regenerable
+Perastage caches, independently of Apply, OK or Cancel. Geometry is rebuilt as
+needed; the GDTF catalog downloads again when online. Configuration, logs,
+credentials, libraries, GDTF files, dictionaries and projects are preserved.
+If some files cannot be deleted, Perastage reports the failure and updates the
+shown size. Persistent caches live under the per-user application data directory
+in <code>cache/</code>, rather than beside source assets.</p>
+<h2 id="import">Import</h2>
+<p><strong>Rider Import</strong> controls <strong>Auto patch after import</strong>, automatic layers by position or fixture type, and default LX heights, positions and margins. Distance fields follow your unit settings. See <a href="create-from-text.html">Create from Text</a>.</p>
+<h2 id="viewer">Viewer</h2>
+<h3 id="3d-viewer">3D Viewer</h3>
+<p>Choose the rendering presentation and <strong>Performance → Model detail</strong>:</p>
 <ul>
-<li>Unit settings affect how values are shown in the interface.</li>
-<li>GDTF-related options affect fixture profile handling and lookup behavior.</li>
-<li>Preferences help keep the app aligned with your workflow without changing scene data intent.</li>
+<li><strong>Standard</strong> (default) displays available geometry first and prepares reduced detail while idle.</li>
+<li><strong>Low</strong> simplifies heavy models more aggressively and always uses navigation proxies.</li>
+<li><strong>High</strong> shows all available authored detail.</li>
 </ul>
-<h2 id="mvr-import--export">MVR Import / Export</h2>
-<p>The <strong>MVR Import / Export</strong> tab is the location for MVR-related import and export preferences. The current export setting controls how truss geometry is written when exporting MVR files.</p>
-<h3 id="truss-geometry-export-mode">Truss geometry export mode</h3>
+<p><strong>Use a simplified proxy while navigating</strong> is enabled by default in Standard and automatic in Low. High preserves full static detail; you can disable its navigation proxy for full-detail inspection. Available proxies temporarily simplify unselected fixtures during fast navigation, then restore the chosen detail. Large scenes fill in progressively so you can start navigating before every model is ready. Apply changes on the next redraw without reopening the project. Source geometry, GDTF resources, 2D symbols and exported geometry remain unchanged.</p>
+<p>During loading, the bottom-left status bar shows completed resource requests, the total and a percentage. New geometry appears automatically, without moving the camera. Loading pauses during navigation and resumes from the same position afterwards. A separate preparation message covers navigation proxies; <strong>Ready</strong> appears after the final scene update. If a resource is unavailable, the status bar points to the Console when loading finishes.</p>
+<p>Closing the application pauses viewport work before asking whether to save. <strong>Cancel</strong> resumes pending loading; confirming the close discards remaining runtime preparation.</p>
+<h3 id="selection--movement">Selection &amp; Movement</h3>
+<p>Choose which object types move their containing root group during mouse, Console and Magnet transforms. Grouped trusses move their group by default; fixtures, supports/hoists and scene objects move independently. Direct group selection moves the group. Table edits affect only the edited object.</p>
+<p><strong>Show anchor references while moving or inserting elements</strong> displays compatible Magnet anchors during movement or insertion. These guides are not scene or export content. Changing movement preferences does not change the project&#39;s hierarchy or mark it as edited.</p>
+<h2 id="formats">Formats</h2>
+<h3 id="gdtf-resources">GDTF resources</h3>
+<p>GDTF preferences manage Share credentials. Perastage automatically stores
+fixture-wide Top/Front/Side/Bottom symbols in PSTG. Save the project to retain
+generated symbols and user overrides; they do not become GDTF or MVR resources.
+The Fixture Editor inspects authored SVGs per Model and preserves their bytes
+and offsets. Explicit physical-property edits remain available.</p>
+<h3 id="mvr-import--export">MVR Import / Export</h3>
+<p><strong>Truss geometry export mode</strong> offers:</p>
 <ul>
-<li><strong>Standard MVR representation</strong>: the default. Perastage preserves imported Truss <code>Symbol</code>/<code>Symdef</code> references when possible, keeping the standards-oriented structure intact.</li>
-<li><strong>Direct Geometry3D for truss symbols</strong>: Perastage expands truss <code>Symbol</code>/<code>Symdef</code> references into direct <code>Geometry3D</code> entries under the exported Truss node. This can improve compatibility with importers that expect direct truss geometry while still writing valid MVR.</li>
+<li><strong>Standard MVR representation</strong> (default): preserve imported symbol references where possible.</li>
+<li><strong>Direct Geometry3D for truss symbols:</strong> expand truss symbol references for receiving applications that need direct geometry.</li>
 </ul>
-<p>Project saves keep the standard representation so internal <code>.pstg</code> scene storage remains non-lossy.</p>
-<h2 id="selection--movement">Selection &amp; Movement</h2>
-<p>The <strong>Selection &amp; Movement</strong> page controls which object types move their entire
-containing group during interactive transformations. By default, grouped
-trusses move their group, while fixtures, supports/hoists, and scene objects
-move independently. Each type can be configured separately.</p>
-<p>This policy applies consistently to mouse interaction in Viewer2D and Viewer3D,
-command-bar position and rotation commands, and Magnet preview and commit. When
-promotion is enabled, Perastage uses the highest parent <code>GroupObject</code>, not only
-the immediate parent. Directly selecting a <code>GroupObject</code> always moves it as a
-group.</p>
-<p>Table edits always modify only the edited row&#39;s exact object. Changing these
-user preferences does not alter grouping, transforms, <code>.pstg</code> project data, or
-MVR hierarchy and does not mark the project dirty.</p>
-<h3 id="magnet-visual-feedback">Magnet visual feedback</h3>
-<p><strong>Show anchor references while moving or inserting elements</strong> is enabled by
-default. When Magnet is enabled and an element is being moved or inserted, the
-2D and 3D viewers display every compatible anchor as a vivid red point or
-direction line. The references remain visible throughout the interaction,
-disappear when it ends, and do not become part of the scene or exported data.</p>
-<h2 id="update-check-behavior">Update check behavior</h2>
-<ul>
-<li><strong>Check on startup (recommended)</strong>: checks on launch, limited to at most once every 24 hours. When a newer version is found, you can choose <strong>Do not remind me again for this version</strong> to suppress future startup reminders for that same version.</li>
-<li><strong>Manual only</strong>: does not run startup checks; use <strong>Help → Check for Updates</strong> on demand. Manual checks still show the current result even if a startup reminder was previously dismissed.</li>
-</ul>
-<h2 id="good-practice">Good practice</h2>
-<p>After changing preferences, recheck your scene in both 2D and 3D and verify table values display as expected.</p>
+<p>Both write MVR 1.6-compatible output. Project saves keep the standard representation. Import choices are described in <a href="opening-mvr-files.html">Opening MVR Files</a>.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

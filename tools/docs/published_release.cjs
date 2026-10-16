@@ -18,7 +18,7 @@ function publicationDecision(root, event, publishedSha) {
   if (git(['show', `${commit}:VERSION`]) !== version) throw new Error('Release tag VERSION does not match its name');
   const stable = readStable(root);
   const comparison = compareVersions(version, stable.version);
-  if (comparison === 0 && stable.source_commit !== commit) throw new Error('Published version has changed its tagged source');
+  if (comparison === 0 && (stable.source_commit !== commit || stable.source_ref !== tag)) throw new Error('Published version has changed its tagged source');
   return { promote: comparison > 0, version, source_ref: tag, source_commit: commit,
     reason: comparison > 0 ? 'Newer published release' : 'Stable already covers this version' };
 }

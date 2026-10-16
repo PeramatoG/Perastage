@@ -5,9 +5,21 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Perastage Documentation • Troubleshooting</title>
-
+<meta name="description" content="Confirm the extension is .mvr, try another file to isolate the problem, and review import messages in the Console. Use the Inspector to examine an external package…" />
 <link rel="canonical" href="https://perastage.luismaperamato.com/stable/troubleshooting.html" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%2F%3E" />
+<meta name="theme-color" content="#080808" />
+<meta property="og:site_name" content="Perastage" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Perastage Documentation • Troubleshooting" />
+<meta property="og:description" content="Confirm the extension is .mvr, try another file to isolate the problem, and review import messages in the Console. Use the Inspector to examine an external package…" />
+<meta property="og:url" content="https://perastage.luismaperamato.com/stable/troubleshooting.html" />
+<meta property="og:image" content="https://perastage.luismaperamato.com/assets/images/screenshots/hero-main.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Perastage Documentation • Troubleshooting" />
+<meta name="twitter:description" content="Confirm the extension is .mvr, try another file to isolate the problem, and review import messages in the Console. Use the Inspector to examine an external package…" />
+<meta name="twitter:image" content="https://perastage.luismaperamato.com/assets/images/screenshots/hero-main.png" />
+<link rel="icon" href="../assets/images/favicon.png" type="image/png" />
+<link rel="apple-touch-icon" href="../assets/images/apple-touch-icon.png" />
 <link rel="stylesheet" href="../assets/css/style.css" />
 <script src="../assets/js/docs-nav.js" defer></script>
 </head>
@@ -16,144 +28,69 @@
 <div class="page-shell">
 <header class="site-header">
 <a class="brand" href="../index.html" aria-label="Perastage home">
-<img src="../assets/images/Perastage_logo.png" alt="Perastage logo" />
-<div><span class="product-brand-name">Perastage</span><p>Lighting and Rigging visualization tool</p></div>
+<img src="../assets/images/logo-web.png" alt="" width="48" height="48" />
+<span class="product-brand-name">Perastage</span>
 </a>
 <button id="menuToggle" class="menu-toggle" aria-expanded="false" aria-controls="docNav" hidden>Menu</button>
 </header>
 <div class="layout">
 <aside id="docNav" class="nav-panel"><nav aria-label="Documentation navigation"><section class="nav-group" aria-labelledby="nav-section-0">
-<h2 id="nav-section-0">Core guides</h2>
+<h2 id="nav-section-0">Getting Started</h2>
 <ul class="nav-links"><li><a href="installation.html">Installation</a></li>
 <li><a href="quick-start.html">Quick Start</a></li>
-<li><a href="opening-mvr-files.html">Opening MVR Files</a></li>
-<li><a href="gdtf-download.html">GDTF Download</a></li>
+<li><a href="opening-mvr-files.html">Opening MVR Files</a></li></ul>
+</section>
+<section class="nav-group" aria-labelledby="nav-section-1">
+<h2 id="nav-section-1">Workflows</h2>
+<ul class="nav-links"><li><a href="gdtf-download.html">GDTF Download</a></li>
+<li><a href="inspector.html">MVR / GDTF Inspector</a></li>
+<li><a href="create-from-text.html">Create from Text</a></li>
 <li><a href="views.html">Views</a></li>
-<li><a href="preferences.html">Preferences</a></li>
-<li><a class="active" aria-current="page" href="troubleshooting.html">Troubleshooting</a></li>
-<li><a href="faq.html">FAQ</a></li>
+<li><a href="layouts.html">Layouts and PDF</a></li></ul>
+</section>
+<section class="nav-group" aria-labelledby="nav-section-2">
+<h2 id="nav-section-2">Reference</h2>
+<ul class="nav-links"><li><a href="preferences.html">Preferences</a></li>
+<li><a href="shortcuts-and-command-bar.html">Shortcuts and Command Bar</a></li>
 <li><a href="features.html">Feature Overview</a></li></ul>
+</section>
+<section class="nav-group" aria-labelledby="nav-section-3">
+<h2 id="nav-section-3">Help</h2>
+<ul class="nav-links"><li><a href="faq.html">FAQ</a></li>
+<li><a class="active" aria-current="page" href="troubleshooting.html">Troubleshooting</a></li></ul>
 </section></nav></aside>
 <main class="content-panel">
-<nav class="breadcrumb" aria-label="Breadcrumb"><a href="documentation.html">Documentation</a> / Core guides / <span id="pageTitle">Troubleshooting</span></nav>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="documentation.html">Documentation</a> / Help / <span id="pageTitle">Troubleshooting</span></nav>
 <div class="doc-channel">
-<span class="channel-label">Stable 1.6.0</span>
-<nav aria-label="Documentation version" class="channel-switcher"><a href="troubleshooting.html" aria-current="true">Stable</a><a href="../next/troubleshooting.html">Next</a></nav>
+<span class="channel-label">Stable 1.7.0</span>
+<nav aria-label="Documentation version" class="channel-switcher"><a href="troubleshooting.html" aria-current="page">Stable</a><a href="../next/troubleshooting.html">Next</a></nav>
 
 
 </div>
 <div id="content" tabindex="-1"><h1 id="troubleshooting">Troubleshooting</h1>
-<p>If Perastage does not behave as expected, use these quick checks.</p>
-<h2 id="mvr-file-does-not-open">MVR file does not open</h2>
+<h2 id="mvr-open-and-import-problems">MVR open and import problems</h2>
+<p>Confirm the extension is <code>.mvr</code>, try another file to isolate the problem, and review import messages in the Console. Use the <a href="inspector.html">Inspector</a> to examine an external package without importing it. For merge conflicts, see <a href="opening-mvr-files.html">Opening MVR Files</a>.</p>
+<h2 id="missing-or-incorrect-gdtf-fixtures">Missing or incorrect GDTF fixtures</h2>
+<p>Check the fixture definition and selected DMX mode. Use <strong>Tools → Download GDTF</strong> for profiles and <strong>Tools → Edit dictionaries</strong> for local mappings. Reopen and review the scene after correcting missing profiles. Review the selected Model in the Fixture Editor; project symbols are stored independently in PSTG.</p>
+<h2 id="user-library">User library</h2>
+<p>Use <strong>Tools → Open user library folder</strong>; on Windows the default is <code>%APPDATA%\Perastage\library\</code>. Confirm your user profile is writable and back up custom content before replacing files. Edit user-library files rather than installed defaults.</p>
+<h2 id="layout-and-pdf-problems">Layout and PDF problems</h2>
+<p>Select a non-empty layout, check its frames and orientation, and verify scene/table content before <strong>File → Print Layout...</strong>. Choose a writable destination and a non-empty filename. Review the exported PDF; see <a href="layouts.html">Layouts and PDF</a> for the workflow.</p>
+<h2 id="project-and-runtime-problems">Project and runtime problems</h2>
+<p>Save a separate project copy when possible, restart Perastage and reopen it. Recheck critical data in 2D, 3D and tables. For slow 3D navigation, lower <a href="preferences.html#3d-viewer">Model detail</a> or enable the navigation proxy. Compare with a small project to isolate scene-specific problems.</p>
+<h2 id="gdtf-share-credentials">GDTF Share credentials</h2>
+<p>Online loads and downloads require an account and network access; <a href="gdtf-download.html#cached-and-offline-browsing">cached catalog browsing</a> remains available offline.</p>
+<p>If Perastage warns that the runtime secure credential store is unavailable, the password is usable for the current operation but is not retained. Check that your operating-system credential store is available; Linux needs an active Secret Service provider such as GNOME Keyring or KWallet. If the warning persists in a release package, include it in your report. Do not include passwords.</p>
+<h2 id="logs-and-diagnostic-reports">Logs and diagnostic reports</h2>
+<p>Use <strong>Help → Open Logs Folder</strong> to find <code>perastage.log</code>, the previous launch&#39;s <code>perastage.previous.log</code>, and the <code>crash_reports</code> subfolder.</p>
+<p>Default log locations:</p>
 <ul>
-<li>Confirm the file extension is <code>.mvr</code>.</li>
-<li>Try a different MVR file to isolate whether the issue is file-specific.</li>
-<li>Restart Perastage and retry import/open.</li>
+<li>Windows: <code>%LOCALAPPDATA%\Perastage\logs\</code></li>
+<li>macOS: <code>~/Library/Logs/Perastage/</code></li>
+<li>Linux: <code>${XDG_STATE_HOME}/perastage/logs/</code>, or <code>~/.local/state/perastage/logs/</code> if unset.</li>
 </ul>
-<h2 id="fixtures-look-missing-or-incorrect">Fixtures look missing or incorrect</h2>
-<ul>
-<li>Download required profiles in <strong>Tools -&gt; Download GDTF</strong>.</li>
-<li>Check local mappings in <strong>Tools -&gt; Edit dictionaries</strong>.</li>
-<li>Reopen the scene after downloading missing profiles.</li>
-</ul>
-<h2 id="cannot-find-local-library-content">Cannot find local library content</h2>
-<p>Open the location from:</p>
-<ul>
-<li><strong>Tools -&gt; Open user library folder</strong></li>
-</ul>
-<p>On Windows, the default path is:</p>
-<ul>
-<li><code>%APPDATA%\Perastage\library\</code></li>
-</ul>
-<h2 id="layout-or-print-output-is-not-as-expected">Layout or print output is not as expected</h2>
-<ul>
-<li>Recheck the scene in 2D before exporting.</li>
-<li>Verify table values for fixtures/trusses/hoists/objects.</li>
-<li>If PDF export fails, choose a writable destination, avoid empty filenames, and retry after confirming the Viewer 2D print preferences.</li>
-<li>Invalid numeric preferences are ignored and replaced with safe defaults, so reset preferences if exports still look inconsistent.</li>
-<li>Export PDF again after confirming layout adjustments.</li>
-</ul>
-<h2 id="scene-seems-inconsistent-after-many-edits">Scene seems inconsistent after many edits</h2>
-<ul>
-<li>Save the project.</li>
-<li>Close and reopen it.</li>
-<li>Revalidate critical items in both 2D and 3D views.</li>
-</ul>
-<h2 id="cmake-cannot-find-a-dependency-through-vcpkg">CMake cannot find a dependency through vcpkg</h2>
-<p>If CMake reports that a required dependency cannot be found, for example:</p>
-<pre><code class="language-text">Could not find a package configuration file provided by &quot;wxWidgets&quot;
-</code></pre>
-<p>or:</p>
-<pre><code class="language-text">Could NOT find ZLIB (missing: ZLIB_LIBRARY ZLIB_INCLUDE_DIR)
-</code></pre>
-<p>or a similar error for <code>tinyxml2</code>, <code>CURL</code>, <code>GLEW</code>, <code>meshoptimizer</code>, <code>nanovg</code>, <code>podofo</code>, <code>Backward</code>, or <code>mdns</code>, CMake is probably not resolving the classic vcpkg installation at <code>C:/vcpkg/installed/x64-windows</code>.</p>
-<p>The Windows Ninja presets intentionally disable vcpkg manifest mode and manifest auto-install. Visual Studio/CMake should not print <code>-- Running vcpkg install</code>, should not build packages during configure, and should not create a <code>vcpkg_installed</code> directory in the repository or build tree. Verify the expected classic vcpkg paths:</p>
-<pre><code class="language-powershell">Test-Path &quot;C:\vcpkg\vcpkg.exe&quot;
-Test-Path &quot;C:\vcpkg\scripts\buildsystems\vcpkg.cmake&quot;
-Test-Path &quot;C:\vcpkg\installed\x64-windows\include\wx\secretstore.h&quot;
-Test-Path &quot;C:\vcpkg\installed\x64-windows\tools\gettext\bin\msgfmt.exe&quot;
-Test-Path &quot;.\vcpkg_installed&quot;
-Test-Path &quot;.\build\win-x64-debug-ninja\vcpkg_installed&quot;
-</code></pre>
-<p>The first four checks should be <code>True</code>; the final two checks should normally be <code>False</code> for local Windows builds. If a required package is missing, install or repair it manually in the existing <code>C:\vcpkg</code> installation before configuring again. A typical one-time command is:</p>
-<pre><code class="language-powershell">C:\vcpkg\vcpkg.exe install --triplet x64-windows wxwidgets[secretstore] gettext[tools] tinyxml2 curl glew zlib nanovg podofo meshoptimizer backward-cpp mdns
-</code></pre>
-<p>If the CMake error path contains Visual Studio&#39;s internal vcpkg, for example:</p>
-<pre><code class="language-text">C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake
-</code></pre>
-<p>then Visual Studio is using its own vcpkg instance instead of the required <code>C:/vcpkg</code> toolchain. Select <code>Windows x64 Debug (Ninja)</code> or <code>Windows x64 Release (Ninja)</code>, then run the validation helper from a Visual Studio Developer PowerShell:</p>
-<pre><code class="language-powershell">.\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
-</code></pre>
-<p>Useful cleanup commands from the repository root:</p>
-<pre><code class="language-powershell">Remove-Item -Recurse -Force .\.vs -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force .\build\win-x64-debug-ninja -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force .\build\win-x64-release-ninja -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force .\out\build\x64-Debug -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force .\out\build\x64-Release -ErrorAction SilentlyContinue
-</code></pre>
-<p>Deleting <code>.vs</code> or the selected build directory is safe. Deleting <code>C:\vcpkg\installed</code>, vcpkg downloads, packages, or buildtrees is not part of normal troubleshooting.</p>
-<p>If your vcpkg installation is intentionally located somewhere else, pass <code>-VcpkgRoot</code> to <code>setup_windows.ps1</code> for validation, and create your own local CMake user preset only if you fully own that machine-specific override. Perastage does not generate or depend on <code>CMakeUserPresets.json</code>.</p>
-<h2 id="export-diagnostics-after-a-crash-or-bug">Export diagnostics after a crash or bug</h2>
-<p>Perastage writes local diagnostics only. It does not upload logs or crash reports automatically.</p>
-<p>Use <strong>Help -&gt; Open Logs Folder</strong> to view the local logs and crash reports folder. The current log file is named <code>perastage.log</code>, and the previous launch is kept as <code>perastage.previous.log</code>.</p>
-<p>Default log locations are:</p>
-<ul>
-<li>Windows: <code>%LOCALAPPDATA%\Perastage\logs\perastage.log</code></li>
-<li>macOS: <code>~/Library/Logs/Perastage/perastage.log</code></li>
-<li>Linux: <code>${XDG_STATE_HOME}/perastage/logs/perastage.log</code>, or <code>~/.local/state/perastage/logs/perastage.log</code> when <code>XDG_STATE_HOME</code> is not set</li>
-</ul>
-<p>Crash reports are written under the <code>crash_reports</code> folder inside the same logs folder. Use <strong>Help -&gt; Export Diagnostic Report</strong> to create a plain-text report that includes build information, platform details, captured OpenGL information when available, and recent log lines. Share this file manually only if you are comfortable sending it to the developer.</p>
-<h2 id="localization-catalog-generation">Localization catalog generation</h2>
-<p>If localization catalog generation fails during configure, build, or packaging, verify that gettext tools are installed as build-time tools and visible to CMake. On Windows, <code>msgfmt.exe</code>, <code>xgettext.exe</code>, <code>msgmerge.exe</code>, and <code>msgattrib.exe</code> should exist under <code>C:\vcpkg\installed\x64-windows\tools\gettext\bin</code>; run <code>setup_windows.ps1 -SkipBuild</code> to validate them without installing packages. On macOS, run <code>brew --prefix gettext</code> and add its <code>bin</code> directory to <code>PATH</code> before configuring because Homebrew gettext is keg-only. The generated <code>perastage.mo</code> catalog should be staged under <code>resources/locale/es/LC_MESSAGES/perastage.mo</code> on Windows/Linux and <code>Perastage.app/Contents/Resources/locale/es/LC_MESSAGES/perastage.mo</code> on macOS.</p>
-<h2 id="gdtf-share-password-is-not-saved">GDTF Share password is not saved</h2>
-<p>Official Perastage builds require wxWidgets to be compiled with <code>wxUSE_SECRETSTORE</code>. If CMake reports that secure credential storage is missing, rebuild dependencies with the repository manifest or repair an existing Windows vcpkg tree with:</p>
-<pre><code class="language-powershell">C:\vcpkg\vcpkg.exe install &quot;wxwidgets[secretstore]:x64-windows&quot; --recurse
-</code></pre>
-<p>Then delete the affected Perastage build directory and configure again so the secure-store probe sees the rebuilt wxWidgets package. On Linux, install <code>libsecret-1-dev</code> before building wxWidgets with vcpkg. At runtime, Linux password persistence also needs a Secret Service provider such as GNOME Keyring or KWallet; a headless or minimal desktop can report the runtime store as unavailable even when the feature was compiled correctly.</p>
-<h3 id="cmake-reports-cmake_cxx_compiler-not-set-on-windows">CMake reports CMAKE_CXX_COMPILER not set on Windows</h3>
-<p>Run Ninja presets from a Visual Studio Developer PowerShell or run <code>setup_windows.ps1</code>, which imports the x64 MSVC environment before configuring CMake. If this appears after a failed dependency configure, rerun <code>setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild</code> so the selected build directory is refreshed while the existing <code>C:\vcpkg</code> installation remains untouched.</p>
-<h3 id="lnk4272-reports-x64-libraries-conflicting-with-an-x86-target">LNK4272 reports x64 libraries conflicting with an x86 target</h3>
-<p><code>LNK4272: library machine type &#39;x64&#39; conflicts with target machine type &#39;x86&#39;</code>, unresolved <code>__RTC_InitBase</code>, unresolved <code>__RTC_Shutdown</code>, or unresolved <code>_mainCRTStartup</code> during CMake&#39;s compiler test means the build directory captured an x86 MSVC compiler or linker while the active environment points at x64 SDK/runtime libraries. This is a mixed compiler/cache/environment problem, not a Perastage source, credential-store, or vcpkg target problem.</p>
-<p>Use the setup script so it validates the x64 MSVC tools and refreshes only the selected build directory when an incompatible cache is detected:</p>
-<pre><code class="language-powershell">.\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
-</code></pre>
-<p>To inspect the active compiler manually from the same shell, run:</p>
-<pre><code class="language-powershell">where cl
-where link
-cl
-$env:VSCMD_ARG_HOST_ARCH
-$env:VSCMD_ARG_TGT_ARCH
-</code></pre>
-<p>The compiler banner must say <code>for x64</code>, and both <code>VSCMD_ARG_HOST_ARCH</code> and <code>VSCMD_ARG_TGT_ARCH</code> must be <code>x64</code>. Deleting the selected Perastage build directory is safe; deleting <code>C:\vcpkg</code>, <code>C:\vcpkg\installed</code>, global vcpkg downloads, packages, or buildtrees is not required for this compiler-cache problem.</p>
-<p>If multiple Visual Studio installations are present, select one explicitly:</p>
-<pre><code class="language-powershell">.\setup_windows.ps1 -Configuration Debug -VisualStudioPath &quot;C:\Program Files\Microsoft Visual Studio\2022\Community&quot; -CleanBuild -SkipBuild
-</code></pre>
-<p>You can also use <code>-VisualStudioVersion</code> with a vswhere-compatible version range when you prefer version selection over a full path.</p>
-<h3 id="wxwidgetsconfigcmake-is-missing-on-windows">wxWidgetsConfig.cmake is missing on Windows</h3>
-<p>If CMake reports that <code>wxWidgetsConfig.cmake</code> or <code>wxwidgets-config.cmake</code> is missing from <code>C:/vcpkg</code>, it usually means wxWidgets is missing from <code>C:/vcpkg/installed/x64-windows</code> or the wrong toolchain file is active. The shared Windows Ninja presets disable manifest mode, so CMake will fail clearly instead of installing packages automatically.</p>
-<pre><code class="language-powershell">.\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
-</code></pre>
-<p>Do not delete or replace the vcpkg installation to fix this. Install or repair the missing classic <code>x64-windows</code> package in <code>C:\vcpkg</code>, then rerun <code>setup_windows.ps1 -CleanBuild -SkipBuild</code>.</p>
+<p>Use <strong>Help → Export Diagnostic Report...</strong> for a text report with build/platform details, available OpenGL information and recent log lines. Reports stay local and are not uploaded automatically. Review the report before sharing it, together with reproduction steps and a small example file when possible.</p>
+<p>Source-build, dependency and toolchain failures belong in the <a href="https://github.com/PeramatoG/Perastage/blob/v1.7.0/docs/developer/build.md">developer build guide</a>.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

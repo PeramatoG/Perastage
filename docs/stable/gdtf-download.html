@@ -5,9 +5,21 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Perastage Documentation • GDTF Download</title>
-
+<meta name="description" content="Use Tools → Download GDTF to find and download fixture profiles from GDTF Share. Online catalog loading and downloads require a GDTF Share account and an Internet…" />
 <link rel="canonical" href="https://perastage.luismaperamato.com/stable/gdtf-download.html" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%2F%3E" />
+<meta name="theme-color" content="#080808" />
+<meta property="og:site_name" content="Perastage" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Perastage Documentation • GDTF Download" />
+<meta property="og:description" content="Use Tools → Download GDTF to find and download fixture profiles from GDTF Share. Online catalog loading and downloads require a GDTF Share account and an Internet…" />
+<meta property="og:url" content="https://perastage.luismaperamato.com/stable/gdtf-download.html" />
+<meta property="og:image" content="https://perastage.luismaperamato.com/assets/images/screenshots/hero-main.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Perastage Documentation • GDTF Download" />
+<meta name="twitter:description" content="Use Tools → Download GDTF to find and download fixture profiles from GDTF Share. Online catalog loading and downloads require a GDTF Share account and an Internet…" />
+<meta name="twitter:image" content="https://perastage.luismaperamato.com/assets/images/screenshots/hero-main.png" />
+<link rel="icon" href="../assets/images/favicon.png" type="image/png" />
+<link rel="apple-touch-icon" href="../assets/images/apple-touch-icon.png" />
 <link rel="stylesheet" href="../assets/css/style.css" />
 <script src="../assets/js/docs-nav.js" defer></script>
 </head>
@@ -16,61 +28,60 @@
 <div class="page-shell">
 <header class="site-header">
 <a class="brand" href="../index.html" aria-label="Perastage home">
-<img src="../assets/images/Perastage_logo.png" alt="Perastage logo" />
-<div><span class="product-brand-name">Perastage</span><p>Lighting and Rigging visualization tool</p></div>
+<img src="../assets/images/logo-web.png" alt="" width="48" height="48" />
+<span class="product-brand-name">Perastage</span>
 </a>
 <button id="menuToggle" class="menu-toggle" aria-expanded="false" aria-controls="docNav" hidden>Menu</button>
 </header>
 <div class="layout">
 <aside id="docNav" class="nav-panel"><nav aria-label="Documentation navigation"><section class="nav-group" aria-labelledby="nav-section-0">
-<h2 id="nav-section-0">Core guides</h2>
+<h2 id="nav-section-0">Getting Started</h2>
 <ul class="nav-links"><li><a href="installation.html">Installation</a></li>
 <li><a href="quick-start.html">Quick Start</a></li>
-<li><a href="opening-mvr-files.html">Opening MVR Files</a></li>
-<li><a class="active" aria-current="page" href="gdtf-download.html">GDTF Download</a></li>
+<li><a href="opening-mvr-files.html">Opening MVR Files</a></li></ul>
+</section>
+<section class="nav-group" aria-labelledby="nav-section-1">
+<h2 id="nav-section-1">Workflows</h2>
+<ul class="nav-links"><li><a class="active" aria-current="page" href="gdtf-download.html">GDTF Download</a></li>
+<li><a href="inspector.html">MVR / GDTF Inspector</a></li>
+<li><a href="create-from-text.html">Create from Text</a></li>
 <li><a href="views.html">Views</a></li>
-<li><a href="preferences.html">Preferences</a></li>
-<li><a href="troubleshooting.html">Troubleshooting</a></li>
-<li><a href="faq.html">FAQ</a></li>
+<li><a href="layouts.html">Layouts and PDF</a></li></ul>
+</section>
+<section class="nav-group" aria-labelledby="nav-section-2">
+<h2 id="nav-section-2">Reference</h2>
+<ul class="nav-links"><li><a href="preferences.html">Preferences</a></li>
+<li><a href="shortcuts-and-command-bar.html">Shortcuts and Command Bar</a></li>
 <li><a href="features.html">Feature Overview</a></li></ul>
+</section>
+<section class="nav-group" aria-labelledby="nav-section-3">
+<h2 id="nav-section-3">Help</h2>
+<ul class="nav-links"><li><a href="faq.html">FAQ</a></li>
+<li><a href="troubleshooting.html">Troubleshooting</a></li></ul>
 </section></nav></aside>
 <main class="content-panel">
-<nav class="breadcrumb" aria-label="Breadcrumb"><a href="documentation.html">Documentation</a> / Core guides / <span id="pageTitle">GDTF Download</span></nav>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="documentation.html">Documentation</a> / Workflows / <span id="pageTitle">GDTF Download</span></nav>
 <div class="doc-channel">
-<span class="channel-label">Stable 1.6.0</span>
-<nav aria-label="Documentation version" class="channel-switcher"><a href="gdtf-download.html" aria-current="true">Stable</a><a href="../next/gdtf-download.html">Next</a></nav>
+<span class="channel-label">Stable 1.7.0</span>
+<nav aria-label="Documentation version" class="channel-switcher"><a href="gdtf-download.html" aria-current="page">Stable</a><a href="../next/gdtf-download.html">Next</a></nav>
 
 
 </div>
-<div id="content" tabindex="-1"><h1 id="download-gdtf-files">Download GDTF Files</h1>
-<p>Perastage can download fixture profiles from GDTF Share.</p>
-<h2 id="before-you-start">Before you start</h2>
-<ul>
-<li>You need an active GDTF Share account.</li>
-<li>Internet access is required to load the online catalog and download files.</li>
-</ul>
-<h2 id="download-workflow">Download workflow</h2>
+<div id="content" tabindex="-1"><h1 id="gdtf-download">GDTF Download</h1>
+<p>Use <strong>Tools → Download GDTF</strong> to find and download fixture profiles from GDTF Share. Online catalog loading and downloads require a GDTF Share account and an Internet connection.</p>
+<h2 id="find-a-profile">Find a profile</h2>
 <ol>
-<li>Open <strong>Tools → Download GDTF</strong>.</li>
-<li>Sign in when prompted.</li>
-<li>Search for the fixture profile you need.</li>
-<li>Download and store it in your local user library.</li>
+<li>Open <strong>Tools → Download GDTF</strong>. A usable cached catalog opens immediately; without one, sign in to load the catalog. Cancelling initial sign-in cancels the operation.</li>
+<li>Search by manufacturer, fixture, UUID, revision or DMX mode name. All search words must match, in any order; Manufacturer and Fixture filters narrow the results.</li>
+<li>Select a revision and review its creator, dates, size, identifiers and DMX modes with channel footprints before downloading.</li>
+<li>Download the selected profile and check the fixture&#39;s definition and mode in your project or dictionary.</li>
 </ol>
-<p>If no catalog is available locally, Perastage asks you to sign in before it
-loads the online catalog. Cancelling that sign-in simply cancels the Download
-GDTF operation; it does not open an empty search window or report an error.</p>
-<h2 id="related-tools">Related tools</h2>
-<ul>
-<li><strong>Tools → Edit dictionaries</strong> to manage local mapping and dictionary entries.</li>
-<li><strong>Tools → Open user library folder</strong> to inspect downloaded files directly.</li>
-</ul>
-<h2 id="when-to-use-this">When to use this</h2>
-<p>Use GDTF download when fixtures appear generic, missing, or visually incorrect after opening/importing MVR content.</p>
-<h2 id="credential-storage">Credential storage</h2>
-<p>When available, Perastage stores the GDTF Share password in the operating system&#39;s secure credential store through wxWidgets. The username may remain in non-secret Perastage metadata so the sign-in field can be prefilled. The password is not written to <code>gdtf_credentials.json</code> or application configuration.</p>
-<p>Official Perastage builds include wxSecretStore support. On Linux, password persistence also requires an active Freedesktop Secret Service provider such as GNOME Keyring or KWallet. On systems where the operating-system credential store is unavailable at runtime, or on intentionally minimal developer builds without secure-store support, Perastage can still validate credentials for the current operation, but it does not persist the password. Perastage shows a warning in this state, may keep the username as a non-secret hint, and will ask for the password again in a later session.</p>
-<p>The GDTF search dialog identifies whether it is showing the online catalog or a cached catalog. A cached catalog can be browsed offline and without a current authenticated session, but Perastage will ask you to sign in when you download. Loading the online catalog and downloading require a GDTF Share account and an Internet connection. If the online catalog was loaded successfully in the same workflow, the authenticated session is reused for the download without asking again.</p>
-<p>Downloads are written to temporary sibling files first and are published only after the response is successful and ZIP-compatible. If a download, cancellation, or local publication step fails, an existing destination GDTF file is preserved.</p>
+<h2 id="cached-and-offline-browsing">Cached and offline browsing</h2>
+<p>A fresh catalog is reused for one hour. Stale cached data refreshes in the background while browsing remains available; a failed refresh keeps cached results usable. Cached browsing works offline without sign-in. Downloads require online authentication and wait for an active refresh to finish.</p>
+<p>A failed or cancelled download preserves an existing destination profile.</p>
+<h2 id="credentials-and-local-profiles">Credentials and local profiles</h2>
+<p>Passwords use the operating system&#39;s secure credential store when available. If the runtime store is unavailable, Perastage warns you and can use credentials for the current operation without persisting the password. You may need to enter it again in a later session. The username may be remembered as a sign-in hint.</p>
+<p>Use <strong>Tools → Edit dictionaries</strong> to manage profile mappings and <strong>Tools → Open user library folder</strong> to find local content. See <a href="troubleshooting.html#gdtf-share-credentials">credential troubleshooting</a> if passwords are not retained.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

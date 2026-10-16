@@ -5,9 +5,21 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Perastage Documentation • Quick Start</title>
-
+<meta name="description" content="If profiles are missing, see GDTF Download. See Preferences for units and import settings, and Troubleshooting for runtime problems." />
 <link rel="canonical" href="https://perastage.luismaperamato.com/stable/quick-start.html" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%2F%3E" />
+<meta name="theme-color" content="#080808" />
+<meta property="og:site_name" content="Perastage" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Perastage Documentation • Quick Start" />
+<meta property="og:description" content="If profiles are missing, see GDTF Download. See Preferences for units and import settings, and Troubleshooting for runtime problems." />
+<meta property="og:url" content="https://perastage.luismaperamato.com/stable/quick-start.html" />
+<meta property="og:image" content="https://perastage.luismaperamato.com/assets/images/screenshots/hero-main.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Perastage Documentation • Quick Start" />
+<meta name="twitter:description" content="If profiles are missing, see GDTF Download. See Preferences for units and import settings, and Troubleshooting for runtime problems." />
+<meta name="twitter:image" content="https://perastage.luismaperamato.com/assets/images/screenshots/hero-main.png" />
+<link rel="icon" href="../assets/images/favicon.png" type="image/png" />
+<link rel="apple-touch-icon" href="../assets/images/apple-touch-icon.png" />
 <link rel="stylesheet" href="../assets/css/style.css" />
 <script src="../assets/js/docs-nav.js" defer></script>
 </head>
@@ -16,71 +28,55 @@
 <div class="page-shell">
 <header class="site-header">
 <a class="brand" href="../index.html" aria-label="Perastage home">
-<img src="../assets/images/Perastage_logo.png" alt="Perastage logo" />
-<div><span class="product-brand-name">Perastage</span><p>Lighting and Rigging visualization tool</p></div>
+<img src="../assets/images/logo-web.png" alt="" width="48" height="48" />
+<span class="product-brand-name">Perastage</span>
 </a>
 <button id="menuToggle" class="menu-toggle" aria-expanded="false" aria-controls="docNav" hidden>Menu</button>
 </header>
 <div class="layout">
 <aside id="docNav" class="nav-panel"><nav aria-label="Documentation navigation"><section class="nav-group" aria-labelledby="nav-section-0">
-<h2 id="nav-section-0">Core guides</h2>
+<h2 id="nav-section-0">Getting Started</h2>
 <ul class="nav-links"><li><a href="installation.html">Installation</a></li>
 <li><a class="active" aria-current="page" href="quick-start.html">Quick Start</a></li>
-<li><a href="opening-mvr-files.html">Opening MVR Files</a></li>
-<li><a href="gdtf-download.html">GDTF Download</a></li>
+<li><a href="opening-mvr-files.html">Opening MVR Files</a></li></ul>
+</section>
+<section class="nav-group" aria-labelledby="nav-section-1">
+<h2 id="nav-section-1">Workflows</h2>
+<ul class="nav-links"><li><a href="gdtf-download.html">GDTF Download</a></li>
+<li><a href="inspector.html">MVR / GDTF Inspector</a></li>
+<li><a href="create-from-text.html">Create from Text</a></li>
 <li><a href="views.html">Views</a></li>
-<li><a href="preferences.html">Preferences</a></li>
-<li><a href="troubleshooting.html">Troubleshooting</a></li>
-<li><a href="faq.html">FAQ</a></li>
+<li><a href="layouts.html">Layouts and PDF</a></li></ul>
+</section>
+<section class="nav-group" aria-labelledby="nav-section-2">
+<h2 id="nav-section-2">Reference</h2>
+<ul class="nav-links"><li><a href="preferences.html">Preferences</a></li>
+<li><a href="shortcuts-and-command-bar.html">Shortcuts and Command Bar</a></li>
 <li><a href="features.html">Feature Overview</a></li></ul>
+</section>
+<section class="nav-group" aria-labelledby="nav-section-3">
+<h2 id="nav-section-3">Help</h2>
+<ul class="nav-links"><li><a href="faq.html">FAQ</a></li>
+<li><a href="troubleshooting.html">Troubleshooting</a></li></ul>
 </section></nav></aside>
 <main class="content-panel">
-<nav class="breadcrumb" aria-label="Breadcrumb"><a href="documentation.html">Documentation</a> / Core guides / <span id="pageTitle">Quick Start</span></nav>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="documentation.html">Documentation</a> / Getting Started / <span id="pageTitle">Quick Start</span></nav>
 <div class="doc-channel">
-<span class="channel-label">Stable 1.6.0</span>
-<nav aria-label="Documentation version" class="channel-switcher"><a href="quick-start.html" aria-current="true">Stable</a><a href="../next/quick-start.html">Next</a></nav>
+<span class="channel-label">Stable 1.7.0</span>
+<nav aria-label="Documentation version" class="channel-switcher"><a href="quick-start.html" aria-current="page">Stable</a><a href="../next/quick-start.html">Next</a></nav>
 
 
 </div>
 <div id="content" tabindex="-1"><h1 id="quick-start">Quick Start</h1>
-<p>Use this short workflow for your first productive session.</p>
-<h2 id="1-open-a-scene">1) Open a scene</h2>
 <ol>
-<li>Start Perastage.</li>
-<li>Open an existing <code>.mvr</code> file.</li>
-<li>Confirm scene elements load in the main views.</li>
+<li>Use <strong>File → Import MVR...</strong> to <a href="opening-mvr-files.html">open an MVR</a>, or start a new project and add scene elements. <a href="create-from-text.html">Create from Text</a> can turn a rider into a starting scene.</li>
+<li>Review placement and orientation in the <a href="views.html">2D and 3D views</a>.</li>
+<li>Optionally open the read-only <a href="inspector.html">MVR / GDTF Inspector</a> to examine package content and fixture definitions.</li>
+<li>Review and edit the <strong>Fixtures</strong>, <strong>Trusses</strong>, <strong>Hoists</strong> and <strong>Objects</strong> tables. Check fixture types, DMX modes, patch and positions.</li>
+<li>Save your work as a <code>.pstg</code> project so you can continue editing later.</li>
+<li><a href="opening-mvr-files.html#export-mvr">Export MVR</a> for exchange, or prepare <a href="layouts.html">Layouts and PDF</a> for printing and sharing.</li>
 </ol>
-<p>For file-open options, see <a href="opening-mvr-files.html">Opening MVR Files</a>.</p>
-<h2 id="2-inspect-in-3d-and-2d">2) Inspect in 3D and 2D</h2>
-<ol>
-<li>Review positions and structure in 3D.</li>
-<li>Switch to 2D for plan-style layout checks.</li>
-<li>Compare the same selected elements across both views.</li>
-</ol>
-<p>For details, see <a href="views.html">Views (2D and 3D)</a>.</p>
-<p>For text-based scene generation, see <a href="https://github.com/PeramatoG/Perastage/blob/v1.6.0/docs/user/create-from-text.md">Create from text</a>.</p>
-<h2 id="3-review-tables">3) Review tables</h2>
-<p>Use the scene tables to validate and organize data:</p>
-<ul>
-<li>Fixtures</li>
-<li>Trusses</li>
-<li>Hoists</li>
-<li>Objects</li>
-</ul>
-<h2 id="4-use-productivity-tools-optional">4) Use productivity tools (optional)</h2>
-<p>When needed, use:</p>
-<ul>
-<li><strong>Tools → Create from text</strong> to generate scene content from structured text notes.</li>
-<li><strong>Auto patch</strong> to assign addresses faster.</li>
-<li><strong>Auto color</strong> to quickly apply color grouping.</li>
-</ul>
-<h2 id="5-save-and-export">5) Save and export</h2>
-<ol>
-<li>Save your working project file to continue later; <code>.pstg</code> files include packaged layout images used by the project.</li>
-<li>Export to <code>.mvr</code> when you need to exchange the scene.</li>
-<li>Export layouts to PDF when you need print/share output.</li>
-</ol>
-<p>If fixtures are missing or generic, continue with <a href="gdtf-download.html">Download GDTF Files</a>.</p>
+<p>If profiles are missing, see <a href="gdtf-download.html">GDTF Download</a>. See <a href="preferences.html">Preferences</a> for units and import settings, and <a href="troubleshooting.html">Troubleshooting</a> for runtime problems.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

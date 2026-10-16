@@ -78,9 +78,26 @@ def main() -> None:
 
         check()
         check_windows_checkout(root)
-        # A checkout policy must not weaken the manifest's exact-byte integrity guard.
+        # Prose developer links in the tagged index must never invent user routes.
+        manifest_file = root / 'docs/stable/manifest.json'
+        original_manifest = manifest_file.read_bytes()
+        manifest = json.loads(original_manifest)
+        manifest['user_index'] += '\n## Related resources\n\n[Historical build](../developer/build.md) and [Source](https://example.org/index.md).\n'
+        manifest_file.write_text(json.dumps(manifest), encoding='utf-8')
+        check()
+        manifest_file.write_bytes(original_manifest)
+        # Valid artifact hashes must not conceal a corrupt Stable sidebar.
         stable_page = root / 'docs/stable/quick-start.html'
         original_stable = stable_page.read_bytes()
+        stable_page.write_bytes(original_stable.replace(b'>Getting Started</h2>', b'>Wrong release group</h2>'))
+        assert stable_page.read_bytes() != original_stable
+        manifest = json.loads(original_manifest)
+        manifest['artifacts']['quick-start.html'] = hashlib.sha256(stable_page.read_bytes()).hexdigest()
+        manifest_file.write_text(json.dumps(manifest), encoding='utf-8')
+        check('stable/quick-start.html navigation must mirror canonical index')
+        stable_page.write_bytes(original_stable)
+        manifest_file.write_bytes(original_manifest)
+        # A checkout policy must not weaken the manifest's exact-byte integrity guard.
         for payload in (original_stable + b'<!-- tampered -->\n',
                         original_stable.replace(b'\n', b'\r\n')):
             stable_page.write_bytes(payload)
