@@ -117,8 +117,8 @@ function renderTagged(root, version, sourceRef, commit, nextPages, nextOutputs =
 // Stage and validate the whole snapshot, then exchange directories in one atomic operation.
 function promoteStable(root, version, sourceRef, nextPages, nextOutputs) {
   compareVersions(version, version);
-  if (!sourceRef || sourceRef.startsWith('-') || /[\x00-\x20]/.test(sourceRef)) throw new Error('Invalid source ref');
-  const commit = git(root, ['rev-parse', '--verify', '--end-of-options', `${sourceRef}^{commit}`]).trim();
+  if (sourceRef !== `v${version}`) throw new Error('Stable source ref must be the exact release tag for its version');
+  const commit = git(root, ['rev-parse', '--verify', '--end-of-options', `refs/tags/${sourceRef}^{commit}`]).trim();
   if (git(root, ['show', `${commit}:VERSION`]).trim() !== version) throw new Error('VERSION at source ref does not match requested Stable version');
   const stable = readStable(root, true);
   if (stable) {

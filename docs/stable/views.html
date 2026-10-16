@@ -5,9 +5,21 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Perastage Documentation • Views</title>
-
+<meta name="description" content="Use 3D to check spatial relationships and orientations, and 2D to check plans, positions and readability. Show hidden viewer panes from View." />
 <link rel="canonical" href="https://perastage.luismaperamato.com/stable/views.html" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%2F%3E" />
+<meta name="theme-color" content="#080808" />
+<meta property="og:site_name" content="Perastage" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Perastage Documentation • Views" />
+<meta property="og:description" content="Use 3D to check spatial relationships and orientations, and 2D to check plans, positions and readability. Show hidden viewer panes from View." />
+<meta property="og:url" content="https://perastage.luismaperamato.com/stable/views.html" />
+<meta property="og:image" content="https://perastage.luismaperamato.com/assets/images/screenshots/hero-main.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Perastage Documentation • Views" />
+<meta name="twitter:description" content="Use 3D to check spatial relationships and orientations, and 2D to check plans, positions and readability. Show hidden viewer panes from View." />
+<meta name="twitter:image" content="https://perastage.luismaperamato.com/assets/images/screenshots/hero-main.png" />
+<link rel="icon" href="../assets/images/favicon.png" type="image/png" />
+<link rel="apple-touch-icon" href="../assets/images/apple-touch-icon.png" />
 <link rel="stylesheet" href="../assets/css/style.css" />
 <script src="../assets/js/docs-nav.js" defer></script>
 </head>
@@ -16,66 +28,60 @@
 <div class="page-shell">
 <header class="site-header">
 <a class="brand" href="../index.html" aria-label="Perastage home">
-<img src="../assets/images/Perastage_logo.png" alt="Perastage logo" />
-<div><span class="product-brand-name">Perastage</span><p>Lighting and Rigging visualization tool</p></div>
+<img src="../assets/images/logo-web.png" alt="" width="48" height="48" />
+<span class="product-brand-name">Perastage</span>
 </a>
 <button id="menuToggle" class="menu-toggle" aria-expanded="false" aria-controls="docNav" hidden>Menu</button>
 </header>
 <div class="layout">
 <aside id="docNav" class="nav-panel"><nav aria-label="Documentation navigation"><section class="nav-group" aria-labelledby="nav-section-0">
-<h2 id="nav-section-0">Core guides</h2>
+<h2 id="nav-section-0">Getting Started</h2>
 <ul class="nav-links"><li><a href="installation.html">Installation</a></li>
 <li><a href="quick-start.html">Quick Start</a></li>
-<li><a href="opening-mvr-files.html">Opening MVR Files</a></li>
-<li><a href="gdtf-download.html">GDTF Download</a></li>
+<li><a href="opening-mvr-files.html">Opening MVR Files</a></li></ul>
+</section>
+<section class="nav-group" aria-labelledby="nav-section-1">
+<h2 id="nav-section-1">Workflows</h2>
+<ul class="nav-links"><li><a href="gdtf-download.html">GDTF Download</a></li>
+<li><a href="inspector.html">MVR / GDTF Inspector</a></li>
+<li><a href="create-from-text.html">Create from Text</a></li>
 <li><a class="active" aria-current="page" href="views.html">Views</a></li>
-<li><a href="preferences.html">Preferences</a></li>
-<li><a href="troubleshooting.html">Troubleshooting</a></li>
-<li><a href="faq.html">FAQ</a></li>
+<li><a href="layouts.html">Layouts and PDF</a></li></ul>
+</section>
+<section class="nav-group" aria-labelledby="nav-section-2">
+<h2 id="nav-section-2">Reference</h2>
+<ul class="nav-links"><li><a href="preferences.html">Preferences</a></li>
+<li><a href="shortcuts-and-command-bar.html">Shortcuts and Command Bar</a></li>
 <li><a href="features.html">Feature Overview</a></li></ul>
+</section>
+<section class="nav-group" aria-labelledby="nav-section-3">
+<h2 id="nav-section-3">Help</h2>
+<ul class="nav-links"><li><a href="faq.html">FAQ</a></li>
+<li><a href="troubleshooting.html">Troubleshooting</a></li></ul>
 </section></nav></aside>
 <main class="content-panel">
-<nav class="breadcrumb" aria-label="Breadcrumb"><a href="documentation.html">Documentation</a> / Core guides / <span id="pageTitle">Views</span></nav>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="documentation.html">Documentation</a> / Workflows / <span id="pageTitle">Views</span></nav>
 <div class="doc-channel">
-<span class="channel-label">Stable 1.6.0</span>
-<nav aria-label="Documentation version" class="channel-switcher"><a href="views.html" aria-current="true">Stable</a><a href="../next/views.html">Next</a></nav>
+<span class="channel-label">Stable 1.7.0</span>
+<nav aria-label="Documentation version" class="channel-switcher"><a href="views.html" aria-current="page">Stable</a><a href="../next/views.html">Next</a></nav>
 
 
 </div>
-<div id="content" tabindex="-1"><h1 id="views-2d-and-3d">Views (2D and 3D)</h1>
-<p>Perastage combines 3D scene inspection with 2D layout-oriented review.</p>
-<h2 id="3d-view">3D view</h2>
-<p>Use 3D when you need spatial understanding.</p>
-<p>Typical checks:</p>
+<div id="content" tabindex="-1"><h1 id="views">Views</h1>
+<p>Use 3D to check spatial relationships and orientations, and 2D to check plans, positions and readability. Show hidden viewer panes from <strong>View</strong>.</p>
+<h2 id="navigate-and-review">Navigate and review</h2>
+<p>In 3D, drag to orbit, Shift-drag or middle-drag to pan, and use the wheel to zoom. Right-click and choose <strong>Render style</strong> for a different presentation, including type, layer or universe coloring.</p>
+<p>In 2D, drag empty space to pan and use the wheel to zoom. Select scene elements to cross-check their rows in Fixtures, Trusses, Hoists and Objects. Double-click a cell within a multi-selection to edit that column for the selected rows.</p>
+<h2 id="move-and-select">Move and select</h2>
 <ul>
-<li>Position and orientation.</li>
-<li>Relationships between fixtures, trusses, hoists, and objects.</li>
-<li>Group membership while hovering scene items: the hovered item uses the primary hover highlight, and other members of the same group use a paler related-green highlight in the 3D view and related tables, with table rows styled like selected rows.</li>
-<li>Group selection while clicking scene items: clicking a grouped member selects its full group across related tables.</li>
-<li>General scene structure before export.</li>
-<li>Dragging feedback: while moving scene elements in 2D or with the 3D gizmo, the bottom X/Y/Z status readout shows the dragged insertion-point position with a highlighted font color until the mouse is released.</li>
-<li>Drag Move: the <strong>Drag Move</strong> toolbar toggle, shown with the Move icon, enables moving scene selections by holding the left mouse button over an element and dragging. It is disabled by default so left-dragging pans the viewport in dense scenes unless the user enables selection dragging, and the setting is stored in the project.</li>
-<li>Axis lock: the <strong>Axis Lock</strong> toolbar toggle, shown with the Move 3D icon, is enabled by default and stores its state in the project. When disabled, 3D selection dragging follows a plane parallel to the current camera view through the selection origin, similar to Blender free move.</li>
-<li>Cross-table actions: the <strong>Cross-table Actions</strong> toolbar toggle, shown with the Layers icon, is disabled by default and stores its state in the project. When enabled, viewport hover, selection, measuring, and compatible interaction tools can target fixtures, trusses, hoists, and scene objects without being limited to the active Data Views table.</li>
+<li><strong>Drag Move</strong> enables left-button dragging of scene selections; it is disabled by default.</li>
+<li><strong>Axis Lock</strong> constrains movement. Disabling it allows free 2D movement or movement on a camera-facing plane in 3D.</li>
+<li><strong>Local Axes</strong> changes viewport transform axes.</li>
+<li><strong>Magnet</strong> snaps compatible anchors while moving or inserting elements.</li>
+<li><strong>Cross-table Actions</strong> allows viewport tools to target object types beyond the active table; it is disabled by default.</li>
 </ul>
-<h2 id="2d-view-and-layouts">2D view and layouts</h2>
-<p>Use 2D when you need plan-oriented validation and output.</p>
-<p>Typical checks:</p>
-<ul>
-<li>Top/plan readability.</li>
-<li>Free 2D selection movement when <strong>Axis Lock</strong> is disabled; when enabled, dragged selections remain constrained to the dominant horizontal or vertical movement axis.</li>
-<li>Layout alignment and coverage.</li>
-<li>Print-ready preparation.</li>
-</ul>
-<p>You can export layout-oriented output as PDF for sharing or printing.</p>
-<h2 id="tables-and-views-together">Tables and views together</h2>
-<p>Best practice is to combine visual review with table review:</p>
-<ul>
-<li>Validate elements in Fixtures, Trusses, Hoists, and Objects tables.</li>
-<li>Double-click a cell inside an existing multi-selection to edit that column for all selected elements. A single click on one selected row still reduces the selection to that row after the normal system double-click interval when no second click follows.</li>
-<li>Cross-check selected elements in 2D and 3D.</li>
-<li>Confirm updates before saving or exporting MVR.</li>
-</ul>
+<p>Grouped movement follows <a href="preferences.html#selection--movement">Selection &amp; Movement preferences</a>. Review the final position in both views and use Undo if needed.</p>
+<p>See <a href="shortcuts-and-command-bar.html">Shortcuts and Command Bar</a> for keyboard, mouse and Console input. For printable pages, use <a href="layouts.html">Layouts and PDF</a>.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

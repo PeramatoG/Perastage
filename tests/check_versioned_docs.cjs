@@ -8,6 +8,7 @@ const { compareVersions, readStable, renderTagged } = require('../tools/docs/ver
 const { publicationDecision } = require('../tools/docs/published_release.cjs');
 const { generate } = require('../tools/docs/build_static_docs.cjs');
 const { replaceDirectory } = require('../tools/docs/atomic_directory.cjs');
+const { parseNavigation } = require('../tools/docs/sources.cjs');
 const root = path.resolve(__dirname, '..');
 const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'perastage-versioned-docs-'));
 
@@ -26,6 +27,22 @@ const run = (args = [], expected = 0) => {
 const snapshot = () => [...readStable(fixture).outputs].map(([file, bytes]) => [path.relative(fixture, file), bytes.toString('base64')]);
 const stableRead = name => fs.readFileSync(path.join(fixture, 'docs/stable', name), 'utf8');
 const release = (tag, extra = {}) => ({ action: 'published', release: { tag_name: tag, draft: false, prerelease: false, ...extra } });
+// Run the workflow's Python boundary against the same generated release fixture.
+const checkLinks = () => {
+  const navigation = parseNavigation(fs.readFileSync(path.join(fixture, 'docs/user/index.md'), 'utf8'))
+    .map(group => [group.title, group.pages.map(page => [`user/${page.file}`, page.title])]);
+  const result = spawnSync('python3', ['-c', `
+import json, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from docs_static_validation import validate_static_docs
+failures = []
+validate_static_docs(Path(sys.argv[2]), json.loads(sys.argv[3]), failures)
+if failures:
+    raise SystemExit('\\n'.join(failures))
+`, path.join(root, 'tests'), fixture, JSON.stringify(navigation)], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+};
 try {
   fs.cpSync(path.join(root, 'tools/docs'), path.join(fixture, 'tools/docs'), { recursive: true });
   for (const name of ['assets/css/style.css', 'assets/js/docs-nav.js', 'assets/images/Perastage_logo.png', 'assets/images/logo-web.png', 'assets/images/favicon.png', 'assets/images/apple-touch-icon.png']) {
@@ -33,7 +50,7 @@ try {
     fs.mkdirSync(path.dirname(destination), { recursive: true });
     fs.copyFileSync(path.join(root, 'docs', name), destination);
   }
-  write('docs/index.html', '<h1>Product landing</h1>');
+  write('docs/index.html', fs.readFileSync(path.join(root, 'docs/index.html'), 'utf8'));
   write('VERSION', '1.6.0\n');
   write('docs/user/index.md', '# User Documentation\n\n## Released guides\n\n- [Quick Start](quick-start.md)\n');
   write('docs/user/quick-start.md', '# Quick Start\n\nTagged original manual.\n\n## Start\n\n![Release image](../assets/manual.svg)\n\n[Build](../developer/build.md#building)\n\n[Version](../../VERSION)\n\n[Unindexed historical page](historical-extra.md)\n\n[External](https://example.org/reference.md?q=1#fragment)\n');
@@ -43,11 +60,12 @@ try {
   write('docs/developer/build.md', '# Build\n\n## Building\n\nTagged build instructions.\n');
   write('docs/developer/repository_layout.md', '# Repository Layout\n');
   git(['init', '-q']);
+  git(['branch', '-M', 'main']);
   git(['config', 'user.name', 'Docs Fixture']); git(['config', 'user.email', 'fixture@example.invalid']);
   git(['add', '.']); git(['commit', '-qm', 'Release fixture']); git(['tag', 'v1.6.0']);
   const originalCommit = git(['rev-parse', 'v1.6.0^{commit}']);
   write('VERSION', '1.6.99\n');
-  write('docs/user/index.md', '# User Documentation\n\n## Current guides\n\n- [Quick Start](quick-start.md)\n- [Inspector](inspector.md)\n');
+  write('docs/user/index.md', '# User Documentation\n\n## Current guides\n\n- [Quick Start](quick-start.md)\n- [Inspector](inspector.md)\n\n## Developer documentation\n\nTechnical contracts have a separate [developer entry point](../developer/index.md).\n');
   fs.unlinkSync(path.join(fixture, 'docs/user/historical-extra.md'));
   write('docs/user/quick-start.md', '# Quick Start\n\nWorking-tree manual.\n\n## Start\n\n![Current image](../assets/manual.svg)\n\n[Build](../developer/build.md#building)\n');
   write('docs/user/inspector.md', '# Inspector\n\n## Inspect\n\nCurrent-only workflow.\n');
@@ -55,7 +73,10 @@ try {
   write('docs/developer/build.md', '# Build\n\n## Building\n\nCurrent build instructions.\n');
   git(['add', '.']); git(['commit', '-qm', 'Current source']);
   run(['--promote-stable', '1.6.0', '--source-ref', 'v1.6.0']); run(['--check']);
+  checkLinks();
   const stable = readStable(fixture);
+  assert.equal(stable.version, '1.6.0');
+  assert.equal(stable.source_ref, 'v1.6.0');
   assert.equal(stable.source_commit, originalCommit);
   assert.deepEqual(stable.pages, ['documentation.html', 'quick-start.html']);
   const tagged = stableRead('quick-start.html');
@@ -111,6 +132,7 @@ try {
     assert.equal(publicationDecision(fixture, event, '').promote, false);
   }
   assert.throws(() => publicationDecision(fixture, release('v1.6.0'), '0'.repeat(40)), /published release commit/);
+  assert.throws(() => publicationDecision(fixture, release('v1.6.0'), ''), /SHA is missing or invalid/);
   write('VERSION', '1.5.0\n'); git(['add', '.']); git(['commit', '-qm', 'Older fixture']); git(['tag', 'v1.5.0']);
   assert.equal(publicationDecision(fixture, release('v1.5.0'), git(['rev-parse', 'v1.5.0'])).promote, false);
   run(['--promote-stable', '1.5.0', '--source-ref', 'v1.5.0'], 1);
@@ -118,12 +140,26 @@ try {
   run(['--promote-stable', '1.7.0', '--source-ref', 'v1.6.0'], 1);
   run(['--promote-stable', '1.7.0', '--source-ref', '--upload-pack=bad'], 1);
   assert.deepEqual(snapshot(), before);
-  write('VERSION', '1.7.0\n'); git(['add', '.']); git(['commit', '-qm', 'New release fixture']); git(['tag', 'v1.7.0']);
-  const publishedCommit = git(['rev-parse', 'v1.7.0']);
+  write('VERSION', '1.7.0\n'); git(['add', '.']); git(['commit', '-qm', 'New release fixture']); git(['tag', '-a', 'v1.7.0', '-m', 'Annotated release']);
+  const publishedCommit = git(['rev-parse', 'refs/tags/v1.7.0^{commit}']);
+  assert.notEqual(git(['rev-parse', 'refs/tags/v1.7.0']), publishedCommit);
+  assert.throws(() => publicationDecision(fixture, release('v1.7.0'), git(['rev-parse', 'refs/tags/v1.7.0'])), /published release commit/);
   assert.equal(publicationDecision(fixture, release('v1.7.0'), publishedCommit).promote, true);
   fs.appendFileSync(path.join(fixture, 'docs/user/quick-start.md'), '\nAfter tagged release.\n');
+  git(['add', '.']); git(['commit', '-qm', 'Post-release development']);
+  git(['branch', 'next']);
+  git(['branch', 'v1.7.0', originalCommit]);
+  for (const ref of ['main', 'next', 'refs/heads/main', publishedCommit]) {
+    run(['--promote-stable', '1.7.0', '--source-ref', ref], 1);
+    assert.deepEqual(snapshot(), before, 'non-tag promotion must leave Stable intact even when VERSION matches');
+  }
   run(['--promote-stable', '1.7.0', '--source-ref', 'v1.7.0']); run(['--check']);
-  assert.equal(readStable(fixture).version, '1.7.0');
+  checkLinks();
+  const promotedManifest = readStable(fixture);
+  assert.equal(promotedManifest.version, '1.7.0');
+  assert.equal(promotedManifest.source_ref, 'v1.7.0');
+  assert.equal(promotedManifest.source_commit, publishedCommit);
+  assert(!promotedManifest.pages.includes('index.html'));
   const sitemap = fs.readFileSync(path.join(fixture, 'docs/sitemap.xml'), 'utf8');
   assert(sitemap.includes('/stable/inspector.html</loc>'));
   assert(!sitemap.includes('/next/'));
@@ -134,6 +170,15 @@ try {
   assert(fs.readFileSync(path.join(fixture, 'docs/inspector.html'), 'utf8').includes('location.replace("stable/inspector.html"'));
   assert.equal(publicationDecision(fixture, release('v1.7.0'), publishedCommit).promote, false);
   const promoted = snapshot();
+  run(['--promote-stable', '1.7.0', '--source-ref', 'v1.7.0']);
+  assert.deepEqual(snapshot(), promoted, 'recovery of an already Stable release is idempotent');
+  const manifestPath = path.join(fixture, 'docs/stable/manifest.json');
+  const manifestBytes = fs.readFileSync(manifestPath);
+  fs.writeFileSync(manifestPath, JSON.stringify({ ...JSON.parse(manifestBytes), source_ref: 'main' }));
+  assert.throws(() => publicationDecision(fixture, release('v1.7.0'), publishedCommit), /changed its tagged source/);
+  fs.writeFileSync(manifestPath, manifestBytes);
+  git(['tag', 'v1.9.0', publishedCommit]);
+  assert.throws(() => publicationDecision(fixture, release('v1.9.0'), publishedCommit), /VERSION does not match/);
   write('VERSION', '1.8.0\n');
   const validNext = fs.readFileSync(path.join(fixture, 'docs/user/quick-start.md'));
   fs.appendFileSync(path.join(fixture, 'docs/user/quick-start.md'), '\n![Missing resource](../assets/missing.png)\n');

@@ -84,7 +84,34 @@ then commits generated documentation to main without force. Concurrent main
 changes reject the push; rerun the workflow from fresh main. It uses the same
 dedicated release App and fail-closed credential policy as release publication,
 with GITHUB_TOKEN only when that App is not enabled. Pages continues publishing
-the committed `docs/` tree. Recovery uses the same published-release event.
+the committed `docs/` tree. A release published using GITHUB_TOKEN does not
+trigger another workflow; publish through the maintainer UI or the dedicated
+App so the release event can start promotion. Draft creation alone never starts
+promotion. The release event SHA is a commit: annotated tags are peeled before
+comparison, and `target_commitish` (often `main`) is not a snapshot identity.
+
+For a missed promotion caused by validation or generator code, fix that code
+on a branch and recover with the existing generator. Rerunning the failed
+release event uses its original workflow/source revision and cannot pick up
+that fix. Verify the release is published and not a prerelease, fetch its exact
+tag without force, and verify the peeled commit against the release event SHA
+and its tagged `VERSION`. For example, recovery of v1.7.0 uses:
+
+```sh
+git fetch origin refs/tags/v1.7.0:refs/tags/v1.7.0
+git rev-parse 'refs/tags/v1.7.0^{commit}'
+git show refs/tags/v1.7.0:VERSION
+node tools/docs/build_static_docs.cjs --check
+node tools/docs/build_static_docs.cjs --promote-stable 1.7.0 --source-ref v1.7.0
+```
+
+Run all validation commands from the promotion workflow before committing its
+generated artifacts for review. The generator accepts only `vVERSION` tags,
+reads tagged user Markdown and resources directly from Git objects, and updates
+the manifest, compatibility routes, channel navigation and crawl artifacts.
+It rejects an older version or a changed same-version source identity and leaves
+an already promoted release intact. Never copy Next into Stable or edit frozen
+HTML by hand. This recovery does not publish a release or move a tag.
 
 Developer website documentation follows main at `docs/developer/`; historical
 developer/source contracts belong to Git tags. Packaged offline Help remains
