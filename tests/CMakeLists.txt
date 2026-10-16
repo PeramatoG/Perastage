@@ -864,6 +864,8 @@ if(Python3_Interpreter_FOUND)
     add_repository_policy_test(DocsLinksFixtures ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_docs_links_fixtures.py
                                LABELS standard-strict policy help)
+    # This aggregate validates the full corpus for every mutation, including on Windows.
+    set_tests_properties(DocsLinksFixtures PROPERTIES TIMEOUT 240)
     add_repository_policy_test(TestTargetsNoSourceRootIncludes ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_test_targets_no_source_root_includes.py
                                LABELS standard-strict policy cmake)

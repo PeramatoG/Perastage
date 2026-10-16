@@ -83,7 +83,9 @@ class Page(HTMLParser):
 def validate_static_docs(root: Path, canonical_navigation, failures: list[str]) -> None:
     """Extend DOC-130 ownership guards with rendered navigation and actual HTML IDs."""
     docs = root / 'docs'
+    resolved_docs = docs.resolve()
     cache = {}
+    link_targets = {}
     for file in sorted(docs.rglob('*.html')):
         cache[file.resolve()] = Page(file.read_text(encoding='utf-8'))
     manifest = json.loads((docs / 'stable/manifest.json').read_text(encoding='utf-8'))
@@ -156,8 +158,13 @@ def validate_static_docs(root: Path, canonical_navigation, failures: list[str]) 
             parsed = urlsplit(link)
             if parsed.scheme or parsed.netloc:
                 continue
-            target = (file.parent / unquote(parsed.path)).resolve() if parsed.path else file.resolve()
-            if not target.is_relative_to(docs.resolve()) or not target.is_file():
+            candidate = file.parent / unquote(parsed.path) if parsed.path else file
+            # Repeated sidebar/assets share targets; cache only within this validation.
+            if candidate not in link_targets:
+                target = candidate.resolve()
+                link_targets[candidate] = (target, target.is_relative_to(resolved_docs) and target.is_file())
+            target, exists = link_targets[candidate]
+            if not exists:
                 failures.append(f'{file.relative_to(root)} has missing generated link/resource: {link}')
             elif parsed.fragment and target in cache and unquote(parsed.fragment) not in cache[target].ids:
                 failures.append(f'{file.relative_to(root)} has missing generated fragment: {link}')
@@ -173,9 +180,10 @@ def validate_static_docs(root: Path, canonical_navigation, failures: list[str]) 
 def validate_web_metadata(docs, cache, manifest, failures):
     """Check real XML and HTML semantics while respecting the frozen Stable template."""
     origin = 'https://perastage.luismaperamato.com/'
+    resolved_docs = docs.resolve()
     expected = {origin}
     for file, page in cache.items():
-        route = file.relative_to(docs.resolve()).as_posix()
+        route = file.relative_to(resolved_docs).as_posix()
         if route.startswith('stable/'):
             if route in {'stable/' + name for name in manifest['pages']}:
                 if page.canonical != origin + route:
