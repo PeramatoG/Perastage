@@ -49,7 +49,6 @@
       }
       for (const link of document.querySelectorAll('[data-release-notes]')) link.href = data.release_notes_url;
       status.textContent = `Latest stable: ${data.version} · Published ${data.published_at.slice(0, 10)}`;
-      document.getElementById('release-title').textContent = `Perastage ${data.version} is available`;
     } catch {
       status.textContent = 'Direct downloads are unavailable right now. Use the latest GitHub release below to find official packages.';
     }
