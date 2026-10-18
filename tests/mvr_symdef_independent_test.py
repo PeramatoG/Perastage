@@ -20,7 +20,7 @@ def matrix(node):
     return tuple(map(float, re.findall(r'[-+\d.eE]+', text))) if text else IDENTITY
 
 
-def read_package(source):
+def read_package(source, full_document=False):
     with zipfile.ZipFile(source) as archive:
         names = archive.namelist()
         assert len(names) == len(set(names)) == len({name.lower() for name in names})
@@ -29,7 +29,8 @@ def read_package(source):
                    for item in archive.infolist())
         assert archive.testzip() is None
         resources = {name: archive.read(name) for name in names}
-    return ET.fromstring(resources.pop('GeneralSceneDescription.xml')).find('Scene'), resources
+    root = ET.fromstring(resources.pop('GeneralSceneDescription.xml'))
+    return (root if full_document else root.find('Scene')), resources
 
 
 def definitions(scene, resources):
@@ -108,6 +109,9 @@ def main():
             standalone, standalone_resources = read_package(directory / 'hidden.mvr')
             # Equivalent options use the same complete standard scene and assets.
             assert ET.canonicalize(ET.tostring(embedded)) == ET.canonicalize(ET.tostring(standalone))
+            embedded_root, _ = read_package(io.BytesIO(project.read('scene.mvr')), True)
+            standalone_root, _ = read_package(directory / 'hidden.mvr', True)
+            assert ET.canonicalize(ET.tostring(embedded_root)) == ET.canonicalize(ET.tostring(standalone_root))
             assert resources == standalone_resources
 
 

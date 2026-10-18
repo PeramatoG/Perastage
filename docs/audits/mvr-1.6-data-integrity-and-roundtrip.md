@@ -10,9 +10,10 @@ universal losslessness or complete DIN conformance is made.
 
 ## Authority and revisions
 
-Current continuation base: Perastage `7b4a3749` (latest fetched `origin/main`
+Continuation started from Perastage `7b4a3749` (latest fetched `origin/main`
 when `codex/mvr-symdef-definition-integrity` was created, after merged PRs
-#2479 and #2480). The Class continuation used `a694aa99`; the original #2479
+#2479 and #2480); rebased onto `ecc630d1` before delivery after unrelated
+mainline updates. The Class continuation used `a694aa99`; the original #2479
 review used `1f0e94bdd4ba4df7c6ce5a4b83fa256ba55be0eb`.
 Historical verification is retained below and distinguished from this phase.
 No VERSION change.
@@ -697,7 +698,8 @@ Confirmed corrections:
   are protected for definition and Symbol-bearing Truss ancestor matrices.
 
 Supported boundary: named/unnamed, empty/unused and shared definitions containing
-only direct Geometry3D with self-contained GLB or dependency-inspected 3DS;
+only direct Geometry3D with self-contained glTF 2.0 (.glb/.gltf) or
+dependency-inspected 3DS;
 multiple ordered geometries per definition; simple Truss instances with identity
 Symbol and first-definition geometry placement, supported parent groups/layers,
 and unchanged, edited, copied/grouped/transformed, merged and repeated exports.
@@ -786,3 +788,17 @@ including secondary/unused definition resources, and its application object
 compiles locally. The ownership guard now searches all C++ sources, including
 GUI/viewers, rather than only Core/MVR/models. This is an ownership migration,
 not a new Layout feature. The corrected commit triggers fresh hosted CI.
+
+Table 46 explicitly permits both gltf and glb; GLB is recommended, not required.
+The shared dependency inspector accepts self-contained JSON/data-URI resources
+and protects external URIs. Unit coverage verifies JSON glTF and rejects required
+extensions, which Table 46 forbids for MVR. Inspection is not a full independent
+glTF/3DS validator or a renderer interoperability claim.
+
+Potential resource losses still requiring a broader contract: the 3DS inspector
+covers material-map filenames, not every non-material/extension chunk; optional
+glTF extensions can define non-URI resource fields outside the scanned subset.
+An empty discovered-dependency list is not universal closure proof for those
+formats/extensions. Sidecar ownership, identity during merge and preservation of
+unrecognized package assets remain P0; this phase's tests do not certify those
+cases. Known external URIs/material maps and uninspectable formats remain blocked.

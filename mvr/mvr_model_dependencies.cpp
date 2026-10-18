@@ -81,6 +81,13 @@ ModelDependencies InspectGltf(std::ifstream &file, std::streamoff size, bool bin
   }
   const auto json = nlohmann::json::parse(text, nullptr, false);
   if (json.is_discarded()) { result.error = "Cannot parse model JSON."; return result; }
+  if (!json.is_object() || !json.contains("asset") || !json["asset"].is_object() ||
+      !json["asset"].contains("version") || json["asset"]["version"] != "2.0" ||
+      (json.contains("extensionsRequired") &&
+       (!json["extensionsRequired"].is_array() || !json["extensionsRequired"].empty()))) {
+    // Keep discovered dependencies available to legacy callers with separate policies.
+    result.error = "MVR 1.6 requires glTF 2.0 without required extensions.";
+  }
   std::set<std::string> references;
   const auto visit = [&](auto &&self, const nlohmann::json &node) -> void {
     if (node.is_object()) {

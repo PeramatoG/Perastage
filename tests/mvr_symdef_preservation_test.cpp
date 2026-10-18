@@ -123,4 +123,14 @@ int main() {
   assert(dependencies.error.empty());
   assert(dependencies.references == std::vector<std::string>{"mask.png"});
   assert(!mvr::SymdefResourceProblem(model, "texture.3ds").empty());
+  // Table 46 also permits self-contained .gltf, not only binary .glb.
+  const std::string gltf = R"({"asset":{"version":"2.0"},"buffers":[{"byteLength":4,"uri":"data:application/octet-stream;base64,AAAAAA=="}]})";
+  std::ofstream(dir / "inline.gltf") << gltf;
+  assert(mvr::SymdefResourceProblem(model, "inline.gltf").empty());
+  std::ofstream(dir / "extensions.gltf") <<
+      R"({"asset":{"version":"2.0"},"extensionsRequired":["KHR_draco_mesh_compression"]})";
+  assert(!mvr::SymdefResourceProblem(model, "extensions.gltf").empty());
+  std::ofstream(dir / "invalid-version.gltf") << R"({"asset":{"version":2}})";
+  assert(!mvr::SymdefResourceProblem(model, "invalid-version.gltf").empty());
+
 }
