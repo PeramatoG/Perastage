@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-if rg -n 'symdefFiles|symdefMatrices|symdefTypes|symdefGeometries' models core mvr --glob '*.{cpp,h}'; then
+if rg -n 'symdefFiles|symdefMatrices|symdefTypes|symdefGeometries' . --glob '*.{cpp,h}'; then
   echo "Canonical Symdefs must have one definition table, not parallel partial registries." >&2
   exit 1
 fi

@@ -772,9 +772,17 @@ failed because three valid definitions became one. Module-tree, GUI ConfigManage
 source-size, repository hygiene, MVR reader/XML/preparation/resource/inspection
 boundaries, module directions, include ownership and official schema guards passed.
 Generated Next user documentation is updated; no frozen Stable page was changed.
-`node tests/check_static_docs.cjs` failed at its stale-output stderr assertion on
-both this branch and an untouched latest-main worktree; this is not reported as a
-passing check. Browser navigation checks were unavailable because this environment
-has no installed Playwright Chromium. Hosted CI status is reported in the PR.
+`node tests/check_static_docs.cjs` passed after enabling the local network
+capability needed by its fixture subprocesses. Its initial restricted-sandbox
+run failed with empty child output on both this branch and untouched latest
+main. Browser navigation checks were unavailable because this environment has
+no installed Playwright Chromium. Hosted CI status is reported in the PR.
 No Windows/macOS runtime, real STG MAHOU package, or external application
 interoperability result is claimed.
+
+Hosted macOS compilation caught one remaining read of the removed partial map
+in the view-cache asset fingerprint. It now traverses every canonical geometry,
+including secondary/unused definition resources, and its application object
+compiles locally. The ownership guard now searches all C++ sources, including
+GUI/viewers, rather than only Core/MVR/models. This is an ownership migration,
+not a new Layout feature. The corrected commit triggers fresh hosted CI.
