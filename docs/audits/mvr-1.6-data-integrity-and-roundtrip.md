@@ -10,11 +10,13 @@ universal losslessness or complete DIN conformance is made.
 
 ## Authority and revisions
 
-Current continuation base: Perastage `a694aa99` (latest fetched `origin/main`
-when `codex/mvr-class-reference-integrity` was created, after merged PR #2479).
-The original #2479 review used `1f0e94bdd4ba4df7c6ce5a4b83fa256ba55be0eb`.
-Historical verification is retained below and distinguished from this PR. No
-VERSION change in either integrity correction.
+Continuation started from Perastage `7b4a3749` (latest fetched `origin/main`
+when `codex/mvr-symdef-definition-integrity` was created, after merged PRs
+#2479 and #2480); rebased onto `ecc630d1` before delivery after unrelated
+mainline updates. The Class continuation used `a694aa99`; the original #2479
+review used `1f0e94bdd4ba4df7c6ce5a4b83fa256ba55be0eb`.
+Historical verification is retained below and distinguished from this phase.
+No VERSION change.
 
 | Authority | Exact revision / interpretation |
 | --- | --- |
@@ -106,9 +108,11 @@ cannot establish it.
    structured `StandardDataPreservationBlocked` / Error / ExportFailed and
    returns before archive writing. The headless scene workflow forwards the
    exporter’s detailed findings into CLI JSON diagnostics. There is no lossy override. PSTG cannot
-   persist an incomplete scene because its scene serializer fails as well.
+   persist an incomplete scene because its scene serializer fails as well. The same canonical
+   MVR content is required inside PSTG and standalone export; see the shared
+   serialization invariant below.
 
-6. **Class/Classing preservation (current continuation)**: #2479 deliberately
+6. **Class/Classing preservation (PR #2480)**: #2479 deliberately
    blocked these valid standard structures because the editable model had no
    owner. Published Table 7 includes AUXData/Class; Table 14 requires its UUID
    and defines its name; Tables 20/22/24/26/28/30 permit one optional Classing
@@ -141,8 +145,9 @@ Layer Matrix/elevation; multipatch; fixture CastShadow/ChildPosition, Protocols,
 Alignments, CustomCommands, Overwrites, Connections, Mappings and Gobo; multiple
 or nonzero DMX breaks and network assignments; noneditable VideoScreen/Projector
 subtrees; unsupported generic/rigging standard fields listed in the matrix;
-parametric-object child ownership that would be flattened; named or nested
-Symdefs; Symbol geometry expanded by SceneObject/FocusPoint/Support; legacy
+parametric-object child ownership that would be flattened; nested Symdefs; unrepresented/multiple Truss geometry entries and baked
+Symbol/first-definition placement; malformed identities/references, unavailable or
+externally dependent definition resources; Symbol geometry expanded by SceneObject/FocusPoint/Support; legacy
 FixtureTypeId; foreign object-level UserData; unavailable direct focus geometry;
 and unsupported future versions. Empty optional assignment containers and
 identity Layer matrices do not trigger an ordinary safe-export warning.
@@ -151,8 +156,9 @@ This is **known-loss detection**, not a complete semantic provenance engine.
 Evidence remains conservative after deletion of the affected object and may
 require keeping the original archive and using another preserving application.
 Diagnostics retain source UUIDs/locations after merge; they are source evidence,
-not a remappable second scene graph. Because affected saves are blocked,
-provenance does not need a new undocumented proprietary PSTG payload. Memory
+not a remappable second scene graph. The current implementation still blocks affected PSTG saves. Removing those
+limitations requires genuine standard preservation in the shared canonical
+exporter; PSTG-only recovery metadata is not an alternative. Memory
 cost is proportional to scanned source/evidence, without an import-export-import
 cycle on routine saves. Existing recursive parser limits still apply.
 
@@ -170,7 +176,7 @@ coverage. `Y` means within the explicitly bounded tested subset; `p` partial;
 `N` absent; `?` unverified; `B` operation blocked if present (diagnostic evidence
 is retained, **not** a preserved semantic entity). M=`p` must never be read as
 full reference/resource remapping. A=`C` class integration/protection/independent tests;
-`F` #2479 focus tests; `K` blocker tests;
+`D` Symdef integration/protection/independent tests; `F` #2479 focus tests; `K` blocker tests;
 `X` existing named tests; `–` no executed feature-specific proof. A test name in
 this matrix identifies coverage, not proof of every possible value.
 
@@ -181,7 +187,8 @@ keys: `f` direct-focus subset; `s` fixture scalar/color subset; `h` hierarchy/lo
 transform path; `r` resource/reference contract; `u` root opaque UserData policy;
 `c` tested Class/Classing preservation without visibility or an editor;
 `b` add typed/preservation support before allowing write; `i` identifier recovery
-policy requires correction; `a` AUXData retention requires follow-up; `v` version
+policy requires correction; `d` direct Symdef/self-contained resource and simple Truss Symbol subset;
+`a` AUXData retention requires follow-up; `v` version
 and semantic validation incomplete. Detailed limitations follow the matrix.
 
 
@@ -198,14 +205,14 @@ and semantic validation incomplete. Detailed limitations follow the matrix.
 | 5 | `Data/@ver` | 1 | Y | Y | N | p | p | p | p | F,X | V | P0/u |
 | 6 | `Scene/AUXData` | 0 or 1 | p | p | p | p | p | p | p | X | P | P0/a |
 | 6 | `Scene/Layers` | 1 | Y | Y | p | p | p | p | p | F,X | P | P0/h |
-| 7 | `AUXData/Symdef` | 0 or any | p | p | p | p | p | p | p | X | P | P0/a |
+| 7 | `AUXData/Symdef` | 0 or any | p | p | p | p | p | p | p | D | P | P0/d |
 | 7 | `AUXData/Position` | 0 or any | p | p | p | p | p | p | p | X | P | P0/a |
 | 7 | `AUXData/MappingDefinition` | 0 or any | N | B | N | B | B | B | B | K | B | P0/b |
 | 7 | `AUXData/Class` | 0 or any | Y | Y | N | Y | Y | Y | Y | C | V | P0/c |
-| 8 | `Symdef/@uuid` | R | p | p | p | p | p | p | p | X | P | P0/a |
-| 8 | `Symdef/@name` | Empty | N | B | N | B | B | B | B | K | B | P0/b |
-| 9 | `Symdef/ChildList` | 1 | p | p | p | p | p | p | p | X | P | P0/a |
-| 10 | `Symdef/ChildList/Geometry3D` | ? (listed) | p | p | p | p | p | p | p | X | P | P0/a |
+| 8 | `Symdef/@uuid` | R | Y | Y | N | Y | Y | Y | Y | D | V | P0/d |
+| 8 | `Symdef/@name` | Empty | Y | Y | N | Y | Y | Y | Y | D | V | P0/d |
+| 9 | `Symdef/ChildList` | 1 | p | p | N | p | p | p | p | D,K | P | P0/d |
+| 10 | `Symdef/ChildList/Geometry3D` | ? (listed) | Y | Y | N | Y | Y | Y | Y | D | V | P0/d |
 | 10 | `Symdef/ChildList/Symbol` | ? (listed) | N | B | N | B | B | B | B | K | B | P0/b |
 | 11 | `Position/@uuid` | R | p | p | p | p | p | p | p | X | P | P0/a |
 | 11 | `Position/@name` | Empty | p | p | p | p | p | p | p | X | P | P0/a |
@@ -383,10 +390,10 @@ and semantic validation incomplete. Detailed limitations follow the matrix.
 | 38 | `Source/@linkedGeometry` | R | N | B | N | B | B | B | B | K | B | P0/b |
 | 38 | `Source/@type` | R | N | B | N | B | B | B | B | K | B | P0/b |
 | 41 | `Geometries/Geometry3D` | ? (listed) | p | p | p | p | p | p | p | F,X | P | P0/r |
-| 41 | `Geometries/Symbol` | ? (listed) | p | p | p | p | p | p | p | F,X | P | P0/r |
-| 42 | `Symbol/@uuid` | R | p | p | p | p | p | p | p | F,X | P | P0/r |
-| 42 | `Symbol/@symdef` | R | p | p | p | p | p | p | p | F,X | P | P0/r |
-| 43 | `Symbol/Matrix` | 0 or 1 | p | p | p | p | p | p | p | F,X | P | P0/r |
+| 41 | `Geometries/Symbol` | ? (listed) | p | p | p | p | p | p | p | D,F,K,X | P | P0/d |
+| 42 | `Symbol/@uuid` | R | p | p | N | p | p | p | p | D,F,K,X | P | P0/d |
+| 42 | `Symbol/@symdef` | R | p | p | N | p | p | p | p | D,F,K,X | P | P0/d |
+| 43 | `Symbol/Matrix` | 0 or 1 | p | p | N | p | p | p | p | D,F,K,X | P | P0/d |
 | 44 | `Geometry3D/@fileName` | R | p | p | p | p | p | p | p | F,X | P | P0/r |
 | 45 | `Geometry3D/Matrix` | 0 or 1 | p | p | p | p | p | p | p | F,X | P | P0/r |
 | 47 | `Projections/Projection` | ? (listed) | N | B | N | B | B | B | B | K | B | P0/b |
@@ -476,9 +483,10 @@ Additional value, relationship and package requirements:
   Focus and Class reference graphs, not a universally lossless identifier policy.
 - AUXData retains the tested Class registry/edges, selected Symdef geometry facts
   and Position name tables.
-  Unreferenced Symdefs can be pruned; other Symdef identity/geometry sharing
-  cases need a complete graph audit. Named/nested definitions are now blocked,
-  but the gate does not yet cover every definition-retention case.
+  Direct Symdefs, including names and unused/empty definitions, are now retained
+  with resources and collision-safe references. Nested graphs remain blocked.
+  Symbol-bearing SceneObject/FocusPoint/Support still expand for display only;
+  their canonical export remains protected. Other consumers need a complete audit.
 - Remaining GDTF missing-resource fallback, inferred mode, geometry placeholder,
   source filename sanitization and material dependency repairs may change a
   valid authored representation. Direct focus dependencies now fail closed;
@@ -515,8 +523,9 @@ it is not completion of the whole mission.
    permission to rewrite unrelated authored values. The informative annex says
    IDs “should” be unique and describes multipatch selection sharing. Add string/number provenance and
    version-specific semantics, including legacy FixtureTypeId conversion.
-3. Complete Symdef/Symbol graph preservation, including unused/nested
-   definitions, symbol instance identities, names, resources and collision
+3. Extend the direct-definition phase to nested Symdef/Symbol graphs and all
+   consumers, with canonical node versus display/local placement, multiple and
+   mixed geometry entries, complete external dependency ownership and merge
    remapping. Add validated preservation for noneditable VideoScreen/Projector
    and their media resources through existing interchange owners.
 4. Typed DMX-break/network assignments and layer elevation,
@@ -650,6 +659,163 @@ provenance are unchanged and unresolved. Classing within blocked VideoScreen
 or Projector data remains **protected**, not supported.
 
 
+## Symdef/Symbol phase 1: direct definitions and safe instances
+
+Published MVR 1.6 Tables 8–10 require a UUID and ChildList, permit optional name
+(default empty), and permit direct Geometry3D and nested Symbol references.
+Tables 42–45 distinguish a Symbol instance UUID, its `symdef` reference and local
+Matrix from Geometry3D's fileName/Matrix. Geometry3D has no standard geometryType
+attribute. The pinned XSD agrees on these structures and orders AUXData as Class,
+Symdef, Position, MappingDefinition. Table 1 forbids nil UUIDs. This phase uses
+those rules without changing the standard or introducing application XML.
+
+Confirmed corrections:
+
+- Export used a referenced-definition allowlist and pruned valid unused/empty
+  definitions and their resources. A schema-valid three-definition fixture
+  failed on the pre-fix code (only one definition survived). Export now writes
+  the complete canonical definition table, exact optional names, ordered direct
+  geometries/matrices and all required self-contained resources.
+- Four partial Symdef maps were consolidated into the existing MvrScene owner,
+  not a second registry. Inspection includes empty definitions. Definitions are
+  independent of GDTF SVG and PSTG project fixture symbols.
+- Merge compared file spelling rather than content. Equal same-UUID definitions
+  now require ordered geometry, semantic default names, matrices and resource
+  SHA-256 equality. A conflict allocates a new incoming UUID and remaps its
+  references, retaining the target's identity and bytes. Cross-kind collisions
+  cannot overwrite definitions under ReplaceExisting/SkipIncoming either.
+  Replacement identities avoid all incoming authored UUIDs. Names do not merge
+  unrelated identities. Optional absent/empty names are equivalent for merge;
+  target spelling is retained.
+- Incoming Truss Symbol identities participate in merge planning. Clipboard
+  creates a fresh instance UUID while sharing its definition. Export rejects
+  ambiguous nonempty identities instead of silently repairing authored values.
+  New model instances with no authored identity retain deterministic generation;
+  missing source Symbol identities are protected before normalization.
+- Source and final projection checks cover identity/ownership, names, geometry
+  count/order, Matrix values, definition resource ownership and instance targets.
+  Source double-precision values that the current float/formatter cannot retain
+  are protected for definition and Symbol-bearing Truss ancestor matrices.
+
+Supported boundary: named/unnamed, empty/unused and shared definitions containing
+only direct Geometry3D with self-contained glTF 2.0 (.glb/.gltf) or
+dependency-inspected 3DS;
+multiple ordered geometries per definition; simple Truss instances with identity
+Symbol and first-definition geometry placement, supported parent groups/layers,
+and unchanged, edited, copied/grouped/transformed, merged and repeated exports.
+Nonidentity matrices on unused definitions or secondary geometries are retained.
+Hidden layer display state never removes owned definitions/instances from export.
+
+Still protected: nested Symbol definitions (including unused ones), ambiguous or
+missing identities/targets/resources, external geometry dependencies, malformed
+or uninspectable resource formats, multiple/mixed Truss geometry entries,
+nonidentity Symbol or first definition geometry placement (currently baked into
+Truss display transform), source precision outside the current formatter, and
+Symbol-bearing SceneObject/FocusPoint/Support. The display projections are not
+canonical instance ownership. This phase intentionally does not remove those
+blockers. Other standard consumers and cycle semantics remain unresolved.
+General matrix provenance and identifier/UnitNumber policy remain P0 work.
+
+Evidence: `MvrSymdefIntegrity` builds independent small schema-valid fixtures,
+checks MVR/PSTG after extraction-lease release, repeat export, default names,
+shared and conflicting definitions/resources, cross-kind collisions under all
+policies, clipboard/group/translation, missing resources and rejected-save
+retention. It also tests each valid protected structure against the official
+XSD before checking rejection. `MvrSymdefPreservation` exercises malformed/nil/
+duplicate identities, dangling references, source precision, 3DS opacity-map
+dependencies and deliberately corrupted final projections. `MvrSymdefIndependent`
+uses Python zipfile/ElementTree to compare definitions, exact model bytes,
+instance/parent relationships, transforms, UUID uniqueness, archive entries and
+PSTG scene.mvr without the production reader. The complete standard scene
+projection and all resource bytes in PSTG are compared with standalone export
+under equivalent options, beyond the Symdef subset. Reopen runs after deletion
+of both original archives and lease cleanup, with a second PSTG save/reopen
+cycle. It is not an external renderer.
+The full/projection XSD distinction above still applies; no external receiving
+application or official reference runtime was executed.
+
+### Shared PSTG / canonical MVR serialization invariant
+
+The reported `STG MAHOU.mvr` case (33 layers, 81 fixtures, 19 trusses, 9,661
+SceneObjects and 1,038 groups on `4dc4076b2899`) exposes an unacceptable product
+limitation: unsupported standard structures can prevent project saving.
+Named direct Symdefs are corrected here, but other valid unsupported structures
+still block writes. The real file was not supplied in this session; synthetic
+tests are not a claim of successful validation of that package.
+
+PSTG embeds the same canonical MVR scene as normal Export MVR with equivalent
+options: structures, UUIDs, references, geometry, resources and semantics.
+ZIP metadata/compression and irrelevant XML formatting may differ. There must
+be no reduced project-only MVR representation, alternate scene model, validation
+bypass or PSTG recovery metadata compensating for missing standard content.
+PSTG documentation, styles, project fixture symbols and visibility settings stay
+separate. The latest architectural clarification supersedes the earlier proposal
+to decouple native scene storage; that proposal is not implemented.
+
+The safe sequence is genuine support for each remaining structure in the shared
+exporter: separate canonical node/display placement, typed geometry instances
+for all supported consumers, nested Symdef graphs with cycle/reference checks,
+and complete package dependency ownership. Remove each blocker only after MVR
+and PSTG tests prove preservation. Until then keep structured diagnostics and
+the previous valid destination. Do not substitute an original unedited archive,
+clear issues, invent geometry, or promise that accepting a warning can produce a
+lossless file. No lossy-export override is introduced here.
+
+The Save/Save As busy-overlay lifecycle and error-dialog ordering are a separate
+small GUI correction and do not change this Core serialization contract.
+
+### Phase 1 executed verification
+
+Local Debug build: **40/40 selected tests passed**, including all three independent
+ZIP/XML readers, Symdef source/final-projection protection, existing Class/Focus/
+layer identities, inspection, clipboard, transforms, CLI, merge, resource/export
+preparation, archive recovery and save/load regressions. The pre-fix integration
+failed because three valid definitions became one. Module-tree, GUI ConfigManager,
+source-size, repository hygiene, MVR reader/XML/preparation/resource/inspection
+boundaries, module directions, include ownership and official schema guards passed.
+Generated Next user documentation is updated; no frozen Stable page was changed.
+`node tests/check_static_docs.cjs` passed after enabling the local network
+capability needed by its fixture subprocesses. Its initial restricted-sandbox
+run failed with empty child output on both this branch and untouched latest
+main. Browser navigation checks were unavailable because this environment has
+no installed Playwright Chromium. Hosted CI status is reported in the PR.
+No Windows/macOS runtime, real STG MAHOU package, or external application
+interoperability result is claimed.
+
+Hosted macOS compilation caught one remaining read of the removed partial map
+in the view-cache asset fingerprint. It now traverses every canonical geometry,
+including secondary/unused definition resources, and its application object
+compiles locally. The ownership guard now searches all C++ sources, including
+GUI/viewers, rather than only Core/MVR/models. This is an ownership migration,
+not a new Layout feature. The corrected commit triggers fresh hosted CI.
+
+Table 46 explicitly permits both gltf and glb; GLB is recommended, not required.
+The shared dependency inspector accepts self-contained JSON/data-URI resources
+and protects external URIs. Unit coverage verifies JSON glTF and rejects required
+extensions, which Table 46 forbids for MVR. Inspection is not a full independent
+glTF/3DS validator or a renderer interoperability claim.
+
+Potential resource losses still requiring a broader contract: the 3DS inspector
+covers material-map filenames, not every non-material/extension chunk; optional
+glTF extensions can define non-URI resource fields outside the scanned subset.
+An empty discovered-dependency list is not universal closure proof for those
+formats/extensions. Sidecar ownership, identity during merge and preservation of
+unrecognized package assets remain P0; this phase's tests do not certify those
+cases. Known external URIs/material maps and uninspectable formats remain blocked.
+
+
+Additional confirmed merge defect: deleting an incoming geometry after import
+let a failed resource copy retain its relative filename. If the target had an
+unrelated namesake, the incoming definition silently rebound to target bytes.
+The regression reproduced a successful export before the correction. Canonical
+definition copy/acquisition failures now create durable resource-failure evidence
+before merge evidence is transferred. Both MVR and PSTG writes reject that state,
+even if the target filename resolves. Structured ResourceMissing diagnostics
+separate this failure from unsupported standard representation. Missing current
+Symdef geometry also uses that resource category. Generic non-definition resource
+merge failure policy remains a separate P0 concern.
+
+
 ## Save-dialog lifecycle and failure diagnostics continuation
 
 Independent of the Symdef phase, Save and Save As use one scoped, parent-owned
@@ -706,5 +872,31 @@ that low-level dialog from appearing inside the saving overlay in the applicatio
 The regression initializes wxWidgets and captures unexpected toolkit messages:
 it failed before the correction and passes afterward, while checking that no
 destination/temporary file was created and the previous archive is unchanged.
-All **5/5 focused tests** pass locally after this correction. Linux and macOS
-were green on `0e9a752c`; fresh hosted CI must verify the Windows correction.
+All **5/5 focused tests** pass locally after this correction. Hosted Windows,
+Linux and macOS CI subsequently passed on `f83975f6`.
+
+### Save-UI integration after Symdef phase 1 merged
+
+Integrated `origin/main` at `cc350686` into the save-UI branch after PR #2482.
+The audit append conflict retains both continuations and the complete mainline
+coverage matrix. The merged MVR implementation, scene model, resource ownership
+and mainline VERSION are unchanged.
+
+The Symdef integration regression now also verifies that supported definitions
+save normally with no failure diagnostic, missing geometry and failed merge
+acquisition retain the Resource category and affected entry, and protected
+standard structures retain the MvrPreservation category. Rejected saves retain
+the previous PSTG byte for byte and leave no temporary archive. Reopening the
+valid project and saving again clears the stale diagnostic. The independent
+reader still compares the complete embedded canonical MVR and resource bytes
+with equivalent standalone export.
+
+Local Debug verification: **32/32 selected regressions passed**, covering those
+cases, GUI lifecycle/routing, serialization exceptions, Class/Classing,
+FocusPoint/Fixture Focus, layer identity, merge, clipboard, grouping, transforms,
+archive acquisition/recovery, resource collection and official schema validation.
+Both touched GUI workflows compile; strict translation, module/include ownership,
+source-size, repository hygiene, Symdef ownership and official-schema integrity
+checks pass. Hosted CI for this combined revision is separate from the green
+pre-integration run. Remaining P0 support and interoperability limits above are
+unchanged; no preservation blocker was removed by this integration.

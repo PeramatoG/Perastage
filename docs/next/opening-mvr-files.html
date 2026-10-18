@@ -94,6 +94,11 @@ transforms and fixture Focus links through project save/reopen and MVR export.
 Standard Class definitions and Classing links on supported objects are retained
 across layers, project save/reopen, MVR export and merge, including unused classes.
 Class names are preserved; there are no class visibility controls yet.
+Direct MVR Symdef definitions retain their names, UUIDs and self-contained model
+resources, including unused definitions. Supported Truss Symbol instances keep
+shared definition references through save/reopen and merge. Nested Symbol graphs,
+other Symbol consumers and some geometry placements remain protected; see the
+coverage report for the exact supported subset.
 Some standard structures still cannot be preserved safely. When a known loss
 is detected, project save and MVR export stop; the existing destination file
 is kept. Read the export details or log for the affected object and field, and

@@ -29,6 +29,7 @@
 #include "mvr_preferences.h"
 #include "mvr_export_preparation.h"
 #include "mvr_standard_preservation.h"
+#include "mvr_symdef_preservation.h"
 #include "mvr_class_preservation.h"
 #include "mvr_export_archive_writer.h"
 #include "mvr_export_transport.h"
@@ -1231,45 +1232,6 @@ CollectReferencedArchivePaths(const tinyxml2::XMLDocument &doc) {
 
   return referencedPaths;
 }
-// Returns whether a Symdef has enough geometry data to flatten into Geometry3D
-// nodes.
-static bool CanFlattenSymdefGeometry(const MvrScene &scene,
-                                     const std::string &symdefUuid) {
-  auto geoIt = scene.symdefGeometries.find(symdefUuid);
-  if (geoIt != scene.symdefGeometries.end()) {
-    for (const SymdefGeometry &geometry : geoIt->second) {
-      if (!TrimAscii(geometry.file).empty())
-        return true;
-    }
-  }
-
-  auto fileIt = scene.symdefFiles.find(symdefUuid);
-  return fileIt != scene.symdefFiles.end() &&
-         !TrimAscii(fileIt->second).empty();
-}
-
-// Collects Symdef UUIDs referenced by trusses that preserve Symbol/Symdef
-// geometry representation.
-static std::unordered_set<std::string>
-CollectReferencedSymdefUuids(const MvrScene &scene,
-                             const MvrExportOptions &options) {
-  std::unordered_set<std::string> referencedSymdefs;
-  for (const auto &[uuid, truss] : scene.trusses) {
-    if (truss.sourceRepresentation !=
-        Truss::GeometryRepresentation::SymbolSymdef)
-      continue;
-    const std::string symdefUuid = TrimAscii(truss.sourceSymdefUuid);
-    if (symdefUuid.empty())
-      continue;
-    if (options.trussGeometryExportMode ==
-            MvrTrussGeometryExportMode::DirectGeometry3DForTrussSymbols &&
-        CanFlattenSymdefGeometry(scene, symdefUuid))
-      continue;
-    referencedSymdefs.insert(symdefUuid);
-  }
-  return referencedSymdefs;
-}
-
 static bool TryParseInt(std::string_view text, int &out) {
   if (text.empty())
     return false;
@@ -1669,43 +1631,14 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   tinyxml2::XMLElement *aux =
       mvr_xml_serialization::AppendPreparedPositions(doc,
                                                      preparation.positions);
-  const std::unordered_set<std::string> referencedSymdefUuids =
-      CollectReferencedSymdefUuids(scene, options);
-  for (const auto &[uuid, file] : scene.symdefFiles) {
-    if (!referencedSymdefUuids.contains(uuid))
-      continue;
-    mvr_xml_serialization::SymdefValues symdefValues;
-    symdefValues.uuid = uuid;
-    auto tit = scene.symdefTypes.find(uuid);
-    if (tit != scene.symdefTypes.end() && !tit->second.empty())
-      symdefValues.geometryType = tit->second;
-
-    std::vector<SymdefGeometry> geometries;
-    auto geoIt = scene.symdefGeometries.find(uuid);
-    if (geoIt != scene.symdefGeometries.end())
-      geometries = geoIt->second;
-    if (geometries.empty() && !file.empty()) {
-      SymdefGeometry fallback;
-      fallback.file = file;
-      auto matIt = scene.symdefMatrices.find(uuid);
-      fallback.transform = (matIt != scene.symdefMatrices.end())
-                               ? matIt->second
-                               : MatrixUtils::Identity();
-      if (tit != scene.symdefTypes.end())
-        fallback.geometryType = tit->second;
-      geometries.push_back(std::move(fallback));
-    }
-    for (const SymdefGeometry &geometry : geometries) {
-      if (geometry.file.empty())
-        continue;
-      mvr_xml_serialization::SymdefGeometryValues resolvedGeometry;
-      resolvedGeometry.fileName =
-          registerModelResource(geometry.file, "symbol.3ds");
-      resolvedGeometry.geometryType = geometry.geometryType;
-      resolvedGeometry.matrix = geometry.transform;
-      symdefValues.geometries.push_back(std::move(resolvedGeometry));
-    }
-    mvr_xml_serialization::AppendSymdef(doc, aux, symdefValues);
+  std::map<std::string, SymdefDefinition> orderedDefinitions(scene.symdefs.begin(), scene.symdefs.end());
+  for (const auto &[uuid, definition] : orderedDefinitions) {
+    mvr_xml_serialization::SymdefValues values;
+    values.uuid = uuid;
+    values.name = definition.name;
+    for (const auto &geometry : definition.geometries)
+      values.geometries.push_back({registerModelResource(geometry.file, "symbol.3ds"), geometry.transform});
+    mvr_xml_serialization::AppendSymdef(doc, aux, values);
   }
   mvr_xml_serialization::PrependClasses(doc, aux, scene.classes);
   if (aux->FirstChild())
@@ -2133,23 +2066,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
             MvrTrussGeometryExportMode::DirectGeometry3DForTrussSymbols;
         if (flattenSymbol) {
           std::vector<SymdefGeometry> geometries;
-          auto geometryIt = scene.symdefGeometries.find(t.sourceSymdefUuid);
-          if (geometryIt != scene.symdefGeometries.end())
-            geometries = geometryIt->second;
-          auto fileIt = scene.symdefFiles.find(t.sourceSymdefUuid);
-          if (geometries.empty() && fileIt != scene.symdefFiles.end() &&
-              !fileIt->second.empty()) {
-            SymdefGeometry fallback;
-            fallback.file = fileIt->second;
-            auto matrixIt = scene.symdefMatrices.find(t.sourceSymdefUuid);
-            fallback.transform = matrixIt != scene.symdefMatrices.end()
-                                     ? matrixIt->second
-                                     : MatrixUtils::Identity();
-            auto typeIt = scene.symdefTypes.find(t.sourceSymdefUuid);
-            if (typeIt != scene.symdefTypes.end())
-              fallback.geometryType = typeIt->second;
-            geometries.push_back(std::move(fallback));
-          }
+          const auto definition = scene.symdefs.find(t.sourceSymdefUuid);
+          if (definition != scene.symdefs.end()) geometries = definition->second.geometries;
           for (const SymdefGeometry &geometry : geometries) {
             if (geometry.file.empty())
               continue;
@@ -2159,7 +2077,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
               continue;
             values.geometries.push_back(
                 {mvr_xml_serialization::GeometryValues{
-                     archivePath, geometry.geometryType,
+                     archivePath, {},
                      MatrixUtils::Multiply(t.sourceSymbolMatrix,
                                            geometry.transform)},
                  std::nullopt});
@@ -2616,7 +2534,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
 
   sceneNode->InsertEndChild(layersNode);
   auto focusDiagnostics = mvr::CheckSerializedFocus(*sceneNode);
-  const auto classDiagnostics = mvr::CheckSerializedClasses(*sceneNode, scene);
+  auto classDiagnostics = mvr::CheckSerializedClasses(*sceneNode, scene);
   focusDiagnostics.insert(focusDiagnostics.end(), classDiagnostics.begin(), classDiagnostics.end());
   for (const auto &diagnostic : focusDiagnostics)
     AddDiagnostic(diagnostic);
@@ -2663,6 +2581,14 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   mvr_export_resources::ResourcePlan resourcePlan =
       std::move(gdtfPreparation.plan);
   auto &resourceEntries = resourcePlan.entries;
+  const auto symbolDiagnostics = mvr::CheckSerializedSymdefs(*sceneNode, scene, options,
+      [&](const std::string &name) {
+        for (const auto &entry : resourceEntries)
+          if (entry.archivePath == name) return entry.sourcePath;
+        return fs::path{};
+      });
+  for (const auto &diagnostic : symbolDiagnostics) AddDiagnostic(diagnostic);
+  if (!symbolDiagnostics.empty()) return false;
 
   std::unordered_map<std::string, int> plannedArchiveEntries;
   plannedArchiveEntries["GeneralSceneDescription.xml"] = 1;

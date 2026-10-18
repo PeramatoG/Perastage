@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvr_export_resource_collection.h"
+#include "mvr_model_dependencies.h"
 
 #include "filesystem_path_utils.h"
 #include "gdtf_filename_policy.h"
@@ -25,14 +26,12 @@
 #include <array>
 #include <cctype>
 #include <fstream>
-#include <regex>
 #include <sstream>
 
 namespace fs = std::filesystem;
 
 namespace {
 
-struct ThreeDsChunkHeader { uint16_t id{0}; uint32_t length{0}; };
 
 // Trims ASCII whitespace from both ends of a string.
 std::string TrimAscii(std::string value) {
@@ -109,94 +108,6 @@ std::string EnsureUniqueArchivePath(const std::string &proposed,
       return candidate;
     }
   }
-}
-
-// Reads a 3DS chunk header from the current stream position.
-bool Read3dsChunkHeader(std::ifstream &file, ThreeDsChunkHeader &chunk) {
-  return static_cast<bool>(file.read(reinterpret_cast<char *>(&chunk.id), sizeof(chunk.id))) &&
-         static_cast<bool>(file.read(reinterpret_cast<char *>(&chunk.length), sizeof(chunk.length)));
-}
-
-// Reads a bounded null-terminated string from a 3DS chunk.
-std::string Read3dsCString(std::ifstream &file, std::streampos endPos) {
-  std::string output; char ch = 0;
-  while (file.tellg() < endPos && file.read(&ch, 1)) {
-    if (ch == '\0') break;
-    output.push_back(ch);
-  }
-  return output;
-}
-
-// Collects bitmap filenames referenced by standard 3DS material map chunks.
-std::vector<std::string> Collect3dsTextureReferences(const fs::path &modelPath) {
-  std::vector<std::string> references;
-  std::ifstream file(modelPath, std::ios::binary);
-  ThreeDsChunkHeader root;
-  if (!file.is_open() || !Read3dsChunkHeader(file, root) || root.id != 0x4D4D)
-    return references;
-  std::unordered_set<std::string> seen;
-  const std::streampos rootEnd = static_cast<std::streampos>(root.length);
-  while (file.tellg() < rootEnd) {
-    ThreeDsChunkHeader chunk;
-    if (!Read3dsChunkHeader(file, chunk) || chunk.length < 6) break;
-    const auto chunkEnd = file.tellg() + static_cast<std::streamoff>(chunk.length - 6);
-    if (chunk.id != 0x3D3D) { file.seekg(chunkEnd); continue; }
-    while (file.tellg() < chunkEnd) {
-      ThreeDsChunkHeader sub;
-      if (!Read3dsChunkHeader(file, sub) || sub.length < 6) break;
-      const auto subEnd = file.tellg() + static_cast<std::streamoff>(sub.length - 6);
-      if (sub.id != 0xAFFF) { file.seekg(subEnd); continue; }
-      while (file.tellg() < subEnd) {
-        ThreeDsChunkHeader material;
-        if (!Read3dsChunkHeader(file, material) || material.length < 6) break;
-        const auto materialEnd = file.tellg() + static_cast<std::streamoff>(material.length - 6);
-        if (material.id != 0xA200) { file.seekg(materialEnd); continue; }
-        while (file.tellg() < materialEnd) {
-          ThreeDsChunkHeader texture;
-          if (!Read3dsChunkHeader(file, texture) || texture.length < 6) break;
-          const auto textureEnd = file.tellg() + static_cast<std::streamoff>(texture.length - 6);
-          if (texture.id == 0xA300) {
-            const std::string value = Read3dsCString(file, textureEnd);
-            if (!value.empty() && seen.insert(ToLowerAscii(value)).second)
-              references.push_back(value);
-          }
-          file.seekg(textureEnd);
-        }
-      }
-    }
-  }
-  return references;
-}
-
-// Collects local external URIs from glTF JSON or a GLB JSON chunk.
-std::vector<std::string> CollectGltfExternalReferences(const fs::path &modelPath) {
-  std::vector<std::string> references;
-  std::ifstream file(modelPath, std::ios::binary);
-  if (!file.is_open()) return references;
-  std::ostringstream content; content << file.rdbuf();
-  std::string jsonText = content.str();
-  if (ToLowerAscii(modelPath.extension().string()) == ".glb") {
-    const auto readUint32 = [&](size_t offset) {
-      const auto *b = reinterpret_cast<const unsigned char *>(jsonText.data());
-      return static_cast<uint32_t>(b[offset]) | (static_cast<uint32_t>(b[offset + 1]) << 8) |
-             (static_cast<uint32_t>(b[offset + 2]) << 16) | (static_cast<uint32_t>(b[offset + 3]) << 24);
-    };
-    if (jsonText.size() < 20 || readUint32(0) != 0x46546C67 ||
-        readUint32(16) != 0x4E4F534A || readUint32(12) > jsonText.size() - 20)
-      return references;
-    jsonText = jsonText.substr(20, readUint32(12));
-  }
-  std::unordered_set<std::string> seen;
-  const std::regex uriRegex(R"re("uri"\s*:\s*"([^"]+)")re");
-  for (std::sregex_iterator it(jsonText.begin(), jsonText.end(), uriRegex), end; it != end; ++it) {
-    std::string uri = (*it)[1].str();
-    const std::string lower = ToLowerAscii(TrimAscii(uri));
-    if (lower.empty() || lower.rfind("data:", 0) == 0 ||
-        lower.rfind("http://", 0) == 0 || lower.rfind("https://", 0) == 0)
-      continue;
-    if (seen.insert(ToLowerAscii(uri)).second) references.push_back(std::move(uri));
-  }
-  return references;
 }
 
 // Resolves a local model dependency, including the existing case-insensitive fallback.
@@ -401,10 +312,7 @@ void ResourceCollection::RegisterModelDependencies(const std::string &resolvedSo
                                                    const std::string &modelArchivePath) {
   if (resolvedSource.empty() || modelArchivePath.empty()) return;
   const fs::path modelPath = PathUtils::PathFromUtf8(resolvedSource);
-  const std::string extension = ToLowerAscii(modelPath.extension().string());
-  std::vector<std::string> references;
-  if (extension == ".3ds") references = Collect3dsTextureReferences(modelPath);
-  else if (extension == ".gltf" || extension == ".glb") references = CollectGltfExternalReferences(modelPath);
+  const auto references = mvr::InspectModelDependencies(modelPath).references;
   for (const std::string &reference : references) {
     fs::path dependency;
     if (!ResolveModelDependencyPath(modelPath, reference, dependency)) {

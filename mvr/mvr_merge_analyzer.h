@@ -85,6 +85,8 @@ struct MvrMergeOptions {
 };
 
 struct MvrMergeAnalysis {
+  // Collision allocation must not consume an incoming authored identity.
+  std::unordered_set<std::string> reservedIncomingUuids;
   std::unordered_map<std::string, std::string> uuidMap;
   std::unordered_map<std::string, std::string> fixtureUuidRemap;
   std::unordered_set<std::string> skippedIncomingUuids;

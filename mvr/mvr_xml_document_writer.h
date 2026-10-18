@@ -33,13 +33,12 @@ namespace mvr_xml_serialization {
 
 struct SymdefGeometryValues {
   std::string fileName;
-  std::string geometryType;
   Matrix matrix;
 };
 
 struct SymdefValues {
   std::string uuid;
-  std::string geometryType;
+  std::optional<std::string> name;
   std::vector<SymdefGeometryValues> geometries;
 };
 

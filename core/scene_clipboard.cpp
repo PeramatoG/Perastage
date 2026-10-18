@@ -47,9 +47,13 @@ void ResolveParent(MvrScene &scene, T &clone, MvrNodeType type,
   scene_grouping::SetTargetWorldTransform(scene, {type, clone.uuid}, sourceWorld);
 }
 
+std::string AllocateInstanceUuid(const MvrScene &scene,
+                                 const std::unordered_set<std::string> &allocated);
+
 // Adds a value clone after assigning its preallocated identity.
 bool InsertClone(MvrScene &scene, const Item &item, const std::string &uuid,
-                 const std::unordered_map<std::string, std::string> &remap) {
+                 const std::unordered_map<std::string, std::string> &remap,
+                 std::unordered_set<std::string> &allocated) {
   return std::visit([&](const auto &source) {
     using T = std::decay_t<decltype(source)>;
     T clone = source;
@@ -67,6 +71,11 @@ bool InsertClone(MvrScene &scene, const Item &item, const std::string &uuid,
       ResolveParent(scene, scene.fixtures.at(uuid), MvrNodeType::Fixture,
                     item.sourceWorldTransform);
     } else if constexpr (std::is_same_v<T, Truss>) {
+      if (clone.sourceRepresentation == Truss::GeometryRepresentation::SymbolSymdef) {
+        clone.sourceSymbolUuid = AllocateInstanceUuid(scene, allocated);
+        if (clone.sourceSymbolUuid.empty()) return false;
+        allocated.insert(clone.sourceSymbolUuid);
+      }
       if (!scene.trusses.emplace(uuid, clone).second)
         return false;
       ResolveParent(scene, scene.trusses.at(uuid), MvrNodeType::Truss,
@@ -90,7 +99,9 @@ bool InsertClone(MvrScene &scene, const Item &item, const std::string &uuid,
 bool IsInstanceUuidAvailable(const MvrScene &scene, const std::string &uuid) {
   return !scene.fixtures.contains(uuid) && !scene.trusses.contains(uuid) &&
          !scene.supports.contains(uuid) && !scene.sceneObjects.contains(uuid) &&
-         !scene.groupObjects.contains(uuid) && !scene.classes.contains(uuid);
+         !scene.groupObjects.contains(uuid) && !scene.classes.contains(uuid) &&
+         !scene.symdefs.contains(uuid) && !scene.layers.contains(uuid) &&
+         !scene.positions.contains(uuid);
 }
 
 // Allocates a fresh UUID that cannot collide with the scene or current batch.
@@ -137,6 +148,14 @@ MutationResult Service::Paste(
   if (!CanPaste(projectEpoch))
     return result;
   std::unordered_set<std::string> allocated;
+  for (const auto &[uuid, truss] : scene.trusses)
+    if (!truss.sourceSymbolUuid.empty()) allocated.insert(CanonicalizeUuid(truss.sourceSymbolUuid));
+  const auto reserveSymbols = [&](const auto &objects) {
+    for (const auto &[uuid, object] : objects)
+      for (const auto &geometry : object.geometries)
+        if (!geometry.sourceSymbolUuid.empty()) allocated.insert(CanonicalizeUuid(geometry.sourceSymbolUuid));
+  };
+  reserveSymbols(scene.sceneObjects); reserveSymbols(scene.supports);
   for (const auto &item : payload_.items) {
     const std::string uuid = AllocateInstanceUuid(scene, allocated);
     if (uuid.empty())
@@ -149,7 +168,7 @@ MutationResult Service::Paste(
                                          : std::nullopt;
   for (const auto &item : payload_.items) {
     const std::string &uuid = result.uuidRemap.at(item.sourceUuid);
-    if (!InsertClone(scene, item, uuid, result.uuidRemap)) {
+    if (!InsertClone(scene, item, uuid, result.uuidRemap, allocated)) {
       scene = sceneBefore;
       if (overridesBefore)
         *overrides = *overridesBefore;

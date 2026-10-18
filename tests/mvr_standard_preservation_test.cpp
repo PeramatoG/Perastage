@@ -35,7 +35,6 @@ int main() {
       "<FocusPoint/>",
       "<VideoScreen><Sources><Source type='File'>movie.mov</Source></Sources></VideoScreen>",
       "<Projector><Projections/></Projector>",
-      "<Symdef name='Authored name'><ChildList/></Symdef>",
       "<Symdef><ChildList><Symbol symdef='uuid'/></ChildList></Symdef>"}) {
     const auto scene = Scan(xml);
     assert(!scene.preservationIssues.empty());

@@ -139,19 +139,14 @@ void AssertSceneEqual(const MvrScene &left, const MvrScene &right) {
   assert(left.opaqueUserDataBlocks == right.opaqueUserDataBlocks);
   assert(left.runtimeResourceLeases == right.runtimeResourceLeases);
   assert(left.positions == right.positions);
-  assert(left.symdefFiles == right.symdefFiles);
-  assert(left.symdefTypes == right.symdefTypes);
-  assert(left.symdefMatrices.size() == right.symdefMatrices.size());
-  for (const auto &[uuid, matrix] : left.symdefMatrices)
-    assert(MatrixEqual(matrix, right.symdefMatrices.at(uuid)));
-  assert(left.symdefGeometries.size() == right.symdefGeometries.size());
-  for (const auto &[uuid, geometries] : left.symdefGeometries) {
-    const auto &other = right.symdefGeometries.at(uuid);
-    assert(geometries.size() == other.size());
-    for (size_t index = 0; index < geometries.size(); ++index) {
-      assert(geometries[index].file == other[index].file);
-      assert(geometries[index].geometryType == other[index].geometryType);
-      assert(MatrixEqual(geometries[index].transform, other[index].transform));
+  assert(left.symdefs.size() == right.symdefs.size());
+  for (const auto &[uuid, definition] : left.symdefs) {
+    const auto &other = right.symdefs.at(uuid);
+    assert(definition.name == other.name);
+    assert(definition.geometries.size() == other.geometries.size());
+    for (size_t index = 0; index < definition.geometries.size(); ++index) {
+      assert(definition.geometries[index].file == other.geometries[index].file);
+      assert(MatrixEqual(definition.geometries[index].transform, other.geometries[index].transform));
     }
   }
   assert(left.layers.size() == right.layers.size());
@@ -199,11 +194,7 @@ MvrScene MakeScene() {
   scene.opaqueUserDataBlocks = {{"foreign", "1", "<Data/>"}};
   scene.runtimeResourceLeases.push_back(std::make_shared<int>(42));
   scene.positions = {{"position", "FOH"}};
-  scene.symdefFiles = {{"symdef", "fixture.glb"}};
-  scene.symdefTypes = {{"symdef", "Geometry3D"}};
-  scene.symdefMatrices = {{"symdef", At(42.0f)}};
-  scene.symdefGeometries = {
-      {"symdef", {{"fixture.glb", "Geometry3D", At(43.0f)}}}};
+  scene.symdefs = {{"symdef", {std::nullopt, {{"fixture.glb", At(43.0f)}}}}};
   Layer layer;
   layer.uuid = "layer";
   layer.name = "Lighting";
