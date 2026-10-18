@@ -163,3 +163,15 @@ footer { margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border); 
 .compatibility-page p a, footer a { text-decoration:underline; text-underline-offset:.2em; }
 footer a { color:var(--text-muted); }
 footer a:hover, footer a:focus-visible { color:var(--accent-strong); }
+
+/* Platform downloads reuse the product surfaces and palette. */
+.download-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 1rem; }
+.download-card { min-width: 0; }
+.download-card h3 { line-height: 1.4; }
+.download-card .product-button { width: 100%; text-align: center; }
+.download-size { display: block; color: var(--text-muted); font-size: .85rem; margin-top: .4rem; }
+.download-unavailable { color: var(--text-muted); }
+.download-card details, .download-security { margin-top: 1.25rem; }
+#download summary { cursor: pointer; color: var(--accent-strong); padding: .5rem 0; }
+#download a:focus-visible, #download summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+#download code { overflow-wrap: anywhere; }

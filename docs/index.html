@@ -27,7 +27,7 @@
       "applicationCategory": "MultimediaApplication",
       "operatingSystem": "Windows, macOS, Linux",
       "url": "https://perastage.luismaperamato.com/",
-      "downloadUrl": "https://github.com/PeramatoG/Perastage/releases/latest",
+      "downloadUrl": "https://perastage.luismaperamato.com/#download",
       "description": "Perastage is a free, cross-platform desktop application to open, inspect, edit and document MVR scenes and work with GDTF fixtures.",
       "license": "https://spdx.org/licenses/GPL-3.0-or-later.html",
       "offers": {
@@ -38,6 +38,7 @@
     }
     </script>
     <link rel="stylesheet" href="assets/css/style.css" />
+    <script src="assets/js/downloads.js" defer></script>
   </head>
   <body id="top" class="product-page">
     <a class="skip-link" href="#main">Skip to content</a>
@@ -52,7 +53,7 @@
             <li><a href="#features">Features</a></li>
             <li><a href="#workflow">Workflow</a></li>
             <li><a href="stable/documentation.html">Documentation</a></li>
-            <li><a href="https://github.com/PeramatoG/Perastage/releases/latest">Download</a></li>
+            <li><a href="#download">Download</a></li>
             <li><a href="https://github.com/PeramatoG/Perastage">GitHub</a></li>
           </ul>
         </nav>
@@ -66,7 +67,7 @@
             <h1 id="hero-title">Open, inspect, edit and document MVR scenes.</h1>
             <p class="product-lead">Perastage is a free, cross-platform desktop application for practical MVR and GDTF workflows. Review rigs in 2D and 3D, inspect scene and fixture data, organize and edit projects, build production layouts and export interoperable MVR files.</p>
             <div class="product-actions">
-              <a class="product-button product-button-primary" href="https://github.com/PeramatoG/Perastage/releases/latest">Download latest release</a>
+              <a class="product-button product-button-primary" href="#download">Download Perastage</a>
               <a class="product-button" href="stable/quick-start.html">Quick start</a>
             </div>
             <ul class="product-status" aria-label="Platform and project information">
@@ -78,13 +79,62 @@
           <img class="product-screenshot" src="assets/images/screenshots/hero-main.png" alt="Perastage showing a stage scene in the 3D workspace" width="1919" height="1079" fetchpriority="high" loading="eager" decoding="async" />
         </section>
         <aside class="product-release" aria-labelledby="release-title">
-          <h2 id="release-title">Perastage 1.7.0 is available</h2>
-          <p>A major update with the new MVR / GDTF Inspector, improved GDTF Share browsing and fixture resources, better performance controls, multilingual offline Help, and the first experimental external integration tools.</p>
+          <h2 id="release-title">Get the latest stable Perastage</h2>
+          <p>Official desktop packages, release notes and installation help.</p>
           <div class="product-actions">
-            <a class="product-button product-button-primary" href="https://github.com/PeramatoG/Perastage/releases/tag/v1.7.0">Download 1.7.0</a>
-            <a class="product-button" href="https://github.com/PeramatoG/Perastage/releases/tag/v1.7.0">Release notes</a>
+            <a class="product-button product-button-primary" href="#download">Download Perastage</a>
+            <a class="product-button" data-release-notes href="https://github.com/PeramatoG/Perastage/releases/latest">Release notes</a>
           </div>
         </aside>
+        <section id="download" class="product-section" aria-labelledby="download-title">
+          <h2 id="download-title">Download Perastage</h2>
+          <p id="download-status" role="status">Choose your platform. If direct downloads are unavailable, use the latest GitHub release below.</p>
+          <p><a href="https://github.com/PeramatoG/Perastage/releases/latest">Latest GitHub release</a> · <a data-release-notes href="https://github.com/PeramatoG/Perastage/releases/latest">Release notes</a> · <a href="https://github.com/PeramatoG/Perastage/releases">All previous releases</a></p>
+          <div class="download-grid">
+            <article class="product-card download-card">
+              <svg class="product-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false"><path d="m3 5 8-1v7H3z M13 4l8-1v8h-8z M3 13h8v7l-8-1z M13 13h8v8l-8-1z" /></svg>
+              <h3>Windows</h3>
+              <p>Official x64 setup installer.</p>
+              <div data-platform="windows" data-label="Windows installer"><span class="download-unavailable">Direct download unavailable. Check the latest release above.</span></div>
+              <details><summary>Installation help</summary><ol><li>Download and run the official setup file.</li><li>If SmartScreen warns about an unrecognized app, verify the source. If you trust the file, choose <strong>More info → Run anyway</strong>, when available.</li><li>Complete setup and launch Perastage.</li></ol></details>
+            </article>
+            <article class="product-card download-card">
+              <svg class="product-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false"><path d="M15 3c0 3-3 4-3 4s-1-3 3-4Z M12 9c-6-4-10 3-7 8 2 5 4 5 7 3 3 2 5 2 7-3-4-2-4-5-1-7-2-3-4-2-6-1Z" /></svg>
+              <h3>macOS 15 — Apple Silicon (Compatibility Build)</h3>
+              <p>For Apple Silicon (ARM64), not Intel Macs. Choose this compatibility build for macOS 15.</p>
+              <div data-platform="macos15" data-label="macOS 15 DMG"><span class="download-unavailable">Direct download unavailable. Check the latest release above.</span></div>
+              <details><summary>Installation help</summary><ol><li>Choose the macOS 15 compatibility DMG, open it and drag Perastage into Applications.</li><li>Try launching it. If blocked, see the macOS security guidance below.</li></ol></details>
+            </article>
+            <article class="product-card download-card">
+              <svg class="product-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false"><path d="M15 3c0 3-3 4-3 4s-1-3 3-4Z M12 9c-6-4-10 3-7 8 2 5 4 5 7 3 3 2 5 2 7-3-4-2-4-5-1-7-2-3-4-2-6-1Z" /></svg>
+              <h3>macOS 26 — Apple Silicon</h3>
+              <p>For Apple Silicon (ARM64), not Intel Macs. Choose this build for macOS 26.</p>
+              <div data-platform="macos26" data-label="macOS 26 DMG"><span class="download-unavailable">Direct download unavailable. Check the latest release above.</span></div>
+              <details><summary>Installation help</summary><ol><li>Choose the macOS 26 DMG, open it and drag Perastage into Applications.</li><li>Try launching it. If blocked, see the macOS security guidance below.</li></ol></details>
+            </article>
+            <article class="product-card download-card">
+              <svg class="product-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false"><path d="M8 10C5 18 5 21 12 21s7-3 4-11V7a4 4 0 0 0-8 0z M9 12l3 2 3-2 M10 7v2 M14 7v2" /></svg>
+              <h3>Linux</h3>
+              <p>Primary Linux download · x86_64 AppImage.</p>
+              <div data-platform="linux" data-label="Linux AppImage"><span class="download-unavailable">Direct download unavailable. Check the latest release above.</span></div>
+              <details><summary>Installation help</summary><ol><li>Download the AppImage.</li><li>In its folder, make it executable: <code>chmod +x Perastage-*.AppImage</code>.</li><li>Open the file to launch it. AppImage normally needs no installation.</li></ol></details>
+            </article>
+            <article class="product-card download-card">
+              <svg class="product-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false"><path d="m12 3-9 18 6-3 3-6 3 6 6 3Z" /></svg>
+              <h3>Arch Linux</h3>
+              <p>Experimental native package · x86_64.</p>
+              <div data-platform="arch" data-label="Arch Linux package"><span class="download-unavailable">Direct download unavailable. Check the latest release above.</span></div>
+              <details><summary>Installation help</summary><p>Experimental: install the downloaded package from its folder with <code>sudo pacman -U ./Perastage-*-arch-x86_64.pkg.tar.zst</code>, then launch Perastage.</p></details>
+            </article>
+          </div>
+          <details class="download-security">
+            <summary>macOS security and advanced troubleshooting</summary>
+            <p>Current builds are not Developer ID signed or notarized by Apple. After trying to launch, if the developer cannot be verified, use <strong>System Settings → Privacy &amp; Security → Open Anyway</strong>, when available, only if you trust the official download. See <a href="https://support.apple.com/en-us/102445">Apple’s instructions for opening apps safely</a>.</p>
+            <p>Some macOS versions may report that the app is damaged. First download it again from the official release. For verified official files only, the <a href="next/installation.html#advanced-macos-troubleshooting">advanced installation guide</a> explains how to remove the app’s quarantine attribute and the security implications.</p>
+          </details>
+          <p><a href="next/installation.html">Detailed installation help</a> · <a href="stable/installation.html">Stable user guide</a>.</p>
+          <noscript><p>JavaScript is disabled. Use the latest GitHub release link above to download your platform’s package; installation help remains available here.</p></noscript>
+        </section>
         <section id="features" class="product-section" aria-labelledby="features-title">
           <h2 id="features-title">Practical tools for real show files</h2>
           <p class="product-intro">Perastage brings MVR, GDTF, visualization, inspection and production documentation into one focused desktop workflow.</p>

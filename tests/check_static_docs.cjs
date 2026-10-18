@@ -74,18 +74,18 @@ assert(landing.includes('fetchpriority="high" loading="eager" decoding="async"')
 assert(landing.includes('href="stable/quick-start.html"') && landing.includes('href="stable/troubleshooting.html"'));
 assert(landing.includes('experimental local CLI and OSC interfaces') && landing.includes('configured separately'));
 const releasePanel = landing.match(/<aside\b[^>]*class="product-release"[^>]*>([^]*?)<\/aside>/)[1];
-const releasedVersion = releasePanel.match(/Perastage (\d+\.\d+\.\d+) is available/)[1];
 assert(!/Coming in Perastage/i.test(landing), 'homepage must not retain prerelease messaging');
-assert(compareVersions(releasedVersion, first.stable.version) <= 0, 'advertised release must already have Stable documentation');
-for (const label of [`Download ${releasedVersion}`, 'Release notes']) {
-  assert(releasePanel.includes(`href="https://github.com/PeramatoG/Perastage/releases/tag/v${releasedVersion}">${label}</a>`));
-}
+assert(!/releases\/tag\/v|Perastage \d+\.\d+\.\d+/.test(releasePanel), 'release panel must not pin a stale version');
+assert(releasePanel.includes('href="#download">Download Perastage</a>'));
+assert(releasePanel.includes('data-release-notes'));
+assert.equal(jsonLd.downloadUrl, publicUrl() + '#download');
+require('./check_latest_release.cjs');
 const landingLinks = [...landing.matchAll(/\bhref="([^"]+)"/g)].map(match => match[1]);
 const userRoutes = new Set([...first.stable.pages, ...context.groups.flatMap(group => group.pages.map(page => path.basename(page.output)))]);
 for (const href of landingLinks.filter(href => !/^(?:[a-z][\w+.-]*:|\/\/|#)/i.test(href))) {
   const route = href.split(/[?#]/)[0];
   assert(fs.existsSync(path.join(context.docs, route)), `homepage target must exist: ${href}`);
-  if (userRoutes.has(path.basename(route))) assert(route.startsWith('stable/'), `public user link must select Stable: ${href}`);
+  if (userRoutes.has(path.basename(route)) && route !== 'next/installation.html') assert(route.startsWith('stable/'), `public user link must select Stable: ${href}`);
 }
 const imageBytes = name => fs.statSync(path.join(context.docs, 'assets/images', name)).size;
 assert(imageBytes('logo-web.png') < imageBytes('Perastage_logo.png') / 5);

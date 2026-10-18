@@ -6,18 +6,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Perastage Documentation • Installation</title>
 <meta name="robots" content="noindex,follow" />
-<meta name="description" content="Download the package for your desktop platform from the latest release. Perastage is a free, cross-platform desktop application to open, inspect, edit and document…" />
+<meta name="description" content="Download from the official website. It offers direct platform downloads and release notes; if metadata is unavailable, use the latest GitHub release. Package…" />
 <link rel="canonical" href="https://perastage.luismaperamato.com/next/installation.html" />
 <meta name="theme-color" content="#080808" />
 <meta property="og:site_name" content="Perastage" />
 <meta property="og:type" content="website" />
 <meta property="og:title" content="Perastage Documentation • Installation" />
-<meta property="og:description" content="Download the package for your desktop platform from the latest release. Perastage is a free, cross-platform desktop application to open, inspect, edit and document…" />
+<meta property="og:description" content="Download from the official website. It offers direct platform downloads and release notes; if metadata is unavailable, use the latest GitHub release. Package…" />
 <meta property="og:url" content="https://perastage.luismaperamato.com/next/installation.html" />
 <meta property="og:image" content="https://perastage.luismaperamato.com/assets/images/screenshots/hero-main.png" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Perastage Documentation • Installation" />
-<meta name="twitter:description" content="Download the package for your desktop platform from the latest release. Perastage is a free, cross-platform desktop application to open, inspect, edit and document…" />
+<meta name="twitter:description" content="Download from the official website. It offers direct platform downloads and release notes; if metadata is unavailable, use the latest GitHub release. Package…" />
 <meta name="twitter:image" content="https://perastage.luismaperamato.com/assets/images/screenshots/hero-main.png" />
 <link rel="icon" href="../assets/images/favicon.png" type="image/png" />
 <link rel="apple-touch-icon" href="../assets/images/apple-touch-icon.png" />
@@ -69,13 +69,42 @@
 
 </div>
 <div id="content" tabindex="-1"><h1 id="installation">Installation</h1>
-<p>Download the package for your desktop platform from the <a href="https://github.com/PeramatoG/Perastage/releases/latest">latest release</a>.</p>
-<ul>
-<li><strong>Windows:</strong> run the installer, then launch Perastage from the installed shortcut.</li>
-<li><strong>macOS:</strong> use the macOS package supplied with the release and launch Perastage.</li>
-<li><strong>Linux:</strong> use the Linux package supplied with the release and launch Perastage.</li>
-</ul>
-<p>Follow the instructions supplied with that package. Package availability can vary by release.</p>
+<p>Download from the <a href="https://perastage.luismaperamato.com/#download">official website</a>. It offers direct platform downloads and release notes; if metadata is unavailable, use the <a href="https://github.com/PeramatoG/Perastage/releases/latest">latest GitHub release</a>. Package availability can vary by release.</p>
+<h2 id="windows">Windows</h2>
+<ol>
+<li>Download the official x64 installer and run the setup file.</li>
+<li>Windows SmartScreen may warn about an unrecognized app. Verify that the file came from the official release. If you trust it, choose <strong>More info → Run anyway</strong>, when available.</li>
+<li>Complete installation and launch Perastage from the installed shortcut.</li>
+</ol>
+<p>Do not disable Windows Defender or SmartScreen.</p>
+<h2 id="macos">macOS</h2>
+<ol>
+<li>Choose <strong>macOS 15 — Apple Silicon (Compatibility Build)</strong> for macOS 15 or <strong>macOS 26 — Apple Silicon</strong> for macOS 26. Both builds target ARM64; Intel Macs are not supported by these packages.</li>
+<li>Open the DMG and drag Perastage into Applications.</li>
+<li>Try to launch Perastage.</li>
+<li>Current builds are not Developer ID signed or notarized by Apple. If Gatekeeper blocks the app because the developer cannot be verified, and you trust the official download, use <strong>System Settings → Privacy &amp; Security → Open Anyway</strong>, when available.</li>
+</ol>
+<p>See <a href="https://support.apple.com/en-us/102445">Apple’s guidance on opening apps safely</a>. Keep Gatekeeper enabled.</p>
+<h3 id="advanced-macos-troubleshooting">Advanced macOS troubleshooting</h3>
+<p>Some macOS versions may say the app is damaged. Download it again from the official release first. Only after verifying its official source and trusting the file, advanced users can run:</p>
+<pre><code class="language-bash">xattr -dr com.apple.quarantine /Applications/Perastage.app
+</code></pre>
+<p>This recursively removes quarantine from this app and bypasses the quarantine-based Gatekeeper check for it. It does not verify the app or repair corruption. Never use it on an untrusted download or remove quarantine globally.</p>
+<h2 id="linux-appimage">Linux AppImage</h2>
+<ol>
+<li>Download the x86_64 AppImage.</li>
+<li>In the download folder, make it executable:</li>
+</ol>
+<pre><code class="language-bash">chmod +x Perastage-*.AppImage
+</code></pre>
+<ol start="3">
+<li>Open the AppImage to launch Perastage. AppImage normally requires no installation.</li>
+</ol>
+<h2 id="arch-linux-experimental">Arch Linux (experimental)</h2>
+<p>The native x86_64 package is experimental. In the folder containing the downloaded package, install it with:</p>
+<pre><code class="language-bash">sudo pacman -U ./Perastage-*-arch-x86_64.pkg.tar.zst
+</code></pre>
+<p>Then launch Perastage from the application menu.</p>
 <h2 id="your-editable-library">Your editable library</h2>
 <p>Use <strong>Tools → Open user library folder</strong> to find writable dictionaries, fixture profiles and other library content. On Windows the default is <code>%APPDATA%\Perastage\library\</code>.</p>
 <p>Keep custom library content backed up. Bundled defaults fill missing user-library files without overwriting your existing files; edit the user copy rather than the installation directory.</p>

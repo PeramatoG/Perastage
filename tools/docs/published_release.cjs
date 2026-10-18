@@ -23,10 +23,24 @@ function publicationDecision(root, event, publishedSha) {
     reason: comparison > 0 ? 'Newer published release' : 'Stable already covers this version' };
 }
 
+// Recovery uses the current published API response and an exact local release tag.
+function currentPublicationDecision(root, event, publishedSha, latest) {
+  if (event.action === 'published') publicationDecision(root, event, publishedSha);
+  if (!latest || latest.draft !== false || latest.prerelease !== false ||
+      !latest.published_at || !/^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/.test(latest.tag_name || '')) {
+    throw new Error('Invalid published release metadata');
+  }
+  const sha = execFileSync('git', ['rev-parse', '--verify', `refs/tags/${latest.tag_name}^{commit}`], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  return publicationDecision(root, { action: 'published', release: latest }, sha);
+}
+
 // Pass only validated values to Actions outputs; event-controlled text stays out of shell code.
 function main() {
   const root = path.resolve(__dirname, '../..');
-  const decision = publicationDecision(root, JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')), process.env.PUBLISHED_SHA);
+  const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+  const decision = process.env.RELEASE_METADATA_PATH
+    ? currentPublicationDecision(root, event, process.env.PUBLISHED_SHA, JSON.parse(fs.readFileSync(process.env.RELEASE_METADATA_PATH, 'utf8')))
+    : publicationDecision(root, event, process.env.PUBLISHED_SHA);
   console.log(decision.reason);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `promote=${decision.promote}\n${decision.promote ? `version=${decision.version}\nsource_ref=${decision.source_ref}\n` : ''}`);
 }
@@ -34,4 +48,4 @@ function main() {
 if (require.main === module) {
   try { main(); } catch (error) { console.error(error.message); process.exitCode = 1; }
 }
-module.exports = { publicationDecision };
+module.exports = { publicationDecision, currentPublicationDecision };
