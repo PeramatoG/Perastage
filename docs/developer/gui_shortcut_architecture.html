@@ -344,6 +344,14 @@ editing rider text.</li>
 <li>Suggestion ordering uses local relevance ranking (exact/prefix/fuzzy + recent
 usage + syntax context), but key routing/priority rules above remain unchanged.</li>
 </ul>
+<h2 id="local-escape-handling-in-the-mvr-gdtf-download-queue">Local Escape handling in the MVR GDTF download queue</h2>
+<p><code>GdtfDownloadQueueDialog</code> consumes <code>Esc</code> through its dialog-local character
+hook. During queue work it requests cancellation and keeps the modal boundary
+alive; after terminal completion it acknowledges the results and resumes the
+import. Native dialog OK/Cancel commands use the same guarded lifecycle.
+This handling takes precedence over default dialog dismissal while focus is
+inside the queue. The import&#39;s parent is disabled by the modal boundary, and
+no global accelerator or scene-view shortcut is registered or remapped.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

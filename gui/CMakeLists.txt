@@ -1,4 +1,5 @@
 target_sources(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_download_queue_dialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/user_manual_dialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/about_dialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/addfixturedialog.cpp

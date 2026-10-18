@@ -1,4 +1,5 @@
 #include "configservices.h"
+#include "mvr_preferences.h"
 #include "gdtf_mutation_policy.h"
 #include "model_detail_policy.h"
 
@@ -26,11 +27,19 @@ int main() {
 
   const std::filesystem::path out = std::filesystem::temp_directory_path() /
                                     "perastage_user_preferences_store_test.json";
+  assert(!mvr::preferences::AutoCloseGdtfDownloadWindow(store));
+  for (const char *value : {"", "0", "true", "yes", "invalid"}) {
+    store.SetValue(mvr::preferences::kAutoCloseGdtfDownloadWindowKey, value);
+    assert(!mvr::preferences::AutoCloseGdtfDownloadWindow(store));
+  }
+  mvr::preferences::SaveAutoCloseGdtfDownloadWindow(store, true);
   assert(store.SaveToFile(out.string()));
 
   UserPreferencesStore loaded;
   loaded.RegisterVariable("zoom", "float", 1.0f, 0.5f, 2.0f);
   assert(loaded.LoadFromFile(out.string()));
+  assert(mvr::preferences::AutoCloseGdtfDownloadWindow(loaded));
+  mvr::preferences::SaveAutoCloseGdtfDownloadWindow(loaded, false);
   assert(loaded.GetFloat("zoom") == 2.0f);
   assert((model_detail::ReadPreferences(loaded) ==
           model_detail::Preferences{model_detail::Level::Low, true}));
@@ -47,6 +56,7 @@ int main() {
   assert(completed.LoadFromBuffer({json.begin(), json.end()}));
   assert((model_detail::ReadPreferences(completed) ==
           model_detail::Preferences{model_detail::Level::High, false}));
+  assert(!mvr::preferences::AutoCloseGdtfDownloadWindow(completed));
   assert(completed.GetValue(gdtf::kMutationPolicyConfigKey) ==
          "complete_and_improve");
   assert(gdtf::AllowsAutomaticCompletion(gdtf::ReadMutationPolicy(completed)));
@@ -71,6 +81,7 @@ int main() {
     UserPreferencesStore restarted;
     assert(restarted.LoadFromFile(out.string()));
     assert(restarted.GetValue("ui_language") == code);
+    assert(!mvr::preferences::AutoCloseGdtfDownloadWindow(restarted));
   }
   std::error_code ec;
   std::filesystem::remove(out, ec);

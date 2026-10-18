@@ -213,3 +213,13 @@ Priority and focus impact:
 - Global shortcut routing is unchanged because the dialog key handling stays local.
 - Suggestion ordering uses local relevance ranking (exact/prefix/fuzzy + recent
   usage + syntax context), but key routing/priority rules above remain unchanged.
+
+## Local Escape handling in the MVR GDTF download queue
+
+`GdtfDownloadQueueDialog` consumes `Esc` through its dialog-local character
+hook. During queue work it requests cancellation and keeps the modal boundary
+alive; after terminal completion it acknowledges the results and resumes the
+import. Native dialog OK/Cancel commands use the same guarded lifecycle.
+This handling takes precedence over default dialog dismissal while focus is
+inside the queue. The import's parent is disabled by the modal boundary, and
+no global accelerator or scene-view shortcut is registered or remapped.

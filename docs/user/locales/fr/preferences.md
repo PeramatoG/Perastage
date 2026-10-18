@@ -42,6 +42,8 @@ Les préférences GDTF gèrent les identifiants Share. Perastage stocke automati
 
 ### Import / export MVR
 
+**Fermer automatiquement la fenêtre de téléchargement GDTF à la fin** est désactivé par défaut, y compris pour les installations existantes. La file conserve les états, couleurs, progression et résumé finaux jusqu’au clic sur **OK** ou à la fermeture de la fenêtre ; l’importation continue ensuite. Activez cette option pour continuer automatiquement. Pendant les téléchargements, **Annuler** ou le bouton de fermeture demande l’annulation : les téléchargements terminés sont conservés et les autres appareils utilisent les solutions de repli existantes. Ce réglage est conservé après redémarrage et est indépendant des identifiants GDTF Share.
+
 **Truss geometry export mode** propose :
 
 - **Standard MVR representation** (par défaut) : conserver les références de symboles importées si possible.

@@ -228,6 +228,9 @@ int main(int argc, char **argv) {
     assert(FindControls<wxChoice>(Page(book, "GDTF")).empty());
     auto mvrChoice = FindControls<wxChoice>(Page(book, "MVR Import / Export")).at(0);
     assert(mvrChoice->GetSelection() == 1);
+    auto *autoCloseQueue = FindControls<wxCheckBox>(Page(book, "MVR Import / Export")).at(0);
+    assert(!autoCloseQueue->GetValue());
+    autoCloseQueue->SetValue(true);
     auto selectionChecks = FindControls<wxCheckBox>(Page(book, "Selection & Movement"));
     assert(selectionChecks.size() == 5);
     assert(selectionChecks[0]->GetValue() && !selectionChecks[1]->GetValue());
@@ -298,6 +301,7 @@ int main(int argc, char **argv) {
     assert(preferences.GetValue("app_update_startup_mode") == "startup");
     assert(preferences.GetValue("gdtf_mutation_policy") == "preserve_imported");
     assert(preferences.GetValue("mvr_truss_geometry_export_mode") == "standard");
+    assert(preferences.GetValue("mvr_auto_close_gdtf_download_window") == "1");
     assert(preferences.GetValue("selection_group_move_fixture") == "0");
     assert(preferences.GetValue("selection_group_move_truss") == "1");
     assert(preferences.GetValue("selection_group_move_support") == "0");

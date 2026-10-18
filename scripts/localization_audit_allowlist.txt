@@ -47,3 +47,4 @@ gui/mainwindow_menu.cpp|notepad-text|resource-path|Stable toolbar icon resource 
 gui/layoutpanel.cpp|.pslayout|technical-identifier|Stable layout package filename extension.
 gui/layoutviewerpanel_legend.cpp|Hg|technical-identifier|Locale-independent font-height measurement probe, not displayed.
 gui/rider_fixture_resolution_workflow.cpp|login|technical-identifier|Stable Core GDTF Share operation identifier passed to the English formatter.
+gui/gdtf_download_queue_dialog.cpp|0 B / ? B|technical-identifier|Locale-independent byte units and unknown-total placeholder; numeric byte progress is formatted with the same stable units.

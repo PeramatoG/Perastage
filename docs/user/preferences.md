@@ -58,6 +58,15 @@ and offsets. Explicit physical-property edits remain available.
 
 ### MVR Import / Export
 
+**Automatically close the GDTF download window when finished** is off by
+default, including for existing installations. After downloading, the queue
+keeps its final statuses, colors, progress and summary visible until you click
+**OK** or close the window. The import then continues. Enable this option to
+continue automatically when the queue finishes. During downloads, **Cancel**
+or the window close button requests cancellation; completed downloads are kept
+and remaining fixtures use the existing fallbacks. This preference is saved
+across restarts and is independent of GDTF Share credentials.
+
 **Truss geometry export mode** offers:
 
 - **Standard MVR representation** (default): preserve imported symbol references where possible.
