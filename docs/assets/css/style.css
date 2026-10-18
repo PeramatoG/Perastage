@@ -164,14 +164,21 @@ footer { margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border); 
 footer a { color:var(--text-muted); }
 footer a:hover, footer a:focus-visible { color:var(--accent-strong); }
 
-/* Platform downloads reuse the product surfaces and palette. */
-.download-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 1rem; }
-.download-card { min-width: 0; }
-.download-card h3 { line-height: 1.4; }
-.download-card .product-button { width: 100%; text-align: center; }
-.download-size { display: block; color: var(--text-muted); font-size: .85rem; margin-top: .4rem; }
+/* Compact platform cards keep download actions aligned within each row. */
+.download-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: .75rem; }
+.download-card { display: grid; grid-template-rows: subgrid; grid-row: span 5; row-gap: .6rem; min-width: 0; padding: 1rem; font-size: .9rem; line-height: 1.5; }
+.product-page .download-card .product-icon { margin: 0; }
+.download-card h3 { margin: 0; font-size: 1rem; line-height: 1.35; }
+.download-card > [data-platform] { align-self: end; margin-top: .4rem; }
+.download-card .product-button { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 3.5rem; padding: .4rem .5rem; font-size: .85rem; line-height: 1.4; text-align: center; }
+.download-size { display: block; color: var(--text-muted); font-size: .8rem; margin-top: .4rem; }
 .download-unavailable { color: var(--text-muted); }
-.download-card details, .download-security { margin-top: 1.25rem; }
+.download-card details { margin: 0; }
+.download-card details ol { padding-left: 1.25rem; }
+.download-security { margin-top: 1.25rem; }
 #download summary { cursor: pointer; color: var(--accent-strong); padding: .5rem 0; }
 #download a:focus-visible, #download summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 #download code { overflow-wrap: anywhere; }
+@media (min-width: 1280px) {
+  .download-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
