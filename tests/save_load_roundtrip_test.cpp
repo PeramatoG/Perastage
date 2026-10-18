@@ -717,6 +717,8 @@ int main() {
     const std::filesystem::path invalidSavePath =
         tempDir / "missing-parent" / "failed.pstg";
     assert(!cfg.SaveProject(PathUtils::PathToUtf8(invalidSavePath)));
+    assert(cfg.GetLastProjectSaveFailure().kind == ProjectSaveFailureKind::ArchiveIo);
+    assert(cfg.GetLastProjectSaveFailure().stage == "OpenOutput");
     const auto dirtyStateAfterFailedSave = cfg.CaptureDirtyState();
     assert(dirtyStateAfterFailedSave.revision ==
            dirtyStateBeforeFailedSave.revision);
@@ -777,6 +779,21 @@ int main() {
                .fixtureIdNumeric == 101);
     assert(scene3.fixtures.at("20000000-0000-4000-8000-000000000002")
                .fixtureIdNumeric == 101);
+
+    const auto beforeBlocked = ReadProjectIdentityPayload(secondProject);
+    cfg.GetScene().preservationIssues.push_back({"Symdef", "source-definition",
+        "Scene/AUXData/Symdef", "<Symdef name='protected'/>",
+        "Test source content needs canonical preservation.", "Keep the original."});
+    assert(!cfg.SaveProject(secondProject.string()));
+    assert(cfg.GetLastProjectSaveFailure().kind == ProjectSaveFailureKind::MvrPreservation);
+    assert(cfg.GetLastProjectSaveFailure().stage == "SerializeScene");
+    assert(cfg.GetLastProjectSaveFailure().detail.find("canonical preservation") != std::string::npos);
+    assert(cfg.GetLastProjectSaveError().find("archive could not be written") == std::string::npos);
+    const auto afterBlocked = ReadProjectIdentityPayload(secondProject);
+    assert(afterBlocked.configJson == beforeBlocked.configJson);
+    assert(afterBlocked.sceneXml == beforeBlocked.sceneXml);
+    assert(cfg.LoadProject(secondProject.string()));
+    assert(cfg.GetScene().preservationIssues.empty());
 
     std::filesystem::remove(temp);
     std::filesystem::remove(foreignNavigationProject);

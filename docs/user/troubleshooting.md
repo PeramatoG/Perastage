@@ -16,6 +16,21 @@ Use **Tools → Open user library folder**; on Windows the default is `%APPDATA%
 
 Select a non-empty layout, check its frames and orientation, and verify scene/table content before **File → Print Layout...**. Choose a writable destination and a non-empty filename. Review the exported PDF; see [Layouts and PDF](layouts.md) for the workflow.
 
+## Project save failures
+
+Save and Save As close the saving indicator and re-enable Perastage before
+showing a failure dialog. The indicator belongs to the Perastage window and
+has no system-wide always-on-top style.
+
+A preservation error means the shared canonical MVR exporter cannot yet retain
+some imported standard content. PSTG embeds that same canonical scene; choosing
+a different filename does not remove this limitation. Keep the original MVR
+and consult the log for the affected object or field. A resource error means a
+required project asset could not be saved. An archive error concerns writing
+the destination: check the folder, permissions and free disk space. Technical
+stage and resource details remain in the diagnostic log. No lossy conversion
+or alternative native scene representation is used.
+
 ## Project and runtime problems
 
 Save a separate project copy when possible, restart Perastage and reopen it. Recheck critical data in 2D, 3D and tables. For slow 3D navigation, lower [Model detail](preferences.md#3d-viewer) or enable the navigation proxy. Compare with a small project to isolate scene-specific problems.

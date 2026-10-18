@@ -47,6 +47,7 @@ public:
 
     bool SaveProject(const std::string& path);
     const std::string& GetLastProjectSaveError() const;
+    const ProjectSaveFailure &GetLastProjectSaveFailure() const { return lastProjectSaveFailure; }
     bool LoadProject(const std::string& path,
                      LoadProjectProgressCallback progressCallback = {});
     const std::vector<ProjectSession::ArchiveResource> &
@@ -160,6 +161,7 @@ private:
     SelectionState selectionState;
     HistoryManager historyManager;
     LayerVisibilityState layerVisibilityState;
+    ProjectSaveFailure lastProjectSaveFailure;
     std::string lastProjectSaveError;
 
     bool suppressRevision = false;

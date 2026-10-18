@@ -546,10 +546,14 @@ void ConfigManager::SetProjectArchiveResourceProvider(
 // Saves the current project state as a packaged archive with config, scene content, and used resources.
 bool ConfigManager::SaveProject(const std::string &path) {
   lastProjectSaveError.clear();
+  lastProjectSaveFailure = {};
   if (!symbols::MaterializeLegacyFixtureSymbols(GetScene(),
           GetProjectFixtureSymbols(), ProjectUtils::GetDefaultLibraryPath("fixtures"),
-          lastProjectSaveError))
+          lastProjectSaveError)) {
+    lastProjectSaveFailure = {ProjectSaveFailureKind::Resource, "MaterializeFixtureSymbols",
+                              lastProjectSaveError, {}};
     return false;
+  }
   layouts::LayoutManager::Get().PrepareImageResourcesForSave();
   layouts::LayoutManager::Get().SaveToConfig(*this);
   SetValue(kCurrentLayerConfigKey, GetCurrentLayer());
@@ -582,7 +586,7 @@ bool ConfigManager::SaveProject(const std::string &path) {
         configBytes.assign(serializedConfig.begin(), serializedConfig.end());
         return true;
       },
-      [](std::vector<uint8_t> &sceneBytes) {
+      [this](std::vector<uint8_t> &sceneBytes) {
         const auto sceneExportStart = std::chrono::steady_clock::now();
         MvrExporter exporter;
         const bool exported =
@@ -598,6 +602,23 @@ bool ConfigManager::SaveProject(const std::string &path) {
         if (!exported) {
           Logger::Instance().Log(Logger::Level::Error,
                                  "Project save scene MVR serialization failed.");
+          lastProjectSaveFailure = {ProjectSaveFailureKind::Serialization, "SerializeScene",
+                                    "Canonical MVR scene serialization failed.", {}};
+          for (const auto &diagnostic : exporter.GetExportDiagnostics()) {
+            if (diagnostic.severity != MvrExportDiagnosticSeverity::Error) continue;
+            auto kind = ProjectSaveFailureKind::Serialization;
+            if (diagnostic.code == MvrExportDiagnosticCode::StandardDataPreservationBlocked)
+              kind = ProjectSaveFailureKind::MvrPreservation;
+            else if (diagnostic.code == MvrExportDiagnosticCode::ResourceMissing ||
+                     diagnostic.code == MvrExportDiagnosticCode::TextureMissing ||
+                     diagnostic.code == MvrExportDiagnosticCode::GdtfPatchFailed)
+              kind = ProjectSaveFailureKind::Resource;
+            else if (diagnostic.code == MvrExportDiagnosticCode::ArchiveIoFailed)
+              kind = ProjectSaveFailureKind::ArchiveIo;
+            lastProjectSaveFailure = {kind, "SerializeScene", diagnostic.technicalDetail,
+                                      diagnostic.resourceName};
+            break;
+          }
         }
         return exported;
       },
@@ -651,8 +672,9 @@ bool ConfigManager::SaveProject(const std::string &path) {
     projectSession.GetFixtureSymbols().PruneUnreferenced(GetScene());
     projectSession.MarkSaved();
   } else {
-    lastProjectSaveError =
-        "Project archive could not be written. See the diagnostic log for the failing save stage.";
+    if (lastProjectSaveFailure.kind == ProjectSaveFailureKind::None)
+      lastProjectSaveFailure = projectSession.GetLastSaveFailure();
+    lastProjectSaveError = lastProjectSaveFailure.stage + ": " + lastProjectSaveFailure.detail;
   }
   return ok;
 }

@@ -648,3 +648,39 @@ P0 identifier/UnitNumber policy, incomplete Symdef/Symbol graph retention,
 resources/fallbacks, numeric/string precision and comprehensive semantic
 provenance are unchanged and unresolved. Classing within blocked VideoScreen
 or Projector data remains **protected**, not supported.
+
+
+## Save-dialog lifecycle and failure diagnostics continuation
+
+Independent of the Symdef phase, Save and Save As use one scoped, parent-owned
+busy dialog with no system-wide topmost style and no wxYield. It hides/destroys
+the busy window and restores the prior enabled-window state before returning
+to either handler, including exceptions, so an error dialog is never behind
+the saving overlay. Cancelling Save As precedes the busy scope.
+
+Core ProjectSession exposes a typed failure category, stage, detail and entry;
+ConfigManager retains the canonical exporter's preservation/resource findings
+instead of replacing them with a generic archive-writing error. GUI maps stable
+categories to concise translated messages. Technical detail is logged. There is
+no successful-save warning loop, new native payload, alternative scene serializer,
+lossy-export consent bypass, or change to the shared PSTG/MVR validation policy.
+Unsupported standard structures still require incremental genuine support in
+the canonical exporter before their blockers can be removed.
+
+Regression coverage: real wxWindow tests check success, ordinary failure, C++
+standard/unknown exceptions, overlay ownership/style/destruction and restoration
+of a previously disabled window; a routing guard checks both handlers and the
+Save As cancellation boundary. ProjectSession I/O tests exercise stage/category,
+serializer exceptions, resource and destination failures, prior archive retention
+and clearing stale diagnostics on success. SaveLoadRoundtrip verifies preservation
+errors reach ConfigManager and the previous project remains readable. Windows
+native window-manager behavior still needs review on that platform.
+
+Local verification for this continuation: **4/4 focused tests passed**, including
+real wxWidgets windows under Xvfb. MainWindow I/O syntax compilation and
+`perastage_check_translations` (complete es/fr/de/zh_CN catalogs, UI audit and
+self-tests) passed. Module/include directions, GUI access, source-size, repository
+hygiene, routing and generated-document drift guards passed. The GUI test needs
+local display-socket capability; the initial restricted-sandbox GTK startup
+failure was resolved by running Xvfb with that capability. Hosted CI is reported
+in the separate Draft PR; no native Windows/macOS window-manager result is claimed.

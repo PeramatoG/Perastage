@@ -19,6 +19,7 @@
 #include "mvrxchange/mvr_xchange_dialog.h"
 #include "filesystem_path_utils.h"
 #include "mainwindow_io_controller.h"
+#include "project_save_ui.h"
 #include "rider_fixture_resolution_workflow.h"
 
 #include <algorithm>
@@ -321,25 +322,22 @@ void MainWindow::OnSave(wxCommandEvent &event) {
     return;
   }
 
-  std::unique_ptr<wxWindowDisabler> saveDisabler =
-      std::make_unique<wxWindowDisabler>();
-  std::unique_ptr<wxBusyInfo> saveOverlay =
-      std::make_unique<wxBusyInfo>("Saving project...");
-  wxYieldIfNeeded();
-
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  // Always sync table edits before saving; each panel now applies only real changes.
-  SyncSceneData();
-  SaveUserConfigWithViewport2DState();
-  if (!cfg.SaveProject(currentProjectPath)) {
-    const std::string reason = cfg.GetLastProjectSaveError().empty()
-                                   ? "See the diagnostic log for details."
-                                   : cfg.GetLastProjectSaveError();
+  const auto result = project_save_ui::Run(*this, [&] {
+    // Sync table edits inside the scope; exceptions also restore enabled windows.
+    SyncSceneData();
+    SaveUserConfigWithViewport2DState();
+    return cfg.SaveProject(currentProjectPath);
+  });
+  if (!result.saved) {
+    const std::string reason = result.threw ? result.exceptionDetail : cfg.GetLastProjectSaveError();
+    const auto message = project_save_ui::FailureMessage(result.threw
+        ? ProjectSaveFailureKind::Unexpected : cfg.GetLastProjectSaveFailure().kind);
     diagnostics::DiagnosticLogger::Error(
         "Project save failed: " +
         diagnostics::DiagnosticLogger::FileNameOnly(currentProjectPath) +
         " - " + reason);
-    wxMessageBox(_("Failed to save project.\n\n") + wxString::FromUTF8(reason),
+    wxMessageBox(_("Failed to save project.\n\n") + message,
                  _("Error"), wxOK | wxICON_ERROR, this);
   } else {
     diagnostics::DiagnosticLogger::Info(
@@ -349,8 +347,6 @@ void MainWindow::OnSave(wxCommandEvent &event) {
     if (consolePanel)
       consolePanel->AppendMessage("[INFO] Saved " +
                                   wxString::FromUTF8(currentProjectPath));
-    saveOverlay.reset();
-    saveDisabler.reset();
     if (viewportPanel) {
       viewportPanel->UpdateScene();
       viewportPanel->Refresh();
@@ -392,26 +388,23 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
   currentProjectPath = EnsureProjectFileExtension(Utf8StringFromPath(selectedPath));
   currentProjectDisplayName.clear();
 
-  std::unique_ptr<wxWindowDisabler> saveDisabler =
-      std::make_unique<wxWindowDisabler>();
-  std::unique_ptr<wxBusyInfo> saveOverlay =
-      std::make_unique<wxBusyInfo>("Saving project...");
-  wxYieldIfNeeded();
-
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  // Always sync table edits before saving; each panel now applies only real changes.
-  SyncSceneData();
-  SaveUserConfigWithViewport2DState();
-  if (!cfg.SaveProject(currentProjectPath)) {
-    const std::string reason = cfg.GetLastProjectSaveError().empty()
-                                   ? "See the diagnostic log for details."
-                                   : cfg.GetLastProjectSaveError();
+  const auto result = project_save_ui::Run(*this, [&] {
+    // Sync table edits inside the scope; exceptions also restore enabled windows.
+    SyncSceneData();
+    SaveUserConfigWithViewport2DState();
+    return cfg.SaveProject(currentProjectPath);
+  });
+  if (!result.saved) {
+    const std::string reason = result.threw ? result.exceptionDetail : cfg.GetLastProjectSaveError();
+    const auto message = project_save_ui::FailureMessage(result.threw
+        ? ProjectSaveFailureKind::Unexpected : cfg.GetLastProjectSaveFailure().kind);
     diagnostics::DiagnosticLogger::Error(
         "Project save-as failed: " +
         diagnostics::DiagnosticLogger::FileNameOnly(currentProjectPath) +
         " - " + reason);
-    wxMessageBox(_("Failed to save project.\n\n") + wxString::FromUTF8(reason),
-                 _("Error"), wxICON_ERROR);
+    wxMessageBox(_("Failed to save project.\n\n") + message,
+                 _("Error"), wxOK | wxICON_ERROR, this);
   } else {
     diagnostics::DiagnosticLogger::Info(
         "Project save-as completed: " +
@@ -420,8 +413,6 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
     if (consolePanel)
       consolePanel->AppendMessage("[INFO] Saved " +
                                   wxString::FromUTF8(currentProjectPath));
-    saveOverlay.reset();
-    saveDisabler.reset();
     if (viewportPanel) {
       viewportPanel->UpdateScene();
       viewportPanel->Refresh();

@@ -7,6 +7,7 @@
 #include <fstream>
 #include <memory>
 #include <vector>
+#include <stdexcept>
 
 int main() {
   namespace fs = std::filesystem;
@@ -218,6 +219,8 @@ int main() {
         return true;
       });
   assert(!zeroSceneSaveOk);
+  assert(zeroSceneSession.GetLastSaveFailure().kind == ProjectSaveFailureKind::Serialization);
+  assert(zeroSceneSession.GetLastSaveFailure().stage == "SerializeScene");
   assert(!fs::exists(zeroSceneProjectPath));
 
   const fs::path requiredResourceFailurePath =
@@ -237,7 +240,41 @@ int main() {
             {"../unsafe-manifest.json", {'{', '}'}, true}};
       }));
   assert(!requiredResourceFailure);
+  assert(zeroSceneSession.GetLastSaveFailure().kind == ProjectSaveFailureKind::Resource);
+  assert(zeroSceneSession.GetLastSaveFailure().entry == "../unsafe-manifest.json");
   assert(!fs::exists(requiredResourceFailurePath));
+
+  // All failures leave an already valid destination unchanged.
+  const auto read = [](const fs::path &path) {
+    std::ifstream input(path, std::ios::binary);
+    return std::string(std::istreambuf_iterator<char>(input), {});
+  };
+  const auto original = read(projectPath);
+  ProjectSession::SaveConfigToBufferFn good = [](auto &bytes) {
+    bytes = {'{', '}'};
+    return true;
+  };
+  ProjectSession::SaveConfigToBufferFn bad = [](auto &) { return false; };
+  assert(!saveSession.SaveProject(projectPath.string(), bad, good));
+  assert(saveSession.GetLastSaveFailure().kind == ProjectSaveFailureKind::Serialization);
+  assert(saveSession.GetLastSaveFailure().stage == "SerializeConfig");
+  assert(read(projectPath) == original);
+  assert(!saveSession.SaveProject(projectPath.string(), good, bad));
+  assert(saveSession.GetLastSaveFailure().stage == "SerializeScene");
+  assert(read(projectPath) == original);
+  assert(!saveSession.SaveProject((tempDir / "missing" / "fail.pstg").string(), good, good));
+  assert(saveSession.GetLastSaveFailure().kind == ProjectSaveFailureKind::ArchiveIo);
+  assert(saveSession.GetLastSaveFailure().stage == "OpenOutput");
+  ProjectSession::SaveSceneToBufferFn throws = [](auto &) -> bool {
+    throw std::runtime_error("test serialization exception");
+  };
+  assert(!saveSession.SaveProject(projectPath.string(), good, throws));
+  assert(saveSession.GetLastSaveFailure().stage == "SerializeScene");
+  assert(saveSession.GetLastSaveFailure().detail == "test serialization exception");
+  assert(read(projectPath) == original);
+  assert(!fs::exists(projectPath.string() + ".tmp"));
+  assert(saveSession.SaveProject((tempDir / "success.pstg").string(), good, good));
+  assert(saveSession.GetLastSaveFailure().kind == ProjectSaveFailureKind::None);
 
   const fs::path jsonPath = tempDir / "config_only.json";
   {
