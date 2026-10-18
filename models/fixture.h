@@ -35,6 +35,7 @@ enum class FixtureProjectColorState { Missing, Present, ExplicitEmpty };
 // Represents a lighting fixture object parsed from MVR
 struct Fixture {
     std::string uuid;             // Unique identifier from the MVR file
+    std::string classing; // Scene-wide MVR Class UUID, independent of layer ownership.
     std::string instanceName;     // Name of this fixture instance (from MVR)
     std::string typeName;         // GDTF fixture type name
   std::string

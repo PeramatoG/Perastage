@@ -13,7 +13,7 @@ static MvrScene Scan(const std::string &xml) {
 
 int main() {
   for (const auto *xml : {
-      "<AUXData><Class uuid='10000000-0000-4000-8000-000000000001'/></AUXData>",
+      "<AUXData><Class uuid='invalid'/></AUXData>",
       "<AUXData><MappingDefinition><SizeX>1920</SizeX></MappingDefinition></AUXData>",
       "<Layer><Matrix>{1,0,0}{0,1,0}{0,0,1}{0,0,1000}</Matrix></Layer>",
       "<Fixture><Classing>10000000-0000-4000-8000-000000000001</Classing></Fixture>",

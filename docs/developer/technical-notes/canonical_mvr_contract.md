@@ -74,8 +74,8 @@ representation rules preserve standards-valid identity round-trips.
 FocusPoint uses the existing geometric SceneObject value with a distinct
 `SceneObjectKind::FocusPoint` and is serialized with its standard element name.
 Direct geometry, ownership, transforms and Fixture Focus links share the existing
-identity/resource/mutation services. Symbol-based focus geometry and Classing
-currently require preservation support and block writes. A required Geometries
+identity/resource/mutation services. Symbol-based focus geometry still requires
+preservation support and blocks writes. A required Geometries
 container may be empty; no replacement mesh is invented for an empty focus.
 
 Export preparation rejects durable known-loss evidence before identity/transform
@@ -85,3 +85,18 @@ See the [coverage audit](../../audits/mvr-1.6-data-integrity-and-roundtrip.md)
 for protected structures, unresolved P0 losses and the official XSD/UserData
 discrepancy. Full-document XSD conformance must not be inferred from the internal
 structural validator or from successful export/reimport.
+
+
+Classes are a persistent scene-wide UUID registry, independent of layers. Each
+supported Fixture, GroupObject, FocusPoint, SceneObject, Truss and Support owns
+its optional direct Classing UUID. Export retains unused definitions and exact
+optional names; equal names never identify or coalesce classes. Merge remaps
+real identity collisions and incoming references together, including cross-kind
+collisions regardless of object replacement policy. Malformed/ambiguous source
+identities, dangling references or unrepresented class content remain blocked;
+a final projection check rejects serializer omissions before publication.
+
+This preserves the identity model needed for future class visibility filtering
+across layers in Viewer2D, Viewer3D and Layout Mode. There are no visibility
+controls or flags in this change. Visibility presets and documentation settings
+will belong to PSTG, without adding proprietary Class attributes to MVR.

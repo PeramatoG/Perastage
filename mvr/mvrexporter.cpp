@@ -29,6 +29,7 @@
 #include "mvr_preferences.h"
 #include "mvr_export_preparation.h"
 #include "mvr_standard_preservation.h"
+#include "mvr_class_preservation.h"
 #include "mvr_export_archive_writer.h"
 #include "mvr_export_transport.h"
 #include "mvr_export_resource_collection.h"
@@ -1706,6 +1707,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     }
     mvr_xml_serialization::AppendSymdef(doc, aux, symdefValues);
   }
+  mvr_xml_serialization::PrependClasses(doc, aux, scene.classes);
   if (aux->FirstChild())
     sceneNode->InsertEndChild(aux);
 
@@ -1994,6 +1996,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     mvr_xml_serialization::FixtureValues values;
     values.uuid = stableUuid;
     values.name = fixtureExportName;
+    values.classing = f.classing;
     values.matrix = fixtureMatrixToWrite;
     values.gdtfSpec = fixtureGdtfArchivePath;
     // Keep fixture GDTF payloads byte-preserved unless physical edits require
@@ -2030,7 +2033,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                                              ? exportUuidIt->second
             : DeriveDeterministicUuid("mvr-export-truss:" + t.uuid + ":" +
                                       t.name);
-    values.object = {exportedTrussUuid, t.name};
+    values.object = {exportedTrussUuid, t.name, t.classing};
     auto idIt = assignedIds.find(t.uuid);
     int fixtureNumericId =
         (idIt != assignedIds.end()) ? idIt->second.second : 0;
@@ -2246,7 +2249,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
 
   auto exportSupport = [&](tinyxml2::XMLElement *parent, const Support &s) {
     mvr_xml_serialization::SupportValues values;
-    values.object = {s.uuid, s.name};
+    values.object = {s.uuid, s.name, s.classing};
     values.matrix = s.parentGroupUuid.empty() ? s.transform : s.localTransform;
     values.position = resolveObjectPosition(s.uuid);
 
@@ -2361,7 +2364,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
 
     mvr_xml_serialization::SceneObjectValues values;
     values.isFocusPoint = obj.kind == SceneObjectKind::FocusPoint;
-    values.object = {obj.uuid, obj.name};
+    values.object = {obj.uuid, obj.name, obj.classing};
     values.matrix =
         obj.parentGroupUuid.empty() ? obj.transform : obj.localTransform;
 
@@ -2521,7 +2524,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     }
 
     mvr_xml_serialization::AppendGroupObject(
-        doc, parent, {group.uuid, group.name}, group.localTransform, childList);
+        doc, parent, {group.uuid, group.name, group.classing}, group.localTransform, childList);
     Logger::Instance().Log(
         Logger::Level::Info,
         wxString::Format("MVR export preserved GroupObject uuid=%s",
@@ -2612,7 +2615,9 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   }
 
   sceneNode->InsertEndChild(layersNode);
-  const auto focusDiagnostics = mvr::CheckSerializedFocus(*sceneNode);
+  auto focusDiagnostics = mvr::CheckSerializedFocus(*sceneNode);
+  const auto classDiagnostics = mvr::CheckSerializedClasses(*sceneNode, scene);
+  focusDiagnostics.insert(focusDiagnostics.end(), classDiagnostics.begin(), classDiagnostics.end());
   for (const auto &diagnostic : focusDiagnostics)
     AddDiagnostic(diagnostic);
   if (!focusDiagnostics.empty())

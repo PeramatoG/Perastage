@@ -18,6 +18,7 @@
 #pragma once
 
 #include "types.h"
+#include "mvrscene.h"
 
 #include <string>
 #include <unordered_map>
@@ -54,6 +55,10 @@ tinyxml2::XMLElement *AppendScene(tinyxml2::XMLDocument &document,
 tinyxml2::XMLElement *AppendPreparedPositions(
     tinyxml2::XMLDocument &document,
     const std::unordered_map<std::string, std::string> &positions);
+
+// Prepends every Class, including unused definitions, in deterministic UUID order.
+void PrependClasses(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *aux,
+                    const std::unordered_map<std::string, MvrClass> &classes);
 
 // Appends a Symdef with fully resolved geometry archive references.
 void AppendSymdef(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *aux,

@@ -133,10 +133,19 @@ std::unordered_set<std::string> CollectUsedUuids(const MvrScene &scene) {
   addKeys(scene.groupObjects);
   addKeys(scene.layers);
   addKeys(scene.positions);
+  addKeys(scene.classes);
   addKeys(scene.symdefFiles);
   addKeys(scene.symdefTypes);
   addKeys(scene.symdefMatrices);
   addKeys(scene.symdefGeometries);
+  for (const auto &[uuid, truss] : scene.trusses)
+    if (!truss.sourceSymbolUuid.empty()) used.insert(truss.sourceSymbolUuid);
+  const auto addSymbols = [&](const auto &objects) {
+    for (const auto &[uuid, object] : objects)
+      for (const auto &geometry : object.geometries)
+        if (!geometry.sourceSymbolUuid.empty()) used.insert(geometry.sourceSymbolUuid);
+  };
+  addSymbols(scene.sceneObjects); addSymbols(scene.supports);
   return used;
 }
 
@@ -291,7 +300,8 @@ std::string ResolveImportedUuid(const std::string &uuid,
                                 std::string_view tableName,
                                 std::unordered_set<std::string> &usedUuids,
                                 MvrMergeAnalysis &analysis,
-                                const MvrMergeOptions &options) {
+                                const MvrMergeOptions &options,
+                                bool classCollision = false) {
   if (uuid.empty())
     return uuid;
 
@@ -301,12 +311,12 @@ std::string ResolveImportedUuid(const std::string &uuid,
   }
 
   ++analysis.uuidCollisionsDetected;
-  if (options.uuidCollisionBehavior ==
+  if (!classCollision && options.uuidCollisionBehavior ==
       MvrMergeUuidCollisionBehavior::ReplaceExisting) {
     analysis.uuidMap[uuid] = uuid;
     return uuid;
   }
-  if (options.uuidCollisionBehavior ==
+  if (!classCollision && options.uuidCollisionBehavior ==
       MvrMergeUuidCollisionBehavior::SkipIncoming) {
     analysis.uuidMap[uuid] = uuid;
     analysis.skippedIncomingUuids.insert(uuid);
@@ -326,9 +336,30 @@ void PrepareObjectTable(const std::unordered_map<std::string, T> &imported,
                         std::string_view tableName,
                         std::unordered_set<std::string> &usedUuids,
                         MvrMergeAnalysis &analysis,
-                        const MvrMergeOptions &options) {
+                        const MvrMergeOptions &options,
+                        const MvrScene &target) {
   for (const auto &uuid : SortedUuidKeys(imported))
-    (void)ResolveImportedUuid(uuid, tableName, usedUuids, analysis, options);
+    (void)ResolveImportedUuid(uuid, tableName, usedUuids, analysis, options,
+                              target.classes.contains(uuid));
+}
+
+// Only identical definitions with the same UUID share identity. Names never coalesce.
+void PrepareClassLookupTable(const MvrScene &target, const MvrScene &imported,
+                             std::unordered_set<std::string> &usedUuids,
+                             MvrMergeAnalysis &analysis) {
+  for (const auto &uuid : SortedUuidKeys(imported.classes)) {
+    const auto existing = target.classes.find(uuid);
+    if (existing != target.classes.end() && existing->second.name.value_or("") == imported.classes.at(uuid).name.value_or("")) {
+      analysis.uuidMap[uuid] = uuid;
+    } else if (usedUuids.insert(uuid).second) {
+      analysis.uuidMap[uuid] = uuid;
+    } else {
+      ++analysis.uuidCollisionsDetected;
+      analysis.uuidMap[uuid] = DeriveStableReplacementUuid("classes", uuid, usedUuids);
+      ++analysis.uuidCollisionsResolved;
+      ++analysis.nonObjectLookupConflictsResolved;
+    }
+  }
 }
 
 // Prepares position UUID remaps while preserving current names on conflicts.
@@ -356,7 +387,8 @@ void PreparePositionLookupTable(const MvrScene &target, const MvrScene &imported
       ++analysis.nonObjectLookupConflictsResolved;
       continue;
     }
-    (void)ResolveImportedUuid(uuid, "positions", usedUuids, analysis, options);
+    (void)ResolveImportedUuid(uuid, "positions", usedUuids, analysis, options,
+                              target.classes.contains(uuid));
   }
 }
 
@@ -385,7 +417,8 @@ void PrepareSymdefLookupTables(const MvrScene &target, const MvrScene &imported,
       ++analysis.nonObjectLookupConflictsResolved;
       continue;
     }
-    (void)ResolveImportedUuid(uuid, "symdefs", usedUuids, analysis, options);
+    (void)ResolveImportedUuid(uuid, "symdefs", usedUuids, analysis, options,
+                              target.classes.contains(uuid));
   }
 }
 
@@ -415,7 +448,7 @@ void PrepareLayerTable(const MvrScene &target, const MvrScene &imported,
       }
     } else if (!usedUuids.insert(uuid).second) {
       resolvedUuid = ResolveImportedUuid(uuid, "layers", usedUuids, analysis,
-                                         options);
+                                         options, target.classes.contains(uuid));
     }
 
     if (keepIncoming)
@@ -521,17 +554,18 @@ MvrMergeAnalysis AnalyzeImportedSceneMerge(const MvrScene &target,
   AnalyzeFixtureTypeConflicts(options, analysis);
 
   std::unordered_set<std::string> usedUuids = CollectUsedUuids(target);
+  PrepareClassLookupTable(target, imported, usedUuids, analysis);
   PreparePositionLookupTable(target, imported, usedUuids, analysis, options);
   PrepareSymdefLookupTables(target, imported, usedUuids, analysis, options);
   PrepareObjectTable(imported.fixtures, "fixtures", usedUuids, analysis,
-                     options);
-  PrepareObjectTable(imported.trusses, "trusses", usedUuids, analysis, options);
+                     options, target);
+  PrepareObjectTable(imported.trusses, "trusses", usedUuids, analysis, options, target);
   PrepareObjectTable(imported.supports, "supports", usedUuids, analysis,
-                     options);
+                     options, target);
   PrepareObjectTable(imported.sceneObjects, "sceneObjects", usedUuids, analysis,
-                     options);
+                     options, target);
   PrepareObjectTable(imported.groupObjects, "groupObjects", usedUuids, analysis,
-                     options);
+                     options, target);
   PrepareLayerTable(target, imported, usedUuids, analysis, options);
   AnalyzePatchAddressWarnings(target, imported, analysis);
 

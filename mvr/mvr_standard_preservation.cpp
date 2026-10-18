@@ -1,4 +1,5 @@
 #include "mvr_standard_preservation.h"
+#include "mvr_class_preservation.h"
 
 #include "filesystem_path_utils.h"
 #include "matrixutils.h"
@@ -19,19 +20,17 @@ using Names = std::unordered_set<std::string>;
 
 // Only known discarded structures are rejected; absence is never an error.
 const std::unordered_map<std::string, Names> unsupportedChildren = {
-    {"AUXData", {"Class", "MappingDefinition"}},
+    {"AUXData", {"MappingDefinition"}},
     {"Layer", {"Matrix"}},
-    {"Fixture", {"Classing", "CastShadow", "ChildPosition", "Protocols",
+    {"Fixture", {"CastShadow", "ChildPosition", "Protocols",
                  "Alignments", "CustomCommands", "Overwrites", "Connections",
                  "Mappings", "Gobo"}},
-    {"GroupObject", {"Classing"}},
-    {"FocusPoint", {"Classing"}},
-    {"SceneObject", {"Classing", "GDTFSpec", "GDTFMode", "CastShadow",
+    {"SceneObject", {"GDTFSpec", "GDTFMode", "CastShadow",
                      "Addresses", "Alignments", "CustomCommands", "Overwrites",
                      "Connections", "UnitNumber", "CustomId", "CustomIdType"}},
-    {"Truss", {"Classing", "CastShadow", "Addresses", "Alignments",
+    {"Truss", {"CastShadow", "Addresses", "Alignments",
                "CustomCommands", "Overwrites", "Connections", "ChildPosition"}},
-    {"Support", {"Classing", "CastShadow", "Addresses", "Alignments",
+    {"Support", {"CastShadow", "Addresses", "Alignments",
                  "CustomCommands", "Overwrites", "Connections", "UnitNumber",
                  "CustomIdType", "CustomId"}}};
 
@@ -149,11 +148,12 @@ MvrExportDiagnostic Block(const std::string &type, const std::string &uuid,
 } // namespace
 
 void RecordStandardPreservationRisks(tinyxml2::XMLElement &root, MvrScene &scene) {
+  ReadMvrClasses(root, scene);
   Scan(root, scene, {}, "/GeneralSceneDescription");
 }
 
 std::vector<MvrExportDiagnostic> CheckStandardPreservation(const MvrScene &scene) {
-  std::vector<MvrExportDiagnostic> result;
+  auto result = CheckMvrClasses(scene);
   if (scene.versionMajor != 1 || scene.versionMinor > 6)
     result.push_back(Block("GeneralSceneDescription", {}, "/@verMajor,verMinor",
                            "Unsupported MVR version cannot be downgraded safely."));

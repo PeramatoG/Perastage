@@ -20,6 +20,7 @@
 #include "matrixutils.h"
 
 #include <tinyxml2.h>
+#include <map>
 
 namespace mvr_xml_serialization {
 
@@ -58,6 +59,18 @@ tinyxml2::XMLElement *AppendPreparedPositions(
     aux->InsertEndChild(position);
   }
   return aux;
+}
+
+// Class identity and optional name are already resolved; no name normalization.
+void PrependClasses(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *aux,
+                    const std::unordered_map<std::string, MvrClass> &classes) {
+  const std::map<std::string, MvrClass> ordered(classes.begin(), classes.end());
+  for (auto it = ordered.rbegin(); it != ordered.rend(); ++it) {
+    auto *element = document.NewElement("Class");
+    element->SetAttribute("uuid", it->first.c_str());
+    if (it->second.name) element->SetAttribute("name", it->second.name->c_str());
+    aux->InsertFirstChild(element);
+  }
 }
 
 // Appends a Symdef and its resolved Geometry3D children in MVR order.

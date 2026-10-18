@@ -43,6 +43,7 @@ enum class SceneObjectKind { SceneObject, FocusPoint };
 struct SceneObject {
     SceneObjectKind kind = SceneObjectKind::SceneObject;
     std::string uuid;
+    std::string classing; // Scene-wide MVR Class UUID, independent of layer ownership.
     std::string name;
     std::string layer; // Derived presentation/legacy compatibility label.
     std::string layerUuid; // Authoritative persistent Layer ownership.
