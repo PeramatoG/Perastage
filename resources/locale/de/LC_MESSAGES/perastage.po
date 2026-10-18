@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-18 12:16+0000\n"
+"POT-Creation-Date: 2026-10-18 12:23+0000\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: German\n"
@@ -4379,62 +4379,62 @@ msgstr ""
 msgid "MVR file exported successfully."
 msgstr "MVR-Datei erfolgreich exportiert."
 
-#: gui/mvr_gdtf_resolution_actions.cpp:43
+#: gui/mvr_gdtf_resolution_actions.cpp:44
 #, c-format
 msgid "%s / %d channels"
 msgstr "%s / %d Kanäle"
 
-#: gui/mvr_gdtf_resolution_actions.cpp:47
+#: gui/mvr_gdtf_resolution_actions.cpp:48
 msgid "Select the DMX mode for this profile."
 msgstr "Wählen Sie den DMX-Modus für dieses Profil."
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:48
+#: gui/mvr_gdtf_resolution_actions.cpp:49
 msgid "DMX mode"
 msgstr "DMX-Modus"
 
-#: gui/mvr_gdtf_resolution_actions.cpp:64
+#: gui/mvr_gdtf_resolution_actions.cpp:65
 msgid "Review model, mode and channel compatibility before applying."
 msgstr "Prüfen Sie vor dem Anwenden die Kompatibilität von Modell, Modus und Kanälen."
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:69
+#: gui/mvr_gdtf_resolution_actions.cpp:70
 msgid ""
 "The selected DMX mode will apply to every instance of this fixture type."
 msgstr "Der gewählte DMX-Modus wird auf alle Instanzen dieses Gerätetyps angewendet."
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:71
+#: gui/mvr_gdtf_resolution_actions.cpp:72
 msgid "The selected DMX mode differs from the imported mode."
 msgstr "Der gewählte DMX-Modus unterscheidet sich vom importierten Modus."
 
-#: gui/mvr_gdtf_resolution_actions.cpp:77
+#: gui/mvr_gdtf_resolution_actions.cpp:78
 #: gui/mvr_gdtf_resolution_dialog.cpp:247
 msgid "The DMX footprint differs from the imported profile."
 msgstr "Die DMX-Kanalzahl unterscheidet sich vom importierten Profil."
 
-#: gui/mvr_gdtf_resolution_actions.cpp:79
+#: gui/mvr_gdtf_resolution_actions.cpp:80
 msgid "Confirm GDTF selection"
 msgstr "GDTF-Auswahl bestätigen"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:198
+#: gui/mvr_gdtf_resolution_actions.cpp:199
 #: gui/mvr_gdtf_resolution_dialog.cpp:120
 msgid "Load local GDTF..."
 msgstr "Lokale GDTF laden..."
 
-#: gui/mvr_gdtf_resolution_actions.cpp:199
+#: gui/mvr_gdtf_resolution_actions.cpp:200
 msgid "GDTF files (*.gdtf)|*.gdtf"
 msgstr "GDTF-Dateien (*.gdtf)|*.gdtf"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:205
+#: gui/mvr_gdtf_resolution_actions.cpp:206
 msgid "The selected GDTF package is not usable."
 msgstr "Das gewählte GDTF-Paket ist nicht verwendbar."
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:208
-#: gui/mvr_gdtf_resolution_actions.cpp:220
+#: gui/mvr_gdtf_resolution_actions.cpp:209
+#: gui/mvr_gdtf_resolution_actions.cpp:221
 msgid "GDTF selection"
 msgstr "GDTF-Auswahl"
 
@@ -4573,12 +4573,12 @@ msgid "Queue canceled. Keeping downloaded fixtures."
 msgstr ""
 "Warteschlange abgebrochen. Heruntergeladene Scheinwerfer bleiben erhalten."
 
-#: gui/mvr_gdtf_resolution_worker.cpp:186
+#: gui/mvr_gdtf_resolution_worker.cpp:189
 msgid "Queue finished."
 msgstr "Warteschlange abgeschlossen."
 
 #
-#: gui/mvr_gdtf_resolution_worker.cpp:210
+#: gui/mvr_gdtf_resolution_worker.cpp:216
 msgid "Canceling..."
 msgstr "Abbrechen..."
 

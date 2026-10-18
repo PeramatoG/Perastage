@@ -40,3 +40,5 @@ réglée dans la file. Activée, elle poursuit l’import avec les choix sûrs t
 Les ambiguïtés et échecs restent ouverts pour vérification. Annuler conserve les
 transferts terminés et les profils de secours valides. Une empreinte identique ne
 garantit pas la même fonction pour les canaux DMX.
+
+**Appliquer les sélections** relance aussi les téléchargements échoués. Annuler l’authentification arrête les tentatives restantes sans répéter le dialogue de connexion pour chaque ligne.

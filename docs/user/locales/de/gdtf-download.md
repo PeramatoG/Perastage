@@ -40,3 +40,5 @@ kann auch in der Warteschlange geändert werden. Wenn aktiviert, setzt es den
 Import mit sicheren abgeschlossenen Auswahlen fort. Mehrdeutige Ergebnisse und
 Fehler bleiben zur Prüfung offen. Abbrechen erhält abgeschlossene Downloads und
 gültige Ersatzprofile. Die gleiche Kanalzahl garantiert keine gleiche DMX-Funktion.
+
+**Auswahl anwenden** wiederholt auch fehlgeschlagene Downloads. Ein Abbruch der Anmeldung beendet die übrigen Versuche, ohne den Anmeldedialog für jede Zeile erneut zu öffnen.

@@ -39,3 +39,5 @@ puede cambiarse en la cola. Al activarla, las selecciones seguras completadas
 continúan la importación; las ambigüedades y los errores permanecen visibles.
 Cancelar conserva las descargas completadas y las alternativas válidas. Una
 huella coincidente no garantiza que los canales DMX tengan el mismo significado.
+
+**Aplicar selecciones** también reintenta las descargas fallidas. Cancelar la autenticación detiene los intentos pendientes sin repetir el diálogo de acceso por cada fila.

@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-18 12:16+0000\n"
+"POT-Creation-Date: 2026-10-18 12:23+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -4272,62 +4272,62 @@ msgstr "MVR 文件已成功导出，但部分数据需要调整或无法保留�
 msgid "MVR file exported successfully."
 msgstr "MVR 文件导出成功。"
 
-#: gui/mvr_gdtf_resolution_actions.cpp:43
+#: gui/mvr_gdtf_resolution_actions.cpp:44
 #, c-format
 msgid "%s / %d channels"
 msgstr "%s / %d 通道"
 
-#: gui/mvr_gdtf_resolution_actions.cpp:47
+#: gui/mvr_gdtf_resolution_actions.cpp:48
 msgid "Select the DMX mode for this profile."
 msgstr "请选择此配置文件的 DMX 模式。"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:48
+#: gui/mvr_gdtf_resolution_actions.cpp:49
 msgid "DMX mode"
 msgstr "DMX 模式"
 
-#: gui/mvr_gdtf_resolution_actions.cpp:64
+#: gui/mvr_gdtf_resolution_actions.cpp:65
 msgid "Review model, mode and channel compatibility before applying."
 msgstr "应用前请检查型号、模式和通道兼容性。"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:69
+#: gui/mvr_gdtf_resolution_actions.cpp:70
 msgid ""
 "The selected DMX mode will apply to every instance of this fixture type."
 msgstr "所选 DMX 模式将应用于此灯具类型的所有实例。"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:71
+#: gui/mvr_gdtf_resolution_actions.cpp:72
 msgid "The selected DMX mode differs from the imported mode."
 msgstr "所选 DMX 模式与导入模式不同。"
 
-#: gui/mvr_gdtf_resolution_actions.cpp:77
+#: gui/mvr_gdtf_resolution_actions.cpp:78
 #: gui/mvr_gdtf_resolution_dialog.cpp:247
 msgid "The DMX footprint differs from the imported profile."
 msgstr "DMX 通道占用数与导入配置文件不同。"
 
-#: gui/mvr_gdtf_resolution_actions.cpp:79
+#: gui/mvr_gdtf_resolution_actions.cpp:80
 msgid "Confirm GDTF selection"
 msgstr "确认 GDTF 选择"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:198
+#: gui/mvr_gdtf_resolution_actions.cpp:199
 #: gui/mvr_gdtf_resolution_dialog.cpp:120
 msgid "Load local GDTF..."
 msgstr "加载本地 GDTF..."
 
-#: gui/mvr_gdtf_resolution_actions.cpp:199
+#: gui/mvr_gdtf_resolution_actions.cpp:200
 msgid "GDTF files (*.gdtf)|*.gdtf"
 msgstr "GDTF 文件 (*.gdtf)|*.gdtf"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:205
+#: gui/mvr_gdtf_resolution_actions.cpp:206
 msgid "The selected GDTF package is not usable."
 msgstr "所选 GDTF 包不可用。"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:208
-#: gui/mvr_gdtf_resolution_actions.cpp:220
+#: gui/mvr_gdtf_resolution_actions.cpp:209
+#: gui/mvr_gdtf_resolution_actions.cpp:221
 msgid "GDTF selection"
 msgstr "GDTF 选择"
 
@@ -4467,12 +4467,12 @@ msgstr "当前保留的配置文件："
 msgid "Queue canceled. Keeping downloaded fixtures."
 msgstr "队列已取消。保留已下载的灯具。"
 
-#: gui/mvr_gdtf_resolution_worker.cpp:186
+#: gui/mvr_gdtf_resolution_worker.cpp:189
 msgid "Queue finished."
 msgstr "队列已完成。"
 
 #
-#: gui/mvr_gdtf_resolution_worker.cpp:210
+#: gui/mvr_gdtf_resolution_worker.cpp:216
 msgid "Canceling..."
 msgstr "正在取消..."
 

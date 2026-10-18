@@ -41,3 +41,5 @@ safe completed choices continue the import directly. Ambiguous or failed results
 remain open for review. Cancel stops pending transfers and retains completed
 choices and valid fallbacks. A matching footprint does not guarantee that DMX
 channels have the same meaning.
+
+**Apply selections** also retries failed downloads. Canceling authentication stops the remaining attempts without repeating the sign-in dialog for every row.

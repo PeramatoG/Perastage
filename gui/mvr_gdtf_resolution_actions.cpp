@@ -18,6 +18,7 @@
 #include "mvr_gdtf_resolution_dialog.h"
 #include "gdtfsearchdialog.h"
 #include "filesystem_path_utils.h"
+#include "wx_path_utils.h"
 #include <wx/wx.h>
 #include <wx/choice.h>
 #include <wx/choicdlg.h>
@@ -199,7 +200,7 @@ void MvrGdtfResolutionDialog::LoadLocal() {
                        _("GDTF files (*.gdtf)|*.gdtf"), wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (picker.ShowModal() != wxID_OK)
     return;
-  const auto source = PathUtils::PathFromUtf8(picker.GetPath().ToStdString());
+  const auto source = WxPathUtils::FilesystemPathFromWxString(picker.GetPath());
   const auto profile = ReadProfile(source);
   if (!profile.usable) {
     wxString diagnostic = _("The selected GDTF package is not usable.");

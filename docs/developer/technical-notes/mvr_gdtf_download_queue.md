@@ -145,3 +145,5 @@ mode explicitly chosen by the user applies to every instance of that type. This
 prevents an automatic suggestion based on the first instance from silently
 rewriting other instances' modes. Address spacing is not treated as a verified
 GDTF footprint.
+
+Apply selections retries failed catalog rows. An authentication cancellation or failure stops pending attempts as one batch, retaining every valid fallback and completed result without repeating the sign-in dialog for each row.

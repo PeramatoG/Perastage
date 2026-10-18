@@ -53,7 +53,7 @@ static void ApproveModal() {
         dialog->EndModal(wxID_OK);
 }
 
-static void Run(bool automaticClose, bool fail = false, bool canceled = false, bool multipleModes = false) {
+static void Run(bool automaticClose, bool fail = false, bool canceled = false, bool multipleModes = false, bool authFailed = false) {
   runtime_storage::TemporaryWorkspace workspace("mvr-gdtf-gui-test");
   const auto path = workspace.Path() / "fixture.gdtf";
   std::string error;
@@ -80,7 +80,7 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
                       {"b", "Acme", "Beam 200", {{"Standard",0}}, 2, 2}};
     return result;
   };
-  callbacks.authenticate = [&] { ++logins; return true; };
+  callbacks.authenticate = [&] { ++logins; return !authFailed; };
   callbacks.confirmSelection = [](const Choice &, const Profile *) { return true; };
   callbacks.persistAutoClose = [&](bool) { persistCalled = true; };
   callbacks.download = [&](const Choice &, auto, auto cancel) {
@@ -108,7 +108,7 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
         Click(*Button(dialog, "OK"));
       return;
     }
-    if (fail) {
+    if (fail || authFailed) {
       if (results.at(request.type).status == Status::DownloadFailed)
         Click(*Button(dialog, "OK"));
       return;
@@ -160,7 +160,9 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
     assert(results.at(request.type).applied.mode.empty());
     assert(results.at(alias.type).applied.mode.empty());
     assert(results.at(request.type).status == Status::OriginalMvr);
-  } else if (fail) {
+  } else if (fail || authFailed) {
+    if (authFailed)
+      assert(downloads == 0 && logins == 1);
     assert(results.at(request.type).status == Status::DownloadFailed);
     assert(results.at(request.type).applied.source == Source::OriginalMvr);
   } else if (canceled) {
@@ -188,6 +190,7 @@ int main(int argc, char **argv) {
   Run(false, false, true);
   Run(true, true);
   Run(true, false, false, true);
+  Run(true, false, false, false, true);
   wxTheApp->OnExit();
   wxEntryCleanup();
 }

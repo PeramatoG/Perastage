@@ -148,8 +148,11 @@ void MvrGdtfResolutionDialog::ProcessNext() {
       completed.erase(cached);
     }
     if (!callbacks.authenticate()) {
-      Fail(resolution, attempt, "GDTF Share authentication unavailable or canceled.");
-      continue;
+      for (auto &row : rows)
+        if (row.resolution.status == Status::Pending)
+          Fail(row.resolution, row.resolution.selected,
+               "GDTF Share authentication unavailable or canceled.");
+      break;
     }
     resolution.status = Status::Downloading;
     SetBusy(true);
@@ -200,6 +203,9 @@ void MvrGdtfResolutionDialog::Apply() {
   if (busy)
     return;
   stop = false;
+  for (auto &row : rows)
+    if (row.resolution.status == Status::DownloadFailed)
+      Select(row.resolution, row.resolution.selected, row.resolution.origin);
   ProcessNext();
 }
 
