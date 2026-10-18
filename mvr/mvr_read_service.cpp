@@ -17,6 +17,7 @@
 #include "matrixutils.h"
 #include "mvr_import_reference_resolver.h"
 #include "mvr_scene_node_reader.h"
+#include "mvr_standard_preservation.h"
 #include "primitive_model_resources.h"
 #include "uuidutils.h"
 
@@ -216,6 +217,7 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
 
   root->QueryIntAttribute("verMajor", &scene.versionMajor);
   root->QueryIntAttribute("verMinor", &scene.versionMinor);
+  RecordStandardPreservationRisks(*root, scene);
 
   // Warn if the MVR file uses a newer version than we officially support.
   // The importer still attempts to parse the file so that documents with a

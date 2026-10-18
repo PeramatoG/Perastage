@@ -32,6 +32,16 @@ Imported GDTFs, symbols and models are retained with project resources so they c
 
 Save ongoing work as `.pstg`, which preserves Perastage project context, layouts and project symbols. MVR is the exchange format. Perastage stores its own exchange metadata in standards-compatible, application-owned UserData; other applications may not retain that metadata.
 
+Imported FocusPoint objects with direct geometry retain their identities,
+transforms and fixture Focus links through project save/reopen and MVR export.
+Some standard structures still cannot be preserved safely. When a known loss
+is detected, project save and MVR export stop; the existing destination file
+is kept. Read the export details or log for the affected object and field, and
+keep the original MVR for use in an application that preserves that information.
+There is no lossy-conversion override. An export that completes is not a
+guarantee that every possible MVR structure has been verified; see the
+[data-integrity coverage report](../audits/mvr-1.6-data-integrity-and-roundtrip.md).
+
 ## Export MVR
 
 1. Choose **File → Export MVR...**.

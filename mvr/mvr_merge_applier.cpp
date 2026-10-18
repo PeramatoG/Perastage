@@ -230,6 +230,10 @@ MvrSceneMergeResult ApplyImportedSceneMerge(MvrScene &target,
   EnsureMergeResourceBasePath(target, imported);
   layerdomain::MigrateLayerMembership(target);
   MvrScene importedCopy = imported;
+  for (const auto &issue : imported.preservationIssues)
+    if (std::find(target.preservationIssues.begin(), target.preservationIssues.end(),
+                  issue) == target.preservationIssues.end())
+      target.preservationIssues.push_back(issue);
   layerdomain::MigrateLayerMembership(importedCopy);
   RewriteImportedSceneResourceReferences(target, importedCopy);
   ApplyFixtureTypeDecisions(importedCopy, analysis);

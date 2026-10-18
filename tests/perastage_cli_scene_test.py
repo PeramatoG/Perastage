@@ -140,6 +140,25 @@ def main() -> int:
         assert overwritten_json["scene_changed"] is True
         assert overwritten_json["output_published"] is True
         assert digest(source) == source_digest
+
+        unsafe = root / "unsupported-standard-data.mvr"
+        unsafe_xml = SCENE_XML.replace(
+            "</Fixture>",
+            '<Alignments><Alignment geometry="Beam" up="0,0,1" '
+            'direction="0,0,-1"/></Alignments></Fixture>')
+        with zipfile.ZipFile(unsafe, "w") as archive:
+            archive.writestr("GeneralSceneDescription.xml", unsafe_xml)
+            archive.writestr("fixture.gdtf", fixture_bytes.getvalue())
+        protected_destination = output.read_bytes()
+        protected = run(cli, "scene", str(unsafe), "--output", str(output),
+                        "--overwrite", "--command", "clear", "--json")
+        assert protected.returncode != 0
+        protected_json = json.loads(protected.stdout)
+        assert protected_json["output_published"] is False
+        assert any("Alignments" in diagnostic and
+                   "22222222-2222-4222-8222-222222222222" in diagnostic
+                   for diagnostic in protected_json["diagnostics"])
+        assert output.read_bytes() == protected_destination
     return 0
 
 

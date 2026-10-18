@@ -50,7 +50,13 @@ void AppendFixture(tinyxml2::XMLDocument &document,
   fixture->InsertEndChild(matrix);
   addString("GDTFSpec", values.gdtfSpec);
   addString("GDTFMode", values.gdtfMode);
+  addString("Focus", values.focus);
+  if (values.dmxInvertPan)
+    addString("DMXInvertPan", "true");
+  if (values.dmxInvertTilt)
+    addString("DMXInvertTilt", "true");
   addString("Position", values.position);
+  addString("Function", values.function);
   addString("FixtureID", values.fixtureId);
   addInt("FixtureIDNumeric", values.fixtureIdNumeric);
   addInt("UnitNumber", values.unitNumber);
@@ -63,6 +69,8 @@ void AppendFixture(tinyxml2::XMLDocument &document,
     fixture->InsertEndChild(addresses);
   }
   addString("Color", values.color);
+  addInt("CustomIdType", values.customIdType);
+  addInt("CustomId", values.customId);
   parent->InsertEndChild(fixture);
 }
 
@@ -195,12 +203,16 @@ void AppendSceneObject(tinyxml2::XMLDocument &document,
                        tinyxml2::XMLElement *parent,
                        const SceneObjectValues &values) {
   tinyxml2::XMLElement *object =
-      CreateObject(document, "SceneObject", values.object);
+      CreateObject(document, values.isFocusPoint ? "FocusPoint" : "SceneObject",
+                   values.object);
   AppendText(document, object, "Matrix",
              MatrixUtils::FormatMatrix(values.matrix));
-  AppendGeometryReferences(document, object, values.geometries, false);
-  AppendText(document, object, "FixtureID", values.fixtureId);
-  AppendInteger(document, object, "FixtureIDNumeric", values.fixtureIdNumeric);
+  AppendGeometryReferences(document, object, values.geometries,
+                           values.isFocusPoint);
+  if (!values.isFocusPoint) {
+    AppendText(document, object, "FixtureID", values.fixtureId);
+    AppendInteger(document, object, "FixtureIDNumeric", values.fixtureIdNumeric);
+  }
   parent->InsertEndChild(object);
 }
 

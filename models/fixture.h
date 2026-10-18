@@ -68,6 +68,8 @@ struct Fixture {
     std::string automaticVisualColorHex;
     // Official MVR Fixture/Color represented as UI hex and converted to/from CIE xyY.
     std::string mvrFixtureColorHex;
+    std::string mvrFixtureColorCie;
+    std::string mvrFixtureColorAtImport;
 
     std::string fixtureIdText;    // FixtureID (free-form string identifier from XML)
     int fixtureId = 0;            // Numeric FixtureID fallback used internally

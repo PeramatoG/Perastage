@@ -42,6 +42,12 @@ struct FixtureValues {
   int unitNumber = 0;
   std::optional<int> absoluteDmxAddress;
   std::string color;
+  std::string focus;
+  std::string function;
+  bool dmxInvertPan = false;
+  bool dmxInvertTilt = false;
+  int customId = 0;
+  int customIdType = 0;
 };
 
 struct ObjectValues {
@@ -101,6 +107,7 @@ struct SceneObjectValues {
   std::vector<GeometryReference> geometries;
   std::string fixtureId;
   int fixtureIdNumeric = 0;
+  bool isFocusPoint = false;
 };
 
 // Appends one standard MVR Fixture node using fully resolved export values.

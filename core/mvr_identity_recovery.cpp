@@ -328,6 +328,8 @@ RecoveryResult RecoverSceneIdentities(MvrScene &scene,
     (void)uuid;
     RewriteReference(object.parentGroupUuid, "Fixture", object.instanceName,
                      "parent-group", sourceContext, aliases, result);
+    RewriteReference(object.focus, "Fixture", object.instanceName,
+                     "focus", sourceContext, aliases, result);
   }
   for (auto &[uuid, object] : scene.trusses) {
     (void)uuid;

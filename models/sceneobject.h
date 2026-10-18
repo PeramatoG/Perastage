@@ -37,8 +37,11 @@ struct GeometryInstance {
     Matrix localTransform = Matrix{};
 };
 
-// Represents a generic SceneObject parsed from MVR
+enum class SceneObjectKind { SceneObject, FocusPoint };
+
+// Shares geometric ownership and mutation services without losing MVR node type.
 struct SceneObject {
+    SceneObjectKind kind = SceneObjectKind::SceneObject;
     std::string uuid;
     std::string name;
     std::string layer; // Derived presentation/legacy compatibility label.
