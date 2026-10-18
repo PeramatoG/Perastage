@@ -633,6 +633,7 @@ target_link_libraries(perastage_gdtf_resolution PUBLIC perastage_gdtf_matching)
 
 add_library(perastage_gdtf_resolution_resources STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_resolution_resources.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_automatic_mode.cpp
 )
 target_compile_features(perastage_gdtf_resolution_resources PUBLIC cxx_std_20)
 target_include_directories(perastage_gdtf_resolution_resources PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

@@ -32,10 +32,16 @@ before **OK** commits the results to every instance of that fixture type.
 Choosing **Download** requests a repository file when there is an unambiguous
 model match, even if the MVR mode name differs from the catalog. For example,
 `DMX Mode` does not prevent downloading ELP PAR with `Basic` and `Compact` modes.
-Confirm the actual mode after download when compatibility needs review. If you
-cancel that mode choice, **Downloaded; select DMX mode** retains the package;
-use **Choose DMX mode...** later or select another source. OK remains disabled
-until pending mode choices are resolved.
+The DMX mode is assigned automatically after download, without a picker or
+compatibility confirmation. Priority is: the MVR mode name (ignoring case,
+spaces and punctuation), a unique mode with the original profile's channel count,
+then a unique mode inferred from repeated equal patch spacing when that count is
+unknown. Details show which evidence was used.
+
+If the mode remains ambiguous, the file stays downloaded and the original MVR
+profile and modes remain selected. The row explains this fallback; **OK** can
+continue without choosing a mode. **Choose DMX mode...** remains an optional manual
+override. Several imported modes are preserved rather than collapsed into one.
 
 Each row has mutually exclusive **MVR**, **Perastage** and **Selected file**
 checkboxes. Unavailable sources are disabled. MVR preserves the imported instance
@@ -64,9 +70,11 @@ indicates a failure or unresolved profile.
 Candidates list all available modes and their channel counts. Missing catalog
 metadata is shown as unavailable, rather than zero channels, and is updated from
 the actual package after downloading. The imported mode and its known channel
-count appear in the details. Repeated patch spacing may suggest a mode in the
-picker, but requires confirmation: gaps may include unused addresses, and an
-equal footprint does not guarantee equal DMX channel functions.
+count appear in the details. Patch inference requires at least two equal adjacent intervals in the same
+universe, with no duplicate or invalid addresses or intervening fixtures of
+another type. It never overrides a known original channel count or breaks a tie
+between modes with the same footprint. Gaps may include unused addresses, and
+equal footprints do not guarantee equal DMX channel functions.
 
 **Cancel**, **Escape** and the window close button stop the queue and continue
 importing with the original MVR profiles and modes for all its rows. This discards

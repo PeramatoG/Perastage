@@ -313,29 +313,38 @@ static bool ToggleSource(GdtfDownloadQueueTable &table, unsigned source) {
   return true;
 }
 
-static void DownloadRequested(bool identical, bool declineMode, bool libraryAvailable) {
+static void DownloadRequested(bool identical, int scenario, bool libraryAvailable) {
   runtime_storage::TemporaryWorkspace workspace("mvr-elp-par-download-test");
   const auto original = workspace.Path() / "original.gdtf";
   const auto downloaded = workspace.Path() / "downloaded.gdtf";
   const auto library = workspace.Path() / "library.gdtf";
-  const std::string originalXml = R"(<GDTF DataVersion="1.2">
+  std::string originalXml = R"(<GDTF DataVersion="1.2">
     <FixtureType Name="Martin ELP PAR" Manufacturer="Custom">
     <DMXModes><DMXMode Name="DMX Mode"><DMXChannels><DMXChannel Offset="1,14" Geometry="Base"/>
     </DMXChannels></DMXMode></DMXModes></FixtureType></GDTF>)";
-  const std::string downloadedXml = R"(<GDTF DataVersion="1.2">
+  std::string downloadedXml = R"(<GDTF DataVersion="1.2">
     <FixtureType Name="ELP PAR" Manufacturer="Martin Professional">
     <DMXModes><DMXMode Name="Basic"><DMXChannels><DMXChannel Offset="1,14" Geometry="Base"/>
     </DMXChannels></DMXMode><DMXMode Name="Compact"><DMXChannels><DMXChannel Offset="1,9" Geometry="Base"/>
     </DMXChannels></DMXMode></DMXModes></FixtureType></GDTF>)";
   std::string error;
+  if (scenario == 1)
+    originalXml.replace(originalXml.find("Offset=\"1,14\""), 13, ""); // Unknown original footprint.
+  if (scenario == 2)
+    downloadedXml.replace(downloadedXml.find("1,9"), 3, "1,14"); // Two equally plausible modes.
+  if (scenario == 3)
+    originalXml.replace(originalXml.find("DMX Mode"), 8, " bAsIc ");
+  if (scenario == 4)
+    originalXml.replace(originalXml.find("1,14"), 4, "1,10"); // Known count overrides patch hints.
   assert(tests::archive::WriteStoredZipWithRawNames(original, {{"description.xml", originalXml}}, error));
   assert(tests::archive::WriteStoredZipWithRawNames(downloaded, {{"description.xml", downloadedXml}}, error));
   std::filesystem::copy_file(downloaded, library);
   mvr::SceneReadGdtfConflict request;
   request.type = request.fixtureName = "Martin ELP PAR";
   request.manufacturer = "Custom";
-  request.modeName = "DMX Mode";
-  request.footprint = 14;
+  request.modeName = scenario == 3 ? " bAsIc " : "DMX Mode";
+  request.footprint = 0; // Recover authoritative counts from the original package.
+  request.patchSpacingHint = scenario == 1 || scenario == 4 ? 14 : 0;
   request.mvrPath = PathUtils::PathToUtf8(original);
   if (libraryAvailable)
     request.appPath = PathUtils::PathToUtf8(library);
@@ -361,21 +370,12 @@ static void DownloadRequested(bool identical, bool declineMode, bool libraryAvai
     return MvrGdtfDownload{PathUtils::PathToUtf8(path), ReadProfile(path), {}};
   };
   MvrGdtfResolutionDialog dialog(nullptr, {request}, workspace.Path(), callbacks, false);
-  bool declined = false, finishing = false, resumedMode = false;
+  bool finishing = false;
   wxTimer modalTimer;
   modalTimer.Bind(wxEVT_TIMER, [&](wxTimerEvent &) {
     for (auto *window : wxTopLevelWindows)
       if (auto *picker = dynamic_cast<wxSingleChoiceDialog *>(window))
-        if (picker->IsModal()) {
-          assert(picker->GetSelection() == 0); // Basic / 14, matching the imported footprint.
-          if (declineMode && !declined) {
-            declined = true;
-            picker->EndModal(wxID_CANCEL);
-          } else {
-            picker->EndModal(wxID_OK);
-          }
-          return;
-        }
+        assert(!picker->IsModal() && "Automatic mode resolution must not open a picker");
   });
   modalTimer.Start(10);
   wxTimer timer;
@@ -383,13 +383,16 @@ static void DownloadRequested(bool identical, bool declineMode, bool libraryAvai
     if (finishing)
       return;
     const auto result = dialog.Results().at(request.type);
-    if (result.status == Status::ModeRequired) {
-      if (resumedMode)
-        return;
-      assert(declineMode && downloads == 1 && result.applied.source == Source::OriginalMvr);
-      assert(!Button(dialog, "OK")->IsEnabled());
-      resumedMode = true;
-      Click(*Button(dialog, "Choose DMX mode..."));
+    if ((scenario == 2 || scenario == 4) && downloads == 1 &&
+        result.selected.source == Source::OriginalMvr && Button(dialog, "OK")->IsEnabled()) {
+      finishing = true;
+      assert(result.applied.path == request.mvrPath && result.applied.mode.empty());
+      auto *table = Find<GdtfDownloadQueueTable>(dialog);
+      assert(table->SourceChecked(0, 0) && table->SourceEnabled(0, 2));
+      assert(table->GetItemText(0, 2).Contains("DMX mode unresolved"));
+      assert(Find<wxTextCtrl>(dialog)->GetValue().Contains("could not be assigned unambiguously"));
+      assert(Button(dialog, "Choose DMX mode...")->IsEnabled());
+      Click(*Button(dialog, "OK"));
       return;
     }
     if (result.status != Status::Downloaded && result.status != Status::Reused && result.status != Status::Identical)
@@ -408,7 +411,8 @@ static void DownloadRequested(bool identical, bool declineMode, bool libraryAvai
       assert(result.status == Status::Identical);
     } else {
       const auto details = Find<wxTextCtrl>(dialog)->GetValue();
-      assert(details.Contains("User selection"));
+      assert(details.Contains("Automatic DMX mode assignment"));
+      assert(details.Contains(scenario == 1 ? "repeated patch spacing" : scenario == 3 ? "MVR mode name" : "original channel count"));
       assert(!details.Contains("DMX mode compatibility requires review."));
     }
     assert(ToggleSource(*table, 0));
@@ -437,8 +441,7 @@ static void DownloadRequested(bool identical, bool declineMode, bool libraryAvai
   timer.Stop();
   modalTimer.Stop();
   assert(downloads == 1 && finishing);
-  assert(identical ? confirmations == 0 : confirmations >= 1);
-  assert(!declineMode || (declined && resumedMode));
+  assert(confirmations == 0);
 }
 
 int main(int argc, char **argv) {
@@ -448,9 +451,12 @@ int main(int argc, char **argv) {
     return 77;
   for (int action = 0; action < 6; ++action)
     CancelLifecycle(action);
-  DownloadRequested(false, false, true);
-  DownloadRequested(false, true, false);
-  DownloadRequested(true, false, false);
+  DownloadRequested(false, 0, true);
+  DownloadRequested(false, 1, false);
+  DownloadRequested(false, 2, false);
+  DownloadRequested(false, 3, false);
+  DownloadRequested(false, 4, false);
+  DownloadRequested(true, 0, false);
   Run(true);
   Run(false);
   Run(false, false, true);

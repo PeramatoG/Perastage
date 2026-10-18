@@ -31,11 +31,16 @@ résultat à toutes les instances de ce type.
 
 Choisir **Download** demande le fichier du dépôt lorsque le modèle correspond sans
 ambiguïté, même si le nom du mode diffère. Par exemple, `DMX Mode` n’empêche pas de
-télécharger ELP PAR avec les modes `Basic` et `Compact`. Confirmez le mode réel après
-le téléchargement si sa compatibilité doit être vérifiée. Annuler ce choix conserve
-le paquet avec l’état **Téléchargé ; sélectionner le mode DMX**. Utilisez ensuite
-**Choisir le mode DMX...** ou choisissez une autre source. OK reste désactivé tant
-que des modes sont en attente.
+télécharger ELP PAR avec les modes `Basic` et `Compact`. Le mode DMX est attribué automatiquement après téléchargement, sans sélecteur ni
+confirmation de compatibilité. Priorité : le nom indiqué dans le MVR (sans tenir
+compte de la casse, des espaces et de la ponctuation), un mode unique ayant le nombre
+de canaux du profil d’origine, puis, si ce nombre manque, un mode unique déduit de
+l’espacement répété et égal du patch. Les détails indiquent la preuve utilisée.
+
+Si le mode reste ambigu, le fichier reste téléchargé et le profil et les modes MVR
+d’origine restent sélectionnés. La ligne explique ce repli ; **OK** permet de continuer
+sans choisir de mode. **Choisir le mode DMX...** reste un réglage manuel facultatif.
+Plusieurs modes importés sont conservés plutôt que remplacés par un seul.
 
 Chaque ligne possède les cases exclusives **MVR**, **Perastage** et **Fichier sélectionné**.
 Les sources indisponibles sont désactivées. MVR conserve les modes importés ;
@@ -64,9 +69,11 @@ ou un profil non résolu.
 Les candidats affichent tous leurs modes et nombres de canaux disponibles. Les
 métadonnées absentes sont indiquées comme indisponibles, jamais comme zéro canal,
 puis actualisées depuis le paquet téléchargé. Le mode importé et son empreinte
-connue figurent dans les détails. L’espacement répété du patch peut suggérer un
-mode, mais demande confirmation : les écarts peuvent contenir des adresses libres
-et une empreinte identique ne garantit pas les mêmes fonctions DMX.
+connue figurent dans les détails. La déduction du patch exige au moins deux intervalles adjacents égaux dans le même
+univers, sans adresses dupliquées ou invalides ni projecteur intermédiaire d’un autre
+type. Elle ne remplace jamais un nombre de canaux d’origine connu et ne départage
+pas les modes de même empreinte. Des adresses libres peuvent être incluses ; une
+empreinte identique ne garantit pas les mêmes fonctions DMX.
 
 **Annuler**, **Échap** et fermer la fenêtre arrêtent la file et poursuivent l’import
 avec les profils et modes MVR d’origine pour toutes ses lignes. Toutes les

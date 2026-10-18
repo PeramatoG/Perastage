@@ -83,6 +83,8 @@ private:
     std::optional<gdtf_resolution::Choice> catalogProposal;
     bool identicalToOriginal = false;
     bool catalogProposalPending = false;
+    gdtf_resolution::ModeEvidence automaticModeEvidence = gdtf_resolution::ModeEvidence::None;
+    bool automaticModeUnresolved = false;
   };
   struct WorkerResult {
     bool catalogLoaded = false;

@@ -6,6 +6,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if rg -n '#include.*(wx/|gui/|configmanager|gdtfnet)' \
     "$root/core/gdtf_resolution.h" "$root/core/gdtf_resolution.cpp" \
     "$root/core/gdtf_resolution_resources.h" "$root/core/gdtf_resolution_resources.cpp" \
+    "$root/core/gdtf_automatic_mode.cpp" \
     "$root/mvr/gdtf_candidate_ranking.cpp" "$root/mvr/gdtf_catalog_matcher.h" \
     "$root/mvr/gdtf_catalog_matcher.cpp" "$root/mvr/gdtf_patch_evidence.h" \
     "$root/mvr/gdtf_patch_evidence.cpp"; then

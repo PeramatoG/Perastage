@@ -158,6 +158,8 @@ void MvrGdtfResolutionDialog::SelectCatalog(
     ranking.candidates.push_back(std::move(candidate));
   }
   Select(rows[*row].resolution, choice);
+  rows[*row].automaticModeUnresolved = false;
+  rows[*row].automaticModeEvidence = ModeEvidence::None;
   rows[*row].catalogProposal = choice;
   rows[*row].catalogProposalPending = true;
   RefreshRows();
@@ -173,6 +175,8 @@ void MvrGdtfResolutionDialog::ChooseResource() {
   const auto profile = ReadProfile(PathUtils::PathFromUtf8(choice.path));
   if (profile.usable && (choice.mode.empty() || HasMode(profile, choice.mode)) &&
       ConfirmChoice(choice, &profile)) {
+    rows[*row].automaticModeUnresolved = false;
+    rows[*row].automaticModeEvidence = ModeEvidence::None;
     if (choice.source == Source::Catalog) {
       auto attempt = choice;
       attempt.path.clear();
@@ -255,6 +259,8 @@ void MvrGdtfResolutionDialog::LoadLocal() {
   rows[*row].replacement = choice;
   rows[*row].catalogProposalPending = false;
   rows[*row].identicalToOriginal = false;
+  rows[*row].automaticModeUnresolved = false;
+  rows[*row].automaticModeEvidence = ModeEvidence::None;
   Select(rows[*row].resolution, choice);
   RefreshRows();
   SetBusy(false);

@@ -63,19 +63,25 @@ void MvrGdtfResolutionDialog::StartCatalog() {
           if (!profile.usable)
             continue;
           result.profileLabels[path] = profile.manufacturer + " / " + profile.model;
-          if (source == Source::OriginalMvr)
+          if (source == Source::OriginalMvr) {
             resources.push_back({source, {}, path, {}});
+            fallback = resources.back();
+          }
           for (const auto &mode : profile.modes) {
             Choice choice{source, {}, path, mode.name};
             resources.push_back(choice);
-            if (source == Source::OriginalMvr && mode.name == request.modeName &&
-                mode.footprint > 0 && evidence.importedModes.size() <= 1)
-              evidence.requestedFootprint = mode.footprint;
             const bool compatibleFallback = source == Source::OriginalMvr ||
                 evidence.requestedFootprint <= 0 || mode.footprint == evidence.requestedFootprint;
             if (evidence.importedModes.size() <= 1 && mode.name == request.modeName &&
                 compatibleFallback)
               fallback = choice;
+          }
+          if (source == Source::OriginalMvr) {
+            const auto originalMode = ResolveAutomaticMode(profile, evidence);
+            if (originalMode.evidence == ModeEvidence::ImportedName)
+              for (const auto &mode : profile.modes)
+                if (mode.name == originalMode.mode && mode.footprint > 0)
+                  evidence.requestedFootprint = mode.footprint;
           }
           if (evidence.importedModes.size() > 1 &&
               std::all_of(evidence.importedModes.begin(), evidence.importedModes.end(),
@@ -217,7 +223,7 @@ void MvrGdtfResolutionDialog::ProcessNext() {
                                : _("Queue finished."));
   gauge->SetValue(100);
   const bool needsReview = std::any_of(rows.begin(), rows.end(), [](const Row &row) {
-    return row.resolution.status == Status::ModeRequired ||
+    return row.automaticModeUnresolved || row.resolution.status == Status::ModeRequired ||
         row.resolution.status == Status::DownloadFailed ||
         row.resolution.status == Status::Unresolved ||
         (row.resolution.origin == SelectionOrigin::Automatic &&

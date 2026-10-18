@@ -31,11 +31,16 @@ una descarga correcta. **Aplicar selecciones** procesa los cambios antes de que
 
 Elegir **Download** solicita el archivo del repositorio cuando el modelo coincide
 sin ambigüedad, aunque el nombre del modo sea distinto. Por ejemplo, `DMX Mode`
-no impide descargar ELP PAR con los modos `Basic` y `Compact`. Confirme el modo
-real después de descargar cuando deba revisarse la compatibilidad. Si cancela esa
-elección, **Descargado; seleccione el modo DMX** conserva el paquete. Utilice
-**Elegir modo DMX...** más tarde o seleccione otro origen. Aceptar permanece
-deshabilitado mientras haya modos pendientes.
+no impide descargar ELP PAR con los modos `Basic` y `Compact`. El modo DMX se asigna automáticamente tras descargar, sin selector ni confirmación
+de compatibilidad. Se utiliza, por orden: el nombre indicado en el MVR (ignorando
+mayúsculas, espacios y puntuación), un modo único con el número de canales del
+perfil original y, si ese número es desconocido, un modo único deducido de la
+separación repetida e igual del patch. Los detalles indican la información utilizada.
+
+Si persiste la ambigüedad, el archivo queda descargado y se mantienen seleccionados
+el perfil y los modos originales del MVR. La fila explica el motivo; **Aceptar**
+permite continuar sin elegir un modo. **Elegir modo DMX...** queda como ajuste manual
+opcional. Varios modos importados se conservan en lugar de sustituirlos por uno solo.
 
 Cada fila tiene casillas exclusivas **MVR**, **Perastage** y **Archivo seleccionado**.
 Los orígenes no disponibles están deshabilitados. MVR conserva los modos importados;
@@ -62,9 +67,11 @@ aplicación; rojo indica error o perfil sin resolver.
 Los candidatos muestran todos sus modos y canales disponibles. Los datos ausentes
 se indican como no disponibles, en lugar de cero canales, y se actualizan al leer
 el paquete descargado. Los detalles muestran el modo importado y su consumo conocido.
-La separación repetida del patch puede sugerir un modo en el selector, pero exige
-confirmación: puede incluir canales libres y una huella igual no garantiza las
-mismas funciones DMX.
+La deducción del patch exige al menos dos intervalos adyacentes iguales en el mismo
+universo, sin direcciones duplicadas o inválidas ni fixtures de otro tipo intercalados.
+No sustituye un número de canales original conocido ni resuelve empates entre modos
+con igual consumo. Los huecos pueden incluir canales libres y un consumo igual no
+garantiza las mismas funciones DMX.
 
 **Cancelar**, **Escape** y cerrar la ventana detienen la cola y continúan la
 importación con los perfiles y modos originales del MVR para todas sus filas.

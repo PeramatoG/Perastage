@@ -9,7 +9,51 @@
 namespace fs = std::filesystem;
 using namespace gdtf_resolution;
 
+static void AutomaticModes() {
+  Profile profile;
+  profile.usable = true;
+  profile.modes = {{"Standard",14}, {"Extended",25}};
+  mvr::gdtf_catalog_matcher::GdtfDownloadRequest request;
+  request.requestedMode = "Standard";
+  request.requestedFootprint = 25;
+  auto match = ResolveAutomaticMode(profile, request, 25);
+  assert(match.mode == "Standard" && match.evidence == ModeEvidence::ImportedName);
+  request.requestedMode = " sTaNdArD ";
+  assert(ResolveAutomaticMode(profile, request).mode == "Standard");
+  request.requestedMode = "DMX Mode";
+  match = ResolveAutomaticMode(profile, request, 14);
+  assert(match.mode == "Extended" && match.evidence == ModeEvidence::OriginalFootprint);
+  request.requestedFootprint = 16;
+  assert(ResolveAutomaticMode(profile, request, 25).mode.empty());
+  request.requestedMode = "Standard professional";
+  assert(ResolveAutomaticMode(profile, request).mode.empty());
+  request.requestedMode = "DMX Mode";
+  request.requestedFootprint = 0;
+  match = ResolveAutomaticMode(profile, request, 25);
+  assert(match.mode == "Extended" && match.evidence == ModeEvidence::PatchSpacing);
+  assert(ResolveAutomaticMode(profile, request).mode.empty());
+  profile.modes.push_back({"Extended alternate",25});
+  assert(ResolveAutomaticMode(profile, request, 25).mode.empty());
+  request.requestedFootprint = 25;
+  assert(ResolveAutomaticMode(profile, request, 14).mode.empty());
+  request.requestedMode = "Extended";
+  assert(ResolveAutomaticMode(profile, request).mode == "Extended");
+  request.importedModes = {"Standard", "Extended"};
+  assert(ResolveAutomaticMode(profile, request).mode.empty());
+  request.importedModes = {"Standard", "Standard"};
+  assert(ResolveAutomaticMode(profile, request).mode == "Standard");
+  request.importedModes.clear();
+  profile.modes = {{"Mode-1",14}, {"Mode 1",25}};
+  request.requestedMode = "mode_1";
+  assert(ResolveAutomaticMode(profile, request).mode.empty());
+  request.requestedMode = "Mode-1";
+  assert(ResolveAutomaticMode(profile, request).mode == "Mode-1");
+  profile.usable = false;
+  assert(ResolveAutomaticMode(profile, request).mode.empty());
+}
+
 int main() {
+  AutomaticModes();
   wxInitializer initialize;
   assert(initialize.IsOk());
   runtime_storage::TemporaryWorkspace workspace("gdtf-resolution-test");

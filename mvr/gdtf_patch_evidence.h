@@ -10,6 +10,7 @@ struct Entry {
   std::string mode;
   std::string address;
 };
-// Repeated spacing is a review hint only; it never proves DMX channel semantics.
+// Repeated spacing can resolve a unique mode when authored mode/footprint data
+// is absent. It never proves DMX channel semantics or overrides authored data.
 std::unordered_map<std::string, int> RepeatedSpacing(const std::vector<Entry> &patch);
 }

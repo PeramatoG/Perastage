@@ -43,6 +43,17 @@ bool AutomaticProfileCompatible(
     const mvr::gdtf_catalog_matcher::GdtfDownloadRequest &request,
     const std::string &mode);
 bool HasMode(const Profile &profile, const std::string &mode);
+enum class ModeEvidence { None, ImportedName, OriginalFootprint, PatchSpacing };
+struct AutomaticMode {
+  std::string mode;
+  ModeEvidence evidence = ModeEvidence::None;
+};
+// Resolves actual package modes without UI. Weaker evidence cannot break a tie
+// or override a known original footprint. Multiple imported modes stay intact.
+AutomaticMode ResolveAutomaticMode(
+    const Profile &profile,
+    const mvr::gdtf_catalog_matcher::GdtfDownloadRequest &request,
+    int patchSpacing = 0);
 // Destination must be inside an existing import-owned scene workspace.
 std::filesystem::path CopyIntoScene(const std::filesystem::path &source,
                                    const std::filesystem::path &sceneRoot,

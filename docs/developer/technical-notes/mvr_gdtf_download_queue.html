@@ -53,7 +53,7 @@ full-catalog search and local-file selection. The importer delegates to
 <li><code>mvr/gdtf_candidate_ranking.cpp</code>: one catalog evaluation implementation,
 structured candidates and conservative automatic recommendation. The existing
 best-candidate adapter remains available to legacy consumers.</li>
-<li><code>mvr/gdtf_patch_evidence.*</code>: conservative repeated-address-spacing hints for manual review.</li>
+<li><code>mvr/gdtf_patch_evidence.*</code>: repeated-address-spacing evidence for last-resort mode inference.</li>
 <li><code>perastage_gdtf_matching</code>: standard-library-only production target.</li>
 <li><code>core/gdtf_resolution.*</code>: typed source, proposed/applied choices, origin,
 fallback precedence, statuses and completion/cancellation transitions.</li>
@@ -68,7 +68,7 @@ retry, staging and composition of callbacks.</li>
 catalog analysis/download and event delivery; joins each worker before reuse.</li>
 <li><code>gui/gdtf_download_queue_table.*</code>: native data-view presentation, row colours and
 mutually exclusive source toggles. Unavailable sources cannot be activated.</li>
-<li><code>gui/mvr_gdtf_resolution_sources.cpp</code>: completed-package mode review and reversible
+<li><code>gui/mvr_gdtf_resolution_sources.cpp</code>: completed-package automatic mode assignment and reversible
 source selection; the source table never owns ranking or network work.</li>
 <li><code>gui/mvr_gdtf_resolution_actions.cpp</code>: native picker, mode/review prompts and
 the existing <code>GdtfSearchDialog</code> in selection-only mode.</li>
@@ -122,7 +122,7 @@ a different proposal. Packages are cached by revision; each application validate
 the actual selected mode and checks the retained file. Changing modes or returning
 from MVR/library to the downloaded package does not repeat its transfer.</p>
 <p>Only structurally usable resources/modes appear in the existing-source selector.
-No fallback mode is guessed from matching footprint or address spacing. Local
+The original MVR source preserves every imported instance mode. Automatic download mode assignment follows the evidence hierarchy below. Local
 files and downloaded packages are read with shared Core services and copied to
 unique names under <code>resolved-gdtf/</code> in the import workspace. The scene&#39;s existing
 resource lease owns their lifetime; original files, the MVR archive and the
@@ -131,10 +131,23 @@ validated against actual package identity, manufacturer, mode and footprint befo
 commit. Missing catalog mode metadata is resolved from the downloaded package
 for explicit user selections.</p>
 <p>After a requested download, actual identity is validated independently of mode.
-Uncertain modes use the native mode picker and compatibility confirmation. A
-canceled mode choice records <code>ModeRequired</code>, retains the package separately from
-the applied fallback, and disables acknowledgement until a mode or another source
-is selected. Exact archive-byte comparison runs in the worker after download;
+<code>ResolveAutomaticMode</code> evaluates actual downloaded modes, never just catalog
+metadata. It uses the exact MVR mode name first, then a unique name after ASCII
+case/spacing/punctuation normalization, then a unique original-footprint match.
+Only when the original footprint is unknown can repeated patch spacing identify
+a unique mode. A known footprint mismatch cannot fall through to patch inference;
+ties do not pick the first mode. Mode-name normalization does not strip fixture
+manufacturer suffixes. Authored names take precedence over channel counts.
+The original profile reader supplements footprints even when its mode differs
+only by case, spacing or punctuation. The GUI shows the evidence used.</p>
+<p>No picker or confirmation runs for a requested download. If no mode can be
+resolved, retain the downloaded package for an optional manual override, select
+the original MVR resource with an empty override, and explain this fallback in
+amber. Acknowledgement remains available; automatic close leaves this result
+visible. Multiple distinct imported modes likewise retain the original profile
+rather than apply one mode to every instance. Explicit manual mode controls keep
+their native picker and compatibility confirmation.</p>
+<p>Exact archive-byte comparison runs in the worker after download;
 <code>Identical</code> still applies the downloaded source and explicitly reports equality.
 Neither catalog UUID nor matching XML identity is used as a file-equality test.</p>
 <p>The table exposes MVR, Perastage and Selected file as exclusive source checkboxes.
@@ -155,8 +168,9 @@ rows use muted styling. Candidate labels list every known mode/footprint and
 explicitly mark absent metadata as unavailable. Actual downloaded modes enrich
 the row. Original package mode counts supplement imported evidence. Repeated
 same-universe patch spacing (at least two equal adjacent intervals for one type
-and mode, no duplicate/invalid addresses) can preselect a mode for manual review;
-it never changes authoritative footprint evidence or automatic eligibility.</p>
+and mode, no duplicate/invalid addresses or intervening other-type fixture)
+can resolve a unique downloaded mode only as the final evidence tier. It does
+not change authoritative footprint metadata or model eligibility.</p>
 <p>The modal queue appears before credential-store reads. Catalog, saved-credential
 login and downloads run in its worker. Only native credential entry and warnings
 run on the GUI thread. A 250 ms activity timer shows elapsed phase time; row events
@@ -199,19 +213,19 @@ read target and wxBase ZIP runtime.</p>
 ranked revisions, generic/prefixed manufacturers, Roman numerals, ambiguity,
 model/mode/footprint mismatches, UUID non-equivalence and manual/fallback/reuse/
 cancellation precedence. <code>GdtfResolutionResources</code> covers local package identity,
-modes, immutable ownership, malformed/missing definitions and failed publication.
+modes, immutable ownership, malformed/missing definitions, failed publication,
+automatic name/count/patch priority and ambiguous-mode fallback.
 <code>MvrGdtfResolutionDialog</code> exercises automatic completion, successful-row changes,
 independent aliases, exact revision reuse, cancellation and offline fallback with
 an injected deterministic backend. Existing catalog and queue lifecycle tests
 remain in place. <code>GdtfResolutionBoundary</code> guards the new separation.</p>
 <p>The Tivoli binary was not available. Tests use explicitly synthetic metadata and
 small generated packages and do not contact GDTF Share.</p>
-<p>Types with several imported DMX modes require review before a catalog replacement.
+<p>Types with several imported DMX modes retain their original profile automatically.
 Validated MVR/application fallbacks can preserve the full imported mode set; a
 mode explicitly chosen by the user applies to every instance of that type. This
 prevents an automatic suggestion based on the first instance from silently
-rewriting other instances&#39; modes. Address spacing is not treated as a verified
-GDTF footprint.</p>
+rewriting other instances&#39; modes. Address spacing is kept separate from verified GDTF footprint evidence.</p>
 <p>Apply selections retries failed catalog rows. An authentication cancellation or failure stops pending attempts as one batch, retaining every valid fallback and completed result without repeating the sign-in dialog for each row.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>

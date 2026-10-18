@@ -234,7 +234,9 @@ void MvrGdtfResolutionDialog::RefreshRows() {
     case Status::Canceled: state = DownloadRowState::Canceled; break;
     default: break;
     }
-    UpdateStatusRow(rows[i].request.type, identity, StatusText(result.status),
+    const auto status = rows[i].automaticModeUnresolved && result.status == Status::OriginalMvr
+        ? _("Downloaded; original MVR retained (DMX mode unresolved)") : StatusText(result.status);
+    UpdateStatusRow(rows[i].request.type, identity, status,
                     FormatBytes(Progress(rows[i].request.type).downloadedBytes),
                     wxString::FromUTF8(result.applied.mode), state);
     const auto has = [&](Source source) {
@@ -300,6 +302,17 @@ void MvrGdtfResolutionDialog::RefreshSelection() {
                  row.request.patchSpacingHint),
         row.request.patchSpacingHint);
   text += "\n" + SourceText(row.resolution.selected.source);
+  if (row.automaticModeUnresolved)
+    text += "\n" + _("The file was downloaded, but its DMX mode could not be assigned unambiguously. The original MVR profile and modes are retained.");
+  switch (row.automaticModeEvidence) {
+  case ModeEvidence::ImportedName:
+    text += "\n" + _("DMX mode assigned automatically from the MVR mode name."); break;
+  case ModeEvidence::OriginalFootprint:
+    text += "\n" + _("DMX mode assigned automatically from the original channel count."); break;
+  case ModeEvidence::PatchSpacing:
+    text += "\n" + _("DMX mode inferred automatically from repeated patch spacing."); break;
+  default: break;
+  }
   if (row.resolution.status == Status::ModeRequired)
     text += "\n" + _("The profile was downloaded. Choose its DMX mode or select another source.");
   if (!row.resolution.ranking.downloadRid && row.resolution.origin != SelectionOrigin::User)
@@ -311,10 +324,12 @@ void MvrGdtfResolutionDialog::RefreshSelection() {
   for (const auto &candidate : row.resolution.ranking.candidates) {
     if (candidate.rid != row.resolution.selected.revisionId)
       continue;
-    const bool reviewed = row.resolution.origin == SelectionOrigin::User &&
-        row.resolution.status != Status::ModeRequired;
+    const bool reviewed = row.automaticModeEvidence != ModeEvidence::None ||
+        (row.resolution.origin == SelectionOrigin::User && row.resolution.status != Status::ModeRequired);
     text += " / " + (row.resolution.status == Status::Identical
-        ? _("Downloaded; identical to original MVR") : reviewed ? _("User selection")
+        ? _("Downloaded; identical to original MVR")
+        : row.automaticModeEvidence != ModeEvidence::None ? _("Automatic DMX mode assignment")
+        : reviewed ? _("User selection")
         : candidate.automaticSafe ? _("Safe automatic match") : _("Review required"));
     for (const auto &warning : candidate.warnings) {
       if (warning == "manufacturer-mismatch")

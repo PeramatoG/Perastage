@@ -31,11 +31,16 @@ auf alle Instanzen dieses Gerätetyps anwendet.
 
 **Download** fordert die Datei aus dem Repository an, wenn das Modell eindeutig
 übereinstimmt, auch bei abweichenden Modusnamen. `DMX Mode` verhindert beispielsweise
-keinen ELP-PAR-Download mit den Modi `Basic` und `Compact`. Bestätigen Sie nach dem
-Download den tatsächlichen Modus, wenn seine Kompatibilität geprüft werden muss.
-Bei Abbruch der Moduswahl bleibt das Paket mit **Heruntergeladen; DMX-Modus wählen**
-erhalten. Verwenden Sie später **DMX-Modus wählen...** oder wählen Sie eine andere
-Quelle. OK bleibt bei ausstehenden Modusentscheidungen deaktiviert.
+keinen ELP-PAR-Download mit den Modi `Basic` und `Compact`. Der DMX-Modus wird nach dem Download automatisch zugewiesen, ohne Modusauswahl oder
+Kompatibilitätsbestätigung. Vorrang hat der im MVR angegebene Name, unabhängig von
+Großschreibung, Leer- und Satzzeichen. Danach folgt ein eindeutiger Modus mit der
+Kanalzahl des Originalprofils. Fehlt diese, kann ein eindeutiger Modus aus wiederholten
+gleichen Patch-Abständen folgen. Die Details zeigen die verwendete Grundlage.
+
+Bei Mehrdeutigkeit bleibt die Datei heruntergeladen; das ursprüngliche MVR-Profil und
+seine Modi bleiben ausgewählt. Die Zeile erklärt den Grund. **OK** setzt den Import
+ohne Moduswahl fort. **DMX-Modus wählen...** bleibt als freiwillige manuelle Änderung
+verfügbar. Mehrere importierte Modi bleiben erhalten statt durch einen ersetzt zu werden.
 
 Jede Zeile bietet die exklusiven Kontrollkästchen **MVR**, **Perastage** und
 **Ausgewählte Datei**. Nicht verfügbare Quellen sind deaktiviert. MVR erhält die
@@ -65,9 +70,11 @@ Ersatzprofil der Anwendung; Rot bedeutet Fehler oder nicht aufgelöstes Profil.
 Kandidaten zeigen alle verfügbaren Modi und Kanalzahlen. Fehlende Katalogdaten
 erscheinen als nicht verfügbar statt als null Kanäle und werden nach dem Download
 aus dem Paket ergänzt. Die Details zeigen den importierten Modus und seine bekannte
-Kanalzahl. Wiederholte Patch-Abstände können einen Modus vorschlagen, erfordern
-aber Bestätigung: Abstände können freie Adressen enthalten, und gleiche Kanalzahlen
-garantieren keine gleichen DMX-Funktionen.
+Kanalzahl. Die Patch-Ableitung erfordert mindestens zwei gleiche benachbarte Abstände im selben
+Universum, ohne doppelte oder ungültige Adressen und ohne dazwischenliegende Geräte
+anderer Typen. Sie ersetzt keine bekannte ursprüngliche Kanalzahl und löst keine
+Gleichstände zwischen Modi mit gleicher Kanalzahl. Abstände können freie Adressen
+enthalten; gleiche Kanalzahlen garantieren keine gleichen DMX-Funktionen.
 
 **Abbrechen**, **Escape** und das Schließen des Fensters stoppen die Warteschlange
 und setzen den Import für alle ihre Zeilen mit den ursprünglichen MVR-Profilen
