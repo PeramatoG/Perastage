@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test_tool_requirements.sh"
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-python3 - <<'PY'
+run_test_python - <<'PY'
 from pathlib import Path
 source = Path('gui/mainwindow_io.cpp').read_text()
 for name, end in [('OnSave', 'OnSaveAs'), ('OnSaveAs', 'OnImportRider')]:

@@ -684,3 +684,13 @@ hygiene, routing and generated-document drift guards passed. The GUI test needs
 local display-socket capability; the initial restricted-sandbox GTK startup
 failure was resolved by running Xvfb with that capability. Hosted CI is reported
 in the separate Draft PR; no native Windows/macOS window-manager result is claimed.
+
+
+Hosted Linux and macOS each executed 464 tests on the rebased save-UI commit.
+The new native widget tests, routing guard, project I/O and save/load tests passed
+on both. Each suite had exactly one failure: the repository portability policy
+rejected the new guard's direct python3 invocation. The guard now uses the
+existing test_tool_requirements.sh/run_test_python resolver; that policy and
+focused tests pass locally. Linux also reported the expected unavailable-native-
+credential-store skip. Fresh CI runs after the portability correction; this does
+not claim interactive cross-application window-manager verification.
