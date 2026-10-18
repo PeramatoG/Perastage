@@ -217,9 +217,25 @@ Priority and focus impact:
 ## Local Escape handling in the MVR GDTF download queue
 
 `GdtfDownloadQueueDialog` consumes `Esc` through its dialog-local character
-hook. During queue work it requests cancellation and keeps the modal boundary
-alive; after terminal completion it acknowledges the results and resumes the
-import. Native dialog OK/Cancel commands use the same guarded lifecycle.
+hook. In the interactive MVR resolver, Escape, Cancel and window close request
+cancellation both during work and after completion. The modal boundary stays alive
+until the worker joins, then all queue rows retain their original MVR profiles and
+instance modes. Only OK (or successful automatic close) accepts substitutions.
+The native data-view source checkboxes use platform keyboard activation and remain
+mutually exclusive. Unavailable sources cannot be toggled; source edits do not
+register global accelerators or override the queue's Escape cancellation.
+The legacy base queue retains its completion acknowledgement policy for other
+callers; the interactive resolver explicitly overrides cancellation policy.
 This handling takes precedence over default dialog dismissal while focus is
 inside the queue. The import's parent is disabled by the modal boundary, and
 no global accelerator or scene-view shortcut is registered or remapped.
+
+The interactive MVR GDTF queue retains that native modal keyboard boundary while
+its background worker runs. OK is the native default button. While idle, OK or
+native default-button activation (Enter) applies pending selections and closes
+after successful completion. There is no separate Apply action. During analysis
+or download, OK is disabled and propagated wxID_OK commands are ignored. A failed
+application keeps the window open for review; it cannot acknowledge incomplete
+work. Escape, Cancel and close always restore every original MVR profile and
+per-instance mode, including when cancellation follows an OK application request.
+No global accelerator is registered or remapped.

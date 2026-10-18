@@ -88,6 +88,7 @@ add_test(NAME ViewportMouseNavigation COMMAND viewport_mouse_navigation_test)
 
 set(PERASTAGE_TEST_MVR_CATALOG_SOURCES
     ../mvr/gdtf_catalog_matcher.cpp
+    ../mvr/gdtf_candidate_ranking.cpp
     ../mvr/gdtf_catalog_parser.cpp)
 
 add_executable(fixture_line_distribution_test
@@ -1279,6 +1280,7 @@ add_executable(gdtf_read_services_test
                gdtf_read_services_test.cpp
                ../core/gdtf_metadata_summary.cpp
                ../mvr/gdtf_catalog_matcher.cpp
+    ../mvr/gdtf_candidate_ranking.cpp
                ../core/filesystem_path_utils.cpp)
 target_include_directories(gdtf_read_services_test PRIVATE ../core ../mvr)
 target_link_libraries(gdtf_read_services_test PRIVATE
@@ -1820,7 +1822,8 @@ add_test(NAME TrussPathEncodingRegression COMMAND truss_path_encoding_regression
 add_executable(rider_fixture_resolution_test
                rider_fixture_resolution_test.cpp
                ../core/rider_fixture_resolution.cpp
-               ../mvr/gdtf_catalog_matcher.cpp)
+               ../mvr/gdtf_catalog_matcher.cpp
+    ../mvr/gdtf_candidate_ranking.cpp)
 target_include_directories(rider_fixture_resolution_test PRIVATE
                            ../core ../mvr ../third_party)
 add_test(NAME RiderFixtureResolution COMMAND rider_fixture_resolution_test)
@@ -3689,7 +3692,8 @@ add_executable(rider_fixture_resolution_model_test
                rider_fixture_resolution_model_test.cpp
                ../gui/rider_fixture_resolution_model.cpp
                ../core/rider_fixture_resolution.cpp
-               ../mvr/gdtf_catalog_matcher.cpp)
+               ../mvr/gdtf_catalog_matcher.cpp
+    ../mvr/gdtf_candidate_ranking.cpp)
 target_include_directories(rider_fixture_resolution_model_test PRIVATE
                            ../gui ../core ../mvr ../third_party)
 target_link_libraries(rider_fixture_resolution_model_test PRIVATE
@@ -4245,7 +4249,8 @@ add_test(NAME DecimalParsingCompatibility COMMAND decimal_parse_test)
 
 add_executable(gdtf_download_queue_dialog_test
                gdtf_download_queue_dialog_test.cpp
-               ../gui/gdtf_download_queue_dialog.cpp)
+               ../gui/gdtf_download_queue_dialog.cpp
+               ../gui/gdtf_download_queue_table.cpp)
 target_include_directories(gdtf_download_queue_dialog_test PRIVATE ../gui ../core ../models)
 target_link_libraries(gdtf_download_queue_dialog_test PRIVATE ${wxWidgets_LIBRARIES})
 if(PERASTAGE_XVFB_RUN)
@@ -4259,3 +4264,40 @@ set_tests_properties(GdtfDownloadQueueDialog PROPERTIES LABELS "gui;mvr;gdtf" TI
 add_bash_policy_test(MvrDownloadQueueBoundary
                      "${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_download_queue_boundary.sh"
                      LABELS architecture mvr gui)
+add_executable(gdtf_resolution_test gdtf_resolution_test.cpp)
+target_include_directories(gdtf_resolution_test PRIVATE ../core)
+target_link_libraries(gdtf_resolution_test PRIVATE perastage_gdtf_resolution)
+add_test(NAME GdtfResolution COMMAND gdtf_resolution_test)
+set_perastage_test_labels(GdtfResolution LAYER standard-strict DOMAINS core gdtf mvr)
+
+add_executable(gdtf_resolution_resources_test gdtf_resolution_resources_test.cpp)
+target_include_directories(gdtf_resolution_resources_test PRIVATE ../core ../mvr)
+target_link_libraries(gdtf_resolution_resources_test PRIVATE
+    perastage_gdtf_resolution perastage_gdtf_resolution_resources
+    perastage_runtime_storage ${wxWidgets_LIBRARIES})
+add_test(NAME GdtfResolutionResources COMMAND gdtf_resolution_resources_test)
+set_perastage_test_labels(GdtfResolutionResources LAYER standard-strict DOMAINS core gdtf mvr)
+
+add_bash_policy_test(GdtfResolutionBoundary
+    ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_resolution_boundary.sh
+    LABELS standard-strict architecture core gui gdtf mvr)
+
+add_executable(mvr_gdtf_resolution_dialog_test
+    mvr_gdtf_resolution_dialog_test.cpp
+    ../gui/gdtf_download_queue_dialog.cpp
+    ../gui/gdtf_download_queue_table.cpp
+    ../gui/mvr_gdtf_resolution_dialog.cpp
+    ../gui/mvr_gdtf_resolution_actions.cpp
+    ../gui/mvr_gdtf_resolution_sources.cpp
+    ../gui/mvr_gdtf_resolution_worker.cpp
+    ../gui/gdtfsearchdialog.cpp
+    ../gui/gdtf_catalog_details_panel.cpp
+    ../core/gdtf_catalog_browser_model.cpp
+    ../mvr/gdtf_catalog_parser.cpp)
+target_include_directories(mvr_gdtf_resolution_dialog_test PRIVATE ../gui ../core ../mvr ../third_party)
+target_link_libraries(mvr_gdtf_resolution_dialog_test PRIVATE
+    perastage_gdtf_resolution perastage_gdtf_resolution_resources
+    perastage_runtime_storage ${wxWidgets_LIBRARIES})
+add_test(NAME MvrGdtfResolutionDialog COMMAND mvr_gdtf_resolution_dialog_test)
+set_tests_properties(MvrGdtfResolutionDialog PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 45)
+set_perastage_test_labels(MvrGdtfResolutionDialog LAYER standard-strict DOMAINS gui gdtf mvr)

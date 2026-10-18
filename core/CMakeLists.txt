@@ -622,3 +622,24 @@ target_link_libraries(perastage_gdtf_publication_resources
     PUBLIC perastage_gdtf_read tinyxml2::tinyxml2
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE perastage_gdtf_publication_resources)
+
+# Typed matching and decisions remain independent of toolkit-backed package I/O.
+add_library(perastage_gdtf_resolution STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_resolution.cpp
+)
+target_compile_features(perastage_gdtf_resolution PUBLIC cxx_std_20)
+target_include_directories(perastage_gdtf_resolution PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(perastage_gdtf_resolution PUBLIC perastage_gdtf_matching)
+
+add_library(perastage_gdtf_resolution_resources STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_resolution_resources.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_automatic_mode.cpp
+)
+target_compile_features(perastage_gdtf_resolution_resources PUBLIC cxx_std_20)
+target_include_directories(perastage_gdtf_resolution_resources PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(perastage_gdtf_resolution_resources
+    PUBLIC perastage_gdtf_matching
+    PRIVATE perastage_gdtf_read perastage_uuid
+)
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    perastage_gdtf_resolution perastage_gdtf_resolution_resources)

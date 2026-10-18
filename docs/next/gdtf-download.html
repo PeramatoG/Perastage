@@ -83,6 +83,62 @@
 <h2 id="credentials-and-local-profiles">Credentials and local profiles</h2>
 <p>Passwords use the operating system&#39;s secure credential store when available. If the runtime store is unavailable, Perastage warns you and can use credentials for the current operation without persisting the password. You may need to enter it again in a later session. The username may be remembered as a sign-in hint.</p>
 <p>Use <strong>Tools → Edit dictionaries</strong> to manage profile mappings and <strong>Tools → Open user library folder</strong> to find local content. See <a href="troubleshooting.html#gdtf-share-credentials">credential troubleshooting</a> if passwords are not retained.</p>
+<h2 id="resolve-profiles-during-an-mvr-import">Resolve profiles during an MVR import</h2>
+<p>Keep using the MVR/App/Download source dialog. Choosing Download opens the import
+queue with safe catalog suggestions and available MVR or application fallbacks.
+Select a row to inspect ranked revisions and compatibility warnings. You can
+change successful rows too. <strong>OK</strong> remains enabled while the queue is idle: it
+processes pending selections and closes when they finish. During analysis and
+downloads it is disabled. New failures or unresolved choices keep the queue open
+for review. There is no separate Apply button. Accepted choices apply to every
+instance of that fixture type.</p>
+<p>Choosing <strong>Download</strong> requests a repository file when there is an unambiguous
+model match, even if the MVR mode name differs from the catalog. For example,
+<code>DMX Mode</code> does not prevent downloading ELP PAR with <code>Basic</code> and <code>Compact</code> modes.
+The DMX mode is assigned automatically after download, without a picker or
+compatibility confirmation. Priority is: the MVR mode name (ignoring case,
+spaces and punctuation), a unique mode with the original profile&#39;s channel count,
+then a unique mode inferred from repeated equal patch spacing when that count is
+unknown. Details show which evidence was used.</p>
+<p>If the mode remains ambiguous, the file stays downloaded and the original MVR
+profile and modes remain selected. The row explains this fallback; <strong>OK</strong> can
+continue without choosing a mode. <strong>Choose DMX mode...</strong> remains an optional manual
+override. Several imported modes are preserved rather than collapsed into one.</p>
+<p>Each row has mutually exclusive <strong>MVR</strong>, <strong>Perastage</strong> and <strong>Selected file</strong>
+checkboxes. Unavailable sources are disabled. MVR preserves the imported instance
+modes; Perastage selects an available library profile; Selected file restores the
+last downloaded or local choice. Switching back to a downloaded file reuses its
+validated package. <strong>Downloaded; identical to original MVR</strong> means the downloaded
+bytes were compared with the embedded profile and matched exactly; a shared name
+or FixtureTypeID does not establish file equality.</p>
+<p>Use <strong>Search GDTF Share...</strong> to select a revision from the full existing catalog
+browser, or <strong>Load local GDTF...</strong> to validate and copy a local profile into the
+import&#39;s resources. Choose its DMX mode and review any model, mode or footprint
+differences. The original local file remains unchanged. Available fallback
+sources can be selected explicitly from the same row.</p>
+<p>The option <strong>Close GDTF download window automatically when finished</strong> is available
+only in <strong>Preferences → MVR Import/Export</strong> and defaults to off. With automatic
+close enabled, safe completed choices continue the import directly. Ambiguous or
+failed results remain open for review.</p>
+<p>The queue shows catalog/sign-in activity, elapsed time, analysis progress by
+fixture type and download bytes. Green indicates a successful download, reuse or
+local selection; amber indicates an original MVR or application fallback; red
+indicates a failure or unresolved profile.</p>
+<p>Candidates list all available modes and their channel counts. Missing catalog
+metadata is shown as unavailable, rather than zero channels, and is updated from
+the actual package after downloading. The imported mode and its known channel
+count appear in the details. Patch inference requires at least two equal adjacent intervals in the same
+universe, with no duplicate or invalid addresses or intervening fixtures of
+another type. It never overrides a known original channel count or breaks a tie
+between modes with the same footprint. Gaps may include unused addresses, and
+equal footprints do not guarantee equal DMX channel functions.</p>
+<p><strong>Cancel</strong>, <strong>Escape</strong> and the window close button stop the queue and continue
+importing with the original MVR profiles and modes for all its rows. This discards
+all queue substitutions, including completed downloads and local selections.
+Use <strong>OK</strong> to accept the results.</p>
+<p><strong>OK</strong> also retries failed downloads. To continue with an original profile after
+a failure, select its <strong>MVR</strong> source and press <strong>OK</strong>. Canceling authentication
+stops the remaining attempts without repeating the sign-in dialog for every row.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

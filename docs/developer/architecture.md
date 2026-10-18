@@ -556,3 +556,10 @@ Viewer3D owns immutable runtime representations and a per-viewer mesh cache;
 GUI owns the category-based Preferences container and focused settings pages.
 See [Runtime model detail and Preferences](model_detail.md) for policy values,
 simplification, invalidation, and preserved settings.
+
+The MVR import GDTF workflow links `perastage_gdtf_matching` (standard-library-only
+ranking) and `perastage_gdtf_resolution` (typed choices, fallback/application state
+and shared package validation). Native queue controls, credentials and catalog
+selection stay in `gui/`; the existing download queue modal boundary is reused.
+See [MVR GDTF resolution](technical-notes/mvr_gdtf_download_queue.md) for ownership,
+automatic selection policy and the proposed headless adapter boundary.

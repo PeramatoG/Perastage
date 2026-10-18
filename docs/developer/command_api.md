@@ -303,3 +303,15 @@ Schema version 1 is additive within its lifetime: consumers must tolerate new
 object members but can rely on documented members and tokens retaining their
 meaning. A breaking removal, token change, type change, or semantic change
 requires a new schema version.
+
+## Proposed GDTF resolution boundary
+
+The GUI-independent `gdtf_resolution::Analyze`, `Select`, `Complete`, `Fail` and
+`Cancel` APIs accept identity evidence, catalog entries and validated resources and
+return typed ranking/source/mode/status state. They currently support the MVR
+import workflow and register no semantic command. A future CLI/local IPC adapter
+must version its serialized contract and acquire an import-session resource lease
+before publishing a replacement through the project transaction. Inspection Core
+remains read-only; OSC and MCP should adapt the same semantic boundary rather
+than launch dialogs. See [MVR GDTF resolution](technical-notes/mvr_gdtf_download_queue.md)
+for the remaining integration blockers.

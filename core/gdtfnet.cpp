@@ -185,6 +185,42 @@ void ConfigureCommonCurl(CURL* curl, const std::string& cookieFile,
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
 }
 
+// Polling the multi interface also observes cancellation during connection setup.
+CURLcode PerformCancelable(CURL* curl, const std::function<bool()>& canceled) {
+    if (!canceled)
+        return curl_easy_perform(curl);
+    if (canceled())
+        return CURLE_ABORTED_BY_CALLBACK;
+    CURLM* multi = curl_multi_init();
+    if (!multi)
+        return CURLE_FAILED_INIT;
+    CURLcode result = CURLE_FAILED_INIT;
+    if (curl_multi_add_handle(multi, curl) == CURLM_OK) {
+        int running = 0;
+        do {
+            if (canceled()) {
+                result = CURLE_ABORTED_BY_CALLBACK;
+                break;
+            }
+            if (curl_multi_perform(multi, &running) != CURLM_OK)
+                break;
+            if (!running) {
+                int remaining = 0;
+                if (auto* message = curl_multi_info_read(multi, &remaining))
+                    if (message->msg == CURLMSG_DONE)
+                        result = message->data.result;
+                break;
+            }
+            int descriptors = 0;
+            if (curl_multi_poll(multi, nullptr, 0, 100, &descriptors) != CURLM_OK)
+                break;
+        } while (running);
+        curl_multi_remove_handle(multi, curl);
+    }
+    curl_multi_cleanup(multi);
+    return result;
+}
+
 // Returns safe libcurl diagnostic text without request secrets.
 std::string CurlErrorText(CURLcode code, const char* buffer) {
     if (buffer && buffer[0] != '\0')
@@ -398,6 +434,10 @@ GdtfShareResult MapGdtfShareResponse(long httpStatus, int transportCode,
     result.contentType = contentType;
     result.responseBytes = response.size();
     result.elapsedMs = elapsedMs;
+    if (transportCode == CURLE_ABORTED_BY_CALLBACK) {
+        result.category = GdtfShareResultCategory::Cancelled;
+        return result;
+    }
     if (transportCode != CURLE_OK)
         return transportCode == CURLE_OPERATION_TIMEDOUT ? MakeGdtfShareTimeoutResult(transportCode, transportMessage, elapsedMs)
                                                         : MakeGdtfShareTransportResult(transportCode, transportMessage, elapsedMs);
@@ -500,7 +540,8 @@ const fs::path& GdtfShareClient::CookiePathForTesting() const { return impl->coo
 bool GdtfShareClient::OwnsCookieForTesting() const { return impl->cookie.IsOwned(); }
 
 // Authenticates against GDTF Share and stores the session cookie internally.
-GdtfShareResult GdtfShareClient::Login(const std::string& user, const std::string& password) {
+GdtfShareResult GdtfShareClient::Login(const std::string& user, const std::string& password,
+                                       std::function<bool()> shouldCancel) {
     CURL* curl = curl_easy_init();
     if (!curl)
         return MakeGdtfShareTransportResult(CURLE_FAILED_INIT, "Could not initialize libcurl", 0);
@@ -517,7 +558,7 @@ GdtfShareResult GdtfShareClient::Login(const std::string& user, const std::strin
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(body.size()));
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     const auto start = std::chrono::steady_clock::now();
-    const CURLcode code = curl_easy_perform(curl);
+    const CURLcode code = PerformCancelable(curl, shouldCancel);
     const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
     GdtfShareResult result = MapGdtfShareResponse(0, code, CurlErrorText(code, errorBuffer), response, "", elapsed, true);
     FillResponseInfo(curl, result);
@@ -535,7 +576,7 @@ GdtfShareResult GdtfShareClient::Login(const std::string& user, const std::strin
 }
 
 // Retrieves the authenticated GDTF Share catalog through this session.
-GdtfShareResult GdtfShareClient::GetCatalog() {
+GdtfShareResult GdtfShareClient::GetCatalog(std::function<bool()> shouldCancel) {
     CURL* curl = curl_easy_init();
     if (!curl)
         return MakeGdtfShareTransportResult(CURLE_FAILED_INIT, "Could not initialize libcurl", 0);
@@ -545,7 +586,7 @@ GdtfShareResult GdtfShareClient::GetCatalog() {
     ConfigureCommonCurl(curl, cookiePath, response, errorBuffer);
     curl_easy_setopt(curl, CURLOPT_URL, kListUrl);
     const auto start = std::chrono::steady_clock::now();
-    const CURLcode code = curl_easy_perform(curl);
+    const CURLcode code = PerformCancelable(curl, shouldCancel);
     const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
     GdtfShareResult result = MapGdtfShareResponse(0, code, CurlErrorText(code, errorBuffer), response, "", elapsed, true);
     FillResponseInfo(curl, result);
@@ -601,7 +642,7 @@ GdtfShareResult GdtfShareClient::DownloadRevision(const std::string& rid, const 
     curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &ctx);
     curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
     const auto start = std::chrono::steady_clock::now();
-    const CURLcode code = curl_easy_perform(curl);
+    const CURLcode code = PerformCancelable(curl, ctx.shouldCancelCallback);
     const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
     ofs.close();
     GdtfShareResult result;

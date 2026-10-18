@@ -74,6 +74,7 @@ struct SceneReadGdtfConflict {
   std::string modeName;
   int footprint = 0;
   bool hasDictionaryEntry = false;
+  int patchSpacingHint = 0;
 };
 
 // Retains source facts for standard nodes not represented by editable models.

@@ -24,7 +24,7 @@
 #include <wx/app.h>
 #include <wx/button.h>
 #include <wx/gauge.h>
-#include <wx/listctrl.h>
+#include "gdtf_download_queue_table.h"
 #include <wx/stattext.h>
 
 class TestApp : public wxApp {
@@ -99,7 +99,7 @@ void CheckQueue(bool autoClose, bool cancel, int action) {
     dialog.SetPhase(cancel ? "Queue canceled. Keeping downloaded fixtures."
                            : "Queue finished.");
     dialog.UpdateProgressGauge();
-    auto *list = Find<wxListCtrl>(dialog);
+    auto *list = Find<GdtfDownloadQueueTable>(dialog);
     std::vector<wxString> rows;
     std::vector<wxColour> colours;
     for (int row = 0; row < 3; ++row) {
@@ -110,6 +110,14 @@ void CheckQueue(bool autoClose, bool cancel, int action) {
     assert(colours[0] ==
            GdtfResolutionStatusColour(
                rider_fixture_resolution::StatusSemantic::Success));
+    assert(colours[1] == GdtfResolutionStatusColour(
+        rider_fixture_resolution::StatusSemantic::Warning));
+    assert(colours[0] != colours[1]);
+    dialog.UpdateStatusRow("fallback", "", "Failed", "", "", DownloadRowState::DownloadFailed);
+    assert(list->GetItemTextColour(1) != colours[0]);
+    assert(list->GetItemTextColour(1) != colours[1]);
+    dialog.UpdateStatusRow("fallback", "-", "Fallback to MVR", "0 B / ? B",
+                           "No catalog match", DownloadRowState::Fallback);
     const int gauge = Find<wxGauge>(dialog)->GetValue();
     if (!autoClose) {
       // This event can only run after work returns and Finish enables OK.

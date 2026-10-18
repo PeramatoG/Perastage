@@ -20,3 +20,67 @@ Una descarga fallida o cancelada conserva el perfil que ya exista en el destino.
 Las contraseñas se guardan en el almacén seguro de credenciales del sistema operativo cuando está disponible. Si no lo está, Perastage avisa y permite utilizar las credenciales para la operación actual sin guardar la contraseña. Puede ser necesario introducirla de nuevo en otra sesión. El nombre de usuario puede recordarse como ayuda para iniciar sesión.
 
 Utiliza **Tools → Edit dictionaries** para gestionar las asignaciones de perfiles y **Tools → Open user library folder** para localizar contenido local. Consulta los [problemas con credenciales](troubleshooting.md#credenciales-de-gdtf-share) si no se conservan las contraseñas.
+
+## Resolver perfiles al importar un MVR
+
+El diálogo MVR/App/Download se mantiene. Download abre la cola con sugerencias
+seguras y los perfiles MVR o de la aplicación disponibles como alternativa.
+Seleccione una fila para revisar revisiones y advertencias, incluso después de
+una descarga correcta. **Aceptar** permanece habilitado mientras la cola está
+inactiva: procesa las selecciones pendientes y cierra cuando terminan. Se deshabilita
+durante el análisis y las descargas. Los nuevos errores o selecciones sin resolver
+mantienen la ventana abierta para revisarlos. No hay un botón Aplicar separado.
+Las selecciones aceptadas se aplican a todas las instancias de ese tipo.
+
+Elegir **Download** solicita el archivo del repositorio cuando el modelo coincide
+sin ambigüedad, aunque el nombre del modo sea distinto. Por ejemplo, `DMX Mode`
+no impide descargar ELP PAR con los modos `Basic` y `Compact`. El modo DMX se asigna automáticamente tras descargar, sin selector ni confirmación
+de compatibilidad. Se utiliza, por orden: el nombre indicado en el MVR (ignorando
+mayúsculas, espacios y puntuación), un modo único con el número de canales del
+perfil original y, si ese número es desconocido, un modo único deducido de la
+separación repetida e igual del patch. Los detalles indican la información utilizada.
+
+Si persiste la ambigüedad, el archivo queda descargado y se mantienen seleccionados
+el perfil y los modos originales del MVR. La fila explica el motivo; **Aceptar**
+permite continuar sin elegir un modo. **Elegir modo DMX...** queda como ajuste manual
+opcional. Varios modos importados se conservan en lugar de sustituirlos por uno solo.
+
+Cada fila tiene casillas exclusivas **MVR**, **Perastage** y **Archivo seleccionado**.
+Los orígenes no disponibles están deshabilitados. MVR conserva los modos importados;
+Perastage utiliza un perfil disponible de la biblioteca; Archivo seleccionado
+recupera la última elección descargada o local. Volver al descargado reutiliza su
+paquete validado. **Descargado; idéntico al MVR original** indica que se han comparado
+los bytes del archivo descargado y del perfil original y coinciden exactamente;
+el nombre o FixtureTypeID compartidos no demuestran que los archivos sean iguales.
+
+**Buscar en GDTF Share...** reutiliza el navegador completo. **Cargar GDTF local...**
+valida el archivo y copia el perfil a los recursos de la importación sin modificar
+el original. Elija el modo DMX y revise las diferencias de modelo, modo y huella.
+También puede seleccionar explícitamente un perfil alternativo disponible.
+
+El cierre automático solo se configura en **Preferencias → MVR Import/Export**
+y sigue desactivado por defecto. Al activarlo, las selecciones seguras completadas
+continúan la importación; las ambigüedades y los errores permanecen visibles.
+
+La cola muestra actividad del catálogo y del acceso, tiempo transcurrido, progreso
+por tipo de luminaria y bytes descargados. Verde indica descarga, reutilización o
+selección local correcta; ámbar indica perfil original del MVR o alternativa de la
+aplicación; rojo indica error o perfil sin resolver.
+
+Los candidatos muestran todos sus modos y canales disponibles. Los datos ausentes
+se indican como no disponibles, en lugar de cero canales, y se actualizan al leer
+el paquete descargado. Los detalles muestran el modo importado y su consumo conocido.
+La deducción del patch exige al menos dos intervalos adyacentes iguales en el mismo
+universo, sin direcciones duplicadas o inválidas ni fixtures de otro tipo intercalados.
+No sustituye un número de canales original conocido ni resuelve empates entre modos
+con igual consumo. Los huecos pueden incluir canales libres y un consumo igual no
+garantiza las mismas funciones DMX.
+
+**Cancelar**, **Escape** y cerrar la ventana detienen la cola y continúan la
+importación con los perfiles y modos originales del MVR para todas sus filas.
+Se descartan todas las sustituciones de la cola, incluidas las descargas terminadas
+y las selecciones locales. **Aceptar** confirma los resultados.
+
+**Aceptar** también reintenta las descargas fallidas. Para continuar con un perfil
+original tras un fallo, seleccione su origen **MVR** y pulse **Aceptar**. Cancelar la
+autenticación detiene los intentos pendientes sin repetir el diálogo de acceso por fila.

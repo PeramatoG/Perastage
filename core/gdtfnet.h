@@ -91,8 +91,9 @@ public:
     GdtfShareClient(GdtfShareClient&&) noexcept;
     GdtfShareClient& operator=(GdtfShareClient&&) noexcept;
 
-    GdtfShareResult Login(const std::string& user, const std::string& password);
-    GdtfShareResult GetCatalog();
+    GdtfShareResult Login(const std::string& user, const std::string& password,
+                          std::function<bool()> shouldCancel = {});
+    GdtfShareResult GetCatalog(std::function<bool()> shouldCancel = {});
     void ResetSession();
     bool IsAuthenticated() const;
     std::optional<std::string> AuthenticatedUsername() const;
