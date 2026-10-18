@@ -31,8 +31,13 @@
 
 struct SymdefGeometry {
     std::string file;
-    std::string geometryType;
     Matrix transform;
+};
+
+// Canonical direct-geometry Symdef. Nested Symbol graphs remain protected.
+struct SymdefDefinition {
+    std::optional<std::string> name;
+    std::vector<SymdefGeometry> geometries;
 };
 
 // Stores one validated foreign root UserData/Data subtree for opaque passthrough.
@@ -83,10 +88,7 @@ public:
     // Lookup tables for additional references
     std::unordered_map<std::string, MvrClass> classes; // Persistent, scene-wide definitions.
     std::unordered_map<std::string, std::string> positions;   // uuid -> name
-    std::unordered_map<std::string, std::string> symdefFiles; // uuid -> geometry file
-    std::unordered_map<std::string, std::string> symdefTypes; // uuid -> geometry type
-    std::unordered_map<std::string, Matrix> symdefMatrices;    // uuid -> first geometry matrix
-    std::unordered_map<std::string, std::vector<SymdefGeometry>> symdefGeometries;
+    std::unordered_map<std::string, SymdefDefinition> symdefs;
 
     std::string provider;
     std::string providerVersion;

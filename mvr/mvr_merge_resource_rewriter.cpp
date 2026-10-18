@@ -203,14 +203,12 @@ void RewriteImportedSceneResourceReferences(const MvrScene &target,
                                rewrittenByOriginal);
   }
 
-  for (auto &[uuid, file] : imported.symdefFiles)
-    RewriteResourceReference(target, imported, file, rewrittenByOriginal);
-
-  for (auto &[uuid, geometries] : imported.symdefGeometries) {
-    for (auto &geometry : geometries)
+  for (auto &[uuid, definition] : imported.symdefs) {
+    for (auto &geometry : definition.geometries)
       RewriteResourceReference(target, imported, geometry.file,
                                rewrittenByOriginal);
   }
+
 }
 
 } // namespace mvr

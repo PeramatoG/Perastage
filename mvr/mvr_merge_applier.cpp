@@ -168,6 +168,7 @@ void RemapImportedReferences(MvrScene &scene,
 
   for (auto &[uuid, truss] : scene.trusses) {
     truss.position = RemapImportedUuidReference(truss.position, analysis);
+    truss.sourceSymbolUuid = RemapImportedUuidReference(truss.sourceSymbolUuid, analysis);
     truss.sourceSymdefUuid =
         RemapImportedUuidReference(truss.sourceSymdefUuid, analysis);
     truss.parentGroupUuid =
@@ -251,12 +252,9 @@ MvrSceneMergeResult ApplyImportedSceneMerge(MvrScene &target,
   for (const auto &[uuid, definition] : importedCopy.classes)
     target.classes.try_emplace(RemapImportedUuidReference(uuid, analysis), definition);
   MergeLookupTable(target.positions, importedCopy.positions, analysis);
-  MergeLookupTable(target.symdefFiles, importedCopy.symdefFiles, analysis);
-  MergeLookupTable(target.symdefTypes, importedCopy.symdefTypes, analysis);
-  MergeLookupTable(target.symdefMatrices, importedCopy.symdefMatrices,
-                   analysis);
-  MergeLookupTable(target.symdefGeometries, importedCopy.symdefGeometries,
-                   analysis);
+  // A shared definition keeps its original resource ownership and spelling.
+  for (const auto &[uuid, definition] : importedCopy.symdefs)
+    target.symdefs.try_emplace(RemapImportedUuidReference(uuid, analysis), definition);
 
   result.fixturesAdded =
       MergeObjectTable(target.fixtures, importedCopy.fixtures, analysis);

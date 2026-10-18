@@ -650,7 +650,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
             if (const char *symbolUuid = sym->Attribute("uuid"))
               truss.sourceSymbolUuid = CanonicalizeUuid(Trim(symbolUuid));
             if (const char *symdef = sym->Attribute("symdef"))
-              truss.sourceSymdefUuid = Trim(symdef);
+              truss.sourceSymdefUuid = CanonicalizeUuid(symdef);
             truss.sourceSymbolMatrix = symMatrix;
             truss.sourceGeometryType = symType;
             Matrix symLocal = symMatrix;
@@ -1070,8 +1070,6 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
                           << " localTransform="
                           << MatrixUtils::FormatMatrix(localTransform);
               services.logDebug(geometryLog.str());
-              if (!geo.geometryType.empty())
-                geometryType = geo.geometryType;
               ++symGeometryIndex;
             }
           }

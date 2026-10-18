@@ -313,16 +313,12 @@ static void VerifySameLayerNameWithDifferentUuidPreservesBothLayers() {
 // Verifies Symdef UUID collisions remap Symbol-derived object references.
 static void VerifySymdefUuidCollisionWithDifferentGeometryFilesRemapsSymbol() {
   MvrScene target;
-  target.symdefFiles["symdef-a"] = "symbols/current.3ds";
-  target.symdefTypes["symdef-a"] = "Mesh";
-  target.symdefGeometries["symdef-a"] = {
-      SymdefGeometry{"symbols/current.3ds", "Mesh", Matrix{}}};
+  target.symdefs["symdef-a"].geometries = {
+      SymdefGeometry{"symbols/current.3ds", Matrix{}}};
 
   MvrScene imported;
-  imported.symdefFiles["symdef-a"] = "symbols/incoming.3ds";
-  imported.symdefTypes["symdef-a"] = "Mesh";
-  imported.symdefGeometries["symdef-a"] = {
-      SymdefGeometry{"symbols/incoming.3ds", "Mesh", Matrix{}}};
+  imported.symdefs["symdef-a"].geometries = {
+      SymdefGeometry{"symbols/incoming.3ds", Matrix{}}};
   Truss truss;
   truss.uuid = "incoming-truss";
   truss.sourceSymdefUuid = "symdef-a";
@@ -336,8 +332,8 @@ static void VerifySymdefUuidCollisionWithDifferentGeometryFilesRemapsSymbol() {
       mvr::ApplyImportedSceneMerge(target, imported, analysis);
 
   assert(result.nonObjectLookupConflictsResolved == 1);
-  assert(target.symdefFiles.at("symdef-a") == "symbols/current.3ds");
-  assert(target.symdefFiles.at(remappedSymdefUuid) == "symbols/incoming.3ds");
+  assert(target.symdefs.at("symdef-a").geometries.front().file == "symbols/current.3ds");
+  assert(target.symdefs.at(remappedSymdefUuid).geometries.front().file == "symbols/incoming.3ds");
   assert(target.trusses.at("incoming-truss").sourceSymdefUuid ==
          remappedSymdefUuid);
 }
@@ -374,7 +370,7 @@ static void VerifyImportedResourcesAreRewrittenIntoTargetBasePath() {
   target.basePath = targetBase.string();
   target.fixtures["current-fixture"] = MakeTypedFixture(
       "current-fixture", "Current", "shared/fixture.gdtf", "Mode A");
-  target.symdefFiles["incoming-symdef"] = "symbols/symdef.3ds";
+  target.symdefs["incoming-symdef"].geometries = {{"symbols/symdef.3ds", Matrix{}}};
 
   MvrScene imported;
   imported.basePath = importedBase.string();
@@ -406,9 +402,8 @@ static void VerifyImportedResourcesAreRewrittenIntoTargetBasePath() {
   support.geometries.front().sourceSymdefUuid = "incoming-symdef";
   imported.supports[support.uuid] = support;
 
-  imported.symdefFiles["incoming-symdef"] = "symbols/symdef.3ds";
-  imported.symdefGeometries["incoming-symdef"] = {
-      SymdefGeometry{"symbols/symdef_child.3ds", "Mesh", Matrix{}}};
+  imported.symdefs["incoming-symdef"].geometries = {
+      {"symbols/symdef.3ds", Matrix{}}, {"symbols/symdef_child.3ds", Matrix{}}};
 
   const mvr::MvrMergeAnalysis analysis =
       mvr::AnalyzeImportedSceneMerge(target, imported);
@@ -443,9 +438,9 @@ static void VerifyImportedResourcesAreRewrittenIntoTargetBasePath() {
   assert(mergedSupport.geometries.front().sourceSymdefUuid == mergedSymdefUuid);
   assert(mergedObject.geometries.front().sourceSymdefUuid == mergedSymdefUuid);
   assert(mergedSymdefUuid != "incoming-symdef");
-  assert(ResourceExists(targetBase, target.symdefFiles.at(mergedSymdefUuid)));
+  assert(ResourceExists(targetBase, target.symdefs.at(mergedSymdefUuid).geometries.front().file));
   assert(ResourceExists(
-      targetBase, target.symdefGeometries.at(mergedSymdefUuid).front().file));
+      targetBase, target.symdefs.at(mergedSymdefUuid).geometries.back().file));
 
   const std::filesystem::path reloadedBase = tempDir / "reloaded_project";
   std::filesystem::copy(targetBase, reloadedBase,

@@ -1,5 +1,6 @@
 #include "mvr_standard_preservation.h"
 #include "mvr_class_preservation.h"
+#include "mvr_symdef_preservation.h"
 
 #include "filesystem_path_utils.h"
 #include "matrixutils.h"
@@ -88,11 +89,6 @@ void Scan(tinyxml2::XMLElement &element, MvrScene &scene,
            "Geometry expansion would discard Symbol identity and Symdef relationships.");
     return;
   }
-  if (name == "Symdef" && element.Attribute("name") &&
-      std::string_view(element.Attribute("name")) != "") {
-    Record(scene, element, owner, location + "/@name", "Symdef names are not retained.");
-    return;
-  }
   if (name == "Addresses") {
     auto *address = element.FirstChildElement("Address");
     if (element.FirstChildElement("Network") ||
@@ -154,6 +150,8 @@ void RecordStandardPreservationRisks(tinyxml2::XMLElement &root, MvrScene &scene
 
 std::vector<MvrExportDiagnostic> CheckStandardPreservation(const MvrScene &scene) {
   auto result = CheckMvrClasses(scene);
+  const auto symbols = CheckMvrSymdefs(scene);
+  result.insert(result.end(), symbols.begin(), symbols.end());
   if (scene.versionMajor != 1 || scene.versionMinor > 6)
     result.push_back(Block("GeneralSceneDescription", {}, "/@verMajor,verMinor",
                            "Unsupported MVR version cannot be downgraded safely."));

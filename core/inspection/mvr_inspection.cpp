@@ -150,14 +150,9 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
     for (const GeometryInstance &geometry : object.geometries)
       AddReference(references, "geometry", geometry.modelFile);
   }
-  for (const auto &[uuid, geometries] : scene.symdefGeometries) {
-    (void)uuid;
-    for (const SymdefGeometry &geometry : geometries)
+  for (const auto &[uuid, definition] : scene.symdefs) {
+    for (const auto &geometry : definition.geometries)
       AddReference(references, "geometry", geometry.file);
-  }
-  for (const auto &[uuid, file] : scene.symdefFiles) {
-    (void)uuid;
-    AddReference(references, "geometry", file);
   }
   for (const mvr::MvrNeutralSceneNode &node : readContext.neutralSceneNodes)
     for (const auto &[kind, path] : node.resourceReferences)
@@ -296,37 +291,14 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
             [](const auto &left, const auto &right) {
               return left.uuid < right.uuid;
             });
-  std::set<std::string> symdefUuids;
-  for (const auto &[uuid, value] : scene.symdefGeometries) {
-    (void)value;
-    symdefUuids.insert(uuid);
-  }
-  for (const auto &[uuid, value] : scene.symdefFiles) {
-    (void)value;
-    symdefUuids.insert(uuid);
-  }
-  for (const auto &[uuid, value] : scene.symdefTypes) {
-    (void)value;
-    symdefUuids.insert(uuid);
-  }
-  for (const auto &[uuid, value] : scene.symdefMatrices) {
-    (void)value;
-    symdefUuids.insert(uuid);
-  }
-  for (const std::string &uuid : symdefUuids) {
+  std::vector<std::string> symdefUuids;
+  for (const auto &[uuid, definition] : scene.symdefs) symdefUuids.push_back(uuid);
+  std::sort(symdefUuids.begin(), symdefUuids.end());
+  for (const auto &uuid : symdefUuids) {
     std::set<std::string> retainedResources;
-    const auto geometries = scene.symdefGeometries.find(uuid);
-    if (geometries != scene.symdefGeometries.end()) {
-      for (const SymdefGeometry &geometry : geometries->second)
-        if (!geometry.file.empty())
-          retainedResources.insert(geometry.file);
-    }
-    const auto file = scene.symdefFiles.find(uuid);
-    if (file != scene.symdefFiles.end() && !file->second.empty())
-      retainedResources.insert(file->second);
-    std::vector<std::string> resources(retainedResources.begin(),
-                                       retainedResources.end());
-    snapshot.symdefs.push_back({uuid, std::move(resources)});
+    for (const auto &geometry : scene.symdefs.at(uuid).geometries)
+      if (!geometry.file.empty()) retainedResources.insert(geometry.file);
+    snapshot.symdefs.push_back({uuid, {retainedResources.begin(), retainedResources.end()}});
   }
 
   snapshot.nodeCounts = {{"layers", snapshot.layers.size()},

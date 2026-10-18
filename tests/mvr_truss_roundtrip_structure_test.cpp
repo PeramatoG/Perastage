@@ -234,7 +234,8 @@ int main() {
   fs::create_directories(tempDir / "models");
 
   const fs::path symModel = tempDir / "models" / "sym_truss.3ds";
-  std::ofstream(symModel) << "sym-model";
+  // Structurally valid empty 3DS root; this test exercises MVR ownership.
+  std::ofstream(symModel, std::ios::binary).write("\x4d\x4d\x06\x00\x00\x00", 6);
 
   auto &cfg = ConfigManager::Get();
   cfg.Reset();
@@ -246,10 +247,8 @@ int main() {
   SymdefGeometry symGeo;
   symGeo.file = symModel.generic_string();
   symGeo.transform = MatrixUtils::Identity();
-  scene.symdefGeometries[symdefUuid] = {symGeo};
-  scene.symdefFiles[symdefUuid] = symModel.generic_string();
-  scene.symdefMatrices[symdefUuid] = MatrixUtils::Identity();
-  scene.symdefFiles["44444444-4444-4444-4444-444444444444"] = symModel.generic_string();
+  scene.symdefs[symdefUuid].geometries = {symGeo};
+  scene.symdefs["44444444-4444-4444-4444-444444444444"].geometries = {{symModel.generic_string(), MatrixUtils::Identity()}};
 
   assert(mvr::preferences::LoadExportOptions(cfg).trussGeometryExportMode ==
          MvrTrussGeometryExportMode::Standard);
@@ -430,7 +429,7 @@ int main() {
   assert(directEntries.find(directFileName) != directEntries.end());
   tinyxml2::XMLElement *directAux = directSceneNode->FirstChildElement("AUXData");
   if (directAux)
-    assert(directAux->FirstChildElement("Symdef") == nullptr);
+    assert(directAux->FirstChildElement("Symdef") != nullptr);
 
   const ConfigManager::DirtyState dirtyAfterCompatibilityExport =
       cfg.CaptureDirtyState();
@@ -447,8 +446,8 @@ int main() {
   assert(scene.trusses.at(truss.uuid).sourceSymdefUuid ==
          sceneBeforeCompatibilityExport.trusses.at(truss.uuid)
              .sourceSymdefUuid);
-  assert(scene.symdefGeometries.size() ==
-         sceneBeforeCompatibilityExport.symdefGeometries.size());
+  assert(scene.symdefs.size() ==
+         sceneBeforeCompatibilityExport.symdefs.size());
 
   std::vector<uint8_t> canonicalSnapshotBytes;
   assert(exporter.ExportCanonicalSnapshotToBuffer(scene,
@@ -680,9 +679,7 @@ int main() {
   cfg.Reset();
   MvrScene &generatedScene = cfg.GetScene();
   generatedScene.basePath = tempDir.generic_string();
-  generatedScene.symdefGeometries[symdefUuid] = {symGeo};
-  generatedScene.symdefFiles[symdefUuid] = symModel.generic_string();
-  generatedScene.symdefMatrices[symdefUuid] = MatrixUtils::Identity();
+  generatedScene.symdefs[symdefUuid].geometries = {symGeo};
   GroupObject generatedGroup = group;
   generatedGroup.uuid = "44444444-4444-4444-4444-444444444444";
   generatedGroup.children.clear();
@@ -713,29 +710,9 @@ int main() {
   generatedScene.groupObjects[generatedGroup.uuid].children.push_back(
       {MvrNodeType::Truss, collidingTruss.uuid});
   const fs::path collisionMvr = tempDir / "collision.mvr";
-  assert(exporter.ExportToFile(collisionMvr.string()));
-  assert(!exporter.GetExportWarnings().empty());
-  const auto collisionEntries = ReadArchiveTextEntries(collisionMvr);
-  tinyxml2::XMLDocument collisionXml;
-  assert(collisionXml.Parse(collisionEntries.at("GeneralSceneDescription.xml").c_str()) ==
-         tinyxml2::XML_SUCCESS);
-  std::unordered_set<std::string> collisionSymbolUuids;
-  std::vector<tinyxml2::XMLElement *> collisionStack{
-      collisionXml.FirstChildElement("GeneralSceneDescription")};
-  while (!collisionStack.empty()) {
-    tinyxml2::XMLElement *node = collisionStack.back();
-    collisionStack.pop_back();
-    if (std::string(node->Name()) == "Symbol") {
-      const std::string exportedUuid = node->Attribute("uuid") ? node->Attribute("uuid") : "";
-      assert(CanonicalizeUuid(exportedUuid) == exportedUuid);
-      assert(node->Attribute("symdef") != nullptr);
-      assert(collisionSymbolUuids.insert(exportedUuid).second);
-    }
-    for (tinyxml2::XMLElement *child = node->FirstChildElement(); child;
-         child = child->NextSiblingElement())
-      collisionStack.push_back(child);
-  }
-  assert(collisionSymbolUuids.size() == 2);
+  // Authored instance identities cannot be silently repaired during export.
+  assert(!exporter.ExportToFile(collisionMvr.string()));
+  assert(!exporter.GetExportDiagnostics().empty());
 
   Truss typeA;
   typeA.symbolFile = symModel.generic_string();
