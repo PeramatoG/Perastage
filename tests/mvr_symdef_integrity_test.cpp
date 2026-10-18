@@ -257,6 +257,22 @@ int main(int argc, char **argv) {
   std::vector<uint8_t> bytes{1, 2, 3};
   assert(!exporter.ExportCanonicalSnapshotToBuffer(missing, bytes));
   assert(bytes.empty());
+  // Losing an incoming resource must never bind its definition to a target namesake.
+  const auto lostPath = fs::path(different.basePath) /
+      different.symdefs.at(definitionId).geometries.front().file;
+  assert(fs::remove(lostPath));
+  MvrScene missingMerge = incoming;
+  mvr::MergeImportedSceneIntoCurrent(missingMerge, different);
+  assert(!exporter.ExportCanonicalSnapshotToBuffer(missingMerge, bytes));
+  assert(bytes.empty());
+  assert(!missingMerge.preservationIssues.empty());
+  bool resourceFailure = false;
+  for (const auto &diagnostic : exporter.GetExportDiagnostics()) {
+    if (diagnostic.code != MvrExportDiagnosticCode::ResourceMissing) continue;
+    assert(diagnostic.resourceName == different.symdefs.at(definitionId).geometries.front().file);
+    resourceFailure = true;
+  }
+  assert(resourceFailure);
   config.GetScene() = missing;
   assert(!config.SaveProject((dir / "roundtrip.pstg").string()));
   assert(config.LoadProject((dir / "roundtrip.pstg").string()));

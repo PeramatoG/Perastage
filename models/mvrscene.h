@@ -49,6 +49,8 @@ struct MvrOpaqueUserDataBlock {
     bool operator==(const MvrOpaqueUserDataBlock& other) const = default;
 };
 
+enum class MvrPreservationIssueKind { StandardData, ResourceFailure };
+
 // Durable evidence of source information the current serializer cannot retain.
 // Evidence is diagnostic data, never an XML fragment to insert into output.
 struct MvrPreservationIssue {
@@ -58,6 +60,8 @@ struct MvrPreservationIssue {
     std::string originalInformation;
     std::string reason;
     std::string recommendedAction;
+    // ResourceFailure stores the unavailable resource name in originalInformation.
+    MvrPreservationIssueKind kind = MvrPreservationIssueKind::StandardData;
     bool operator==(const MvrPreservationIssue&) const = default;
 };
 

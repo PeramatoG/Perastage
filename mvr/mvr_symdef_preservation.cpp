@@ -100,8 +100,15 @@ std::vector<MvrExportDiagnostic> CheckMvrSymdefs(const MvrScene &scene) {
       if (!MatrixUtils::ParseMatrix(MatrixUtils::FormatMatrix(geometry.transform), roundTrip) || !Equal(geometry.transform, roundTrip))
         result.push_back(Block(uuid, "Definition geometry exceeds the current matrix serialization precision."));
       if (!Finite(geometry.transform)) result.push_back(Block(uuid, "Definition geometry has a nonfinite matrix."));
-      if (const auto problem = SymdefResourceProblem(scene, geometry.file); !problem.empty())
-        result.push_back(Block(uuid, problem));
+      if (const auto problem = SymdefResourceProblem(scene, geometry.file); !problem.empty()) {
+        auto diagnostic = Block(uuid, problem);
+        std::error_code error;
+        if (!std::filesystem::is_regular_file(ResolveSymdefResource(scene, geometry.file), error)) {
+          diagnostic.code = MvrExportDiagnosticCode::ResourceMissing;
+          diagnostic.resourceName = geometry.file;
+        }
+        result.push_back(std::move(diagnostic));
+      }
     }
   }
   for (const auto &[uuid, truss] : scene.trusses) {

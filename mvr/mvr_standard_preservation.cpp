@@ -155,9 +155,15 @@ std::vector<MvrExportDiagnostic> CheckStandardPreservation(const MvrScene &scene
   if (scene.versionMajor != 1 || scene.versionMinor > 6)
     result.push_back(Block("GeneralSceneDescription", {}, "/@verMajor,verMinor",
                            "Unsupported MVR version cannot be downgraded safely."));
-  for (const auto &issue : scene.preservationIssues)
-    result.push_back(Block(issue.node, issue.objectUuid, issue.sourceLocation,
-                           issue.reason + " " + issue.recommendedAction));
+  for (const auto &issue : scene.preservationIssues) {
+    auto diagnostic = Block(issue.node, issue.objectUuid, issue.sourceLocation,
+                            issue.reason + " " + issue.recommendedAction);
+    if (issue.kind == MvrPreservationIssueKind::ResourceFailure) {
+      diagnostic.code = MvrExportDiagnosticCode::ResourceMissing;
+      diagnostic.resourceName = issue.originalInformation;
+    }
+    result.push_back(std::move(diagnostic));
+  }
   std::unordered_set<std::string> focusUuids;
   for (const auto &[uuid, object] : scene.sceneObjects) {
     if (object.kind != SceneObjectKind::FocusPoint) continue;

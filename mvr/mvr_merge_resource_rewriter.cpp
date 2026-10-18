@@ -142,24 +142,25 @@ CopyAndRewriteResource(const MvrScene &target, const MvrScene &imported,
 }
 
 // Rewrites one mutable resource reference after registration.
-void RewriteResourceReference(
+bool RewriteResourceReference(
     const MvrScene &target, const MvrScene &imported, std::string &resourcePath,
     std::unordered_map<std::string, std::string> &cache) {
   const std::string trimmed = TrimAscii(resourcePath);
   if (trimmed.empty())
-    return;
+    return false;
 
   const auto cacheIt = cache.find(trimmed);
   if (cacheIt != cache.end()) {
     resourcePath = cacheIt->second;
-    return;
+    return true;
   }
 
   const auto rewritten = CopyAndRewriteResource(target, imported, trimmed);
   if (!rewritten)
-    return;
+    return false;
   cache.emplace(trimmed, *rewritten);
   resourcePath = *rewritten;
+  return true;
 }
 
 } // namespace
@@ -204,9 +205,14 @@ void RewriteImportedSceneResourceReferences(const MvrScene &target,
   }
 
   for (auto &[uuid, definition] : imported.symdefs) {
-    for (auto &geometry : definition.geometries)
-      RewriteResourceReference(target, imported, geometry.file,
-                               rewrittenByOriginal);
+    for (auto &geometry : definition.geometries) {
+      if (!RewriteResourceReference(target, imported, geometry.file, rewrittenByOriginal))
+        imported.preservationIssues.push_back({"Geometry3D", uuid,
+            "Scene/AUXData/Symdef/ChildList/Geometry3D/@fileName", geometry.file,
+            "Canonical Symdef resource could not be acquired during merge: " + geometry.file,
+            "Resolve the resource failure and retry merging the intact source.",
+            MvrPreservationIssueKind::ResourceFailure});
+    }
   }
 
 }

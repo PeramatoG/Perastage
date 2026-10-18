@@ -802,3 +802,15 @@ An empty discovered-dependency list is not universal closure proof for those
 formats/extensions. Sidecar ownership, identity during merge and preservation of
 unrecognized package assets remain P0; this phase's tests do not certify those
 cases. Known external URIs/material maps and uninspectable formats remain blocked.
+
+
+Additional confirmed merge defect: deleting an incoming geometry after import
+let a failed resource copy retain its relative filename. If the target had an
+unrelated namesake, the incoming definition silently rebound to target bytes.
+The regression reproduced a successful export before the correction. Canonical
+definition copy/acquisition failures now create durable resource-failure evidence
+before merge evidence is transferred. Both MVR and PSTG writes reject that state,
+even if the target filename resolves. Structured ResourceMissing diagnostics
+separate this failure from unsupported standard representation. Missing current
+Symdef geometry also uses that resource category. Generic non-definition resource
+merge failure policy remains a separate P0 concern.

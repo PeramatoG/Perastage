@@ -81,6 +81,8 @@ def main():
             scene, resources = read_package(directory / (name + '.mvr'))
             check_models(resources)
             assert definitions(scene, resources) == (expected_defs if name == 'unchanged' else named_defs)
+            if name in ('edited', 'hidden', 'reopened', 'repeated'):
+                assert scene.find(".//Truss[@uuid='30000000-0000-4000-8000-000000000001']").get('name') == 'Unrelated edit'
             actual = graph(scene)
             assert actual[0] == expected_graph[0]
             assert expected_graph[1].items() <= actual[1].items()
