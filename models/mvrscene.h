@@ -31,8 +31,13 @@
 
 struct SymdefGeometry {
     std::string file;
-    std::string geometryType;
     Matrix transform;
+};
+
+// Canonical direct-geometry Symdef. Nested Symbol graphs remain protected.
+struct SymdefDefinition {
+    std::optional<std::string> name;
+    std::vector<SymdefGeometry> geometries;
 };
 
 // Stores one validated foreign root UserData/Data subtree for opaque passthrough.
@@ -44,6 +49,8 @@ struct MvrOpaqueUserDataBlock {
     bool operator==(const MvrOpaqueUserDataBlock& other) const = default;
 };
 
+enum class MvrPreservationIssueKind { StandardData, ResourceFailure };
+
 // Durable evidence of source information the current serializer cannot retain.
 // Evidence is diagnostic data, never an XML fragment to insert into output.
 struct MvrPreservationIssue {
@@ -53,6 +60,8 @@ struct MvrPreservationIssue {
     std::string originalInformation;
     std::string reason;
     std::string recommendedAction;
+    // ResourceFailure stores the unavailable resource name in originalInformation.
+    MvrPreservationIssueKind kind = MvrPreservationIssueKind::StandardData;
     bool operator==(const MvrPreservationIssue&) const = default;
 };
 
@@ -83,10 +92,7 @@ public:
     // Lookup tables for additional references
     std::unordered_map<std::string, MvrClass> classes; // Persistent, scene-wide definitions.
     std::unordered_map<std::string, std::string> positions;   // uuid -> name
-    std::unordered_map<std::string, std::string> symdefFiles; // uuid -> geometry file
-    std::unordered_map<std::string, std::string> symdefTypes; // uuid -> geometry type
-    std::unordered_map<std::string, Matrix> symdefMatrices;    // uuid -> first geometry matrix
-    std::unordered_map<std::string, std::vector<SymdefGeometry>> symdefGeometries;
+    std::unordered_map<std::string, SymdefDefinition> symdefs;
 
     std::string provider;
     std::string providerVersion;

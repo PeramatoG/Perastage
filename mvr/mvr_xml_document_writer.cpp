@@ -78,24 +78,22 @@ void AppendSymdef(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *aux,
                   const SymdefValues &values) {
   tinyxml2::XMLElement *symdef = document.NewElement("Symdef");
   symdef->SetAttribute("uuid", values.uuid.c_str());
-  if (!values.geometryType.empty())
-    symdef->SetAttribute("geometryType", values.geometryType.c_str());
-  if (!values.geometries.empty()) {
-    tinyxml2::XMLElement *children = document.NewElement("ChildList");
-    for (const SymdefGeometryValues &value : values.geometries) {
-      tinyxml2::XMLElement *geometry = document.NewElement("Geometry3D");
-      geometry->SetAttribute("fileName", value.fileName.c_str());
-      if (!value.geometryType.empty())
-        geometry->SetAttribute("geometryType", value.geometryType.c_str());
-      tinyxml2::XMLElement *matrix = document.NewElement("Matrix");
-      matrix->SetText(MatrixUtils::FormatMatrix(value.matrix).c_str());
-      geometry->InsertEndChild(matrix);
-      children->InsertEndChild(geometry);
-    }
-    if (children->FirstChild())
-      symdef->InsertEndChild(children);
+  if (values.name) symdef->SetAttribute("name", values.name->c_str());
+  auto *children = document.NewElement("ChildList");
+  for (const auto &value : values.geometries) {
+    auto *geometry = document.NewElement("Geometry3D");
+    geometry->SetAttribute("fileName", value.fileName.c_str());
+    auto *matrix = document.NewElement("Matrix");
+    matrix->SetText(MatrixUtils::FormatMatrix(value.matrix).c_str());
+    geometry->InsertEndChild(matrix);
+    children->InsertEndChild(geometry);
   }
-  aux->InsertEndChild(symdef);
+  symdef->InsertEndChild(children);
+  // AUXData orders Symdefs before Positions, after any Classes.
+  if (auto *position = aux->FirstChildElement("Position")) {
+    if (auto *previous = position->PreviousSibling()) aux->InsertAfterChild(previous, symdef);
+    else aux->InsertFirstChild(symdef);
+  } else aux->InsertEndChild(symdef);
 }
 
 } // namespace mvr_xml_serialization

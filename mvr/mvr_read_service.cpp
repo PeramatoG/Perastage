@@ -18,6 +18,7 @@
 #include "mvr_import_reference_resolver.h"
 #include "mvr_scene_node_reader.h"
 #include "mvr_standard_preservation.h"
+#include "mvr_symdef_preservation.h"
 #include "primitive_model_resources.h"
 #include "uuidutils.h"
 
@@ -738,67 +739,10 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
           rawUid, name ? std::optional<std::string>{name} : std::nullopt,
           scene);
     }
-    std::function<void(tinyxml2::XMLElement *, const Matrix &,
-                       std::vector<SymdefGeometry> &)>
-        parseSymdefChildList;
-    parseSymdefChildList = [&](tinyxml2::XMLElement *childList,
-                               const Matrix &parent,
-                               std::vector<SymdefGeometry> &geometries) {
-      for (tinyxml2::XMLElement *child =
-               childList ? childList->FirstChildElement() : nullptr;
-           child; child = child->NextSiblingElement()) {
-        const char *name = child->Name();
-        if (!name)
-          continue;
-
-        Matrix local = MatrixUtils::Identity();
-        if (tinyxml2::XMLElement *matrix = child->FirstChildElement("Matrix")) {
-          if (const char *txt = matrix->GetText()) {
-            std::string raw = txt;
-            if (!MatrixUtils::ParseMatrix(raw, local))
-              local = MatrixUtils::Identity();
-          }
-        }
-        Matrix composed = MatrixUtils::Multiply(parent, local);
-
-        if (std::string(name) == "Geometry3D") {
-          SymdefGeometry g;
-          if (const char *fname = child->Attribute("fileName"))
-            g.file = RemapPackagePath(package, fname);
-          if (const char *type = child->Attribute("geometryType"))
-            g.geometryType = Trim(type);
-          g.transform = composed;
-          if (!g.file.empty())
-            geometries.push_back(std::move(g));
-        }
-
-        if (tinyxml2::XMLElement *inner = child->FirstChildElement("ChildList"))
-          parseSymdefChildList(inner, composed, geometries);
-      }
-    };
-
-    for (tinyxml2::XMLElement *sym = auxNode->FirstChildElement("Symdef"); sym;
-         sym = sym->NextSiblingElement("Symdef")) {
-      const char *uid = sym->Attribute("uuid");
-      if (!uid)
-        continue;
-
-      if (const char *type = sym->Attribute("geometryType"))
-        scene.symdefTypes[uid] = Trim(type);
-
-      std::vector<SymdefGeometry> geometries;
-      if (tinyxml2::XMLElement *childList = sym->FirstChildElement("ChildList"))
-        parseSymdefChildList(childList, MatrixUtils::Identity(), geometries);
-
-      if (!geometries.empty()) {
-        scene.symdefGeometries[uid] = geometries;
-        scene.symdefFiles[uid] = geometries.front().file;
-        scene.symdefMatrices[uid] = geometries.front().transform;
-        if (!geometries.front().geometryType.empty())
-          scene.symdefTypes[uid] = geometries.front().geometryType;
-      }
-    }
   }
+  ReadMvrSymdefs(*sceneNode, scene, [&](const std::string &file) {
+    return RemapPackagePath(package, file);
+  });
 
   constexpr float kTinyScaleMaxNorm = 0.01f;
   constexpr float kUniformScaleRelativeTolerance = 0.05f;
@@ -926,37 +870,13 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
     if (!symdef)
       return;
 
-    auto geosIt = scene.symdefGeometries.find(symdef);
-    if (geosIt != scene.symdefGeometries.end() && !geosIt->second.empty()) {
-      outGeometries = geosIt->second;
-      for (auto &geo : outGeometries)
-        geo.file = normalizeGeometryFileName(geo.file);
-      for (const auto &geo : outGeometries) {
-        if (!geo.geometryType.empty()) {
-          outGeometryType = geo.geometryType;
-          break;
-        }
-      }
-      return;
+    const auto definition = scene.symdefs.find(CanonicalizeUuid(symdef));
+    if (definition != scene.symdefs.end()) {
+      outGeometries = definition->second.geometries;
+      for (auto &geometry : outGeometries)
+        geometry.file = normalizeGeometryFileName(geometry.file);
     }
-
-    auto it = scene.symdefFiles.find(symdef);
-    if (it != scene.symdefFiles.end()) {
-      SymdefGeometry fallback;
-      fallback.file = normalizeGeometryFileName(it->second);
-      auto mit = scene.symdefMatrices.find(symdef);
-      if (mit != scene.symdefMatrices.end())
-        fallback.transform = mit->second;
-      auto tit = scene.symdefTypes.find(symdef);
-      if (tit != scene.symdefTypes.end())
-        fallback.geometryType = tit->second;
-      if (!fallback.file.empty())
-        outGeometries.push_back(std::move(fallback));
-    }
-
-    auto tit = scene.symdefTypes.find(symdef);
-    if (tit != scene.symdefTypes.end())
-      outGeometryType = tit->second;
+    outGeometryType.clear();
   };
 
   // ---- Helper lambdas for object parsing ----

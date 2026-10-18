@@ -130,8 +130,7 @@ std::vector<MvrExportDiagnostic> CheckMvrClasses(const MvrScene &scene) {
   };
   addKeys(scene.fixtures); addKeys(scene.trusses); addKeys(scene.supports);
   addKeys(scene.sceneObjects); addKeys(scene.groupObjects); addKeys(scene.layers);
-  addKeys(scene.positions); addKeys(scene.symdefFiles); addKeys(scene.symdefTypes);
-  addKeys(scene.symdefMatrices); addKeys(scene.symdefGeometries);
+  addKeys(scene.positions); addKeys(scene.symdefs);
   for (const auto &[uuid, truss] : scene.trusses)
     if (!truss.sourceSymbolUuid.empty()) occupied.insert(CanonicalizeUuid(truss.sourceSymbolUuid));
   const auto addSymbols = [&](const auto &objects) {

@@ -171,9 +171,10 @@ std::vector<fs::path> CollectReferencedSourceAssets(const fs::path &root,
     for (const auto &geometry : object.geometries)
       AddSourceAssetPath(root, geometry.modelFile, files);
   }
-  for (const auto &[uuid, symdefFile] : scene.symdefFiles) {
+  for (const auto &[uuid, definition] : scene.symdefs) {
     (void)uuid;
-    AddSourceAssetPath(root, symdefFile, files);
+    for (const auto &geometry : definition.geometries)
+      AddSourceAssetPath(root, geometry.file, files);
   }
 
   std::sort(files.begin(), files.end(),

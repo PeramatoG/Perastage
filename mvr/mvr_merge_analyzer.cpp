@@ -20,6 +20,7 @@
 #include "file_import_utils.h"
 #include "fixture_patch_address.h"
 #include "uuidutils.h"
+#include "mvr_symdef_preservation.h"
 
 #include <algorithm>
 #include <cctype>
@@ -134,10 +135,7 @@ std::unordered_set<std::string> CollectUsedUuids(const MvrScene &scene) {
   addKeys(scene.layers);
   addKeys(scene.positions);
   addKeys(scene.classes);
-  addKeys(scene.symdefFiles);
-  addKeys(scene.symdefTypes);
-  addKeys(scene.symdefMatrices);
-  addKeys(scene.symdefGeometries);
+  addKeys(scene.symdefs);
   for (const auto &[uuid, truss] : scene.trusses)
     if (!truss.sourceSymbolUuid.empty()) used.insert(truss.sourceSymbolUuid);
   const auto addSymbols = [&](const auto &objects) {
@@ -211,68 +209,35 @@ void AnalyzePatchAddressWarnings(const MvrScene &target,
   }
 }
 
-// Returns sorted UUID keys from all maps in a lookup family.
-template <typename... Maps>
-std::vector<std::string> SortedUnionUuidKeys(const Maps &...maps) {
-  std::unordered_set<std::string> seen;
-  auto collect = [&seen](const auto &map) {
-    for (const auto &entry : map)
-      seen.insert(entry.first);
-  };
-  (collect(maps), ...);
-  std::vector<std::string> keys(seen.begin(), seen.end());
-  std::sort(keys.begin(), keys.end());
-  return keys;
-}
-
 // Reports whether two matrices contain identical transform components.
 bool MatrixValuesEqual(const Matrix &current, const Matrix &incoming) {
   return current.u == incoming.u && current.v == incoming.v &&
          current.w == incoming.w && current.o == incoming.o;
 }
 
-// Reports whether two Symdef geometry entries describe the same geometry.
-bool SymdefGeometryValuesEqual(const SymdefGeometry &current,
-                               const SymdefGeometry &incoming) {
-  return current.file == incoming.file &&
-         current.geometryType == incoming.geometryType &&
-         MatrixValuesEqual(current.transform, incoming.transform);
-}
+using ResourceHashes = std::unordered_map<std::string, std::optional<std::string>>;
 
-// Reports whether two Symdef geometry lists have identical entries.
-bool SymdefGeometryListsEqual(const std::vector<SymdefGeometry> &current,
-                              const std::vector<SymdefGeometry> &incoming) {
-  if (current.size() != incoming.size())
-    return false;
-  for (std::size_t i = 0; i < current.size(); ++i) {
-    if (!SymdefGeometryValuesEqual(current[i], incoming[i]))
-      return false;
+// Only proven byte-equivalent self-contained definitions share an identity.
+bool SymdefDefinitionsEqual(const MvrScene &target, const MvrScene &imported,
+                            const std::string &uuid, ResourceHashes &hashes) {
+  const auto &left = target.symdefs.at(uuid);
+  const auto &right = imported.symdefs.at(uuid);
+  if (left.name.value_or("") != right.name.value_or("") ||
+      left.geometries.size() != right.geometries.size()) return false;
+  const auto hash = [&](const MvrScene &scene, const std::string &file) {
+    const auto path = ResolveSymdefResource(scene, file);
+    const auto key = path.lexically_normal().string();
+    auto found = hashes.find(key);
+    if (found == hashes.end()) found = hashes.emplace(key, FileImportUtils::ComputeFileSha256(path)).first;
+    return found->second;
+  };
+  for (size_t i = 0; i < left.geometries.size(); ++i) {
+    if (!MatrixValuesEqual(left.geometries[i].transform, right.geometries[i].transform)) return false;
+    const auto first = hash(target, left.geometries[i].file);
+    const auto second = hash(imported, right.geometries[i].file);
+    if (!first || !second || first != second) return false;
   }
   return true;
-}
-
-// Looks up a value from a map or returns the supplied fallback.
-template <typename T>
-T LookupOrDefault(const std::unordered_map<std::string, T> &values,
-                  const std::string &uuid, const T &fallback = T{}) {
-  const auto it = values.find(uuid);
-  if (it == values.end())
-    return fallback;
-  return it->second;
-}
-
-// Reports whether two Symdef UUID entries describe the same definition.
-bool SymdefDefinitionsEqual(const MvrScene &target, const MvrScene &imported,
-                            const std::string &uuid) {
-  return LookupOrDefault(target.symdefFiles, uuid) ==
-             LookupOrDefault(imported.symdefFiles, uuid) &&
-         LookupOrDefault(target.symdefTypes, uuid) ==
-             LookupOrDefault(imported.symdefTypes, uuid) &&
-         MatrixValuesEqual(LookupOrDefault(target.symdefMatrices, uuid),
-                           LookupOrDefault(imported.symdefMatrices, uuid)) &&
-         SymdefGeometryListsEqual(
-             LookupOrDefault(target.symdefGeometries, uuid),
-             LookupOrDefault(imported.symdefGeometries, uuid));
 }
 
 // Reports whether two layer entries share the same merge-visible content.
@@ -285,11 +250,12 @@ bool LayerValuesEqual(const Layer &current, const Layer &incoming) {
 // Derives an unused deterministic replacement UUID.
 std::string
 DeriveStableReplacementUuid(std::string_view tableName, const std::string &uuid,
-                            std::unordered_set<std::string> &usedUuids) {
+                            std::unordered_set<std::string> &usedUuids,
+                            const std::unordered_set<std::string> &reserved) {
   std::string seed = "mvr:merge:" + std::string(tableName) + ":" + uuid;
   std::string replacement = DeriveDeterministicUuid(seed);
   size_t suffix = 1;
-  while (!usedUuids.insert(replacement).second)
+  while (reserved.contains(replacement) || !usedUuids.insert(replacement).second)
     replacement =
         DeriveDeterministicUuid(seed + "#" + std::to_string(suffix++));
   return replacement;
@@ -301,7 +267,7 @@ std::string ResolveImportedUuid(const std::string &uuid,
                                 std::unordered_set<std::string> &usedUuids,
                                 MvrMergeAnalysis &analysis,
                                 const MvrMergeOptions &options,
-                                bool classCollision = false) {
+                                bool definitionCollision = false) {
   if (uuid.empty())
     return uuid;
 
@@ -311,12 +277,12 @@ std::string ResolveImportedUuid(const std::string &uuid,
   }
 
   ++analysis.uuidCollisionsDetected;
-  if (!classCollision && options.uuidCollisionBehavior ==
+  if (!definitionCollision && options.uuidCollisionBehavior ==
       MvrMergeUuidCollisionBehavior::ReplaceExisting) {
     analysis.uuidMap[uuid] = uuid;
     return uuid;
   }
-  if (!classCollision && options.uuidCollisionBehavior ==
+  if (!definitionCollision && options.uuidCollisionBehavior ==
       MvrMergeUuidCollisionBehavior::SkipIncoming) {
     analysis.uuidMap[uuid] = uuid;
     analysis.skippedIncomingUuids.insert(uuid);
@@ -324,7 +290,7 @@ std::string ResolveImportedUuid(const std::string &uuid,
   }
 
   const std::string replacement =
-      DeriveStableReplacementUuid(tableName, uuid, usedUuids);
+      DeriveStableReplacementUuid(tableName, uuid, usedUuids, analysis.reservedIncomingUuids);
   analysis.uuidMap[uuid] = replacement;
   ++analysis.uuidCollisionsResolved;
   return replacement;
@@ -340,7 +306,7 @@ void PrepareObjectTable(const std::unordered_map<std::string, T> &imported,
                         const MvrScene &target) {
   for (const auto &uuid : SortedUuidKeys(imported))
     (void)ResolveImportedUuid(uuid, tableName, usedUuids, analysis, options,
-                              target.classes.contains(uuid));
+                              target.classes.contains(uuid) || target.symdefs.contains(uuid));
 }
 
 // Only identical definitions with the same UUID share identity. Names never coalesce.
@@ -355,7 +321,7 @@ void PrepareClassLookupTable(const MvrScene &target, const MvrScene &imported,
       analysis.uuidMap[uuid] = uuid;
     } else {
       ++analysis.uuidCollisionsDetected;
-      analysis.uuidMap[uuid] = DeriveStableReplacementUuid("classes", uuid, usedUuids);
+      analysis.uuidMap[uuid] = DeriveStableReplacementUuid("classes", uuid, usedUuids, analysis.reservedIncomingUuids);
       ++analysis.uuidCollisionsResolved;
       ++analysis.nonObjectLookupConflictsResolved;
     }
@@ -381,14 +347,14 @@ void PreparePositionLookupTable(const MvrScene &target, const MvrScene &imported
         targetIt->second != importedIt->second) {
       ++analysis.uuidCollisionsDetected;
       const std::string replacement =
-          DeriveStableReplacementUuid("positions", uuid, usedUuids);
+          DeriveStableReplacementUuid("positions", uuid, usedUuids, analysis.reservedIncomingUuids);
       analysis.uuidMap[uuid] = replacement;
       ++analysis.uuidCollisionsResolved;
       ++analysis.nonObjectLookupConflictsResolved;
       continue;
     }
     (void)ResolveImportedUuid(uuid, "positions", usedUuids, analysis, options,
-                              target.classes.contains(uuid));
+                              target.classes.contains(uuid) || target.symdefs.contains(uuid));
   }
 }
 
@@ -397,28 +363,23 @@ void PrepareSymdefLookupTables(const MvrScene &target, const MvrScene &imported,
                                std::unordered_set<std::string> &usedUuids,
                                MvrMergeAnalysis &analysis,
                                const MvrMergeOptions &options) {
-  for (const auto &uuid : SortedUnionUuidKeys(
-           imported.symdefFiles, imported.symdefTypes, imported.symdefMatrices,
-           imported.symdefGeometries)) {
-    const bool targetHasSymdef = target.symdefFiles.contains(uuid) ||
-                                 target.symdefTypes.contains(uuid) ||
-                                 target.symdefMatrices.contains(uuid) ||
-                                 target.symdefGeometries.contains(uuid);
-    if (targetHasSymdef && SymdefDefinitionsEqual(target, imported, uuid)) {
+  ResourceHashes hashes;
+  for (const auto &uuid : SortedUuidKeys(imported.symdefs)) {
+    const bool targetHasSymdef = target.symdefs.contains(uuid);
+    if (targetHasSymdef && SymdefDefinitionsEqual(target, imported, uuid, hashes)) {
       analysis.uuidMap[uuid] = uuid;
       continue;
     }
-    if (targetHasSymdef && !SymdefDefinitionsEqual(target, imported, uuid)) {
+    if (targetHasSymdef && !SymdefDefinitionsEqual(target, imported, uuid, hashes)) {
       ++analysis.uuidCollisionsDetected;
       const std::string replacement =
-          DeriveStableReplacementUuid("symdefs", uuid, usedUuids);
+          DeriveStableReplacementUuid("symdefs", uuid, usedUuids, analysis.reservedIncomingUuids);
       analysis.uuidMap[uuid] = replacement;
       ++analysis.uuidCollisionsResolved;
       ++analysis.nonObjectLookupConflictsResolved;
       continue;
     }
-    (void)ResolveImportedUuid(uuid, "symdefs", usedUuids, analysis, options,
-                              target.classes.contains(uuid));
+    (void)ResolveImportedUuid(uuid, "symdefs", usedUuids, analysis, options, true);
   }
 }
 
@@ -434,7 +395,7 @@ void PrepareLayerTable(const MvrScene &target, const MvrScene &imported,
     const auto targetIt = target.layers.find(uuid);
     if (uuid.empty()) {
       resolvedUuid = DeriveStableReplacementUuid("layers", incoming.name,
-                                                 usedUuids);
+                                                 usedUuids, analysis.reservedIncomingUuids);
       ++analysis.uuidCollisionsResolved;
     } else if (targetIt != target.layers.end()) {
       ++analysis.uuidCollisionsDetected;
@@ -442,13 +403,13 @@ void PrepareLayerTable(const MvrScene &target, const MvrScene &imported,
         analysis.skippedIncomingLayerUuids.insert(uuid);
         keepIncoming = false;
       } else {
-        resolvedUuid = DeriveStableReplacementUuid("layers", uuid, usedUuids);
+        resolvedUuid = DeriveStableReplacementUuid("layers", uuid, usedUuids, analysis.reservedIncomingUuids);
         ++analysis.uuidCollisionsResolved;
         ++analysis.nonObjectLookupConflictsResolved;
       }
     } else if (!usedUuids.insert(uuid).second) {
       resolvedUuid = ResolveImportedUuid(uuid, "layers", usedUuids, analysis,
-                                         options, target.classes.contains(uuid));
+                                         options, target.classes.contains(uuid) || target.symdefs.contains(uuid));
     }
 
     if (keepIncoming)
@@ -553,6 +514,7 @@ MvrMergeAnalysis AnalyzeImportedSceneMerge(const MvrScene &target,
   analysis.incomingFixtureTypes = BuildFixtureTypeIdentityMap(imported);
   AnalyzeFixtureTypeConflicts(options, analysis);
 
+  analysis.reservedIncomingUuids = CollectUsedUuids(imported);
   std::unordered_set<std::string> usedUuids = CollectUsedUuids(target);
   PrepareClassLookupTable(target, imported, usedUuids, analysis);
   PreparePositionLookupTable(target, imported, usedUuids, analysis, options);
@@ -567,6 +529,14 @@ MvrMergeAnalysis AnalyzeImportedSceneMerge(const MvrScene &target,
   PrepareObjectTable(imported.groupObjects, "groupObjects", usedUuids, analysis,
                      options, target);
   PrepareLayerTable(target, imported, usedUuids, analysis, options);
+  // Symbol identities are separate instances, not definition or owner UUIDs.
+  for (const auto &uuid : SortedUuidKeys(imported.trusses)) {
+    const auto &symbol = imported.trusses.at(uuid).sourceSymbolUuid;
+    if (!symbol.empty()) {
+      MvrMergeOptions preserveInstances;
+      (void)ResolveImportedUuid(symbol, "symbols", usedUuids, analysis, preserveInstances);
+    }
+  }
   AnalyzePatchAddressWarnings(target, imported, analysis);
 
   for (const auto &[oldUuid, newUuid] : analysis.uuidMap) {

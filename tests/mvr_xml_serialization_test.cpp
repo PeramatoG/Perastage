@@ -35,9 +35,9 @@ int main() {
       document, {{"position-uuid", "Front"}});
   mvr_xml_serialization::SymdefValues symdef;
   symdef.uuid = "symdef-uuid";
-  symdef.geometryType = "Model";
+  symdef.name = "Authored symbol";
   symdef.geometries.push_back(
-      {"resolved-symbol.glb", "Model", MatrixUtils::Identity()});
+      {"resolved-symbol.glb", MatrixUtils::Identity()});
   mvr_xml_serialization::AppendSymdef(document, aux, symdef);
   scene->InsertEndChild(aux);
   const tinyxml2::XMLElement *symdefNode = aux->FirstChildElement("Symdef");
