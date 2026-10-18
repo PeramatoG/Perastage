@@ -18,7 +18,10 @@ boundary. There is no second completion dialog, manual wait loop, or new yield
 checkpoint. While active, OK is ignored and close/Escape requests cancellation
 without destroying the stack-owned dialog. After work returns, cancellation is
 terminal and the normal completion preference applies. Exceptions unwind through
-the modal boundary and are rethrown to the caller. Progress callbacks remain
+the modal boundary and are rethrown to the caller. The dialog is explicitly
+hidden after the modal call returns, before resuming import or rethrowing an
+exception, to normalize native-port visibility on macOS as well as other ports.
+Progress callbacks remain
 synchronous and are not posted to a window after its lifetime ends.
 
 ## Existing limitations and future shared workflow

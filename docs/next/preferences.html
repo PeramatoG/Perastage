@@ -110,6 +110,14 @@ generated symbols and user overrides; they do not become GDTF or MVR resources.
 The Fixture Editor inspects authored SVGs per Model and preserves their bytes
 and offsets. Explicit physical-property edits remain available.</p>
 <h3 id="mvr-import--export">MVR Import / Export</h3>
+<p><strong>Automatically close the GDTF download window when finished</strong> is off by
+default, including for existing installations. After downloading, the queue
+keeps its final statuses, colors, progress and summary visible until you click
+<strong>OK</strong> or close the window. The import then continues. Enable this option to
+continue automatically when the queue finishes. During downloads, <strong>Cancel</strong>
+or the window close button requests cancellation; completed downloads are kept
+and remaining fixtures use the existing fallbacks. This preference is saved
+across restarts and is independent of GDTF Share credentials.</p>
 <p><strong>Truss geometry export mode</strong> offers:</p>
 <ul>
 <li><strong>Standard MVR representation</strong> (default): preserve imported symbol references where possible.</li>

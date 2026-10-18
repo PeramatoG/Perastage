@@ -150,7 +150,8 @@ void CheckQueue(bool autoClose, bool cancel, int action) {
   });
   resumed = true;
   assert(calls == 1 && result == wxID_OK);
-  assert(dialog.IsFinished() && !dialog.IsShown());
+  assert(dialog.IsFinished());
+  assert(!dialog.IsShown());
   assert(autoClose || acknowledged);
   assert(dialog.IsCancellationRequested() == cancel);
 }

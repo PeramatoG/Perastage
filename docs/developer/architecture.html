@@ -206,6 +206,9 @@ dependency guard, startup-publication guard, and localization scanner enforce
 these boundaries. See <a href="startup_architecture.html">Startup Architecture</a> for
 startup sequencing and publication rules. Internal startup helpers may be
 split in focused changes while preserving this ownership and lifecycle.</p>
+<p>The GUI MVR download queue owns presentation and terminal acknowledgement;
+its synchronous workflow limitations and future CLI sharing points are described
+in <a href="technical-notes/mvr_gdtf_download_queue.html">MVR GDTF download queue lifecycle</a>.</p>
 <h2 id="gdtf-share-catalog-browser">GDTF Share catalog browser</h2>
 <p>The read-only GDTF Share browser keeps catalog parsing/domain in
 <code>mvr/gdtf_catalog_parser</code>, cache policy and the GUI-independent search/presentation

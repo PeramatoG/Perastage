@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-18 10:43+0000\n"
+"POT-Creation-Date: 2026-10-18 11:15+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1538,24 +1538,24 @@ msgstr ""
 msgid "0 processed  |  0 downloaded  |  0 fallback"
 msgstr ""
 
-#: gui/gdtf_download_queue_dialog.cpp:167
+#: gui/gdtf_download_queue_dialog.cpp:169
 msgid "Cancel requested. Finishing current transfer..."
 msgstr ""
 
-#: gui/gdtf_download_queue_dialog.cpp:181
+#: gui/gdtf_download_queue_dialog.cpp:183
 #, c-format
 msgid "%s - queue finished"
 msgstr ""
 
-#: gui/gdtf_download_queue_dialog.cpp:204
+#: gui/gdtf_download_queue_dialog.cpp:206
 msgid "Pending"
 msgstr ""
 
-#: gui/gdtf_download_queue_dialog.cpp:206
+#: gui/gdtf_download_queue_dialog.cpp:208
 msgid "Waiting to match catalog entry"
 msgstr ""
 
-#: gui/gdtf_download_queue_dialog.cpp:259
+#: gui/gdtf_download_queue_dialog.cpp:261
 #, c-format
 msgid "%d/%zu processed  |  %d downloaded  |  %d fallback  |  %d canceled"
 msgstr ""

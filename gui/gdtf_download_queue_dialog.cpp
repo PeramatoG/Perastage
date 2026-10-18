@@ -154,6 +154,8 @@ int GdtfDownloadQueueDialog::Run(std::function<void()> work) {
     }
   });
   const int result = ShowModal();
+  // Ensure native ports never resume the importer with a visible queue.
+  Hide();
   if (error)
     std::rethrow_exception(error);
   return result;
