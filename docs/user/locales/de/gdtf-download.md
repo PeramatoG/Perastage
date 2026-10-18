@@ -39,6 +39,8 @@ Kompatibilitätsbestätigung. Vorrang hat der im MVR angegebene Name, unabhängi
 Großschreibung, Leer- und Satzzeichen. Danach folgt ein eindeutiger Modus mit der
 Kanalzahl des Originalprofils. Fehlt diese, kann ein eindeutiger Modus aus wiederholten
 gleichen Patch-Abständen folgen. Die Details zeigen die verwendete Grundlage.
+Auch ein anderer Katalogkandidat oder die Vollkatalogsuche nutzt diese automatische
+Zuordnung. Fehlende Katalogmodi werden aus dem heruntergeladenen Paket gelesen.
 
 Bei Mehrdeutigkeit bleibt die Datei heruntergeladen; das ursprüngliche MVR-Profil und
 seine Modi bleiben ausgewählt. Die Zeile erklärt den Grund. **OK** setzt den Import
@@ -56,8 +58,9 @@ beweisen keine Dateiidentität.
 
 **GDTF Share durchsuchen...** verwendet den bestehenden Katalogbrowser.
 **Lokale GDTF laden...** prüft die Datei und kopiert sie in die Importressourcen,
-ohne das Original zu ändern. Wählen Sie den DMX-Modus und prüfen Sie Unterschiede
-bei Modell, Modus und Kanalzahl. Verfügbare Ersatzquellen lassen sich in derselben
+ohne das Original zu ändern. Kompatible lokale Profile erhalten den Modus ebenfalls
+automatisch, wenn die importierten Daten ihn bestimmen. Andernfalls ist eine manuelle
+Auswahl möglich. Prüfen Sie Unterschiede bei Modell, Modus und Kanalzahl. Verfügbare Ersatzquellen lassen sich in derselben
 Zeile ausdrücklich auswählen.
 
 Das automatische Schließen wird ausschließlich unter **Einstellungen → MVR Import/Export**

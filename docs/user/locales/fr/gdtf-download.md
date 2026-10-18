@@ -39,6 +39,8 @@ confirmation de compatibilité. Priorité : le nom indiqué dans le MVR (sans te
 compte de la casse, des espaces et de la ponctuation), un mode unique ayant le nombre
 de canaux du profil d’origine, puis, si ce nombre manque, un mode unique déduit de
 l’espacement répété et égal du patch. Les détails indiquent la preuve utilisée.
+Choisir un autre candidat ou rechercher dans le catalogue complet utilise la même
+attribution automatique ; les modes absents du catalogue sont lus dans le paquet téléchargé.
 
 Si le mode reste ambigu, le fichier reste téléchargé et le profil et les modes MVR
 d’origine restent sélectionnés. La ligne explique ce repli ; **OK** permet de continuer
@@ -55,8 +57,9 @@ FixtureTypeID commun ne prouve pas l’identité des fichiers.
 
 **Rechercher dans GDTF Share...** utilise le navigateur existant.
 **Charger un GDTF local...** valide le fichier et copie le profil dans les
-ressources de l’import sans modifier l’original. Choisissez le mode DMX et vérifiez
-les différences de modèle, de mode et d’empreinte. Les sources de secours
+ressources de l’import sans modifier l’original. Les profils locaux compatibles
+reçoivent aussi un mode automatiquement si les données importées le permettent.
+Sinon, un choix manuel est proposé. Vérifiez les différences de modèle, de mode et d’empreinte. Les sources de secours
 utilisables peuvent être sélectionnées explicitement sur la même ligne.
 
 La fermeture automatique se règle uniquement dans **Préférences → MVR Import/Export**

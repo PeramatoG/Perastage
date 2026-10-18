@@ -40,14 +40,15 @@ void MvrGdtfResolutionDialog::FinishDownload(WorkerResult &result) {
   auto choice = result.attempt;
   row.automaticModeUnresolved = false;
   row.automaticModeEvidence = ModeEvidence::None;
-  if (resolution.origin == SelectionOrigin::DownloadRequested) {
+  const bool automaticMode = resolution.origin == SelectionOrigin::DownloadRequested || choice.mode.empty();
+  if (automaticMode) {
     const auto mode = ResolveAutomaticMode(result.download.profile, row.evidence,
                                            row.request.patchSpacingHint);
     choice.mode = mode.mode;
     row.automaticModeEvidence = mode.evidence;
   }
   row.replacement = Choice{Source::Catalog, choice.revisionId, result.download.path, choice.mode};
-  if (resolution.origin == SelectionOrigin::DownloadRequested && choice.mode.empty()) {
+  if (automaticMode && choice.mode.empty()) {
     // Keep the downloaded artifact available, but never block import on a picker.
     row.automaticModeUnresolved = true;
     const auto original = std::find_if(resolution.availableResources.begin(),
@@ -56,7 +57,7 @@ void MvrGdtfResolutionDialog::FinishDownload(WorkerResult &result) {
         });
     if (original != resolution.availableResources.end()) {
       const auto preserve = *original;
-      Select(resolution, preserve, SelectionOrigin::DownloadRequested);
+      Select(resolution, preserve, resolution.origin);
     } else {
       Fail(resolution, result.attempt, "No unambiguous DMX mode and no usable original MVR profile.");
       resolution.status = Status::Unresolved;

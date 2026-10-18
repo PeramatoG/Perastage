@@ -45,17 +45,21 @@ static void Click(wxWindow &window) {
   wxCommandEvent event(wxEVT_BUTTON, window.GetId());
   window.GetEventHandler()->ProcessEvent(event);
 }
+static int approvedModeDialogs = 0;
 static void ApproveModal() {
   for (auto *window : wxTopLevelWindows)
     if (auto *dialog = dynamic_cast<wxDialog *>(window))
       if (dialog->IsModal() &&
-          (dynamic_cast<wxSingleChoiceDialog *>(dialog) || dynamic_cast<wxMessageDialog *>(dialog)))
+          (dynamic_cast<wxSingleChoiceDialog *>(dialog) || dynamic_cast<wxMessageDialog *>(dialog))) {
+        if (dynamic_cast<wxSingleChoiceDialog *>(dialog))
+          ++approvedModeDialogs;
         dialog->EndModal(wxID_OK);
+      }
 }
 
 static bool ToggleSource(GdtfDownloadQueueTable &table, unsigned source, unsigned row = 0);
 
-enum class ApplyOutcome { Success, DownloadFails, CancelDuringDownload, DefaultButton, ExistingFallback };
+enum class ApplyOutcome { Success, DownloadFails, CancelDuringDownload, DefaultButton, ExistingFallback, MissingModeMetadata };
 
 static void Run(bool automaticClose, bool fail = false, bool canceled = false, bool multipleModes = false, bool authFailed = false, bool cancelFinished = false, ApplyOutcome applyOutcome = ApplyOutcome::Success) {
   runtime_storage::TemporaryWorkspace workspace("mvr-gdtf-gui-test");
@@ -85,13 +89,15 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
   std::atomic<bool> replacementStarted{false};
   int logins = 0;
   MvrGdtfResolutionCallbacks callbacks;
-  callbacks.loadCatalog = [multipleModes](auto) {
+  callbacks.loadCatalog = [multipleModes, applyOutcome](auto) {
     MvrGdtfCatalog result;
     result.entries = {{"a", "Acme", "Beam 200", {{"Standard",0}}, 1, 1},
                       {"b", "Acme", "Beam 200", {{"Standard",0}}, 2, 2}};
     if (multipleModes)
       for (auto &entry : result.entries)
         entry.manufacturer = "Other";
+    if (applyOutcome == ApplyOutcome::MissingModeMetadata)
+      result.entries.front().modes.clear();
     return result;
   };
   callbacks.authenticate = [&] { ++logins; return !authFailed; };
@@ -121,6 +127,7 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
                                   automaticClose, importedModes);
   assert(!Button(dialog, "Apply selections"));
   assert(dialog.GetDefaultItem() == Button(dialog, "OK"));
+  const int modeDialogsBefore = approvedModeDialogs;
   const auto checkAlias = [&](const Resolution &result) {
     if (applyOutcome == ApplyOutcome::ExistingFallback)
       assert(result.applied.source == Source::OriginalMvr);
@@ -208,6 +215,7 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
   timer.Stop();
   deadline.Stop();
   const auto results = dialog.Results();
+  assert(approvedModeDialogs == modeDialogsBefore);
   assert(!Find<wxCheckBox>(dialog)); // The setting belongs exclusively in Preferences.
   if (multipleModes) {
     assert(downloads == 0 && logins == 0);
@@ -236,6 +244,10 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
     checkAlias(results.at(alias.type));
     assert(results.at(request.type).origin == (automaticClose ? SelectionOrigin::DownloadRequested
                                                              : SelectionOrigin::User));
+    if (!automaticClose) {
+      const auto details = Find<wxTextCtrl>(dialog)->GetValue();
+      assert(details.Contains("User selection") && details.Contains("DMX mode assigned automatically"));
+    }
   }
   assert(multipleModes || logins >= 1);
 }
@@ -505,6 +517,7 @@ int main(int argc, char **argv) {
   Run(false, false, false, false, false, false, ApplyOutcome::CancelDuringDownload);
   Run(false, false, false, false, false, false, ApplyOutcome::DefaultButton);
   Run(false, false, false, false, false, false, ApplyOutcome::ExistingFallback);
+  Run(false, false, false, false, false, false, ApplyOutcome::MissingModeMetadata);
   Run(false, false, true);
   Run(false, false, false, false, false, true);
   Run(true, true);
