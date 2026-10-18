@@ -42,6 +42,8 @@ GDTF-Einstellungen verwalten Share-Zugangsdaten. Perastage speichert scheinwerfe
 
 ### MVR-Import / -Export
 
+**GDTF-Downloadfenster nach Abschluss automatisch schließen** ist standardmäßig deaktiviert, auch bei vorhandenen Installationen. Die Warteschlange zeigt die abschließenden Statusangaben, Farben, Fortschritte und die Zusammenfassung, bis Sie **OK** anklicken oder das Fenster schließen. Danach wird der Import fortgesetzt. Aktivieren Sie die Option, um automatisch fortzufahren. Während des Downloads fordert **Abbrechen** oder die Schließen-Schaltfläche den Abbruch an: abgeschlossene Downloads bleiben erhalten, die übrigen Geräte verwenden die bestehenden Ersatzquellen. Diese Einstellung bleibt nach Neustarts erhalten und ist von den GDTF-Share-Zugangsdaten unabhängig.
+
 **Truss geometry export mode** bietet:
 
 - **Standard MVR representation** (Vorgabe): Importierte Symbolverweise möglichst erhalten.

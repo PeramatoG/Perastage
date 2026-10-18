@@ -56,6 +56,8 @@ explícita de propiedades físicas sigue disponible.
 
 ### Importación / exportación MVR
 
+**Cerrar automáticamente la ventana de descarga de GDTF al finalizar** está desactivado de forma predeterminada, también en instalaciones existentes. La cola conserva los estados, colores, progreso y resumen finales hasta que pulses **OK** o cierres la ventana; entonces continúa la importación. Activa esta opción para continuar automáticamente. Durante las descargas, **Cancelar** o el botón de cierre solicita la cancelación: se conservan las descargas completadas y las luminarias restantes usan las alternativas existentes. La preferencia se guarda entre reinicios y es independiente de las credenciales de GDTF Share.
+
 **Truss geometry export mode** ofrece:
 
 - **Standard MVR representation** (predeterminado): conserva las referencias a símbolos importados cuando es posible.

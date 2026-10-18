@@ -2845,7 +2845,7 @@ add_executable(user_preferences_store_test
                user_preferences_store_test.cpp
                ../core/gdtf_mutation_policy.cpp
                ../core/configservices.cpp)
-target_include_directories(user_preferences_store_test PRIVATE ../core ../third_party ../models)
+target_include_directories(user_preferences_store_test PRIVATE ../core ../third_party ../models ../mvr)
 target_link_libraries(user_preferences_store_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME UserPreferencesStore COMMAND user_preferences_store_test)
 
@@ -4242,3 +4242,20 @@ add_executable(decimal_parse_test decimal_parse_test.cpp)
 target_include_directories(decimal_parse_test PRIVATE ../core)
 target_compile_features(decimal_parse_test PRIVATE cxx_std_20)
 add_test(NAME DecimalParsingCompatibility COMMAND decimal_parse_test)
+
+add_executable(gdtf_download_queue_dialog_test
+               gdtf_download_queue_dialog_test.cpp
+               ../gui/gdtf_download_queue_dialog.cpp)
+target_include_directories(gdtf_download_queue_dialog_test PRIVATE ../gui ../core ../models)
+target_link_libraries(gdtf_download_queue_dialog_test PRIVATE ${wxWidgets_LIBRARIES})
+if(PERASTAGE_XVFB_RUN)
+  add_test(NAME GdtfDownloadQueueDialog
+           COMMAND "${PERASTAGE_XVFB_RUN}" -a "$<TARGET_FILE:gdtf_download_queue_dialog_test>")
+else()
+  add_test(NAME GdtfDownloadQueueDialog COMMAND gdtf_download_queue_dialog_test)
+endif()
+set_tests_properties(GdtfDownloadQueueDialog PROPERTIES LABELS "gui;mvr;gdtf" TIMEOUT 30)
+
+add_bash_policy_test(MvrDownloadQueueBoundary
+                     "${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_download_queue_boundary.sh"
+                     LABELS architecture mvr gui)

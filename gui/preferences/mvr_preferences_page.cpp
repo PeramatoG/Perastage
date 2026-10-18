@@ -13,6 +13,10 @@
 MvrPreferencesPage::MvrPreferencesPage(wxWindow *parent)
     : PreferencesPage(parent) {
   wxBoxSizer *mvrSizer = new wxBoxSizer(wxVERTICAL);
+  autoCloseGdtfDownloadWindow = new wxCheckBox(
+      this, wxID_ANY,
+      _("Automatically close the GDTF download window when finished"));
+  mvrSizer->Add(autoCloseGdtfDownloadWindow, 0, wxALL | wxEXPAND, 10);
   wxStaticBoxSizer *mvrExportSizer =
       new wxStaticBoxSizer(wxVERTICAL, this, _("Export"));
   wxFlexGridSizer *mvrExportGrid = new wxFlexGridSizer(1, 2, 10, 10);
@@ -47,6 +51,8 @@ MvrPreferencesPage::MvrPreferencesPage(wxWindow *parent)
 }
 
 void MvrPreferencesPage::LoadPreferences(const IGuiPreferencesService &cfg) {
+  autoCloseGdtfDownloadWindow->SetValue(
+      mvr::preferences::AutoCloseGdtfDownloadWindow(cfg));
   const MvrExportOptions mvrExportOptions =
       mvr::preferences::LoadExportOptions(cfg);
   mvrTrussGeometryExportModeChoice->SetSelection(
@@ -57,6 +63,8 @@ void MvrPreferencesPage::LoadPreferences(const IGuiPreferencesService &cfg) {
 }
 
 void MvrPreferencesPage::ApplyPreferences(IGuiPreferencesService &cfg) {
+  mvr::preferences::SaveAutoCloseGdtfDownloadWindow(
+      cfg, autoCloseGdtfDownloadWindow->GetValue());
   MvrExportOptions mvrExportOptions;
   mvrExportOptions.trussGeometryExportMode =
       mvrTrussGeometryExportModeChoice &&

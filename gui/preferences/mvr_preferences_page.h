@@ -3,6 +3,7 @@
 #include "preferences/preferences_page.h"
 
 class wxChoice;
+class wxCheckBox;
 
 class MvrPreferencesPage : public PreferencesPage {
 public:
@@ -11,5 +12,6 @@ public:
   void ApplyPreferences(IGuiPreferencesService &preferences) override;
 
 private:
+  wxCheckBox *autoCloseGdtfDownloadWindow = nullptr;
   wxChoice *mvrTrussGeometryExportModeChoice = nullptr;
 };

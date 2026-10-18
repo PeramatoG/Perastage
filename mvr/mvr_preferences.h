@@ -25,6 +25,20 @@
 
 namespace mvr::preferences {
 
+// GUI window policy only; headless resolution does not consume this setting.
+constexpr const char *kAutoCloseGdtfDownloadWindowKey =
+    "mvr_auto_close_gdtf_download_window";
+
+template <typename Store>
+inline bool AutoCloseGdtfDownloadWindow(const Store &config) {
+  return config.GetValue(kAutoCloseGdtfDownloadWindowKey) == "1";
+}
+
+template <typename Store>
+inline void SaveAutoCloseGdtfDownloadWindow(Store &config, bool enabled) {
+  config.SetValue(kAutoCloseGdtfDownloadWindowKey, enabled ? "1" : "0");
+}
+
 constexpr const char *kTrussGeometryExportModeKey = "mvr_truss_geometry_export_mode";
 constexpr const char *kTrussGeometryExportModeStandardValue = "standard";
 constexpr const char *kTrussGeometryExportModeDirectGeometry3DValue = "direct_geometry3d_for_truss_symbols";

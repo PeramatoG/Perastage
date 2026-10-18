@@ -139,6 +139,10 @@ these boundaries. See [Startup Architecture](startup_architecture.md) for
 startup sequencing and publication rules. Internal startup helpers may be
 split in focused changes while preserving this ownership and lifecycle.
 
+The GUI MVR download queue owns presentation and terminal acknowledgement;
+its synchronous workflow limitations and future CLI sharing points are described
+in [MVR GDTF download queue lifecycle](technical-notes/mvr_gdtf_download_queue.md).
+
 ## GDTF Share catalog browser
 
 The read-only GDTF Share browser keeps catalog parsing/domain in
