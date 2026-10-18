@@ -117,16 +117,13 @@ void MvrGdtfResolutionDialog::SelectCatalog(
   profile.manufacturer = entry.manufacturer;
   profile.model = entry.fixtureName;
   profile.modes = entry.modes;
-  std::string mode = rows[*row].request.modeName;
-  if (profile.modes.empty()) {
-    // Select the actual package mode after download when catalog metadata is absent.
-    mode.clear();
-  } else if (!ChooseMode(profile, mode, true)) {
-    RefreshSelection();
-    return;
-  }
+  // A profile selection is not an explicit mode override. Resolve against the
+  // actual package after download, including when catalog metadata is absent.
+  std::string mode;
   Choice choice{Source::Catalog, entry.rid, {}, mode};
-  if (!ConfirmChoice(choice, &profile)) {
+  const auto identity = mvr::gdtf_catalog_matcher::RankDownloadCandidates(
+      rows[*row].evidence, {entry});
+  if (!identity.downloadRid && !ConfirmChoice(choice, &profile)) {
     RefreshSelection();
     return;
   }
@@ -240,11 +237,14 @@ void MvrGdtfResolutionDialog::LoadLocal() {
     wxMessageBox(diagnostic, _("GDTF selection"), wxOK | wxICON_ERROR, this);
     return;
   }
-  std::string mode = rows[*row].request.modeName;
-  if (!ChooseMode(profile, mode, true))
+  const auto automatic = ResolveAutomaticMode(profile, rows[*row].evidence,
+                                               rows[*row].request.patchSpacingHint);
+  std::string mode = automatic.mode;
+  if (mode.empty() && !ChooseMode(profile, mode, true))
     return;
   Choice choice{Source::Local, {}, {}, mode};
-  if (!ConfirmChoice(choice, &profile))
+  if ((!ProfileIdentityCompatible(profile, rows[*row].evidence) || automatic.mode.empty()) &&
+      !ConfirmChoice(choice, &profile))
     return;
   std::string diagnostic;
   const auto destination = CopyIntoScene(source, sceneRoot, diagnostic);
@@ -260,7 +260,7 @@ void MvrGdtfResolutionDialog::LoadLocal() {
   rows[*row].catalogProposalPending = false;
   rows[*row].identicalToOriginal = false;
   rows[*row].automaticModeUnresolved = false;
-  rows[*row].automaticModeEvidence = ModeEvidence::None;
+  rows[*row].automaticModeEvidence = automatic.evidence;
   Select(rows[*row].resolution, choice);
   RefreshRows();
   SetBusy(false);

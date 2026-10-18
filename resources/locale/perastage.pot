@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.3\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-18 15:49+0000\n"
+"POT-Creation-Date: 2026-10-18 16:13+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4176,12 +4176,12 @@ msgid ""
 msgstr ""
 
 #: gui/mvr_gdtf_resolution_actions.cpp:83
-#: gui/mvr_gdtf_resolution_dialog.cpp:340
+#: gui/mvr_gdtf_resolution_dialog.cpp:341
 msgid "The selected DMX mode differs from the imported mode."
 msgstr ""
 
 #: gui/mvr_gdtf_resolution_actions.cpp:89
-#: gui/mvr_gdtf_resolution_dialog.cpp:343
+#: gui/mvr_gdtf_resolution_dialog.cpp:344
 msgid "The DMX footprint differs from the imported profile."
 msgstr ""
 
@@ -4189,23 +4189,23 @@ msgstr ""
 msgid "Confirm GDTF selection"
 msgstr ""
 
-#: gui/mvr_gdtf_resolution_actions.cpp:230
+#: gui/mvr_gdtf_resolution_actions.cpp:227
 #: gui/mvr_gdtf_resolution_dialog.cpp:155
 msgid "Load local GDTF..."
 msgstr ""
 
-#: gui/mvr_gdtf_resolution_actions.cpp:231
+#: gui/mvr_gdtf_resolution_actions.cpp:228
 msgid "GDTF files (*.gdtf)|*.gdtf"
 msgstr ""
 
-#: gui/mvr_gdtf_resolution_actions.cpp:237
-#: gui/mvr_gdtf_resolution_sources.cpp:103
+#: gui/mvr_gdtf_resolution_actions.cpp:234
+#: gui/mvr_gdtf_resolution_sources.cpp:104
 msgid "The selected GDTF package is not usable."
 msgstr ""
 
-#: gui/mvr_gdtf_resolution_actions.cpp:240
+#: gui/mvr_gdtf_resolution_actions.cpp:237
 #: gui/mvr_gdtf_resolution_actions.cpp:252
-#: gui/mvr_gdtf_resolution_sources.cpp:103
+#: gui/mvr_gdtf_resolution_sources.cpp:104
 msgid "GDTF selection"
 msgstr ""
 
@@ -4363,47 +4363,47 @@ msgid ""
 "The downloaded file is byte-for-byte identical to the original MVR profile."
 msgstr ""
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:328
+#: gui/mvr_gdtf_resolution_dialog.cpp:329
 msgid "Automatic DMX mode assignment"
 msgstr ""
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:329
+#: gui/mvr_gdtf_resolution_dialog.cpp:330
 msgid "User selection"
 msgstr ""
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:330
+#: gui/mvr_gdtf_resolution_dialog.cpp:331
 msgid "Safe automatic match"
 msgstr ""
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:330
+#: gui/mvr_gdtf_resolution_dialog.cpp:331
 msgid "Review required"
 msgstr ""
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:333
+#: gui/mvr_gdtf_resolution_dialog.cpp:334
 msgid "The manufacturer differs from the imported profile."
 msgstr ""
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:335
+#: gui/mvr_gdtf_resolution_dialog.cpp:336
 msgid "The fixture model or variant differs from the imported profile."
 msgstr ""
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:338
+#: gui/mvr_gdtf_resolution_dialog.cpp:339
 msgid "DMX mode compatibility requires review."
 msgstr ""
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:345
+#: gui/mvr_gdtf_resolution_dialog.cpp:346
 msgid "A matching footprint does not prove DMX channel compatibility."
 msgstr ""
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:347
+#: gui/mvr_gdtf_resolution_dialog.cpp:348
 msgid "This fixture type uses several imported DMX modes."
 msgstr ""
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:349
+#: gui/mvr_gdtf_resolution_dialog.cpp:350
 msgid "Several fixture models are plausible. Select a profile explicitly."
 msgstr ""
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:354
+#: gui/mvr_gdtf_resolution_dialog.cpp:355
 msgid "Currently retained profile:"
 msgstr ""
 

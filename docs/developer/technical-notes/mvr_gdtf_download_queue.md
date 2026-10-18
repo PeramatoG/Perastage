@@ -60,7 +60,8 @@ A matching footprint never proves channel semantics. Tied competing model
 identities or manufacturers without supporting prefix evidence are ambiguous.
 Confidence is `Safe`, `Review`, `Ambiguous` or `NoMatch`; only `Safe` can supply a
 recommendation. Full-catalog manual selection can intentionally choose another
-model, after a compatibility prompt and explicit mode selection.
+model after a model compatibility prompt when needed. Mode assignment remains
+automatic; explicit mode overrides are separate from selecting a profile.
 
 `CandidateRanking.downloadRid` separately identifies an unambiguous exact model
 without requiring mode equivalence. `CatalogIntent::DownloadRequested` is passed
@@ -110,7 +111,13 @@ manufacturer suffixes. Authored names take precedence over channel counts.
 The original profile reader supplements footprints even when its mode differs
 only by case, spacing or punctuation. The GUI shows the evidence used.
 
-No picker or confirmation runs for a requested download. If no mode can be
+No mode picker runs for requested downloads or catalog profile changes.
+`SelectCatalog` records a revision without treating its metadata mode as a user
+override. Exact model selections need no compatibility prompt; an incompatible
+model still requires confirmation. After download, any unspecified mode uses
+the same actual-package resolver, including manually chosen revisions with no
+catalog mode metadata. Compatible local selections also use this resolver before
+falling back to explicit manual mode selection when required. If no mode can be
 resolved, retain the downloaded package for an optional manual override, select
 the original MVR resource with an empty override, and explain this fallback in
 amber. Acknowledgement remains available; automatic close leaves this result

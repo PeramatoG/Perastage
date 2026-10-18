@@ -39,6 +39,8 @@ de compatibilidad. Se utiliza, por orden: el nombre indicado en el MVR (ignorand
 mayúsculas, espacios y puntuación), un modo único con el número de canales del
 perfil original y, si ese número es desconocido, un modo único deducido de la
 separación repetida e igual del patch. Los detalles indican la información utilizada.
+Elegir otro candidato o buscar en el catálogo completo usa la misma asignación
+automática; si faltan modos en el catálogo, se leen del paquete descargado.
 
 Si persiste la ambigüedad, el archivo queda descargado y se mantienen seleccionados
 el perfil y los modos originales del MVR. La fila explica el motivo; **Aceptar**
@@ -55,7 +57,9 @@ el nombre o FixtureTypeID compartidos no demuestran que los archivos sean iguale
 
 **Buscar en GDTF Share...** reutiliza el navegador completo. **Cargar GDTF local...**
 valida el archivo y copia el perfil a los recursos de la importación sin modificar
-el original. Elija el modo DMX y revise las diferencias de modelo, modo y huella.
+el original. Los perfiles locales compatibles también reciben el modo automáticamente
+si los datos importados permiten identificarlo. En otro caso se ofrece la elección
+manual. Revise las diferencias de modelo, modo y huella.
 También puede seleccionar explícitamente un perfil alternativo disponible.
 
 El cierre automático solo se configura en **Preferencias → MVR Import/Export**
