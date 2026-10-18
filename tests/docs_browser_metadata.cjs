@@ -45,7 +45,8 @@ async function checkMetadata(page, route) {
     assert.equal(await hero.getAttribute('loading'), 'eager');
     assert.equal(await hero.getAttribute('fetchpriority'), 'high');
     assert.equal(await hero.getAttribute('decoding'), 'async');
-    assert.equal(await page.locator('script[src]').count(), 0);
+    assert.deepEqual(await page.locator('script[src]').evaluateAll(scripts => scripts.map(script => script.getAttribute('src'))), ['assets/js/downloads.js']);
+    assert.equal(await page.locator('script[src]').getAttribute('defer'), '');
     const data = JSON.parse(await page.locator('script[type="application/ld+json"]').textContent());
     assert.equal(data['@type'], 'SoftwareApplication');
   }

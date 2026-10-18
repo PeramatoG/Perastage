@@ -99,6 +99,45 @@ The release remains transactional: no tag, `main` update, or draft GitHub Releas
 
 Dry runs are inexpensive: they compute and report the version, tag, title, and artifact contract status without pushing a branch, committing, tagging, building packages, or creating a release.
 
+## Public downloads and Stable documentation
+
+`promote-stable-documentation.yml` handles published stable releases and manual
+recovery through **Run workflow** on main. It never creates a release, changes
+assets or tags, or runs on pushes. Keep the existing dedicated release App
+configuration when downstream Actions or GitHub Pages builds need to run after
+automation pushes; pushes with `GITHUB_TOKEN` do not trigger those workflows.
+The existing `contents: write` permission and branch rules must permit its
+non-force push to main.
+
+Before promotion, `tools/docs/latest_release.cjs` reads GitHub's latest published
+stable release API response with the workflow token. It selects packages from
+`.github/release-artifact-contract.json`, rejects missing, ambiguous, empty,
+unuploaded or stale-version assets, and copies their actual browser download
+URLs into `docs/assets/data/latest-release.json`. Developer symbols are excluded.
+All expected packages must validate before changing the manifest. Older
+versions cannot replace it; identical input produces identical bytes.
+
+The same response feeds the existing exact-tag/VERSION checks and Stable
+promotion. A delayed release event follows the latest published stable release,
+while still validating the triggering event's tag identity. Documentation and
+download metadata are validated and committed together. The generated-file
+allowlist includes only the existing documentation outputs and the download
+manifest. A rejected concurrent push must be rerun from fresh main.
+
+To recover after repairing published assets, rerun the failed job or run the
+workflow manually on main. It refetches the current release, updates changed
+same-version asset metadata and preserves already-promoted Stable bytes. If the
+API or required assets are unavailable, the job fails before publication and
+the previous valid site stays deployed. No draft or prerelease becomes public.
+
+The initial 1.7.0 manifest was generated from the official GitHub Release API
+response, with all five URLs and exact sizes also verified through successful
+download HEAD responses.
+Visitors fetch only the same-origin static manifest; invalid or missing metadata
+leaves an explicit latest-release fallback. JavaScript-disabled visitors retain
+platform information and installation help. The current installation supplement
+links to generated Next content; frozen Stable remains release-owned.
+
 ## Stable artifact contract
 
 The package filename patterns are centralized in `.github/release-artifact-contract.json` and validated by `tests/check_ci_workflow_architecture.py`.

@@ -3,6 +3,7 @@ name: Promote Stable Documentation
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -13,7 +14,7 @@ concurrency:
 
 jobs:
   promote:
-    if: ${{ !github.event.release.prerelease }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (!github.event.release.prerelease && !github.event.release.draft) }}
     runs-on: ubuntu-latest
     steps:
       - name: Create dedicated release App token
@@ -46,10 +47,15 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
+      - name: Validate latest published download assets
+        env:
+          GH_TOKEN: ${{ steps.release-app-token.outputs.token || github.token }}
+        run: node tools/docs/latest_release.cjs --fetch "$RUNNER_TEMP/latest-release.json"
       - name: Verify published tag and compare Stable version
         id: release
         env:
           PUBLISHED_SHA: ${{ github.sha }}
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/latest-release.json
         run: node tools/docs/published_release.cjs
       - name: Promote and validate static documentation
         if: ${{ steps.release.outputs.promote == 'true' }}
@@ -67,19 +73,22 @@ jobs:
           python3 tests/check_docs_links.py
           python3 tests/check_docs_links_fixtures.py
           git diff --check
+      - name: Validate download metadata and current documentation
+        run: |
+          node tests/check_latest_release.cjs
+          node tools/docs/build_static_docs.cjs --check
+          python3 tests/check_stable_documentation_workflow.py
+          git diff --check
       - name: Commit generated documentation and push without force
-        if: ${{ steps.release.outputs.promote == 'true' }}
-        env:
-          SOURCE_REF: ${{ steps.release.outputs.source_ref }}
         run: |
           set -euo pipefail
           # Rendering owns generated HTML, crawl artifacts and the Stable contract/assets.
-          unexpected="$(git diff --name-only -- . ':!docs/**/*.html' ':!docs/*.html' ':!docs/stable/**' ':!docs/sitemap.xml' ':!docs/robots.txt')"
+          unexpected="$(git diff --name-only -- . ':!docs/**/*.html' ':!docs/*.html' ':!docs/stable/**' ':!docs/sitemap.xml' ':!docs/robots.txt' ':!docs/assets/data/latest-release.json')"
           [ -z "$unexpected" ] || { echo "Unexpected source changes: $unexpected"; exit 1; }
-          git add -- docs/stable ':(glob)docs/**/*.html' ':(glob)docs/*.html' docs/sitemap.xml docs/robots.txt
+          git add -- docs/stable ':(glob)docs/**/*.html' ':(glob)docs/*.html' docs/sitemap.xml docs/robots.txt docs/assets/data/latest-release.json
           git diff --cached --quiet && exit 0
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "docs: promote ${SOURCE_REF} documentation to stable [skip version-bump]"
+          git commit -m "docs: refresh stable downloads and documentation [skip version-bump]"
           # A concurrent main update rejects this fast-forward push; rerun from fresh main.
           git push origin HEAD:refs/heads/main

@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 const { compareVersions, readStable, renderTagged } = require('../tools/docs/versioning.cjs');
-const { publicationDecision } = require('../tools/docs/published_release.cjs');
+const { publicationDecision, currentPublicationDecision } = require('../tools/docs/published_release.cjs');
 const { generate } = require('../tools/docs/build_static_docs.cjs');
 const { replaceDirectory } = require('../tools/docs/atomic_directory.cjs');
 const { parseNavigation } = require('../tools/docs/sources.cjs');
@@ -145,6 +145,15 @@ try {
   assert.notEqual(git(['rev-parse', 'refs/tags/v1.7.0']), publishedCommit);
   assert.throws(() => publicationDecision(fixture, release('v1.7.0'), git(['rev-parse', 'refs/tags/v1.7.0'])), /published release commit/);
   assert.equal(publicationDecision(fixture, release('v1.7.0'), publishedCommit).promote, true);
+  const latestPublished = { ...release('v1.7.0').release, draft: false, prerelease: false, published_at: '2026-10-18T12:00:00Z' };
+  assert.equal(currentPublicationDecision(fixture, {}, '', latestPublished).promote, true, 'manual recovery resolves the exact published tag');
+  assert.equal(currentPublicationDecision(fixture, release('v1.6.0'), originalCommit, latestPublished).version, '1.7.0', 'a delayed old event follows the current latest release');
+  assert.throws(() => currentPublicationDecision(fixture, release('v1.6.0'), '0'.repeat(40), latestPublished), /published release commit/);
+  for (const invalid of [{ ...latestPublished, draft: true }, { ...latestPublished, prerelease: true },
+    { ...latestPublished, published_at: null }, { ...latestPublished, tag_name: '--bad' }]) {
+    assert.throws(() => currentPublicationDecision(fixture, {}, '', invalid));
+  }
+
   fs.appendFileSync(path.join(fixture, 'docs/user/quick-start.md'), '\nAfter tagged release.\n');
   git(['add', '.']); git(['commit', '-qm', 'Post-release development']);
   git(['branch', 'next']);
@@ -169,6 +178,7 @@ try {
   assert(!stableRead('quick-start.html').includes('After tagged release.'));
   assert(fs.readFileSync(path.join(fixture, 'docs/inspector.html'), 'utf8').includes('location.replace("stable/inspector.html"'));
   assert.equal(publicationDecision(fixture, release('v1.7.0'), publishedCommit).promote, false);
+  assert.equal(currentPublicationDecision(fixture, {}, '', latestPublished).promote, false, 'metadata recovery preserves same-version Stable bytes');
   const promoted = snapshot();
   run(['--promote-stable', '1.7.0', '--source-ref', 'v1.7.0']);
   assert.deepEqual(snapshot(), promoted, 'recovery of an already Stable release is idempotent');

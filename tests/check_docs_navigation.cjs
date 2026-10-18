@@ -10,6 +10,7 @@ const fs = require('node:fs');
 const assert = require('node:assert/strict');
 const { checkMetadata, checkPresentation } = require('./docs_browser_metadata.cjs');
 const { checkVisualSystem } = require('./docs_browser_visual_system.cjs');
+const { checkDownloads } = require('./docs_browser_downloads.cjs');
 const root = require('node:path').resolve(__dirname, '..');
 const index = fs.readFileSync(`${root}/docs/user/index.md`, 'utf8');
 const expected = [];
@@ -51,6 +52,7 @@ async function ready(page, base, route) {
     const errors = [];
     observe(page, errors);
     const base = process.env.DOCS_TEST_BASE_URL || 'http://127.0.0.1:8765/';
+    await checkDownloads(browser, base);
     const visualContrast = await checkVisualSystem(browser, base, observe, errors);
     const stable = JSON.parse(fs.readFileSync(`${root}/docs/stable/manifest.json`, 'utf8'));
     const stableHas = route => stable.pages.includes(route);
