@@ -48,6 +48,7 @@ void AppendFixture(tinyxml2::XMLDocument &document,
   tinyxml2::XMLElement *matrix = document.NewElement("Matrix");
   matrix->SetText(MatrixUtils::FormatMatrix(values.matrix).c_str());
   fixture->InsertEndChild(matrix);
+  addString("Classing", values.classing);
   addString("GDTFSpec", values.gdtfSpec);
   addString("GDTFMode", values.gdtfMode);
   addString("Focus", values.focus);
@@ -161,6 +162,7 @@ void AppendTruss(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *parent,
   tinyxml2::XMLElement *truss = CreateObject(document, "Truss", values.object);
   AppendText(document, truss, "Matrix",
              MatrixUtils::FormatMatrix(values.matrix));
+  AppendText(document, truss, "Classing", values.object.classing);
   AppendText(document, truss, "Position", values.position);
   AppendGeometryReferences(document, truss, values.geometries, false);
   AppendText(document, truss, "Function", values.function);
@@ -181,6 +183,7 @@ void AppendSupport(tinyxml2::XMLDocument &document,
       CreateObject(document, "Support", values.object);
   AppendText(document, support, "Matrix",
              MatrixUtils::FormatMatrix(values.matrix));
+  AppendText(document, support, "Classing", values.object.classing);
   AppendText(document, support, "Position", values.position);
   std::vector<GeometryReference> references;
   for (const GeometryValues &geometry : values.geometries)
@@ -207,6 +210,7 @@ void AppendSceneObject(tinyxml2::XMLDocument &document,
                    values.object);
   AppendText(document, object, "Matrix",
              MatrixUtils::FormatMatrix(values.matrix));
+  AppendText(document, object, "Classing", values.object.classing);
   AppendGeometryReferences(document, object, values.geometries,
                            values.isFocusPoint);
   if (!values.isFocusPoint) {
@@ -235,6 +239,7 @@ void AppendGroupObject(tinyxml2::XMLDocument &document,
                        const Matrix &matrix, tinyxml2::XMLElement *childList) {
   tinyxml2::XMLElement *group = CreateObject(document, "GroupObject", values);
   AppendText(document, group, "Matrix", MatrixUtils::FormatMatrix(matrix));
+  AppendText(document, group, "Classing", values.classing);
   group->InsertEndChild(childList);
   parent->InsertEndChild(group);
 }

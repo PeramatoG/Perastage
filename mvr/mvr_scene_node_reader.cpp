@@ -31,6 +31,7 @@
 #include "support.h"
 #include "utf8_utils.h"
 #include "uuidutils.h"
+#include "mvr_class_preservation.h"
 
 #include <tinyxml2.h>
 
@@ -1257,8 +1258,10 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
           return;
         services.recordNodeLayerUuid(nodeUuid, layerUuid);
         auto assign = [&](auto &objects) {
-          if (auto it = objects.find(nodeUuid); it != objects.end())
+          if (auto it = objects.find(nodeUuid); it != objects.end()) {
             it->second.layerUuid = layerUuid;
+            it->second.classing = ReadMvrClassing(*child);
+          }
         };
         assign(scene.fixtures); assign(scene.trusses); assign(scene.supports);
         assign(scene.sceneObjects); assign(scene.groupObjects);

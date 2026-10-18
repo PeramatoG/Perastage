@@ -31,6 +31,7 @@ class XMLElement;
 namespace mvr_xml_serialization {
 
 struct FixtureValues {
+  std::string classing;
   std::string uuid;
   std::string name;
   Matrix matrix;
@@ -53,6 +54,7 @@ struct FixtureValues {
 struct ObjectValues {
   std::string uuid;
   std::string name;
+  std::string classing;
 };
 
 struct GeometryValues {

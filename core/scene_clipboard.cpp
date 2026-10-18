@@ -90,7 +90,7 @@ bool InsertClone(MvrScene &scene, const Item &item, const std::string &uuid,
 bool IsInstanceUuidAvailable(const MvrScene &scene, const std::string &uuid) {
   return !scene.fixtures.contains(uuid) && !scene.trusses.contains(uuid) &&
          !scene.supports.contains(uuid) && !scene.sceneObjects.contains(uuid) &&
-         !scene.groupObjects.contains(uuid);
+         !scene.groupObjects.contains(uuid) && !scene.classes.contains(uuid);
 }
 
 // Allocates a fresh UUID that cannot collide with the scene or current batch.

@@ -19,6 +19,7 @@
 
 #include <unordered_map>
 #include <string>
+#include <optional>
 #include <vector>
 #include <memory>
 #include "fixture.h"
@@ -55,7 +56,13 @@ struct MvrPreservationIssue {
     bool operator==(const MvrPreservationIssue&) const = default;
 };
 
-// Represents the full scene structure from an MVR file
+// Identity is the registry key; names are presentation and never merge keys.
+struct MvrClass {
+    std::optional<std::string> name;
+    bool operator==(const MvrClass &) const = default;
+};
+
+// Represents the full scene structure from an MVR file.
 class MvrScene {
 public:
     void Clear();
@@ -74,6 +81,7 @@ public:
     std::unordered_map<std::string, GroupObject> groupObjects;
     std::unordered_map<std::string, Layer> layers;
     // Lookup tables for additional references
+    std::unordered_map<std::string, MvrClass> classes; // Persistent, scene-wide definitions.
     std::unordered_map<std::string, std::string> positions;   // uuid -> name
     std::unordered_map<std::string, std::string> symdefFiles; // uuid -> geometry file
     std::unordered_map<std::string, std::string> symdefTypes; // uuid -> geometry type

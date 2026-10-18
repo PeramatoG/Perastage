@@ -23,6 +23,7 @@ done
 
 rg -q 'mvr_xml_serialization::CreateDocument' "$exporter"
 rg -q 'mvr_xml_serialization::AppendPreparedPositions' "$exporter"
+rg -q 'mvr_xml_serialization::PrependClasses' "$exporter"
 rg -q 'mvr_xml_serialization::AppendFixture' "$exporter"
 rg -q 'mvr_xml_serialization::AppendSymdef' "$exporter"
 rg -q 'mvr_xml_extension::AppendFixtureTypes' "$exporter"
@@ -41,7 +42,7 @@ if rg -n 'mvr_xml_serialization::CreateContainer|mvr_xml_extension::CreateMetada
   exit 1
 fi
 
-for node in GeneralSceneDescription AUXData Position Symdef Layers Layer Fixture Truss Support SceneObject GroupObject ChildList FixtureTypeInfoMap ProjectFixtureMetadataMap PrimitiveGeometryMap TrussInfo HoistInfo; do
+for node in GeneralSceneDescription AUXData Class Classing Position Symdef Layers Layer Fixture Truss Support SceneObject GroupObject ChildList FixtureTypeInfoMap ProjectFixtureMetadataMap PrimitiveGeometryMap TrussInfo HoistInfo; do
   if rg -n "NewElement\(\"${node}\"" "$exporter" >/dev/null; then
     echo "MvrExporter must delegate $node XML construction to a focused writer." >&2
     exit 1

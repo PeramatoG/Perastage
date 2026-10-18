@@ -91,6 +91,9 @@ preserves the authored layer name independently of that display label.</p>
 <p>Save ongoing work as <code>.pstg</code>, which preserves Perastage project context, layouts and project symbols. MVR is the exchange format. Perastage stores its own exchange metadata in standards-compatible, application-owned UserData; other applications may not retain that metadata.</p>
 <p>Imported FocusPoint objects with direct geometry retain their identities,
 transforms and fixture Focus links through project save/reopen and MVR export.
+Standard Class definitions and Classing links on supported objects are retained
+across layers, project save/reopen, MVR export and merge, including unused classes.
+Class names are preserved; there are no class visibility controls yet.
 Some standard structures still cannot be preserved safely. When a known loss
 is detected, project save and MVR export stop; the existing destination file
 is kept. Read the export details or log for the affected object and field, and

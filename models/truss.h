@@ -42,6 +42,7 @@ struct Truss {
     };
 
     std::string uuid;
+    std::string classing; // Scene-wide MVR Class UUID, independent of layer ownership.
     std::string name;
     std::string gdtfSpec;
     std::string gdtfMode;

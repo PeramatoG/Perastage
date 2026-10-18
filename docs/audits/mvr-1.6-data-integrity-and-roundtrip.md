@@ -10,8 +10,11 @@ universal losslessness or complete DIN conformance is made.
 
 ## Authority and revisions
 
-Review base: Perastage `1f0e94bdd4ba4df7c6ce5a4b83fa256ba55be0eb`
-(latest fetched `origin/main` when this branch was created). No VERSION change.
+Current continuation base: Perastage `a694aa99` (latest fetched `origin/main`
+when `codex/mvr-class-reference-integrity` was created, after merged PR #2479).
+The original #2479 review used `1f0e94bdd4ba4df7c6ce5a4b83fa256ba55be0eb`.
+Historical verification is retained below and distinguished from this PR. No
+VERSION change in either integrity correction.
 
 | Authority | Exact revision / interpretation |
 | --- | --- |
@@ -62,7 +65,7 @@ cannot establish it.
 
 | Workflow | Actual path and authority | Result and remaining boundary |
 | --- | --- | --- |
-| A: MVR → MVR | `mvr_import_package` owns extraction/lease; `ReadAcquiredMvrPackage` → `ReadMvrSceneNodes` → MvrScene; `MvrExporter::SerializeSnapshotToFile` → preparation → writers/resource plan → archive | Direct FocusPoint geometry and fixture reference/scalars now survive. Import provenance is scanned before normalization. See matrix for protected and unprotected partial structures. |
+| A: MVR → MVR | `mvr_import_package` owns extraction/lease; `ReadAcquiredMvrPackage` → `ReadMvrSceneNodes` → MvrScene; `MvrExporter::SerializeSnapshotToFile` → preparation → writers/resource plan → archive | Direct FocusPoint geometry, fixture reference/scalars and the tested Class/Classing subset survive. Import provenance is scanned before normalization. See matrix for protected and unprotected partial structures. |
 | B: MVR → PSTG → reopen → MVR | `ConfigManager::SaveProject` serializes **new** canonical scene.mvr through the same exporter. `ProjectSession::SaveProject` stages config, scene bytes and resources in a temporary archive and publishes only on success. Restore reacquires scene.mvr and project resources. | Test releases all source extraction leases before reopen and asserts the old directory is gone. Focus/type/geometry/transforms/references and fixture values survive. A rejected save leaves the previous PSTG readable. PSTG is not a copy of the original MVR. |
 | C: edit one property | Domain instance change → private exporter snapshot → identity/transform preparation | Test changes one fixture name; independently compares focus subtrees, scalar metadata and resource hashes. Other mutation frontends have static evidence only unless listed. |
 | D: merge | `AnalyzeImportedSceneMerge` plans collisions across sceneObjects and fixtures; resource rewriter copies into target lifetime; applier remaps fixture.focus and group/layer membership | FocusPoint shares existing sceneObjects ownership with a distinct kind; no second entity exists. Collision test verifies all incoming fixtures resolve to incoming remapped focus objects. Source preservation issues are unioned and remain blockers. Foreign opaque references are not generically rewritten. |
@@ -105,7 +108,35 @@ cannot establish it.
    exporter’s detailed findings into CLI JSON diagnostics. There is no lossy override. PSTG cannot
    persist an incomplete scene because its scene serializer fails as well.
 
-Known structures protected now: Class/Classing and MappingDefinition; nonidentity
+6. **Class/Classing preservation (current continuation)**: #2479 deliberately
+   blocked these valid standard structures because the editable model had no
+   owner. Published Table 7 includes AUXData/Class; Table 14 requires its UUID
+   and defines its name; Tables 20/22/24/26/28/30 permit one optional Classing
+   UUID on supported scene objects. Table 1 forbids nil UUIDs; class checks
+   enforce that constraint even though the XSD accepts them. The unchanged
+   official XSD uses an optional
+   name defaulting to empty and orders Classes before Symdefs/Positions.
+   A schema-valid synthetic source with six classed node kinds across two layers
+   reproduced the old export refusal on `a694aa99`; it now exports safely within
+   this subset. Classes are a scene-wide UUID registry; each supported node owns
+   its direct Classing edge. Names are retained exactly, including absence,
+   empty names and whitespace; unused classes are retained. Equal names never
+   coalesce distinct UUIDs. No visibility behavior is implemented.
+   Pre-normalization evidence protects missing/nil/duplicate/cross-kind identities,
+   unresolved or repeated Classing and unrepresented class attributes/content.
+   Current model references are checked before recovery; a final projection
+   comparison rejects changed definitions, assignments and Class identity
+   collisions before package publication. Provider UserData is excluded from
+   these walks. Merge shares a semantically equal same-UUID definition (including
+   absent/empty default names), retains the target name spelling, remaps actual
+   collisions with all incoming edges, and reserves class identities across
+   object/lookup namespaces. Cross-kind collisions are remapped even under
+   ReplaceExisting/SkipIncoming: those object policies do not authorize
+   replacing a Class with a different standard node kind. Existing blockers for
+   VideoScreen/Projector and all unrelated unsupported structures remain.
+
+Known structures protected now: malformed/ambiguous/unrepresented Class/Classing;
+MappingDefinition; nonidentity
 Layer Matrix/elevation; multipatch; fixture CastShadow/ChildPosition, Protocols,
 Alignments, CustomCommands, Overwrites, Connections, Mappings and Gobo; multiple
 or nonzero DMX breaks and network assignments; noneditable VideoScreen/Projector
@@ -138,7 +169,8 @@ preservation; O correct export; P PSTG reload; M merge/copy/group; A automated
 coverage. `Y` means within the explicitly bounded tested subset; `p` partial;
 `N` absent; `?` unverified; `B` operation blocked if present (diagnostic evidence
 is retained, **not** a preserved semantic entity). M=`p` must never be read as
-full reference/resource remapping. A=`F` new focus tests; `K` new blocker tests;
+full reference/resource remapping. A=`C` class integration/protection/independent tests;
+`F` #2479 focus tests; `K` blocker tests;
 `X` existing named tests; `–` no executed feature-specific proof. A test name in
 this matrix identifies coverage, not proof of every possible value.
 
@@ -147,6 +179,7 @@ preservation without a dedicated editor; `P` partial support; `L` known remainin
 loss; `B` unsupported with explicit write protection; `U` unverified. Risk/action
 keys: `f` direct-focus subset; `s` fixture scalar/color subset; `h` hierarchy/local
 transform path; `r` resource/reference contract; `u` root opaque UserData policy;
+`c` tested Class/Classing preservation without visibility or an editor;
 `b` add typed/preservation support before allowing write; `i` identifier recovery
 policy requires correction; `a` AUXData retention requires follow-up; `v` version
 and semantic validation incomplete. Detailed limitations follow the matrix.
@@ -168,7 +201,7 @@ and semantic validation incomplete. Detailed limitations follow the matrix.
 | 7 | `AUXData/Symdef` | 0 or any | p | p | p | p | p | p | p | X | P | P0/a |
 | 7 | `AUXData/Position` | 0 or any | p | p | p | p | p | p | p | X | P | P0/a |
 | 7 | `AUXData/MappingDefinition` | 0 or any | N | B | N | B | B | B | B | K | B | P0/b |
-| 7 | `AUXData/Class` | 0 or any | N | B | N | B | B | B | B | K | B | P0/b |
+| 7 | `AUXData/Class` | 0 or any | Y | Y | N | Y | Y | Y | Y | C | V | P0/c |
 | 8 | `Symdef/@uuid` | R | p | p | p | p | p | p | p | X | P | P0/a |
 | 8 | `Symdef/@name` | Empty | N | B | N | B | B | B | B | K | B | P0/b |
 | 9 | `Symdef/ChildList` | 1 | p | p | p | p | p | p | p | X | P | P0/a |
@@ -182,8 +215,8 @@ and semantic validation incomplete. Detailed limitations follow the matrix.
 | 13 | `MappingDefinition/SizeY` | 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 13 | `MappingDefinition/Source` | 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 13 | `MappingDefinition/ScaleHandeling` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
-| 14 | `Class/@uuid` | R | N | B | N | B | B | B | B | K | B | P0/b |
-| 14 | `Class/@name` | ? (unspecified) | N | B | N | B | B | B | B | K | B | P0/b |
+| 14 | `Class/@uuid` | R | Y | Y | N | Y | Y | Y | Y | C | V | P0/c |
+| 14 | `Class/@name` | ? (unspecified) | Y | Y | N | Y | Y | Y | Y | C | V | P0/c |
 | 15 | `Layers/Layer` | ? (listed) | Y | Y | p | p | p | p | p | F,X | P | P0/h |
 | 16 | `Layer/@uuid` | R | Y | Y | p | p | p | p | p | F,X | P | P0/i |
 | 16 | `Layer/@name` | Empty | Y | Y | p | p | p | p | p | F,X | P | P0/i |
@@ -201,7 +234,7 @@ and semantic validation incomplete. Detailed limitations follow the matrix.
 | 19 | `SceneObject/@name` | Empty | Y | Y | p | p | p | p | p | F,X | P | P0/i |
 | 19 | `SceneObject/@multipatch` | Empty | N | B | N | B | B | B | B | K | B | P0/b |
 | 20 | `SceneObject/Matrix` | 0 or 1 | Y | Y | p | p | p | p | p | F,X | P | P0/h |
-| 20 | `SceneObject/Classing` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
+| 20 | `SceneObject/Classing` | 0 or 1 | Y | Y | N | Y | Y | Y | Y | C | V | P0/c |
 | 20 | `SceneObject/Geometries` | 1 | p | p | p | p | p | p | p | F,X | P | P0/r |
 | 20 | `SceneObject/GDTFSpec` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 20 | `SceneObject/GDTFMode` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
@@ -220,18 +253,18 @@ and semantic validation incomplete. Detailed limitations follow the matrix.
 | 21 | `GroupObject/@uuid` | R | Y | Y | p | p | p | p | p | F,X | P | P0/i |
 | 21 | `GroupObject/@name` | Empty | Y | Y | p | p | p | p | p | F,X | P | P0/i |
 | 22 | `GroupObject/Matrix` | 0 or 1 | Y | Y | p | p | p | p | p | F,X | P | P0/h |
-| 22 | `GroupObject/Classing` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
+| 22 | `GroupObject/Classing` | 0 or 1 | Y | Y | N | Y | Y | Y | Y | C | V | P0/c |
 | 22 | `GroupObject/ChildList` | 0 or 1; XSD requires 1 | Y | Y | p | p | p | p | p | F,X | P | P0/h |
 | 23 | `FocusPoint/@uuid` | R | Y | Y | p | Y | Y | Y | Y | F | V | P0/f |
 | 23 | `FocusPoint/@name` | Empty | Y | Y | p | Y | Y | Y | Y | F | V | P0/f |
 | 24 | `FocusPoint/Matrix` | 0 or 1 | Y | Y | p | Y | Y | Y | Y | F | V | P0/f |
-| 24 | `FocusPoint/Classing` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
+| 24 | `FocusPoint/Classing` | 0 or 1 | Y | Y | N | Y | Y | Y | Y | C | V | P0/c |
 | 24 | `FocusPoint/Geometries` | 1 | Y | Y | p | Y | Y | Y | Y | F | V | P0/f |
 | 25 | `Fixture/@uuid` | R | Y | Y | p | p | p | p | p | F,X | P | P0/i |
 | 25 | `Fixture/@name` | Empty | Y | Y | p | p | p | p | p | F,X | P | P0/i |
 | 25 | `Fixture/@multipatch` | Empty | N | B | N | B | B | B | B | K | B | P0/b |
 | 26 | `Fixture/Matrix` | 0 or 1 | Y | Y | p | p | p | p | p | F,X | P | P0/h |
-| 26 | `Fixture/Classing` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
+| 26 | `Fixture/Classing` | 0 or 1 | Y | Y | N | Y | Y | Y | Y | C | V | P0/c |
 | 26 | `Fixture/GDTFSpec` | 0 or 1 | p | p | p | p | p | p | p | F,X | P | P0/r |
 | 26 | `Fixture/GDTFMode` | 0 or 1 | p | p | p | p | p | p | p | F,X | P | P0/r |
 | 26 | `Fixture/Focus` | 0 or 1 | Y | Y | p | Y | Y | Y | Y | F | V | P0/f |
@@ -260,7 +293,7 @@ and semantic validation incomplete. Detailed limitations follow the matrix.
 | 27 | `Truss/@name` | Empty | Y | Y | p | p | p | p | p | F,X | P | P0/i |
 | 27 | `Truss/@multipatch` | Empty | N | B | N | B | B | B | B | K | B | P0/b |
 | 28 | `Truss/Matrix` | 0 or 1 | Y | Y | p | p | p | p | p | F,X | P | P0/h |
-| 28 | `Truss/Classing` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
+| 28 | `Truss/Classing` | 0 or 1 | Y | Y | N | Y | Y | Y | Y | C | V | P0/c |
 | 28 | `Truss/Position` | 0 or 1 | p | p | p | p | p | p | p | X | P | P0/a |
 | 28 | `Truss/Geometries` | 1 | p | p | p | p | p | p | p | F,X | P | P0/r |
 | 28 | `Truss/Function` | 0 or 1 | Y | Y | p | p | p | p | p | F,X | P | P0/h |
@@ -283,7 +316,7 @@ and semantic validation incomplete. Detailed limitations follow the matrix.
 | 29 | `Support/@name` | Empty | Y | Y | p | p | p | p | p | F,X | P | P0/i |
 | 29 | `Support/@multipatch` | Empty | N | B | N | B | B | B | B | K | B | P0/b |
 | 30 | `Support/Matrix` | 0 or 1 | Y | Y | p | p | p | p | p | F,X | P | P0/h |
-| 30 | `Support/Classing` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
+| 30 | `Support/Classing` | 0 or 1 | Y | Y | N | Y | Y | Y | Y | C | V | P0/c |
 | 30 | `Support/Position` | 0 or 1 | p | p | p | p | p | p | p | X | P | P0/a |
 | 30 | `Support/Geometries` | 1 | p | p | p | p | p | p | p | F,X | P | P0/r |
 | 30 | `Support/Function` | 0 or 1 | Y | Y | p | p | p | p | p | F,X | P | P0/h |
@@ -405,7 +438,7 @@ Additional value, relationship and package requirements:
 | Address value (T51): required absolute integer or Universe.Address; distinct break IDs default 0 | p/p/p | p/p/p/p | F,K,X | P: one break 0 supported; multiple/nonzero/network assignments blocked. Max/int overflow and unusual valid spelling need semantic validation. |
 | CustomCommand value: GDTF command syntax, e.g. geometry,f value | N/B/N | B/B/B/B | K | B: no typed commands or static-property ownership. |
 | Generic Integer/Float/Bool/String/UUID/Vector/CIE/FileName/IPv4/IPv6 (T1) | p/p/p | p/p/p/p | F,K,X | P: nil UUID disallowed by spec; unique identities/reference graph still incompletely validated. Strings may be trimmed. |
-| Persistent UUIDs, parent ownership, referenced Class/Position/Focus/Symdef/MappingDefinition/toObject | p/p/p | p/p/p/p | F,K,X | P: direct Focus validated before recovery and after serialization; other reference classes partial or blocked. |
+| Persistent UUIDs, parent ownership, referenced Class/Position/Focus/Symdef/MappingDefinition/toObject | p/p/p | p/p/p/p | F,K,X | P: direct Focus validated before recovery and after serialization; Class/Classing validated before normalization/recovery and compared after serialization; remaining reference types partial or blocked. |
 | Multipatch: parent UUID; no child FixtureID/CustomID when multipatched | N/B/N | B/B/B/B | K | B: any authored multipatch attribute blocks current canonical writes. |
 | GDTFMode required if GDTFSpec present; exact mode of linked GDTF | p/p/p | p/p/p/p | F,X | P: original bytes verified for unmodified synthetic GDTF; fallback and mode substitution remain risks. |
 | Unchanged GDTF mandatory byte payload preservation; modified GDTF revision required | Y/Y/p | p/p/p/p | F,X | P: original bytes covered here; all mutation revision rules not exhaustively validated. |
@@ -425,6 +458,7 @@ Additional value, relationship and package requirements:
 | Evidence owner | What was established by source review |
 | --- | --- |
 | `models/mvrscene.h`, `models/fixture.h`, `models/sceneobject.h` | Durable scene owns only enumerated maps/fields, root foreign UserData, and now preservation evidence; no arbitrary standard node XML is replayed. FocusPoint uses the shared geometric object value with an explicit kind. |
+| `mvr/mvr_class_preservation.*`, `models/mvrscene.h`, typed scene-node Classing fields | Class registry and direct edges; pre-normalization UUID/shape/reference evidence, current-model checks and final serialized projection comparison. Optional-name presence is retained; semantic default equality is used only for merge. |
 | `mvr/mvr_scene_node_reader.cpp`, `mvr/mvr_read_service.cpp` | Fixture scalar import, geometry expansion, ignored layer matrix, selected AUXData tables and recursive group ownership. Neutral VideoScreen/Projector descriptors are insufficient to save/export their standard data. |
 | `mvr/mvr_xml_scene_object_writer.*`, `mvr/mvrexporter.cpp` | Complete fields actually emitted, geometry registration, placeholder/fallback behavior, resource pruning, fixed canonical 1.6 root and final structural checks. Validation ordering lists are not preservation implementations. |
 | `mvr/mvr_export_preparation.cpp`, `core/mvr_identity_recovery.cpp` | Copy before recovery, deterministic repair, fixture identifiers/unit-number allocation and position normalization. New preservation checks run before repairs can conceal the loss. |
@@ -439,8 +473,9 @@ Additional value, relationship and package requirements:
   repairs duplicates/zero, synthesizes UnitNumber, and can replace unrelated
   authored identifiers. Truss and Support export synthesize FixtureID/numeric
   IDs rather than preserving all authored values. Copy/merge tests here certify
-  Focus reference graphs, not a universally lossless identifier policy.
-- AUXData retains only selected Symdef geometry facts and Position name tables.
+  Focus and Class reference graphs, not a universally lossless identifier policy.
+- AUXData retains the tested Class registry/edges, selected Symdef geometry facts
+  and Position name tables.
   Unreferenced Symdefs can be pruned; other Symdef identity/geometry sharing
   cases need a complete graph audit. Named/nested definitions are now blocked,
   but the gate does not yet cover every definition-retention case.
@@ -475,18 +510,18 @@ it is not completion of the whole mission.
    for currently known unguarded cases above. Preserve or reject source data
    before the edit that makes restoration impossible. Retain bounded memory and
    avoid routine full round-trip cycles.
-2. Typed DMX-break/network assignments, class/Classing and layer elevation,
-   with local/world transforms and exact identity/reference remapping. Permit
-   these workflows only after their current blockers can be removed safely.
-3. Complete Symdef/Symbol graph preservation, including unused/nested
-   definitions, symbol instance identities, names, resources and collision
-   remapping. Add validated preservation for noneditable VideoScreen/Projector
-   and their media resources through existing interchange owners.
-4. Correct authored identifier/UnitNumber policy across export, PSTG, copy,
+2. Correct authored identifier/UnitNumber policy across export, PSTG, copy,
    merge and grouping, without treating Annex A’s recommendation for unique selection IDs as
    permission to rewrite unrelated authored values. The informative annex says
    IDs “should” be unique and describes multipatch selection sharing. Add string/number provenance and
    version-specific semantics, including legacy FixtureTypeId conversion.
+3. Complete Symdef/Symbol graph preservation, including unused/nested
+   definitions, symbol instance identities, names, resources and collision
+   remapping. Add validated preservation for noneditable VideoScreen/Projector
+   and their media resources through existing interchange owners.
+4. Typed DMX-break/network assignments and layer elevation,
+   with local/world transforms and exact identity/reference remapping. Permit
+   these workflows only after their current blockers can be removed safely.
 5. Complete protocols, alignments, connections, mappings, commands/overwrites,
    Gobo/Universal.gdtt and GDTF revision/resource obligations. Reconcile the
    documented schema discrepancies with upstream without weakening pinned
@@ -539,7 +574,7 @@ evidence that received MVR semantic content survived editing. Annex A’s
 identifier guidance and Annex B’s persistent UUID/reference rationale inform
 the remaining identity-policy work above.
 
-## Executed verification for this branch
+## PR #2479 executed verification (historical)
 
 Local environment: Linux, existing `build/wsl-x64-debug` toolchain. No official
 schema/reference file or source-size baseline was changed.
@@ -562,4 +597,54 @@ No external application interoperability session or libMVRgdtf runtime test was
 performed. The expected official-XSD UserData disagreement is a documented
 conformance limitation, not a green full-file schema result.
 
-Review branch: `codex/mvr-16-integrity-focus`. Do not merge automatically.
+PR #2479 used `codex/mvr-16-integrity-focus` and has been merged. This continuation
+uses a completely new branch, `codex/mvr-class-reference-integrity`, for a new
+Draft PR against main. Do not merge automatically.
+
+## Class preservation continuation: contract and verification
+
+The registry is independent of Layer ownership and geometry/resource ownership.
+A direct node-to-Class UUID relation survives layer changes, copies, hierarchy
+edits and collision remapping. This is the identity foundation for later class
+visibility filtering across layers in Viewer2D, Viewer3D and Layout Mode. This
+PR adds no filtering, GUI, visibility flags or Layout/CAD implementation.
+Visibility presets and documentation settings will be PSTG-owned; they do not
+belong in Class definitions or proprietary MVR extensions.
+
+`MvrClassIntegrity` covers valid source schema, unchanged/unrelated-edit exports,
+all six supported classed node kinds across two layers, unused/absent-name/empty-name
+classes, PSTG reopening after release of original resources, repeated import,
+shared/conflicting definitions, equivalent absent/empty defaults without UUID
+changes, same-name independent identities, cross-kind
+collisions in both directions under all three object collision policies,
+copy/group/translation, dangling model references, retained unsafe-save
+publication and propagation of source evidence through merge. GLB resources are
+reacquired and compared after export/PSTG. `MvrClassPreservation` exercises
+pre-normalization evidence and final projection rejection. `MvrClassIndependent`
+uses Python ZIP/XML readers to compare definitions/assignments, original UUIDs,
+parent ownership, resource bytes, CRC/compression/path integrity and embedded
+PSTG scene.mvr. The prior Focus protection regressions remain enabled.
+
+The source fixture passes the unchanged official XSD. Exported full files have
+the existing expected UserData/Data-content XSD disagreement; only an explicit
+copy with root UserData removed passes the standard-scene projection check.
+This is not a claim of full-file XSD conformance.
+
+Executed locally on Linux with `build/wsl-x64-debug`:
+
+| Check | Observed continuation result |
+| --- | --- |
+| Before-fix reproduction | Initial integration regression aborted at the old export refusal on `a694aa99`. Recompiled the unchanged `origin/main` preservation implementation separately against the final schema-valid source: it rejects all 3 Class definitions and 6 Classing assignments before export. No published schema was relaxed. |
+| Production build | `perastage_mvr_export`, `perastage_cli` and all selected regression targets compiled successfully. |
+| Selected regressions | **33/33 passed**: PerastageCliScene; XmlSchemaValidation; MvrInspectionStandalone; MvrMergeAnalyzerApplier; SaveLoadRoundtrip; MvrClassIntegrity; MvrClassIndependent; MvrClassPreservation; MvrFocusIntegrity; MvrFocusIndependent; MvrDmxAddressConversion; MvrSupportUserDataRoundtrip; MvrLayerAppearanceUserData; MvrFixtureCategoryRoundtrip; MvrTrussRoundtripStructure; MvrExporterCompliance; MvrImporterArchiveStrict; MvrImporterArchiveLegacy; MvrImporterArchiveRecovery; MvrImporterPackageAcquisition; MvrImportProjectApplication; MvrInspection; RiderImportBenchmark; MvrPatchedGdtfExportMutation; SceneClipboard; MvrIdentityRecovery; MvrExportPreparation; MvrStandardPreservation; MvrExportResourceCollection; MvrLayerUuidIdentity; SceneGroupingPreservesTransforms; MvrXmlSerialization; MvrXmlSerializationHeaderCompile. |
+| Required repository checks | Tree/module contract (`PERASTAGE_TEST_PYTHON=/usr/bin/python3`), GUI singleton guard, tracked source-size ratchet and repository hygiene passed. |
+| Additional checks | MVR reader/XML/preparation boundaries, module directions, include ownership, official-schema hashes, generated documentation drift and diff whitespace checks passed. |
+
+Hosted `linux-debug`, `windows-debug` and `macos-debug` CI remain separate from
+these local results; inspect the new draft PR for their current status. External
+receiving applications, live MVR-xchange and libMVRgdtf runtime interoperability
+were not executed. No full release profile or sanitizer claim is made. Remaining
+P0 identifier/UnitNumber policy, incomplete Symdef/Symbol graph retention,
+resources/fallbacks, numeric/string precision and comprehensive semantic
+provenance are unchanged and unresolved. Classing within blocked VideoScreen
+or Projector data remains **protected**, not supported.

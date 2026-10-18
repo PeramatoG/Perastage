@@ -101,6 +101,7 @@ template <typename T>
 void RemapObjectLayerUuids(std::unordered_map<std::string, T> &objects,
                            const MvrMergeAnalysis &analysis) {
   for (auto &[uuid, object] : objects) {
+    object.classing = RemapImportedUuidReference(object.classing, analysis);
     const auto layerIt = analysis.layerUuidMap.find(object.layerUuid);
     if (layerIt != analysis.layerUuidMap.end())
       object.layerUuid = layerIt->second;
@@ -246,6 +247,9 @@ MvrSceneMergeResult ApplyImportedSceneMerge(MvrScene &target,
       target.opaqueUserDataBlocks.push_back(block);
   }
 
+  // Equivalent absent/empty names share identity; retain the target spelling.
+  for (const auto &[uuid, definition] : importedCopy.classes)
+    target.classes.try_emplace(RemapImportedUuidReference(uuid, analysis), definition);
   MergeLookupTable(target.positions, importedCopy.positions, analysis);
   MergeLookupTable(target.symdefFiles, importedCopy.symdefFiles, analysis);
   MergeLookupTable(target.symdefTypes, importedCopy.symdefTypes, analysis);
