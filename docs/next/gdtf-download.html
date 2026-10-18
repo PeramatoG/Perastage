@@ -94,12 +94,24 @@ browser, or <strong>Load local GDTF...</strong> to validate and copy a local pro
 import&#39;s resources. Choose its DMX mode and review any model, mode or footprint
 differences. The original local file remains unchanged. Available fallback
 sources can be selected explicitly from the same row.</p>
-<p>The MVR preference <strong>Close GDTF download window automatically when finished</strong>
-defaults to off and can also be changed in the queue. With automatic close enabled,
-safe completed choices continue the import directly. Ambiguous or failed results
-remain open for review. Cancel stops pending transfers and retains completed
-choices and valid fallbacks. A matching footprint does not guarantee that DMX
-channels have the same meaning.</p>
+<p>The option <strong>Close GDTF download window automatically when finished</strong> is available
+only in <strong>Preferences → MVR Import/Export</strong> and defaults to off. With automatic
+close enabled, safe completed choices continue the import directly. Ambiguous or
+failed results remain open for review.</p>
+<p>The queue shows catalog/sign-in activity, elapsed time, analysis progress by
+fixture type and download bytes. Green indicates a successful download, reuse or
+local selection; amber indicates an original MVR or application fallback; red
+indicates a failure or unresolved profile.</p>
+<p>Candidates list all available modes and their channel counts. Missing catalog
+metadata is shown as unavailable, rather than zero channels, and is updated from
+the actual package after downloading. The imported mode and its known channel
+count appear in the details. Repeated patch spacing may suggest a mode in the
+picker, but requires confirmation: gaps may include unused addresses, and an
+equal footprint does not guarantee equal DMX channel functions.</p>
+<p><strong>Cancel</strong>, <strong>Escape</strong> and the window close button stop the queue and continue
+importing with the original MVR profiles and modes for all its rows. This discards
+all queue substitutions, including completed downloads and local selections.
+Use <strong>OK</strong> to accept the results.</p>
 <p><strong>Apply selections</strong> also retries failed downloads. Canceling authentication stops the remaining attempts without repeating the sign-in dialog for every row.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>

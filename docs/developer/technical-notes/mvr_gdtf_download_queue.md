@@ -13,6 +13,7 @@ full-catalog search and local-file selection. The importer delegates to
 - `mvr/gdtf_candidate_ranking.cpp`: one catalog evaluation implementation,
   structured candidates and conservative automatic recommendation. The existing
   best-candidate adapter remains available to legacy consumers.
+- `mvr/gdtf_patch_evidence.*`: conservative repeated-address-spacing hints for manual review.
 - `perastage_gdtf_matching`: standard-library-only production target.
 - `core/gdtf_resolution.*`: typed source, proposed/applied choices, origin,
   fallback precedence, statuses and completion/cancellation transitions.
@@ -67,8 +68,11 @@ code consumes `RankDownloadCandidates` through `gdtf_resolution::Analyze`.
 resource to commit. Explicit user selection takes precedence over automatic
 recommendation. Choosing an existing MVR, application or local profile also
 records it as the fallback for later catalog attempts. A failed revision retains
-that valid fallback and the proposed revision for inspection/retry. Canceled
-pending work preserves already applied results. Late completion cannot replace
+that valid fallback and the proposed revision for inspection/retry. The low-level
+`Cancel` transition preserves applied choices for other consumers. The interactive
+MVR queue instead treats cancellation as rollback: every row returns its original
+MVR path with an empty mode override, preserving each instance's imported mode.
+The workflow also checks the modal return code before applying results. Late completion cannot replace
 a different proposal. Reuse is keyed by exact revision and mode and checks that
 the retained file and mode still exist.
 
@@ -86,17 +90,36 @@ After processing, the user can select any row, including successful rows, revise
 its proposal, and apply again. Acknowledgement is disabled while proposals are
 pending or work is active. The existing MVR preference
 `mvr_auto_close_gdtf_download_window` retains its default **off** and its existing
-Preferences location; an in-queue checkbox persists the same value. Enabled
+Preferences → MVR Import/Export location; the queue has no preference checkbox. Enabled
 automatic close commits safe final choices without a confirmation prompt.
 Ambiguity, unresolved resources or failures keep the queue open for review.
 
-Download, reuse, original MVR, application, local, failure, unresolved and canceled
-statuses remain distinct. Explicit resource choices use successful presentation,
-not error styling. Existing row summaries, byte progress and ETA are retained.
-Cancel, Escape and the window close command cannot dismiss an active worker;
-completion joins it before the modal boundary returns. Catalog/login requests
-retain the client's existing finite timeout behavior; cancellation may wait for
-a request without a cancellation callback to return.
+Download, reuse and local selection use green success styling; original MVR and
+application fallback use amber; failures and unresolved profiles use red; canceled
+rows use muted styling. Candidate labels list every known mode/footprint and
+explicitly mark absent metadata as unavailable. Actual downloaded modes enrich
+the row. Original package mode counts supplement imported evidence. Repeated
+same-universe patch spacing (at least two equal adjacent intervals for one type
+and mode, no duplicate/invalid addresses) can preselect a mode for manual review;
+it never changes authoritative footprint evidence or automatic eligibility.
+
+The modal queue appears before credential-store reads. Catalog, saved-credential
+login and downloads run in its worker. Only native credential entry and warnings
+run on the GUI thread. A 250 ms activity timer shows elapsed phase time; row events
+publish analysis results and progress incrementally. Original/application profiles
+are parsed once per unique path; canonical request models are reused per
+manufacturer during ranking. Ranking checks cancellation between catalog entries. Technical logs record catalog
+load, per-row profile-read and ranking times separately.
+Login, catalog and download use libcurl's multi interface with 100 ms polling for
+cancellation, including connection setup, while retaining established timeouts.
+Synchronous secure-store calls and individual archive/JSON reads are not
+interruptible; cancellation checkpoints surround those operations.
+
+Cancel, Escape and window close request rollback both during work and after
+completion. The worker unwinds and joins before the single modal boundary returns;
+late results cannot commit a substitution after cancellation. Only OK or successful
+automatic close accepts the queue choices. Other explicitly chosen sources in the
+preceding MVR/App/Download dialog retain their independent choices.
 
 Application updates every instance with the originating fixture-type key. Explicit
 queue modes bypass the importer's permissive mode resolver after validation.

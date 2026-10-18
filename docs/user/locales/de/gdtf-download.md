@@ -35,10 +35,26 @@ ohne das Original zu ändern. Wählen Sie den DMX-Modus und prüfen Sie Untersch
 bei Modell, Modus und Kanalzahl. Verfügbare Ersatzquellen lassen sich in derselben
 Zeile ausdrücklich auswählen.
 
-Das automatische Schließen bleibt in den MVR-Einstellungen standardmäßig aus und
-kann auch in der Warteschlange geändert werden. Wenn aktiviert, setzt es den
-Import mit sicheren abgeschlossenen Auswahlen fort. Mehrdeutige Ergebnisse und
-Fehler bleiben zur Prüfung offen. Abbrechen erhält abgeschlossene Downloads und
-gültige Ersatzprofile. Die gleiche Kanalzahl garantiert keine gleiche DMX-Funktion.
+Das automatische Schließen wird ausschließlich unter **Einstellungen → MVR Import/Export**
+konfiguriert und bleibt standardmäßig aus. Wenn aktiviert, setzt es den Import mit
+sicheren abgeschlossenen Auswahlen fort. Mehrdeutige Ergebnisse und Fehler bleiben
+zur Prüfung offen.
+
+Die Warteschlange zeigt Katalog- und Anmeldeaktivität, verstrichene Zeit, Fortschritt
+pro Gerätetyp und heruntergeladene Bytes. Grün bedeutet erfolgreicher Download,
+Wiederverwendung oder lokale Auswahl; Gelb bedeutet originales MVR-Profil oder
+Ersatzprofil der Anwendung; Rot bedeutet Fehler oder nicht aufgelöstes Profil.
+
+Kandidaten zeigen alle verfügbaren Modi und Kanalzahlen. Fehlende Katalogdaten
+erscheinen als nicht verfügbar statt als null Kanäle und werden nach dem Download
+aus dem Paket ergänzt. Die Details zeigen den importierten Modus und seine bekannte
+Kanalzahl. Wiederholte Patch-Abstände können einen Modus vorschlagen, erfordern
+aber Bestätigung: Abstände können freie Adressen enthalten, und gleiche Kanalzahlen
+garantieren keine gleichen DMX-Funktionen.
+
+**Abbrechen**, **Escape** und das Schließen des Fensters stoppen die Warteschlange
+und setzen den Import für alle ihre Zeilen mit den ursprünglichen MVR-Profilen
+und Modi fort. Sämtliche Ersetzungen dieser Warteschlange werden verworfen, auch
+abgeschlossene Downloads und lokale Auswahlen. **OK** übernimmt die Ergebnisse.
 
 **Auswahl anwenden** wiederholt auch fehlgeschlagene Downloads. Ein Abbruch der Anmeldung beendet die übrigen Versuche, ohne den Anmeldedialog für jede Zeile erneut zu öffnen.

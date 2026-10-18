@@ -25,6 +25,7 @@
 
 wxDEFINE_EVENT(EVT_MVR_GDTF_DONE, wxThreadEvent);
 wxDEFINE_EVENT(EVT_MVR_GDTF_PROGRESS, wxThreadEvent);
+wxDEFINE_EVENT(EVT_MVR_GDTF_ANALYSIS, wxThreadEvent);
 using namespace gdtf_resolution;
 namespace {
 wxString SourceText(Source source) {
@@ -58,7 +59,7 @@ MvrGdtfResolutionDialog::MvrGdtfResolutionDialog(wxWindow *parent,
     bool automaticClose,
     const std::unordered_map<std::string, std::vector<std::string>> &importedModes)
     : GdtfDownloadQueueDialog(parent, false),
-      sceneRoot(root), callbacks(std::move(services)) {
+      sceneRoot(root), callbacks(std::move(services)), automaticClose(automaticClose) {
   for (const auto &request : requests) {
     Row row;
     row.request = request;
@@ -71,15 +72,42 @@ MvrGdtfResolutionDialog::MvrGdtfResolutionDialog(wxWindow *parent,
     rows.push_back(std::move(row));
   }
   BuildLayout();
-  autoClose->SetValue(automaticClose);
+  activityTimer.SetOwner(this);
+  Bind(wxEVT_TIMER, [this](wxTimerEvent &) {
+    if (!busy)
+      return;
+    if (!determinateProgress)
+      gauge->Pulse();
+    phase->SetLabel(wxString::Format(_("%s (%ld s)"), workPhase, phaseClock.Time() / 1000));
+  }, activityTimer.GetId());
+  activityTimer.Start(250);
+  Bind(EVT_MVR_GDTF_ANALYSIS, [this](wxThreadEvent &event) {
+    if (stop)
+      return;
+    auto progress = event.GetPayload<AnalysisProgress>();
+    if (progress.ready) {
+      rows[progress.row].resolution = std::move(progress.resolution);
+      rows[progress.row].evidence = std::move(progress.evidence);
+      profileLabels.insert(progress.profileLabels.begin(), progress.profileLabels.end());
+      RefreshRows();
+    }
+    SetWorkPhase(wxString::Format(_("Analyzing GDTF candidates: %s (%zu/%zu)"),
+        wxString::FromUTF8(rows[progress.row].request.type), progress.row + 1, rows.size()));
+    determinateProgress = true;
+    const auto completedRows = progress.row + (progress.ready ? 1 : 0);
+    gauge->SetValue(static_cast<int>(100 * completedRows / rows.size()));
+  });
   Bind(EVT_MVR_GDTF_DONE, &MvrGdtfResolutionDialog::OnWorkerDone, this);
   Bind(EVT_MVR_GDTF_PROGRESS, [this](wxThreadEvent &event) {
+    if (stop)
+      return;
     const auto bytes = event.GetPayload<std::pair<long long, long long>>();
     for (auto &row : rows)
       if (row.resolution.status == Status::Downloading)
         Progress(row.request.type) = {bytes.first, bytes.second};
     RefreshBytesSummary();
-    phase->SetLabel(wxString::Format(_("%lld / %lld bytes"), bytes.first, bytes.second));
+    SetWorkPhase(wxString::Format(_("%lld / %lld bytes"), bytes.first, bytes.second));
+    determinateProgress = bytes.second > 0;
     if (bytes.second > 0)
       gauge->SetValue(static_cast<int>(std::clamp(
           100.0 * bytes.first / bytes.second, 0.0, 100.0)));
@@ -90,6 +118,7 @@ MvrGdtfResolutionDialog::MvrGdtfResolutionDialog(wxWindow *parent,
 }
 
 MvrGdtfResolutionDialog::~MvrGdtfResolutionDialog() {
+  activityTimer.Stop();
   stop = true;
   if (worker.joinable())
     worker.join();
@@ -123,8 +152,6 @@ void MvrGdtfResolutionDialog::BuildLayout() {
   actions->Add(local, 0, wxRIGHT, 8);
   actions->Add(apply, 0);
   layout->Insert(insertAt++, actions, 0, wxALL, 8);
-  autoClose = new wxCheckBox(this, wxID_ANY, _("Close automatically when finished"));
-  layout->Insert(insertAt++, autoClose, 0, wxALL, 8);
   ack = ackButton;
   cancel = cancelButton;
   SetMinSize(wxSize(900, 640));
@@ -137,10 +164,6 @@ void MvrGdtfResolutionDialog::BuildLayout() {
   apply->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Apply(); });
   cancel->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { RequestCancel(); });
   ack->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Acknowledge(); });
-  autoClose->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent &) {
-    if (callbacks.persistAutoClose)
-      callbacks.persistAutoClose(autoClose->GetValue());
-  });
 }
 
 std::optional<std::size_t> MvrGdtfResolutionDialog::SelectedRow() const {
@@ -148,6 +171,14 @@ std::optional<std::size_t> MvrGdtfResolutionDialog::SelectedRow() const {
   if (row < 0 || static_cast<std::size_t>(row) >= rows.size())
     return {};
   return static_cast<std::size_t>(row);
+}
+
+void MvrGdtfResolutionDialog::SetWorkPhase(const wxString &label) {
+  if (workPhase != label) {
+    workPhase = label;
+    phaseClock.Start();
+  }
+  phase->SetLabel(label);
 }
 
 void MvrGdtfResolutionDialog::SetBusy(bool value) {
@@ -158,7 +189,7 @@ void MvrGdtfResolutionDialog::SetBusy(bool value) {
   });
   finished = !busy && !pending;
   ack->Enable(finished);
-  cancel->Enable(!stop && !finished);
+  cancel->Enable(!stop);
   RefreshSelection();
 }
 
@@ -214,10 +245,19 @@ void MvrGdtfResolutionDialog::RefreshSelection() {
     return;
   const auto &row = rows[*selected];
   for (const auto &candidate : row.resolution.ranking.candidates) {
-    candidates->Append(wxString::Format(_("%s / %s / revision %s / %s / %s / %d channels"),
+    wxString modes;
+    for (const auto &mode : candidate.modes) {
+      if (!modes.empty())
+        modes += "; ";
+      modes += mode.footprint > 0
+          ? wxString::Format(wxPLURAL("%s / %d channel", "%s / %d channels", mode.footprint), wxString::FromUTF8(mode.name), mode.footprint)
+          : wxString::Format(_("%s / channel count unavailable"), wxString::FromUTF8(mode.name));
+    }
+    if (modes.empty())
+      modes = _("Mode and channel metadata unavailable");
+    candidates->Append(wxString::Format(_("%s / %s / revision %s / %s / %s"),
         wxString::FromUTF8(candidate.manufacturer), wxString::FromUTF8(candidate.fixtureName),
-        wxString::FromUTF8(candidate.rid), wxString::FromUTF8(candidate.revision),
-        wxString::FromUTF8(candidate.selectedMode), candidate.footprint));
+        wxString::FromUTF8(candidate.rid), wxString::FromUTF8(candidate.revision), modes));
     if (row.resolution.selected.source == Source::Catalog &&
         row.resolution.selected.revisionId == candidate.rid)
       candidates->SetSelection(candidates->GetCount() - 1);
@@ -228,7 +268,16 @@ void MvrGdtfResolutionDialog::RefreshSelection() {
     if (resource == row.resolution.selected)
       resources->SetSelection(resources->GetCount() - 1);
   }
-  wxString text = SourceText(row.resolution.selected.source);
+  wxString text = wxString::Format(_("Imported mode: %s"), wxString::FromUTF8(row.request.modeName));
+  if (row.evidence.requestedFootprint > 0)
+    text += " / " + wxString::Format(wxPLURAL("%d channel", "%d channels", row.evidence.requestedFootprint), row.evidence.requestedFootprint);
+  if (row.request.patchSpacingHint > 0)
+    text += "\n" + wxString::Format(
+        wxPLURAL("Repeated patch spacing: %d channel. This is a hint; unused addresses may be included.",
+                 "Repeated patch spacing: %d channels. This is a hint; unused addresses may be included.",
+                 row.request.patchSpacingHint),
+        row.request.patchSpacingHint);
+  text += "\n" + SourceText(row.resolution.selected.source);
   if (row.resolution.selected.source == Source::Catalog)
     text += " / " + wxString::FromUTF8(row.resolution.selected.revisionId);
   for (const auto &candidate : row.resolution.ranking.candidates) {
@@ -265,8 +314,16 @@ void MvrGdtfResolutionDialog::RefreshSelection() {
 
 std::unordered_map<std::string, Resolution> MvrGdtfResolutionDialog::Results() const {
   std::unordered_map<std::string, Resolution> result;
-  for (const auto &row : rows)
-    result.emplace(row.request.type, row.resolution);
+  for (const auto &row : rows) {
+    auto resolution = row.resolution;
+    if (stop) {
+      resolution.applied = row.request.mvrPath.empty() ? Choice{} :
+          Choice{Source::OriginalMvr, {}, row.request.mvrPath, {}};
+      resolution.selected = resolution.fallback = resolution.applied;
+      resolution.status = Status::Canceled;
+    }
+    result.emplace(row.request.type, std::move(resolution));
+  }
   return result;
 }
 
@@ -275,10 +332,8 @@ int MvrGdtfResolutionDialog::RunResolution() {
 }
 
 void MvrGdtfResolutionDialog::Acknowledge() {
-  if (busy) {
-    RequestCancel();
+  if (busy)
     return;
-  }
   if (finished && IsModal())
     EndModal(wxID_OK);
 }

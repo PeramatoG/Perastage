@@ -35,65 +35,53 @@ RunMvrGdtfResolution(wxWindow *parent,
     const std::filesystem::path &sceneRoot,
     std::function<void(const std::string &)> log,
     const std::unordered_map<std::string, std::vector<std::string>> &importedModes) {
-  const auto loaded = CredentialStore::LoadDetailed();
-  auto credentials = loaded.credentials;
+  // Secure-store IO and network requests start after the modal queue is visible.
+  CredentialStore::LoadResult loaded;
+  std::optional<CredentialStore::Credentials> credentials;
+  bool saveCredentials = false;
+  bool credentialsLoaded = false;
   GdtfShareClient client;
   GdtfShareResult lastLogin;
-  auto login = [&] {
-    if (!credentials)
+  auto login = [&](const std::function<bool()> &canceled) {
+    if (!credentials || canceled())
       return false;
     client.ResetSession();
-    lastLogin = client.Login(credentials->username, credentials->password);
+    lastLogin = client.Login(credentials->username, credentials->password, canceled);
     return lastLogin.Succeeded();
   };
   MvrGdtfResolutionCallbacks callbacks;
-  callbacks.persistAutoClose = [](bool value) {
-    auto &preferences = GetDefaultGuiConfigServices().Preferences();
-    mvr::preferences::SaveAutoCloseGdtfDownloadWindow(preferences, value);
-    preferences.SaveUserConfig();
-  };
+  // Only native credential entry belongs on the GUI thread. Authentication and
+  // secure-store writes are performed by the subsequent download worker.
   callbacks.authenticate = [&] {
-    if (client.IsAuthenticated())
+    if (client.IsAuthenticated() ||
+        (credentials && lastLogin.category != GdtfShareResultCategory::AuthenticationRejected))
       return true;
-    if (credentials) {
-      if (login())
-        return true;
-      if (lastLogin.category != GdtfShareResultCategory::AuthenticationRejected) {
-        const auto loginMessage = FormatGdtfShareUserMessage(lastLogin, "login");
-        wxMessageBox(wxString::FromUTF8(loginMessage),
-                      _("GDTF Share login"), wxOK | wxICON_WARNING, parent);
-        return false;
-      }
-    }
     GdtfLoginDialog dialog(parent, credentials ? credentials->username
                                              : loaded.usernameHint.value_or(""),
                             credentials ? credentials->password : "");
     if (dialog.ShowModal() != wxID_OK)
       return false;
     credentials = CredentialStore::Credentials{dialog.GetUsername(), dialog.GetPassword()};
-    if (!login()) {
-      wxMessageBox(_("GDTF Share authentication failed. Available profiles are retained."),
-                    _("GDTF Share login"), wxOK | wxICON_WARNING, parent);
-      return false;
-    }
-    const auto saved = CredentialStore::Save(*credentials);
-    if (!saved.Succeeded()) {
-      log("GDTF Share credentials could not be persisted: " + CredentialStore::StatusName(saved.status));
-      wxMessageBox(_("The password could not be saved securely. It will be requested again after restart."),
-                    _("GDTF Share credentials"), wxOK | wxICON_WARNING, parent);
-    }
+    saveCredentials = true;
     return true;
   };
-  callbacks.loadCatalog = [&] {
+  callbacks.loadCatalog = [&](std::function<bool()> canceled) {
+    if (canceled())
+      return MvrGdtfCatalog{};
+    if (!credentialsLoaded) {
+      loaded = CredentialStore::LoadDetailed();
+      credentials = loaded.credentials;
+      credentialsLoaded = true;
+    }
     GdtfCatalogService service;
     MvrGdtfCatalog catalog;
     const auto now = wxDateTime::UNow().FormatISOCombined(' ').ToStdString();
     auto result = service.RefreshCatalogIfStale([&](std::string &payload) {
-      if (!client.IsAuthenticated() && !login())
+      if (canceled() || (!client.IsAuthenticated() && !login(canceled)))
         return false;
-      auto response = client.GetCatalog();
-      if (response.category == GdtfShareResultCategory::AuthenticationRejected && login())
-        response = client.GetCatalog();
+      auto response = client.GetCatalog(canceled);
+      if (response.category == GdtfShareResultCategory::AuthenticationRejected && !canceled() && login(canceled))
+        response = client.GetCatalog(canceled);
       payload = std::move(response.payload);
       return response.Succeeded() && !payload.empty();
     }, now);
@@ -112,16 +100,34 @@ RunMvrGdtfResolution(wxWindow *parent,
   callbacks.download = [&](const gdtf_resolution::Choice &choice,
       std::function<void(long long, long long)> progress, std::function<bool()> canceled) {
     MvrGdtfDownload result;
+    if (canceled())
+      return result;
+    if (!client.IsAuthenticated() && !login(canceled)) {
+      result.diagnostic = FormatGdtfShareUserMessage(lastLogin, "login");
+      return result;
+    }
+    if (canceled())
+      return result;
+    if (saveCredentials) {
+      const auto saved = CredentialStore::Save(*credentials);
+      saveCredentials = false;
+      result.credentialsNotSaved = !saved.Succeeded();
+      if (!saved.Succeeded())
+        result.diagnostic = "GDTF Share credentials could not be persisted: " +
+            CredentialStore::StatusName(saved.status);
+    }
     runtime_storage::TemporaryWorkspace workspace("mvr-gdtf-download");
     const auto temporary = workspace.Path() / "profile.gdtf";
     const auto downloaded = gdtf_download_workflow::DownloadWithExpiredSessionRetry(
-        client, choice.revisionId, PathUtils::PathToUtf8(temporary), login,
+        client, choice.revisionId, PathUtils::PathToUtf8(temporary), [&] { return login(canceled); },
         [&](const GdtfDownloadProgress &bytes) { progress(bytes.downloadedBytes, bytes.totalBytes); },
         canceled);
     if (!downloaded.Succeeded()) {
       result.diagnostic = FormatGdtfShareUserMessage(downloaded, "download");
       return result;
     }
+    if (canceled())
+      return result;
     result.profile = gdtf_resolution::ReadProfile(temporary);
     if (!result.profile.usable) {
       result.diagnostic = "Downloaded GDTF is not a usable fixture profile.";
@@ -129,6 +135,8 @@ RunMvrGdtfResolution(wxWindow *parent,
         result.diagnostic += "\n" + message;
       return result;
     }
+    if (canceled())
+      return result;
     const auto destination = gdtf_resolution::CopyIntoScene(temporary, sceneRoot, result.diagnostic);
     result.path = PathUtils::PathToUtf8(destination);
     return result;
@@ -137,8 +145,16 @@ RunMvrGdtfResolution(wxWindow *parent,
       GetDefaultGuiConfigServices().Preferences());
   MvrGdtfResolutionDialog dialog(parent, requests, sceneRoot, std::move(callbacks),
                                   automaticClose, importedModes);
-  dialog.RunResolution();
+  const bool accepted = dialog.RunResolution() == wxID_OK;
   auto results = dialog.Results();
+  if (!accepted)
+    for (const auto &request : requests) {
+      auto &result = results[request.type];
+      result.applied = request.mvrPath.empty() ? gdtf_resolution::Choice{} :
+          gdtf_resolution::Choice{gdtf_resolution::Source::OriginalMvr, {}, request.mvrPath, {}};
+      result.selected = result.fallback = result.applied;
+      result.status = gdtf_resolution::Status::Canceled;
+    }
   for (const auto &[type, result] : results) {
     log("GDTF resolution type='" + type + "'; selected-rid='" + result.selected.revisionId +
         "'; applied-rid='" + result.applied.revisionId + "'; mode='" + result.applied.mode +

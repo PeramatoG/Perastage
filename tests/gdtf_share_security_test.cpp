@@ -406,6 +406,14 @@ void TestRedaction() {
 
 // Runs focused GDTF Share security tests.
 int main() {
+    GdtfShareClient canceledClient;
+    const auto start = std::chrono::steady_clock::now();
+    assert(canceledClient.Login("unused", "unused", [] { return true; }).category ==
+           GdtfShareResultCategory::Cancelled);
+    assert(canceledClient.GetCatalog([] { return true; }).category ==
+           GdtfShareResultCategory::Cancelled);
+    assert(std::chrono::steady_clock::now() - start < std::chrono::seconds(1));
+    assert(!canceledClient.IsAuthenticated());
     TestLoginJson();
     TestResponseMapping();
     TestCookieOwnership();

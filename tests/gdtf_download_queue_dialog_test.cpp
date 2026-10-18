@@ -110,6 +110,14 @@ void CheckQueue(bool autoClose, bool cancel, int action) {
     assert(colours[0] ==
            GdtfResolutionStatusColour(
                rider_fixture_resolution::StatusSemantic::Success));
+    assert(colours[1] == GdtfResolutionStatusColour(
+        rider_fixture_resolution::StatusSemantic::Warning));
+    assert(colours[0] != colours[1]);
+    dialog.UpdateStatusRow("fallback", "", "Failed", "", "", DownloadRowState::DownloadFailed);
+    assert(list->GetItemTextColour(1) != colours[0]);
+    assert(list->GetItemTextColour(1) != colours[1]);
+    dialog.UpdateStatusRow("fallback", "-", "Fallback to MVR", "0 B / ? B",
+                           "No catalog match", DownloadRowState::Fallback);
     const int gauge = Find<wxGauge>(dialog)->GetValue();
     if (!autoClose) {
       // This event can only run after work returns and Finish enables OK.

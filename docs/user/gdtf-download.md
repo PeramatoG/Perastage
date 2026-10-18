@@ -35,11 +35,26 @@ import's resources. Choose its DMX mode and review any model, mode or footprint
 differences. The original local file remains unchanged. Available fallback
 sources can be selected explicitly from the same row.
 
-The MVR preference **Close GDTF download window automatically when finished**
-defaults to off and can also be changed in the queue. With automatic close enabled,
-safe completed choices continue the import directly. Ambiguous or failed results
-remain open for review. Cancel stops pending transfers and retains completed
-choices and valid fallbacks. A matching footprint does not guarantee that DMX
-channels have the same meaning.
+The option **Close GDTF download window automatically when finished** is available
+only in **Preferences → MVR Import/Export** and defaults to off. With automatic
+close enabled, safe completed choices continue the import directly. Ambiguous or
+failed results remain open for review.
+
+The queue shows catalog/sign-in activity, elapsed time, analysis progress by
+fixture type and download bytes. Green indicates a successful download, reuse or
+local selection; amber indicates an original MVR or application fallback; red
+indicates a failure or unresolved profile.
+
+Candidates list all available modes and their channel counts. Missing catalog
+metadata is shown as unavailable, rather than zero channels, and is updated from
+the actual package after downloading. The imported mode and its known channel
+count appear in the details. Repeated patch spacing may suggest a mode in the
+picker, but requires confirmation: gaps may include unused addresses, and an
+equal footprint does not guarantee equal DMX channel functions.
+
+**Cancel**, **Escape** and the window close button stop the queue and continue
+importing with the original MVR profiles and modes for all its rows. This discards
+all queue substitutions, including completed downloads and local selections.
+Use **OK** to accept the results.
 
 **Apply selections** also retries failed downloads. Canceling authentication stops the remaining attempts without repeating the sign-in dialog for every row.

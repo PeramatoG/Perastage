@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <functional>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -176,7 +177,7 @@ bool IsUnknownManufacturer(const std::string &manufacturer);
 CandidateRanking RankDownloadCandidates(
     const GdtfDownloadRequest &request,
     const std::vector<GdtfCatalogEntry> &catalogEntries,
-    std::size_t limit = 8);
+    std::size_t limit = 8, std::function<bool()> canceled = {});
 
 std::string TrimFixtureIdentity(const std::string &value);
 std::string ToLowerAscii(std::string text);

@@ -18,6 +18,7 @@
 #include "gdtf_catalog_matcher.h"
 #include <algorithm>
 #include <sstream>
+#include <unordered_map>
 
 namespace mvr::gdtf_catalog_matcher {
 
@@ -49,7 +50,7 @@ static std::string BuildSelectionReason(const GdtfModeMatchScore &modeScore,
 static GdtfDownloadMatch CollectCandidates(
     const GdtfDownloadRequest &request,
     const std::vector<GdtfCatalogEntry> &catalogEntries,
-    CandidateRanking *ranking) {
+    CandidateRanking *ranking, const std::function<bool()> &canceled = {}) {
   GdtfDownloadMatch bestMatch;
   DownloadCandidateRank bestRank;
   std::string bestCanonical;
@@ -60,7 +61,20 @@ static GdtfDownloadMatch CollectCandidates(
   std::size_t canonicalCandidateCount = 0;
   std::size_t downloadableCanonicalCandidateCount = 0;
 
+  // Canonical request identities repeat for every revision of a manufacturer.
+  std::unordered_map<std::string, CanonicalFixtureModel> requestedModels;
+  auto requestedModelFor = [&](const std::string &identity,
+                               const std::string &manufacturer) -> const CanonicalFixtureModel & {
+    const auto key = manufacturer + '\n' + identity;
+    auto [it, inserted] = requestedModels.try_emplace(key);
+    if (inserted)
+      it->second = BuildCanonicalFixtureModel(identity, manufacturer,
+                                              FixtureIdentitySource::AuthoritativeGdtf);
+    return it->second;
+  };
   for (const auto &entry : catalogEntries) {
+    if (canceled && canceled())
+      return {};
     FixtureNameMatchTier nameTier = FixtureNameMatchTier::None;
     bool authoritativeName = false;
     bool matchedFromAlias = false;
@@ -69,9 +83,8 @@ static GdtfDownloadMatch CollectCandidates(
         entry.fixtureName, entry.manufacturer, FixtureIdentitySource::Catalog);
     bool canonicalNameCandidate = false;
     for (const auto &identity : request.authoritativeFixtureNames) {
-      const auto requestedModel = BuildCanonicalFixtureModel(
-          identity, IsUnknownManufacturer(request.manufacturer) ? entry.manufacturer : request.manufacturer,
-          FixtureIdentitySource::AuthoritativeGdtf);
+      const auto &requestedModel = requestedModelFor(
+          identity, IsUnknownManufacturer(request.manufacturer) ? entry.manufacturer : request.manufacturer);
       if (!catalogModel.canonicalText.empty() &&
           catalogModel.canonicalText == requestedModel.canonicalText) {
         canonicalNameCandidate = true;
@@ -98,9 +111,8 @@ static GdtfDownloadMatch CollectCandidates(
       continue;
     }
     for (const auto &identity : request.authoritativeFixtureNames) {
-      const auto requestedModel = BuildCanonicalFixtureModel(
-          identity, IsUnknownManufacturer(request.manufacturer) ? entry.manufacturer : request.manufacturer,
-          FixtureIdentitySource::AuthoritativeGdtf);
+      const auto &requestedModel = requestedModelFor(
+          identity, IsUnknownManufacturer(request.manufacturer) ? entry.manufacturer : request.manufacturer);
       auto tier = std::max(
           ComputeFixtureNameMatchTier(entry.fixtureName, identity),
           ComputeFixtureNameMatchTier(entry.manufacturer + " " +
@@ -424,9 +436,12 @@ bool IsUnknownManufacturer(const std::string &manufacturer) {
 
 CandidateRanking RankDownloadCandidates(
     const GdtfDownloadRequest &request,
-    const std::vector<GdtfCatalogEntry> &catalogEntries, std::size_t limit) {
+    const std::vector<GdtfCatalogEntry> &catalogEntries, std::size_t limit,
+    std::function<bool()> canceled) {
   CandidateRanking ranking;
-  CollectCandidates(request, catalogEntries, &ranking);
+  CollectCandidates(request, catalogEntries, &ranking, canceled);
+  if (canceled && canceled())
+    return {};
   if (ranking.candidates.size() > limit)
     ranking.candidates.resize(limit);
   return ranking;

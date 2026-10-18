@@ -217,9 +217,12 @@ Priority and focus impact:
 ## Local Escape handling in the MVR GDTF download queue
 
 `GdtfDownloadQueueDialog` consumes `Esc` through its dialog-local character
-hook. During queue work it requests cancellation and keeps the modal boundary
-alive; after terminal completion it acknowledges the results and resumes the
-import. Native dialog OK/Cancel commands use the same guarded lifecycle.
+hook. In the interactive MVR resolver, Escape, Cancel and window close request
+cancellation both during work and after completion. The modal boundary stays alive
+until the worker joins, then all queue rows retain their original MVR profiles and
+instance modes. Only OK (or successful automatic close) accepts substitutions.
+The legacy base queue retains its completion acknowledgement policy for other
+callers; the interactive resolver explicitly overrides cancellation policy.
 This handling takes precedence over default dialog dismissal while focus is
 inside the queue. The import's parent is disabled by the modal boundary, and
 no global accelerator or scene-view shortcut is registered or remapped.

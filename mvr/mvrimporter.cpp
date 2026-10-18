@@ -35,6 +35,7 @@
 #include "fixture_visual_color.h"
 #include "gdtf_fixture_category.h"
 #include "gdtf_import_matching.h"
+#include "gdtf_patch_evidence.h"
 #include "gdtfloader.h"
 #include "geometry_bounds_resolver.h"
 #include "groupobject.h"
@@ -465,6 +466,7 @@ static void ApplyApplicationDictionaryMappings(
     const int totalFixturesForConflictScan =
         static_cast<int>(scene.fixtures.size());
     int scannedFixturesForConflictScan = 0;
+    std::unordered_set<std::string> reportedMetadataTypes;
     for (const auto &[uid, f] : scene.fixtures) {
       (void)uid;
       ++scannedFixturesForConflictScan;
@@ -494,6 +496,9 @@ static void ApplyApplicationDictionaryMappings(
       if (conflict.modeName.empty())
         conflict.modeName = f.gdtfMode;
       if (conflict.fixtureTypeId.empty()) {
+        if (reportedMetadataTypes.insert(conflict.type).second)
+          reportProgress("Reading GDTF metadata: " + conflict.type,
+                         scannedFixturesForConflictScan, totalFixturesForConflictScan);
         const std::string resolvedGdtfPath =
             resolveFixtureGdtfPathForRead(f.gdtfSpec);
         conflict.fixtureTypeId =
@@ -549,8 +554,16 @@ static void ApplyApplicationDictionaryMappings(
           if (!downloadRequests.empty()) {
             reportProgress("Conflict dialog:show");
 #ifdef PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API
+            std::vector<mvr::gdtf_patch_evidence::Entry> patch;
+            for (const auto &[uuid, fixture] : scene.fixtures) {
+              (void)uuid;
+              patch.push_back({fixture.typeName, fixture.gdtfMode, fixture.address});
+            }
+            const auto patchHints = mvr::gdtf_patch_evidence::RepeatedSpacing(patch);
             // Resolve existing resources before handing presentation to the GUI.
             for (auto &request : downloadRequests) {
+              if (const auto hint = patchHints.find(request.type); hint != patchHints.end())
+                request.patchSpacingHint = hint->second;
               request.mvrPath = resources.ResolveGdtfPath(request.mvrPath);
               request.appPath = resources.ResolveGdtfPath(request.appPath);
             }
@@ -611,16 +624,16 @@ static void ApplyApplicationDictionaryMappings(
               f.gdtfSpec = selectedPathIt->second;
               f.gdtfSpec = resources.MakeSceneRelative(PathUtils::PathFromUtf8(
                   resolveFixtureGdtfPathForRead(f.gdtfSpec)));
-              const auto &dictEntry = getDictionaryEntryCached(typeKey);
-              if (dictEntry) {
-                if (f.gdtfMode.empty())
-                  f.gdtfMode = dictEntry->mode;
-              }
               const auto selectedModeIt = selectedModeByType.find(typeKey);
               if (selectedModeIt != selectedModeByType.end()) {
                 if (!selectedModeIt->second.empty())
                   f.gdtfMode = selectedModeIt->second;
                 continue;
+              }
+              const auto &dictEntry = getDictionaryEntryCached(typeKey);
+              if (dictEntry) {
+                if (f.gdtfMode.empty())
+                  f.gdtfMode = dictEntry->mode;
               }
               f.gdtfMode = resolveExistingGdtfModeCached(
                   resolveFixtureGdtfPathForRead(f.gdtfSpec), f.gdtfMode,

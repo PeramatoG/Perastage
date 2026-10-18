@@ -55,7 +55,8 @@ struct Resolution {
 Resolution Analyze(const mvr::gdtf_catalog_matcher::GdtfDownloadRequest &request,
                    const std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry> &entries,
                    std::vector<Choice> resources, const Choice &fallback,
-                   std::optional<Choice> explicitChoice = {});
+                   std::optional<Choice> explicitChoice = {},
+                   std::function<bool()> canceled = {});
 bool Select(Resolution &resolution, const Choice &choice,
             SelectionOrigin origin = SelectionOrigin::User);
 bool Complete(Resolution &resolution, const Choice &attempt,

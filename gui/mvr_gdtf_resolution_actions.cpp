@@ -39,9 +39,20 @@ bool MvrGdtfResolutionDialog::ChooseMode(const Profile &profile, std::string &mo
   }
   wxArrayString choices;
   int initial = 0;
+  const auto selected = SelectedRow();
+  const int footprint = !selected ? 0 : rows[*selected].evidence.requestedFootprint > 0
+      ? rows[*selected].evidence.requestedFootprint : rows[*selected].request.patchSpacingHint;
+  if (!HasMode(profile, mode) && footprint > 0)
+    for (std::size_t i = 0; i < profile.modes.size(); ++i)
+      if (profile.modes[i].footprint == footprint) {
+        initial = static_cast<int>(i);
+        break;
+      }
   for (std::size_t i = 0; i < profile.modes.size(); ++i) {
     const auto &item = profile.modes[i];
-    choices.Add(wxString::Format(_("%s / %d channels"), wxString::FromUTF8(item.name), item.footprint));
+    choices.Add(item.footprint > 0
+        ? wxString::Format(wxPLURAL("%s / %d channel", "%s / %d channels", item.footprint), wxString::FromUTF8(item.name), item.footprint)
+        : wxString::Format(_("%s / channel count unavailable"), wxString::FromUTF8(item.name)));
     if (item.name == mode)
       initial = static_cast<int>(i);
   }
@@ -73,8 +84,8 @@ bool MvrGdtfResolutionDialog::ConfirmChoice(const Choice &choice, const Profile 
   if (profile) {
     const auto mode = std::find_if(profile->modes.begin(), profile->modes.end(),
         [&](const auto &item) { return item.name == choice.mode; });
-    if (mode != profile->modes.end() && row.request.footprint > 0 &&
-        mode->footprint > 0 && mode->footprint != row.request.footprint)
+    if (mode != profile->modes.end() && row.evidence.requestedFootprint > 0 &&
+        mode->footprint > 0 && mode->footprint != row.evidence.requestedFootprint)
       warning += "\n" + _("The DMX footprint differs from the imported profile.");
   }
   return wxMessageBox(warning, _("Confirm GDTF selection"),
@@ -173,7 +184,7 @@ void MvrGdtfResolutionDialog::Search() {
     return;
   // The existing browser returns a selection; the import queue owns downloading.
   GdtfSearchDialog dialog(this, catalog.payload, catalog.updatedAt, [this] {
-    auto loaded = callbacks.loadCatalog();
+    auto loaded = callbacks.loadCatalog([this] { return stop.load(); });
     GdtfSearchDialog::RefreshResult result;
     result.success = !loaded.entries.empty();
     result.listData = loaded.payload;

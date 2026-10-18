@@ -1,4 +1,5 @@
 #include "gdtf_resolution.h"
+#include "gdtf_patch_evidence.h"
 #include "gdtf_import_matching.h"
 #include <algorithm>
 #include <cassert>
@@ -141,6 +142,22 @@ static void ResolutionLifecycle() {
 }
 
 int main() {
+  using mvr::gdtf_patch_evidence::RepeatedSpacing;
+  assert(RepeatedSpacing({{"Aura", "DMX Mode", "1.1"}, {"Aura", "DMX Mode", "1.26"},
+                          {"Aura", "DMX Mode", "1.51"}}).at("Aura") == 25);
+  assert(RepeatedSpacing({{"Aura", "DMX Mode", "1.1"}, {"Aura", "DMX Mode", "1.26"}}).empty());
+  assert(RepeatedSpacing({{"Aura", "DMX Mode", "1.1"}, {"Aura", "DMX Mode", "1.26"},
+                          {"Aura", "DMX Mode", "1.52"}}).empty());
+  assert(RepeatedSpacing({{"Aura", "A", "1.1"}, {"Aura", "A", "1.26"},
+                          {"Aura", "B", "1.51"}}).empty());
+  assert(RepeatedSpacing({{"Aura", "A", "1.1"}, {"Aura", "A", "1.26"},
+                          {"Aura", "A", "1.51"}, {"Other", "A", "1.26"}}).empty());
+  int cancelChecks = 0;
+  std::vector<catalog::GdtfCatalogEntry> largeCatalog(10000,
+      {"a", "Acme", "Beam 200", {{"Standard",16}}, 1, 1});
+  const auto canceled = catalog::RankDownloadCandidates(Request("Beam 200", "Acme"),
+      largeCatalog, 8, [&] { return ++cancelChecks >= 4; });
+  assert(cancelChecks <= 5 && canceled.candidates.empty() && !canceled.recommendedRid);
   RankingRegressions();
   ResolutionLifecycle();
 }

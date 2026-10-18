@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-18 12:23+0000\n"
+"POT-Creation-Date: 2026-10-18 13:21+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -300,7 +300,7 @@ msgstr "仅导出参考"
 
 #: gui/dictionaryeditdialog.cpp:260 gui/dictionaryeditdialog.cpp:293
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
-#: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:96
+#: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:98
 #: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:75
 #: gui/layouttextdialog.cpp:149 gui/preferencesdialog.cpp:87
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
@@ -512,7 +512,7 @@ msgstr "导入 MVR..."
 msgid "Export..."
 msgstr "导出 MVR..."
 
-#: gui/dictionaryeditdialog.cpp:610 gui/gdtf_download_queue_dialog.cpp:97
+#: gui/dictionaryeditdialog.cpp:610 gui/gdtf_download_queue_dialog.cpp:99
 #: gui/layout2dviewdialog.cpp:74 gui/mvr_export_result_dialog.cpp:97
 #: gui/preferencesdialog.cpp:86 gui/scene_object_primitive_dialogs.cpp:138
 msgid "OK"
@@ -1198,7 +1198,7 @@ msgstr "灯具 ID"
 #: gui/inspection/gdtf_inspector_details_panel.cpp:154
 #: gui/inspection/inspector_workspace_panel.cpp:476
 #: gui/inspection/inspector_workspace_panel.cpp:483 gui/summarypanel.cpp:262
-#: gui/summarypanel.cpp:271 mvr/mvrimporter.cpp:314
+#: gui/summarypanel.cpp:271 mvr/mvrimporter.cpp:315
 msgid "Type"
 msgstr "类型"
 
@@ -1567,7 +1567,7 @@ msgid "GDTF Version"
 msgstr "GDTF 版本"
 
 #: gui/gdtf_catalog_details_panel.cpp:24 gui/gdtfsearchdialog.cpp:97
-#: gui/mvr_gdtf_resolution_dialog.cpp:106 gui/ridertextdialog.cpp:98
+#: gui/mvr_gdtf_resolution_dialog.cpp:135 gui/ridertextdialog.cpp:98
 msgid "Source"
 msgstr "来源"
 
@@ -1611,65 +1611,65 @@ msgstr "DMX 通道数"
 msgid "--"
 msgstr "--"
 
-#: gui/gdtf_download_queue_dialog.cpp:57
+#: gui/gdtf_download_queue_dialog.cpp:59
 msgid "GDTF download queue"
 msgstr "GDTF 下载队列"
 
-#: gui/gdtf_download_queue_dialog.cpp:62
+#: gui/gdtf_download_queue_dialog.cpp:64
 msgid "Selected fixture types for download"
 msgstr "选定的待下载灯具类型"
 
-#: gui/gdtf_download_queue_dialog.cpp:68
+#: gui/gdtf_download_queue_dialog.cpp:70
 msgid "Preparing download queue..."
 msgstr "正在准备下载队列..."
 
-#: gui/gdtf_download_queue_dialog.cpp:81
+#: gui/gdtf_download_queue_dialog.cpp:83
 #: gui/inspection/gdtf_inspector_details_panel.cpp:38
 #: gui/rider_fixture_resolution_dialog.cpp:103
 msgid "Fixture type"
 msgstr "灯具类型"
 
-#: gui/gdtf_download_queue_dialog.cpp:82
+#: gui/gdtf_download_queue_dialog.cpp:84
 #: gui/rider_fixture_resolution_dialog.cpp:109
 msgid "Selected GDTF"
 msgstr "所选 GDTF"
 
-#: gui/gdtf_download_queue_dialog.cpp:84
+#: gui/gdtf_download_queue_dialog.cpp:86
 #: gui/rider_fixture_resolution_dialog.cpp:113
 msgid "Status"
 msgstr "状态"
 
-#: gui/gdtf_download_queue_dialog.cpp:85
+#: gui/gdtf_download_queue_dialog.cpp:87
 msgid "Progress"
 msgstr "进度"
 
-#: gui/gdtf_download_queue_dialog.cpp:86
+#: gui/gdtf_download_queue_dialog.cpp:88
 #: gui/rider_fixture_resolution_dialog.cpp:115
 msgid "Details"
 msgstr "详细信息"
 
-#: gui/gdtf_download_queue_dialog.cpp:89
+#: gui/gdtf_download_queue_dialog.cpp:91
 msgid "0 processed  |  0 downloaded  |  0 fallback"
 msgstr "已处理 0 个  |  已下载 0 个  |  回退 0 个"
 
-#: gui/gdtf_download_queue_dialog.cpp:176
+#: gui/gdtf_download_queue_dialog.cpp:178
 msgid "Cancel requested. Finishing current transfer..."
 msgstr "已请求取消。正在完成当前传输..."
 
-#: gui/gdtf_download_queue_dialog.cpp:190
+#: gui/gdtf_download_queue_dialog.cpp:192
 #, c-format
 msgid "%s - queue finished"
 msgstr "%s - 队列已完成"
 
-#: gui/gdtf_download_queue_dialog.cpp:213 gui/mvr_gdtf_resolution_dialog.cpp:41
+#: gui/gdtf_download_queue_dialog.cpp:215 gui/mvr_gdtf_resolution_dialog.cpp:42
 msgid "Pending"
 msgstr "等待中"
 
-#: gui/gdtf_download_queue_dialog.cpp:215
+#: gui/gdtf_download_queue_dialog.cpp:217
 msgid "Waiting to match catalog entry"
 msgstr "正在等待匹配目录条目"
 
-#: gui/gdtf_download_queue_dialog.cpp:273
+#: gui/gdtf_download_queue_dialog.cpp:275
 #, c-format
 msgid "%d/%zu processed  |  %d downloaded  |  %d fallback  |  %d canceled"
 msgstr "已处理 %d/%zu 个  |  已下载 %d 个  |  回退 %d 个  |  已取消 %d 个"
@@ -1701,7 +1701,7 @@ msgstr ""
 
 #: gui/gdtf_share_download_workflow.cpp:157
 #: gui/gdtf_share_download_workflow.cpp:345
-#: gui/mvr_gdtf_resolution_workflow.cpp:83
+#: gui/mvr_gdtf_resolution_worker.cpp:117
 #: gui/preferences/gdtf_credentials_panel.cpp:84
 #: gui/preferences/gdtf_credentials_panel.cpp:95
 #: gui/preferences/gdtf_credentials_panel.cpp:100
@@ -3591,7 +3591,7 @@ msgid "Insert a new scene object"
 msgstr "插入新场景对象"
 
 #: gui/mainwindow_menu.cpp:334 gui/mainwindow_menu.cpp:336
-#: mvr/mvrimporter.cpp:318
+#: mvr/mvrimporter.cpp:319
 msgid "Download GDTF"
 msgstr "下载 GDTF"
 
@@ -4272,225 +4272,268 @@ msgstr "MVR 文件已成功导出，但部分数据需要调整或无法保留�
 msgid "MVR file exported successfully."
 msgstr "MVR 文件导出成功。"
 
-#: gui/mvr_gdtf_resolution_actions.cpp:44
+#: gui/mvr_gdtf_resolution_actions.cpp:54
+#: gui/mvr_gdtf_resolution_dialog.cpp:253
 #, c-format
-msgid "%s / %d channels"
-msgstr "%s / %d 通道"
+msgid "%s / %d channel"
+msgid_plural "%s / %d channels"
+msgstr[0] "%s / %d 个通道"
 
-#: gui/mvr_gdtf_resolution_actions.cpp:48
+#: gui/mvr_gdtf_resolution_actions.cpp:55
+#: gui/mvr_gdtf_resolution_dialog.cpp:254
+#, c-format
+msgid "%s / channel count unavailable"
+msgstr "%s / 通道数不可用"
+
+#: gui/mvr_gdtf_resolution_actions.cpp:59
 msgid "Select the DMX mode for this profile."
 msgstr "请选择此配置文件的 DMX 模式。"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:49
+#: gui/mvr_gdtf_resolution_actions.cpp:60
 msgid "DMX mode"
 msgstr "DMX 模式"
 
-#: gui/mvr_gdtf_resolution_actions.cpp:65
+#: gui/mvr_gdtf_resolution_actions.cpp:76
 msgid "Review model, mode and channel compatibility before applying."
 msgstr "应用前请检查型号、模式和通道兼容性。"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:70
+#: gui/mvr_gdtf_resolution_actions.cpp:81
 msgid ""
 "The selected DMX mode will apply to every instance of this fixture type."
 msgstr "所选 DMX 模式将应用于此灯具类型的所有实例。"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:72
+#: gui/mvr_gdtf_resolution_actions.cpp:83
 msgid "The selected DMX mode differs from the imported mode."
 msgstr "所选 DMX 模式与导入模式不同。"
 
-#: gui/mvr_gdtf_resolution_actions.cpp:78
-#: gui/mvr_gdtf_resolution_dialog.cpp:247
+#: gui/mvr_gdtf_resolution_actions.cpp:89
+#: gui/mvr_gdtf_resolution_dialog.cpp:296
 msgid "The DMX footprint differs from the imported profile."
 msgstr "DMX 通道占用数与导入配置文件不同。"
 
-#: gui/mvr_gdtf_resolution_actions.cpp:80
+#: gui/mvr_gdtf_resolution_actions.cpp:91
 msgid "Confirm GDTF selection"
 msgstr "确认 GDTF 选择"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:199
-#: gui/mvr_gdtf_resolution_dialog.cpp:120
+#: gui/mvr_gdtf_resolution_actions.cpp:210
+#: gui/mvr_gdtf_resolution_dialog.cpp:149
 msgid "Load local GDTF..."
 msgstr "加载本地 GDTF..."
 
-#: gui/mvr_gdtf_resolution_actions.cpp:200
+#: gui/mvr_gdtf_resolution_actions.cpp:211
 msgid "GDTF files (*.gdtf)|*.gdtf"
 msgstr "GDTF 文件 (*.gdtf)|*.gdtf"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:206
+#: gui/mvr_gdtf_resolution_actions.cpp:217
 msgid "The selected GDTF package is not usable."
 msgstr "所选 GDTF 包不可用。"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:209
-#: gui/mvr_gdtf_resolution_actions.cpp:221
+#: gui/mvr_gdtf_resolution_actions.cpp:220
+#: gui/mvr_gdtf_resolution_actions.cpp:232
 msgid "GDTF selection"
 msgstr "GDTF 选择"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:32
+#: gui/mvr_gdtf_resolution_dialog.cpp:33
 msgid "Original MVR profile selected"
 msgstr "已选择原始 MVR 配置文件"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:33
+#: gui/mvr_gdtf_resolution_dialog.cpp:34
 msgid "Application fallback selected"
 msgstr "已选择应用程序备用配置文件"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:34
+#: gui/mvr_gdtf_resolution_dialog.cpp:35
 msgid "Local profile selected"
 msgstr "已选择本地配置文件"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:35
+#: gui/mvr_gdtf_resolution_dialog.cpp:36
 #: gui/rider_fixture_resolution_workflow.cpp:77
 msgid "GDTF Share"
 msgstr "登录 GDTF Share"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:36 gui/mvr_gdtf_resolution_dialog.cpp:50
+#: gui/mvr_gdtf_resolution_dialog.cpp:37 gui/mvr_gdtf_resolution_dialog.cpp:51
 msgid "Unresolved"
 msgstr "未解析"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:42
+#: gui/mvr_gdtf_resolution_dialog.cpp:43
 msgid "Downloading"
 msgstr "正在下载"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:43
+#: gui/mvr_gdtf_resolution_dialog.cpp:44
 msgid "Downloaded successfully"
 msgstr "下载成功"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:44
+#: gui/mvr_gdtf_resolution_dialog.cpp:45
 msgid "Reused existing profile"
 msgstr "已复用现有配置文件"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:48
+#: gui/mvr_gdtf_resolution_dialog.cpp:49
 msgid "Download failed"
 msgstr "下载失败"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:49
+#: gui/mvr_gdtf_resolution_dialog.cpp:50
 msgid "Canceled"
 msgstr "已取消"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:82
+#: gui/mvr_gdtf_resolution_dialog.cpp:81
+#, c-format
+msgid "%s (%ld s)"
+msgstr "%s（%ld 秒）"
+
+#: gui/mvr_gdtf_resolution_dialog.cpp:94
+#, c-format
+msgid "Analyzing GDTF candidates: %s (%zu/%zu)"
+msgstr "正在分析 GDTF 候选项：%s（%zu/%zu）"
+
+#: gui/mvr_gdtf_resolution_dialog.cpp:109
 #, c-format
 msgid "%lld / %lld bytes"
 msgstr "%lld / %lld 字节"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:110
+#: gui/mvr_gdtf_resolution_dialog.cpp:139
 msgid "Catalog candidates:"
 msgstr "目录候选项："
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:119
+#: gui/mvr_gdtf_resolution_dialog.cpp:148
 msgid "Search GDTF Share..."
 msgstr "搜索 GDTF Share..."
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:121
+#: gui/mvr_gdtf_resolution_dialog.cpp:150
 msgid "Apply selections"
 msgstr "应用选择"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:126
-msgid "Close automatically when finished"
-msgstr "完成后自动关闭"
-
-#: gui/mvr_gdtf_resolution_dialog.cpp:199
+#: gui/mvr_gdtf_resolution_dialog.cpp:230
 msgid "User selection"
 msgstr "用户选择"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:199
+#: gui/mvr_gdtf_resolution_dialog.cpp:230
 msgid "Automatic"
 msgstr "自动"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:217
-#, c-format
-msgid "%s / %s / revision %s / %s / %s / %d channels"
-msgstr "%s / %s / 修订 %s / %s / %s / %d 通道"
+#
+#: gui/mvr_gdtf_resolution_dialog.cpp:257
+msgid "Mode and channel metadata unavailable"
+msgstr "模式和通道元数据不可用"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:226
+#: gui/mvr_gdtf_resolution_dialog.cpp:258
+#, c-format
+msgid "%s / %s / revision %s / %s / %s"
+msgstr "%s / %s / 修订版 %s / %s / %s"
+
+#: gui/mvr_gdtf_resolution_dialog.cpp:266
 #, c-format
 msgid "%s / %s"
 msgstr "%s / %s"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:226
+#: gui/mvr_gdtf_resolution_dialog.cpp:266
 msgid "Preserve imported modes"
 msgstr "保留导入模式"
 
+#: gui/mvr_gdtf_resolution_dialog.cpp:271
+#, c-format
+msgid "Imported mode: %s"
+msgstr "导入模式：%s"
+
+#: gui/mvr_gdtf_resolution_dialog.cpp:273
+#, c-format
+msgid "%d channel"
+msgid_plural "%d channels"
+msgstr[0] "%d 个通道"
+
+#: gui/mvr_gdtf_resolution_dialog.cpp:276
+#, c-format
+msgid ""
+"Repeated patch spacing: %d channel. This is a hint; unused addresses may be "
+"included."
+msgid_plural ""
+"Repeated patch spacing: %d channels. This is a hint; unused addresses may be "
+"included."
+msgstr[0] "重复的配接间距：%d 个通道。仅供参考，可能包含空闲地址。"
+
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:237
+#: gui/mvr_gdtf_resolution_dialog.cpp:286
 msgid "Safe automatic match"
 msgstr "安全的自动匹配"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:238
+#: gui/mvr_gdtf_resolution_dialog.cpp:287
 msgid "Review required"
 msgstr "需要检查"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:241
+#: gui/mvr_gdtf_resolution_dialog.cpp:290
 msgid "The manufacturer differs from the imported profile."
 msgstr "制造商与导入配置文件不同。"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:243
+#: gui/mvr_gdtf_resolution_dialog.cpp:292
 msgid "The fixture model or variant differs from the imported profile."
 msgstr "灯具型号或变体与导入配置文件不同。"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:245
+#: gui/mvr_gdtf_resolution_dialog.cpp:294
 msgid "DMX mode compatibility requires review."
 msgstr "需要检查 DMX 模式兼容性。"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:249
+#: gui/mvr_gdtf_resolution_dialog.cpp:298
 msgid "A matching footprint does not prove DMX channel compatibility."
 msgstr "相同的通道占用数不能证明 DMX 通道兼容。"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:251
+#: gui/mvr_gdtf_resolution_dialog.cpp:300
 msgid "This fixture type uses several imported DMX modes."
 msgstr "此灯具类型使用多个导入 DMX 模式。"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:253
+#: gui/mvr_gdtf_resolution_dialog.cpp:302
 msgid "Several fixture models are plausible. Select a profile explicitly."
 msgstr "多个灯具型号均有可能。请明确选择配置文件。"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:258
+#: gui/mvr_gdtf_resolution_dialog.cpp:307
 msgid "Currently retained profile:"
 msgstr "当前保留的配置文件："
 
-#: gui/mvr_gdtf_resolution_worker.cpp:132
-msgid "Queue canceled. Keeping downloaded fixtures."
-msgstr "队列已取消。保留已下载的灯具。"
-
-#: gui/mvr_gdtf_resolution_worker.cpp:189
-msgid "Queue finished."
-msgstr "队列已完成。"
+#
+#: gui/mvr_gdtf_resolution_worker.cpp:28
+msgid "Loading GDTF catalog and signing in..."
+msgstr "正在加载 GDTF 目录并登录..."
 
 #
-#: gui/mvr_gdtf_resolution_worker.cpp:216
-msgid "Canceling..."
-msgstr "正在取消..."
-
-#: gui/mvr_gdtf_resolution_workflow.cpp:64
-#: gui/mvr_gdtf_resolution_workflow.cpp:76
-msgid "GDTF Share login"
-msgstr "登录 GDTF Share"
-
-#: gui/mvr_gdtf_resolution_workflow.cpp:75
-msgid "GDTF Share authentication failed. Available profiles are retained."
-msgstr "GDTF Share 身份验证失败。已保留可用配置文件。"
-
-#
-#: gui/mvr_gdtf_resolution_workflow.cpp:82
+#: gui/mvr_gdtf_resolution_worker.cpp:116
 msgid ""
 "The password could not be saved securely. It will be requested again after "
 "restart."
 msgstr "无法安全保存密码。重启后将再次请求输入。"
+
+#
+#
+#: gui/mvr_gdtf_resolution_worker.cpp:159
+msgid "Queue canceled. Original MVR profiles retained."
+msgstr "队列已取消。已保留原始 MVR 配置。"
+
+#: gui/mvr_gdtf_resolution_worker.cpp:188
+#, c-format
+msgid "Connecting and downloading: %s"
+msgstr "正在连接并下载：%s"
+
+#: gui/mvr_gdtf_resolution_worker.cpp:221
+msgid "Queue finished."
+msgstr "队列已完成。"
+
+#
+#: gui/mvr_gdtf_resolution_worker.cpp:249
+msgid "Canceling..."
+msgstr "正在取消..."
 
 #: gui/mvrxchange/mvr_xchange_dialog.cpp:115
 msgid "MVR-xchange"
@@ -5688,23 +5731,23 @@ msgid ""
 "symbol override."
 msgstr "符号视图已应用于项目。请保存项目以保留用户自定义符号。"
 
-#: mvr/mvrimporter.cpp:304
+#: mvr/mvrimporter.cpp:305
 msgid "Resolve GDTF source conflicts"
 msgstr "解决 GDTF 来源冲突"
 
-#: mvr/mvrimporter.cpp:307
+#: mvr/mvrimporter.cpp:308
 msgid "Choose which source to keep for each fixture type."
 msgstr "为每种灯具类型选择要保留的来源。"
 
-#: mvr/mvrimporter.cpp:315
+#: mvr/mvrimporter.cpp:316
 msgid "MVR"
 msgstr "MVR"
 
-#: mvr/mvrimporter.cpp:316
+#: mvr/mvrimporter.cpp:317
 msgid "App"
 msgstr "应用"
 
-#: mvr/mvrimporter.cpp:330 mvr/mvrimporter.cpp:331 mvr/mvrimporter.cpp:333
+#: mvr/mvrimporter.cpp:331 mvr/mvrimporter.cpp:332 mvr/mvrimporter.cpp:334
 msgid "Select all"
 msgstr "全选"
 
@@ -5865,6 +5908,18 @@ msgstr "渲染模式"
 msgid "Export image..."
 msgstr "导出灯具..."
 
+#~ msgid "Close automatically when finished"
+#~ msgstr "完成后自动关闭"
+
+#~ msgid "Queue canceled. Keeping downloaded fixtures."
+#~ msgstr "队列已取消。保留已下载的灯具。"
+
+#~ msgid "GDTF Share login"
+#~ msgstr "登录 GDTF Share"
+
+#~ msgid "GDTF Share authentication failed. Available profiles are retained."
+#~ msgstr "GDTF Share 身份验证失败。已保留可用配置文件。"
+
 #, c-format
 #~ msgid ""
 #~ "GDTF Share credentials were authenticated for this operation, but were "
@@ -5879,9 +5934,6 @@ msgstr "导出灯具..."
 
 #~ msgid "Fallback to dummy"
 #~ msgstr "回退到应用库"
-
-#~ msgid "Loading GDTF catalog..."
-#~ msgstr "正在加载 GDTF 目录..."
 
 #, c-format
 #~ msgid "Selected fixture types for download (catalog entries: %zu)"

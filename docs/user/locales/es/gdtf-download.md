@@ -34,10 +34,25 @@ valida el archivo y copia el perfil a los recursos de la importación sin modifi
 el original. Elija el modo DMX y revise las diferencias de modelo, modo y huella.
 También puede seleccionar explícitamente un perfil alternativo disponible.
 
-La preferencia MVR de cierre automático sigue desactivada por defecto y también
-puede cambiarse en la cola. Al activarla, las selecciones seguras completadas
+El cierre automático solo se configura en **Preferencias → MVR Import/Export**
+y sigue desactivado por defecto. Al activarlo, las selecciones seguras completadas
 continúan la importación; las ambigüedades y los errores permanecen visibles.
-Cancelar conserva las descargas completadas y las alternativas válidas. Una
-huella coincidente no garantiza que los canales DMX tengan el mismo significado.
+
+La cola muestra actividad del catálogo y del acceso, tiempo transcurrido, progreso
+por tipo de luminaria y bytes descargados. Verde indica descarga, reutilización o
+selección local correcta; ámbar indica perfil original del MVR o alternativa de la
+aplicación; rojo indica error o perfil sin resolver.
+
+Los candidatos muestran todos sus modos y canales disponibles. Los datos ausentes
+se indican como no disponibles, en lugar de cero canales, y se actualizan al leer
+el paquete descargado. Los detalles muestran el modo importado y su consumo conocido.
+La separación repetida del patch puede sugerir un modo en el selector, pero exige
+confirmación: puede incluir canales libres y una huella igual no garantiza las
+mismas funciones DMX.
+
+**Cancelar**, **Escape** y cerrar la ventana detienen la cola y continúan la
+importación con los perfiles y modos originales del MVR para todas sus filas.
+Se descartan todas las sustituciones de la cola, incluidas las descargas terminadas
+y las selecciones locales. **Aceptar** confirma los resultados.
 
 **Aplicar selecciones** también reintenta las descargas fallidas. Cancelar la autenticación detiene los intentos pendientes sin repetir el diálogo de acceso por cada fila.

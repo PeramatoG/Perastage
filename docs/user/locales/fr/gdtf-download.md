@@ -35,10 +35,26 @@ ressources de l’import sans modifier l’original. Choisissez le mode DMX et v
 les différences de modèle, de mode et d’empreinte. Les sources de secours
 utilisables peuvent être sélectionnées explicitement sur la même ligne.
 
-La fermeture automatique MVR reste désactivée par défaut et peut aussi être
-réglée dans la file. Activée, elle poursuit l’import avec les choix sûrs terminés.
-Les ambiguïtés et échecs restent ouverts pour vérification. Annuler conserve les
-transferts terminés et les profils de secours valides. Une empreinte identique ne
-garantit pas la même fonction pour les canaux DMX.
+La fermeture automatique se règle uniquement dans **Préférences → MVR Import/Export**
+et reste désactivée par défaut. Activée, elle poursuit l’import avec les choix sûrs
+terminés. Les ambiguïtés et échecs restent ouverts pour vérification.
+
+La file affiche l’activité du catalogue et de la connexion, le temps écoulé,
+l’avancement par type de projecteur et les octets téléchargés. Le vert indique un
+téléchargement, une réutilisation ou une sélection locale réussi ; l’ambre indique
+le profil MVR d’origine ou le secours de l’application ; le rouge indique un échec
+ou un profil non résolu.
+
+Les candidats affichent tous leurs modes et nombres de canaux disponibles. Les
+métadonnées absentes sont indiquées comme indisponibles, jamais comme zéro canal,
+puis actualisées depuis le paquet téléchargé. Le mode importé et son empreinte
+connue figurent dans les détails. L’espacement répété du patch peut suggérer un
+mode, mais demande confirmation : les écarts peuvent contenir des adresses libres
+et une empreinte identique ne garantit pas les mêmes fonctions DMX.
+
+**Annuler**, **Échap** et fermer la fenêtre arrêtent la file et poursuivent l’import
+avec les profils et modes MVR d’origine pour toutes ses lignes. Toutes les
+substitutions de la file sont abandonnées, y compris les téléchargements terminés
+et les sélections locales. **OK** accepte les résultats.
 
 **Appliquer les sélections** relance aussi les téléchargements échoués. Annuler l’authentification arrête les tentatives restantes sans répéter le dialogue de connexion pour chaque ligne.

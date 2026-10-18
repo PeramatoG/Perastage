@@ -75,6 +75,7 @@ protected:
   void RefreshFooterSummary();
   void RefreshBytesSummary();
   virtual void RequestCancel();
+  virtual bool CancelDiscardsSelections() const { return false; }
   virtual void Acknowledge();
   const bool autoClose;
   bool finished = false;

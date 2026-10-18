@@ -34,9 +34,9 @@ Status ResourceStatus(Source source) {
 Resolution Analyze(const mvr::gdtf_catalog_matcher::GdtfDownloadRequest &request,
                    const std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry> &entries,
                    std::vector<Choice> resources, const Choice &fallback,
-                   std::optional<Choice> explicitChoice) {
+                   std::optional<Choice> explicitChoice, std::function<bool()> canceled) {
   Resolution result;
-  result.ranking = mvr::gdtf_catalog_matcher::RankDownloadCandidates(request, entries);
+  result.ranking = mvr::gdtf_catalog_matcher::RankDownloadCandidates(request, entries, 8, std::move(canceled));
   result.availableResources = std::move(resources);
   if (std::find(result.availableResources.begin(), result.availableResources.end(),
                 fallback) != result.availableResources.end())

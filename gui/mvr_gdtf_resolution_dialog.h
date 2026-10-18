@@ -24,17 +24,19 @@
 #include <functional>
 #include <thread>
 #include <unordered_map>
+#include <wx/timer.h>
+#include <wx/stopwatch.h>
 
 class wxListCtrl;
 class wxChoice;
 class wxStaticText;
 class wxTextCtrl;
 class wxButton;
-class wxCheckBox;
 class wxGauge;
 class wxThreadEvent;
 wxDECLARE_EVENT(EVT_MVR_GDTF_DONE, wxThreadEvent);
 wxDECLARE_EVENT(EVT_MVR_GDTF_PROGRESS, wxThreadEvent);
+wxDECLARE_EVENT(EVT_MVR_GDTF_ANALYSIS, wxThreadEvent);
 
 struct MvrGdtfCatalog {
   std::string payload;
@@ -48,11 +50,11 @@ struct MvrGdtfDownload {
   std::string path;
   gdtf_resolution::Profile profile;
   std::string diagnostic;
+  bool credentialsNotSaved = false;
 };
 struct MvrGdtfResolutionCallbacks {
-  std::function<MvrGdtfCatalog()> loadCatalog;
+  std::function<MvrGdtfCatalog(std::function<bool()>)> loadCatalog;
   std::function<bool()> authenticate;
-  std::function<void(bool)> persistAutoClose;
   std::function<bool(const gdtf_resolution::Choice &,
                      const gdtf_resolution::Profile *)> confirmSelection;
   std::function<MvrGdtfDownload(
@@ -81,13 +83,20 @@ private:
   struct WorkerResult {
     bool catalogLoaded = false;
     MvrGdtfCatalog catalog;
-    std::vector<gdtf_resolution::Resolution> resolutions;
     std::unordered_map<std::string, std::string> profileLabels;
     std::size_t row = 0;
     gdtf_resolution::Choice attempt;
     MvrGdtfDownload download;
   };
+  struct AnalysisProgress {
+    std::size_t row = 0;
+    gdtf_resolution::Resolution resolution;
+    std::unordered_map<std::string, std::string> profileLabels;
+    mvr::gdtf_catalog_matcher::GdtfDownloadRequest evidence;
+    bool ready = true;
+  };
   void BuildLayout();
+  void SetWorkPhase(const wxString &label);
   void StartCatalog();
   void OnWorkerDone(wxThreadEvent &event);
   void ProcessNext();
@@ -99,6 +108,7 @@ private:
   void LoadLocal();
   void Apply();
   void RequestCancel() override;
+  bool CancelDiscardsSelections() const override { return true; }
   void Acknowledge() override;
   bool ChooseMode(const gdtf_resolution::Profile &profile, std::string &mode,
                   bool alwaysAsk = false);
@@ -125,7 +135,11 @@ private:
   wxTextCtrl *details = nullptr;
   wxStaticText *phase = nullptr;
   wxGauge *gauge = nullptr;
-  wxCheckBox *autoClose = nullptr;
+  bool automaticClose = false;
+  wxTimer activityTimer;
+  wxStopWatch phaseClock;
+  wxString workPhase;
+  bool determinateProgress = false;
   wxButton *search = nullptr;
   wxButton *local = nullptr;
   wxButton *apply = nullptr;

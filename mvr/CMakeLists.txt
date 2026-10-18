@@ -1,6 +1,7 @@
 add_library(perastage_gdtf_matching STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_matcher.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_candidate_ranking.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_patch_evidence.cpp
 )
 target_compile_features(perastage_gdtf_matching PUBLIC cxx_std_20)
 target_include_directories(perastage_gdtf_matching PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

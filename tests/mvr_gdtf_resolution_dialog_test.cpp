@@ -53,7 +53,7 @@ static void ApproveModal() {
         dialog->EndModal(wxID_OK);
 }
 
-static void Run(bool automaticClose, bool fail = false, bool canceled = false, bool multipleModes = false, bool authFailed = false) {
+static void Run(bool automaticClose, bool fail = false, bool canceled = false, bool multipleModes = false, bool authFailed = false, bool cancelFinished = false) {
   runtime_storage::TemporaryWorkspace workspace("mvr-gdtf-gui-test");
   const auto path = workspace.Path() / "fixture.gdtf";
   std::string error;
@@ -72,9 +72,8 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
   alias.type = "Independent alias";
   int downloads = 0;
   int logins = 0;
-  bool persistCalled = false;
   MvrGdtfResolutionCallbacks callbacks;
-  callbacks.loadCatalog = [] {
+  callbacks.loadCatalog = [](auto) {
     MvrGdtfCatalog result;
     result.entries = {{"a", "Acme", "Beam 200", {{"Standard",0}}, 1, 1},
                       {"b", "Acme", "Beam 200", {{"Standard",0}}, 2, 2}};
@@ -82,7 +81,6 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
   };
   callbacks.authenticate = [&] { ++logins; return !authFailed; };
   callbacks.confirmSelection = [](const Choice &, const Profile *) { return true; };
-  callbacks.persistAutoClose = [&](bool) { persistCalled = true; };
   callbacks.download = [&](const Choice &, auto, auto cancel) {
     ++downloads;
     if (fail || (canceled && downloads == 2))
@@ -121,6 +119,10 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
       return;
     if (step == 0 && results.at(request.type).status == Status::Downloaded &&
         results.at(alias.type).status == Status::Reused) {
+      if (cancelFinished) {
+        Click(*Button(dialog, "Cancel"));
+        return;
+      }
       table->SetItemState(0, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
       wxChoice *candidates = nullptr;
       for (auto *child : dialog.GetChildren())
@@ -154,7 +156,7 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
   timer.Stop();
   deadline.Stop();
   const auto results = dialog.Results();
-  assert(!persistCalled); // Merely restoring the preference must not write it.
+  assert(!Find<wxCheckBox>(dialog)); // The setting belongs exclusively in Preferences.
   if (multipleModes) {
     assert(downloads == 0 && logins == 0);
     assert(results.at(request.type).applied.mode.empty());
@@ -165,11 +167,13 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
       assert(downloads == 0 && logins == 1);
     assert(results.at(request.type).status == Status::DownloadFailed);
     assert(results.at(request.type).applied.source == Source::OriginalMvr);
-  } else if (canceled) {
+  } else if (canceled || cancelFinished) {
     assert(downloads == 1);
     assert(results.at(request.type).status == Status::Canceled);
-    assert(results.at(request.type).applied.revisionId == "b");
-    assert(results.at(alias.type).status == Status::Reused);
+    assert(results.at(request.type).applied.source == Source::OriginalMvr);
+    assert(results.at(request.type).applied.mode.empty());
+    assert(results.at(alias.type).status == Status::Canceled);
+    assert(results.at(alias.type).applied.source == Source::OriginalMvr);
   } else {
     assert(downloads == (automaticClose ? 1 : 2));
     assert(results.at(request.type).applied.revisionId == (automaticClose ? "b" : "a"));
@@ -180,14 +184,102 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
   assert(multipleModes || logins >= 1);
 }
 
+static void CancelLifecycle(int action) {
+  runtime_storage::TemporaryWorkspace workspace("mvr-gdtf-cancel-test");
+  mvr::SceneReadGdtfConflict request;
+  request.type = "Martin Mac Aura XB";
+  request.fixtureName = "MAC Aura XB";
+  request.manufacturer = "Martin Professional";
+  request.modeName = action == 4 ? "Standard" : "DMX Mode";
+  request.mvrPath = "/original.gdtf";
+  std::atomic<bool> started{false};
+  std::atomic<bool> observedCancel{false};
+  std::atomic<bool> downloading{false};
+  MvrGdtfResolutionCallbacks callbacks;
+  callbacks.loadCatalog = [&](auto canceled) {
+    started = true;
+    if (action == 0) {
+      const auto deadline = std::chrono::steady_clock::now() + 2s;
+      while (!canceled() && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(1ms);
+      observedCancel = canceled();
+    }
+    MvrGdtfCatalog catalog;
+    catalog.entries = {{"aura", "Martin Professional", "MAC Aura XB",
+                         {{"Standard",14}, {"Extended",25}}, 1, 1}};
+    if (action == 5)
+      catalog.entries.front().modes.clear();
+    return catalog;
+  };
+  callbacks.authenticate = [action] { assert(action == 4); return true; };
+  callbacks.download = [&](const Choice &, auto, auto canceled) {
+    downloading = true;
+    const auto deadline = std::chrono::steady_clock::now() + 2s;
+    while (!canceled() && std::chrono::steady_clock::now() < deadline)
+      std::this_thread::sleep_for(1ms);
+    observedCancel = canceled();
+    return MvrGdtfDownload{};
+  };
+  MvrGdtfResolutionDialog dialog(nullptr, {request}, workspace.Path(), callbacks, false);
+  wxTimer timer;
+  timer.Bind(wxEVT_TIMER, [&](wxTimerEvent &) {
+    if (!started)
+      return;
+    if (action == 4 && !downloading)
+      return;
+    if (action != 0 && action != 4 && !dialog.IsFinished())
+      return;
+    if (action != 0 && action != 4) {
+      wxChoice *candidates = Find<wxChoice>(dialog);
+      assert(candidates && candidates->GetCount() == 1);
+      const auto label = candidates->GetString(0);
+      if (action == 5) {
+        assert(label.Contains("Mode and channel metadata unavailable"));
+      } else {
+        assert(label.Contains("Standard / 14 channels"));
+        assert(label.Contains("Extended / 25 channels"));
+      }
+      assert(!label.Contains("0 channels"));
+      assert(Button(dialog, "Cancel")->IsEnabled());
+    }
+    if (action == 0 || action == 4) {
+      Click(*Button(dialog, "OK"));
+      assert(!dialog.IsCancellationRequested());
+    }
+    if (action == 2) {
+      wxKeyEvent escape(wxEVT_CHAR_HOOK);
+      escape.m_keyCode = WXK_ESCAPE;
+      dialog.ProcessWindowEvent(escape);
+    } else if (action == 3) {
+      dialog.Close();
+    } else {
+      Click(*Button(dialog, "Cancel"));
+    }
+  });
+  timer.Start(10);
+  wxTimer deadline;
+  deadline.Bind(wxEVT_TIMER, [&](wxTimerEvent &) { assert(false && "Cancellation timed out"); });
+  deadline.StartOnce(3000);
+  assert(dialog.RunResolution() == wxID_CANCEL);
+  timer.Stop();
+  const auto result = dialog.Results().at(request.type);
+  assert(result.applied.source == Source::OriginalMvr && result.applied.path == request.mvrPath);
+  assert(result.applied.mode.empty() && result.applied.revisionId.empty());
+  if (action == 0 || action == 4)
+    assert(observedCancel);
+}
+
 int main(int argc, char **argv) {
   if (!wxEntryStart(argc, argv))
     return 77;
   if (!wxTheApp || !wxTheApp->CallOnInit())
     return 77;
+  for (int action = 0; action < 6; ++action)
+    CancelLifecycle(action);
   Run(true);
   Run(false);
   Run(false, false, true);
+  Run(false, false, false, false, false, true);
   Run(true, true);
   Run(true, false, false, true);
   Run(true, false, false, false, true);

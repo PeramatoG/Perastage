@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-18 12:23+0000\n"
+"POT-Creation-Date: 2026-10-18 13:21+0000\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -308,7 +308,7 @@ msgstr "Exportar solo referencias"
 
 #: gui/dictionaryeditdialog.cpp:260 gui/dictionaryeditdialog.cpp:293
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
-#: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:96
+#: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:98
 #: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:75
 #: gui/layouttextdialog.cpp:149 gui/preferencesdialog.cpp:87
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
@@ -522,7 +522,7 @@ msgstr "Importar..."
 msgid "Export..."
 msgstr "Exportar..."
 
-#: gui/dictionaryeditdialog.cpp:610 gui/gdtf_download_queue_dialog.cpp:97
+#: gui/dictionaryeditdialog.cpp:610 gui/gdtf_download_queue_dialog.cpp:99
 #: gui/layout2dviewdialog.cpp:74 gui/mvr_export_result_dialog.cpp:97
 #: gui/preferencesdialog.cpp:86 gui/scene_object_primitive_dialogs.cpp:138
 msgid "OK"
@@ -1227,7 +1227,7 @@ msgstr "ID del aparato"
 #: gui/inspection/gdtf_inspector_details_panel.cpp:154
 #: gui/inspection/inspector_workspace_panel.cpp:476
 #: gui/inspection/inspector_workspace_panel.cpp:483 gui/summarypanel.cpp:262
-#: gui/summarypanel.cpp:271 mvr/mvrimporter.cpp:314
+#: gui/summarypanel.cpp:271 mvr/mvrimporter.cpp:315
 msgid "Type"
 msgstr "Tipo"
 
@@ -1596,7 +1596,7 @@ msgid "GDTF Version"
 msgstr "Versión GDTF"
 
 #: gui/gdtf_catalog_details_panel.cpp:24 gui/gdtfsearchdialog.cpp:97
-#: gui/mvr_gdtf_resolution_dialog.cpp:106 gui/ridertextdialog.cpp:98
+#: gui/mvr_gdtf_resolution_dialog.cpp:135 gui/ridertextdialog.cpp:98
 msgid "Source"
 msgstr "Fuente"
 
@@ -1640,65 +1640,65 @@ msgstr "Canales DMX"
 msgid "--"
 msgstr "--"
 
-#: gui/gdtf_download_queue_dialog.cpp:57
+#: gui/gdtf_download_queue_dialog.cpp:59
 msgid "GDTF download queue"
 msgstr "Cola de descarga GDTF"
 
-#: gui/gdtf_download_queue_dialog.cpp:62
+#: gui/gdtf_download_queue_dialog.cpp:64
 msgid "Selected fixture types for download"
 msgstr "Tipos de aparatos seleccionados para descargar"
 
-#: gui/gdtf_download_queue_dialog.cpp:68
+#: gui/gdtf_download_queue_dialog.cpp:70
 msgid "Preparing download queue..."
 msgstr "Preparando la cola de descarga..."
 
-#: gui/gdtf_download_queue_dialog.cpp:81
+#: gui/gdtf_download_queue_dialog.cpp:83
 #: gui/inspection/gdtf_inspector_details_panel.cpp:38
 #: gui/rider_fixture_resolution_dialog.cpp:103
 msgid "Fixture type"
 msgstr "Tipo de aparato"
 
-#: gui/gdtf_download_queue_dialog.cpp:82
+#: gui/gdtf_download_queue_dialog.cpp:84
 #: gui/rider_fixture_resolution_dialog.cpp:109
 msgid "Selected GDTF"
 msgstr "GDTF seleccionado"
 
-#: gui/gdtf_download_queue_dialog.cpp:84
+#: gui/gdtf_download_queue_dialog.cpp:86
 #: gui/rider_fixture_resolution_dialog.cpp:113
 msgid "Status"
 msgstr "Estado"
 
-#: gui/gdtf_download_queue_dialog.cpp:85
+#: gui/gdtf_download_queue_dialog.cpp:87
 msgid "Progress"
 msgstr "Progreso"
 
-#: gui/gdtf_download_queue_dialog.cpp:86
+#: gui/gdtf_download_queue_dialog.cpp:88
 #: gui/rider_fixture_resolution_dialog.cpp:115
 msgid "Details"
 msgstr "Detalles"
 
-#: gui/gdtf_download_queue_dialog.cpp:89
+#: gui/gdtf_download_queue_dialog.cpp:91
 msgid "0 processed  |  0 downloaded  |  0 fallback"
 msgstr "0 procesados  |  0 descargados  |  0 fallback"
 
-#: gui/gdtf_download_queue_dialog.cpp:176
+#: gui/gdtf_download_queue_dialog.cpp:178
 msgid "Cancel requested. Finishing current transfer..."
 msgstr "Cancelación solicitada. Terminando la transferencia actual..."
 
-#: gui/gdtf_download_queue_dialog.cpp:190
+#: gui/gdtf_download_queue_dialog.cpp:192
 #, c-format
 msgid "%s - queue finished"
 msgstr "%s - cola finalizada"
 
-#: gui/gdtf_download_queue_dialog.cpp:213 gui/mvr_gdtf_resolution_dialog.cpp:41
+#: gui/gdtf_download_queue_dialog.cpp:215 gui/mvr_gdtf_resolution_dialog.cpp:42
 msgid "Pending"
 msgstr "Pendiente"
 
-#: gui/gdtf_download_queue_dialog.cpp:215
+#: gui/gdtf_download_queue_dialog.cpp:217
 msgid "Waiting to match catalog entry"
 msgstr "Esperando coincidencia en el catálogo"
 
-#: gui/gdtf_download_queue_dialog.cpp:273
+#: gui/gdtf_download_queue_dialog.cpp:275
 #, c-format
 msgid "%d/%zu processed  |  %d downloaded  |  %d fallback  |  %d canceled"
 msgstr "%d/%zu procesados  |  %d descargados  |  %d fallback  |  %d cancelados"
@@ -1730,7 +1730,7 @@ msgstr ""
 
 #: gui/gdtf_share_download_workflow.cpp:157
 #: gui/gdtf_share_download_workflow.cpp:345
-#: gui/mvr_gdtf_resolution_workflow.cpp:83
+#: gui/mvr_gdtf_resolution_worker.cpp:117
 #: gui/preferences/gdtf_credentials_panel.cpp:84
 #: gui/preferences/gdtf_credentials_panel.cpp:95
 #: gui/preferences/gdtf_credentials_panel.cpp:100
@@ -3671,7 +3671,7 @@ msgid "Insert a new scene object"
 msgstr "Insertar un nuevo objeto de escena"
 
 #: gui/mainwindow_menu.cpp:334 gui/mainwindow_menu.cpp:336
-#: mvr/mvrimporter.cpp:318
+#: mvr/mvrimporter.cpp:319
 msgid "Download GDTF"
 msgstr "Descargar GDTF"
 
@@ -4374,225 +4374,278 @@ msgstr ""
 msgid "MVR file exported successfully."
 msgstr "Archivo MVR exportado correctamente."
 
-#: gui/mvr_gdtf_resolution_actions.cpp:44
+#: gui/mvr_gdtf_resolution_actions.cpp:54
+#: gui/mvr_gdtf_resolution_dialog.cpp:253
 #, c-format
-msgid "%s / %d channels"
-msgstr "%s / %d canales"
+msgid "%s / %d channel"
+msgid_plural "%s / %d channels"
+msgstr[0] "%s / %d canal"
+msgstr[1] "%s / %d canales"
 
-#: gui/mvr_gdtf_resolution_actions.cpp:48
+#: gui/mvr_gdtf_resolution_actions.cpp:55
+#: gui/mvr_gdtf_resolution_dialog.cpp:254
+#, c-format
+msgid "%s / channel count unavailable"
+msgstr "%s / canales no disponibles"
+
+#: gui/mvr_gdtf_resolution_actions.cpp:59
 msgid "Select the DMX mode for this profile."
 msgstr "Seleccione el modo DMX de este perfil."
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:49
+#: gui/mvr_gdtf_resolution_actions.cpp:60
 msgid "DMX mode"
 msgstr "Modo DMX"
 
-#: gui/mvr_gdtf_resolution_actions.cpp:65
+#: gui/mvr_gdtf_resolution_actions.cpp:76
 msgid "Review model, mode and channel compatibility before applying."
 msgstr "Revise la compatibilidad del modelo, modo y canales antes de aplicar."
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:70
+#: gui/mvr_gdtf_resolution_actions.cpp:81
 msgid ""
 "The selected DMX mode will apply to every instance of this fixture type."
-msgstr "El modo DMX seleccionado se aplicará a todas las instancias de este tipo de luminaria."
+msgstr ""
+"El modo DMX seleccionado se aplicará a todas las instancias de este tipo de "
+"luminaria."
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:72
+#: gui/mvr_gdtf_resolution_actions.cpp:83
 msgid "The selected DMX mode differs from the imported mode."
 msgstr "El modo DMX seleccionado difiere del modo importado."
 
-#: gui/mvr_gdtf_resolution_actions.cpp:78
-#: gui/mvr_gdtf_resolution_dialog.cpp:247
+#: gui/mvr_gdtf_resolution_actions.cpp:89
+#: gui/mvr_gdtf_resolution_dialog.cpp:296
 msgid "The DMX footprint differs from the imported profile."
 msgstr "La huella DMX difiere del perfil importado."
 
-#: gui/mvr_gdtf_resolution_actions.cpp:80
+#: gui/mvr_gdtf_resolution_actions.cpp:91
 msgid "Confirm GDTF selection"
 msgstr "Confirmar selección GDTF"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:199
-#: gui/mvr_gdtf_resolution_dialog.cpp:120
+#: gui/mvr_gdtf_resolution_actions.cpp:210
+#: gui/mvr_gdtf_resolution_dialog.cpp:149
 msgid "Load local GDTF..."
 msgstr "Cargar GDTF local..."
 
-#: gui/mvr_gdtf_resolution_actions.cpp:200
+#: gui/mvr_gdtf_resolution_actions.cpp:211
 msgid "GDTF files (*.gdtf)|*.gdtf"
 msgstr "GDTF archivos (*.gdtf)|*.gdtf"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:206
+#: gui/mvr_gdtf_resolution_actions.cpp:217
 msgid "The selected GDTF package is not usable."
 msgstr "El paquete GDTF seleccionado no es utilizable."
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:209
-#: gui/mvr_gdtf_resolution_actions.cpp:221
+#: gui/mvr_gdtf_resolution_actions.cpp:220
+#: gui/mvr_gdtf_resolution_actions.cpp:232
 msgid "GDTF selection"
 msgstr "Selección GDTF"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:32
+#: gui/mvr_gdtf_resolution_dialog.cpp:33
 msgid "Original MVR profile selected"
 msgstr "Perfil MVR original seleccionado"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:33
+#: gui/mvr_gdtf_resolution_dialog.cpp:34
 msgid "Application fallback selected"
 msgstr "Alternativa de la aplicación seleccionada"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:34
+#: gui/mvr_gdtf_resolution_dialog.cpp:35
 msgid "Local profile selected"
 msgstr "Perfil local seleccionado"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:35
+#: gui/mvr_gdtf_resolution_dialog.cpp:36
 #: gui/rider_fixture_resolution_workflow.cpp:77
 msgid "GDTF Share"
 msgstr "GDTF Compartir"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:36 gui/mvr_gdtf_resolution_dialog.cpp:50
+#: gui/mvr_gdtf_resolution_dialog.cpp:37 gui/mvr_gdtf_resolution_dialog.cpp:51
 msgid "Unresolved"
 msgstr "Sin resolver"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:42
+#: gui/mvr_gdtf_resolution_dialog.cpp:43
 msgid "Downloading"
 msgstr "Descargando"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:43
+#: gui/mvr_gdtf_resolution_dialog.cpp:44
 msgid "Downloaded successfully"
 msgstr "Descargado correctamente"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:44
+#: gui/mvr_gdtf_resolution_dialog.cpp:45
 msgid "Reused existing profile"
 msgstr "Perfil existente reutilizado"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:48
+#: gui/mvr_gdtf_resolution_dialog.cpp:49
 msgid "Download failed"
 msgstr "Descarga fallida"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:49
+#: gui/mvr_gdtf_resolution_dialog.cpp:50
 msgid "Canceled"
 msgstr "Cancelado"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:82
+#: gui/mvr_gdtf_resolution_dialog.cpp:81
+#, c-format
+msgid "%s (%ld s)"
+msgstr "%s (%ld s)"
+
+#: gui/mvr_gdtf_resolution_dialog.cpp:94
+#, c-format
+msgid "Analyzing GDTF candidates: %s (%zu/%zu)"
+msgstr "Analizando candidatos GDTF: %s (%zu/%zu)"
+
+#: gui/mvr_gdtf_resolution_dialog.cpp:109
 #, c-format
 msgid "%lld / %lld bytes"
 msgstr "%lld / %lld bytes"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:110
+#: gui/mvr_gdtf_resolution_dialog.cpp:139
 msgid "Catalog candidates:"
 msgstr "Candidatos del catálogo:"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:119
+#: gui/mvr_gdtf_resolution_dialog.cpp:148
 msgid "Search GDTF Share..."
 msgstr "Buscar en GDTF Share..."
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:121
+#: gui/mvr_gdtf_resolution_dialog.cpp:150
 msgid "Apply selections"
 msgstr "Aplicar selecciones"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:126
-msgid "Close automatically when finished"
-msgstr "Cerrar automáticamente al terminar"
-
-#: gui/mvr_gdtf_resolution_dialog.cpp:199
+#: gui/mvr_gdtf_resolution_dialog.cpp:230
 msgid "User selection"
 msgstr "Selección del usuario"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:199
+#: gui/mvr_gdtf_resolution_dialog.cpp:230
 msgid "Automatic"
 msgstr "Automática"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:217
-#, c-format
-msgid "%s / %s / revision %s / %s / %s / %d channels"
-msgstr "%s / %s / revisión %s / %s / %s / %d canales"
+#
+#: gui/mvr_gdtf_resolution_dialog.cpp:257
+msgid "Mode and channel metadata unavailable"
+msgstr "Metadatos de modos y canales no disponibles"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:226
+#: gui/mvr_gdtf_resolution_dialog.cpp:258
+#, c-format
+msgid "%s / %s / revision %s / %s / %s"
+msgstr "%s / %s / revisión %s / %s / %s"
+
+#: gui/mvr_gdtf_resolution_dialog.cpp:266
 #, c-format
 msgid "%s / %s"
 msgstr "%s / %s"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:226
+#: gui/mvr_gdtf_resolution_dialog.cpp:266
 msgid "Preserve imported modes"
 msgstr "Conservar modos importados"
 
+#: gui/mvr_gdtf_resolution_dialog.cpp:271
+#, c-format
+msgid "Imported mode: %s"
+msgstr "Modo importado: %s"
+
+#: gui/mvr_gdtf_resolution_dialog.cpp:273
+#, c-format
+msgid "%d channel"
+msgid_plural "%d channels"
+msgstr[0] "%d canal"
+msgstr[1] "%d canales"
+
+#: gui/mvr_gdtf_resolution_dialog.cpp:276
+#, c-format
+msgid ""
+"Repeated patch spacing: %d channel. This is a hint; unused addresses may be "
+"included."
+msgid_plural ""
+"Repeated patch spacing: %d channels. This is a hint; unused addresses may be "
+"included."
+msgstr[0] "Separación repetida del patch: %d canal. Es una pista; puede incluir direcciones libres."
+msgstr[1] "Separación repetida del patch: %d canales. Es una pista; puede incluir direcciones libres."
+
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:237
+#: gui/mvr_gdtf_resolution_dialog.cpp:286
 msgid "Safe automatic match"
 msgstr "Coincidencia automática segura"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:238
+#: gui/mvr_gdtf_resolution_dialog.cpp:287
 msgid "Review required"
 msgstr "Revisión necesaria"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:241
+#: gui/mvr_gdtf_resolution_dialog.cpp:290
 msgid "The manufacturer differs from the imported profile."
 msgstr "El fabricante difiere del perfil importado."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:243
+#: gui/mvr_gdtf_resolution_dialog.cpp:292
 msgid "The fixture model or variant differs from the imported profile."
 msgstr "El modelo o variante de la luminaria difiere del perfil importado."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:245
+#: gui/mvr_gdtf_resolution_dialog.cpp:294
 msgid "DMX mode compatibility requires review."
 msgstr "Es necesario revisar la compatibilidad del modo DMX."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:249
+#: gui/mvr_gdtf_resolution_dialog.cpp:298
 msgid "A matching footprint does not prove DMX channel compatibility."
-msgstr "Una huella coincidente no demuestra la compatibilidad de los canales DMX."
+msgstr ""
+"Una huella coincidente no demuestra la compatibilidad de los canales DMX."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:251
+#: gui/mvr_gdtf_resolution_dialog.cpp:300
 msgid "This fixture type uses several imported DMX modes."
 msgstr "Este tipo de luminaria utiliza varios modos DMX importados."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:253
+#: gui/mvr_gdtf_resolution_dialog.cpp:302
 msgid "Several fixture models are plausible. Select a profile explicitly."
-msgstr "Hay varios modelos de luminaria posibles. Seleccione un perfil explícitamente."
+msgstr ""
+"Hay varios modelos de luminaria posibles. Seleccione un perfil "
+"explícitamente."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:258
+#: gui/mvr_gdtf_resolution_dialog.cpp:307
 msgid "Currently retained profile:"
 msgstr "Perfil conservado actualmente:"
 
-#: gui/mvr_gdtf_resolution_worker.cpp:132
-msgid "Queue canceled. Keeping downloaded fixtures."
-msgstr "Cola cancelada. Se conservan los aparatos descargados."
+#
+#: gui/mvr_gdtf_resolution_worker.cpp:28
+msgid "Loading GDTF catalog and signing in..."
+msgstr "Cargando catálogo GDTF e iniciando sesión..."
 
-#: gui/mvr_gdtf_resolution_worker.cpp:189
+#
+#: gui/mvr_gdtf_resolution_worker.cpp:116
+msgid ""
+"The password could not be saved securely. It will be requested again after "
+"restart."
+msgstr ""
+"No se pudo guardar la contraseña de forma segura. Se solicitará de nuevo "
+"tras reiniciar."
+
+#
+#
+#: gui/mvr_gdtf_resolution_worker.cpp:159
+msgid "Queue canceled. Original MVR profiles retained."
+msgstr "Cola cancelada. Se conservan los perfiles originales del MVR."
+
+#: gui/mvr_gdtf_resolution_worker.cpp:188
+#, c-format
+msgid "Connecting and downloading: %s"
+msgstr "Conectando y descargando: %s"
+
+#: gui/mvr_gdtf_resolution_worker.cpp:221
 msgid "Queue finished."
 msgstr "Cola finalizada."
 
 #
-#: gui/mvr_gdtf_resolution_worker.cpp:216
+#: gui/mvr_gdtf_resolution_worker.cpp:249
 msgid "Canceling..."
 msgstr "Cancelando..."
-
-#: gui/mvr_gdtf_resolution_workflow.cpp:64
-#: gui/mvr_gdtf_resolution_workflow.cpp:76
-msgid "GDTF Share login"
-msgstr "Inicio de sesión en GDTF Share"
-
-#: gui/mvr_gdtf_resolution_workflow.cpp:75
-msgid "GDTF Share authentication failed. Available profiles are retained."
-msgstr "La autenticación de GDTF Share ha fallado. Se conservan los perfiles disponibles."
-
-#
-#: gui/mvr_gdtf_resolution_workflow.cpp:82
-msgid ""
-"The password could not be saved securely. It will be requested again after "
-"restart."
-msgstr "No se pudo guardar la contraseña de forma segura. Se solicitará de nuevo tras reiniciar."
 
 #: gui/mvrxchange/mvr_xchange_dialog.cpp:115
 msgid "MVR-xchange"
@@ -5847,23 +5900,23 @@ msgstr ""
 "Las vistas del símbolo se han aplicado al proyecto. Guarda el proyecto para "
 "conservar el símbolo personalizado."
 
-#: mvr/mvrimporter.cpp:304
+#: mvr/mvrimporter.cpp:305
 msgid "Resolve GDTF source conflicts"
 msgstr "Resolver conflictos de origen GDTF"
 
-#: mvr/mvrimporter.cpp:307
+#: mvr/mvrimporter.cpp:308
 msgid "Choose which source to keep for each fixture type."
 msgstr "Elija qué origen conservar para cada tipo de aparato."
 
-#: mvr/mvrimporter.cpp:315
+#: mvr/mvrimporter.cpp:316
 msgid "MVR"
 msgstr "MVR"
 
-#: mvr/mvrimporter.cpp:316
+#: mvr/mvrimporter.cpp:317
 msgid "App"
 msgstr "Aplicación"
 
-#: mvr/mvrimporter.cpp:330 mvr/mvrimporter.cpp:331 mvr/mvrimporter.cpp:333
+#: mvr/mvrimporter.cpp:331 mvr/mvrimporter.cpp:332 mvr/mvrimporter.cpp:334
 msgid "Select all"
 msgstr "Seleccionar todo"
 
@@ -6024,6 +6077,20 @@ msgstr "Estilo de renderizado"
 msgid "Export image..."
 msgstr "Exportar imagen..."
 
+#~ msgid "Close automatically when finished"
+#~ msgstr "Cerrar automáticamente al terminar"
+
+#~ msgid "Queue canceled. Keeping downloaded fixtures."
+#~ msgstr "Cola cancelada. Se conservan los aparatos descargados."
+
+#~ msgid "GDTF Share login"
+#~ msgstr "Inicio de sesión en GDTF Share"
+
+#~ msgid "GDTF Share authentication failed. Available profiles are retained."
+#~ msgstr ""
+#~ "La autenticación de GDTF Share ha fallado. Se conservan los perfiles "
+#~ "disponibles."
+
 #, c-format
 #~ msgid ""
 #~ "GDTF Share credentials were authenticated for this operation, but were "
@@ -6040,9 +6107,6 @@ msgstr "Exportar imagen..."
 
 #~ msgid "Fallback to dummy"
 #~ msgstr "Regreso al muñeco"
-
-#~ msgid "Loading GDTF catalog..."
-#~ msgstr "Cargando catálogo GDTF..."
 
 #, c-format
 #~ msgid "Selected fixture types for download (catalog entries: %zu)"

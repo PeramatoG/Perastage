@@ -30,14 +30,16 @@ static wxColour RowTextColor(DownloadRowState state) {
   switch (state) {
   case DownloadRowState::Downloaded:
   case DownloadRowState::Reused:
-  case DownloadRowState::OriginalMvr:
-  case DownloadRowState::Application:
   case DownloadRowState::Local:
     return GdtfResolutionStatusColour(
         rider_fixture_resolution::StatusSemantic::Success);
-  case DownloadRowState::Fallback:
   case DownloadRowState::DownloadFailed:
   case DownloadRowState::Unresolved:
+    return IsDarkGdtfResolutionAppearance() ? wxColour(255, 115, 115)
+                                           : wxColour(175, 35, 35);
+  case DownloadRowState::OriginalMvr:
+  case DownloadRowState::Application:
+  case DownloadRowState::Fallback:
     return GdtfResolutionStatusColour(
         rider_fixture_resolution::StatusSemantic::Warning);
   case DownloadRowState::Canceled:
@@ -108,7 +110,7 @@ GdtfDownloadQueueDialog::GdtfDownloadQueueDialog(wxWindow *parent,
   }
 
   Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent &event) {
-    if (!finished) {
+    if (!finished || CancelDiscardsSelections()) {
       RequestCancel();
       // Keep the stack-owned window alive until the workflow unwinds.
       if (event.CanVeto())
@@ -122,7 +124,7 @@ GdtfDownloadQueueDialog::GdtfDownloadQueueDialog(wxWindow *parent,
   Bind(
       wxEVT_BUTTON,
       [this](wxCommandEvent &) {
-        if (finished)
+        if (finished && !CancelDiscardsSelections())
           Acknowledge();
         else
           RequestCancel();
@@ -136,7 +138,7 @@ GdtfDownloadQueueDialog::GdtfDownloadQueueDialog(wxWindow *parent,
       event.Skip();
       return;
     }
-    if (finished)
+    if (finished && !CancelDiscardsSelections())
       Acknowledge();
     else
       RequestCancel();

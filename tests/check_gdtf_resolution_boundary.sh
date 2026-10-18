@@ -7,7 +7,8 @@ if rg -n '#include.*(wx/|gui/|configmanager|gdtfnet)' \
     "$root/core/gdtf_resolution.h" "$root/core/gdtf_resolution.cpp" \
     "$root/core/gdtf_resolution_resources.h" "$root/core/gdtf_resolution_resources.cpp" \
     "$root/mvr/gdtf_candidate_ranking.cpp" "$root/mvr/gdtf_catalog_matcher.h" \
-    "$root/mvr/gdtf_catalog_matcher.cpp"; then
+    "$root/mvr/gdtf_catalog_matcher.cpp" "$root/mvr/gdtf_patch_evidence.h" \
+    "$root/mvr/gdtf_patch_evidence.cpp"; then
   echo "GDTF ranking, decisions and resource validation must remain GUI-independent." >&2
   exit 1
 fi
