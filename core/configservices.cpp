@@ -25,6 +25,7 @@
 #include <iterator>
 
 #include <wx/stdpaths.h>
+#include <wx/log.h>
 #include <wx/wfstream.h>
 class wxZipStreamLink;
 #include <wx/zipstrm.h>
@@ -861,7 +862,12 @@ bool ProjectSession::SaveProject(
       }
     }
   } tempCleanup{tempPath, false};
-  wxFileOutputStream out(WxStringFromPath(tempPath));
+  auto output = [&] {
+    // Core returns this failure; the caller presents it after closing its busy UI.
+    wxLogNull suppressFileOpenDialog;
+    return std::make_unique<wxFileOutputStream>(WxStringFromPath(tempPath));
+  }();
+  auto &out = *output;
   if (!out.IsOk())
     return fail("OpenOutput", "could not open temporary project archive",
                                  tempPath.string());

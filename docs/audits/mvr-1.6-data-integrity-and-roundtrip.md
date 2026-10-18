@@ -694,3 +694,17 @@ existing test_tool_requirements.sh/run_test_python resolver; that policy and
 focused tests pass locally. Linux also reported the expected unavailable-native-
 credential-store skip. Fresh CI runs after the portability correction; this does
 not claim interactive cross-application window-manager verification.
+
+Windows CI on `0e9a752c` compiled successfully but timed out in ProjectSessionIO
+at the missing-destination regression. Without wx initialization, the default
+wxWidgets error output can open a native message box while opening the missing
+output path, before the typed OpenOutput failure reaches the caller. Only that
+file-open operation now suppresses toolkit logging; the existing Core logger,
+ArchiveIo category, stage and affected path remain available. Serializers and
+later operations run with the caller's logging state restored. This also prevents
+that low-level dialog from appearing inside the saving overlay in the application.
+The regression initializes wxWidgets and captures unexpected toolkit messages:
+it failed before the correction and passes afterward, while checking that no
+destination/temporary file was created and the previous archive is unchanged.
+All **5/5 focused tests** pass locally after this correction. Linux and macOS
+were green on `0e9a752c`; fresh hosted CI must verify the Windows correction.

@@ -8,8 +8,19 @@
 #include <memory>
 #include <vector>
 #include <stdexcept>
+#include <wx/init.h>
+#include <wx/log.h>
+
+class UnexpectedWxLog : public wxLog {
+public:
+  bool receivedMessage = false;
+protected:
+  void DoLogText(const wxString &) override { receivedMessage = true; }
+};
 
 int main() {
+  wxInitializer initializer;
+  assert(initializer.IsOk());
   namespace fs = std::filesystem;
 
   const fs::path tempDir = fs::temp_directory_path() / "perastage_project_session_io_test";
@@ -262,9 +273,23 @@ int main() {
   assert(!saveSession.SaveProject(projectPath.string(), good, bad));
   assert(saveSession.GetLastSaveFailure().stage == "SerializeScene");
   assert(read(projectPath) == original);
-  assert(!saveSession.SaveProject((tempDir / "missing" / "fail.pstg").string(), good, good));
+  // Core returns typed failures; toolkit logging must not open a native dialog.
+  UnexpectedWxLog unexpectedWxErrors;
+  auto *previousLog = wxLog::SetActiveTarget(&unexpectedWxErrors);
+  const auto missingPath = tempDir / "missing" / "fail.pstg";
+  const bool missingDestinationSaved =
+      saveSession.SaveProject(missingPath.string(), good, good);
+  const bool receivedFileOpenError = unexpectedWxErrors.receivedMessage;
+  wxLogMessage("Project save logging restoration probe");
+  wxLog::SetActiveTarget(previousLog);
+  assert(!missingDestinationSaved);
+  assert(!receivedFileOpenError);
+  assert(unexpectedWxErrors.receivedMessage);
   assert(saveSession.GetLastSaveFailure().kind == ProjectSaveFailureKind::ArchiveIo);
   assert(saveSession.GetLastSaveFailure().stage == "OpenOutput");
+  assert(!fs::exists(missingPath));
+  assert(!fs::exists(missingPath.string() + ".tmp"));
+  assert(read(projectPath) == original);
   ProjectSession::SaveSceneToBufferFn throws = [](auto &) -> bool {
     throw std::runtime_error("test serialization exception");
   };
