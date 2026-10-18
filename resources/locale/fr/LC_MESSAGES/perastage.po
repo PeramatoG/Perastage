@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-18 15:49+0000\n"
+"POT-Creation-Date: 2026-10-18 16:13+0000\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: French\n"
@@ -4426,12 +4426,12 @@ msgstr ""
 
 #
 #: gui/mvr_gdtf_resolution_actions.cpp:83
-#: gui/mvr_gdtf_resolution_dialog.cpp:340
+#: gui/mvr_gdtf_resolution_dialog.cpp:341
 msgid "The selected DMX mode differs from the imported mode."
 msgstr "Le mode DMX sélectionné diffère du mode importé."
 
 #: gui/mvr_gdtf_resolution_actions.cpp:89
-#: gui/mvr_gdtf_resolution_dialog.cpp:343
+#: gui/mvr_gdtf_resolution_dialog.cpp:344
 msgid "The DMX footprint differs from the imported profile."
 msgstr "L’empreinte DMX diffère du profil importé."
 
@@ -4440,25 +4440,25 @@ msgid "Confirm GDTF selection"
 msgstr "Confirmer la sélection GDTF"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:230
+#: gui/mvr_gdtf_resolution_actions.cpp:227
 #: gui/mvr_gdtf_resolution_dialog.cpp:155
 msgid "Load local GDTF..."
 msgstr "Charger un GDTF local..."
 
-#: gui/mvr_gdtf_resolution_actions.cpp:231
+#: gui/mvr_gdtf_resolution_actions.cpp:228
 msgid "GDTF files (*.gdtf)|*.gdtf"
 msgstr "Fichiers GDTF (*.gdtf)|*.gdtf"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:237
-#: gui/mvr_gdtf_resolution_sources.cpp:103
+#: gui/mvr_gdtf_resolution_actions.cpp:234
+#: gui/mvr_gdtf_resolution_sources.cpp:104
 msgid "The selected GDTF package is not usable."
 msgstr "Le paquet GDTF sélectionné n’est pas utilisable."
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:240
+#: gui/mvr_gdtf_resolution_actions.cpp:237
 #: gui/mvr_gdtf_resolution_actions.cpp:252
-#: gui/mvr_gdtf_resolution_sources.cpp:103
+#: gui/mvr_gdtf_resolution_sources.cpp:104
 msgid "GDTF selection"
 msgstr "Sélection GDTF"
 
@@ -4637,51 +4637,51 @@ msgid ""
 msgstr ""
 "Le fichier téléchargé est identique octet par octet au profil MVR d’origine."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:328
+#: gui/mvr_gdtf_resolution_dialog.cpp:329
 msgid "Automatic DMX mode assignment"
 msgstr "Attribution automatique du mode DMX"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:329
+#: gui/mvr_gdtf_resolution_dialog.cpp:330
 msgid "User selection"
 msgstr "Sélection de l’utilisateur"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:330
+#: gui/mvr_gdtf_resolution_dialog.cpp:331
 msgid "Safe automatic match"
 msgstr "Correspondance automatique sûre"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:330
+#: gui/mvr_gdtf_resolution_dialog.cpp:331
 msgid "Review required"
 msgstr "Vérification nécessaire"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:333
+#: gui/mvr_gdtf_resolution_dialog.cpp:334
 msgid "The manufacturer differs from the imported profile."
 msgstr "Le fabricant diffère du profil importé."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:335
+#: gui/mvr_gdtf_resolution_dialog.cpp:336
 msgid "The fixture model or variant differs from the imported profile."
 msgstr "Le modèle ou la variante du projecteur diffère du profil importé."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:338
+#: gui/mvr_gdtf_resolution_dialog.cpp:339
 msgid "DMX mode compatibility requires review."
 msgstr "La compatibilité du mode DMX doit être vérifiée."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:345
+#: gui/mvr_gdtf_resolution_dialog.cpp:346
 msgid "A matching footprint does not prove DMX channel compatibility."
 msgstr "Une empreinte identique ne prouve pas la compatibilité des canaux DMX."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:347
+#: gui/mvr_gdtf_resolution_dialog.cpp:348
 msgid "This fixture type uses several imported DMX modes."
 msgstr "Ce type de projecteur utilise plusieurs modes DMX importés."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:349
+#: gui/mvr_gdtf_resolution_dialog.cpp:350
 msgid "Several fixture models are plausible. Select a profile explicitly."
 msgstr ""
 "Plusieurs modèles de projecteur sont plausibles. Sélectionnez un profil "
 "explicitement."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:354
+#: gui/mvr_gdtf_resolution_dialog.cpp:355
 msgid "Currently retained profile:"
 msgstr "Profil actuellement conservé :"
 

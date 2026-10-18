@@ -39,7 +39,9 @@ The DMX mode is assigned automatically after download, without a picker or
 compatibility confirmation. Priority is: the MVR mode name (ignoring case,
 spaces and punctuation), a unique mode with the original profile's channel count,
 then a unique mode inferred from repeated equal patch spacing when that count is
-unknown. Details show which evidence was used.
+unknown. Details show which evidence was used. Selecting another catalog candidate
+or using full-catalog search follows the same automatic mode assignment; missing
+catalog modes are resolved from the downloaded package.
 
 If the mode remains ambiguous, the file stays downloaded and the original MVR
 profile and modes remain selected. The row explains this fallback; **OK** can
@@ -56,8 +58,9 @@ or FixtureTypeID does not establish file equality.
 
 Use **Search GDTF Share...** to select a revision from the full existing catalog
 browser, or **Load local GDTF...** to validate and copy a local profile into the
-import's resources. Choose its DMX mode and review any model, mode or footprint
-differences. The original local file remains unchanged. Available fallback
+import's resources. Compatible local profiles also receive a mode automatically
+when the imported evidence identifies one. Otherwise, a manual mode choice is
+available. Review any model, mode or footprint differences. The original local file remains unchanged. Available fallback
 sources can be selected explicitly from the same row.
 
 The option **Close GDTF download window automatically when finished** is available

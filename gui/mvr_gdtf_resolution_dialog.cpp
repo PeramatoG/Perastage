@@ -325,7 +325,8 @@ void MvrGdtfResolutionDialog::RefreshSelection() {
         (row.resolution.origin == SelectionOrigin::User && row.resolution.status != Status::ModeRequired);
     text += " / " + (row.resolution.status == Status::Identical
         ? _("Downloaded; identical to original MVR")
-        : row.automaticModeEvidence != ModeEvidence::None ? _("Automatic DMX mode assignment")
+        : row.automaticModeEvidence != ModeEvidence::None && row.resolution.origin != SelectionOrigin::User
+            ? _("Automatic DMX mode assignment")
         : reviewed ? _("User selection")
         : candidate.automaticSafe ? _("Safe automatic match") : _("Review required"));
     for (const auto &warning : candidate.warnings) {

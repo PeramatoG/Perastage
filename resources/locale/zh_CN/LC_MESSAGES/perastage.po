@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-18 15:49+0000\n"
+"POT-Creation-Date: 2026-10-18 16:13+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -4319,12 +4319,12 @@ msgstr "所选 DMX 模式将应用于此灯具类型的所有实例。"
 
 #
 #: gui/mvr_gdtf_resolution_actions.cpp:83
-#: gui/mvr_gdtf_resolution_dialog.cpp:340
+#: gui/mvr_gdtf_resolution_dialog.cpp:341
 msgid "The selected DMX mode differs from the imported mode."
 msgstr "所选 DMX 模式与导入模式不同。"
 
 #: gui/mvr_gdtf_resolution_actions.cpp:89
-#: gui/mvr_gdtf_resolution_dialog.cpp:343
+#: gui/mvr_gdtf_resolution_dialog.cpp:344
 msgid "The DMX footprint differs from the imported profile."
 msgstr "DMX 通道占用数与导入配置文件不同。"
 
@@ -4333,25 +4333,25 @@ msgid "Confirm GDTF selection"
 msgstr "确认 GDTF 选择"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:230
+#: gui/mvr_gdtf_resolution_actions.cpp:227
 #: gui/mvr_gdtf_resolution_dialog.cpp:155
 msgid "Load local GDTF..."
 msgstr "加载本地 GDTF..."
 
-#: gui/mvr_gdtf_resolution_actions.cpp:231
+#: gui/mvr_gdtf_resolution_actions.cpp:228
 msgid "GDTF files (*.gdtf)|*.gdtf"
 msgstr "GDTF 文件 (*.gdtf)|*.gdtf"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:237
-#: gui/mvr_gdtf_resolution_sources.cpp:103
+#: gui/mvr_gdtf_resolution_actions.cpp:234
+#: gui/mvr_gdtf_resolution_sources.cpp:104
 msgid "The selected GDTF package is not usable."
 msgstr "所选 GDTF 包不可用。"
 
 #
-#: gui/mvr_gdtf_resolution_actions.cpp:240
+#: gui/mvr_gdtf_resolution_actions.cpp:237
 #: gui/mvr_gdtf_resolution_actions.cpp:252
-#: gui/mvr_gdtf_resolution_sources.cpp:103
+#: gui/mvr_gdtf_resolution_sources.cpp:104
 msgid "GDTF selection"
 msgstr "GDTF 选择"
 
@@ -4519,49 +4519,49 @@ msgid ""
 "The downloaded file is byte-for-byte identical to the original MVR profile."
 msgstr "下载文件与原始 MVR 配置的每个字节均完全相同。"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:328
+#: gui/mvr_gdtf_resolution_dialog.cpp:329
 msgid "Automatic DMX mode assignment"
 msgstr "自动分配 DMX 模式"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:329
+#: gui/mvr_gdtf_resolution_dialog.cpp:330
 msgid "User selection"
 msgstr "用户选择"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:330
+#: gui/mvr_gdtf_resolution_dialog.cpp:331
 msgid "Safe automatic match"
 msgstr "安全的自动匹配"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:330
+#: gui/mvr_gdtf_resolution_dialog.cpp:331
 msgid "Review required"
 msgstr "需要检查"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:333
+#: gui/mvr_gdtf_resolution_dialog.cpp:334
 msgid "The manufacturer differs from the imported profile."
 msgstr "制造商与导入配置文件不同。"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:335
+#: gui/mvr_gdtf_resolution_dialog.cpp:336
 msgid "The fixture model or variant differs from the imported profile."
 msgstr "灯具型号或变体与导入配置文件不同。"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:338
+#: gui/mvr_gdtf_resolution_dialog.cpp:339
 msgid "DMX mode compatibility requires review."
 msgstr "需要检查 DMX 模式兼容性。"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:345
+#: gui/mvr_gdtf_resolution_dialog.cpp:346
 msgid "A matching footprint does not prove DMX channel compatibility."
 msgstr "相同的通道占用数不能证明 DMX 通道兼容。"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:347
+#: gui/mvr_gdtf_resolution_dialog.cpp:348
 msgid "This fixture type uses several imported DMX modes."
 msgstr "此灯具类型使用多个导入 DMX 模式。"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:349
+#: gui/mvr_gdtf_resolution_dialog.cpp:350
 msgid "Several fixture models are plausible. Select a profile explicitly."
 msgstr "多个灯具型号均有可能。请明确选择配置文件。"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:354
+#: gui/mvr_gdtf_resolution_dialog.cpp:355
 msgid "Currently retained profile:"
 msgstr "当前保留的配置文件："
 
