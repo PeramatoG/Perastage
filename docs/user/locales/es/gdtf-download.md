@@ -20,3 +20,22 @@ Una descarga fallida o cancelada conserva el perfil que ya exista en el destino.
 Las contraseñas se guardan en el almacén seguro de credenciales del sistema operativo cuando está disponible. Si no lo está, Perastage avisa y permite utilizar las credenciales para la operación actual sin guardar la contraseña. Puede ser necesario introducirla de nuevo en otra sesión. El nombre de usuario puede recordarse como ayuda para iniciar sesión.
 
 Utiliza **Tools → Edit dictionaries** para gestionar las asignaciones de perfiles y **Tools → Open user library folder** para localizar contenido local. Consulta los [problemas con credenciales](troubleshooting.md#credenciales-de-gdtf-share) si no se conservan las contraseñas.
+
+## Resolver perfiles al importar un MVR
+
+El diálogo MVR/App/Download se mantiene. Download abre la cola con sugerencias
+seguras y los perfiles MVR o de la aplicación disponibles como alternativa.
+Seleccione una fila para revisar revisiones y advertencias, incluso después de
+una descarga correcta. **Aplicar selecciones** procesa los cambios antes de que
+**Aceptar** aplique el resultado a todas las instancias de ese tipo.
+
+**Buscar en GDTF Share...** reutiliza el navegador completo. **Cargar GDTF local...**
+valida el archivo y copia el perfil a los recursos de la importación sin modificar
+el original. Elija el modo DMX y revise las diferencias de modelo, modo y huella.
+También puede seleccionar explícitamente un perfil alternativo disponible.
+
+La preferencia MVR de cierre automático sigue desactivada por defecto y también
+puede cambiarse en la cola. Al activarla, las selecciones seguras completadas
+continúan la importación; las ambigüedades y los errores permanecen visibles.
+Cancelar conserva las descargas completadas y las alternativas válidas. Una
+huella coincidente no garantiza que los canales DMX tengan el mismo significado.

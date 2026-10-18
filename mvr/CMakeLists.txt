@@ -1,5 +1,11 @@
-add_library(perastage_mvr_read STATIC
+add_library(perastage_gdtf_matching STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_matcher.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_candidate_ranking.cpp
+)
+target_compile_features(perastage_gdtf_matching PUBLIC cxx_std_20)
+target_include_directories(perastage_gdtf_matching PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_library(perastage_mvr_read STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_package.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_reference_resolver.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_resource_resolver.cpp
@@ -17,6 +23,7 @@ target_include_directories(perastage_mvr_read
 )
 target_link_libraries(perastage_mvr_read
     PUBLIC perastage_uuid perastage_runtime_storage perastage_layer_identity
+           perastage_gdtf_matching
     PRIVATE perastage_mvr_core_support perastage_mvr_scene_model perastage_gdtf_read
             tinyxml2::tinyxml2 ${_wx_base_libs}
 )

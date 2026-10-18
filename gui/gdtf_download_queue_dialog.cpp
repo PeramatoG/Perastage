@@ -29,9 +29,15 @@
 static wxColour RowTextColor(DownloadRowState state) {
   switch (state) {
   case DownloadRowState::Downloaded:
+  case DownloadRowState::Reused:
+  case DownloadRowState::OriginalMvr:
+  case DownloadRowState::Application:
+  case DownloadRowState::Local:
     return GdtfResolutionStatusColour(
         rider_fixture_resolution::StatusSemantic::Success);
   case DownloadRowState::Fallback:
+  case DownloadRowState::DownloadFailed:
+  case DownloadRowState::Unresolved:
     return GdtfResolutionStatusColour(
         rider_fixture_resolution::StatusSemantic::Warning);
   case DownloadRowState::Canceled:
@@ -49,7 +55,7 @@ static wxColour RowTextColor(DownloadRowState state) {
 GdtfDownloadQueueDialog::GdtfDownloadQueueDialog(wxWindow *parent,
                                                  bool autoClose)
     : wxDialog(parent, wxID_ANY, _("GDTF download queue"), wxDefaultPosition,
-               wxSize(1140, 580)),
+               wxSize(1140, 580), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       autoClose(autoClose) {
   wxBoxSizer *infoSizer = new wxBoxSizer(wxVERTICAL);
   summaryText = new wxStaticText(this, wxID_ANY,
@@ -137,16 +143,17 @@ GdtfDownloadQueueDialog::GdtfDownloadQueueDialog(wxWindow *parent,
   });
 }
 
-int GdtfDownloadQueueDialog::Run(std::function<void()> work) {
+int GdtfDownloadQueueDialog::Run(std::function<void()> work, bool finishWhenWorkReturns) {
   wxCHECK_MSG(!running, wxID_CANCEL, "Queue dialog may only run once");
   running = true;
   std::exception_ptr error;
   // Start inside the one standard modal boundary. No second completion loop
   // or deferred worker callback can outlive the locally owned dialog.
-  CallAfter([this, work = std::move(work), &error]() {
+  CallAfter([this, work = std::move(work), finishWhenWorkReturns, &error]() {
     try {
       work();
-      Finish();
+      if (finishWhenWorkReturns)
+        Finish();
     } catch (...) {
       error = std::current_exception();
       finished = true;
@@ -246,10 +253,15 @@ void GdtfDownloadQueueDialog::RefreshFooterSummary() {
   int processed = 0;
   for (const auto &[typeKey, state] : rowStateByType) {
     (void)typeKey;
-    if (state == DownloadRowState::Downloaded) {
+    if (state == DownloadRowState::Downloaded || state == DownloadRowState::Reused) {
       ++downloaded;
       ++processed;
-    } else if (state == DownloadRowState::Fallback) {
+    } else if (state == DownloadRowState::Fallback ||
+               state == DownloadRowState::OriginalMvr ||
+               state == DownloadRowState::Application ||
+               state == DownloadRowState::Local ||
+               state == DownloadRowState::DownloadFailed ||
+               state == DownloadRowState::Unresolved) {
       ++fallback;
       ++processed;
     } else if (state == DownloadRowState::Canceled) {
@@ -340,9 +352,7 @@ void GdtfDownloadQueueDialog::UpdateProgressGauge() {
   int finished = 0;
   for (const auto &[typeKey, state] : rowStateByType) {
     (void)typeKey;
-    if (state == DownloadRowState::Downloaded ||
-        state == DownloadRowState::Fallback ||
-        state == DownloadRowState::Canceled) {
+    if (state != DownloadRowState::Pending && state != DownloadRowState::Downloading) {
       ++finished;
     }
   }

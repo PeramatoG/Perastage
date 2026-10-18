@@ -343,6 +343,16 @@ diagnostics also retain order. A parse failure without a request emits
 object members but can rely on documented members and tokens retaining their
 meaning. A breaking removal, token change, type change, or semantic change
 requires a new schema version.</p>
+<h2 id="proposed-gdtf-resolution-boundary">Proposed GDTF resolution boundary</h2>
+<p>The GUI-independent <code>gdtf_resolution::Analyze</code>, <code>Select</code>, <code>Complete</code>, <code>Fail</code> and
+<code>Cancel</code> APIs accept identity evidence, catalog entries and validated resources and
+return typed ranking/source/mode/status state. They currently support the MVR
+import workflow and register no semantic command. A future CLI/local IPC adapter
+must version its serialized contract and acquire an import-session resource lease
+before publishing a replacement through the project transaction. Inspection Core
+remains read-only; OSC and MCP should adapt the same semantic boundary rather
+than launch dialogs. See <a href="technical-notes/mvr_gdtf_download_queue.html">MVR GDTF resolution</a>
+for the remaining integration blockers.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

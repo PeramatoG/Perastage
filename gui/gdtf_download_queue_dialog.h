@@ -33,7 +33,13 @@ enum class DownloadRowState {
   Downloading,
   Downloaded,
   Fallback,
-  Canceled
+  Canceled,
+  Reused,
+  OriginalMvr,
+  Application,
+  Local,
+  DownloadFailed,
+  Unresolved
 };
 struct DownloadProgressStats {
   long long downloadedBytes = 0;
@@ -44,7 +50,7 @@ struct DownloadProgressStats {
 class GdtfDownloadQueueDialog : public wxDialog {
 public:
   GdtfDownloadQueueDialog(wxWindow *parent, bool autoClose);
-  int Run(std::function<void()> work);
+  int Run(std::function<void()> work, bool finishWhenWorkReturns = true);
   void AddRow(const std::string &type);
   bool IsFinished() const { return finished; }
   bool IsCancellationRequested() const { return cancelRequested.load(); }
@@ -63,13 +69,13 @@ public:
                        const wxString &details, DownloadRowState state);
   void UpdateProgressGauge();
 
-private:
+protected:
   void Finish();
   static wxString FormatEta(long long seconds);
   void RefreshFooterSummary();
   void RefreshBytesSummary();
-  void RequestCancel();
-  void Acknowledge();
+  virtual void RequestCancel();
+  virtual void Acknowledge();
   const bool autoClose;
   bool finished = false;
   bool running = false;

@@ -74,6 +74,7 @@ struct GdtfDownloadRequest {
   std::vector<std::string> secondaryAliases;
   std::vector<std::string> diagnosticAliases;
   std::string requestedMode;
+  std::vector<std::string> importedModes;
   std::string manufacturer;
   int requestedFootprint = 0;
   bool authoritativeIdentityIsPlaceholder = false;
@@ -144,6 +145,38 @@ struct DownloadCandidateRank {
       NumericTokenCompatibility::Missing;
   std::string stableKey;
 };
+
+// Ranking evidence is independent of presentation and safe-selection policy.
+enum class MatchConfidence { NoMatch, Review, Ambiguous, Safe };
+
+struct RankedCandidate {
+  std::string rid;
+  std::string manufacturer;
+  std::string fixtureName;
+  std::string revision;
+  std::vector<GdtfCatalogModeCandidate> modes;
+  std::string selectedMode;
+  int footprint = 0;
+  DownloadCandidateRank rank;
+  std::string canonicalModel;
+  MatchConfidence confidence = MatchConfidence::Review;
+  bool automaticSafe = false;
+  std::vector<std::string> reasons;
+  std::vector<std::string> warnings;
+};
+
+struct CandidateRanking {
+  std::vector<RankedCandidate> candidates;
+  std::optional<std::string> recommendedRid;
+  MatchConfidence confidence = MatchConfidence::NoMatch;
+  std::string diagnostics;
+};
+
+bool IsUnknownManufacturer(const std::string &manufacturer);
+CandidateRanking RankDownloadCandidates(
+    const GdtfDownloadRequest &request,
+    const std::vector<GdtfCatalogEntry> &catalogEntries,
+    std::size_t limit = 8);
 
 std::string TrimFixtureIdentity(const std::string &value);
 std::string ToLowerAscii(std::string text);

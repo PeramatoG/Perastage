@@ -41,7 +41,7 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
                                    bool downloadRequiresAuthenticationIn,
                                    const std::string& initialFixtureQuery,
                                    std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry>
-                                       initialParsedEntries)
+                                       initialParsedEntries, bool selectionOnly)
     : wxDialog(parent, wxID_ANY, _("Search GDTF"), wxDefaultPosition,
                wxSize(1200,750),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
@@ -108,7 +108,7 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     sizer->Add(splitter, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
-    downloadButton = new wxButton(this, wxID_OK, _("Download"));
+    downloadButton = new wxButton(this, wxID_OK, selectionOnly ? _("Select") : _("Download"));
     wxButton* cancelBtn = new wxButton(this, wxID_CANCEL, _("Cancel"));
     btnSizer->AddStretchSpacer(1);
     btnSizer->Add(downloadButton, 0, wxRIGHT, 5);

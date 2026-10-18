@@ -83,6 +83,23 @@
 <h2 id="credentials-and-local-profiles">Credentials and local profiles</h2>
 <p>Passwords use the operating system&#39;s secure credential store when available. If the runtime store is unavailable, Perastage warns you and can use credentials for the current operation without persisting the password. You may need to enter it again in a later session. The username may be remembered as a sign-in hint.</p>
 <p>Use <strong>Tools → Edit dictionaries</strong> to manage profile mappings and <strong>Tools → Open user library folder</strong> to find local content. See <a href="troubleshooting.html#gdtf-share-credentials">credential troubleshooting</a> if passwords are not retained.</p>
+<h2 id="resolve-profiles-during-an-mvr-import">Resolve profiles during an MVR import</h2>
+<p>Keep using the MVR/App/Download source dialog. Choosing Download opens the import
+queue with safe catalog suggestions and available MVR or application fallbacks.
+Select a row to inspect ranked revisions and compatibility warnings. You can
+change successful rows too; <strong>Apply selections</strong> processes the changed proposals
+before <strong>OK</strong> commits the results to every instance of that fixture type.</p>
+<p>Use <strong>Search GDTF Share...</strong> to select a revision from the full existing catalog
+browser, or <strong>Load local GDTF...</strong> to validate and copy a local profile into the
+import&#39;s resources. Choose its DMX mode and review any model, mode or footprint
+differences. The original local file remains unchanged. Available fallback
+sources can be selected explicitly from the same row.</p>
+<p>The MVR preference <strong>Close GDTF download window automatically when finished</strong>
+defaults to off and can also be changed in the queue. With automatic close enabled,
+safe completed choices continue the import directly. Ambiguous or failed results
+remain open for review. Cancel stops pending transfers and retains completed
+choices and valid fallbacks. A matching footprint does not guarantee that DMX
+channels have the same meaning.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

@@ -223,3 +223,10 @@ import. Native dialog OK/Cancel commands use the same guarded lifecycle.
 This handling takes precedence over default dialog dismissal while focus is
 inside the queue. The import's parent is disabled by the modal boundary, and
 no global accelerator or scene-view shortcut is registered or remapped.
+
+The interactive MVR GDTF queue retains that native modal keyboard boundary while
+its background worker runs. Escape requests cancellation and waits for completion;
+Enter cannot acknowledge active work or pending proposals. After processing,
+Escape/Enter can acknowledge the retained results. Changing a completed row makes
+its proposal pending again; canceling then preserves its previously applied
+profile and every other completed row.

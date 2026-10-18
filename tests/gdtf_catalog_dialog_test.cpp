@@ -173,6 +173,16 @@ int main() {
     assert(ratingValue->GetLabel() == "--");
     fresh.Hide();
   }
+  {
+    auto parsed = mvr::gdtf_catalog_parser::ParseCatalog(payload);
+    GdtfSearchDialog selection(nullptr, payload, {}, nullptr,
+        GdtfCatalogDisplaySource::Cached, false, "VDO Sceptron", parsed.entries, true);
+    auto *table = FindChild<wxDataViewListCtrl>(selection);
+    assert(table && table->GetItemCount() == 1);
+    SelectFirst(selection, *table);
+    assert(dynamic_cast<wxButton *>(selection.FindWindow(wxID_OK))->GetLabel() == "Select");
+    assert(selection.GetSelectedEntry()->rid == "selected");
+  }
   RunRefresh(false, false);
   RunRefresh(true, false);
   RunRefresh(false, true);

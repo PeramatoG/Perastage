@@ -20,3 +20,23 @@ Un téléchargement échoué ou annulé conserve le profil de destination exista
 Les mots de passe utilisent le stockage sécurisé du système lorsqu’il est disponible. Sinon, Perastage vous avertit et peut utiliser les identifiants pour l’opération en cours sans conserver le mot de passe. Vous devrez peut-être le saisir lors d’une autre session. Le nom d’utilisateur peut être mémorisé comme aide à la connexion.
 
 Utilisez **Tools → Edit dictionaries** pour gérer les correspondances de profils et **Tools → Open user library folder** pour trouver les contenus locaux. Consultez le [dépannage des identifiants](troubleshooting.md#identifiants-gdtf-share) si les mots de passe ne sont pas conservés.
+
+## Résoudre les profils lors d’un import MVR
+
+Le dialogue MVR/App/Download reste inchangé. Download ouvre la file avec des
+suggestions sûres et les profils MVR ou de l’application disponibles. Sélectionnez
+une ligne pour examiner les révisions et avertissements, même après un succès.
+**Appliquer les sélections** traite les changements avant que **OK** applique le
+résultat à toutes les instances de ce type.
+
+**Rechercher dans GDTF Share...** utilise le navigateur existant.
+**Charger un GDTF local...** valide le fichier et copie le profil dans les
+ressources de l’import sans modifier l’original. Choisissez le mode DMX et vérifiez
+les différences de modèle, de mode et d’empreinte. Les sources de secours
+utilisables peuvent être sélectionnées explicitement sur la même ligne.
+
+La fermeture automatique MVR reste désactivée par défaut et peut aussi être
+réglée dans la file. Activée, elle poursuit l’import avec les choix sûrs terminés.
+Les ambiguïtés et échecs restent ouverts pour vérification. Annuler conserve les
+transferts terminés et les profils de secours valides. Une empreinte identique ne
+garantit pas la même fonction pour les canaux DMX.

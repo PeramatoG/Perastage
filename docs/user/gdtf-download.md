@@ -20,3 +20,24 @@ A failed or cancelled download preserves an existing destination profile.
 Passwords use the operating system's secure credential store when available. If the runtime store is unavailable, Perastage warns you and can use credentials for the current operation without persisting the password. You may need to enter it again in a later session. The username may be remembered as a sign-in hint.
 
 Use **Tools → Edit dictionaries** to manage profile mappings and **Tools → Open user library folder** to find local content. See [credential troubleshooting](troubleshooting.md#gdtf-share-credentials) if passwords are not retained.
+
+## Resolve profiles during an MVR import
+
+Keep using the MVR/App/Download source dialog. Choosing Download opens the import
+queue with safe catalog suggestions and available MVR or application fallbacks.
+Select a row to inspect ranked revisions and compatibility warnings. You can
+change successful rows too; **Apply selections** processes the changed proposals
+before **OK** commits the results to every instance of that fixture type.
+
+Use **Search GDTF Share...** to select a revision from the full existing catalog
+browser, or **Load local GDTF...** to validate and copy a local profile into the
+import's resources. Choose its DMX mode and review any model, mode or footprint
+differences. The original local file remains unchanged. Available fallback
+sources can be selected explicitly from the same row.
+
+The MVR preference **Close GDTF download window automatically when finished**
+defaults to off and can also be changed in the queue. With automatic close enabled,
+safe completed choices continue the import directly. Ambiguous or failed results
+remain open for review. Cancel stops pending transfers and retains completed
+choices and valid fallbacks. A matching footprint does not guarantee that DMX
+channels have the same meaning.

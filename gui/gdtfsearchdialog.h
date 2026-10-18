@@ -56,7 +56,8 @@ public:
                      bool downloadRequiresAuthentication = false,
                      const std::string& initialFixtureQuery = {},
                      std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry>
-                         initialParsedEntries = {});
+                         initialParsedEntries = {},
+                     bool selectionOnly = false);
     ~GdtfSearchDialog() override;
     std::string GetSelectedId() const;
     std::string GetSelectedUrl() const;

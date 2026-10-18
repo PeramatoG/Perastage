@@ -4,19 +4,19 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Perastage Documentation • MVR GDTF download queue lifecycle</title>
-<meta name="description" content="gui/gdtf_download_queue_dialog.{h,cpp} owns widgets, row presentation, summary/progress formatting, cancellation requests and terminal acknowledgement. The importer…" />
+<title>Perastage Documentation • MVR GDTF matching and resolution</title>
+<meta name="description" content="The initial MVR/App/Download source dialog remains the import entry point. Download rows subsequently use the existing GdtfDownloadQueueDialog presentation and its…" />
 <link rel="canonical" href="https://perastage.luismaperamato.com/developer/technical-notes/mvr_gdtf_download_queue.html" />
 <meta name="theme-color" content="#080808" />
 <meta property="og:site_name" content="Perastage" />
 <meta property="og:type" content="website" />
-<meta property="og:title" content="Perastage Documentation • MVR GDTF download queue lifecycle" />
-<meta property="og:description" content="gui/gdtf_download_queue_dialog.{h,cpp} owns widgets, row presentation, summary/progress formatting, cancellation requests and terminal acknowledgement. The importer…" />
+<meta property="og:title" content="Perastage Documentation • MVR GDTF matching and resolution" />
+<meta property="og:description" content="The initial MVR/App/Download source dialog remains the import entry point. Download rows subsequently use the existing GdtfDownloadQueueDialog presentation and its…" />
 <meta property="og:url" content="https://perastage.luismaperamato.com/developer/technical-notes/mvr_gdtf_download_queue.html" />
 <meta property="og:image" content="https://perastage.luismaperamato.com/assets/images/screenshots/hero-main.png" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Perastage Documentation • MVR GDTF download queue lifecycle" />
-<meta name="twitter:description" content="gui/gdtf_download_queue_dialog.{h,cpp} owns widgets, row presentation, summary/progress formatting, cancellation requests and terminal acknowledgement. The importer…" />
+<meta name="twitter:title" content="Perastage Documentation • MVR GDTF matching and resolution" />
+<meta name="twitter:description" content="The initial MVR/App/Download source dialog remains the import entry point. Download rows subsequently use the existing GdtfDownloadQueueDialog presentation and its…" />
 <meta name="twitter:image" content="https://perastage.luismaperamato.com/assets/images/screenshots/hero-main.png" />
 <link rel="icon" href="../../assets/images/favicon.png" type="image/png" />
 <link rel="apple-touch-icon" href="../../assets/images/apple-touch-icon.png" />
@@ -39,43 +39,134 @@
 <li><a href="../index.html">Developer Documentation</a></li>
 </ul></nav></aside>
 <main class="content-panel">
-<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../../next/documentation.html">Documentation</a> / <a href="../index.html">Developer</a> / <span id="pageTitle">MVR GDTF download queue lifecycle</span></nav>
-<div id="content" tabindex="-1"><h1 id="mvr-gdtf-download-queue-lifecycle">MVR GDTF download queue lifecycle</h1>
-<p><code>gui/gdtf_download_queue_dialog.{h,cpp}</code> owns widgets, row presentation,
-summary/progress formatting, cancellation requests and terminal acknowledgement.
-The importer owns catalog loading, matching, source selection, reuse and fallback
-assignment. No matching, conflict policy or serialization rules change.</p>
-<p><code>mvr::preferences::kAutoCloseGdtfDownloadWindowKey</code> uses the existing user
-preference store (<code>user_config.json</code>). Only <code>1</code> enables automatic dismissal;
-missing and invalid values keep the queue visible. The Preferences container
-commits the page&#39;s staged edits using its existing save service. Credentials
-remain a separate concern. Headless workflows do not consume this GUI policy.</p>
-<p>The synchronous importer enters one standard wxWidgets modal dialog before
-starting the queue. A dialog-owned one-shot event starts the existing workflow;
-completion enables OK and either awaits acknowledgement or ends that same modal
-boundary. There is no second completion dialog, manual wait loop, or new yield
-checkpoint. While active, OK is ignored and close/Escape requests cancellation
-without destroying the stack-owned dialog. After work returns, cancellation is
-terminal and the normal completion preference applies. Exceptions unwind through
-the modal boundary and are rethrown to the caller. The dialog is explicitly
-hidden after the modal call returns, before resuming import or rethrowing an
-exception, to normalize native-port visibility on macOS as well as other ports.
-Progress callbacks remain
-synchronous and are not posted to a window after its lifetime ends.</p>
-<h2 id="existing-limitations-and-future-shared-workflow">Existing limitations and future shared workflow</h2>
-<p>Network requests still run synchronously, and existing import yield checkpoints
-remain. Cancellation responsiveness during an individual blocking HTTP transfer
-is limited by that existing design. This change does not add worker-thread UI
-access or additional yield-based waiting. The modal boundary disables its parent
-while the queue runs and prevents premature resumption of conflict assignment.</p>
-<p>A later Core service could own an immutable queue request, per-item resolution
-results, transferred/total bytes, cancellation token and structured completion
-and diagnostic events. The existing GDTF Share client already exposes structured
-transfer progress and result categories; those values can feed GUI, CLI and
-future MCP/AI adapters. Importer-specific catalog/matching orchestration still
-uses wx strings, logging and fixture assignment and is not yet such a service.
-GUI labels, colors, dialog acknowledgement and automatic window closing must
-remain in GUI adapters. No new CLI command or Core GUI dependency is introduced.</p>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../../next/documentation.html">Documentation</a> / <a href="../index.html">Developer</a> / <span id="pageTitle">MVR GDTF matching and resolution</span></nav>
+<div id="content" tabindex="-1"><h1 id="mvr-gdtf-matching-and-resolution">MVR GDTF matching and resolution</h1>
+<p>The initial MVR/App/Download source dialog remains the import entry point.
+Download rows subsequently use the existing <code>GdtfDownloadQueueDialog</code> presentation
+and its single native modal boundary. <code>MvrGdtfResolutionDialog</code> extends that
+presentation with a selected-row candidate list, available resource choices,
+full-catalog search and local-file selection. The importer delegates to
+<code>RunMvrGdtfResolution</code> and applies only final validated resource/mode pairs.</p>
+<h2 id="ownership">Ownership</h2>
+<ul>
+<li><code>mvr/gdtf_catalog_matcher.*</code>: identity normalization and technical scoring.</li>
+<li><code>mvr/gdtf_candidate_ranking.cpp</code>: one catalog evaluation implementation,
+structured candidates and conservative automatic recommendation. The existing
+best-candidate adapter remains available to legacy consumers.</li>
+<li><code>perastage_gdtf_matching</code>: standard-library-only production target.</li>
+<li><code>core/gdtf_resolution.*</code>: typed source, proposed/applied choices, origin,
+fallback precedence, statuses and completion/cancellation transitions.</li>
+<li><code>core/gdtf_resolution_resources.*</code>: validation through the existing archive,
+description and mode readers; immutable copies into the import-owned scene
+workspace. The separate <code>perastage_gdtf_resolution_resources</code> adapter links
+existing readers. <code>perastage_gdtf_resolution</code> remains standard-library-only;
+the resource readers retain the existing wxBase ZIP dependency, not wxWidgets GUI controls.</li>
+<li><code>gui/mvr_gdtf_resolution_workflow.*</code>: catalog service, credentials, session
+retry, staging and composition of callbacks.</li>
+<li><code>gui/mvr_gdtf_resolution_worker.cpp</code>: bounded queue scheduling, background
+catalog analysis/download and event delivery; joins each worker before reuse.</li>
+<li><code>gui/mvr_gdtf_resolution_actions.cpp</code>: native picker, mode/review prompts and
+the existing <code>GdtfSearchDialog</code> in selection-only mode.</li>
+</ul>
+<h2 id="ranking-and-confidence">Ranking and confidence</h2>
+<p>Evaluate the parsed catalog once per fixture type, never during widget refresh.
+Keep eight useful revisions by default. Exact canonical identity precedes partial
+model evidence; safe candidates precede review candidates. Within a tier, retain
+stable technical ordering (authoritative identity, name, numeric compatibility,
+manufacturer, mode, footprint), then uploader metadata, modification time, rating
+and lexical revision ID. Reputation, recency and rating cannot promote a model
+variant to automatic eligibility. Roman numerals retain their established numeric
+normalization. Existing descriptive/version stripping remains a legacy search
+compatibility rule, not proof that two revisions are safe replacements.</p>
+<p><code>Custom</code>, <code>Generic</code>, <code>Unknown</code>, empty and <code>No Manufacturer</code> metadata are unknown.
+A catalog manufacturer&#39;s literal prefix may be removed from the imported model
+for canonical comparison; substring matches do not establish manufacturer identity.
+When exactly one manufacturer prefix is supported by exact model evidence,
+conflicting catalog manufacturer metadata requires review. Multiple supported
+manufacturer prefixes remain ambiguous. Known conflicting manufacturers require review. Catalog UUID and FixtureTypeID
+are logged separately; neither establishes revision identity or model equivalence.</p>
+<p>Automatic recommendation requires exact canonical model identity, no manufacturer
+or numeric conflict, an identified compatible mode and agreement with any known
+footprint. Mode-digit or footprint-only evidence remains available for review.
+A matching footprint never proves channel semantics. Tied competing model
+identities or manufacturers without supporting prefix evidence are ambiguous.
+Confidence is <code>Safe</code>, <code>Review</code>, <code>Ambiguous</code> or <code>NoMatch</code>; only <code>Safe</code> can supply a
+recommendation. Full-catalog manual selection can intentionally choose another
+model, after a compatibility prompt and explicit mode selection.</p>
+<p>The legacy <code>SelectBestDownloadMatch</code> retains its established fuzzy best-candidate
+contract for existing consumers. It is not the automatic-apply policy. New import
+code consumes <code>RankDownloadCandidates</code> through <code>gdtf_resolution::Analyze</code>.</p>
+<h2 id="selection-and-application-lifecycle">Selection and application lifecycle</h2>
+<p><code>Resolution.selected</code> is the proposal; <code>Resolution.applied</code> is the validated
+resource to commit. Explicit user selection takes precedence over automatic
+recommendation. Choosing an existing MVR, application or local profile also
+records it as the fallback for later catalog attempts. A failed revision retains
+that valid fallback and the proposed revision for inspection/retry. Canceled
+pending work preserves already applied results. Late completion cannot replace
+a different proposal. Reuse is keyed by exact revision and mode and checks that
+the retained file and mode still exist.</p>
+<p>Only structurally usable resources/modes appear in the existing-source selector.
+No fallback mode is guessed from matching footprint or address spacing. Local
+files and downloaded packages are read with shared Core services and copied to
+unique names under <code>resolved-gdtf/</code> in the import workspace. The scene&#39;s existing
+resource lease owns their lifetime; original files, the MVR archive and the
+application library are not overwritten. A downloaded automatic replacement is
+validated against actual package identity, manufacturer, mode and footprint before
+commit. Missing catalog mode metadata is resolved from the downloaded package
+for explicit user selections.</p>
+<p>After processing, the user can select any row, including successful rows, revise
+its proposal, and apply again. Acknowledgement is disabled while proposals are
+pending or work is active. The existing MVR preference
+<code>mvr_auto_close_gdtf_download_window</code> retains its default <strong>off</strong> and its existing
+Preferences location; an in-queue checkbox persists the same value. Enabled
+automatic close commits safe final choices without a confirmation prompt.
+Ambiguity, unresolved resources or failures keep the queue open for review.</p>
+<p>Download, reuse, original MVR, application, local, failure, unresolved and canceled
+statuses remain distinct. Explicit resource choices use successful presentation,
+not error styling. Existing row summaries, byte progress and ETA are retained.
+Cancel, Escape and the window close command cannot dismiss an active worker;
+completion joins it before the modal boundary returns. Catalog/login requests
+retain the client&#39;s existing finite timeout behavior; cancellation may wait for
+a request without a cancellation callback to return.</p>
+<p>Application updates every instance with the originating fixture-type key. Explicit
+queue modes bypass the importer&#39;s permissive mode resolver after validation.
+Fixture UUIDs, labels/type keys, addresses, transforms, groups and unrelated types
+are not rewritten. Existing project resource consolidation/export owns MVR
+publication; no extension XML or alternate package format is introduced.</p>
+<h2 id="future-command-and-protocol-boundary">Future command and protocol boundary</h2>
+<p>The existing CLI reads files through Inspection Core and dispatches typed semantic
+operations through Command Core and local IPC. OSC is a frontend adapter; the MCP
+adapter delegates to the CLI. None needs a dialog to call these new domain APIs.</p>
+<p>A future adapter can expose analysis inputs (identity evidence, immutable catalog
+snapshot, existing validated resources and optional explicit <code>Choice</code>) and serialize
+<code>CandidateRanking</code>/<code>Resolution</code> to JSON. A separate mutation command would acquire
+an import/project resource lease, resolve a revision and mode, validate bytes,
+and atomically apply the final resource map through the normal project transaction.
+Inspection Core remains read-only; catalog acquisition/download is outside it.</p>
+<p>No new CLI command, OSC route or MCP tool is registered. Blockers are a versioned
+JSON schema for evidence/reasons/statuses, a headless credential/cancellation
+policy, an import-session/resource handle, and a Command Core transaction adapter
+for applying replacements to an active scene. The standard-only matching target
+can already be linked independently; package validation uses the existing Core
+read target and wxBase ZIP runtime.</p>
+<h2 id="validation">Validation</h2>
+<p><code>MvrGdtfImportMatching</code> retains the existing regressions. <code>GdtfResolution</code> covers
+ranked revisions, generic/prefixed manufacturers, Roman numerals, ambiguity,
+model/mode/footprint mismatches, UUID non-equivalence and manual/fallback/reuse/
+cancellation precedence. <code>GdtfResolutionResources</code> covers local package identity,
+modes, immutable ownership, malformed/missing definitions and failed publication.
+<code>MvrGdtfResolutionDialog</code> exercises automatic completion, successful-row changes,
+independent aliases, exact revision reuse, cancellation and offline fallback with
+an injected deterministic backend. Existing catalog and queue lifecycle tests
+remain in place. <code>GdtfResolutionBoundary</code> guards the new separation.</p>
+<p>The Tivoli binary was not available. Tests use explicitly synthetic metadata and
+small generated packages and do not contact GDTF Share.</p>
+<p>Types with several imported DMX modes require review before a catalog replacement.
+Validated MVR/application fallbacks can preserve the full imported mode set; a
+mode explicitly chosen by the user applies to every instance of that type. This
+prevents an automatic suggestion based on the first instance from silently
+rewriting other instances&#39; modes. Address spacing is not treated as a verified
+GDTF footprint.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>
