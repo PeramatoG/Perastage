@@ -1,148 +1,118 @@
-# Perastage 1.7.0
+# Perastage 1.8.0
 
-Perastage 1.7.0 is a major update focused on better MVR/GDTF inspection,
-fixture resources, performance, documentation and external integration.
+<!--
+RELEASE NOTES — WORK IN PROGRESS
 
-It also includes many usability, compatibility and stability improvements
-across the application.
+This is the living draft for the next Perastage release.
+
+Maintenance rules for Codex:
+- Update these notes as relevant pull requests are merged into main.
+- Document only implemented and verified changes.
+- Do not include planned features, unfinished work or unmerged PRs.
+- Focus on improvements that matter to end users.
+- Use clear, concise English.
+- Group related changes and avoid duplicate entries.
+- Keep technical implementation details out unless they explain a meaningful improvement.
+- Do not carry over features already announced in Perastage 1.7.0.
+- Add new sections when necessary.
+- Preserve the overall structure.
+- Before publication, review accuracy, remove empty sections and replace all remaining placeholders.
+-->
+
+<!-- Add a short release overview once the main features are established. -->
 
 ## Highlights
 
-- New read-only **MVR / GDTF Inspector** for projects and external files.
-- Improved **GDTF Share** browser with faster loading and more useful fixture information.
-- Custom fixture symbols can now travel with the **Perastage project**.
-- New **Low / Standard / High 3D Model Detail** settings for better performance control.
-- Reorganized Preferences and improved cache management.
-- Experimental **command-line, OSC and external integration tools**.
-- Offline Help now available in **English, Spanish, French, German and Simplified Chinese**.
+<!--
+Add the most important user-facing improvements here.
+Prefer 4–8 highlights, depending on the release scope.
+Only include completed and verified features.
+-->
 
-## MVR / GDTF Inspector
+## MVR / GDTF
 
-The new Inspector makes it easier to understand the contents of MVR and GDTF files
-without modifying them.
+<!--
+Document improvements to:
+- MVR import and export.
+- GDTF identification, resolution and resources.
+- Scene hierarchy, layers and fixture references.
+- Inspector and validation.
+- Standards compliance and interoperability.
 
-You can:
+Include only changes actually delivered.
+-->
 
-- Inspect the current project or open external MVR/GDTF files.
-- Browse scene hierarchy, embedded fixture definitions and package contents.
-- Review fixture information, DMX modes, channels, functions and wheels.
-- Inspect original XML with search and folding.
-- Preview supported SVG, image and 3D resources.
-- Review compatibility issues and diagnostics.
+## Layout, Symbols and Plotting
 
-Large packages are loaded in the background where possible so the application
-remains responsive while inspecting complex files.
+<!--
+Document improvements to:
+- Layout editing and document generation.
+- Fixture symbols and graphical representations.
+- Labels, dimensions and annotations.
+- Vector rendering and PDF output.
+- Plotting workflows and usability.
+-->
 
-## GDTF and fixture symbols
+## CLI and External Integrations
 
-Fixture symbols can now be stored directly with the **PSTG project**, allowing
-custom symbols to travel with the project between computers.
+<!--
+Document improvements to:
+- perastage-cli.
+- Local OSC integration.
+- MCP and external application connectivity.
+- Scene commands and automation.
+- Supported workflows and limitations.
 
-Perastage also handles manufacturer-provided GDTF symbols more carefully,
-preserving original resources while allowing project-specific representations
-where needed.
+Clearly identify experimental functionality.
+-->
 
-Symbol rendering has been improved, including correct transparency and holes.
+## Performance and Usability
 
-## GDTF Share
+<!--
+Document measurable or user-visible improvements to:
+- Application responsiveness.
+- Large project handling.
+- Rendering and navigation.
+- User interface behavior.
+- Editing workflows.
+- Preferences and usability.
+-->
 
-Browsing GDTF Share is now faster and more informative.
+## Compatibility and Stability
 
-- Cached fixture information can appear immediately and remains available offline.
-- Catalog updates run in the background.
-- Search can match manufacturer, fixture, UUID, revision and DMX mode information.
-- Results provide more revision and DMX mode information before downloading.
+<!--
+Document relevant fixes involving:
+- Windows, macOS and Linux.
+- MVR/GDTF compatibility.
+- Import and export reliability.
+- Undo/Redo and scene consistency.
+- Crashes, regressions and data integrity.
 
-Online fixture downloads still require a GDTF Share account.
-
-## Performance and usability
-
-Perastage now provides three levels of 3D model detail:
-
-- **Low**
-- **Standard** (default)
-- **High**
-
-This makes it easier to balance visual detail and performance, especially with
-large scenes.
-
-An optional simplified representation can also be used while navigating complex
-3D scenes.
-
-Other improvements include:
-
-- Reorganized Preferences.
-- New cache information and cleanup controls.
-- Improved table sorting.
-- Smoother object dragging in 2D and 3D.
-- Improved Layout Viewer interaction.
-- Better handling of large and complex MVR/GDTF packages.
-- Numerous stability and cross-platform fixes.
-
-## Experimental CLI and integrations
-
-Perastage 1.7.0 introduces the first experimental tools for controlling and
-integrating Perastage with other applications.
-
-The included **perastage-cli** can:
-
-- Inspect MVR and GDTF files.
-- Query information from a running Perastage instance.
-- Perform supported scene operations.
-- Process MVR files without modifying the original input.
-
-An experimental local **OSC interface** is also available for a limited set of
-scene operations.
-
-Perastage also provides an experimental path for external MCP integrations.
-This is intended for advanced users and developers and is not included as a
-separate end-user component.
-
-These interfaces are still experimental and may evolve in future releases.
-
-## Compatibility and stability
-
-This release includes a large number of fixes and compatibility improvements,
-including:
-
-- Improved Linux AppImage compatibility.
-- More reliable MVR import and inspection.
-- Better handling of embedded GDTFs and fixture resources.
-- Inspector stability improvements on Windows and macOS.
-- Improved Unicode path handling.
-- Safer grouping, ungrouping and object conversion operations.
-- Improved Undo behavior for scene editing operations.
+Group minor fixes where appropriate.
+-->
 
 ## Documentation and Help
 
-Perastage now uses a unified documentation system for the website and built-in Help.
-
-Offline Help is included in:
-
-- English
-- Spanish
-- French
-- German
-- Simplified Chinese
-
-Press **F1** at any time to open the documentation.
+<!--
+Document new or improved documentation, tutorials,
+translations and built-in Help features.
+Do not repeat existing language support unless changed.
+-->
 
 ## Downloads
 
-Choose the package for your platform from the **Perastage 1.7.0 GitHub Release**:
+Choose the appropriate package from the assets attached to this GitHub release.
 
-| Platform | Package |
-|---|---|
-| Windows 64-bit | Installer |
-| Linux x86-64 | AppImage |
-| macOS 15 Apple Silicon | DMG |
-| Current macOS Apple Silicon | DMG |
-| Arch Linux x86-64 | Package |
+<!--
+Before publication:
+- Verify all release artifacts.
+- Confirm supported operating systems and architectures.
+- Include the macOS 15 compatibility build if provided.
+- Include installation notes or direct download links where useful.
+- Confirm whether the experimental CLI is bundled.
+-->
 
-The experimental CLI is included with the normal Perastage package and does not
-require a separate download.
-
-Documentation:
+Documentation and installation instructions:
 https://perastage.luismaperamato.com/
 
 Issues and feedback:
