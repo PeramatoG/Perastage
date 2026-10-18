@@ -195,6 +195,7 @@ static void CancelLifecycle(int action) {
   std::atomic<bool> started{false};
   std::atomic<bool> observedCancel{false};
   std::atomic<bool> downloading{false};
+  std::atomic<bool> workerFinished{false};
   MvrGdtfResolutionCallbacks callbacks;
   callbacks.loadCatalog = [&](auto canceled) {
     started = true;
@@ -203,6 +204,10 @@ static void CancelLifecycle(int action) {
       while (!canceled() && std::chrono::steady_clock::now() < deadline)
         std::this_thread::sleep_for(1ms);
       observedCancel = canceled();
+      // Model cleanup that completes after the next GUI timer tick.
+      if (observedCancel)
+        std::this_thread::sleep_for(100ms);
+      workerFinished = true;
     }
     MvrGdtfCatalog catalog;
     catalog.entries = {{"aura", "Martin Professional", "MAC Aura XB",
@@ -218,11 +223,19 @@ static void CancelLifecycle(int action) {
     while (!canceled() && std::chrono::steady_clock::now() < deadline)
       std::this_thread::sleep_for(1ms);
     observedCancel = canceled();
+    // Native worker teardown can span several GUI timer ticks.
+    if (observedCancel)
+      std::this_thread::sleep_for(100ms);
+    workerFinished = true;
     return MvrGdtfDownload{};
   };
   MvrGdtfResolutionDialog dialog(nullptr, {request}, workspace.Path(), callbacks, false);
+  bool cancellationSent = false;
   wxTimer timer;
   timer.Bind(wxEVT_TIMER, [&](wxTimerEvent &) {
+    // Already queued native timer notifications must not repeat the commands.
+    if (cancellationSent)
+      return;
     if (!started)
       return;
     if (action == 4 && !downloading)
@@ -242,6 +255,8 @@ static void CancelLifecycle(int action) {
       assert(!label.Contains("0 channels"));
       assert(Button(dialog, "Cancel")->IsEnabled());
     }
+    cancellationSent = true;
+    timer.Stop();
     if (action == 0 || action == 4) {
       Click(*Button(dialog, "OK"));
       assert(!dialog.IsCancellationRequested());
@@ -265,8 +280,10 @@ static void CancelLifecycle(int action) {
   const auto result = dialog.Results().at(request.type);
   assert(result.applied.source == Source::OriginalMvr && result.applied.path == request.mvrPath);
   assert(result.applied.mode.empty() && result.applied.revisionId.empty());
-  if (action == 0 || action == 4)
+  if (action == 0 || action == 4) {
     assert(observedCancel);
+    assert(workerFinished); // The modal boundary must wait for worker cleanup.
+  }
 }
 
 int main(int argc, char **argv) {
