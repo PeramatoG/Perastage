@@ -18,6 +18,7 @@
 #include "mvr_export_preparation.h"
 
 #include "mvr_identity_recovery.h"
+#include "mvr_standard_preservation.h"
 #include "scene_transform_integrity.h"
 #include "uuidutils.h"
 
@@ -277,6 +278,8 @@ void PrepareObjectIds(Result &result) {
   }
   for (const auto &uuid : SortedKeys(result.scene.sceneObjects)) {
     const SceneObject &object = result.scene.sceneObjects.at(uuid);
+    if (object.kind == SceneObjectKind::FocusPoint)
+      continue;
     const int numeric = object.fixtureIdNumeric > 0 &&
                                 used.insert(object.fixtureIdNumeric).second
                             ? object.fixtureIdNumeric
@@ -418,6 +421,9 @@ Result Prepare(const MvrScene &sourceScene, const MvrExportOptions &options) {
   (void)options;
   Result result;
   result.scene = sourceScene;
+  result.diagnostics = mvr::CheckStandardPreservation(sourceScene);
+  if (!result.diagnostics.empty())
+    return result;
   const auto recovery =
       mvridentity::RecoverSceneIdentities(result.scene, "editable-scene");
   AppendIdentityDiagnostics(result, recovery);

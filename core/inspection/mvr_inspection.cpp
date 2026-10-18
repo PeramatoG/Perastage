@@ -233,6 +233,9 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
             node.GetPrimaryModel(),
             DirectChildUuids(readContext, node.uuid)};
       });
+  std::erase_if(snapshot.sceneObjects, [&](const auto &descriptor) {
+    return scene.sceneObjects.at(descriptor.uuid).kind == SceneObjectKind::FocusPoint;
+  });
   snapshot.groupObjects =
       SortedDescriptors(scene.groupObjects, [&](const GroupObject &node) {
         std::vector<std::string> children =

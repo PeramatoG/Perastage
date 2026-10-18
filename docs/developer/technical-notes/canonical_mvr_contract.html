@@ -100,8 +100,22 @@ never replace authored MVR names. The default layer has a canonical deterministi
 UUID before export. See <a href="../layer_identity.html">Layer identity</a> for default policy,
 legacy <code>layer_default</code> migration, workspace state, and compatibility boundaries.</p>
 <p>Root <code>UserData</code> precedes <code>Scene</code>, as required by the official XSD. Every exported
-GroupObject retains its required <code>ChildList</code>, including empty groups. These
+GroupObject retains <code>ChildList</code>, including empty groups, to satisfy the pinned
+XSD; published MVR 1.6 Table 22 permits its absence. These
 representation rules preserve standards-valid identity round-trips.</p>
+<p>FocusPoint uses the existing geometric SceneObject value with a distinct
+<code>SceneObjectKind::FocusPoint</code> and is serialized with its standard element name.
+Direct geometry, ownership, transforms and Fixture Focus links share the existing
+identity/resource/mutation services. Symbol-based focus geometry and Classing
+currently require preservation support and block writes. A required Geometries
+container may be empty; no replacement mesh is invented for an empty focus.</p>
+<p>Export preparation rejects durable known-loss evidence before identity/transform
+recovery or archive writing. PSTG and MVR-xchange snapshots use that same gate.
+This is bounded protection, not proof that every standard field survives.
+See the <a href="https://github.com/PeramatoG/Perastage/blob/main/docs/audits/mvr-1.6-data-integrity-and-roundtrip.md">coverage audit</a>
+for protected structures, unresolved P0 losses and the official XSD/UserData
+discrepancy. Full-document XSD conformance must not be inferred from the internal
+structural validator or from successful export/reimport.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

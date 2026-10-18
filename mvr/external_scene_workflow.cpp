@@ -175,7 +175,10 @@ Result Execute(const Request &request) {
   std::vector<std::uint8_t> archive;
   MvrExporter exporter;
   if (!exporter.ExportCanonicalSnapshotToBuffer(imported.scene, archive)) {
-    result.diagnostics.push_back("Could not serialize the canonical output MVR.");
+    for (const auto &diagnostic : exporter.GetExportDiagnostics())
+      result.diagnostics.push_back(diagnostic.technicalDetail);
+    if (result.diagnostics.empty())
+      result.diagnostics.push_back("Could not serialize the canonical output MVR.");
     return result;
   }
   std::string publicationDiagnostic;

@@ -1739,6 +1739,44 @@ target_link_libraries(save_load_roundtrip_test PRIVATE
 add_test(NAME SaveLoadRoundtrip COMMAND save_load_roundtrip_test)
 set_library_env(SaveLoadRoundtrip)
 
+add_executable(mvr_focus_integrity_test mvr_focus_integrity_test.cpp
+               ../core/scene_clipboard.cpp
+               ../mvr/mvrscenemerger.cpp
+               ../mvr/mvr_merge_analyzer.cpp
+               ../mvr/mvr_merge_applier.cpp
+               ../mvr/mvr_merge_resource_rewriter.cpp
+               support/gdtf_test_fixture_builder.cpp
+               build_info_stub.cpp
+               ../core/configservices.cpp
+               ../core/library/library_bootstrap.cpp
+               ../core/gdtfdictionary.cpp
+               ../core/trussdictionary.cpp
+               ../core/trussloader.cpp
+               ../core/truss_gdtf_builder.cpp
+               ../core/gdtf_canonicalizer.cpp
+               ../core/gdtf_mutation_audit.cpp
+               ../core/logger.cpp
+               gdtfloader_stub.cpp
+               consolepanel_stub.cpp
+               ${PERASTAGE_TEST_MVR_ROUNDTRIP_SUPPORT_OBJECTS})
+target_include_directories(mvr_focus_integrity_test PRIVATE
+                           . support ../core ../models ../mvr ../gui ../third_party)
+target_link_libraries(mvr_focus_integrity_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2
+                      perastage_mvr_read perastage_mvr_import_application_read
+                      perastage_inspection_validation)
+add_test(NAME MvrFocusIntegrity COMMAND mvr_focus_integrity_test)
+set_library_env(MvrFocusIntegrity)
+
+set_perastage_test_labels(MvrFocusIntegrity LAYER standard-strict DOMAINS mvr project zip)
+if(Python3_Interpreter_FOUND)
+    add_test(NAME MvrFocusIndependent
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/mvr_focus_independent_test.py
+                     $<TARGET_FILE:mvr_focus_integrity_test>)
+    set_library_env(MvrFocusIndependent)
+    set_perastage_test_labels(MvrFocusIndependent LAYER standard-strict DOMAINS mvr project zip)
+endif()
+
 add_executable(mvr_project_fixture_metadata_contracts_test
                mvr_project_fixture_metadata_contracts_test.cpp
                ../gui/inspector_project_source.cpp
@@ -3099,6 +3137,7 @@ set(PERASTAGE_CONFIGMANAGER_TEST_TARGETS
     dictionary_seed_merge_backup_test
     active_dictionary_workflow_test
     save_load_roundtrip_test
+    mvr_focus_integrity_test
     mvr_project_fixture_metadata_contracts_test
     project_support_userdata_roundtrip_test
     rider_truss_dictionary_normalization_test
@@ -3746,10 +3785,15 @@ add_executable(mvr_export_preparation_test
                ../core/uuidutils.cpp)
 target_include_directories(mvr_export_preparation_test PRIVATE
                            ../mvr ../core ../models)
-target_link_libraries(mvr_export_preparation_test PRIVATE ${wxWidgets_LIBRARIES})
+target_link_libraries(mvr_export_preparation_test PRIVATE ${wxWidgets_LIBRARIES} perastage_mvr_read)
 add_test(NAME MvrExportPreparation COMMAND mvr_export_preparation_test)
 set_perastage_test_labels(MvrExportPreparation
                           LAYER standard-strict DOMAINS mvr architecture)
+
+add_executable(mvr_standard_preservation_test mvr_standard_preservation_test.cpp)
+target_link_libraries(mvr_standard_preservation_test PRIVATE perastage_mvr_read tinyxml2::tinyxml2)
+add_test(NAME MvrStandardPreservation COMMAND mvr_standard_preservation_test)
+set_perastage_test_labels(MvrStandardPreservation LAYER standard-strict DOMAINS mvr core)
 
 add_executable(mvr_export_preparation_header_compile_test
                mvr_export_preparation_header_compile_test.cpp)
@@ -3852,6 +3896,7 @@ set_perastage_test_labels(MvrExportArchiveWriter
 # Importer characterization consumers reuse the single production MVR read owner.
 foreach(mvr_read_consumer
         save_load_roundtrip_test
+        mvr_focus_integrity_test
         mvr_project_fixture_metadata_contracts_test
         project_support_userdata_roundtrip_test
         rider_truss_dictionary_normalization_test
@@ -3879,6 +3924,7 @@ set(PERASTAGE_GDTF_DICTIONARY_PUBLICATION_TEST_TARGETS
     dictionary_seed_merge_backup_test
     active_dictionary_workflow_test
     save_load_roundtrip_test
+    mvr_focus_integrity_test
     mvr_project_fixture_metadata_contracts_test
     project_support_userdata_roundtrip_test
     rider_truss_dictionary_normalization_test
@@ -3930,6 +3976,7 @@ foreach(PERASTAGE_MVR_EXPORT_TEST IN LISTS PERASTAGE_MVR_EXPORT_TEST_TARGETS)
 endforeach()
 foreach(PERASTAGE_MVR_ROUNDTRIP_CONSUMER IN ITEMS
         save_load_roundtrip_test
+        mvr_focus_integrity_test
         mvr_importer_archive_characterization_test
         project_support_userdata_roundtrip_test
         truss_path_encoding_regression_test

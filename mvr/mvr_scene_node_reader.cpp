@@ -51,6 +51,7 @@ namespace fs = std::filesystem;
 
 namespace mvr {
 
+using scene_reader_detail::CieToHex;
 using scene_reader_detail::ToLowerCopy;
 using scene_reader_detail::Trim;
 using scene_reader_detail::TryParseFloat;
@@ -71,38 +72,6 @@ bool IsPortableRootArchiveFileName(const std::string &value) {
   const fs::path path = PathUtils::PathFromUtf8(value);
   return !path.is_absolute() && !path.has_root_name() &&
          path.filename().generic_string() == value;
-}
-
-// Converts one MVR CIE color value to an RGB hexadecimal string.
-std::string CieToHex(const std::string &cie) {
-  std::string value = cie;
-  std::replace(value.begin(), value.end(), ',', ' ');
-  std::stringstream stream(value);
-  double x = 0.0, y = 0.0, luminance = 0.0;
-  if (!(stream >> x >> y >> luminance) || y <= 0.0)
-    return {};
-  double red = 3.2406 * x * (luminance / y) - 1.5372 * luminance -
-               0.4986 * (1.0 - x - y) * (luminance / y);
-  double green = -0.9689 * x * (luminance / y) + 1.8758 * luminance +
-                 0.0415 * (1.0 - x - y) * (luminance / y);
-  double blue = 0.0557 * x * (luminance / y) - 0.2040 * luminance +
-                1.0570 * (1.0 - x - y) * (luminance / y);
-  auto gamma = [](double channel) {
-    channel = std::max(0.0, channel);
-    return channel <= 0.0031308 ? 12.92 * channel
-                                : 1.055 * std::pow(channel, 1.0 / 2.4) - 0.055;
-  };
-  const int redByte =
-      static_cast<int>(std::round(std::clamp(gamma(red), 0.0, 1.0) * 255.0));
-  const int greenByte =
-      static_cast<int>(std::round(std::clamp(gamma(green), 0.0, 1.0) * 255.0));
-  const int blueByte =
-      static_cast<int>(std::round(std::clamp(gamma(blue), 0.0, 1.0) * 255.0));
-  std::ostringstream result;
-  result << '#' << std::uppercase << std::hex << std::setfill('0')
-         << std::setw(2) << redByte << std::setw(2) << greenByte << std::setw(2)
-         << blueByte;
-  return result.str();
 }
 
 // Converts a UTF-8 filesystem string without changing its byte sequence.
@@ -312,6 +281,8 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
                 node->FirstChildElement("Color")) {
           if (const char *txt = colorNode->GetText())
             fixture.mvrFixtureColorHex = CieToHex(txt);
+          fixture.mvrFixtureColorCie = colorNode->GetText() ? colorNode->GetText() : "";
+          fixture.mvrFixtureColorAtImport = fixture.mvrFixtureColorHex;
         }
         float legacyPowerConsumptionW = 0.0f;
         bool hasLegacyPowerConsumption = false;
@@ -949,6 +920,8 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
                           const Matrix &localTransform,
                           const std::string &parentGroupUuid) {
         SceneObject obj;
+        if (std::string(node->Name()) == "FocusPoint")
+          obj.kind = SceneObjectKind::FocusPoint;
         obj.uuid =
             resolveStableUuid("SceneObject", node, layerName, nodeTransform);
         obj.layer = layerName;
@@ -1117,7 +1090,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
         std::transform(typeLower.begin(), typeLower.end(), typeLower.begin(),
                        [](unsigned char c) { return std::tolower(c); });
 
-        if (typeLower == "support") {
+        if (typeLower == "support" && obj.kind == SceneObjectKind::SceneObject) {
           Support support;
           support.uuid = obj.uuid;
           support.name = obj.name;
@@ -1347,11 +1320,14 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
           parseChildList(inner, layerName, layerUuid, nodeTransform,
                          parentGroupUuid, finalUuid, false);
         continue;
-      } else if (nodeName == "SceneObject") {
+      } else if (nodeName == "SceneObject" || nodeName == "FocusPoint") {
         const std::string finalUuid = parseSceneObj(
             child, layerName, nodeTransform, local, parentGroupUuid);
         recordLayerOwnership(finalUuid);
-        reportNodeProgress("SceneObject");
+        reportNodeProgress(nodeName.c_str());
+        if (nodeName == "FocusPoint")
+          services.recordNeutralSceneNode(scene_reader_detail::BuildNeutralSceneNode(
+              child, nodeName, layerUuid, layerName, parentGroupUuid));
         if (!parentGroupUuid.empty()) {
           scene.groupObjects[parentGroupUuid].children.push_back(
               {MvrNodeType::SceneObject, finalUuid});
@@ -1361,8 +1337,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
           parseChildList(inner, layerName, layerUuid, nodeTransform,
                          parentGroupUuid, finalUuid, false);
         continue;
-      } else if (nodeName == "FocusPoint" || nodeName == "VideoScreen" ||
-                 nodeName == "Projector") {
+      } else if (nodeName == "VideoScreen" || nodeName == "Projector") {
         MvrNeutralSceneNode neutral =
             scene_reader_detail::BuildNeutralSceneNode(
                 child, nodeName, layerUuid, layerName, parentGroupUuid);
@@ -1371,12 +1346,9 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
         services.recordNeutralSceneNode(std::move(neutral));
         services.recordDirectChildUuid(directParentUuid, nodeUuid);
         reportNodeProgress(nodeName.c_str());
-        if (nodeName != "FocusPoint") {
-          if (tinyxml2::XMLElement *inner =
-                  child->FirstChildElement("ChildList"))
-            parseChildList(inner, layerName, layerUuid, nodeTransform,
-                           parentGroupUuid, nodeUuid, false);
-        }
+        if (tinyxml2::XMLElement *inner = child->FirstChildElement("ChildList"))
+          parseChildList(inner, layerName, layerUuid, nodeTransform,
+                         parentGroupUuid, nodeUuid, false);
         continue;
       } else if (nodeName == "GroupObject") {
         GroupObject group;

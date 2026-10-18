@@ -21,6 +21,7 @@
 
 namespace mvr::scene_reader_detail {
 
+std::string CieToHex(const std::string &cie);
 std::string Trim(const std::string &value);
 std::string ToLowerCopy(std::string value);
 bool TryParseFloat(const std::string &text, float &out);

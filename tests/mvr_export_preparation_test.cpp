@@ -216,6 +216,25 @@ void TestDeterminismAcrossInsertionOrder() {
   assert(first.layerUuids == reordered.layerUuids);
 }
 
+// A FocusPoint has no FixtureID and must not reserve another object's number.
+void TestFocusDoesNotConsumeObjectIds() {
+  MvrScene scene;
+  SceneObject focus;
+  focus.uuid = "10000000-0000-4000-8000-000000000001";
+  focus.kind = SceneObjectKind::FocusPoint;
+  scene.sceneObjects.emplace(focus.uuid, focus);
+  SceneObject object;
+  object.uuid = "20000000-0000-4000-8000-000000000001";
+  object.fixtureIdNumeric = 1;
+  object.fixtureIdText = "Deck";
+  scene.sceneObjects.emplace(object.uuid, object);
+  const auto result = mvr_export_preparation::Prepare(scene, CanonicalMvrExportOptions());
+  assert(result.success);
+  assert(!result.objectIds.contains(focus.uuid));
+  assert(result.objectIds.at(object.uuid).second == 1);
+  assert(result.objectIds.at(object.uuid).first == "Deck");
+}
+
 } // namespace
 
 // Runs focused MVR export preparation characterization.
@@ -224,5 +243,6 @@ int main() {
   TestPositionPreparation();
   TestFatalTransformPreparation();
   TestDeterminismAcrossInsertionOrder();
+  TestFocusDoesNotConsumeObjectIds();
   return 0;
 }

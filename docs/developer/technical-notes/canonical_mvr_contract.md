@@ -67,5 +67,21 @@ UUID before export. See [Layer identity](../layer_identity.md) for default polic
 legacy `layer_default` migration, workspace state, and compatibility boundaries.
 
 Root `UserData` precedes `Scene`, as required by the official XSD. Every exported
-GroupObject retains its required `ChildList`, including empty groups. These
+GroupObject retains `ChildList`, including empty groups, to satisfy the pinned
+XSD; published MVR 1.6 Table 22 permits its absence. These
 representation rules preserve standards-valid identity round-trips.
+
+FocusPoint uses the existing geometric SceneObject value with a distinct
+`SceneObjectKind::FocusPoint` and is serialized with its standard element name.
+Direct geometry, ownership, transforms and Fixture Focus links share the existing
+identity/resource/mutation services. Symbol-based focus geometry and Classing
+currently require preservation support and block writes. A required Geometries
+container may be empty; no replacement mesh is invented for an empty focus.
+
+Export preparation rejects durable known-loss evidence before identity/transform
+recovery or archive writing. PSTG and MVR-xchange snapshots use that same gate.
+This is bounded protection, not proof that every standard field survives.
+See the [coverage audit](../../audits/mvr-1.6-data-integrity-and-roundtrip.md)
+for protected structures, unresolved P0 losses and the official XSD/UserData
+discrepancy. Full-document XSD conformance must not be inferred from the internal
+structural validator or from successful export/reimport.

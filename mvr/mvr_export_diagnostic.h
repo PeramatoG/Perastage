@@ -30,6 +30,7 @@ enum class MvrExportDiagnosticCode {
   CanonicalizationFailed,
   ArchiveIoFailed,
   HierarchyRecursion,
+  StandardDataPreservationBlocked,
   InternalRecovery
 };
 

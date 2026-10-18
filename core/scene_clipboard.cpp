@@ -60,6 +60,8 @@ bool InsertClone(MvrScene &scene, const Item &item, const std::string &uuid,
         clone.motorFixtureUuid = linked->second;
     }
     if constexpr (std::is_same_v<T, Fixture>) {
+      if (const auto focus = remap.find(clone.focus); focus != remap.end())
+        clone.focus = focus->second;
       if (!scene.fixtures.emplace(uuid, clone).second)
         return false;
       ResolveParent(scene, scene.fixtures.at(uuid), MvrNodeType::Fixture,

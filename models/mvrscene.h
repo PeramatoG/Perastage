@@ -43,6 +43,18 @@ struct MvrOpaqueUserDataBlock {
     bool operator==(const MvrOpaqueUserDataBlock& other) const = default;
 };
 
+// Durable evidence of source information the current serializer cannot retain.
+// Evidence is diagnostic data, never an XML fragment to insert into output.
+struct MvrPreservationIssue {
+    std::string node;
+    std::string objectUuid;
+    std::string sourceLocation;
+    std::string originalInformation;
+    std::string reason;
+    std::string recommendedAction;
+    bool operator==(const MvrPreservationIssue&) const = default;
+};
+
 // Represents the full scene structure from an MVR file
 class MvrScene {
 public:
@@ -53,6 +65,7 @@ public:
     std::string basePath;
     std::vector<std::shared_ptr<void>> runtimeResourceLeases;
     std::vector<MvrOpaqueUserDataBlock> opaqueUserDataBlocks;
+    std::vector<MvrPreservationIssue> preservationIssues;
 
     std::unordered_map<std::string, Fixture> fixtures;
     std::unordered_map<std::string, Truss> trusses;

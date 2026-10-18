@@ -28,6 +28,7 @@
 #include "matrixutils.h"
 #include "mvr_preferences.h"
 #include "mvr_export_preparation.h"
+#include "mvr_standard_preservation.h"
 #include "mvr_export_archive_writer.h"
 #include "mvr_export_transport.h"
 #include "mvr_export_resource_collection.h"
@@ -2000,11 +2001,20 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     if (!fixtureGdtfArchivePath.empty())
       values.gdtfMode = f.gdtfMode.empty() ? "Default" : f.gdtfMode;
     values.position = position;
+    values.focus = f.focus;
+    values.function = f.function;
+    values.dmxInvertPan = f.dmxInvertPan;
+    values.dmxInvertTilt = f.dmxInvertTilt;
+    values.customId = f.customId;
+    values.customIdType = f.customIdType;
     values.fixtureId = fixtureExportId.first;
     values.fixtureIdNumeric = fixtureExportId.second;
     values.unitNumber = unitNumber;
     values.absoluteDmxAddress = absoluteDmxAddress;
-    if (!f.mvrFixtureColorHex.empty())
+    if (!f.mvrFixtureColorCie.empty() &&
+        f.mvrFixtureColorHex == f.mvrFixtureColorAtImport)
+      values.color = f.mvrFixtureColorCie;
+    else if (!f.mvrFixtureColorHex.empty())
       values.color = HexToCie(f.mvrFixtureColorHex);
     mvr_xml_serialization::AppendFixture(doc, parent, values);
   };
@@ -2350,6 +2360,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     };
 
     mvr_xml_serialization::SceneObjectValues values;
+    values.isFocusPoint = obj.kind == SceneObjectKind::FocusPoint;
     values.object = {obj.uuid, obj.name};
     values.matrix =
         obj.parentGroupUuid.empty() ? obj.transform : obj.localTransform;
@@ -2408,6 +2419,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       return true;
     };
 
+    bool unresolvedFocusGeometry = false;
     if (!obj.geometries.empty()) {
       size_t geometryIndex = 0;
       for (const auto &geometry : obj.geometries) {
@@ -2415,13 +2427,25 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
           if (resolveGeometry(geometry.modelFile, geometry.localTransform,
                               geometryIndex))
             ++geometryIndex;
+          else
+            unresolvedFocusGeometry = true;
         }
       }
     } else if (!obj.modelFile.empty()) {
-      resolveGeometry(obj.modelFile, MatrixUtils::Identity(), 0);
+      unresolvedFocusGeometry =
+          !resolveGeometry(obj.modelFile, MatrixUtils::Identity(), 0);
     }
 
-    if (values.geometries.empty()) {
+    if (values.isFocusPoint && unresolvedFocusGeometry) {
+      AddDiagnostic({MvrExportDiagnosticCode::StandardDataPreservationBlocked,
+                     MvrExportDiagnosticSeverity::Error,
+                     MvrExportDiagnosticImpact::ExportFailed, true,
+                     "FocusPoint", obj.name, obj.uuid, {},
+                     "FocusPoint geometry could not be packaged; output was blocked."});
+      return false;
+    }
+
+    if (values.geometries.empty() && !values.isFocusPoint) {
       const auto placeholder =
           resolvePlaceholderCubeGeometry(obj.uuid, "SceneObject");
       if (!placeholder) {
@@ -2588,6 +2612,11 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   }
 
   sceneNode->InsertEndChild(layersNode);
+  const auto focusDiagnostics = mvr::CheckSerializedFocus(*sceneNode);
+  for (const auto &diagnostic : focusDiagnostics)
+    AddDiagnostic(diagnostic);
+  if (!focusDiagnostics.empty())
+    return false;
 
   // Prunes non-referenced resources so deleted scene elements do not keep stale
   // payload files.
