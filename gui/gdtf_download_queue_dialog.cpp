@@ -111,9 +111,18 @@ GdtfDownloadQueueDialog::GdtfDownloadQueueDialog(wxWindow *parent,
     }
     Acknowledge();
   });
-  cancelButton->Bind(wxEVT_BUTTON,
-                     [this](wxCommandEvent &) { RequestCancel(); });
-  ackButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Acknowledge(); });
+  // Handle dialog-level commands as well as propagated button clicks, so the
+  // native default handlers cannot dismiss an active workflow.
+  Bind(
+      wxEVT_BUTTON,
+      [this](wxCommandEvent &) {
+        if (finished)
+          Acknowledge();
+        else
+          RequestCancel();
+      },
+      wxID_CANCEL);
+  Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Acknowledge(); }, wxID_OK);
   // Do not let native Escape handling end the modal boundary during work.
   SetEscapeId(wxID_NONE);
   Bind(wxEVT_CHAR_HOOK, [this](wxKeyEvent &event) {

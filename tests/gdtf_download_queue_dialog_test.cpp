@@ -68,13 +68,18 @@ void CheckQueue(bool autoClose, bool cancel, int action) {
     dialog.AddRow("pending");
     // A premature acknowledgement must leave the workflow active.
     Press(dialog, wxID_OK);
+    wxCommandEvent prematureOk(wxEVT_BUTTON, wxID_OK);
+    dialog.ProcessWindowEvent(prematureOk);
     assert(dialog.IsShown() && !dialog.IsFinished());
     if (cancel) {
       if (action == 1)
         assert(!dialog.Close());
       else if (action == 2)
         Escape(dialog);
-      else
+      else if (action == 3) {
+        wxCommandEvent cancelCommand(wxEVT_BUTTON, wxID_CANCEL);
+        dialog.ProcessWindowEvent(cancelCommand);
+      } else
         Press(dialog, wxID_CANCEL);
       assert(dialog.IsCancellationRequested());
       assert(!dialog.FindWindow(wxID_CANCEL)->IsEnabled());
@@ -135,7 +140,10 @@ void CheckQueue(bool autoClose, bool cancel, int action) {
           dialog.Close();
         else if (action == 2)
           Escape(dialog);
-        else
+        else if (action == 3) {
+          wxCommandEvent okCommand(wxEVT_BUTTON, wxID_OK);
+          dialog.ProcessWindowEvent(okCommand);
+        } else
           Press(dialog, wxID_OK);
       });
     }
@@ -153,7 +161,7 @@ int main(int argc, char **argv) {
   wxTheApp->SetExitOnFrameDelete(false);
   for (bool autoClose : {false, true})
     for (bool cancel : {false, true})
-      for (int action : {0, 1, 2})
+      for (int action : {0, 1, 2, 3})
         CheckQueue(autoClose, cancel, action);
   {
     GdtfDownloadQueueDialog dialog(nullptr, false);

@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-18 10:40+0000\n"
+"POT-Creation-Date: 2026-10-18 10:43+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -1652,24 +1652,24 @@ msgstr "详细信息"
 msgid "0 processed  |  0 downloaded  |  0 fallback"
 msgstr "已处理 0 个  |  已下载 0 个  |  回退 0 个"
 
-#: gui/gdtf_download_queue_dialog.cpp:158
+#: gui/gdtf_download_queue_dialog.cpp:167
 msgid "Cancel requested. Finishing current transfer..."
 msgstr "已请求取消。正在完成当前传输..."
 
-#: gui/gdtf_download_queue_dialog.cpp:172
+#: gui/gdtf_download_queue_dialog.cpp:181
 #, c-format
 msgid "%s - queue finished"
 msgstr "%s - 队列已完成"
 
-#: gui/gdtf_download_queue_dialog.cpp:195
+#: gui/gdtf_download_queue_dialog.cpp:204
 msgid "Pending"
 msgstr "等待中"
 
-#: gui/gdtf_download_queue_dialog.cpp:197
+#: gui/gdtf_download_queue_dialog.cpp:206
 msgid "Waiting to match catalog entry"
 msgstr "正在等待匹配目录条目"
 
-#: gui/gdtf_download_queue_dialog.cpp:250
+#: gui/gdtf_download_queue_dialog.cpp:259
 #, c-format
 msgid "%d/%zu processed  |  %d downloaded  |  %d fallback  |  %d canceled"
 msgstr "已处理 %d/%zu 个  |  已下载 %d 个  |  回退 %d 个  |  已取消 %d 个"
