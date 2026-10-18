@@ -4249,7 +4249,8 @@ add_test(NAME DecimalParsingCompatibility COMMAND decimal_parse_test)
 
 add_executable(gdtf_download_queue_dialog_test
                gdtf_download_queue_dialog_test.cpp
-               ../gui/gdtf_download_queue_dialog.cpp)
+               ../gui/gdtf_download_queue_dialog.cpp
+               ../gui/gdtf_download_queue_table.cpp)
 target_include_directories(gdtf_download_queue_dialog_test PRIVATE ../gui ../core ../models)
 target_link_libraries(gdtf_download_queue_dialog_test PRIVATE ${wxWidgets_LIBRARIES})
 if(PERASTAGE_XVFB_RUN)
@@ -4284,8 +4285,10 @@ add_bash_policy_test(GdtfResolutionBoundary
 add_executable(mvr_gdtf_resolution_dialog_test
     mvr_gdtf_resolution_dialog_test.cpp
     ../gui/gdtf_download_queue_dialog.cpp
+    ../gui/gdtf_download_queue_table.cpp
     ../gui/mvr_gdtf_resolution_dialog.cpp
     ../gui/mvr_gdtf_resolution_actions.cpp
+    ../gui/mvr_gdtf_resolution_sources.cpp
     ../gui/mvr_gdtf_resolution_worker.cpp
     ../gui/gdtfsearchdialog.cpp
     ../gui/gdtf_catalog_details_panel.cpp

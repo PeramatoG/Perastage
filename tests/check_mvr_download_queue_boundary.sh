@@ -13,6 +13,10 @@ assert ': GdtfDownloadQueueDialog(parent, false)' in resolution
 assert 'ShowModal()' not in resolution
 assert dialog.count('ShowModal()') == 1
 assert 'wxYield' not in dialog and 'wxEventLoop' not in dialog
+source_table = Path('gui/gdtf_download_queue_table.cpp').read_text()
+assert 'wxDataViewToggleRenderer' in source_table
+assert 'wxYield' not in source_table and 'DownloadRevision' not in source_table
+assert 'ConfigManager::Get' not in source_table
 assert 'ConfigManager::Get' not in dialog
 for root in ('core', 'cli'):
     for path in Path(root).rglob('*'):

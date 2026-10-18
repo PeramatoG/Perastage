@@ -162,6 +162,7 @@ struct RankedCandidate {
   std::string canonicalModel;
   MatchConfidence confidence = MatchConfidence::Review;
   bool automaticSafe = false;
+  bool modelSafe = false;
   std::vector<std::string> reasons;
   std::vector<std::string> warnings;
 };
@@ -169,6 +170,7 @@ struct RankedCandidate {
 struct CandidateRanking {
   std::vector<RankedCandidate> candidates;
   std::optional<std::string> recommendedRid;
+  std::optional<std::string> downloadRid;
   MatchConfidence confidence = MatchConfidence::NoMatch;
   std::string diagnostics;
 };

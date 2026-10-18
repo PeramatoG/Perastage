@@ -350,6 +350,9 @@ hook. In the interactive MVR resolver, Escape, Cancel and window close request
 cancellation both during work and after completion. The modal boundary stays alive
 until the worker joins, then all queue rows retain their original MVR profiles and
 instance modes. Only OK (or successful automatic close) accepts substitutions.
+The native data-view source checkboxes use platform keyboard activation and remain
+mutually exclusive. Unavailable sources cannot be toggled; source edits do not
+register global accelerators or override the queue&#39;s Escape cancellation.
 The legacy base queue retains its completion acknowledgement policy for other
 callers; the interactive resolver explicitly overrides cancellation policy.
 This handling takes precedence over default dialog dismissal while focus is

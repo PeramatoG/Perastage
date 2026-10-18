@@ -31,6 +31,18 @@ int main() {
   assert(CopyIntoScene(source, {}, diagnostic).empty());
   const auto destination = CopyIntoScene(source, workspace.Path() / "scene", diagnostic);
   assert(!destination.empty() && destination != source);
+  assert(SameProfileBytes(source, destination));
+  assert(!SameProfileBytes(source, workspace.Path() / "missing.gdtf"));
+  const auto different = workspace.Path() / "different.gdtf";
+  assert(tests::archive::WriteStoredZipWithRawNames(different,
+      {{"description.xml", xml + "<!-- Different package, same FixtureTypeID -->"}}, diagnostic));
+  assert(!SameProfileBytes(source, different));
+  const auto left = workspace.Path() / "left.bin", right = workspace.Path() / "right.bin";
+  std::string payload(131072, 'a');
+  { std::ofstream out(left, std::ios::binary); out << payload; }
+  payload.back() = 'b';
+  { std::ofstream out(right, std::ios::binary); out << payload; }
+  assert(!SameProfileBytes(left, right));
   assert(tests::archive::ReadBinaryFile(destination.string()) == originalBytes);
   assert(tests::archive::ReadBinaryFile(source.string()) == originalBytes);
   auto request = mvr::gdtf_import_matching::BuildDownloadRequest(

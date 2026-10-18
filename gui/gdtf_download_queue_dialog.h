@@ -25,7 +25,7 @@
 
 class wxButton;
 class wxGauge;
-class wxListCtrl;
+class GdtfDownloadQueueTable;
 class wxStaticText;
 
 enum class DownloadRowState {
@@ -39,7 +39,9 @@ enum class DownloadRowState {
   Application,
   Local,
   DownloadFailed,
-  Unresolved
+  Unresolved,
+  ModeRequired,
+  Identical
 };
 struct DownloadProgressStats {
   long long downloadedBytes = 0;
@@ -84,7 +86,7 @@ protected:
   wxStaticText *summaryText = nullptr;
   wxStaticText *progressPhaseText = nullptr;
   wxGauge *progressGauge = nullptr;
-  wxListCtrl *downloadInfoList = nullptr;
+  GdtfDownloadQueueTable *downloadInfoList = nullptr;
   wxStaticText *footerSummary = nullptr;
   wxStaticText *bytesSummary = nullptr;
   wxButton *cancelButton = nullptr;

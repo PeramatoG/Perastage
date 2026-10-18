@@ -19,7 +19,7 @@
 #include "../mvr/gdtf_import_matching.h"
 #include "gdtf_resolution_status_style.h"
 #include <wx/wx.h>
-#include <wx/listctrl.h>
+#include "gdtf_download_queue_table.h"
 #include <wx/choice.h>
 #include <algorithm>
 
@@ -42,6 +42,8 @@ wxString StatusText(Status status) {
   case Status::Pending: return _("Pending");
   case Status::Downloading: return _("Downloading");
   case Status::Downloaded: return _("Downloaded successfully");
+  case Status::ModeRequired: return _("Downloaded; select DMX mode");
+  case Status::Identical: return _("Downloaded; identical to original MVR");
   case Status::Reused: return _("Reused existing profile");
   case Status::OriginalMvr: return SourceText(Source::OriginalMvr);
   case Status::Application: return SourceText(Source::Application);
@@ -88,6 +90,10 @@ MvrGdtfResolutionDialog::MvrGdtfResolutionDialog(wxWindow *parent,
     if (progress.ready) {
       rows[progress.row].resolution = std::move(progress.resolution);
       rows[progress.row].evidence = std::move(progress.evidence);
+      if (rows[progress.row].resolution.selected.source == Source::Catalog) {
+        rows[progress.row].catalogProposal = rows[progress.row].resolution.selected;
+        rows[progress.row].catalogProposalPending = true;
+      }
       profileLabels.insert(progress.profileLabels.begin(), progress.profileLabels.end());
       RefreshRows();
     }
@@ -132,7 +138,7 @@ void MvrGdtfResolutionDialog::BuildLayout() {
   table = downloadInfoList;
   for (const auto &row : rows)
     AddRow(row.request.type);
-  table->InsertColumn(5, _("Source"), wxLIST_FORMAT_LEFT, 150);
+  table->EnableSourceChoices([this](unsigned row, unsigned source) { ChooseSource(row, source); });
   auto *choices = new wxBoxSizer(wxHORIZONTAL);
   candidates = new wxChoice(this, wxID_ANY);
   resources = new wxChoice(this, wxID_ANY);
@@ -150,13 +156,16 @@ void MvrGdtfResolutionDialog::BuildLayout() {
   apply = new wxButton(this, wxID_APPLY, _("Apply selections"));
   actions->Add(search, 0, wxRIGHT, 8);
   actions->Add(local, 0, wxRIGHT, 8);
-  actions->Add(apply, 0);
+  actions->Add(apply, 0, wxRIGHT, 8);
+  chooseMode = new wxButton(this, wxID_ANY, _("Choose DMX mode..."));
+  actions->Add(chooseMode, 0);
   layout->Insert(insertAt++, actions, 0, wxALL, 8);
   ack = ackButton;
   cancel = cancelButton;
   SetMinSize(wxSize(900, 640));
   SetSize(wxSize(1140, 740));
-  table->Bind(wxEVT_LIST_ITEM_SELECTED, [this](wxListEvent &) { RefreshSelection(); });
+  table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED, [this](wxDataViewEvent &) { RefreshSelection(); });
+  chooseMode->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { ChooseReplacementMode(); });
   candidates->Bind(wxEVT_CHOICE, [this](wxCommandEvent &) { ChooseCandidate(); });
   resources->Bind(wxEVT_CHOICE, [this](wxCommandEvent &) { ChooseResource(); });
   search->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Search(); });
@@ -167,7 +176,7 @@ void MvrGdtfResolutionDialog::BuildLayout() {
 }
 
 std::optional<std::size_t> MvrGdtfResolutionDialog::SelectedRow() const {
-  const long row = table->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
+  const long row = table->SelectedRow();
   if (row < 0 || static_cast<std::size_t>(row) >= rows.size())
     return {};
   return static_cast<std::size_t>(row);
@@ -185,7 +194,7 @@ void MvrGdtfResolutionDialog::SetBusy(bool value) {
   busy = value;
   apply->Enable(!busy);
   const bool pending = std::any_of(rows.begin(), rows.end(), [](const Row &row) {
-    return row.resolution.status == Status::Pending;
+    return row.resolution.status == Status::Pending || row.resolution.status == Status::ModeRequired;
   });
   finished = !busy && !pending;
   ack->Enable(finished);
@@ -215,6 +224,8 @@ void MvrGdtfResolutionDialog::RefreshRows() {
     case Status::Pending: state = DownloadRowState::Pending; break;
     case Status::Downloading: state = DownloadRowState::Downloading; break;
     case Status::Downloaded: state = DownloadRowState::Downloaded; break;
+    case Status::ModeRequired: state = DownloadRowState::ModeRequired; break;
+    case Status::Identical: state = DownloadRowState::Identical; break;
     case Status::Reused: state = DownloadRowState::Reused; break;
     case Status::OriginalMvr: state = DownloadRowState::OriginalMvr; break;
     case Status::Application: state = DownloadRowState::Application; break;
@@ -226,11 +237,19 @@ void MvrGdtfResolutionDialog::RefreshRows() {
     UpdateStatusRow(rows[i].request.type, identity, StatusText(result.status),
                     FormatBytes(Progress(rows[i].request.type).downloadedBytes),
                     wxString::FromUTF8(result.applied.mode), state);
-    table->SetItem(i, 5, result.origin == SelectionOrigin::User
-        ? _("User selection") : _("Automatic"));
+    const auto has = [&](Source source) {
+      return std::any_of(result.availableResources.begin(), result.availableResources.end(),
+                          [&](const auto &resource) { return resource.source == source; });
+    };
+    const int selectedSource = result.selected.source == Source::OriginalMvr ? 0 :
+        result.selected.source == Source::Application ? 1 :
+        (result.selected.source == Source::Catalog || result.selected.source == Source::Local) ? 2 : -1;
+    table->SetSourceChoices(i, {has(Source::OriginalMvr), has(Source::Application),
+                               rows[i].replacement.has_value() || rows[i].catalogProposal.has_value()},
+                            selectedSource, !busy && !stop);
   }
   if (!SelectedRow() && !rows.empty())
-    table->SetItemState(0, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
+    table->SelectRow(0);
   RefreshSelection();
 }
 
@@ -241,6 +260,7 @@ void MvrGdtfResolutionDialog::RefreshSelection() {
   resourceChoices.clear();
   for (auto *control : std::vector<wxWindow *>{candidates, resources, search, local})
     control->Enable(!busy && selected.has_value());
+  chooseMode->Enable(!busy && selected && rows[*selected].replacement.has_value());
   if (!selected)
     return;
   const auto &row = rows[*selected];
@@ -265,7 +285,9 @@ void MvrGdtfResolutionDialog::RefreshSelection() {
   for (const auto &resource : row.resolution.availableResources) {
     resources->Append(wxString::Format(_("%s / %s"), SourceText(resource.source), resource.mode.empty() ? _("Preserve imported modes") : wxString::FromUTF8(resource.mode)));
     resourceChoices.push_back(resource);
-    if (resource == row.resolution.selected)
+    if (resource == row.resolution.selected ||
+        (resource.source == Source::Catalog && row.resolution.selected.source == Source::Catalog &&
+         resource.revisionId == row.resolution.selected.revisionId && resource.mode == row.resolution.selected.mode))
       resources->SetSelection(resources->GetCount() - 1);
   }
   wxString text = wxString::Format(_("Imported mode: %s"), wxString::FromUTF8(row.request.modeName));
@@ -278,20 +300,33 @@ void MvrGdtfResolutionDialog::RefreshSelection() {
                  row.request.patchSpacingHint),
         row.request.patchSpacingHint);
   text += "\n" + SourceText(row.resolution.selected.source);
+  if (row.resolution.status == Status::ModeRequired)
+    text += "\n" + _("The profile was downloaded. Choose its DMX mode or select another source.");
+  if (!row.resolution.ranking.downloadRid && row.resolution.origin != SelectionOrigin::User)
+    text += "\n" + _("No unambiguous catalog model match. Select a candidate or another source.");
+  if (row.identicalToOriginal)
+    text += "\n" + _("The downloaded file is byte-for-byte identical to the original MVR profile.");
   if (row.resolution.selected.source == Source::Catalog)
     text += " / " + wxString::FromUTF8(row.resolution.selected.revisionId);
   for (const auto &candidate : row.resolution.ranking.candidates) {
     if (candidate.rid != row.resolution.selected.revisionId)
       continue;
-    text += candidate.automaticSafe ? " / " + _("Safe automatic match")
-                                    : " / " + _("Review required");
+    const bool reviewed = row.resolution.origin == SelectionOrigin::User &&
+        row.resolution.status != Status::ModeRequired;
+    text += " / " + (row.resolution.status == Status::Identical
+        ? _("Downloaded; identical to original MVR") : reviewed ? _("User selection")
+        : candidate.automaticSafe ? _("Safe automatic match") : _("Review required"));
     for (const auto &warning : candidate.warnings) {
       if (warning == "manufacturer-mismatch")
         text += "\n" + _("The manufacturer differs from the imported profile.");
       else if (warning == "model-variant-requires-review" || warning == "numeric-model-mismatch")
         text += "\n" + _("The fixture model or variant differs from the imported profile.");
-      else if (warning == "mode-requires-review")
-        text += "\n" + _("DMX mode compatibility requires review.");
+      else if (warning == "mode-requires-review") {
+        if (!reviewed && row.resolution.status != Status::Identical)
+          text += "\n" + _("DMX mode compatibility requires review.");
+        else if (row.resolution.selected.mode != row.request.modeName)
+          text += "\n" + _("The selected DMX mode differs from the imported mode.");
+      }
       else if (warning == "footprint-mismatch")
         text += "\n" + _("The DMX footprint differs from the imported profile.");
       else if (warning == "footprint-does-not-prove-channel-semantics")

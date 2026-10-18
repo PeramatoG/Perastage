@@ -29,6 +29,22 @@ Seleccione una fila para revisar revisiones y advertencias, incluso después de
 una descarga correcta. **Aplicar selecciones** procesa los cambios antes de que
 **Aceptar** aplique el resultado a todas las instancias de ese tipo.
 
+Elegir **Download** solicita el archivo del repositorio cuando el modelo coincide
+sin ambigüedad, aunque el nombre del modo sea distinto. Por ejemplo, `DMX Mode`
+no impide descargar ELP PAR con los modos `Basic` y `Compact`. Confirme el modo
+real después de descargar cuando deba revisarse la compatibilidad. Si cancela esa
+elección, **Descargado; seleccione el modo DMX** conserva el paquete. Utilice
+**Elegir modo DMX...** más tarde o seleccione otro origen. Aceptar permanece
+deshabilitado mientras haya modos pendientes.
+
+Cada fila tiene casillas exclusivas **MVR**, **Perastage** y **Archivo seleccionado**.
+Los orígenes no disponibles están deshabilitados. MVR conserva los modos importados;
+Perastage utiliza un perfil disponible de la biblioteca; Archivo seleccionado
+recupera la última elección descargada o local. Volver al descargado reutiliza su
+paquete validado. **Descargado; idéntico al MVR original** indica que se han comparado
+los bytes del archivo descargado y del perfil original y coinciden exactamente;
+el nombre o FixtureTypeID compartidos no demuestran que los archivos sean iguales.
+
 **Buscar en GDTF Share...** reutiliza el navegador completo. **Cargar GDTF local...**
 valida el archivo y copia el perfil a los recursos de la importación sin modificar
 el original. Elija el modo DMX y revise las diferencias de modelo, modo y huella.

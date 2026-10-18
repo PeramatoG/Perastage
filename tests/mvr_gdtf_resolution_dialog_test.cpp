@@ -4,7 +4,7 @@
 #include "filesystem_path_utils.h"
 #include "support/archive_entry_test_utils.h"
 #include <wx/wx.h>
-#include <wx/listctrl.h>
+#include "gdtf_download_queue_table.h"
 #include <wx/choice.h>
 #include <wx/choicdlg.h>
 #include <wx/msgdlg.h>
@@ -53,6 +53,8 @@ static void ApproveModal() {
         dialog->EndModal(wxID_OK);
 }
 
+static bool ToggleSource(GdtfDownloadQueueTable &table, unsigned source);
+
 static void Run(bool automaticClose, bool fail = false, bool canceled = false, bool multipleModes = false, bool authFailed = false, bool cancelFinished = false) {
   runtime_storage::TemporaryWorkspace workspace("mvr-gdtf-gui-test");
   const auto path = workspace.Path() / "fixture.gdtf";
@@ -60,7 +62,12 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
   assert(tests::archive::WriteStoredZipWithRawNames(path, {{"description.xml", R"(
     <GDTF DataVersion="1.2"><FixtureType Name="Beam 200" Manufacturer="Acme">
     <DMXModes><DMXMode Name="Standard"/><DMXMode Name="Extended"/></DMXModes></FixtureType></GDTF>)"}}, error));
-  const auto profile = ReadProfile(path);
+  const auto downloadedPath = workspace.Path() / "downloaded.gdtf";
+  assert(tests::archive::WriteStoredZipWithRawNames(downloadedPath, {{"description.xml", R"(
+    <GDTF DataVersion="1.2"><FixtureType Name="Beam 200" Manufacturer="Acme">
+    <!-- Downloaded revision -->
+    <DMXModes><DMXMode Name="Standard"/><DMXMode Name="Extended"/></DMXModes></FixtureType></GDTF>)"}}, error));
+  const auto profile = ReadProfile(downloadedPath);
   assert(profile.usable);
   mvr::SceneReadGdtfConflict request;
   request.type = "Original display type";
@@ -73,10 +80,13 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
   int downloads = 0;
   int logins = 0;
   MvrGdtfResolutionCallbacks callbacks;
-  callbacks.loadCatalog = [](auto) {
+  callbacks.loadCatalog = [multipleModes](auto) {
     MvrGdtfCatalog result;
     result.entries = {{"a", "Acme", "Beam 200", {{"Standard",0}}, 1, 1},
                       {"b", "Acme", "Beam 200", {{"Standard",0}}, 2, 2}};
+    if (multipleModes)
+      for (auto &entry : result.entries)
+        entry.manufacturer = "Other";
     return result;
   };
   callbacks.authenticate = [&] { ++logins; return !authFailed; };
@@ -87,7 +97,7 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
       return MvrGdtfDownload{{}, {}, "Simulated offline"};
     if (canceled && downloads > 1)
       assert(cancel());
-    return MvrGdtfDownload{PathUtils::PathToUtf8(path), profile, {}};
+    return MvrGdtfDownload{PathUtils::PathToUtf8(downloadedPath), profile, {}};
   };
   std::unordered_map<std::string, std::vector<std::string>> importedModes;
   if (multipleModes) {
@@ -113,7 +123,7 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
     }
     if (automaticClose)
       return;
-    auto *table = Find<wxListCtrl>(dialog);
+    auto *table = Find<GdtfDownloadQueueTable>(dialog);
     auto *apply = Button(dialog, "Apply selections");
     if (!apply->IsEnabled())
       return;
@@ -123,7 +133,7 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
         Click(*Button(dialog, "Cancel"));
         return;
       }
-      table->SetItemState(0, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
+      table->SelectRow(0);
       wxChoice *candidates = nullptr;
       for (auto *child : dialog.GetChildren())
         if (auto *choice = dynamic_cast<wxChoice *>(child)) {
@@ -138,6 +148,10 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
       candidates->GetEventHandler()->ProcessEvent(event);
     } else if (step == 1 && results.at(request.type).status == Status::Pending) {
       assert(results.at(alias.type).applied.revisionId == "b");
+      assert(ToggleSource(*table, 0));
+      assert(ToggleSource(*table, 2));
+      assert(dialog.Results().at(request.type).selected.revisionId == "a");
+      assert(dialog.Results().at(request.type).status == Status::Pending);
       ++step;
       if (canceled)
         Click(*Button(dialog, "Cancel"));
@@ -178,7 +192,7 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
     assert(downloads == (automaticClose ? 1 : 2));
     assert(results.at(request.type).applied.revisionId == (automaticClose ? "b" : "a"));
     assert(results.at(alias.type).applied.revisionId == "b");
-    assert(results.at(request.type).origin == (automaticClose ? SelectionOrigin::Automatic
+    assert(results.at(request.type).origin == (automaticClose ? SelectionOrigin::DownloadRequested
                                                              : SelectionOrigin::User));
   }
   assert(multipleModes || logins >= 1);
@@ -214,6 +228,8 @@ static void CancelLifecycle(int action) {
                          {{"Standard",14}, {"Extended",25}}, 1, 1}};
     if (action == 5)
       catalog.entries.front().modes.clear();
+    if (action != 4)
+      catalog.entries.front().manufacturer = "Other";
     return catalog;
   };
   callbacks.authenticate = [action] { assert(action == 4); return true; };
@@ -286,6 +302,145 @@ static void CancelLifecycle(int action) {
   }
 }
 
+static bool ToggleSource(GdtfDownloadQueueTable &table, unsigned source) {
+  auto *model = dynamic_cast<wxDataViewIndexListModel *>(table.GetModel());
+  assert(model);
+  const auto item = model->GetItem(0);
+  if (!model->SetValue(wxVariant(true), item, 5 + source))
+    return false;
+  wxDataViewEvent event(wxEVT_DATAVIEW_ITEM_VALUE_CHANGED, &table, table.GetColumn(1 + source), item);
+  table.ProcessWindowEvent(event);
+  return true;
+}
+
+static void DownloadRequested(bool identical, bool declineMode, bool libraryAvailable) {
+  runtime_storage::TemporaryWorkspace workspace("mvr-elp-par-download-test");
+  const auto original = workspace.Path() / "original.gdtf";
+  const auto downloaded = workspace.Path() / "downloaded.gdtf";
+  const auto library = workspace.Path() / "library.gdtf";
+  const std::string originalXml = R"(<GDTF DataVersion="1.2">
+    <FixtureType Name="Martin ELP PAR" Manufacturer="Custom">
+    <DMXModes><DMXMode Name="DMX Mode"><DMXChannels><DMXChannel Offset="1,14" Geometry="Base"/>
+    </DMXChannels></DMXMode></DMXModes></FixtureType></GDTF>)";
+  const std::string downloadedXml = R"(<GDTF DataVersion="1.2">
+    <FixtureType Name="ELP PAR" Manufacturer="Martin Professional">
+    <DMXModes><DMXMode Name="Basic"><DMXChannels><DMXChannel Offset="1,14" Geometry="Base"/>
+    </DMXChannels></DMXMode><DMXMode Name="Compact"><DMXChannels><DMXChannel Offset="1,9" Geometry="Base"/>
+    </DMXChannels></DMXMode></DMXModes></FixtureType></GDTF>)";
+  std::string error;
+  assert(tests::archive::WriteStoredZipWithRawNames(original, {{"description.xml", originalXml}}, error));
+  assert(tests::archive::WriteStoredZipWithRawNames(downloaded, {{"description.xml", downloadedXml}}, error));
+  std::filesystem::copy_file(downloaded, library);
+  mvr::SceneReadGdtfConflict request;
+  request.type = request.fixtureName = "Martin ELP PAR";
+  request.manufacturer = "Custom";
+  request.modeName = "DMX Mode";
+  request.footprint = 14;
+  request.mvrPath = PathUtils::PathToUtf8(original);
+  if (libraryAvailable)
+    request.appPath = PathUtils::PathToUtf8(library);
+  int downloads = 0, confirmations = 0;
+  MvrGdtfResolutionCallbacks callbacks;
+  callbacks.loadCatalog = [](auto) {
+    MvrGdtfCatalog catalog;
+    catalog.entries = {{"77879", "Martin Professional", "ELP PAR", {{"Basic",14}, {"Compact",9}}, 1, 1},
+                       {"77880", "Martin Professional", "ELP PAR IP", {{"Basic",14}}, 2, 5}};
+    return catalog;
+  };
+  callbacks.authenticate = [] { return true; };
+  callbacks.confirmSelection = [&](const Choice &choice, const Profile *) {
+    ++confirmations;
+    assert(choice.mode == "Basic");
+    return true;
+  };
+  callbacks.download = [&](const Choice &choice, auto progress, auto canceled) {
+    assert(!canceled() && choice.revisionId == "77879");
+    ++downloads;
+    const auto path = identical ? original : downloaded;
+    progress(std::filesystem::file_size(path), std::filesystem::file_size(path));
+    return MvrGdtfDownload{PathUtils::PathToUtf8(path), ReadProfile(path), {}};
+  };
+  MvrGdtfResolutionDialog dialog(nullptr, {request}, workspace.Path(), callbacks, false);
+  bool declined = false, finishing = false, resumedMode = false;
+  wxTimer modalTimer;
+  modalTimer.Bind(wxEVT_TIMER, [&](wxTimerEvent &) {
+    for (auto *window : wxTopLevelWindows)
+      if (auto *picker = dynamic_cast<wxSingleChoiceDialog *>(window))
+        if (picker->IsModal()) {
+          assert(picker->GetSelection() == 0); // Basic / 14, matching the imported footprint.
+          if (declineMode && !declined) {
+            declined = true;
+            picker->EndModal(wxID_CANCEL);
+          } else {
+            picker->EndModal(wxID_OK);
+          }
+          return;
+        }
+  });
+  modalTimer.Start(10);
+  wxTimer timer;
+  timer.Bind(wxEVT_TIMER, [&](wxTimerEvent &) {
+    if (finishing)
+      return;
+    const auto result = dialog.Results().at(request.type);
+    if (result.status == Status::ModeRequired) {
+      if (resumedMode)
+        return;
+      assert(declineMode && downloads == 1 && result.applied.source == Source::OriginalMvr);
+      assert(!Button(dialog, "OK")->IsEnabled());
+      resumedMode = true;
+      Click(*Button(dialog, "Choose DMX mode..."));
+      return;
+    }
+    if (result.status != Status::Downloaded && result.status != Status::Reused && result.status != Status::Identical)
+      return;
+    if (!Button(dialog, "OK")->IsEnabled())
+      return;
+    finishing = true;
+    auto *table = Find<GdtfDownloadQueueTable>(dialog);
+    assert(table && table->GetColumnCount() == 8);
+    assert(table->SourceChecked(0, 2));
+    assert(table->SourceEnabled(0, 0));
+    assert(table->SourceEnabled(0, 1) == libraryAvailable);
+    assert(downloads == 1 && result.applied.revisionId == "77879");
+    assert(result.applied.mode == (identical ? "DMX Mode" : "Basic"));
+    if (identical) {
+      assert(result.status == Status::Identical);
+    } else {
+      const auto details = Find<wxTextCtrl>(dialog)->GetValue();
+      assert(details.Contains("User selection"));
+      assert(!details.Contains("DMX mode compatibility requires review."));
+    }
+    assert(ToggleSource(*table, 0));
+    assert(table->SourceChecked(0, 0) && !table->SourceChecked(0, 2));
+    auto current = dialog.Results().at(request.type);
+    assert(current.applied.path == request.mvrPath && current.applied.mode.empty());
+    assert(ToggleSource(*table, 2));
+    assert(dialog.Results().at(request.type).applied.source == Source::Catalog && downloads == 1);
+    if (libraryAvailable) {
+      assert(ToggleSource(*table, 1));
+      assert(table->SourceChecked(0, 1) && !table->SourceChecked(0, 2));
+      assert(dialog.Results().at(request.type).applied.path == request.appPath);
+      assert(ToggleSource(*table, 2));
+      assert(downloads == 1 && table->SourceChecked(0, 2));
+    } else {
+      assert(!ToggleSource(*table, 1));
+      assert(table->SourceChecked(0, 2));
+    }
+    Click(*Button(dialog, "OK"));
+  });
+  timer.Start(10);
+  wxTimer deadline;
+  deadline.Bind(wxEVT_TIMER, [&](wxTimerEvent &) { assert(false && "Explicit download/source switching timed out"); });
+  deadline.StartOnce(10000);
+  assert(dialog.RunResolution() == wxID_OK);
+  timer.Stop();
+  modalTimer.Stop();
+  assert(downloads == 1 && finishing);
+  assert(identical ? confirmations == 0 : confirmations >= 1);
+  assert(!declineMode || (declined && resumedMode));
+}
+
 int main(int argc, char **argv) {
   if (!wxEntryStart(argc, argv))
     return 77;
@@ -293,6 +448,9 @@ int main(int argc, char **argv) {
     return 77;
   for (int action = 0; action < 6; ++action)
     CancelLifecycle(action);
+  DownloadRequested(false, false, true);
+  DownloadRequested(false, true, false);
+  DownloadRequested(true, false, false);
   Run(true);
   Run(false);
   Run(false, false, true);

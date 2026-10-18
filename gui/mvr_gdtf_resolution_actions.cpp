@@ -28,7 +28,7 @@
 using namespace gdtf_resolution;
 
 bool MvrGdtfResolutionDialog::ChooseMode(const Profile &profile, std::string &mode,
-                                        bool alwaysAsk) {
+                                        bool alwaysAsk, std::optional<std::size_t> rowIndex) {
   if (!profile.usable || profile.modes.empty())
     return false;
   if (!alwaysAsk && HasMode(profile, mode))
@@ -39,7 +39,7 @@ bool MvrGdtfResolutionDialog::ChooseMode(const Profile &profile, std::string &mo
   }
   wxArrayString choices;
   int initial = 0;
-  const auto selected = SelectedRow();
+  const auto selected = rowIndex ? rowIndex : SelectedRow();
   const int footprint = !selected ? 0 : rows[*selected].evidence.requestedFootprint > 0
       ? rows[*selected].evidence.requestedFootprint : rows[*selected].request.patchSpacingHint;
   if (!HasMode(profile, mode) && footprint > 0)
@@ -158,6 +158,8 @@ void MvrGdtfResolutionDialog::SelectCatalog(
     ranking.candidates.push_back(std::move(candidate));
   }
   Select(rows[*row].resolution, choice);
+  rows[*row].catalogProposal = choice;
+  rows[*row].catalogProposalPending = true;
   RefreshRows();
   SetBusy(false);
 }
@@ -170,8 +172,22 @@ void MvrGdtfResolutionDialog::ChooseResource() {
   const auto choice = resourceChoices[index];
   const auto profile = ReadProfile(PathUtils::PathFromUtf8(choice.path));
   if (profile.usable && (choice.mode.empty() || HasMode(profile, choice.mode)) &&
-      ConfirmChoice(choice, &profile))
-    Select(rows[*row].resolution, choice);
+      ConfirmChoice(choice, &profile)) {
+    if (choice.source == Source::Catalog) {
+      auto attempt = choice;
+      attempt.path.clear();
+      if (Select(rows[*row].resolution, attempt))
+        Complete(rows[*row].resolution, attempt, choice.path, choice.mode, true);
+      rows[*row].replacement = choice;
+      rows[*row].catalogProposalPending = false;
+    } else {
+      Select(rows[*row].resolution, choice);
+      if (choice.source == Source::Local) {
+        rows[*row].replacement = choice;
+        rows[*row].catalogProposalPending = false;
+      }
+    }
+  }
   RefreshRows();
   SetBusy(false);
 }
@@ -236,6 +252,9 @@ void MvrGdtfResolutionDialog::LoadLocal() {
   profileLabels[choice.path] = profile.manufacturer + " / " + profile.model +
       " / " + PathUtils::PathToUtf8(source.filename());
   rows[*row].resolution.availableResources.push_back(choice);
+  rows[*row].replacement = choice;
+  rows[*row].catalogProposalPending = false;
+  rows[*row].identicalToOriginal = false;
   Select(rows[*row].resolution, choice);
   RefreshRows();
   SetBusy(false);

@@ -141,6 +141,40 @@ static void ResolutionLifecycle() {
   assert(noMatch.ranking.confidence == catalog::MatchConfidence::NoMatch);
 }
 
+static void ExplicitDownloadIntent() {
+  auto request = Request("Martin ELP PAR", "Custom", "DMX Mode", 14);
+  const std::vector<catalog::GdtfCatalogEntry> entries = {
+      {"77879", "Martin Professional", "ELP PAR", {{"Basic",14}, {"Compact",9}}, 1, 1},
+      {"77880", "Martin Professional", "ELP PAR IP", {{"Basic",14}}, 2, 5}};
+  auto ranking = catalog::RankDownloadCandidates(request, entries);
+  assert(!ranking.recommendedRid && ranking.downloadRid == "77879");
+  const Choice original{Source::OriginalMvr, {}, "/original.gdtf", "DMX Mode"};
+  auto automatic = Analyze(request, entries, {original}, original);
+  assert(automatic.status == Status::OriginalMvr);
+  auto requested = Analyze(request, entries, {original}, original, {}, {}, CatalogIntent::DownloadRequested);
+  assert(requested.status == Status::Pending && requested.selected.revisionId == "77879");
+  assert(requested.selected.mode.empty() && requested.applied == original);
+  assert(requested.origin == SelectionOrigin::DownloadRequested);
+  assert(!Select(requested, {Source::Catalog, "77880", {}, {}}, SelectionOrigin::DownloadRequested));
+  request.importedModes = {"DMX Mode", "Other"};
+  auto mixed = Analyze(request, entries, {original}, original, {}, {}, CatalogIntent::DownloadRequested);
+  assert(mixed.status == Status::Pending && mixed.selected.mode.empty());
+  request.manufacturer = "Other";
+  assert(!catalog::RankDownloadCandidates(request, entries).downloadRid);
+  auto unknownMaker = Request("Beam 200", "Custom", "Standard", 16);
+  auto ambiguousDownload = Analyze(unknownMaker,
+      {{"known-mode", "Acme", "Beam 200", {{"Standard",16}}, 1, 1},
+       {"other-maker", "Other", "Beam 200", {{"Different",16}}, 1, 1}},
+      {original}, original, {}, {}, CatalogIntent::DownloadRequested);
+  assert(!ambiguousDownload.ranking.downloadRid);
+  assert(ambiguousDownload.status == Status::OriginalMvr);
+
+  auto unknown = Request("Beam 200", "Custom", "DMX Mode", 16);
+  assert(!catalog::RankDownloadCandidates(unknown,
+      {{"a", "Acme", "Beam 200", {{"Standard",16}}, 1, 1},
+       {"b", "Other", "Beam 200", {{"Standard",16}}, 1, 1}}).downloadRid);
+}
+
 int main() {
   using mvr::gdtf_patch_evidence::RepeatedSpacing;
   assert(RepeatedSpacing({{"Aura", "DMX Mode", "1.1"}, {"Aura", "DMX Mode", "1.26"},
@@ -158,6 +192,7 @@ int main() {
   const auto canceled = catalog::RankDownloadCandidates(Request("Beam 200", "Acme"),
       largeCatalog, 8, [&] { return ++cancelChecks >= 4; });
   assert(cancelChecks <= 5 && canceled.candidates.empty() && !canceled.recommendedRid);
+  ExplicitDownloadIntent();
   RankingRegressions();
   ResolutionLifecycle();
 }

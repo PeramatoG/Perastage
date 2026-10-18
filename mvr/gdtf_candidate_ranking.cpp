@@ -212,10 +212,11 @@ static GdtfDownloadMatch CollectCandidates(
            modeScore.tier == GdtfModeMatchTier::ExactNormalized) &&
           (request.requestedFootprint <= 0 ||
            candidate.footprint == request.requestedFootprint);
-      candidate.automaticSafe = exactIdentity && !manufacturerConflict &&
-          numeric != NumericTokenCompatibility::Different && modeCompatible &&
-          request.importedModes.size() <= 1 &&
+      candidate.modelSafe = exactIdentity && !manufacturerConflict &&
+          numeric != NumericTokenCompatibility::Different &&
           !IsGenericFixtureIdentity(matchedModel.rawText);
+      candidate.automaticSafe = candidate.modelSafe && modeCompatible &&
+          request.importedModes.size() <= 1;
       if (request.importedModes.size() > 1)
         candidate.warnings.push_back("multiple-imported-modes");
       candidate.reasons.push_back(exactIdentity ? "canonical-model" : "partial-model");
@@ -375,10 +376,12 @@ static GdtfDownloadMatch CollectCandidates(
       if (inferredManufacturers.size() == 1 &&
           NormalizeForGdtfMatch(candidate.manufacturer) != inferredManufacturers.front()) {
         candidate.automaticSafe = false;
+        candidate.modelSafe = false;
         candidate.confidence = MatchConfidence::Review;
         candidate.warnings.push_back("manufacturer-mismatch");
       } else if (inferredManufacturers.size() > 1) {
         candidate.automaticSafe = false;
+        candidate.modelSafe = false;
         candidate.confidence = MatchConfidence::Ambiguous;
         candidate.warnings.push_back("ambiguous-model-candidates");
       }
@@ -387,6 +390,8 @@ static GdtfDownloadMatch CollectCandidates(
         [](const auto &a, const auto &b) {
           if (a.automaticSafe != b.automaticSafe)
             return a.automaticSafe;
+          if (a.modelSafe != b.modelSafe)
+            return a.modelSafe;
           const bool exactA = std::find(a.reasons.begin(), a.reasons.end(),
               "canonical-model") != a.reasons.end();
           const bool exactB = std::find(b.reasons.begin(), b.reasons.end(),
@@ -395,6 +400,15 @@ static GdtfDownloadMatch CollectCandidates(
             return exactA;
           return IsBetterDownloadCandidate(a.rank, b.rank);
         });
+    const auto model = std::find_if(ranking->candidates.begin(), ranking->candidates.end(),
+                                     [](const auto &candidate) { return candidate.modelSafe; });
+    if (model != ranking->candidates.end() &&
+        std::none_of(ranking->candidates.begin(), ranking->candidates.end(),
+                     [&](const auto &other) {
+          return other.modelSafe && (other.canonicalModel != model->canonicalModel ||
+              NormalizeForGdtfMatch(other.manufacturer) != NormalizeForGdtfMatch(model->manufacturer));
+        }))
+      ranking->downloadRid = model->rid;
     if (!ranking->candidates.empty()) {
       const auto &first = ranking->candidates.front();
       const bool ambiguousModels = std::any_of(

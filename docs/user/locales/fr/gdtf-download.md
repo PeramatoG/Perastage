@@ -29,6 +29,22 @@ une ligne pour examiner les révisions et avertissements, même après un succè
 **Appliquer les sélections** traite les changements avant que **OK** applique le
 résultat à toutes les instances de ce type.
 
+Choisir **Download** demande le fichier du dépôt lorsque le modèle correspond sans
+ambiguïté, même si le nom du mode diffère. Par exemple, `DMX Mode` n’empêche pas de
+télécharger ELP PAR avec les modes `Basic` et `Compact`. Confirmez le mode réel après
+le téléchargement si sa compatibilité doit être vérifiée. Annuler ce choix conserve
+le paquet avec l’état **Téléchargé ; sélectionner le mode DMX**. Utilisez ensuite
+**Choisir le mode DMX...** ou choisissez une autre source. OK reste désactivé tant
+que des modes sont en attente.
+
+Chaque ligne possède les cases exclusives **MVR**, **Perastage** et **Fichier sélectionné**.
+Les sources indisponibles sont désactivées. MVR conserve les modes importés ;
+Perastage utilise un profil disponible de la bibliothèque ; Fichier sélectionné
+rétablit le dernier choix téléchargé ou local. Revenir au téléchargement réutilise
+le paquet validé. **Téléchargé ; identique au MVR d’origine** signifie que les octets
+des deux fichiers ont été comparés et correspondent exactement ; un nom ou un
+FixtureTypeID commun ne prouve pas l’identité des fichiers.
+
 **Rechercher dans GDTF Share...** utilise le navigateur existant.
 **Charger un GDTF local...** valide le fichier et copie le profil dans les
 ressources de l’import sans modifier l’original. Choisissez le mode DMX et vérifiez

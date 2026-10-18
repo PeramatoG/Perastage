@@ -63,6 +63,8 @@ void MvrGdtfResolutionDialog::StartCatalog() {
           if (!profile.usable)
             continue;
           result.profileLabels[path] = profile.manufacturer + " / " + profile.model;
+          if (source == Source::OriginalMvr)
+            resources.push_back({source, {}, path, {}});
           for (const auto &mode : profile.modes) {
             Choice choice{source, {}, path, mode.name};
             resources.push_back(choice);
@@ -94,7 +96,8 @@ void MvrGdtfResolutionDialog::StartCatalog() {
         const auto profilesMs = milliseconds(profilesStarted);
         const auto rankingStarted = std::chrono::steady_clock::now();
         auto resolution = Analyze(evidence, result.catalog.entries,
-                                  std::move(resources), fallback, {}, canceled);
+                                  std::move(resources), fallback, {}, canceled,
+                                  CatalogIntent::DownloadRequested);
         resolution.ranking.diagnostics += "; catalog_load_ms=" + std::to_string(catalogMs) +
             "; profile_read_ms=" + std::to_string(profilesMs) +
             "; ranking_ms=" + std::to_string(milliseconds(rankingStarted));
@@ -124,39 +127,7 @@ void MvrGdtfResolutionDialog::OnWorkerDone(wxThreadEvent &event) {
     if (!catalog.diagnostic.empty())
       phase->SetLabel(wxString::FromUTF8(catalog.diagnostic));
   } else {
-    auto &resolution = rows[result.row].resolution;
-    if (!stop && result.download.credentialsNotSaved)
-      wxMessageBox(_("The password could not be saved securely. It will be requested again after restart."),
-                    _("GDTF Share credentials"), wxOK | wxICON_WARNING, this);
-    if (!stop && result.download.profile.usable)
-      for (auto &candidate : resolution.ranking.candidates)
-        if (candidate.rid == result.attempt.revisionId)
-          candidate.modes = result.download.profile.modes;
-    if (!stop && !result.download.path.empty() && result.download.profile.usable &&
-        resolution.origin == SelectionOrigin::User &&
-        !HasMode(result.download.profile, result.attempt.mode)) {
-      auto actualChoice = result.attempt;
-      if (ChooseMode(result.download.profile, actualChoice.mode, true) &&
-          ConfirmChoice(actualChoice, &result.download.profile, result.row)) {
-        Select(resolution, actualChoice);
-        result.attempt = actualChoice;
-      } else {
-        result.download.path.clear();
-        result.download.diagnostic = "DMX mode selection canceled; the existing fallback is retained.";
-      }
-    }
-    if (!result.download.path.empty() &&
-        HasMode(result.download.profile, result.attempt.mode)) {
-      if (Complete(resolution, result.attempt, result.download.path, result.attempt.mode)) {
-        profileLabels[result.download.path] = result.download.profile.manufacturer +
-            " / " + result.download.profile.model;
-        completed[ReplacementKey(result.attempt)] = std::move(result.download);
-      }
-    } else if (stop) {
-      gdtf_resolution::Cancel(resolution);
-    } else {
-      Fail(resolution, result.attempt, result.download.diagnostic);
-    }
+    FinishDownload(result);
   }
   busy = false;
   RefreshRows();
@@ -178,16 +149,14 @@ void MvrGdtfResolutionDialog::ProcessNext() {
     if (resolution.status != Status::Pending)
       continue;
     const auto attempt = resolution.selected;
-    const auto cached = completed.find(ReplacementKey(attempt));
-    if (cached != completed.end()) {
-      if (HasMode(cached->second.profile, attempt.mode) &&
-          std::filesystem::is_regular_file(PathUtils::PathFromUtf8(cached->second.path))) {
-        Complete(resolution, attempt, cached->second.path, attempt.mode, true);
-        continue;
-      }
-      completed.erase(cached);
+    std::optional<MvrGdtfDownload> cached;
+    if (const auto found = packages.find(attempt.revisionId); found != packages.end()) {
+      if (std::filesystem::is_regular_file(PathUtils::PathFromUtf8(found->second.path)))
+        cached = found->second;
+      else
+        packages.erase(found);
     }
-    if (!callbacks.authenticate()) {
+    if (!cached && !callbacks.authenticate()) {
       for (auto &row : rows)
         if (row.resolution.status == Status::Pending)
           Fail(row.resolution, row.resolution.selected,
@@ -201,23 +170,33 @@ void MvrGdtfResolutionDialog::ProcessNext() {
     SetWorkPhase(wxString::Format(_("Connecting and downloading: %s"),
                                   wxString::FromUTF8(rows[i].request.type)));
     const auto evidence = rows[i].evidence;
-    const bool automatic = resolution.origin == SelectionOrigin::Automatic;
-    worker = std::thread([this, i, attempt, evidence, automatic] {
+    const auto origin = resolution.origin;
+    const auto originalPath = rows[i].request.mvrPath;
+    worker = std::thread([this, i, attempt, evidence, origin, originalPath, cached] {
       WorkerResult result;
       result.row = i;
       result.attempt = attempt;
       try {
-        result.download = callbacks.download(attempt, [this](long long bytes, long long total) {
+        result.reused = cached.has_value();
+        if (cached)
+          result.download = *cached;
+        else
+          result.download = callbacks.download(attempt, [this](long long bytes, long long total) {
           auto *event = new wxThreadEvent(EVT_MVR_GDTF_PROGRESS);
           event->SetPayload(std::make_pair(bytes, total));
           wxQueueEvent(this, event);
         }, [this] { return stop.load(); });
-        if (!result.download.path.empty() &&
-            automatic) {
-          if (!AutomaticProfileCompatible(result.download.profile, evidence,
-                                          attempt.mode)) {
+        if (!result.download.path.empty()) {
+          const bool compatible = origin == SelectionOrigin::Automatic
+              ? AutomaticProfileCompatible(result.download.profile, evidence, attempt.mode)
+              : origin != SelectionOrigin::DownloadRequested ||
+                  ProfileIdentityCompatible(result.download.profile, evidence);
+          if (!compatible) {
             result.download.path.clear();
-            result.download.diagnostic = "Downloaded package differs from automatic model/mode evidence.";
+            result.download.diagnostic = "Downloaded package differs from catalog model evidence.";
+          } else if (!stop) {
+            result.identicalToOriginal = SameProfileBytes(PathUtils::PathFromUtf8(originalPath),
+                PathUtils::PathFromUtf8(result.download.path));
           }
         }
       } catch (const std::exception &error) {
@@ -231,14 +210,18 @@ void MvrGdtfResolutionDialog::ProcessNext() {
   }
   SetBusy(false);
   RefreshRows();
-  phase->SetLabel(_("Queue finished."));
+  const bool missingModes = std::any_of(rows.begin(), rows.end(), [](const auto &row) {
+    return row.resolution.status == Status::ModeRequired;
+  });
+  phase->SetLabel(missingModes ? _("Downloads finished. Choose a DMX mode or another source.")
+                               : _("Queue finished."));
   gauge->SetValue(100);
   const bool needsReview = std::any_of(rows.begin(), rows.end(), [](const Row &row) {
-    return row.resolution.status == Status::DownloadFailed ||
+    return row.resolution.status == Status::ModeRequired ||
+        row.resolution.status == Status::DownloadFailed ||
         row.resolution.status == Status::Unresolved ||
         (row.resolution.origin == SelectionOrigin::Automatic &&
-         !row.resolution.ranking.candidates.empty() &&
-         !row.resolution.ranking.recommendedRid);
+         !row.resolution.ranking.downloadRid);
   });
   if (automaticClose && !needsReview)
     EndModal(wxID_OK);

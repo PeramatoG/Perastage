@@ -29,6 +29,23 @@ Wählen Sie eine Zeile, um Revisionen und Warnungen zu prüfen, auch nach einem
 Erfolg. **Auswahl anwenden** verarbeitet Änderungen, bevor **OK** das Ergebnis
 auf alle Instanzen dieses Gerätetyps anwendet.
 
+**Download** fordert die Datei aus dem Repository an, wenn das Modell eindeutig
+übereinstimmt, auch bei abweichenden Modusnamen. `DMX Mode` verhindert beispielsweise
+keinen ELP-PAR-Download mit den Modi `Basic` und `Compact`. Bestätigen Sie nach dem
+Download den tatsächlichen Modus, wenn seine Kompatibilität geprüft werden muss.
+Bei Abbruch der Moduswahl bleibt das Paket mit **Heruntergeladen; DMX-Modus wählen**
+erhalten. Verwenden Sie später **DMX-Modus wählen...** oder wählen Sie eine andere
+Quelle. OK bleibt bei ausstehenden Modusentscheidungen deaktiviert.
+
+Jede Zeile bietet die exklusiven Kontrollkästchen **MVR**, **Perastage** und
+**Ausgewählte Datei**. Nicht verfügbare Quellen sind deaktiviert. MVR erhält die
+importierten Modi; Perastage verwendet ein verfügbares Bibliotheksprofil;
+Ausgewählte Datei stellt die letzte heruntergeladene oder lokale Auswahl wieder her.
+Ein erneuter Wechsel zur heruntergeladenen Datei verwendet das geprüfte Paket.
+**Heruntergeladen; identisch mit ursprünglichem MVR** bedeutet, dass die Dateibytes
+vollständig verglichen wurden und identisch sind. Gleiche Namen oder FixtureTypeIDs
+beweisen keine Dateiidentität.
+
 **GDTF Share durchsuchen...** verwendet den bestehenden Katalogbrowser.
 **Lokale GDTF laden...** prüft die Datei und kopiert sie in die Importressourcen,
 ohne das Original zu ändern. Wählen Sie den DMX-Modus und prüfen Sie Unterschiede

@@ -28,9 +28,10 @@ using CandidateRanking = mvr::gdtf_catalog_matcher::CandidateRanking;
 enum class Source { Unresolved, OriginalMvr, Application, Local, Catalog };
 enum class Status {
   Pending, Downloading, Downloaded, Reused, OriginalMvr, Application,
-  Local, DownloadFailed, Unresolved, Canceled
+  Local, DownloadFailed, Unresolved, Canceled, ModeRequired, Identical
 };
-enum class SelectionOrigin { Automatic, User };
+enum class SelectionOrigin { Automatic, User, DownloadRequested };
+enum class CatalogIntent { SafeAutomatic, DownloadRequested };
 
 struct Choice {
   Source source = Source::Unresolved;
@@ -56,7 +57,8 @@ Resolution Analyze(const mvr::gdtf_catalog_matcher::GdtfDownloadRequest &request
                    const std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry> &entries,
                    std::vector<Choice> resources, const Choice &fallback,
                    std::optional<Choice> explicitChoice = {},
-                   std::function<bool()> canceled = {});
+                   std::function<bool()> canceled = {},
+                   CatalogIntent intent = CatalogIntent::SafeAutomatic);
 bool Select(Resolution &resolution, const Choice &choice,
             SelectionOrigin origin = SelectionOrigin::User);
 bool Complete(Resolution &resolution, const Choice &attempt,

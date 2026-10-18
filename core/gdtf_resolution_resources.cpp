@@ -21,6 +21,8 @@
 #include "gdtf/gdtf_mode_channel_browser.h"
 #include "uuidutils.h"
 #include <algorithm>
+#include <array>
+#include <fstream>
 
 namespace gdtf_resolution {
 Profile ReadProfile(const std::filesystem::path &path) {
@@ -62,12 +64,11 @@ Profile ReadProfile(const std::filesystem::path &path) {
   return result;
 }
 
-bool AutomaticProfileCompatible(
+bool ProfileIdentityCompatible(
     const Profile &profile,
-    const mvr::gdtf_catalog_matcher::GdtfDownloadRequest &request,
-    const std::string &mode) {
+    const mvr::gdtf_catalog_matcher::GdtfDownloadRequest &request) {
   using namespace mvr::gdtf_catalog_matcher;
-  if (!HasMode(profile, mode))
+  if (!profile.usable)
     return false;
   if (!IsUnknownManufacturer(request.manufacturer) &&
       NormalizeForGdtfMatch(request.manufacturer) != NormalizeForGdtfMatch(profile.manufacturer))
@@ -82,10 +83,41 @@ bool AutomaticProfileCompatible(
     identityCompatible |= !actual.canonicalText.empty() &&
         actual.canonicalText == expected.canonicalText;
   }
+  return identityCompatible;
+}
+
+bool SameProfileBytes(const std::filesystem::path &left, const std::filesystem::path &right) {
+  std::error_code error;
+  const auto size = std::filesystem::file_size(left, error);
+  if (error)
+    return false;
+  const auto otherSize = std::filesystem::file_size(right, error);
+  if (error || size != otherSize)
+    return false;
+  std::ifstream first(left, std::ios::binary), second(right, std::ios::binary);
+  if (!first || !second)
+    return false;
+  std::array<char, 65536> a{}, b{};
+  while (first && second) {
+    first.read(a.data(), a.size());
+    second.read(b.data(), b.size());
+    if (first.gcount() != second.gcount() ||
+        !std::equal(a.begin(), a.begin() + first.gcount(), b.begin()))
+      return false;
+  }
+  return first.eof() && second.eof() && !first.bad() && !second.bad();
+}
+
+bool AutomaticProfileCompatible(
+    const Profile &profile,
+    const mvr::gdtf_catalog_matcher::GdtfDownloadRequest &request,
+    const std::string &mode) {
+  if (!HasMode(profile, mode) || !ProfileIdentityCompatible(profile, request))
+    return false;
   const auto selected = std::find_if(profile.modes.begin(), profile.modes.end(),
       [&](const auto &item) { return item.name == mode; });
-  return identityCompatible && (request.requestedFootprint <= 0 ||
-      selected->footprint == request.requestedFootprint);
+  return request.requestedFootprint <= 0 ||
+      selected->footprint == request.requestedFootprint;
 }
 
 bool HasMode(const Profile &profile, const std::string &mode) {

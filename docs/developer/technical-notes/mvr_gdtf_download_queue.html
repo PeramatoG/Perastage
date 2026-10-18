@@ -66,6 +66,10 @@ the resource readers retain the existing wxBase ZIP dependency, not wxWidgets GU
 retry, staging and composition of callbacks.</li>
 <li><code>gui/mvr_gdtf_resolution_worker.cpp</code>: bounded queue scheduling, background
 catalog analysis/download and event delivery; joins each worker before reuse.</li>
+<li><code>gui/gdtf_download_queue_table.*</code>: native data-view presentation, row colours and
+mutually exclusive source toggles. Unavailable sources cannot be activated.</li>
+<li><code>gui/mvr_gdtf_resolution_sources.cpp</code>: completed-package mode review and reversible
+source selection; the source table never owns ranking or network work.</li>
 <li><code>gui/mvr_gdtf_resolution_actions.cpp</code>: native picker, mode/review prompts and
 the existing <code>GdtfSearchDialog</code> in selection-only mode.</li>
 </ul>
@@ -94,6 +98,13 @@ identities or manufacturers without supporting prefix evidence are ambiguous.
 Confidence is <code>Safe</code>, <code>Review</code>, <code>Ambiguous</code> or <code>NoMatch</code>; only <code>Safe</code> can supply a
 recommendation. Full-catalog manual selection can intentionally choose another
 model, after a compatibility prompt and explicit mode selection.</p>
+<p><code>CandidateRanking.downloadRid</code> separately identifies an unambiguous exact model
+without requiring mode equivalence. <code>CatalogIntent::DownloadRequested</code> is passed
+only for the rows the user already assigned to Download. It selects that revision
+with <code>SelectionOrigin::DownloadRequested</code>; a mode mismatch leaves the proposed
+mode empty and does not suppress the transfer. Other <code>Analyze</code> callers keep the
+conservative automatic-apply default. Manufacturer/model ambiguity and numeric or
+variant conflicts still require an explicit candidate selection.</p>
 <p>The legacy <code>SelectBestDownloadMatch</code> retains its established fuzzy best-candidate
 contract for existing consumers. It is not the automatic-apply policy. New import
 code consumes <code>RankDownloadCandidates</code> through <code>gdtf_resolution::Analyze</code>.</p>
@@ -107,8 +118,9 @@ that valid fallback and the proposed revision for inspection/retry. The low-leve
 MVR queue instead treats cancellation as rollback: every row returns its original
 MVR path with an empty mode override, preserving each instance&#39;s imported mode.
 The workflow also checks the modal return code before applying results. Late completion cannot replace
-a different proposal. Reuse is keyed by exact revision and mode and checks that
-the retained file and mode still exist.</p>
+a different proposal. Packages are cached by revision; each application validates
+the actual selected mode and checks the retained file. Changing modes or returning
+from MVR/library to the downloaded package does not repeat its transfer.</p>
 <p>Only structurally usable resources/modes appear in the existing-source selector.
 No fallback mode is guessed from matching footprint or address spacing. Local
 files and downloaded packages are read with shared Core services and copied to
@@ -118,6 +130,18 @@ application library are not overwritten. A downloaded automatic replacement is
 validated against actual package identity, manufacturer, mode and footprint before
 commit. Missing catalog mode metadata is resolved from the downloaded package
 for explicit user selections.</p>
+<p>After a requested download, actual identity is validated independently of mode.
+Uncertain modes use the native mode picker and compatibility confirmation. A
+canceled mode choice records <code>ModeRequired</code>, retains the package separately from
+the applied fallback, and disables acknowledgement until a mode or another source
+is selected. Exact archive-byte comparison runs in the worker after download;
+<code>Identical</code> still applies the downloaded source and explicitly reports equality.
+Neither catalog UUID nor matching XML identity is used as a file-equality test.</p>
+<p>The table exposes MVR, Perastage and Selected file as exclusive source checkboxes.
+Switching to MVR preserves each imported mode; switching back restores the validated
+download/local choice. Available package modes also appear in the existing mode
+selector. Revisions without a reliable model match give an explicit review reason
+instead of implying that an original file was reused because it was identical.</p>
 <p>After processing, the user can select any row, including successful rows, revise
 its proposal, and apply again. Acknowledgement is disabled while proposals are
 pending or work is active. The existing MVR preference
@@ -126,7 +150,7 @@ Preferences → MVR Import/Export location; the queue has no preference checkbox
 automatic close commits safe final choices without a confirmation prompt.
 Ambiguity, unresolved resources or failures keep the queue open for review.</p>
 <p>Download, reuse and local selection use green success styling; original MVR and
-application fallback use amber; failures and unresolved profiles use red; canceled
+application fallback and downloaded packages awaiting a mode use amber; failures and unresolved profiles use red; canceled
 rows use muted styling. Candidate labels list every known mode/footprint and
 explicitly mark absent metadata as unavailable. Actual downloaded modes enrich
 the row. Original package mode counts supplement imported evidence. Repeated

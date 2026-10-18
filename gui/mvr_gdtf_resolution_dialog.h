@@ -27,7 +27,7 @@
 #include <wx/timer.h>
 #include <wx/stopwatch.h>
 
-class wxListCtrl;
+class GdtfDownloadQueueTable;
 class wxChoice;
 class wxStaticText;
 class wxTextCtrl;
@@ -79,6 +79,10 @@ private:
     mvr::SceneReadGdtfConflict request;
     mvr::gdtf_catalog_matcher::GdtfDownloadRequest evidence;
     gdtf_resolution::Resolution resolution;
+    std::optional<gdtf_resolution::Choice> replacement;
+    std::optional<gdtf_resolution::Choice> catalogProposal;
+    bool identicalToOriginal = false;
+    bool catalogProposalPending = false;
   };
   struct WorkerResult {
     bool catalogLoaded = false;
@@ -87,6 +91,8 @@ private:
     std::size_t row = 0;
     gdtf_resolution::Choice attempt;
     MvrGdtfDownload download;
+    bool reused = false;
+    bool identicalToOriginal = false;
   };
   struct AnalysisProgress {
     std::size_t row = 0;
@@ -104,6 +110,9 @@ private:
   void RefreshSelection();
   void ChooseCandidate();
   void ChooseResource();
+  void ChooseSource(unsigned row, unsigned source);
+  void ChooseReplacementMode();
+  void FinishDownload(WorkerResult &result);
   void Search();
   void LoadLocal();
   void Apply();
@@ -111,7 +120,7 @@ private:
   bool CancelDiscardsSelections() const override { return true; }
   void Acknowledge() override;
   bool ChooseMode(const gdtf_resolution::Profile &profile, std::string &mode,
-                  bool alwaysAsk = false);
+                  bool alwaysAsk = false, std::optional<std::size_t> rowIndex = {});
   bool ConfirmChoice(const gdtf_resolution::Choice &choice,
                      const gdtf_resolution::Profile *profile = nullptr,
                      std::optional<std::size_t> rowIndex = {});
@@ -123,13 +132,13 @@ private:
   std::filesystem::path sceneRoot;
   MvrGdtfResolutionCallbacks callbacks;
   MvrGdtfCatalog catalog;
-  std::unordered_map<std::string, MvrGdtfDownload> completed;
+  std::unordered_map<std::string, MvrGdtfDownload> packages;
   std::vector<gdtf_resolution::Choice> resourceChoices;
   std::unordered_map<std::string, std::string> profileLabels;
   std::thread worker;
   std::atomic<bool> stop{false};
   bool busy = false;
-  wxListCtrl *table = nullptr;
+  GdtfDownloadQueueTable *table = nullptr;
   wxChoice *candidates = nullptr;
   wxChoice *resources = nullptr;
   wxTextCtrl *details = nullptr;
@@ -143,6 +152,7 @@ private:
   wxButton *search = nullptr;
   wxButton *local = nullptr;
   wxButton *apply = nullptr;
+  wxButton *chooseMode = nullptr;
   wxButton *ack = nullptr;
   wxButton *cancel = nullptr;
 };

@@ -89,6 +89,20 @@ queue with safe catalog suggestions and available MVR or application fallbacks.
 Select a row to inspect ranked revisions and compatibility warnings. You can
 change successful rows too; <strong>Apply selections</strong> processes the changed proposals
 before <strong>OK</strong> commits the results to every instance of that fixture type.</p>
+<p>Choosing <strong>Download</strong> requests a repository file when there is an unambiguous
+model match, even if the MVR mode name differs from the catalog. For example,
+<code>DMX Mode</code> does not prevent downloading ELP PAR with <code>Basic</code> and <code>Compact</code> modes.
+Confirm the actual mode after download when compatibility needs review. If you
+cancel that mode choice, <strong>Downloaded; select DMX mode</strong> retains the package;
+use <strong>Choose DMX mode...</strong> later or select another source. OK remains disabled
+until pending mode choices are resolved.</p>
+<p>Each row has mutually exclusive <strong>MVR</strong>, <strong>Perastage</strong> and <strong>Selected file</strong>
+checkboxes. Unavailable sources are disabled. MVR preserves the imported instance
+modes; Perastage selects an available library profile; Selected file restores the
+last downloaded or local choice. Switching back to a downloaded file reuses its
+validated package. <strong>Downloaded; identical to original MVR</strong> means the downloaded
+bytes were compared with the embedded profile and matched exactly; a shared name
+or FixtureTypeID does not establish file equality.</p>
 <p>Use <strong>Search GDTF Share...</strong> to select a revision from the full existing catalog
 browser, or <strong>Load local GDTF...</strong> to validate and copy a local profile into the
 import&#39;s resources. Choose its DMX mode and review any model, mode or footprint

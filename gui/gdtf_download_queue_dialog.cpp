@@ -22,12 +22,13 @@
 #include <utility>
 #include <wx/button.h>
 #include <wx/gauge.h>
-#include <wx/listctrl.h>
+#include "gdtf_download_queue_table.h"
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 
 static wxColour RowTextColor(DownloadRowState state) {
   switch (state) {
+  case DownloadRowState::Identical:
   case DownloadRowState::Downloaded:
   case DownloadRowState::Reused:
   case DownloadRowState::Local:
@@ -37,6 +38,7 @@ static wxColour RowTextColor(DownloadRowState state) {
   case DownloadRowState::Unresolved:
     return IsDarkGdtfResolutionAppearance() ? wxColour(255, 115, 115)
                                            : wxColour(175, 35, 35);
+  case DownloadRowState::ModeRequired:
   case DownloadRowState::OriginalMvr:
   case DownloadRowState::Application:
   case DownloadRowState::Fallback:
@@ -77,15 +79,7 @@ GdtfDownloadQueueDialog::GdtfDownloadQueueDialog(wxWindow *parent,
   progressGauge->SetValue(0);
   infoSizer->Add(progressGauge, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 8);
 
-  downloadInfoList =
-      new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                     wxLC_REPORT | wxLC_SINGLE_SEL | wxLC_HRULES | wxLC_VRULES);
-  downloadInfoList->InsertColumn(0, _("Fixture type"), wxLIST_FORMAT_LEFT, 260);
-  downloadInfoList->InsertColumn(1, _("Selected GDTF"), wxLIST_FORMAT_LEFT,
-                                 460);
-  downloadInfoList->InsertColumn(2, _("Status"), wxLIST_FORMAT_LEFT, 170);
-  downloadInfoList->InsertColumn(3, _("Progress"), wxLIST_FORMAT_LEFT, 220);
-  downloadInfoList->InsertColumn(4, _("Details"), wxLIST_FORMAT_LEFT, 180);
+  downloadInfoList = new GdtfDownloadQueueTable(this);
   infoSizer->Add(downloadInfoList, 1, wxEXPAND | wxALL, 8);
   footerSummary = new wxStaticText(
       this, wxID_ANY, _("0 processed  |  0 downloaded  |  0 fallback"));
@@ -255,7 +249,8 @@ void GdtfDownloadQueueDialog::RefreshFooterSummary() {
   int processed = 0;
   for (const auto &[typeKey, state] : rowStateByType) {
     (void)typeKey;
-    if (state == DownloadRowState::Downloaded || state == DownloadRowState::Reused) {
+    if (state == DownloadRowState::Downloaded || state == DownloadRowState::Reused ||
+        state == DownloadRowState::Identical || state == DownloadRowState::ModeRequired) {
       ++downloaded;
       ++processed;
     } else if (state == DownloadRowState::Fallback ||

@@ -24,7 +24,7 @@
 #include <wx/app.h>
 #include <wx/button.h>
 #include <wx/gauge.h>
-#include <wx/listctrl.h>
+#include "gdtf_download_queue_table.h"
 #include <wx/stattext.h>
 
 class TestApp : public wxApp {
@@ -99,7 +99,7 @@ void CheckQueue(bool autoClose, bool cancel, int action) {
     dialog.SetPhase(cancel ? "Queue canceled. Keeping downloaded fixtures."
                            : "Queue finished.");
     dialog.UpdateProgressGauge();
-    auto *list = Find<wxListCtrl>(dialog);
+    auto *list = Find<GdtfDownloadQueueTable>(dialog);
     std::vector<wxString> rows;
     std::vector<wxColour> colours;
     for (int row = 0; row < 3; ++row) {

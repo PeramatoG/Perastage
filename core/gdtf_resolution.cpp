@@ -34,7 +34,7 @@ Status ResourceStatus(Source source) {
 Resolution Analyze(const mvr::gdtf_catalog_matcher::GdtfDownloadRequest &request,
                    const std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry> &entries,
                    std::vector<Choice> resources, const Choice &fallback,
-                   std::optional<Choice> explicitChoice, std::function<bool()> canceled) {
+                   std::optional<Choice> explicitChoice, std::function<bool()> canceled, CatalogIntent intent) {
   Resolution result;
   result.ranking = mvr::gdtf_catalog_matcher::RankDownloadCandidates(request, entries, 8, std::move(canceled));
   result.availableResources = std::move(resources);
@@ -46,7 +46,15 @@ Resolution Analyze(const mvr::gdtf_catalog_matcher::GdtfDownloadRequest &request
   result.status = ResourceStatus(result.fallback.source);
   if (explicitChoice) {
     Select(result, *explicitChoice);
-  } else if (result.ranking.recommendedRid) {
+  } else if (intent == CatalogIntent::DownloadRequested && result.ranking.downloadRid) {
+    const auto candidate = std::find_if(result.ranking.candidates.begin(),
+        result.ranking.candidates.end(), [&](const auto &item) {
+          return item.rid == *result.ranking.downloadRid;
+        });
+    Select(result, {Source::Catalog, candidate->rid, {},
+                    candidate->automaticSafe ? candidate->selectedMode : std::string{}},
+           SelectionOrigin::DownloadRequested);
+  } else if (intent == CatalogIntent::SafeAutomatic && result.ranking.recommendedRid) {
     const auto &candidate = result.ranking.candidates.front();
     Select(result, {Source::Catalog, candidate.rid, {}, candidate.selectedMode},
            SelectionOrigin::Automatic);
@@ -58,6 +66,9 @@ bool Select(Resolution &resolution, const Choice &choice, SelectionOrigin origin
   if (choice.source == Source::Catalog) {
     if (choice.revisionId.empty() ||
         (choice.mode.empty() && origin == SelectionOrigin::Automatic))
+      return false;
+    if (origin == SelectionOrigin::DownloadRequested &&
+        (!resolution.ranking.downloadRid || *resolution.ranking.downloadRid != choice.revisionId))
       return false;
     if (origin == SelectionOrigin::Automatic &&
         (!resolution.ranking.recommendedRid ||

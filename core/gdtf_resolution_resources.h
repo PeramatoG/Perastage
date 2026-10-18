@@ -33,6 +33,11 @@ struct Profile {
 
 // Uses the shared archive, description and mode readers; never mutates the source.
 Profile ReadProfile(const std::filesystem::path &path);
+bool ProfileIdentityCompatible(
+    const Profile &profile,
+    const mvr::gdtf_catalog_matcher::GdtfDownloadRequest &request);
+// Exact byte comparison; names and FixtureTypeID never establish file equality.
+bool SameProfileBytes(const std::filesystem::path &left, const std::filesystem::path &right);
 bool AutomaticProfileCompatible(
     const Profile &profile,
     const mvr::gdtf_catalog_matcher::GdtfDownloadRequest &request,
