@@ -11,6 +11,36 @@ adapters. MVR remains authoritative for scene exchange. PSTG owns Perastage
 documentation. PDF, DXF and any future DWG are representations of those inputs.
 Do not add a second scene model or put proprietary drawing entities in MVR.
 
+**D — Absolute P0:** MVR standards compliance and lossless preservation of valid
+standard data take precedence over every Layout, typography, annotation and CAD
+milestone. This is an independent scene/interchange obligation, even if the
+Layout roadmap is delayed or cancelled. Focus is the first traced example,
+not the boundary of the preservation requirement.
+
+Unknown or unsupported valid standard information must **never be silently
+discarded** on import, editing, merge, canonical export or PSTG save/restore.
+Lack of an editor or renderer is not permission to remove it. Retain its
+structure, values, references and resources through a lossless representation
+(including opaque retention where necessary), with explicit support diagnostics.
+If safe preservation cannot be guaranteed, block the destructive write with an
+actionable diagnostic and retain the original source; a warning followed by
+silent truncation does not meet this requirement. Any deliberately lossy
+conversion must be a separately selected, clearly diagnosed operation.
+
+### Separate acceptance criteria
+
+**D:** Require all three checks; passing one does not establish the others:
+
+| Criterion | Required evidence |
+| --- | --- |
+| Standards compliance | Output satisfies the declared MVR version's published requirements, schema, semantic/reference and package rules; specification/schema conflicts are recorded explicitly. |
+| Canonical output | The same current scene produces the agreed deterministic representation and identity/resource policy through the shared serializer; compatibility representations remain explicit. |
+| Semantic round-trip preservation | Import → editable domain → export and MVR → PSTG → MVR retain valid authored standard values, identities, hierarchy, transforms, references and resources except user-intended changes, including information the application cannot edit or render. |
+
+Canonical normalization may change insignificant XML formatting; it must not
+justify dropping information or rounding away authored meaning. A stable,
+schema-valid canonical subset can still fail semantic round-trip preservation.
+
 The most urgent findings are:
 
 1. **Confirmed by source code:** imported FocusPoint nodes are visible to
@@ -86,8 +116,26 @@ during the audit match the repository's existing specification/schema pins:
 TinyXML2 readers own semantic interpretation. Keep the distinction between
 well-formedness, XSD, semantic/reference integrity and package validation.
 The MVR XSD deliberately permits some older-version forms; it cannot alone
-enforce MVR 1.6 provider/Fixture ChildList rules or complete graph integrity.
+enforce MVR 1.6 provider attributes or complete graph integrity. Fixture
+ChildList prose/schema guidance conflicts, as recorded below.
 Do not introduce another XML/schema engine for documentation or CAD.
+
+### Rechecked MVR requirements and version limits
+
+**S/U:** The following checks use the published MVR **1.6** specification and
+XSD at the pins above, re-read for this revision. The maintained local reference
+contains Perastage policy additions; those additions and XSD comments are not
+substitutes for published normative tables. Do not extrapolate a 1.6 requirement
+to an older input version without checking that version's published definition.
+
+| Subject | Published requirement / evidence | Audit consequence |
+| --- | --- | --- |
+| Package and unchanged data | File Format Definition requires `GeneralSceneDescription.xml`, referenced resources, persistent IDs, retention of unchanged GDTF and revisions for changed GDTF. It states: “Only user-intended modifications of any part of the MVR file shall be processed.” | Preservation applies to valid standard information even when Perastage does not interpret it. |
+| Root and scene | Tables 2–3 require verMajor/verMinor/provider/providerVersion and one Scene; Table 6 requires Layers. UserData and AUXData are optional. XSD makes provider attributes optional for older versions. | Check 1.6 provider presence semantically in addition to XSD; do not require optional containers merely because the exporter writes them. |
+| FocusPoint | Tables 23–24 require uuid and one Geometries; name, Matrix and Classing are optional. Geometries allows zero or more graphical children. | Preserve the container, transforms, identities and any authored geometry/resources; do not invent a mandatory mesh. Fixture Focus itself is optional (Table 26). |
+| Layer / GroupObject / Symdef | Tables 17 and 22 allow Layer and GroupObject ChildList 0 or 1; Table 9 requires one Symdef ChildList. Layer Matrix is optional and permits vertical translation only, with identity rotation/scale (Table 17). | Retaining empty group ChildList is an exporter policy, not a published mandatory GroupObject element. Distinguish elevation from arbitrary Layer transforms. |
+| Fixture fields | Table 26 lists FixtureID, FixtureIDNumeric and UnitNumber with count 1; GDTFMode is mandatory when GDTFSpec is present. Table 25 separately prohibits FixtureID/CustomID on a multipatch child. | Qualify conditional/multipatch cases explicitly rather than mechanically inserting every count-1 field. The backwards-compatible XSD alone does not encode all these conditions. |
+| Fixture ChildList | **Conflict:** MVR 1.6 Table 26 says **0 or 1**. The pinned XSD also uses `minOccurs="0"`, while its header says “Fixture should have ChildList in MVR 1.6” and the element comment cites backwards compatibility. | **U:** Resolve the conflicting guidance with the standards maintainers before treating omission as a mandatory-version violation. Do not describe ChildList as unconditionally required in 1.6 or infer rules for older versions from this comment. Preserve authored children regardless. |
 
 ## 2. Current implementation inventory
 
@@ -211,12 +259,13 @@ Top/Bottom/Front/Side. Keep original model coordinates; camera zoom is not scale
 authority. General affine transforms can include reflection/nonuniform scale;
 do not reduce every transform to a rotation plus one scalar.
 
-**C/S:** `CreateDocument` emits MVR 1.6, while `AppendFixture` does not emit a
-Fixture ChildList. Official prose and the XSD's compatibility comments require
-a version-specific semantic check even though the backwards-compatible XSD
-accepts omission. Export validator child-order lists do not prove presence or
-reference preservation. Characterize this separately; never infer full standard
-compliance from the word “canonical” in a policy name.
+**C:** `CreateDocument` emits MVR 1.6, while `AppendFixture` does not emit a
+Fixture ChildList. **S/U:** Published Table 26 allows omission; the XSD header
+suggests otherwise, as detailed in section 1. This is conflicting guidance to
+resolve, not a confirmed mandatory-element defect. Authored Fixture children
+still require preservation even when an empty container may be omitted. Export
+validator child-order lists do not prove presence or reference preservation.
+Never infer compliance or lossless preservation from “canonical” in a policy name.
 
 ## 4. PSTG/MVR/CAD data ownership and compatibility
 
@@ -333,6 +382,19 @@ can establish equivalence.
 
 ### Shared text layout and measurement service
 
+**D:** Qualify two tracks incrementally. The foundation track covers concrete
+font identity, named units, metric/encoding correctness for an explicitly bounded
+repertoire, positioned runs, line breaking, geometry and clips, first through
+legacy adapters. Free text, legends and tables can adopt this contract before
+advanced Unicode or shaping is available. Keep unsupported source text intact
+and diagnose output limitations; the foundation must not narrow stored text.
+
+The separate Unicode/shaping track extends that contract with broader font
+coverage, composite PDF fonts/ToUnicode, fallback, combining/grapheme handling,
+bidi and complex-script shaping in individually qualified increments. Basic
+Unicode encoding/coverage does not establish shaping support. Advanced shaping
+is not a prerequisite for qualifying shared composition on the initial repertoire.
+
 **D:** Introduce one GUI-independent text composition owner under Core, using
 the existing supported style/run vocabulary first. Its input is UTF-8 text,
 explicit paragraph/run styles, font identities, width/height, overflow policy,
@@ -361,6 +423,19 @@ when requested. Do not flatten all native text to outlines by default.
 old projects through explicit legacy layout versions, then remove compensation
 from new shared composition. Share legend/event-table column/row geometry too;
 sharing font measurement alone leaves duplicated composition decisions.
+
+### Future preview/PDF acceptance criterion
+
+**D:** For each qualified repertoire/style and layout version, preview and PDF
+must agree on **line breaks, geometry, positioning, text bounds and clipping**
+from the same scene/document snapshot, resolved fonts, units and output policy.
+Compare positioned-run/geometry manifests (including line count, advances,
+baselines, element/symbol placement, ink/logical bounds and clip intersections)
+before raster comparisons. Require declared numerical tolerances and explicit
+legacy-version expectations; do not accept missing content or changed line
+breaks under a permissive image threshold. Qualify text, legends and event
+tables incrementally, then extend the same criterion to Unicode/shaping cases.
+This is a future acceptance gate; current agreement has not been demonstrated.
 
 ## 6. Recommended shared drawing and annotation architecture
 
@@ -413,7 +488,8 @@ offset in a plan is scene/view documentation. A temporary selection/measurement
 overlay is neither persistent entity by default.
 
 Dimensions and focus points require **separate domain models**. Focus is an MVR
-scene target/reference with transforms and optional geometry. A dimension is
+scene target/reference with optional Matrix and a required Geometries container
+whose graphical children may be empty. A dimension is
 PSTG documentation describing a measurement and its presentation. They share
 UUID references, anchors, projection math, units, visibility and drawing
 primitives, not authoritative ownership or lifecycle. A distance between focus
@@ -495,6 +571,25 @@ ordering, font files and compression are controlled; compare semantic geometry
 and positioned text first.
 
 ## 7. CAD interoperability and licensing
+
+### Early limited DXF research proof of concept
+
+**D:** Schedule a small, isolated interoperability experiment during phase 0
+research, after establishing the P0 MVR preservation workstream. It does not
+depend on Layout, native dimensions or the final composition implementation and
+must not delay P0. Use generated, disposable AC1027 model-space samples with
+known mm distances, a layer, LINE/ARC/CIRCLE, TEXT/MTEXT and one BLOCK with two
+INSERT placements; probe one native DIMENSION separately without inventing a
+Perastage dimension model. Reopen in an independent CAD implementation and
+record entity types, values, units, transforms, text behavior, unsupported cases
+and candidate library/version/license evidence. A self-read or screenshot alone
+is insufficient. An unavailable independent reader leaves the gate unqualified.
+
+This is a proposed research gate only. This audit authorizes **no CAD
+implementation**, dependency addition, application API/UI, importer/exporter or
+PSTG schema change. Record results and a go/no-go recommendation before seeking
+a separately scoped implementation decision. D0 below is distinct from the
+later production library/platform qualification in D2 and feature work D3–D5.
 
 ### Native representations and format boundaries
 
@@ -586,7 +681,7 @@ All actions here are **D**; references to existing behavior are **C**.
 
 | Existing owner | Decision | Review boundary |
 | --- | --- | --- |
-| `MvrScene`, reader, XML value writers, import/merge identity services | Reuse and extend | Add focus and supported standard preservation without a parallel parser/scene. Extract reader responsibilities before exceeding its size limit. |
+| `MvrScene`, reader, XML value writers, import/merge identity services | Reuse and extend | Add focus and lossless valid standard-data preservation, including unsupported information, without a parallel parser/scene. Extract reader responsibilities before exceeding its size limit. |
 | Existing MVR extensions and GDTF archive mutation policy | Preserve | New drawing entities stay out of MVR; existing compatible metadata remains covered by regressions. |
 | `LayoutCollection`, template serializer/packages, image registry | Reuse/evolve | Add versioned semantics/units/IDs with legacy loading and staged resources. Do not replace all templates or change old layout appearance accidentally. |
 | `LayoutManager` and direct config reads | Incremental refactor | Separate collection/config adapter from explicit document operations; remove GUI/global lookups from reusable composition one consumer at a time. |
@@ -603,10 +698,10 @@ All actions here are **D**; references to existing behavior are **C**.
 
 | Priority | Risk / evidence class | Required decision or control |
 | --- | --- | --- |
-| P0 | Focus nodes/references lost by scene serialization (**C**) | Preserve complete canonical targets/references before editable focus features. Existing lost information requires an original source. |
-| P0 | Unicode replacement in PDF (**C**) | Shared resolved fonts, supported repertoire and PDF encoding/shaping scope; never claim Unicode parity from embedded TTF alone. |
-| P1 | Layer elevation and unsupported fixture/Alignment/Classing fields not preserved (**C**) | Small standards-preservation inventory and characterization PRs; distinguish supported canonical subset from full MVR compatibility. |
-| P1 | MVR 1.6 output versus backwards-compatible validation (**C/S**) | Check emitted Fixture ChildList and other semantic requirements with official schema plus version rules. |
+| P0 | MVR standards compliance and lossless preservation, including Focus nodes/references (**C/S/D**) | Absolute priority independent of Layout. Preserve valid standard information even without edit/render support; block destructive writes if preservation is unsafe. Existing lost information requires an original source. |
+| P0 | Layer elevation and unsupported fixture/Alignment/Classing fields not preserved (**C**) | Inventory and close every valid standard-data loss path, including opaque retention where needed; canonical subset coverage is not a preservation exemption. |
+| P0 | Declared MVR version versus backwards-compatible validation (**C/S/U**) | Validate published version-specific requirements separately from preservation; record the Fixture ChildList prose/XSD-comment conflict without claiming mandatory presence. |
+| P1 | Unicode replacement in PDF (**C**) | Shared typography/composition foundation first; qualify broader Unicode and shaping separately. Never claim Unicode parity from embedded TTF alone. |
 | P1 | Old layouts shift under new typography/physical units (**V**) | Versioned composition/migration; archived fixtures and explicit legacy policy before removing factors. |
 | P1 | Document change escapes scene-only rollback/history (**C**) | Atomic scene/document/resources publication; delete/move/copy/remap linked annotations as one operation. |
 | P1 | Dynamic links become dangling after delete/merge/copy (**D**) | Keep explicit broken-link state and diagnostics; choose detach/delete behavior per command, no silent retargeting. |
@@ -633,20 +728,29 @@ Decisions still required (**U**):
 
 ## 10. Phased implementation roadmap
 
-All phases are **D**, not work implemented by this audit.
+All phases are **D**, not work implemented by this audit. P0 MVR compliance and
+preservation is an independent workstream: it starts immediately, has no Layout,
+typography or CAD dependency, and remains mandatory if those roadmaps move.
+All CAD implementation rows remain proposals requiring a separate decision;
+adding the early research gate does not authorize their implementation.
 
 | Phase | Target | Exit gate |
 | --- | --- | --- |
-| 0: characterization and decisions | Before 1.8 implementation | Agree ownership, supported MVR subset, typography migration/font policy and first CAD profile; freeze old PSTG/preview/PDF cases. |
-| 1: preservation and measurement | 1.8 foundation | Focus targets/references survive MVR/PSTG/merge/Undo; layer elevation and version-specific omissions characterized; shared text measurements and supported Unicode output have explicit tests. |
-| 2: shared composition and project semantics | 1.8 incremental PRs | Existing text/legend/table pages consume common geometry; persistent documentation models/commands carry units, references and history without breaking v1 templates. |
+| 0: characterization and decisions | Before 1.8 implementation; establish P0 first | Inventory valid standard-data preservation and version rules, including unsupported fields and published conflicts; freeze old MVR/PSTG/preview/PDF cases. Choose an initial bounded typography repertoire and migration/font policy. |
+| 0R: limited DXF interoperability research (D0) | Early research alongside characterization, without delaying P0 | Disposable native-entity samples inspected in an independent CAD implementation; units/transforms/text/entity semantics and limits recorded with a go/no-go recommendation. No application integration or dependency decision. |
+| 1A: MVR compliance and lossless preservation — absolute P0 | Independent of the 1.8 Layout roadmap | Separate compliance, canonical-output and semantic-RT gates pass for MVR/PSTG/merge/Undo; Focus, elevation and unsupported valid standard information retained; unsafe destructive writes blocked, version conflicts explicit. |
+| 1B: shared typography/measurement foundation | Incremental after P0 is established | Concrete fonts/units and bounded repertoire have characterized metrics/encoding and diagnostics; legacy adapters need no advanced Unicode/shaping work to qualify. |
+| 2: shared composition and project semantics | 1.8 incremental PRs | Text/legend/table preview and PDF agree on line breaks, geometry, positioning, text bounds and clipping for the qualified foundation scope; persistent documentation models/commands carry units, references and history without breaking v1 templates. |
+| 2U: Unicode and shaping extensions | Separately qualified increments | Broader code-point/font/PDF mapping, extraction, fallback and later complex-script/bidi/grapheme behavior extend the shared contract with the same preview/PDF acceptance gate. Not a dependency of initial composition. |
 | 3: technical annotations | 1.8 feature increments | Scene/page labels, native linear dimensions and focus UI use the shared services; export full-detail policy is independent of interactive LOD. Beam footprints only after direction/optics qualification. |
 | 4: DXF | Late 1.8 or next milestone if gates need more time | Native model-space entities and bounded CAD references independently validated; no implicit MVR conversion. Add paper layouts after that baseline. |
 | 5: broader CAD/automation | Later releases | More dimension types/leaders/templates and typed external tools; DWG import/export qualified per version/library/license. |
 
 Do not make every professional-drawing feature a 1.8.0 release prerequisite.
-The minimal architectural milestone is preservation + shared composition +
-versioned documentation ownership, with working old projects throughout.
+MVR compliance and lossless standard-data preservation remain unconditional P0
+acceptance gates. The Layout architectural milestone is shared composition +
+versioned documentation ownership, with working old projects throughout;
+advanced Unicode/shaping and production CAD qualification can follow separately.
 
 ## 11. Proposed small PRs, dependencies and acceptance criteria
 
@@ -654,18 +758,26 @@ These are **D**. Each implementation PR should include only its relevant tests,
 documentation and explicit source ownership; a later feature must not be hidden
 in a “refactor.” Dependencies refer to the IDs below.
 
+**D:** A-series compliance/preservation work is absolute P0 and independent of
+B/C/D Layout/CAD delivery. A1's MVR characterization can land without its drawing
+baseline; no font, UI or CAD decision gates A2–A6. B1/B2/B4/B5 form the initial
+typography/composition track; B3 and B6 extend its qualified scope separately.
+All rows describe future work, not authorization to implement it in this PR.
+
 | ID | Independently reviewable PR | Depends on | Acceptance criteria |
 | --- | --- | --- | --- |
-| A1 | Characterize current MVR/PSTG and drawing baselines | Audit agreement | Generated Focus/Alignment/elevated-layer inputs; old templates, text and symbol pages archived with semantic expectations. Known loss cases named explicitly; tests do not bless loss as desired behavior. |
-| A2 | Add canonical FocusPoint preservation in model/reader/writer | A1 | Required geometry/resources, UUID/layer/group/local transforms retained; nested/duplicate/dangling cases diagnosed; no GUI editing in this PR. Split reader helper rather than grow the 1499-line file. |
+| A1 | Characterize current MVR/PSTG and drawing baselines | Audit agreement | MVR/PSTG characterization lands independently of drawing baselines: generated Focus/Alignment/elevated-layer and unsupported-valid-standard inputs, version-specific requirements/conflicts and resources inventoried. Archive old templates/text/symbol pages separately. Known loss is not blessed as desired behavior. |
+| A2 | Add canonical FocusPoint preservation in model/reader/writer | A1 | Required Geometries container (possibly empty), authored geometry/resources, UUID/layer/group/local transforms retained; nested/duplicate/dangling cases diagnosed; no GUI editing in this PR. Split reader helper rather than grow the 1499-line file. |
 | A3 | Serialize Fixture Focus and integrate identity/merge/history | A2 | Valid reference survives MVR→PSTG→MVR, copy/merge collisions and Undo/Redo; unresolved references remain explicit; no duplicate focus targets. |
 | A4 | Preserve Layer elevation | A1 | Nonzero elevation composes with nested groups; import/export/reference coordinates agree; identity remains UUID-based; old identity/default-layer tests pass. |
-| A5 | Close version-specific Fixture output omissions | A1 | MVR 1.6 envelope and required Fixture ChildList pass schema + semantic inspection; imported Function/inversion/custom IDs inventoried with explicit retained/unsupported outcomes. Split further if necessary. |
+| A5 | Close verified version-specific Fixture output omissions | A1 | Declared-version envelope and conditional Fixture requirements pass schema + published semantic checks; Table 26's optional ChildList versus XSD-header guidance remains explicit until resolved, with no invented mandatory rule. Authored children and imported Function/inversion/custom IDs survive RT even when not editable. Split further if necessary. |
+| A6 | Close remaining valid standard-data preservation gaps | A1; coordinate with A2–A5 | Inventory covers all valid standard information, not only editable fields: retain unknown/unsupported attributes/subtrees, values, identities, references and resources through MVR/PSTG/merge/history. Opaque data stays linked to the canonical scene with defined collision/edit rules; unsafe writes block with diagnostics. Compliance, canonical-output and semantic-RT assertions are separate; warnings alone cannot excuse data loss. Split by owner as needed. |
 | B1 | Establish neutral font/measurement contract with legacy adapter | A1, font-policy decision | Concrete font identity and units, measured advances/baselines/bounds; no wx/GL in public contract; legacy metrics are characterized without unannounced visual changes. |
 | B2 | Consolidate PDF metrics/encoding and correct mapping | B1 | One tested owner for active consumers; CP1252 code-to-glyph widths match emitted encoding; fallback behavior explicit; no source-size growth workaround. |
-| B3 | Add supported Unicode PDF text path | B1–B2, font/shaping scope | Defined repertoire retains code points and searchable/extractable text; missing glyphs diagnosed; selected font license/embedding reviewed; complex scripts supported only when qualified. |
-| B4 | Compose free text once for preview and PDF | B1–B3, migration policy | Same positioned runs/line breaks/bounds/clip; mixed sizes/italic/alignment/overflow fixtures; old PSTG remains loadable with documented legacy appearance. |
-| B5 | Share legend/event-table geometry | B4 | Common column widths/row heights/wrapping/symbol slots; preview/PDF placement equivalence; compensation retired only for versioned new composition. Could be two PRs, one element kind each. |
+| B3 | Add supported Unicode PDF text path | B1–B2, explicit repertoire/font policy | Separate extension: defined repertoire retains code points and searchable/extractable text; missing glyphs diagnosed, source retained, font license/embedding reviewed. Apply preview/PDF line-break/geometry/position/bounds/clip criteria to added cases; no blanket complex-script claim. |
+| B4 | Compose free text once for preview and PDF | B1–B2, migration policy; not B3/B6 | Initial bounded repertoire uses identical line breaks, geometry, positioning, text bounds and clipping within declared tolerances; mixed sizes/italic/alignment/overflow fixtures and explicit unsupported-text diagnostics; old PSTG remains loadable with documented legacy appearance. |
+| B5 | Share legend/event-table geometry | B4; not B3/B6 | Common column widths/row heights/wrapping/symbol slots; preview/PDF agree on line breaks, geometry, positioning, text bounds and clipping for qualified scope. Compensation retired only for versioned new composition. Could be two PRs, one element kind each. |
+| B6 | Qualify advanced shaping/bidi/grapheme behavior | B3 and shared composition contract, separate engine/dependency decision | Explicit scripts/fonts/fallback and cluster-safe wrapping tested with extraction and preview/PDF agreement. Increment by script/capability; no foundation/composition milestone waits for universal shaping support. |
 | C1 | Version document semantics/units/IDs in existing persistence | A1, migration policy | Stable IDs and named scene/page units; v1 and legacy arrays migrate deterministically; templates/images/symbols/unknown-version behavior preserved or diagnosed. |
 | C2 | Add atomic document command publication | C1 | Scene+document+resources rollback on failure, one grouped Undo/dirty event, no-op/selection semantics preserved; no frontend dependency. |
 | C3 | Add scene/page dynamic label command and composition | C2, B4 | Scene UUID + typed field binding; move/style/visibility persists in PSTG; scene value edits update labels; delete/merge remapping has tests. |
@@ -673,9 +785,10 @@ in a “refactor.” Dependencies refer to the IDs below.
 | C5 | Add focus-point editing and marker presentation | A3, C2 | Typed create/move/assign/delete policy, group/layer transform/Undo and PSTG display style; canonical MVR remains sole focus position/reference owner. |
 | C6 | Qualify/project beam footprints | C5, GDTF optics decision | Tested direction/Alignment/kinematics and target plane, explicit missing-data cases; footprints derived, no invented cone defaults presented as accurate device data. |
 | D1 | Enforce full-detail export snapshot/resource policy | A1, shared composition | Cold/warm/progressive/active-drag exports yield equivalent complete content; simplification only explicit; GUI preferences do not leak into headless output. |
-| D2 | Qualify and select pinned DXF library/profile | Licensing review, A1 | Small native-entity corpus opens in an independent CAD implementation; Linux/MSVC/macOS builds and license inventory; record unsupported writer features. No new application API yet. |
-| D3 | Add native DXF model-space export adapter | D2, C3–C4, D1 | TEXT/MTEXT, BLOCK/INSERT/attributes, DIMENSION/DIMSTYLE and layers retained as entities; known distances/units and projection match shared drawing output; deterministic mapping/diagnostics. |
-| D4 | Import bounded CAD references | D2, C1–C2 | Original source retained; explicit unit/placement/layer mapping; malformed/nested/unsupported inputs bounded; no MVR mutation; one Undo and safe resource cleanup. |
+| D0 | Limited DXF interoperability research proof of concept | Phase 0 research scope; independent of B/C Layout work | Disposable AC1027 native-entity samples independently reopened; measured units/distances/transforms, entity/text behavior and limits recorded, plus library/license evidence and go/no-go recommendation. No production integration, dependency addition, CAD API or PSTG change authorized. |
+| D2 | Qualify and select pinned DXF library/profile | D0 evidence, licensing review, separate adoption decision | Small native-entity corpus opens in an independent CAD implementation; Linux/MSVC/macOS builds and license inventory; record unsupported writer features. No new application API yet. |
+| D3 | Add native DXF model-space export adapter | D2, C3–C4, D1; separate implementation approval | TEXT/MTEXT, BLOCK/INSERT/attributes, DIMENSION/DIMSTYLE and layers retained as entities; known distances/units and projection match shared drawing output; deterministic mapping/diagnostics. |
+| D4 | Import bounded CAD references | D2, C1–C2; separate implementation approval | Original source retained; explicit unit/placement/layer mapping; malformed/nested/unsupported inputs bounded; no MVR mutation; one Undo and safe resource cleanup. |
 | D5 | Add DXF paper-space layouts/viewports | D3, B5 | Real LAYOUT/BLOCK_RECORD/VIEWPORT with correct scale/clips/layers and page annotations; multi-sheet independent-reader comparison. |
 | E1 | Expose document capabilities via CLI/live/MCP; OSC subset if needed | Each corresponding C/D operation | Explicit units/IDs and structured errors; same core result and Undo as GUI; no parser/service duplication; scope each PR to one concrete capability. |
 | E2 | Qualify optional DWG reference import, then export | D3–D5, separate library/license gate | Supported revisions/entities documented with independent-reader evidence, converter errors preserved, no broad unsupported DWG claim. Separate import and export PRs. |
@@ -688,11 +801,11 @@ All additions below are **D**; this audit changes no tests.
 
 | Test family | Existing infrastructure to extend | Meaningful checks |
 | --- | --- | --- |
-| Standards/package | `tests/xml_schema_validation_test.cpp`, `mvr_inspection_standalone_test.cpp`, `mvr_exporter_compliance_test.cpp`, `check_official_validation_schemas.py` | Official pinned XSD plus semantic/reference/package checks. Required FocusPoint Geometries, dangling Focus, UUID collisions, nonidentity Layer Matrix, Fixture ChildList, Alignment resource links. Validate outgoing bytes as well as incoming inputs. |
-| Scene/project RT | `tests/save_load_roundtrip_test.cpp`, `project_session_test.cpp`, `project_session_io_test.cpp`, `mvr_truss_roundtrip_structure_test.cpp`, `project_support_userdata_roundtrip_test.cpp` | MVR→domain→MVR and PSTG save→restore, merge/copy/delete, nested transforms, untouched GDTF bytes, foreign UserData and legitimate Perastage metadata; compare semantic graph/identities/resources, not XML whitespace. |
+| Standards/package | `tests/xml_schema_validation_test.cpp`, `mvr_inspection_standalone_test.cpp`, `mvr_exporter_compliance_test.cpp`, `check_official_validation_schemas.py` | Official pinned XSD plus published declared-version semantic/reference/package checks. Required FocusPoint Geometries (possibly empty), dangling Focus, UUID collisions, permitted Layer elevation, conditional Fixture fields, authored Fixture children and Alignment resource links. Record ChildList guidance conflict; do not invent a mandatory-presence test. Validate outgoing bytes as well as incoming inputs. |
+| Scene/project RT | `tests/save_load_roundtrip_test.cpp`, `project_session_test.cpp`, `project_session_io_test.cpp`, `mvr_truss_roundtrip_structure_test.cpp`, `project_support_userdata_roundtrip_test.cpp` | MVR→domain→MVR and PSTG save→restore, merge/copy/delete, nested transforms, untouched GDTF bytes, foreign UserData and legitimate Perastage metadata; compare semantic graph/identities/values/resources including unsupported valid standard content. Assert compliance, canonical normalization and semantic preservation independently, and blocked writes when preservation is unsafe. |
 | Layout migration/resources | `tests/layout_template_serializer_test.cpp`, `layout_template_package_service_test.cpp`, `layout_image_resource_registry_test.cpp`, `layout_collection_zorder_test.cpp` | v1/legacy/future schema behavior, IDs, physical units, equal-z order, portability and missing-image diagnostics, duplicate/empty layer names and filter migration. |
 | Text semantics/encoding | `tests/pdf_font_metrics_test.cpp`, `tests/pdf_writer_test.cpp`, `viewer2d/pdf/pdf_font_metrics.cpp` consumers, `gui/layouttextutils.cpp` | Ensure tests reach the active namespaced PDF path. Cover euro/em dash, Spanish/German diacritics, Chinese/missing glyphs, combining marks and agreed bidi scope; font-resolved widths and extracted text as well as raster appearance. |
-| Composition/visual | Existing text/legend/table/symbol render paths and `layout_pdf_symbol_usage_test.cpp` | Golden positioned-run/geometry manifests first; render preview and PDF from same snapshot/fonts at fixed DPI, compare physical bounds/baselines/clips and bounded raster differences. Mixed font sizes, real italic, explicit/trailing/empty lines, long words, center/right/justified policy, overflow, transparency, symbol view/scale/strokes. |
+| Composition/visual | Existing text/legend/table/symbol render paths and `layout_pdf_symbol_usage_test.cpp` | Explicit preview/PDF acceptance gate: identical line breaks and agreement on geometry, positioning, text bounds and clipping within declared tolerances for each qualified scope/version. Golden positioned-run/geometry manifests first; same snapshot/fonts at fixed DPI, compare physical bounds/baselines/clips, then bounded raster differences. Mixed sizes, real italic, explicit/trailing/empty lines, long words, center/right/justified policy, overflow, transparency, symbol view/scale/strokes. Foundation repertoire first; extend to Unicode/shaping separately. |
 | Commands/adapters | `tests/command_mutation_transaction_test.cpp`, `command_transform_batch_test.cpp`, `external_scene_command_equivalence_test.cpp`, live/OSC/MCP tests | Failed grouped publication restores scene/document/resources/selection; one Undo/Redo; no-op clean state; typed commands equal GUI results; stable capabilities/errors and units. |
 | Performance/export | Existing packaged/layout caches, symbol preparation and progressive resource tests | Cold/warm and rejected caches; rapid edits/cancellation; font/symbol/style changes invalidate; LOD/proxy/raster zoom never changes export semantics; resource lifetime after scene replacement. |
 | CAD semantics | New small generated corpus after D2 | Independently reopen native TEXT/MTEXT/DIMENSION/INSERT/ATTRIB/layer/layout entities; inspect entity types, units, block counts, transforms, dimension value/style and viewport scale. Self-read plus a screenshot is insufficient. |
@@ -717,6 +830,14 @@ source-size and hygiene guards, plus the official schema integrity guard and
 `git diff --check`. Results are recorded in the accompanying documentation PR.
 No application build, production source, dependency or test file is changed.
 
+**C:** The documentation follow-up to merged
+[PR #2477](https://github.com/PeramatoG/Perastage/pull/2477) re-read the published
+pinned MVR specification and XSD through GitHub, checking package/root, Focus,
+Layer/GroupObject/Symdef and conditional Fixture requirements. It corrects the
+unqualified mandatory Fixture ChildList claim and records the prose/comment
+conflict. It adds research/acceptance requirements only; no DXF proof of concept
+or new runtime/visual qualification was performed in this follow-up.
+
 ### What remains unverified
 
 **U:** No new runtime MVR/PSTG FocusPoint reproduction or third-party MVR/GDTF
@@ -729,6 +850,8 @@ approved. Exact per-release CAD coverage, font licensing/embedding choices,
 complex-script support and native Windows/macOS packaging remain qualification
 work. Open PR #2474 was scoped by metadata and file list, not runtime-tested.
 
-This evidence boundary does not defer the architectural decisions: preserve
-canonical MVR data, keep proprietary documentation in PSTG, share composition,
-reuse current services, and qualify semantic CAD exchange before advertising it.
+This evidence boundary does not defer the architectural decisions: MVR standards
+compliance and lossless valid standard-data preservation are absolute P0,
+independent of Layout. Keep documentation annotations in PSTG and canonical scene
+information in MVR, share composition incrementally, reuse current services,
+and qualify semantic CAD exchange before advertising it.
