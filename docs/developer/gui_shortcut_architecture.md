@@ -231,8 +231,11 @@ inside the queue. The import's parent is disabled by the modal boundary, and
 no global accelerator or scene-view shortcut is registered or remapped.
 
 The interactive MVR GDTF queue retains that native modal keyboard boundary while
-its background worker runs. Escape requests cancellation and waits for completion;
-Enter cannot acknowledge active work or pending proposals. After processing,
-Escape/Enter can acknowledge the retained results. Changing a completed row makes
-its proposal pending again; canceling then preserves its previously applied
-profile and every other completed row.
+its background worker runs. OK is the native default button. While idle, OK or
+native default-button activation (Enter) applies pending selections and closes
+after successful completion. There is no separate Apply action. During analysis
+or download, OK is disabled and propagated wxID_OK commands are ignored. A failed
+application keeps the window open for review; it cannot acknowledge incomplete
+work. Escape, Cancel and close always restore every original MVR profile and
+per-instance mode, including when cancellation follows an OK application request.
+No global accelerator is registered or remapped.

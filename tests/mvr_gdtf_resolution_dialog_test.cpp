@@ -53,9 +53,11 @@ static void ApproveModal() {
         dialog->EndModal(wxID_OK);
 }
 
-static bool ToggleSource(GdtfDownloadQueueTable &table, unsigned source);
+static bool ToggleSource(GdtfDownloadQueueTable &table, unsigned source, unsigned row = 0);
 
-static void Run(bool automaticClose, bool fail = false, bool canceled = false, bool multipleModes = false, bool authFailed = false, bool cancelFinished = false) {
+enum class ApplyOutcome { Success, DownloadFails, CancelDuringDownload, DefaultButton, ExistingFallback };
+
+static void Run(bool automaticClose, bool fail = false, bool canceled = false, bool multipleModes = false, bool authFailed = false, bool cancelFinished = false, ApplyOutcome applyOutcome = ApplyOutcome::Success) {
   runtime_storage::TemporaryWorkspace workspace("mvr-gdtf-gui-test");
   const auto path = workspace.Path() / "fixture.gdtf";
   std::string error;
@@ -77,7 +79,10 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
   request.modeName = "Standard";
   auto alias = request;
   alias.type = "Independent alias";
-  int downloads = 0;
+  if (applyOutcome == ApplyOutcome::ExistingFallback)
+    alias.manufacturer = "Unlisted manufacturer";
+  std::atomic<int> downloads{0};
+  std::atomic<bool> replacementStarted{false};
   int logins = 0;
   MvrGdtfResolutionCallbacks callbacks;
   callbacks.loadCatalog = [multipleModes](auto) {
@@ -91,9 +96,17 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
   };
   callbacks.authenticate = [&] { ++logins; return !authFailed; };
   callbacks.confirmSelection = [](const Choice &, const Profile *) { return true; };
-  callbacks.download = [&](const Choice &, auto, auto cancel) {
+  callbacks.download = [&](const Choice &choice, auto, auto cancel) {
     ++downloads;
-    if (fail || (canceled && downloads == 2))
+    if (applyOutcome == ApplyOutcome::CancelDuringDownload && choice.revisionId == "a") {
+      replacementStarted = true;
+      const auto deadline = std::chrono::steady_clock::now() + 2s;
+      while (!cancel() && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(1ms);
+      assert(cancel());
+      return MvrGdtfDownload{};
+    }
+    if (fail || (applyOutcome == ApplyOutcome::DownloadFails && choice.revisionId == "a") || (canceled && downloads == 2))
       return MvrGdtfDownload{{}, {}, "Simulated offline"};
     if (canceled && downloads > 1)
       assert(cancel());
@@ -106,6 +119,14 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
   }
   MvrGdtfResolutionDialog dialog(nullptr, {request, alias}, workspace.Path(), callbacks,
                                   automaticClose, importedModes);
+  assert(!Button(dialog, "Apply selections"));
+  assert(dialog.GetDefaultItem() == Button(dialog, "OK"));
+  const auto checkAlias = [&](const Resolution &result) {
+    if (applyOutcome == ApplyOutcome::ExistingFallback)
+      assert(result.applied.source == Source::OriginalMvr);
+    else
+      assert(result.applied.revisionId == "b");
+  };
   int step = 0;
   wxTimer timer;
   timer.Bind(wxEVT_TIMER, [&](wxTimerEvent &) {
@@ -117,18 +138,29 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
       return;
     }
     if (fail || authFailed) {
-      if (results.at(request.type).status == Status::DownloadFailed)
+      if (results.at(request.type).status == Status::DownloadFailed &&
+          Button(dialog, "OK")->IsEnabled()) {
+        auto *table = Find<GdtfDownloadQueueTable>(dialog);
+        assert(ToggleSource(*table, 0));
+        // Both fixture aliases must use a valid selected source before acceptance.
+        assert(ToggleSource(*table, 0, 1));
         Click(*Button(dialog, "OK"));
+      }
       return;
     }
     if (automaticClose)
       return;
     auto *table = Find<GdtfDownloadQueueTable>(dialog);
-    auto *apply = Button(dialog, "Apply selections");
-    if (!apply->IsEnabled())
+    if (step == 2 && applyOutcome == ApplyOutcome::CancelDuringDownload && replacementStarted) {
+      assert(!Button(dialog, "OK")->IsEnabled());
+      ++step;
+      Click(*Button(dialog, "Cancel"));
+      return;
+    }
+    if (!Button(dialog, "OK")->IsEnabled())
       return;
     if (step == 0 && results.at(request.type).status == Status::Downloaded &&
-        results.at(alias.type).status == Status::Reused) {
+        results.at(alias.type).status == (applyOutcome == ApplyOutcome::ExistingFallback ? Status::OriginalMvr : Status::Reused)) {
       if (cancelFinished) {
         Click(*Button(dialog, "Cancel"));
         return;
@@ -147,7 +179,7 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
       ++step;
       candidates->GetEventHandler()->ProcessEvent(event);
     } else if (step == 1 && results.at(request.type).status == Status::Pending) {
-      assert(results.at(alias.type).applied.revisionId == "b");
+      checkAlias(results.at(alias.type));
       assert(ToggleSource(*table, 0));
       assert(ToggleSource(*table, 2));
       assert(dialog.Results().at(request.type).selected.revisionId == "a");
@@ -155,10 +187,16 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
       ++step;
       if (canceled)
         Click(*Button(dialog, "Cancel"));
-      else
-        Click(*apply);
-    } else if (step == 2 && results.at(request.type).applied.revisionId == "a") {
-      assert(results.at(alias.type).applied.revisionId == "b");
+      else if (applyOutcome == ApplyOutcome::DefaultButton) {
+        wxCommandEvent accept(wxEVT_BUTTON, wxID_OK);
+        dialog.ProcessWindowEvent(accept); // Same route as native default-button activation.
+      } else
+        Click(*Button(dialog, "OK"));
+    } else if (step == 2 && applyOutcome == ApplyOutcome::DownloadFails &&
+               results.at(request.type).status == Status::DownloadFailed) {
+      assert(dialog.IsModal() && results.at(alias.type).applied.revisionId == "b");
+      ++step;
+      assert(ToggleSource(*table, 0));
       Click(*Button(dialog, "OK"));
     }
   });
@@ -179,19 +217,23 @@ static void Run(bool automaticClose, bool fail = false, bool canceled = false, b
   } else if (fail || authFailed) {
     if (authFailed)
       assert(downloads == 0 && logins == 1);
-    assert(results.at(request.type).status == Status::DownloadFailed);
+    assert(results.at(request.type).status == Status::OriginalMvr);
     assert(results.at(request.type).applied.source == Source::OriginalMvr);
-  } else if (canceled || cancelFinished) {
-    assert(downloads == 1);
+  } else if (canceled || cancelFinished || applyOutcome == ApplyOutcome::CancelDuringDownload) {
+    assert(downloads == (applyOutcome == ApplyOutcome::CancelDuringDownload ? 2 : 1));
     assert(results.at(request.type).status == Status::Canceled);
     assert(results.at(request.type).applied.source == Source::OriginalMvr);
     assert(results.at(request.type).applied.mode.empty());
     assert(results.at(alias.type).status == Status::Canceled);
     assert(results.at(alias.type).applied.source == Source::OriginalMvr);
+  } else if (applyOutcome == ApplyOutcome::DownloadFails) {
+    assert(downloads == 2 && step == 3);
+    assert(results.at(request.type).applied.source == Source::OriginalMvr);
+    checkAlias(results.at(alias.type));
   } else {
     assert(downloads == (automaticClose ? 1 : 2));
     assert(results.at(request.type).applied.revisionId == (automaticClose ? "b" : "a"));
-    assert(results.at(alias.type).applied.revisionId == "b");
+    checkAlias(results.at(alias.type));
     assert(results.at(request.type).origin == (automaticClose ? SelectionOrigin::DownloadRequested
                                                              : SelectionOrigin::User));
   }
@@ -302,10 +344,10 @@ static void CancelLifecycle(int action) {
   }
 }
 
-static bool ToggleSource(GdtfDownloadQueueTable &table, unsigned source) {
+static bool ToggleSource(GdtfDownloadQueueTable &table, unsigned source, unsigned row) {
   auto *model = dynamic_cast<wxDataViewIndexListModel *>(table.GetModel());
   assert(model);
-  const auto item = model->GetItem(0);
+  const auto item = model->GetItem(row);
   if (!model->SetValue(wxVariant(true), item, 5 + source))
     return false;
   wxDataViewEvent event(wxEVT_DATAVIEW_ITEM_VALUE_CHANGED, &table, table.GetColumn(1 + source), item);
@@ -459,6 +501,10 @@ int main(int argc, char **argv) {
   DownloadRequested(true, 0, false);
   Run(true);
   Run(false);
+  Run(false, false, false, false, false, false, ApplyOutcome::DownloadFails);
+  Run(false, false, false, false, false, false, ApplyOutcome::CancelDuringDownload);
+  Run(false, false, false, false, false, false, ApplyOutcome::DefaultButton);
+  Run(false, false, false, false, false, false, ApplyOutcome::ExistingFallback);
   Run(false, false, true);
   Run(false, false, false, false, false, true);
   Run(true, true);

@@ -26,8 +26,11 @@ Utilisez **Tools → Edit dictionaries** pour gérer les correspondances de prof
 Le dialogue MVR/App/Download reste inchangé. Download ouvre la file avec des
 suggestions sûres et les profils MVR ou de l’application disponibles. Sélectionnez
 une ligne pour examiner les révisions et avertissements, même après un succès.
-**Appliquer les sélections** traite les changements avant que **OK** applique le
-résultat à toutes les instances de ce type.
+**OK** reste actif lorsque la file est inactive : il traite les sélections en
+attente puis ferme la fenêtre. Il est désactivé pendant l’analyse et les
+téléchargements. Les nouveaux échecs ou choix non résolus gardent la fenêtre ouverte
+pour vérification. Il n’y a plus de bouton Appliquer séparé. Les choix acceptés
+s’appliquent à toutes les instances de ce type.
 
 Choisir **Download** demande le fichier du dépôt lorsque le modèle correspond sans
 ambiguïté, même si le nom du mode diffère. Par exemple, `DMX Mode` n’empêche pas de
@@ -80,4 +83,6 @@ avec les profils et modes MVR d’origine pour toutes ses lignes. Toutes les
 substitutions de la file sont abandonnées, y compris les téléchargements terminés
 et les sélections locales. **OK** accepte les résultats.
 
-**Appliquer les sélections** relance aussi les téléchargements échoués. Annuler l’authentification arrête les tentatives restantes sans répéter le dialogue de connexion pour chaque ligne.
+**OK** relance aussi les téléchargements échoués. Pour continuer avec un profil
+d’origine après un échec, sélectionnez sa source **MVR** puis **OK**. Annuler
+l’authentification arrête les tentatives restantes sans répéter le dialogue de connexion.

@@ -129,8 +129,15 @@ selector. Revisions without a reliable model match give an explicit review reaso
 instead of implying that an original file was reused because it was identical.
 
 After processing, the user can select any row, including successful rows, revise
-its proposal, and apply again. Acknowledgement is disabled while proposals are
-pending or work is active. The existing MVR preference
+its proposal, and press OK. OK is enabled whenever the queue is idle, including
+with pending selections. It is the native default action; there is no separate
+Apply button. `ApplyAndAccept` records the pending/failed rows, retries failed
+attempts, and schedules the worker. Completion closes the single modal boundary
+only after these rows validate. New failures, unresolved modes or authentication
+failure keep the window open. Existing visible fallbacks are accepted by the OK
+action and do not block other successful edits. Work disables OK; repeated native
+OK commands cannot dismiss an active worker. Cancel/Escape/close still roll back
+all substitutions even after OK has started applying a batch. The existing MVR preference
 `mvr_auto_close_gdtf_download_window` retains its default **off** and its existing
 Preferences → MVR Import/Export location; the queue has no preference checkbox. Enabled
 automatic close commits safe final choices without a confirmation prompt.
@@ -199,7 +206,8 @@ cancellation precedence. `GdtfResolutionResources` covers local package identity
 modes, immutable ownership, malformed/missing definitions, failed publication,
 automatic name/count/patch priority and ambiguous-mode fallback.
 `MvrGdtfResolutionDialog` exercises automatic completion, successful-row changes,
-independent aliases, exact revision reuse, cancellation and offline fallback with
+independent aliases, exact revision reuse, one-step OK application/default activation,
+failed-batch review, cancellation during OK application and offline fallback with
 an injected deterministic backend. Existing catalog and queue lifecycle tests
 remain in place. `GdtfResolutionBoundary` guards the new separation.
 
@@ -212,4 +220,4 @@ mode explicitly chosen by the user applies to every instance of that type. This
 prevents an automatic suggestion based on the first instance from silently
 rewriting other instances' modes. Address spacing is kept separate from verified GDTF footprint evidence.
 
-Apply selections retries failed catalog rows. An authentication cancellation or failure stops pending attempts as one batch, retaining every valid fallback and completed result without repeating the sign-in dialog for each row.
+OK retries failed catalog rows; users can instead select MVR and accept that source. An authentication cancellation or failure stops pending attempts as one batch, retaining every valid fallback and completed result without repeating the sign-in dialog for each row.

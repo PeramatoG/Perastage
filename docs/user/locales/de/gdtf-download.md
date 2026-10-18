@@ -26,8 +26,11 @@ Mit **Tools → Edit dictionaries** verwalten Sie Profilzuordnungen; **Tools →
 Der Dialog MVR/App/Download bleibt erhalten. Download öffnet die Warteschlange
 mit sicheren Vorschlägen und verfügbaren MVR- oder Anwendungsprofilen als Ersatz.
 Wählen Sie eine Zeile, um Revisionen und Warnungen zu prüfen, auch nach einem
-Erfolg. **Auswahl anwenden** verarbeitet Änderungen, bevor **OK** das Ergebnis
-auf alle Instanzen dieses Gerätetyps anwendet.
+Erfolg. **OK** bleibt aktiv, wenn die Warteschlange nicht arbeitet: Es verarbeitet
+ausstehende Auswahlen und schließt anschließend die Fensteransicht. Während Analyse
+und Downloads ist es deaktiviert. Neue Fehler oder ungelöste Auswahlen halten das
+Fenster zur Prüfung offen. Ein separater Anwenden-Button entfällt. Akzeptierte
+Auswahlen gelten für alle Instanzen dieses Gerätetyps.
 
 **Download** fordert die Datei aus dem Repository an, wenn das Modell eindeutig
 übereinstimmt, auch bei abweichenden Modusnamen. `DMX Mode` verhindert beispielsweise
@@ -81,4 +84,6 @@ und setzen den Import für alle ihre Zeilen mit den ursprünglichen MVR-Profilen
 und Modi fort. Sämtliche Ersetzungen dieser Warteschlange werden verworfen, auch
 abgeschlossene Downloads und lokale Auswahlen. **OK** übernimmt die Ergebnisse.
 
-**Auswahl anwenden** wiederholt auch fehlgeschlagene Downloads. Ein Abbruch der Anmeldung beendet die übrigen Versuche, ohne den Anmeldedialog für jede Zeile erneut zu öffnen.
+**OK** wiederholt auch fehlgeschlagene Downloads. Um nach einem Fehler mit dem
+Originalprofil fortzufahren, wählen Sie dessen **MVR**-Quelle und drücken **OK**.
+Ein Abbruch der Anmeldung beendet die übrigen Versuche ohne wiederholte Anmeldedialoge.

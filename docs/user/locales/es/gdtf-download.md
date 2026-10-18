@@ -26,8 +26,11 @@ Utiliza **Tools → Edit dictionaries** para gestionar las asignaciones de perfi
 El diálogo MVR/App/Download se mantiene. Download abre la cola con sugerencias
 seguras y los perfiles MVR o de la aplicación disponibles como alternativa.
 Seleccione una fila para revisar revisiones y advertencias, incluso después de
-una descarga correcta. **Aplicar selecciones** procesa los cambios antes de que
-**Aceptar** aplique el resultado a todas las instancias de ese tipo.
+una descarga correcta. **Aceptar** permanece habilitado mientras la cola está
+inactiva: procesa las selecciones pendientes y cierra cuando terminan. Se deshabilita
+durante el análisis y las descargas. Los nuevos errores o selecciones sin resolver
+mantienen la ventana abierta para revisarlos. No hay un botón Aplicar separado.
+Las selecciones aceptadas se aplican a todas las instancias de ese tipo.
 
 Elegir **Download** solicita el archivo del repositorio cuando el modelo coincide
 sin ambigüedad, aunque el nombre del modo sea distinto. Por ejemplo, `DMX Mode`
@@ -78,4 +81,6 @@ importación con los perfiles y modos originales del MVR para todas sus filas.
 Se descartan todas las sustituciones de la cola, incluidas las descargas terminadas
 y las selecciones locales. **Aceptar** confirma los resultados.
 
-**Aplicar selecciones** también reintenta las descargas fallidas. Cancelar la autenticación detiene los intentos pendientes sin repetir el diálogo de acceso por cada fila.
+**Aceptar** también reintenta las descargas fallidas. Para continuar con un perfil
+original tras un fallo, seleccione su origen **MVR** y pulse **Aceptar**. Cancelar la
+autenticación detiene los intentos pendientes sin repetir el diálogo de acceso por fila.

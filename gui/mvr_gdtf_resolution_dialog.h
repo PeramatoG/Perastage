@@ -117,7 +117,7 @@ private:
   void FinishDownload(WorkerResult &result);
   void Search();
   void LoadLocal();
-  void Apply();
+  void ApplyAndAccept();
   void RequestCancel() override;
   bool CancelDiscardsSelections() const override { return true; }
   void Acknowledge() override;
@@ -147,13 +147,14 @@ private:
   wxStaticText *phase = nullptr;
   wxGauge *gauge = nullptr;
   bool automaticClose = false;
+  bool acceptWhenFinished = false;
+  std::vector<std::size_t> acceptanceRows;
   wxTimer activityTimer;
   wxStopWatch phaseClock;
   wxString workPhase;
   bool determinateProgress = false;
   wxButton *search = nullptr;
   wxButton *local = nullptr;
-  wxButton *apply = nullptr;
   wxButton *chooseMode = nullptr;
   wxButton *ack = nullptr;
   wxButton *cancel = nullptr;

@@ -87,8 +87,11 @@
 <p>Keep using the MVR/App/Download source dialog. Choosing Download opens the import
 queue with safe catalog suggestions and available MVR or application fallbacks.
 Select a row to inspect ranked revisions and compatibility warnings. You can
-change successful rows too; <strong>Apply selections</strong> processes the changed proposals
-before <strong>OK</strong> commits the results to every instance of that fixture type.</p>
+change successful rows too. <strong>OK</strong> remains enabled while the queue is idle: it
+processes pending selections and closes when they finish. During analysis and
+downloads it is disabled. New failures or unresolved choices keep the queue open
+for review. There is no separate Apply button. Accepted choices apply to every
+instance of that fixture type.</p>
 <p>Choosing <strong>Download</strong> requests a repository file when there is an unambiguous
 model match, even if the MVR mode name differs from the catalog. For example,
 <code>DMX Mode</code> does not prevent downloading ELP PAR with <code>Basic</code> and <code>Compact</code> modes.
@@ -133,7 +136,9 @@ equal footprints do not guarantee equal DMX channel functions.</p>
 importing with the original MVR profiles and modes for all its rows. This discards
 all queue substitutions, including completed downloads and local selections.
 Use <strong>OK</strong> to accept the results.</p>
-<p><strong>Apply selections</strong> also retries failed downloads. Canceling authentication stops the remaining attempts without repeating the sign-in dialog for every row.</p>
+<p><strong>OK</strong> also retries failed downloads. To continue with an original profile after
+a failure, select its <strong>MVR</strong> source and press <strong>OK</strong>. Canceling authentication
+stops the remaining attempts without repeating the sign-in dialog for every row.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

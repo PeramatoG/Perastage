@@ -26,8 +26,11 @@ Use **Tools → Edit dictionaries** to manage profile mappings and **Tools → O
 Keep using the MVR/App/Download source dialog. Choosing Download opens the import
 queue with safe catalog suggestions and available MVR or application fallbacks.
 Select a row to inspect ranked revisions and compatibility warnings. You can
-change successful rows too; **Apply selections** processes the changed proposals
-before **OK** commits the results to every instance of that fixture type.
+change successful rows too. **OK** remains enabled while the queue is idle: it
+processes pending selections and closes when they finish. During analysis and
+downloads it is disabled. New failures or unresolved choices keep the queue open
+for review. There is no separate Apply button. Accepted choices apply to every
+instance of that fixture type.
 
 Choosing **Download** requests a repository file when there is an unambiguous
 model match, even if the MVR mode name differs from the catalog. For example,
@@ -81,4 +84,6 @@ importing with the original MVR profiles and modes for all its rows. This discar
 all queue substitutions, including completed downloads and local selections.
 Use **OK** to accept the results.
 
-**Apply selections** also retries failed downloads. Canceling authentication stops the remaining attempts without repeating the sign-in dialog for every row.
+**OK** also retries failed downloads. To continue with an original profile after
+a failure, select its **MVR** source and press **OK**. Canceling authentication
+stops the remaining attempts without repeating the sign-in dialog for every row.

@@ -153,10 +153,8 @@ void MvrGdtfResolutionDialog::BuildLayout() {
   auto *actions = new wxBoxSizer(wxHORIZONTAL);
   search = new wxButton(this, wxID_ANY, _("Search GDTF Share..."));
   local = new wxButton(this, wxID_ANY, _("Load local GDTF..."));
-  apply = new wxButton(this, wxID_APPLY, _("Apply selections"));
   actions->Add(search, 0, wxRIGHT, 8);
   actions->Add(local, 0, wxRIGHT, 8);
-  actions->Add(apply, 0, wxRIGHT, 8);
   chooseMode = new wxButton(this, wxID_ANY, _("Choose DMX mode..."));
   actions->Add(chooseMode, 0);
   layout->Insert(insertAt++, actions, 0, wxALL, 8);
@@ -170,9 +168,9 @@ void MvrGdtfResolutionDialog::BuildLayout() {
   resources->Bind(wxEVT_CHOICE, [this](wxCommandEvent &) { ChooseResource(); });
   search->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Search(); });
   local->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { LoadLocal(); });
-  apply->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Apply(); });
   cancel->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { RequestCancel(); });
   ack->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Acknowledge(); });
+  ack->SetDefault();
 }
 
 std::optional<std::size_t> MvrGdtfResolutionDialog::SelectedRow() const {
@@ -192,12 +190,11 @@ void MvrGdtfResolutionDialog::SetWorkPhase(const wxString &label) {
 
 void MvrGdtfResolutionDialog::SetBusy(bool value) {
   busy = value;
-  apply->Enable(!busy);
   const bool pending = std::any_of(rows.begin(), rows.end(), [](const Row &row) {
     return row.resolution.status == Status::Pending || row.resolution.status == Status::ModeRequired;
   });
   finished = !busy && !pending;
-  ack->Enable(finished);
+  ack->Enable(!busy && !stop);
   cancel->Enable(!stop);
   RefreshSelection();
 }
@@ -378,12 +375,20 @@ std::unordered_map<std::string, Resolution> MvrGdtfResolutionDialog::Results() c
 }
 
 int MvrGdtfResolutionDialog::RunResolution() {
+  SetBusy(true);
   return GdtfDownloadQueueDialog::Run([this] { StartCatalog(); }, false);
 }
 
 void MvrGdtfResolutionDialog::Acknowledge() {
-  if (busy)
+  if (busy || stop || !IsModal())
     return;
-  if (finished && IsModal())
+  const bool hasWork = std::any_of(rows.begin(), rows.end(), [](const auto &row) {
+    return row.resolution.status == Status::Pending ||
+        row.resolution.status == Status::DownloadFailed ||
+        row.resolution.status == Status::ModeRequired;
+  });
+  if (hasWork)
+    ApplyAndAccept();
+  else
     EndModal(wxID_OK);
 }

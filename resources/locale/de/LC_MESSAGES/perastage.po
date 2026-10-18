@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-18 15:29+0000\n"
+"POT-Creation-Date: 2026-10-18 15:49+0000\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: German\n"
@@ -4394,7 +4394,7 @@ msgid "MVR file exported successfully."
 msgstr "MVR-Datei erfolgreich exportiert."
 
 #: gui/mvr_gdtf_resolution_actions.cpp:54
-#: gui/mvr_gdtf_resolution_dialog.cpp:275
+#: gui/mvr_gdtf_resolution_dialog.cpp:272
 #, c-format
 msgid "%s / %d channel"
 msgid_plural "%s / %d channels"
@@ -4402,7 +4402,7 @@ msgstr[0] "%s / %d Kanal"
 msgstr[1] "%s / %d Kanäle"
 
 #: gui/mvr_gdtf_resolution_actions.cpp:55
-#: gui/mvr_gdtf_resolution_dialog.cpp:276
+#: gui/mvr_gdtf_resolution_dialog.cpp:273
 #, c-format
 msgid "%s / channel count unavailable"
 msgstr "%s / Kanalzahl nicht verfügbar"
@@ -4430,12 +4430,12 @@ msgstr ""
 
 #
 #: gui/mvr_gdtf_resolution_actions.cpp:83
-#: gui/mvr_gdtf_resolution_dialog.cpp:343
+#: gui/mvr_gdtf_resolution_dialog.cpp:340
 msgid "The selected DMX mode differs from the imported mode."
 msgstr "Der gewählte DMX-Modus unterscheidet sich vom importierten Modus."
 
 #: gui/mvr_gdtf_resolution_actions.cpp:89
-#: gui/mvr_gdtf_resolution_dialog.cpp:346
+#: gui/mvr_gdtf_resolution_dialog.cpp:343
 msgid "The DMX footprint differs from the imported profile."
 msgstr "Die DMX-Kanalzahl unterscheidet sich vom importierten Profil."
 
@@ -4455,14 +4455,14 @@ msgstr "GDTF-Dateien (*.gdtf)|*.gdtf"
 
 #
 #: gui/mvr_gdtf_resolution_actions.cpp:237
-#: gui/mvr_gdtf_resolution_sources.cpp:101
+#: gui/mvr_gdtf_resolution_sources.cpp:103
 msgid "The selected GDTF package is not usable."
 msgstr "Das gewählte GDTF-Paket ist nicht verwendbar."
 
 #
 #: gui/mvr_gdtf_resolution_actions.cpp:240
 #: gui/mvr_gdtf_resolution_actions.cpp:252
-#: gui/mvr_gdtf_resolution_sources.cpp:101
+#: gui/mvr_gdtf_resolution_sources.cpp:103
 msgid "GDTF selection"
 msgstr "GDTF-Auswahl"
 
@@ -4504,7 +4504,7 @@ msgstr "Erfolgreich heruntergeladen"
 msgid "Downloaded; select DMX mode"
 msgstr "Heruntergeladen; DMX-Modus wählen"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:46 gui/mvr_gdtf_resolution_dialog.cpp:330
+#: gui/mvr_gdtf_resolution_dialog.cpp:46 gui/mvr_gdtf_resolution_dialog.cpp:327
 msgid "Downloaded; identical to original MVR"
 msgstr "Heruntergeladen; identisch mit ursprünglichem MVR"
 
@@ -4546,52 +4546,47 @@ msgid "Search GDTF Share..."
 msgstr "GDTF Share durchsuchen..."
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:156
-msgid "Apply selections"
-msgstr "Auswahl anwenden"
-
 #
-#
-#: gui/mvr_gdtf_resolution_dialog.cpp:160
+#: gui/mvr_gdtf_resolution_dialog.cpp:158
 msgid "Choose DMX mode..."
 msgstr "DMX-Modus wählen..."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:238
+#: gui/mvr_gdtf_resolution_dialog.cpp:235
 msgid "Downloaded; original MVR retained (DMX mode unresolved)"
 msgstr "Heruntergeladen; ursprüngliches MVR beibehalten (DMX-Modus ungeklärt)"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:279
+#: gui/mvr_gdtf_resolution_dialog.cpp:276
 msgid "Mode and channel metadata unavailable"
 msgstr "Modus- und Kanalmetadaten nicht verfügbar"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:280
+#: gui/mvr_gdtf_resolution_dialog.cpp:277
 #, c-format
 msgid "%s / %s / revision %s / %s / %s"
 msgstr "%s / %s / Revision %s / %s / %s"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:288
+#: gui/mvr_gdtf_resolution_dialog.cpp:285
 #, c-format
 msgid "%s / %s"
 msgstr "%s / %s"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:288
+#: gui/mvr_gdtf_resolution_dialog.cpp:285
 msgid "Preserve imported modes"
 msgstr "Importierte Modi beibehalten"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:295
+#: gui/mvr_gdtf_resolution_dialog.cpp:292
 #, c-format
 msgid "Imported mode: %s"
 msgstr "Importierter Modus: %s"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:297
+#: gui/mvr_gdtf_resolution_dialog.cpp:294
 #, c-format
 msgid "%d channel"
 msgid_plural "%d channels"
 msgstr[0] "%d Kanal"
 msgstr[1] "%d Kanäle"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:300
+#: gui/mvr_gdtf_resolution_dialog.cpp:297
 #, c-format
 msgid ""
 "Repeated patch spacing: %d channel. This is a hint; unused addresses may be "
@@ -4606,83 +4601,92 @@ msgstr[1] ""
 "Wiederholter Patch-Abstand: %d Kanäle. Nur ein Hinweis; freie Adressen "
 "können enthalten sein."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:306
+#: gui/mvr_gdtf_resolution_dialog.cpp:303
 msgid ""
 "The file was downloaded, but its DMX mode could not be assigned "
 "unambiguously. The original MVR profile and modes are retained."
-msgstr "Die Datei wurde heruntergeladen, ihr DMX-Modus konnte jedoch nicht eindeutig zugewiesen werden. Das ursprüngliche MVR-Profil und seine Modi bleiben erhalten."
+msgstr ""
+"Die Datei wurde heruntergeladen, ihr DMX-Modus konnte jedoch nicht eindeutig "
+"zugewiesen werden. Das ursprüngliche MVR-Profil und seine Modi bleiben "
+"erhalten."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:309
+#: gui/mvr_gdtf_resolution_dialog.cpp:306
 msgid "DMX mode assigned automatically from the MVR mode name."
 msgstr "DMX-Modus automatisch anhand des MVR-Modusnamens zugewiesen."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:311
+#: gui/mvr_gdtf_resolution_dialog.cpp:308
 msgid "DMX mode assigned automatically from the original channel count."
 msgstr "DMX-Modus automatisch anhand der ursprünglichen Kanalzahl zugewiesen."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:313
+#: gui/mvr_gdtf_resolution_dialog.cpp:310
 msgid "DMX mode inferred automatically from repeated patch spacing."
 msgstr "DMX-Modus automatisch aus wiederholten Patch-Abständen abgeleitet."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:317
+#: gui/mvr_gdtf_resolution_dialog.cpp:314
 msgid ""
 "The profile was downloaded. Choose its DMX mode or select another source."
-msgstr "Das Profil wurde heruntergeladen. Wählen Sie seinen DMX-Modus oder eine andere Quelle."
+msgstr ""
+"Das Profil wurde heruntergeladen. Wählen Sie seinen DMX-Modus oder eine "
+"andere Quelle."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:319
+#: gui/mvr_gdtf_resolution_dialog.cpp:316
 msgid ""
 "No unambiguous catalog model match. Select a candidate or another source."
-msgstr "Keine eindeutige Modellübereinstimmung im Katalog. Wählen Sie einen Kandidaten oder eine andere Quelle."
+msgstr ""
+"Keine eindeutige Modellübereinstimmung im Katalog. Wählen Sie einen "
+"Kandidaten oder eine andere Quelle."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:321
+#: gui/mvr_gdtf_resolution_dialog.cpp:318
 msgid ""
 "The downloaded file is byte-for-byte identical to the original MVR profile."
-msgstr "Die heruntergeladene Datei ist Byte für Byte identisch mit dem ursprünglichen MVR-Profil."
+msgstr ""
+"Die heruntergeladene Datei ist Byte für Byte identisch mit dem "
+"ursprünglichen MVR-Profil."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:331
+#: gui/mvr_gdtf_resolution_dialog.cpp:328
 msgid "Automatic DMX mode assignment"
 msgstr "Automatische DMX-Moduszuweisung"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:332
+#: gui/mvr_gdtf_resolution_dialog.cpp:329
 msgid "User selection"
 msgstr "Benutzerauswahl"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:333
+#: gui/mvr_gdtf_resolution_dialog.cpp:330
 msgid "Safe automatic match"
 msgstr "Sichere automatische Zuordnung"
 
 #
-#: gui/mvr_gdtf_resolution_dialog.cpp:333
+#: gui/mvr_gdtf_resolution_dialog.cpp:330
 msgid "Review required"
 msgstr "Prüfung erforderlich"
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:336
+#: gui/mvr_gdtf_resolution_dialog.cpp:333
 msgid "The manufacturer differs from the imported profile."
 msgstr "Der Hersteller unterscheidet sich vom importierten Profil."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:338
+#: gui/mvr_gdtf_resolution_dialog.cpp:335
 msgid "The fixture model or variant differs from the imported profile."
 msgstr "Gerätemodell oder Variante unterscheidet sich vom importierten Profil."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:341
+#: gui/mvr_gdtf_resolution_dialog.cpp:338
 msgid "DMX mode compatibility requires review."
 msgstr "Die Kompatibilität des DMX-Modus muss geprüft werden."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:348
+#: gui/mvr_gdtf_resolution_dialog.cpp:345
 msgid "A matching footprint does not prove DMX channel compatibility."
 msgstr "Eine gleiche Kanalzahl beweist keine DMX-Kanalkompatibilität."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:350
+#: gui/mvr_gdtf_resolution_dialog.cpp:347
 msgid "This fixture type uses several imported DMX modes."
 msgstr "Dieser Gerätetyp verwendet mehrere importierte DMX-Modi."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:352
+#: gui/mvr_gdtf_resolution_dialog.cpp:349
 msgid "Several fixture models are plausible. Select a profile explicitly."
 msgstr ""
 "Mehrere Gerätemodelle kommen infrage. Wählen Sie ausdrücklich ein Profil."
 
-#: gui/mvr_gdtf_resolution_dialog.cpp:357
+#: gui/mvr_gdtf_resolution_dialog.cpp:354
 msgid "Currently retained profile:"
 msgstr "Derzeit beibehaltenes Profil:"
 
@@ -4712,14 +4716,15 @@ msgstr "Verbindung und Download: %s"
 
 #: gui/mvr_gdtf_resolution_worker.cpp:222
 msgid "Downloads finished. Choose a DMX mode or another source."
-msgstr "Downloads abgeschlossen. Wählen Sie einen DMX-Modus oder eine andere Quelle."
+msgstr ""
+"Downloads abgeschlossen. Wählen Sie einen DMX-Modus oder eine andere Quelle."
 
 #: gui/mvr_gdtf_resolution_worker.cpp:223
 msgid "Queue finished."
 msgstr "Warteschlange abgeschlossen."
 
 #
-#: gui/mvr_gdtf_resolution_worker.cpp:251
+#: gui/mvr_gdtf_resolution_worker.cpp:269
 msgid "Canceling..."
 msgstr "Abbrechen..."
 
@@ -6140,6 +6145,10 @@ msgstr "Darstellungsstil"
 #: viewer3d/viewer3dpanel.cpp:2288
 msgid "Export image..."
 msgstr "Bild exportieren…"
+
+#
+#~ msgid "Apply selections"
+#~ msgstr "Auswahl anwenden"
 
 #
 #~ msgid "Automatic"

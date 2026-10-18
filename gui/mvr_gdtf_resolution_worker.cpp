@@ -229,17 +229,35 @@ void MvrGdtfResolutionDialog::ProcessNext() {
         (row.resolution.origin == SelectionOrigin::Automatic &&
          !row.resolution.ranking.downloadRid);
   });
-  if (automaticClose && !needsReview)
+  // Existing visible fallbacks were accepted by OK. Only new problems in this
+  // batch need another review before its requested close.
+  const bool acceptanceNeedsReview = std::any_of(acceptanceRows.begin(), acceptanceRows.end(),
+      [&](std::size_t index) {
+        const auto &row = rows[index];
+        return row.automaticModeUnresolved || row.resolution.status == Status::ModeRequired ||
+            row.resolution.status == Status::DownloadFailed || row.resolution.status == Status::Unresolved;
+      });
+  const bool accept = (acceptWhenFinished && !acceptanceNeedsReview) ||
+      (automaticClose && !needsReview);
+  acceptWhenFinished = false;
+  acceptanceRows.clear();
+  if (accept)
     EndModal(wxID_OK);
 }
 
-void MvrGdtfResolutionDialog::Apply() {
-  if (busy)
+void MvrGdtfResolutionDialog::ApplyAndAccept() {
+  if (busy || stop)
     return;
-  stop = false;
-  for (auto &row : rows)
+  acceptWhenFinished = true;
+  acceptanceRows.clear();
+  for (std::size_t index = 0; index < rows.size(); ++index) {
+    auto &row = rows[index];
+    if (row.resolution.status == Status::Pending || row.resolution.status == Status::DownloadFailed ||
+        row.resolution.status == Status::ModeRequired)
+      acceptanceRows.push_back(index);
     if (row.resolution.status == Status::DownloadFailed)
       Select(row.resolution, row.resolution.selected, row.resolution.origin);
+  }
   ProcessNext();
 }
 
