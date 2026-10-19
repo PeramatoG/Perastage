@@ -1,3 +1,4 @@
+#include "truss_instance_replacement.h"
 #include "mainwindow.h"
 
 #include <filesystem>
@@ -121,44 +122,6 @@ ChooseReplacementTrussPath(wxWindow *parent, const MvrScene &scene) {
   return std::make_pair(path, std::string(fn.GetName().ToUTF8()));
 }
 
-// Copies type and geometry data from a replacement truss while preserving
-// instance state.
-void ApplyTrussReplacement(Truss &target, const Truss &replacement) {
-  const std::string keepUuid = target.uuid;
-  const std::string keepName = target.name;
-  const std::string keepLayer = target.layer;
-  const std::string keepLayerUuid = target.layerUuid;
-  const std::string keepPosition = target.position;
-  const std::string keepPositionName = target.positionName;
-  const int keepUnitNumber = target.unitNumber;
-  const int keepCustomId = target.customId;
-  const int keepCustomIdType = target.customIdType;
-  const Matrix keepTransform = target.transform;
-  const Matrix keepLocalTransform = target.localTransform;
-  const bool keepHasLocalTransform = target.hasLocalTransform;
-  const std::string keepParentGroupUuid = target.parentGroupUuid;
-  const float keepCalculatedLoadKg = target.calculatedLoadKg;
-  const float keepManualLoadKg = target.manualLoadKg;
-  const bool keepHasManualLoadOverride = target.hasManualLoadOverride;
-
-  target = replacement;
-  target.uuid = keepUuid;
-  target.name = keepName;
-  target.layer = keepLayer;
-  target.layerUuid = keepLayerUuid;
-  target.position = keepPosition;
-  target.positionName = keepPositionName;
-  target.unitNumber = keepUnitNumber;
-  target.customId = keepCustomId;
-  target.customIdType = keepCustomIdType;
-  target.transform = keepTransform;
-  target.localTransform = keepLocalTransform;
-  target.hasLocalTransform = keepHasLocalTransform;
-  target.parentGroupUuid = keepParentGroupUuid;
-  target.calculatedLoadKg = keepCalculatedLoadKg;
-  target.manualLoadKg = keepManualLoadKg;
-  target.hasManualLoadOverride = keepHasManualLoadOverride;
-}
 
 } // namespace
 
@@ -206,7 +169,7 @@ void MainWindow::OnReplaceSelectedTrusses(wxCommandEvent &WXUNUSED(event)) {
     auto it = scene.trusses.find(uuid);
     if (it == scene.trusses.end())
       continue;
-    ApplyTrussReplacement(it->second, replacement);
+    truss_instance::ReplaceType(it->second, replacement);
   }
 
   cfg.SetSelectedTrusses(selectedUuids);

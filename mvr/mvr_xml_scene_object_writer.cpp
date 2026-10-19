@@ -23,6 +23,24 @@
 
 namespace mvr_xml_serialization {
 
+namespace {
+// Required identifier fields include empty strings and zero; optional presence matters.
+void AppendIdentifiers(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *parent,
+                       const std::string &text, int numeric, std::optional<int> unit) {
+  auto *id = document.NewElement("FixtureID");
+  id->SetText(text.c_str());
+  parent->InsertEndChild(id);
+  auto *number = document.NewElement("FixtureIDNumeric");
+  number->SetText(numeric);
+  parent->InsertEndChild(number);
+  if (unit) {
+    auto *element = document.NewElement("UnitNumber");
+    element->SetText(*unit);
+    parent->InsertEndChild(element);
+  }
+}
+} // namespace
+
 // Appends one standard MVR Fixture node in the established child order.
 void AppendFixture(tinyxml2::XMLDocument &document,
                    tinyxml2::XMLElement *parent, const FixtureValues &values) {
@@ -58,9 +76,7 @@ void AppendFixture(tinyxml2::XMLDocument &document,
     addString("DMXInvertTilt", "true");
   addString("Position", values.position);
   addString("Function", values.function);
-  addString("FixtureID", values.fixtureId);
-  addInt("FixtureIDNumeric", values.fixtureIdNumeric);
-  addInt("UnitNumber", values.unitNumber);
+  AppendIdentifiers(document, fixture, values.fixtureId, values.fixtureIdNumeric, values.unitNumber);
   if (values.absoluteDmxAddress.has_value()) {
     tinyxml2::XMLElement *addresses = document.NewElement("Addresses");
     tinyxml2::XMLElement *address = document.NewElement("Address");
@@ -168,9 +184,7 @@ void AppendTruss(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *parent,
   AppendText(document, truss, "Function", values.function);
   AppendText(document, truss, "GDTFSpec", values.gdtfSpec);
   AppendText(document, truss, "GDTFMode", values.gdtfMode);
-  AppendText(document, truss, "FixtureID", values.fixtureId);
-  AppendInteger(document, truss, "FixtureIDNumeric", values.fixtureIdNumeric);
-  AppendInteger(document, truss, "UnitNumber", values.unitNumber);
+  AppendIdentifiers(document, truss, values.fixtureId, values.fixtureIdNumeric, values.unitNumber);
   AppendInteger(document, truss, "CustomIdType", values.customIdType);
   AppendInteger(document, truss, "CustomId", values.customId);
   parent->InsertEndChild(truss);
@@ -195,8 +209,7 @@ void AppendSupport(tinyxml2::XMLDocument &document,
              std::to_string(values.chainLength));
   AppendText(document, support, "GDTFSpec", values.gdtfSpec);
   AppendText(document, support, "GDTFMode", values.gdtfMode);
-  AppendText(document, support, "FixtureID", values.fixtureId);
-  AppendInteger(document, support, "FixtureIDNumeric", values.fixtureIdNumeric);
+  AppendIdentifiers(document, support, values.fixtureId, values.fixtureIdNumeric, values.unitNumber);
   parent->InsertEndChild(support);
 }
 
@@ -214,8 +227,7 @@ void AppendSceneObject(tinyxml2::XMLDocument &document,
   AppendGeometryReferences(document, object, values.geometries,
                            values.isFocusPoint);
   if (!values.isFocusPoint) {
-    AppendText(document, object, "FixtureID", values.fixtureId);
-    AppendInteger(document, object, "FixtureIDNumeric", values.fixtureIdNumeric);
+    AppendIdentifiers(document, object, values.fixtureId, values.fixtureIdNumeric, values.unitNumber);
   }
   parent->InsertEndChild(object);
 }

@@ -18,6 +18,9 @@ review used `1f0e94bdd4ba4df7c6ce5a4b83fa256ba55be0eb`.
 Historical verification is retained below and distinguished from this phase.
 No VERSION change.
 
+The identifier continuation starts from `63c3af4d` after merged PR #2483.
+Its bounded scope and verification are recorded at the end of this audit.
+
 | Authority | Exact revision / interpretation |
 | --- | --- |
 | [Published MVR 1.6](https://github.com/mvrdevelopment/spec/blob/8e0e0ccf4d7855e190ee7f370f93ea58be490fef/mvr-spec.md), DIN SPEC 15801:2023-12 | Official `1.6-mvr` tag `8e0e0ccf4d7855e190ee7f370f93ea58be490fef`. Primary normative scene reference. |
@@ -177,7 +180,7 @@ coverage. `Y` means within the explicitly bounded tested subset; `p` partial;
 is retained, **not** a preserved semantic entity). M=`p` must never be read as
 full reference/resource remapping. A=`C` class integration/protection/independent tests;
 `D` Symdef integration/protection/independent tests; `F` #2479 focus tests; `K` blocker tests;
-`X` existing named tests; `–` no executed feature-specific proof. A test name in
+`I` identifier integration and independent ZIP/XML tests; `X` existing named tests; `–` no executed feature-specific proof. A test name in
 this matrix identifies coverage, not proof of every possible value.
 
 Status: `S` full semantic support **only for the named tested subset**; `V` safe
@@ -189,7 +192,8 @@ transform path; `r` resource/reference contract; `u` root opaque UserData policy
 `b` add typed/preservation support before allowing write; `i` identifier recovery
 policy requires correction; `d` direct Symdef/self-contained resource and simple Truss Symbol subset;
 `a` AUXData retention requires follow-up; `v` version
-and semantic validation incomplete. Detailed limitations follow the matrix.
+and semantic validation incomplete; `j` bounded authored identifiers, with wider
+integer ranges protected and explicit mutation/legacy limits below. Detailed limitations follow the matrix.
 
 
 | Table | Standard path | Requirement/default | I | D | E | T | O | P | M | A | Status | Risk/action |
@@ -251,9 +255,9 @@ and semantic validation incomplete. Detailed limitations follow the matrix.
 | 20 | `SceneObject/CustomCommands` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 20 | `SceneObject/Overwrites` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 20 | `SceneObject/Connections` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
-| 20 | `SceneObject/FixtureID` | 1 | Y | Y | p | p | p | p | p | F,X | P | P0/i |
-| 20 | `SceneObject/FixtureIDNumeric` | 1 | Y | Y | p | p | p | p | p | F,X | P | P0/i |
-| 20 | `SceneObject/UnitNumber` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
+| 20 | `SceneObject/FixtureID` | 1 | Y | Y | p | Y | Y | Y | Y | I | V | P0/j |
+| 20 | `SceneObject/FixtureIDNumeric` | 1 | Y | Y | p | Y | Y | Y | Y | I | V | P0/j |
+| 20 | `SceneObject/UnitNumber` | 0 or 1 | Y | Y | p | Y | Y | Y | Y | I | V | P0/j |
 | 20 | `SceneObject/CustomId` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 20 | `SceneObject/CustomIdType` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 20 | `SceneObject/ChildList` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
@@ -280,9 +284,9 @@ and semantic validation incomplete. Detailed limitations follow the matrix.
 | 26 | `Fixture/DMXInvertTilt` | 0 or 1 | Y | Y | p | Y | Y | Y | Y | F | S | P0/s |
 | 26 | `Fixture/Position` | 0 or 1 | p | p | p | p | p | p | p | X | P | P0/a |
 | 26 | `Fixture/Function` | 0 or 1 | Y | Y | p | Y | Y | Y | Y | F | S | P0/s |
-| 26 | `Fixture/FixtureID` | 1 | Y | Y | p | p | p | p | p | F,X | P | P0/i |
-| 26 | `Fixture/FixtureIDNumeric` | 1 | Y | Y | p | p | p | p | p | F,X | P | P0/i |
-| 26 | `Fixture/UnitNumber` | 1 | Y | Y | p | p | p | p | p | F,X | P | P0/i |
+| 26 | `Fixture/FixtureID` | 1 | Y | Y | p | Y | Y | Y | Y | I | V | P0/j |
+| 26 | `Fixture/FixtureIDNumeric` | 1 | Y | Y | p | Y | Y | Y | Y | I | V | P0/j |
+| 26 | `Fixture/UnitNumber` | 1 | Y | Y | p | Y | Y | Y | Y | I | V | P0/j |
 | 26 | `Fixture/ChildPosition` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 26 | `Fixture/Addresses` | 0 or 1 | p | p | p | p | p | p | p | F,X | P | P0/r |
 | 26 | `Fixture/Protocols` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
@@ -314,9 +318,9 @@ and semantic validation incomplete. Detailed limitations follow the matrix.
 | 28 | `Truss/Connections` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 28 | `Truss/ChildPosition` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 28 | `Truss/ChildList` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
-| 28 | `Truss/FixtureID` | 1 | p | p | p | N | N | N | p | – | L | P0/i |
-| 28 | `Truss/FixtureIDNumeric` | 1 | p | p | p | N | N | N | p | – | L | P0/i |
-| 28 | `Truss/UnitNumber` | 0 or 1 | Y | Y | p | p | p | p | p | F,X | P | P0/i |
+| 28 | `Truss/FixtureID` | 1 | Y | Y | p | Y | Y | Y | Y | I | V | P0/j |
+| 28 | `Truss/FixtureIDNumeric` | 1 | Y | Y | p | Y | Y | Y | Y | I | V | P0/j |
+| 28 | `Truss/UnitNumber` | 0 or 1 | Y | Y | p | Y | Y | Y | Y | I | V | P0/j |
 | 28 | `Truss/CustomIdType` | 0 or 1 | Y | Y | p | p | p | p | p | F,X | P | P0/h |
 | 28 | `Truss/CustomId` | 0 or 1 | Y | Y | p | p | p | p | p | F,X | P | P0/h |
 | 29 | `Support/@uuid` | R | Y | Y | p | p | p | p | p | F,X | P | P0/i |
@@ -336,9 +340,9 @@ and semantic validation incomplete. Detailed limitations follow the matrix.
 | 30 | `Support/CustomCommands` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 30 | `Support/Overwrites` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 30 | `Support/Connections` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
-| 30 | `Support/FixtureID` | 1 | p | p | p | N | N | N | p | – | L | P0/i |
-| 30 | `Support/FixtureIDNumeric` | 1 | p | p | p | N | N | N | p | – | L | P0/i |
-| 30 | `Support/UnitNumber` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
+| 30 | `Support/FixtureID` | 1 | Y | Y | N | Y | Y | Y | Y | I | V | P0/j |
+| 30 | `Support/FixtureIDNumeric` | 1 | Y | Y | N | Y | Y | Y | Y | I | V | P0/j |
+| 30 | `Support/UnitNumber` | 0 or 1 | Y | Y | N | Y | Y | Y | Y | I | V | P0/j |
 | 30 | `Support/CustomIdType` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 30 | `Support/CustomId` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 30 | `Support/ChildList` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
@@ -468,7 +472,8 @@ Additional value, relationship and package requirements:
 | `mvr/mvr_class_preservation.*`, `models/mvrscene.h`, typed scene-node Classing fields | Class registry and direct edges; pre-normalization UUID/shape/reference evidence, current-model checks and final serialized projection comparison. Optional-name presence is retained; semantic default equality is used only for merge. |
 | `mvr/mvr_scene_node_reader.cpp`, `mvr/mvr_read_service.cpp` | Fixture scalar import, geometry expansion, ignored layer matrix, selected AUXData tables and recursive group ownership. Neutral VideoScreen/Projector descriptors are insufficient to save/export their standard data. |
 | `mvr/mvr_xml_scene_object_writer.*`, `mvr/mvrexporter.cpp` | Complete fields actually emitted, geometry registration, placeholder/fallback behavior, resource pruning, fixed canonical 1.6 root and final structural checks. Validation ordering lists are not preservation implementations. |
-| `mvr/mvr_export_preparation.cpp`, `core/mvr_identity_recovery.cpp` | Copy before recovery, deterministic repair, fixture identifiers/unit-number allocation and position normalization. New preservation checks run before repairs can conceal the loss. |
+| `mvr/mvr_export_preparation.cpp`, `core/mvr_identity_recovery.cpp` | Copy before UUID recovery and position normalization; allocation is now restricted to unassigned application-created identifiers. Authored duplicates/zero and present UnitNumber values are retained. |
+| `mvr/mvr_identifier_preservation.*`, `models/mvr_identifier_source.h` | Checked scalar import, bounded source provenance, optional UnitNumber presence, durable protection for unrepresentable ranges/shapes and final serialized identifier projection comparison. |
 | `core/configmanager.cpp`, `core/configservices.cpp`, `mvr/mvr_import_project_application.cpp` | New canonical scene.mvr serialization and reacquisition, staged PSTG publication, retained source resource leases, typed project application. Original input XML is not a hidden durable authority. |
 | `mvr/mvr_merge_analyzer.cpp`, `mvr/mvr_merge_applier.cpp`, `mvr/mvr_merge_resource_rewriter.cpp`, `core/scene_clipboard.cpp` | UUID collision maps, imported resource copies, focus reference remapping, child/layer remapping; new issue union and copied-focus remap. Foreign XML references do not share the typed alias map. |
 | `core/scene_grouping.cpp`, `core/scene_transform_integrity.cpp`, `core/layer_identity.cpp` | Geometric SceneObject values participate in group ownership, transforms and Layer UUID identity. These services do not restore fields absent from the model. |
@@ -476,11 +481,11 @@ Additional value, relationship and package requirements:
 
 **Known operations that can still alter unrelated valid data:**
 
-- Identifier preparation assumes globally unique positive FixtureIDNumeric,
-  repairs duplicates/zero, synthesizes UnitNumber, and can replace unrelated
-  authored identifiers. Truss and Support export synthesize FixtureID/numeric
-  IDs rather than preserving all authored values. Copy/merge tests here certify
-  Focus and Class reference graphs, not a universally lossless identifier policy.
+- The identifier continuation below corrects authored FixtureID, FixtureIDNumeric
+  and UnitNumber preservation on the four supported consumer types. Integer
+  ranges beyond the current signed-int model are protected. Application-created
+  unassigned values still use the existing allocator; generic explicit optional
+  presence edits, CustomId/CustomIdType and full legacy policies remain P0.
 - AUXData retains the tested Class registry/edges, selected Symdef geometry facts
   and Position name tables.
   Direct Symdefs, including names and unused/empty definitions, are now retained
@@ -900,3 +905,104 @@ source-size, repository hygiene, Symdef ownership and official-schema integrity
 checks pass. Hosted CI for this combined revision is separate from the green
 pre-integration run. Remaining P0 support and interoperability limits above are
 unchanged; no preservation blocker was removed by this integration.
+
+## Identifier phase: authored values and bounded semantic provenance
+
+Published MVR 1.6 Table 1 defines signed or unsigned base-10 Integer and arbitrary
+String values. Tables 20, 26, 28 and 30 distinguish FixtureID, FixtureIDNumeric
+and UnitNumber. Annex A is informative: selection IDs **should** be unique; it
+does not authorize renumbering unchanged source data. The user-intended-change
+rule remains normative. The published 1.6 document was fetched at `8e0e0ccf`
+(SHA-256 `687b8e796e47783c7acbeb502021b13b78d89b5c457cbf30325db67187b484d3`).
+The pinned XSD was independently fetched at `e199c6ed` and compared byte for byte.
+It permits zero and empty FixtureID strings and has no global identifier-uniqueness
+constraint. It restricts these integer fields to nonnegative values, unlike the
+published generic Integer definition. Negative-value preservation follows the
+published definition; it is explicitly **not** an XSD-conformance claim.
+
+Confirmed corrections:
+
+- A schema-valid fixture with FixtureID `101` and FixtureIDNumeric `0` imported as
+  numeric `101`. The new regression failed at that assertion before the fix.
+  Numeric zero now remains zero; FixtureID text, including empty strings and
+  surrounding whitespace, remains independent and exact.
+- Export formerly repaired duplicates/zero, invented UnitNumbers and replaced
+  Truss/Support selection identifiers. Imported canonical values now survive
+  normal/repeated exports, PSTG reopen, merge, copy, grouping and transforms.
+  Authored positive duplicate IDs are also retained for application-created
+  objects; only genuinely unassigned new objects use ID allocation. Allocation
+  reserves authored IDs across supported object kinds. FocusPoint consumes no ID.
+- Optional UnitNumber on Truss, Support and SceneObject retains absence versus
+  present zero. Their blockers are removed only for that now-represented field.
+  Present Fixture UnitNumber zero or negative values are not auto-generated.
+- Existing Perastage project metadata no longer overrides standard FixtureID,
+  FixtureIDNumeric or UnitNumber during import. Its internal selection alias is
+  separate and cannot alter canonical fields merely by being restored. Explicit
+  edits to the existing selection alias retain the current UI renumbering behavior;
+  direct canonical numeric edits preserve the independent FixtureID string.
+  Existing save/load contracts now expect an explicit edit to 707 to reopen as
+  canonical numeric/text 707, instead of reviving stale numeric 44/text from
+  provider metadata. Project-owned color and internal-alias checks remain active.
+- Replacing a Truss type delegates instance preservation to a small Core helper.
+  It retains identifiers, UnitNumber provenance and Classing alongside the
+  existing UUID, layer, parent, transform and load state. No new GUI is added.
+- Source integer conversion is checked before narrowing/fallback. Out-of-range
+  values, malformed/duplicate scalar shapes and child-bearing identifier scalars
+  create durable preservation evidence. Both MVR and PSTG writes reject those
+  scenes without replacing a valid destination. The source evidence is carried
+  by existing scene snapshots/merge ownership, never replayed as raw XML.
+- A shared final projection check verifies owner UUID/type, exact FixtureID text,
+  numeric values and UnitNumber presence/value against the prepared canonical
+  scene. Deliberately altered serialized identifiers are rejected. This is
+  bounded field provenance, not universal semantic provenance.
+
+Evidence: MvrIdentifierIntegrity and MvrIdentifierIndependent exercise both
+serialization paths and a second save/reopen cycle after source lease release
+and original-file deletion. An independent Python reader checks identifiers,
+merge/copy cardinalities, intentional numeric/unit edits, complete standard
+scene equality and resource bytes. The complete XML and package resources of
+PSTG scene.mvr are compared with normal canonical export of the **same state**.
+Provider metadata can still contain lease-dependent model paths across reopen;
+that existing drift remains unresolved and is not hidden by the standard-scene
+comparison. No PSTG-only recovery payload or alternative exporter is introduced.
+
+Remaining scope: signed-int limits are protected rather than generalized to
+unbounded integers. New application-created objects retain legacy unassigned
+ID/UnitNumber allocation. Adding an explicitly present optional zero to a field
+that was absent needs a future typed presence-edit operation; nonzero edits and
+unchanged authored presence are covered. Missing required fields in incomplete
+legacy input still use documented compatibility behavior, not a complete legacy
+contract. CustomId/CustomIdType, multipatch and other unrepresented identifiers
+remain partial or blocked. Foreign-provider metadata/reference policy remains
+unfinished. Older PSTGs whose canonical scene was already renumbered do not
+automatically recover alternative values from provider metadata; explicit
+numbering edits are required if that scene does not express the intended values.
+No external receiving application or official reference runtime
+interoperability was executed.
+
+Next coherent phases remain nested Symdef/Symbol graphs and canonical instance
+placement for other consumers; complete sidecar/dependency ownership; remaining
+hierarchy/local-coordinate transforms; and generalized versioned semantic
+provenance and mutation intent. Existing protection for these structures, the
+Class/Classing model and FocusPoint links remains active. This phase completes
+its selected identifier correction, not all remaining P0 requirements.
+
+### Identifier phase executed verification
+
+Local Linux Debug production `perastage_mvr_export` and `perastage_cli` builds
+succeeded. **37/37 selected regressions passed**: identifier integration and
+independent reader, Truss replacement boundary, actual CLI scene workflow
+(including authored zero), save/load and project-metadata contracts, GUI overlay
+and destination failures, Symdef/Class/Focus integration and independent readers,
+layer identity, merge, clipboard, grouping, transforms, exporter/XML/resource
+preparation, archive acquisition/recovery and official XSD checks. The initialized
+GUI test ran under Xvfb. MainWindow save and Truss replacement source syntax
+compilation succeeded. This is not interactive native window-manager coverage.
+
+Strict translations and all mandatory module-tree, GUI singleton, source-size
+and repository-hygiene checks passed, as did module/include ownership, pinned
+schema integrity, the new Core replacement boundary and generated-document drift
+checks. English user documentation and its four translated mirrors are updated;
+the generated Next page is synchronized and Stable is unchanged. Hosted CI for
+the new draft PR remains separate from these local results. External application
+and official reference-runtime interoperability were not executed.

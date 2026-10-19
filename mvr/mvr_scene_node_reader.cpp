@@ -17,6 +17,7 @@
  */
 #include "layer_identity.h"
 #include "mvr_scene_node_reader.h"
+#include "mvr_identifier_preservation.h"
 #include "mvr_scene_node_reader_detail.h"
 #include "mvr_scene_node_reader_neutral.h"
 
@@ -105,7 +106,6 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
   const auto &textOf = services.textOf;
   const auto &resources = services.resources;
   const auto &intOf = services.intOf;
-  const auto &fixtureIdOf = services.fixtureIdOf;
   auto parseMatrixOrIdentity =
       [&](tinyxml2::XMLElement *parent, const char *elementName,
           const std::string &context, Matrix &out, bool inspectScale = false) {
@@ -247,18 +247,13 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
         else if (!legacyIdentity.instanceName.empty())
           fixture.instanceName = legacyIdentity.instanceName;
 
-        fixtureIdOf(node, fixture.fixtureIdText, fixture.fixtureIdNumeric);
+        mvr_identifiers::Read(*node, fixture);
         fixture.fixtureId = fixture.fixtureIdNumeric;
-        intOf(node, "UnitNumber", fixture.unitNumber);
-        const auto projectIdentifiersIt =
-            projectFixtureIdentifiersByUuid.find(fixture.uuid);
-        if (projectIdentifiersIt != projectFixtureIdentifiersByUuid.end()) {
+        // Provider metadata restores only the application alias, never standard fields.
+        const auto projectIdentifiersIt = projectFixtureIdentifiersByUuid.find(fixture.uuid);
+        if (projectIdentifiersIt != projectFixtureIdentifiersByUuid.end())
           fixture.fixtureId = projectIdentifiersIt->second.fixtureId;
-          fixture.fixtureIdNumeric =
-              projectIdentifiersIt->second.fixtureIdNumeric;
-          fixture.fixtureIdText = projectIdentifiersIt->second.fixtureIdText;
-          fixture.unitNumber = projectIdentifiersIt->second.unitNumber;
-        }
+        fixture.identifierSource->selectionIdAtImport = fixture.fixtureId;
         intOf(node, "CustomId", fixture.customId);
         intOf(node, "CustomIdType", fixture.customIdType);
 
@@ -571,7 +566,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
         if (const char *nameAttr = node->Attribute("name"))
           truss.name = nameAttr;
 
-        intOf(node, "UnitNumber", truss.unitNumber);
+        mvr_identifiers::Read(*node, truss);
         intOf(node, "CustomId", truss.customId);
         intOf(node, "CustomIdType", truss.customIdType);
 
@@ -800,6 +795,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
                          const Matrix &localTransform,
                          const std::string &parentGroupUuid) {
         Support support;
+        mvr_identifiers::Read(*node, support);
         support.uuid =
             resolveStableUuid("Support", node, layerName, nodeTransform);
         support.layer = layerName;
@@ -932,7 +928,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
         obj.parentGroupUuid = parentGroupUuid;
         if (const char *nameAttr = node->Attribute("name"))
           obj.name = nameAttr;
-        fixtureIdOf(node, obj.fixtureIdText, obj.fixtureIdNumeric);
+        if (obj.kind == SceneObjectKind::SceneObject) mvr_identifiers::Read(*node, obj);
 
         std::string geometryType;
         std::unordered_map<std::string, std::string>

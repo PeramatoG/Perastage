@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include "mvr_identifier_source.h"
 #include <string>
 #include "types.h"
 #include "geometry_bounds.h"
@@ -75,6 +76,9 @@ struct Truss {
     std::string position;      // Position UUID or raw vector
     std::string positionName;  // Resolved name from AUXData
 
+    std::optional<MvrIdentifierSource> identifierSource;
+    std::string fixtureIdText;
+    int fixtureIdNumeric = 0;
     int unitNumber = 0;
     int customId = 0;
     int customIdType = 0;

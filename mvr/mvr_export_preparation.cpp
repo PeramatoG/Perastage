@@ -34,7 +34,6 @@ namespace {
 struct FixtureExportId {
   std::string text;
   int numeric = 0;
-  bool preserveTextOnNumericRepair = false;
 };
 
 // Trims ASCII whitespace without applying locale-dependent transformations.
@@ -49,21 +48,17 @@ std::string TrimAscii(std::string value) {
   return first < last ? std::string(first, last) : std::string{};
 }
 
-// Resolves the established MVR FixtureID compatibility representation.
+// Imported standard fields remain independent of the application's selection alias.
 FixtureExportId ResolveFixtureExportId(const Fixture &fixture) {
-  FixtureExportId id;
-  id.numeric =
-      fixture.fixtureId > 0 ? fixture.fixtureId : fixture.fixtureIdNumeric;
-  if (id.numeric <= 0)
-    id.numeric = 0;
-  if (fixture.fixtureIdNumeric > 0 &&
-      fixture.fixtureId == fixture.fixtureIdNumeric)
-    id.text = TrimAscii(fixture.fixtureIdText);
-  id.preserveTextOnNumericRepair =
-      !id.text.empty() && id.text != std::to_string(id.numeric);
-  if (id.text.empty() && id.numeric > 0)
-    id.text = std::to_string(id.numeric);
-  return id;
+  if (fixture.identifierSource) {
+    if (fixture.fixtureId != fixture.identifierSource->selectionIdAtImport)
+      return {std::to_string(fixture.fixtureId), fixture.fixtureId};
+    return {fixture.fixtureIdText, fixture.fixtureIdNumeric};
+  }
+  const int numeric = fixture.fixtureId != 0 ? fixture.fixtureId : fixture.fixtureIdNumeric;
+  const bool aliasEdited = fixture.fixtureId != 0 && fixture.fixtureId != fixture.fixtureIdNumeric;
+  const auto text = aliasEdited ? std::to_string(numeric) : fixture.fixtureIdText;
+  return {text.empty() && numeric != 0 ? std::to_string(numeric) : text, numeric};
 }
 
 // Builds the normalized fixture type key used for UnitNumber grouping.
@@ -109,7 +104,8 @@ std::unordered_map<std::string, int> BuildFixtureUnitNumbers(
   std::unordered_map<std::string, UnitGroup> groups;
   for (const auto &[uuid, fixture] : fixtures) {
     UnitGroup &group = groups[BuildFixtureUnitNumberTypeKey(fixture)];
-    if (fixture.unitNumber > 0) {
+    if (fixture.unitNumber != 0 ||
+        (fixture.identifierSource && fixture.identifierSource->unitNumberPresent)) {
       group.used.insert(fixture.unitNumber);
       result[uuid] = fixture.unitNumber;
     } else {
@@ -211,83 +207,53 @@ void AppendIdentityDiagnostics(Result &result,
   }
 }
 
-// Prepares globally unique object fixture identifiers in stable object order.
+// Allocate only missing application-created IDs; authored duplicates are not repairs.
 void PrepareObjectIds(Result &result) {
   int nextId = 1;
-  std::unordered_set<int> reserved;
-  std::unordered_set<int> assignedFixtures;
   std::unordered_set<int> used;
-  for (const auto &uuid : SortedKeys(result.scene.fixtures)) {
-    const int candidate =
-        ResolveFixtureExportId(result.scene.fixtures.at(uuid)).numeric;
-    if (candidate > 0)
-      reserved.insert(candidate);
-  }
-  used = reserved;
-  auto allocate = [&]() {
-    while (used.contains(nextId))
-      ++nextId;
+  for (const auto &[uuid, fixture] : result.scene.fixtures)
+    used.insert(ResolveFixtureExportId(fixture).numeric);
+  const auto reserve = [&](const auto &objects) {
+    for (const auto &[uuid, object] : objects) {
+      if constexpr (requires { object.kind; })
+        if (object.kind == SceneObjectKind::FocusPoint) continue;
+      used.insert(object.fixtureIdNumeric);
+    }
+  };
+  reserve(result.scene.trusses);
+  reserve(result.scene.supports);
+  reserve(result.scene.sceneObjects);
+  const auto allocate = [&]() {
+    while (used.contains(nextId)) ++nextId;
     used.insert(nextId);
     return nextId++;
   };
   for (const auto &uuid : SortedKeys(result.scene.fixtures)) {
-    const Fixture &fixture = result.scene.fixtures.at(uuid);
-    FixtureExportId id = ResolveFixtureExportId(fixture);
-    if (id.numeric > 0 && !assignedFixtures.insert(id.numeric).second) {
-      const int original = id.numeric;
-      id.numeric = allocate();
-      if (!id.preserveTextOnNumericRepair)
-        id.text = std::to_string(id.numeric);
-      std::string name = TrimAscii(fixture.instanceName);
-      if (name.empty())
-        name = fixture.uuid.empty() ? "unnamed fixture" : fixture.uuid;
-      result.objectIdDiagnostics.push_back(
-          {MvrExportDiagnosticCode::FixtureIdReassigned,
-           MvrExportDiagnosticSeverity::Warning,
-           MvrExportDiagnosticImpact::IdentityChanged,
-           true,
-           "Fixture",
-           name,
-           fixture.uuid,
-           {},
-           "MVR export reassigned duplicate FixtureIDNumeric " +
-               std::to_string(original) + " for fixture '" + name +
-               "' to the next available value " + std::to_string(id.numeric) +
-               "."});
-    } else if (id.numeric <= 0) {
+    const auto &fixture = result.scene.fixtures.at(uuid);
+    auto id = ResolveFixtureExportId(fixture);
+    if (!fixture.identifierSource && id.numeric == 0 && id.text.empty()) {
       id.numeric = allocate();
       id.text = std::to_string(id.numeric);
     }
-    if (id.text.empty())
-      id.text = std::to_string(id.numeric);
     result.objectIds[uuid] = {id.text, id.numeric};
   }
-  for (const auto &uuid : SortedKeys(result.scene.trusses)) {
-    const Truss &object = result.scene.trusses.at(uuid);
-    const int numeric = allocate();
-    const std::string text = TrimAscii(object.name);
-    result.objectIds[uuid] = {text.empty() ? std::to_string(numeric) : text,
-                              numeric};
-  }
-  for (const auto &uuid : SortedKeys(result.scene.supports)) {
-    const Support &object = result.scene.supports.at(uuid);
-    const int numeric = allocate();
-    const std::string text = TrimAscii(object.name);
-    result.objectIds[uuid] = {text.empty() ? std::to_string(numeric) : text,
-                              numeric};
-  }
-  for (const auto &uuid : SortedKeys(result.scene.sceneObjects)) {
-    const SceneObject &object = result.scene.sceneObjects.at(uuid);
-    if (object.kind == SceneObjectKind::FocusPoint)
-      continue;
-    const int numeric = object.fixtureIdNumeric > 0 &&
-                                used.insert(object.fixtureIdNumeric).second
-                            ? object.fixtureIdNumeric
-                            : allocate();
-    const std::string text = TrimAscii(object.fixtureIdText);
-    result.objectIds[uuid] = {text.empty() ? std::to_string(numeric) : text,
-                              numeric};
-  }
+  const auto prepare = [&](const auto &objects) {
+    for (const auto &uuid : SortedKeys(objects)) {
+      const auto &object = objects.at(uuid);
+      if constexpr (requires { object.kind; })
+        if (object.kind == SceneObjectKind::FocusPoint) continue;
+      std::string text = object.fixtureIdText;
+      int numeric = object.fixtureIdNumeric;
+      if (!object.identifierSource) {
+        if (numeric == 0 && text.empty()) numeric = allocate();
+        if (text.empty()) text = std::to_string(numeric);
+      }
+      result.objectIds[uuid] = {text, numeric};
+    }
+  };
+  prepare(result.scene.trusses);
+  prepare(result.scene.supports);
+  prepare(result.scene.sceneObjects);
 }
 
 // Prepares canonical position definitions and resolved object references.
