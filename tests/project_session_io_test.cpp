@@ -7,8 +7,20 @@
 #include <fstream>
 #include <memory>
 #include <vector>
+#include <stdexcept>
+#include <wx/init.h>
+#include <wx/log.h>
+
+class UnexpectedWxLog : public wxLog {
+public:
+  bool receivedMessage = false;
+protected:
+  void DoLogText(const wxString &) override { receivedMessage = true; }
+};
 
 int main() {
+  wxInitializer initializer;
+  assert(initializer.IsOk());
   namespace fs = std::filesystem;
 
   const fs::path tempDir = fs::temp_directory_path() / "perastage_project_session_io_test";
@@ -218,6 +230,8 @@ int main() {
         return true;
       });
   assert(!zeroSceneSaveOk);
+  assert(zeroSceneSession.GetLastSaveFailure().kind == ProjectSaveFailureKind::Serialization);
+  assert(zeroSceneSession.GetLastSaveFailure().stage == "SerializeScene");
   assert(!fs::exists(zeroSceneProjectPath));
 
   const fs::path requiredResourceFailurePath =
@@ -237,7 +251,55 @@ int main() {
             {"../unsafe-manifest.json", {'{', '}'}, true}};
       }));
   assert(!requiredResourceFailure);
+  assert(zeroSceneSession.GetLastSaveFailure().kind == ProjectSaveFailureKind::Resource);
+  assert(zeroSceneSession.GetLastSaveFailure().entry == "../unsafe-manifest.json");
   assert(!fs::exists(requiredResourceFailurePath));
+
+  // All failures leave an already valid destination unchanged.
+  const auto read = [](const fs::path &path) {
+    std::ifstream input(path, std::ios::binary);
+    return std::string(std::istreambuf_iterator<char>(input), {});
+  };
+  const auto original = read(projectPath);
+  ProjectSession::SaveConfigToBufferFn good = [](auto &bytes) {
+    bytes = {'{', '}'};
+    return true;
+  };
+  ProjectSession::SaveConfigToBufferFn bad = [](auto &) { return false; };
+  assert(!saveSession.SaveProject(projectPath.string(), bad, good));
+  assert(saveSession.GetLastSaveFailure().kind == ProjectSaveFailureKind::Serialization);
+  assert(saveSession.GetLastSaveFailure().stage == "SerializeConfig");
+  assert(read(projectPath) == original);
+  assert(!saveSession.SaveProject(projectPath.string(), good, bad));
+  assert(saveSession.GetLastSaveFailure().stage == "SerializeScene");
+  assert(read(projectPath) == original);
+  // Core returns typed failures; toolkit logging must not open a native dialog.
+  UnexpectedWxLog unexpectedWxErrors;
+  auto *previousLog = wxLog::SetActiveTarget(&unexpectedWxErrors);
+  const auto missingPath = tempDir / "missing" / "fail.pstg";
+  const bool missingDestinationSaved =
+      saveSession.SaveProject(missingPath.string(), good, good);
+  const bool receivedFileOpenError = unexpectedWxErrors.receivedMessage;
+  wxLogMessage("Project save logging restoration probe");
+  wxLog::SetActiveTarget(previousLog);
+  assert(!missingDestinationSaved);
+  assert(!receivedFileOpenError);
+  assert(unexpectedWxErrors.receivedMessage);
+  assert(saveSession.GetLastSaveFailure().kind == ProjectSaveFailureKind::ArchiveIo);
+  assert(saveSession.GetLastSaveFailure().stage == "OpenOutput");
+  assert(!fs::exists(missingPath));
+  assert(!fs::exists(missingPath.string() + ".tmp"));
+  assert(read(projectPath) == original);
+  ProjectSession::SaveSceneToBufferFn throws = [](auto &) -> bool {
+    throw std::runtime_error("test serialization exception");
+  };
+  assert(!saveSession.SaveProject(projectPath.string(), good, throws));
+  assert(saveSession.GetLastSaveFailure().stage == "SerializeScene");
+  assert(saveSession.GetLastSaveFailure().detail == "test serialization exception");
+  assert(read(projectPath) == original);
+  assert(!fs::exists(projectPath.string() + ".tmp"));
+  assert(saveSession.SaveProject((tempDir / "success.pstg").string(), good, good));
+  assert(saveSession.GetLastSaveFailure().kind == ProjectSaveFailureKind::None);
 
   const fs::path jsonPath = tempDir / "config_only.json";
   {

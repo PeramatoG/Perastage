@@ -77,6 +77,18 @@
 <p>Use <strong>Tools → Open user library folder</strong>; on Windows the default is <code>%APPDATA%\Perastage\library\</code>. Confirm your user profile is writable and back up custom content before replacing files. Edit user-library files rather than installed defaults.</p>
 <h2 id="layout-and-pdf-problems">Layout and PDF problems</h2>
 <p>Select a non-empty layout, check its frames and orientation, and verify scene/table content before <strong>File → Print Layout...</strong>. Choose a writable destination and a non-empty filename. Review the exported PDF; see <a href="layouts.html">Layouts and PDF</a> for the workflow.</p>
+<h2 id="project-save-failures">Project save failures</h2>
+<p>Save and Save As close the saving indicator and re-enable Perastage before
+showing a failure dialog. The indicator belongs to the Perastage window and
+has no system-wide always-on-top style.</p>
+<p>A preservation error means the shared canonical MVR exporter cannot yet retain
+some imported standard content. PSTG embeds that same canonical scene; choosing
+a different filename does not remove this limitation. Keep the original MVR
+and consult the log for the affected object or field. A resource error means a
+required project asset could not be saved. An archive error concerns writing
+the destination: check the folder, permissions and free disk space. Technical
+stage and resource details remain in the diagnostic log. No lossy conversion
+or alternative native scene representation is used.</p>
 <h2 id="project-and-runtime-problems">Project and runtime problems</h2>
 <p>Save a separate project copy when possible, restart Perastage and reopen it. Recheck critical data in 2D, 3D and tables. For slow 3D navigation, lower <a href="preferences.html#3d-viewer">Model detail</a> or enable the navigation proxy. Compare with a small project to isolate scene-specific problems.</p>
 <h2 id="gdtf-share-credentials">GDTF Share credentials</h2>

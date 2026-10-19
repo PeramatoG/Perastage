@@ -25,6 +25,7 @@
 #include <iterator>
 
 #include <wx/stdpaths.h>
+#include <wx/log.h>
 #include <wx/wfstream.h>
 class wxZipStreamLink;
 #include <wx/zipstrm.h>
@@ -818,9 +819,33 @@ bool ProjectSession::SaveProject(
     const std::string &path, const SaveConfigToBufferFn &saveConfigToBuffer,
     const SaveSceneToBufferFn &saveSceneToBuffer,
     const CollectArchiveResourcesFromSceneFn &collectResources) const {
+  lastSaveFailure = {};
+  const auto fail = [this](const std::string &stage, const std::string &detail,
+                          const std::string &entry = {},
+                          ProjectSaveFailureKind overrideKind = ProjectSaveFailureKind::None) {
+    auto kind = ProjectSaveFailureKind::ArchiveIo;
+    if (stage == "SerializeConfig" || stage == "SerializeScene" || stage == "ValidateCallbacks")
+      kind = ProjectSaveFailureKind::Serialization;
+    else if (stage == "CollectRequiredSymbols" || stage == "CollectRequiredResources" ||
+             stage == "WriteRequiredResource")
+      kind = ProjectSaveFailureKind::Resource;
+    if (overrideKind != ProjectSaveFailureKind::None) kind = overrideKind;
+    lastSaveFailure = {kind, stage, detail, entry};
+    return LogProjectSaveFailure(stage, detail, entry);
+  };
+  const auto serialize = [&](const auto &callback, auto &bytes, const std::string &stage) {
+    try {
+      if (callback(bytes)) return true;
+      return fail(stage, "Project data serialization failed.");
+    } catch (const std::exception &error) {
+      return fail(stage, error.what());
+    } catch (...) {
+      return fail(stage, "Unknown exception during serialization.");
+    }
+  };
   if (!saveConfigToBuffer || !saveSceneToBuffer)
-    return LogProjectSaveFailure("ValidateCallbacks",
-                                 "missing config or scene serializer");
+    return fail("ValidateCallbacks",
+                "missing config or scene serializer");
 
   const auto stageStart = std::chrono::steady_clock::now();
   const fs::path targetPath = PathFromUtf8(path);
@@ -837,73 +862,78 @@ bool ProjectSession::SaveProject(
       }
     }
   } tempCleanup{tempPath, false};
-  wxFileOutputStream out(WxStringFromPath(tempPath));
+  auto output = [&] {
+    // Core returns this failure; the caller presents it after closing its busy UI.
+    wxLogNull suppressFileOpenDialog;
+    return std::make_unique<wxFileOutputStream>(WxStringFromPath(tempPath));
+  }();
+  auto &out = *output;
   if (!out.IsOk())
-    return LogProjectSaveFailure("OpenOutput", "could not open temporary project archive",
+    return fail("OpenOutput", "could not open temporary project archive",
                                  tempPath.string());
   wxZipOutputStream zip(out);
 
   const auto configStart = std::chrono::steady_clock::now();
   std::vector<uint8_t> configBytes;
-  if (!saveConfigToBuffer(configBytes))
-    return LogProjectSaveFailure("SerializeConfig", "config serialization failed");
+  if (!serialize(saveConfigToBuffer, configBytes, "SerializeConfig"))
+    return false;
   if (configBytes.empty())
-    return LogProjectSaveFailure("SerializeConfig", "config.json payload is empty");
+    return fail("SerializeConfig", "config.json payload is empty");
   auto *configEntry = new wxZipEntry("config.json");
   configEntry->SetMethod(
       SelectZipCompressionMethod("config.json", configBytes.size()));
   if (!zip.PutNextEntry(configEntry))
-    return LogProjectSaveFailure("WriteConfigEntry", "could not create ZIP entry",
-                                 "config.json");
+    return fail("WriteConfigEntry", "could not create ZIP entry",
+                "config.json");
   if (!configBytes.empty()) {
     zip.Write(configBytes.data(), configBytes.size());
     if (!zip.IsOk()) {
       zip.CloseEntry();
-      return LogProjectSaveFailure("WriteConfigEntry", "could not write entry bytes",
-                                   "config.json");
+      return fail("WriteConfigEntry", "could not write entry bytes",
+                  "config.json");
     }
   }
   if (!zip.CloseEntry())
-    return LogProjectSaveFailure("WriteConfigEntry", "could not close ZIP entry",
-                                 "config.json");
+    return fail("WriteConfigEntry", "could not close ZIP entry",
+                "config.json");
   const auto configEnd = std::chrono::steady_clock::now();
 
   const auto sceneStart = std::chrono::steady_clock::now();
   std::vector<uint8_t> sceneBytes;
-  if (!saveSceneToBuffer(sceneBytes))
-    return LogProjectSaveFailure("SerializeScene", "scene MVR serialization failed");
+  if (!serialize(saveSceneToBuffer, sceneBytes, "SerializeScene"))
+    return false;
   if (sceneBytes.empty())
-    return LogProjectSaveFailure("SerializeScene", "scene.mvr payload is empty");
+    return fail("SerializeScene", "scene.mvr payload is empty");
   auto *sceneEntry = new wxZipEntry("scene.mvr");
   sceneEntry->SetMethod(
       SelectZipCompressionMethod("scene.mvr", sceneBytes.size()));
   if (!zip.PutNextEntry(sceneEntry))
-    return LogProjectSaveFailure("WriteSceneEntry", "could not create ZIP entry",
-                                 "scene.mvr");
+    return fail("WriteSceneEntry", "could not create ZIP entry",
+                "scene.mvr");
   if (!sceneBytes.empty()) {
     zip.Write(sceneBytes.data(), sceneBytes.size());
     if (!zip.IsOk()) {
       zip.CloseEntry();
-      return LogProjectSaveFailure("WriteSceneEntry", "could not write entry bytes",
-                                   "scene.mvr");
+      return fail("WriteSceneEntry", "could not write entry bytes",
+                  "scene.mvr");
     }
   }
   if (!zip.CloseEntry())
-    return LogProjectSaveFailure("WriteSceneEntry", "could not close ZIP entry",
-                                 "scene.mvr");
+    return fail("WriteSceneEntry", "could not close ZIP entry",
+                "scene.mvr");
   const auto sceneEnd = std::chrono::steady_clock::now();
 
   const auto resourcesStart = std::chrono::steady_clock::now();
   std::vector<ArchiveResource> resourceEntries;
   std::string symbolError;
   if (!fixtureSymbols.CollectArchiveResources(scene, resourceEntries, symbolError))
-    return LogProjectSaveFailure("CollectRequiredSymbols", symbolError);
+    return fail("CollectRequiredSymbols", symbolError);
   if (collectResources) {
     std::string resourceError;
     try {
       std::vector<ArchiveResource> additionalResources;
       if (!collectResources(sceneBytes, additionalResources, resourceError)) {
-        return LogProjectSaveFailure(
+        return fail(
             "CollectRequiredResources",
             resourceError.empty() ? "transactional resource collection failed"
                                   : resourceError);
@@ -912,9 +942,9 @@ bool ProjectSession::SaveProject(
                              std::make_move_iterator(additionalResources.begin()),
                              std::make_move_iterator(additionalResources.end()));
     } catch (const std::exception &e) {
-      return LogProjectSaveFailure("CollectRequiredResources", e.what());
+      return fail("CollectRequiredResources", e.what());
     } catch (...) {
-      return LogProjectSaveFailure("CollectRequiredResources", "unknown error");
+      return fail("CollectRequiredResources", "unknown error");
     }
   }
   std::unordered_set<std::string> writtenResourceNames = {
@@ -923,8 +953,8 @@ bool ProjectSession::SaveProject(
     const std::string resourceIdentity = ToLowerCopy(resource.entryName);
     if (!writtenResourceNames.insert(resourceIdentity).second) {
       if (resource.required) {
-        return LogProjectSaveFailure("WriteRequiredResource",
-                                     "transactional resource path is duplicated",
+        return fail("WriteRequiredResource",
+                    "transactional resource path is duplicated",
                                      resource.entryName);
       }
       Logger::Instance().Log(Logger::Level::Warn,
@@ -934,9 +964,9 @@ bool ProjectSession::SaveProject(
     }
     if (!WriteZipBytes(zip, resource.entryName, resource.bytes)) {
       if (resource.required) {
-        return LogProjectSaveFailure("WriteRequiredResource",
-                                     "could not write transactional resource",
-                                     resource.entryName);
+        return fail("WriteRequiredResource", "could not write transactional resource",
+                    resource.entryName, zip.IsOk() ? ProjectSaveFailureKind::Resource
+                                                   : ProjectSaveFailureKind::ArchiveIo);
       }
       Logger::Instance().Log(Logger::Level::Warn,
                              "Skipping optional project resource '" +
@@ -947,7 +977,7 @@ bool ProjectSession::SaveProject(
 
   const auto finalizeStart = std::chrono::steady_clock::now();
   if (!zip.Close())
-    return LogProjectSaveFailure("FinalizeArchive", "could not close project ZIP",
+    return fail("FinalizeArchive", "could not close project ZIP",
                                  tempPath.string());
   std::error_code replaceEc;
   fs::rename(tempPath, targetPath, replaceEc);
@@ -957,8 +987,8 @@ bool ProjectSession::SaveProject(
                   replaceEc);
     fs::remove(tempPath, cleanupEc);
     if (replaceEc)
-      return LogProjectSaveFailure("FinalizeArchive",
-                                   "could not replace target project archive",
+      return fail("FinalizeArchive",
+                  "could not replace target project archive",
                                    targetPath.string());
   }
   tempCleanup.keep = true;

@@ -814,3 +814,89 @@ even if the target filename resolves. Structured ResourceMissing diagnostics
 separate this failure from unsupported standard representation. Missing current
 Symdef geometry also uses that resource category. Generic non-definition resource
 merge failure policy remains a separate P0 concern.
+
+
+## Save-dialog lifecycle and failure diagnostics continuation
+
+Independent of the Symdef phase, Save and Save As use one scoped, parent-owned
+busy dialog with no system-wide topmost style and no wxYield. It hides/destroys
+the busy window and restores the prior enabled-window state before returning
+to either handler, including exceptions, so an error dialog is never behind
+the saving overlay. Cancelling Save As precedes the busy scope.
+
+Core ProjectSession exposes a typed failure category, stage, detail and entry;
+ConfigManager retains the canonical exporter's preservation/resource findings
+instead of replacing them with a generic archive-writing error. GUI maps stable
+categories to concise translated messages. Technical detail is logged. There is
+no successful-save warning loop, new native payload, alternative scene serializer,
+lossy-export consent bypass, or change to the shared PSTG/MVR validation policy.
+Unsupported standard structures still require incremental genuine support in
+the canonical exporter before their blockers can be removed.
+
+Regression coverage: real wxWindow tests check success, ordinary failure, C++
+standard/unknown exceptions, overlay ownership/style/destruction and restoration
+of a previously disabled window; a routing guard checks both handlers and the
+Save As cancellation boundary. ProjectSession I/O tests exercise stage/category,
+serializer exceptions, resource and destination failures, prior archive retention
+and clearing stale diagnostics on success. SaveLoadRoundtrip verifies preservation
+errors reach ConfigManager and the previous project remains readable. Windows
+native window-manager behavior still needs review on that platform.
+
+Local verification for this continuation: **4/4 focused tests passed**, including
+real wxWidgets windows under Xvfb. MainWindow I/O syntax compilation and
+`perastage_check_translations` (complete es/fr/de/zh_CN catalogs, UI audit and
+self-tests) passed. Module/include directions, GUI access, source-size, repository
+hygiene, routing and generated-document drift guards passed. The GUI test needs
+local display-socket capability; the initial restricted-sandbox GTK startup
+failure was resolved by running Xvfb with that capability. Hosted CI is reported
+in the separate Draft PR; no native Windows/macOS window-manager result is claimed.
+
+
+Hosted Linux and macOS each executed 464 tests on the rebased save-UI commit.
+The new native widget tests, routing guard, project I/O and save/load tests passed
+on both. Each suite had exactly one failure: the repository portability policy
+rejected the new guard's direct python3 invocation. The guard now uses the
+existing test_tool_requirements.sh/run_test_python resolver; that policy and
+focused tests pass locally. Linux also reported the expected unavailable-native-
+credential-store skip. Fresh CI runs after the portability correction; this does
+not claim interactive cross-application window-manager verification.
+
+Windows CI on `0e9a752c` compiled successfully but timed out in ProjectSessionIO
+at the missing-destination regression. Without wx initialization, the default
+wxWidgets error output can open a native message box while opening the missing
+output path, before the typed OpenOutput failure reaches the caller. Only that
+file-open operation now suppresses toolkit logging; the existing Core logger,
+ArchiveIo category, stage and affected path remain available. Serializers and
+later operations run with the caller's logging state restored. This also prevents
+that low-level dialog from appearing inside the saving overlay in the application.
+The regression initializes wxWidgets and captures unexpected toolkit messages:
+it failed before the correction and passes afterward, while checking that no
+destination/temporary file was created and the previous archive is unchanged.
+All **5/5 focused tests** pass locally after this correction. Hosted Windows,
+Linux and macOS CI subsequently passed on `f83975f6`.
+
+### Save-UI integration after Symdef phase 1 merged
+
+Integrated `origin/main` at `cc350686` into the save-UI branch after PR #2482.
+The audit append conflict retains both continuations and the complete mainline
+coverage matrix. The merged MVR implementation, scene model, resource ownership
+and mainline VERSION are unchanged.
+
+The Symdef integration regression now also verifies that supported definitions
+save normally with no failure diagnostic, missing geometry and failed merge
+acquisition retain the Resource category and affected entry, and protected
+standard structures retain the MvrPreservation category. Rejected saves retain
+the previous PSTG byte for byte and leave no temporary archive. Reopening the
+valid project and saving again clears the stale diagnostic. The independent
+reader still compares the complete embedded canonical MVR and resource bytes
+with equivalent standalone export.
+
+Local Debug verification: **32/32 selected regressions passed**, covering those
+cases, GUI lifecycle/routing, serialization exceptions, Class/Classing,
+FocusPoint/Fixture Focus, layer identity, merge, clipboard, grouping, transforms,
+archive acquisition/recovery, resource collection and official schema validation.
+Both touched GUI workflows compile; strict translation, module/include ownership,
+source-size, repository hygiene, Symdef ownership and official-schema integrity
+checks pass. Hosted CI for this combined revision is separate from the green
+pre-integration run. Remaining P0 support and interoperability limits above are
+unchanged; no preservation blocker was removed by this integration.

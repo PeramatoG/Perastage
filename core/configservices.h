@@ -15,6 +15,7 @@ namespace startup { struct Metrics; }
 #include "mvrscene.h"
 #include "project_cache_validation.h"
 #include "project_archive_resource.h"
+#include "project_save_diagnostic.h"
 #include "symbols/project_fixture_symbols.h"
 
 inline constexpr const char *DEFAULT_LAYER_NAME = "No Layer";
@@ -210,6 +211,7 @@ public:
       const SaveConfigToBufferFn &saveConfigToBuffer,
       const SaveSceneToBufferFn &saveSceneToBuffer,
       const CollectArchiveResourcesFromSceneFn &collectResources) const;
+  const ProjectSaveFailure &GetLastSaveFailure() const { return lastSaveFailure; }
   bool LoadProject(const std::string &path, const LoadConfigFn &loadConfig,
                    const LoadSceneFn &loadScene,
                    const LoadProgressFn &progress = {});
@@ -237,6 +239,7 @@ private:
   void ClearExtractedResourceDirectory();
   bool CreateExtractedResourceDirectory();
 
+  mutable ProjectSaveFailure lastSaveFailure;
   MvrScene scene;
   symbols::ProjectFixtureSymbolStore fixtureSymbols;
   std::string extractedResourceDirectory;

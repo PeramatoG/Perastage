@@ -14,6 +14,7 @@
 #include <wx/init.h>
 #include <cassert>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <map>
 
@@ -159,6 +160,7 @@ int main(int argc, char **argv) {
   assert(exporter.ExportToFile((dir / "hidden.mvr").string()));
   CheckExport(dir / "hidden.mvr", 3, 2, true);
   assert(config.SaveProject((dir / "roundtrip.pstg").string()));
+  assert(config.GetLastProjectSaveFailure().kind == ProjectSaveFailureKind::None);
   const auto extraction = scene.basePath;
   scene.Clear();
   assert(scene.symdefs.empty());
@@ -168,6 +170,7 @@ int main(int argc, char **argv) {
   assert(fs::remove(dir / "named-source.mvr"));
   assert(config.LoadProject((dir / "roundtrip.pstg").string()));
   assert(config.SaveProject((dir / "second-cycle.pstg").string()));
+  assert(config.GetLastProjectSaveFailure().kind == ProjectSaveFailureKind::None);
   config.Reset();
   assert(config.LoadProject((dir / "second-cycle.pstg").string()));
   scene = config.GetScene();
@@ -252,6 +255,27 @@ int main(int argc, char **argv) {
   assert(exporter.ExportCanonicalSnapshotToFile(scene, (dir / "copied-grouped.mvr").string()));
   CheckExport(dir / "copied-grouped.mvr", 3, 3, true);
 
+  const auto projectPath = dir / "roundtrip.pstg";
+  const auto readProject = [&] {
+    std::ifstream input(projectPath, std::ios::binary);
+    assert(input.is_open());
+    return std::string(std::istreambuf_iterator<char>(input), {});
+  };
+  const auto originalProject = readProject();
+  const auto checkRejectedSave = [&](const MvrScene &rejectedScene,
+                                     ProjectSaveFailureKind kind,
+                                     const std::string &entry = {}) {
+    config.GetScene() = rejectedScene;
+    assert(!config.SaveProject(projectPath.string()));
+    assert(config.GetLastProjectSaveFailure().kind == kind);
+    assert(config.GetLastProjectSaveFailure().stage == "SerializeScene");
+    assert(!config.GetLastProjectSaveFailure().detail.empty());
+    if (!entry.empty()) assert(config.GetLastProjectSaveFailure().entry == entry);
+    assert(readProject() == originalProject);
+    assert(!fs::exists(projectPath.string() + ".tmp"));
+    assert(config.LoadProject(projectPath.string()));
+    assert(config.GetScene().symdefs.size() == 3);
+  };
   MvrScene missing = incoming;
   missing.symdefs.at(unusedId).geometries.front().file = "missing.glb";
   std::vector<uint8_t> bytes{1, 2, 3};
@@ -273,10 +297,9 @@ int main(int argc, char **argv) {
     resourceFailure = true;
   }
   assert(resourceFailure);
-  config.GetScene() = missing;
-  assert(!config.SaveProject((dir / "roundtrip.pstg").string()));
-  assert(config.LoadProject((dir / "roundtrip.pstg").string()));
-  assert(config.GetScene().symdefs.size() == 3);
+  checkRejectedSave(missingMerge, ProjectSaveFailureKind::Resource,
+                    different.symdefs.at(definitionId).geometries.front().file);
+  checkRejectedSave(missing, ProjectSaveFailureKind::Resource);
   MvrScene dangling = incoming;
   dangling.symdefs.erase(definitionId);
   assert(!exporter.ExportCanonicalSnapshotToBuffer(dangling, bytes));
@@ -333,10 +356,9 @@ int main(int argc, char **argv) {
     auto protectedScene = Import(dir / "protected.mvr");
     assert(!protectedScene.preservationIssues.empty());
     assert(!exporter.ExportCanonicalSnapshotToBuffer(protectedScene, bytes));
-    config.GetScene() = protectedScene;
-    assert(!config.SaveProject((dir / "roundtrip.pstg").string()));
-    assert(config.LoadProject((dir / "roundtrip.pstg").string()));
-    assert(config.GetScene().symdefs.size() == 3);
+    checkRejectedSave(protectedScene, ProjectSaveFailureKind::MvrPreservation);
   }
+  assert(config.SaveProject(projectPath.string()));
+  assert(config.GetLastProjectSaveFailure().kind == ProjectSaveFailureKind::None);
   std::cout << "Symdef definitions, resources, instances, merge and protection passed\n";
 }
