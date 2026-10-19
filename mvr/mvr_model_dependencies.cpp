@@ -93,7 +93,7 @@ ModelDependencies InspectGltf(std::ifstream &file, std::streamoff size, bool bin
     if (node.is_object()) {
       for (const auto &[key, value] : node.items()) {
         if (key == "uri" && value.is_string()) {
-          const auto uri = value.get<std::string>();
+          const auto uri = value.template get<std::string>();
           if (!uri.empty() && uri.rfind("data:", 0) != 0) references.insert(uri);
         } else self(self, value);
       }
