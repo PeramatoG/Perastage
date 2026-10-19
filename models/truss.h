@@ -20,6 +20,7 @@
 #include "mvr_identifier_source.h"
 #include <string>
 #include "types.h"
+#include "mvr_matrix_source.h"
 #include "geometry_bounds.h"
 #include <optional>
 
@@ -85,6 +86,7 @@ struct Truss {
 
     Matrix transform;
     Matrix localTransform;
+    std::optional<MvrMatrixSource> matrixSource;
     Matrix sourceSymbolMatrix;
     Matrix sourceGeometryMatrix;
     bool hasLocalTransform = false;

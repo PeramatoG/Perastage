@@ -110,7 +110,7 @@ static std::string BuildAuxiliarySceneXml(const std::string &auxiliaryName) {
          auxiliaryName +
          "</AuxGdtf></TrussInfo></TrussInfoMap></Data></UserData>"
          "<Scene><Layers><Layer uuid=\"10000000-0000-4000-8000-000000000001\" name=\"Default\"><ChildList>"
-         "<Truss uuid=\"40000000-0000-4000-8000-000000000001\" name=\"Truss\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><Geometries/><FixtureID>1</FixtureID><FixtureIDNumeric>1</FixtureIDNumeric></Truss>"
+         "<Truss uuid=\"40000000-0000-4000-8000-000000000001\" name=\"Truss\"><Matrix>{1,0,0}{0,1,0}{0,0,1}{0,0,0}</Matrix><Geometries/><FixtureID>1</FixtureID><FixtureIDNumeric>1</FixtureIDNumeric></Truss>"
          "</ChildList></Layer></Layers></Scene></GeneralSceneDescription>";
 }
 
@@ -134,11 +134,11 @@ static void WriteMetadataArchive(const fs::path &path) {
       "<Data provider=\"Perastage\" ver=\"2.0\"><HoistInfoMap><HoistInfo uuid=\"30000000-0000-4000-8000-000000000001\"><Capacity>555</Capacity></HoistInfo></HoistInfoMap></Data>"
       "<Data provider=\"Foreign\" ver=\"1.0\"><HoistInfoMap><HoistInfo uuid=\"30000000-0000-4000-8000-000000000001\"><Capacity>444</Capacity></HoistInfo></HoistInfoMap></Data>"
       "</UserData><Scene><Layers><Layer uuid=\"10000000-0000-4000-8000-000000000001\" name=\"Default\"><ChildList>"
-      "<Fixture uuid=\"20000000-0000-4000-8000-000000000001\" name=\"Motor\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><FixtureID>1</FixtureID><FixtureIDNumeric>1</FixtureIDNumeric></Fixture>"
-      "<Support uuid=\"30000000-0000-4000-8000-000000000001\" name=\"Target\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><Geometries/><Function>Other</Function><ChainLength>1</ChainLength><UserData><Data provider=\"Foreign\" ver=\"1.0\"><HoistInfo><Capacity>333</Capacity></HoistInfo></Data><Data provider=\"Perastage\" ver=\"1.0\"><HoistInfo><Capacity>222</Capacity></HoistInfo></Data></UserData></Support>"
-      "<Support uuid=\"30000000-0000-4000-8000-000000000002\" name=\"Legacy\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><Geometries/><ChainLength>1</ChainLength><UserData><Data provider=\"Perastage\"><MotorInfo><Capacity>42</Capacity><MotorFixtureUuid>bad</MotorFixtureUuid></MotorInfo></Data></UserData></Support>"
-      "<Support uuid=\"30000000-0000-4000-8000-000000000003\" name=\"Unknown Motor\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><Geometries/><ChainLength>1</ChainLength></Support>"
-      "<Truss uuid=\"40000000-0000-4000-8000-000000000001\" name=\"Truss\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><Geometries/><FixtureID>2</FixtureID><FixtureIDNumeric>2</FixtureIDNumeric><UserData><Data provider=\"Foreign\" ver=\"1.0\"><TrussInfo><Width>777</Width></TrussInfo></Data></UserData></Truss>"
+      "<Fixture uuid=\"20000000-0000-4000-8000-000000000001\" name=\"Motor\"><Matrix>{1,0,0}{0,1,0}{0,0,1}{0,0,0}</Matrix><FixtureID>1</FixtureID><FixtureIDNumeric>1</FixtureIDNumeric></Fixture>"
+      "<Support uuid=\"30000000-0000-4000-8000-000000000001\" name=\"Target\"><Matrix>{1,0,0}{0,1,0}{0,0,1}{0,0,0}</Matrix><Geometries/><Function>Other</Function><ChainLength>1</ChainLength><UserData><Data provider=\"Foreign\" ver=\"1.0\"><HoistInfo><Capacity>333</Capacity></HoistInfo></Data><Data provider=\"Perastage\" ver=\"1.0\"><HoistInfo><Capacity>222</Capacity></HoistInfo></Data></UserData></Support>"
+      "<Support uuid=\"30000000-0000-4000-8000-000000000002\" name=\"Legacy\"><Matrix>{1,0,0}{0,1,0}{0,0,1}{0,0,0}</Matrix><Geometries/><ChainLength>1</ChainLength><UserData><Data provider=\"Perastage\"><MotorInfo><Capacity>42</Capacity><MotorFixtureUuid>bad</MotorFixtureUuid></MotorInfo></Data></UserData></Support>"
+      "<Support uuid=\"30000000-0000-4000-8000-000000000003\" name=\"Unknown Motor\"><Matrix>{1,0,0}{0,1,0}{0,0,1}{0,0,0}</Matrix><Geometries/><ChainLength>1</ChainLength></Support>"
+      "<Truss uuid=\"40000000-0000-4000-8000-000000000001\" name=\"Truss\"><Matrix>{1,0,0}{0,1,0}{0,0,1}{0,0,0}</Matrix><Geometries/><FixtureID>2</FixtureID><FixtureIDNumeric>2</FixtureIDNumeric><UserData><Data provider=\"Foreign\" ver=\"1.0\"><TrussInfo><Width>777</Width></TrussInfo></Data></UserData></Truss>"
       "</ChildList></Layer></Layers></Scene></GeneralSceneDescription>";
   WriteArchive(path, {{"GeneralSceneDescription.xml", xml}});
 }
@@ -152,10 +152,10 @@ static void TestGeometryBackedTrussRecovery(const fs::path &tempDir) {
       "<TrussInfo uuid=\"40000000-0000-4000-8000-000000000010\"><Length>1000</Length><Width>400</Width><Height>400</Height><Representation>SymbolSymdef</Representation></TrussInfo>"
       "<TrussInfo uuid=\"40000000-0000-4000-8000-000000000011\"><Length>1000</Length><Width>400</Width><Height>400</Height><Representation>Geometry3D</Representation></TrussInfo>"
       "</TrussInfoMap></Data></UserData><Scene><AUXData>"
-      "<Symdef uuid=\"50000000-0000-4000-8000-000000000010\"><ChildList><Geometry3D fileName=\"truss.3ds\"><Matrix>1,0,0,0,1,0,0,0,1,200,0,0</Matrix></Geometry3D></ChildList></Symdef>"
+      "<Symdef uuid=\"50000000-0000-4000-8000-000000000010\"><ChildList><Geometry3D fileName=\"truss.3ds\"><Matrix>{1,0,0}{0,1,0}{0,0,1}{200,0,0}</Matrix></Geometry3D></ChildList></Symdef>"
       "</AUXData><Layers><Layer uuid=\"10000000-0000-4000-8000-000000000001\" name=\"Default\"><ChildList>"
-      "<Truss uuid=\"40000000-0000-4000-8000-000000000010\" name=\"Symbol\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><Geometries><Symbol symdef=\"50000000-0000-4000-8000-000000000010\"><Matrix>1,0,0,0,1,0,0,0,1,100,0,0</Matrix></Symbol></Geometries></Truss>"
-      "<Truss uuid=\"40000000-0000-4000-8000-000000000011\" name=\"Direct\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><Geometries><Geometry3D fileName=\"truss.3ds\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix></Geometry3D></Geometries></Truss>"
+      "<Truss uuid=\"40000000-0000-4000-8000-000000000010\" name=\"Symbol\"><Matrix>{1,0,0}{0,1,0}{0,0,1}{0,0,0}</Matrix><Geometries><Symbol symdef=\"50000000-0000-4000-8000-000000000010\"><Matrix>{1,0,0}{0,1,0}{0,0,1}{100,0,0}</Matrix></Symbol></Geometries></Truss>"
+      "<Truss uuid=\"40000000-0000-4000-8000-000000000011\" name=\"Direct\"><Matrix>{1,0,0}{0,1,0}{0,0,1}{0,0,0}</Matrix><Geometries><Geometry3D fileName=\"truss.3ds\"><Matrix>{1,0,0}{0,1,0}{0,0,1}{0,0,0}</Matrix></Geometry3D></Geometries></Truss>"
       "</ChildList></Layer></Layers></Scene></GeneralSceneDescription>";
   WriteArchive(archive, {{"GeneralSceneDescription.xml", xml},
                          {"truss.3ds", BuildTrussGeometry3ds()}});

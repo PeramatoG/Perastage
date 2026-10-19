@@ -49,6 +49,16 @@ bool NearlyEqual(const Matrix &lhs, const Matrix &rhs, float tolerance) {
   return true;
 }
 
+// Affine translation and linear placement are independent. Inverse-composition
+// rounding during a translation must not fabricate an authored rotation edit.
+void RetainUneditedSourceParts(Matrix &local, const Matrix &projection,
+                              const Matrix &projectedWorld, const Matrix &world) {
+  if (projectedWorld.u == world.u && projectedWorld.v == world.v && projectedWorld.w == world.w) {
+    local.u = projection.u; local.v = projection.v; local.w = projection.w;
+  }
+  if (projectedWorld.o == world.o) local.o = projection.o;
+}
+
 // Inverts an affine matrix and rejects singular linear components.
 bool Invert(const Matrix &matrix, Matrix &inverse) {
   const float determinant =
@@ -245,10 +255,16 @@ Result ValidateAndRepair(MvrScene &scene, float tolerance) {
         AddFatal(result, type, uuid, "non-invertible parent transform");
         continue;
       }
-      const Matrix expectedLocal = MatrixUtils::Multiply(inverse, node.transform);
+      Matrix expectedLocal = MatrixUtils::Multiply(inverse, node.transform);
+      if (node.matrixSource) {
+        const auto &projection = node.matrixSource->projection;
+        const auto projectedWorld = MatrixUtils::Multiply(parentWorld, projection);
+        RetainUneditedSourceParts(expectedLocal, projection, projectedWorld, node.transform);
+        RetainUneditedSourceParts(node.localTransform, projection, projectedWorld, node.transform);
+      }
       if (!node.hasLocalTransform ||
           !NearlyEqual(MatrixUtils::Multiply(parentWorld, node.localTransform),
-                       node.transform, tolerance)) {
+                       node.transform, node.matrixSource ? 0.0f : tolerance)) {
         AddRepair(result, type, uuid,
                   node.hasLocalTransform ? "stale local transform" : "missing local transform");
         node.localTransform = expectedLocal;
@@ -273,12 +289,19 @@ Result ValidateAndRepair(MvrScene &scene, float tolerance) {
       }
       expectedLocal = MatrixUtils::Multiply(inverse, group.transform);
     }
+    if (group.matrixSource) {
+      const auto &projection = group.matrixSource->projection;
+      const auto projectedWorld = group.parentGroupUuid.empty() ? projection
+          : MatrixUtils::Multiply(scene.groupObjects.at(group.parentGroupUuid).transform, projection);
+      RetainUneditedSourceParts(expectedLocal, projection, projectedWorld, group.transform);
+      RetainUneditedSourceParts(group.localTransform, projection, projectedWorld, group.transform);
+    }
     const Matrix rebuilt = group.parentGroupUuid.empty()
                                ? group.localTransform
                                : MatrixUtils::Multiply(
                                      scene.groupObjects.at(group.parentGroupUuid).transform,
                                      group.localTransform);
-    if (!NearlyEqual(rebuilt, group.transform, tolerance)) {
+    if (!NearlyEqual(rebuilt, group.transform, group.matrixSource ? 0.0f : tolerance)) {
       AddRepair(result, MvrNodeType::GroupObject, uuid, "stale local transform");
       group.localTransform = expectedLocal;
     }

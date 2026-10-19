@@ -17,6 +17,7 @@
  */
 #include "layer_identity.h"
 #include "mvr_scene_node_reader.h"
+#include "mvr_matrix_precision.h"
 #include "mvr_identifier_preservation.h"
 #include "mvr_scene_node_reader_detail.h"
 #include "mvr_scene_node_reader_neutral.h"
@@ -1255,6 +1256,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
           if (auto it = objects.find(nodeUuid); it != objects.end()) {
             it->second.layerUuid = layerUuid;
             it->second.classing = ReadMvrClassing(*child);
+            it->second.matrixSource = ReadMatrixSource(*child, scene);
           }
         };
         assign(scene.fixtures); assign(scene.trusses); assign(scene.supports);
@@ -1266,6 +1268,8 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
       Matrix local = MatrixUtils::Identity();
       parseMatrixOrIdentity(child, "Matrix", std::string("Child/") + name,
                             local, true);
+      if (const auto *value = child->FirstChildElement("Matrix"))
+        if (const auto source = ReadCanonicalMatrixElement(*value)) local = source->projection;
       Matrix nodeTransform = MatrixUtils::Multiply(parentTransform, local);
 
       std::string nodeName = name;

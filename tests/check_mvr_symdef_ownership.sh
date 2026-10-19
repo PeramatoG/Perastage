@@ -5,7 +5,7 @@ if rg -n 'symdefFiles|symdefMatrices|symdefTypes|symdefGeometries' . --glob '*.{
   echo "Canonical Symdefs must have one definition table, not parallel partial registries." >&2
   exit 1
 fi
-files=(mvr/mvr_symdef_reader.cpp mvr/mvr_symdef_preservation.cpp mvr/mvr_model_dependencies.cpp)
+files=(mvr/mvr_matrix_precision.cpp mvr/mvr_symdef_reader.cpp mvr/mvr_symdef_preservation.cpp mvr/mvr_model_dependencies.cpp)
 if rg -n 'ConfigManager|wx[A-Z]|gui/|symbols/|symbol_svg|ProjectFixtureSymbol|copy_file|ofstream' "${files[@]}"; then
   echo "MVR definition preservation must not own GUI, GDTF SVG, PSTG symbols, or resource mutation." >&2
   exit 1

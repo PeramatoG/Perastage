@@ -19,7 +19,7 @@ SCENE_XML = """<?xml version="1.0" encoding="UTF-8"?>
   <UserData/>
   <Scene><Layers><Layer uuid="11111111-1111-4111-8111-111111111111">
     <Name>Layer</Name><ChildList><Fixture uuid="22222222-2222-4222-8222-222222222222">
-      <Name>Fixture</Name><Matrix>{1,0,0,0}{0,1,0,0}{0,0,1,0}{0,0,0,1}</Matrix>
+      <Name>Fixture</Name><Matrix>{1,0,0}{0,1,0}{0,0,1}{0,0,0}</Matrix>
       <FixtureID>1</FixtureID><FixtureIDNumeric>1</FixtureIDNumeric>
       <GDTFSpec>fixture.gdtf</GDTFSpec><GDTFMode>Mode</GDTFMode>
     </Fixture></ChildList>

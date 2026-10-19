@@ -442,7 +442,7 @@ Additional value, relationship and package requirements:
 
 | Requirement | I / D / E | Untouched / export / PSTG / merge | Tests | Status and action |
 | --- | --- | --- | --- | --- |
-| Matrix value (T35): 4×3 finite floats; right-handed Z-up, scene distances mm; absent = identity | Y/Y/p | p/p/p/p | F,X | P: float32 model/formatting; exact arbitrary source precision unverified. Nonidentity layer transform blocked. |
+| Matrix value (T35): 4×3 finite floats; right-handed Z-up, scene distances mm; absent = identity | Y/Y/p | p/p/p/p | F,X | P: typed double source values retained for editable node and direct Symdef matrices; float32 edits round-trip with max_digits10. Layer transforms remain protected. |
 | Gobo value: filename, rotation float default 0 (T36) | N/B/N | B/B/B/B | K | B: protected under Fixture/Gobo; image payload not represented. |
 | Source value (T39): NDI/File/CITP/CaptureDevice-dependent string, required | N/B/N | B/B/B/B | K | B: parent VideoScreen/Projector/MappingDefinition protected. |
 | ScaleHandeling value (T40): ScaleKeepRatio default; ScaleIgnoreRatio or KeepSizeCenter | N/B/N | B/B/B/B | K | B: exact published spelling retained in inventory; no writer. |
@@ -496,9 +496,9 @@ Additional value, relationship and package requirements:
   source filename sanitization and material dependency repairs may change a
   valid authored representation. Direct focus dependencies now fail closed;
   not every other object/resource repair is covered by that rule.
-- Standard strings are often trimmed; matrices are stored as float32 and may be
-  normalized/rounded. Arbitrary valid source precision, whitespace-sensitive
-  names/Function text, integer ranges and all matrix invariants are not proven.
+- Editable node/direct Symdef matrices retain typed double source values while
+  their float32 projection is unchanged; edits use the current transform. Other
+  geometry projections, whitespace-sensitive strings and all invariants remain partial.
 - Foreign root UserData can contain object/resource references that opaque
   merging cannot remap or retain resources for. Existing malformed-provider and
   unsupported Perastage metadata compatibility behavior is not a complete
@@ -706,8 +706,15 @@ Confirmed corrections:
   missing source Symbol identities are protected before normalization.
 - Source and final projection checks cover identity/ownership, names, geometry
   count/order, Matrix values, definition resource ownership and instance targets.
-  Source double-precision values that the current float/formatter cannot retain
-  are protected for definition and Symbol-bearing Truss ancestor matrices.
+  The precision blocker compared source doubles exactly with six-digit float
+  output. Existing node/geometry owners now retain typed double values plus an
+  exact float projection sentinel. Unchanged components retain authored precision;
+  edits use current transforms, including one-ULP world edits. Translation-only
+  repair retains authored linear placement. Parsing is strict
+  canonical 4x3 and locale-independent. Canonical output uses double max_digits10
+  (edited floats lift exactly); edited export/import is stable. MatrixUtils float
+  output uses float max_digits10. Known Perastage TrussInfo v1 comma lists migrate
+  through a bounded compatibility path; malformed canonical matrices stay protected.
 
 Supported boundary: named/unnamed, empty/unused and shared definitions containing
 only direct Geometry3D with self-contained glTF 2.0 (.glb/.gltf) or
@@ -722,11 +729,11 @@ Still protected: nested Symbol definitions (including unused ones), ambiguous or
 missing identities/targets/resources, external geometry dependencies, malformed
 or uninspectable resource formats, multiple/mixed Truss geometry entries,
 nonidentity Symbol or first definition geometry placement (currently baked into
-Truss display transform), source precision outside the current formatter, and
-Symbol-bearing SceneObject/FocusPoint/Support. The display projections are not
-canonical instance ownership. This phase intentionally does not remove those
-blockers. Other standard consumers and cycle semantics remain unresolved.
-General matrix provenance and identifier/UnitNumber policy remain P0 work.
+Truss display transform), malformed/nonfinite/out-of-range matrices, and
+Symbol-bearing SceneObject/FocusPoint/Support. Display projections are not
+canonical instance ownership. Higher source precision alone no longer blocks
+canonical MVR/PSTG; arbitrary-precision decimal arithmetic and other Symbol
+consumers/cycle semantics remain outside this contract.
 
 Evidence: `MvrSymdefIntegrity` builds independent small schema-valid fixtures,
 checks MVR/PSTG after extraction-lease release, repeat export, default names,
@@ -734,7 +741,7 @@ shared and conflicting definitions/resources, cross-kind collisions under all
 policies, clipboard/group/translation, missing resources and rejected-save
 retention. It also tests each valid protected structure against the official
 XSD before checking rejection. `MvrSymdefPreservation` exercises malformed/nil/
-duplicate identities, dangling references, source precision, 3DS opacity-map
+duplicate identities, dangling references, 3DS opacity-map
 dependencies and deliberately corrupted final projections. `MvrSymdefIndependent`
 uses Python zipfile/ElementTree to compare definitions, exact model bytes,
 instance/parent relationships, transforms, UUID uniqueness, archive entries and
@@ -742,7 +749,12 @@ PSTG scene.mvr without the production reader. The complete standard scene
 projection and all resource bytes in PSTG are compared with standalone export
 under equivalent options, beyond the Symdef subset. Reopen runs after deletion
 of both original archives and lease cleanup, with a second PSTG save/reopen
-cycle. It is not an external renderer.
+cycle. The precision regression adds 19 trusses under nested groups, fractional
+rotation/scale/translation, source doubles, identity/absent matrices, edits,
+repeated cycles and distinct-double merge conflicts. `MvrMatrixPrecision` checks
+locale independence, malformed input and 10,000 float bit-pattern samples.
+Independent readers compare local/world placement and complete canonical PSTG/
+MVR content. Synthetic evidence is not real-project or external-renderer verification.
 The full/projection XSD distinction above still applies; no external receiving
 application or official reference runtime was executed.
 

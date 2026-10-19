@@ -22,6 +22,9 @@
 #include <sstream>
 #include <cmath>
 #include <vector>
+#include <limits>
+#include <iomanip>
+#include <locale>
 #include "types.h"
 
 #ifndef M_PI
@@ -74,10 +77,14 @@ namespace MatrixUtils {
         }
 
         std::stringstream ss(cleaned);
+        ss.imbue(std::locale::classic());
         std::vector<float> values;
-        float v;
-        while (ss >> v)
-            values.push_back(v);
+        double v;
+        while (ss >> v) {
+            if (!std::isfinite(v) || std::abs(v) > std::numeric_limits<float>::max()) return false;
+            values.push_back(static_cast<float>(v));
+        }
+        if (!ss.eof()) return false;
 
         if (values.size() == 16) {
             // GDTF 4x4 matrix. Translation is stored in the fourth column
@@ -152,6 +159,8 @@ namespace MatrixUtils {
     inline std::string FormatMatrix(const Matrix& m)
     {
         std::ostringstream ss;
+        ss.imbue(std::locale::classic());
+        ss << std::setprecision(std::numeric_limits<float>::max_digits10);
         ss << "{" << m.u[0] << "," << m.u[1] << "," << m.u[2] << "}"
            << "{" << m.v[0] << "," << m.v[1] << "," << m.v[2] << "}"
            << "{" << m.w[0] << "," << m.w[1] << "," << m.w[2] << "}"

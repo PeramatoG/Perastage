@@ -20,6 +20,7 @@
 #include "mvr_identifier_source.h"
 #include <optional>
 #include "types.h"
+#include "mvr_matrix_source.h"
 #include <string>
 #include <utility>
 #include <vector>
@@ -53,6 +54,7 @@ struct SceneObject {
     std::vector<GeometryInstance> geometries;
     Matrix transform;
     Matrix localTransform;
+    std::optional<MvrMatrixSource> matrixSource;
     bool hasLocalTransform = false;
     std::string parentGroupUuid;
     std::optional<MvrIdentifierSource> identifierSource;

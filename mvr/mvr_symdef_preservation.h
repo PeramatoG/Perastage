@@ -7,7 +7,8 @@
 #include <filesystem>
 namespace tinyxml2 { class XMLElement; }
 namespace mvr {
-bool SymdefMatrixPreservesSource(const std::string &text, const Matrix &projection);
+bool SymdefMatrixPreservesSource(const std::string &text, const Matrix &projection,
+                                const std::optional<MvrMatrixSource> &source = std::nullopt);
 void ReadMvrSymdefs(tinyxml2::XMLElement &sceneElement, MvrScene &scene,
                    const std::function<std::string(const std::string &)> &remapResource);
 std::vector<MvrExportDiagnostic> CheckMvrSymdefs(const MvrScene &scene);

@@ -21,6 +21,7 @@
 #include "fixture_patch_address.h"
 #include "uuidutils.h"
 #include "mvr_symdef_preservation.h"
+#include "mvr_matrix_precision.h"
 
 #include <algorithm>
 #include <cctype>
@@ -209,12 +210,6 @@ void AnalyzePatchAddressWarnings(const MvrScene &target,
   }
 }
 
-// Reports whether two matrices contain identical transform components.
-bool MatrixValuesEqual(const Matrix &current, const Matrix &incoming) {
-  return current.u == incoming.u && current.v == incoming.v &&
-         current.w == incoming.w && current.o == incoming.o;
-}
-
 using ResourceHashes = std::unordered_map<std::string, std::optional<std::string>>;
 
 // Only proven byte-equivalent self-contained definitions share an identity.
@@ -232,7 +227,11 @@ bool SymdefDefinitionsEqual(const MvrScene &target, const MvrScene &imported,
     return found->second;
   };
   for (size_t i = 0; i < left.geometries.size(); ++i) {
-    if (!MatrixValuesEqual(left.geometries[i].transform, right.geometries[i].transform)) return false;
+    const auto &a = left.geometries[i];
+    const auto &b = right.geometries[i];
+    const auto firstMatrix = ParseCanonicalMatrix(FormatCanonicalMatrix(a.transform, a.matrixSource));
+    const auto secondMatrix = ParseCanonicalMatrix(FormatCanonicalMatrix(b.transform, b.matrixSource));
+    if (!firstMatrix || !secondMatrix || firstMatrix->values != secondMatrix->values) return false;
     const auto first = hash(target, left.geometries[i].file);
     const auto second = hash(imported, right.geometries[i].file);
     if (!first || !second || first != second) return false;
