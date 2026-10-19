@@ -69,6 +69,8 @@ def main():
     with tempfile.TemporaryDirectory(prefix='mvr-symdef-independent-') as temporary:
         directory = Path(temporary)
         subprocess.run([sys.argv[1], str(directory)], check=True)
+        from mvr_matrix_precision_independent import check_precision
+        check_precision(directory)
         source, payloads = read_package(directory / 'source.mvr')
         expected_defs = definitions(source, payloads)
         expected_graph = graph(source)

@@ -28,6 +28,7 @@
 #include <string>
 
 #include "types.h"
+#include "mvr_matrix_source.h"
 #include "fixture.h"
 #include "sceneobject.h"
 
@@ -80,6 +81,7 @@ struct Support {
 
     Matrix transform;
     Matrix localTransform;
+    std::optional<MvrMatrixSource> matrixSource;
     bool hasLocalTransform = false;
     std::string parentGroupUuid;
 };

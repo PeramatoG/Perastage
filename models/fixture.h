@@ -19,6 +19,7 @@
 
 #include "mvr_identifier_source.h"
 #include "types.h"
+#include "mvr_matrix_source.h"
 #include <string>
 #include <optional>
 
@@ -58,6 +59,7 @@ struct Fixture {
     std::string matrixRaw;        // Raw matrix string from XML (to be parsed later)
     Matrix transform;             // Parsed transformation matrix
     Matrix localTransform;         // Local transform relative to parent GroupObject
+    std::optional<MvrMatrixSource> matrixSource;
   bool hasLocalTransform =
       false; // True when localTransform was explicitly assigned
     std::string parentGroupUuid;    // Parent GroupObject UUID when grouped

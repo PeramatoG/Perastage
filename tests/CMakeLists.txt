@@ -1781,6 +1781,7 @@ endif()
 
 
 add_executable(mvr_symdef_integrity_test mvr_symdef_integrity_test.cpp
+               mvr_matrix_precision_regression.cpp
                ../core/scene_clipboard.cpp
                ../mvr/mvrscenemerger.cpp
                ../mvr/mvr_merge_analyzer.cpp
@@ -4522,3 +4523,9 @@ if(UNIX AND NOT APPLE)
     set_library_env(MvrExportDialog)
     set_perastage_test_labels(MvrExportDialog LAYER unit DOMAINS mvr gui)
 endif()
+
+add_executable(mvr_matrix_precision_test mvr_matrix_precision_test.cpp)
+target_link_libraries(mvr_matrix_precision_test PRIVATE perastage_mvr_read tinyxml2::tinyxml2)
+add_test(NAME MvrMatrixPrecision COMMAND mvr_matrix_precision_test)
+set_library_env(MvrMatrixPrecision)
+set_perastage_test_labels(MvrMatrixPrecision LAYER standard-strict DOMAINS mvr)

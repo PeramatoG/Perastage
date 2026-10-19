@@ -3,6 +3,7 @@
 #include "mvr_model_dependencies.h"
 #include "filesystem_path_utils.h"
 #include "matrixutils.h"
+#include "mvr_matrix_precision.h"
 #include "uuidutils.h"
 #include "file_import_utils.h"
 #include <tinyxml2.h>
@@ -10,8 +11,6 @@
 #include <unordered_set>
 #include <tuple>
 #include <cmath>
-#include <sstream>
-#include <locale>
 
 namespace mvr {
 namespace {
@@ -36,21 +35,12 @@ bool Finite(const Matrix &matrix) {
 }
 } // namespace
 
-// Protect source values the current float32 matrix/formatter cannot round-trip.
-bool SymdefMatrixPreservesSource(const std::string &text, const Matrix &projection) {
-  auto values = [](std::string input) -> std::optional<std::array<double, 12>> {
-    for (char &ch : input) if (ch == '{' || ch == '}' || ch == ',') ch = ' ';
-    std::istringstream stream(input);
-    stream.imbue(std::locale::classic());
-    std::array<double, 12> result;
-    for (double &value : result) if (!(stream >> value) || !std::isfinite(value)) return std::nullopt;
-    stream >> std::ws;
-    if (!stream.eof()) return std::nullopt;
-    return result;
-  };
-  const auto original = values(text);
-  const auto serialized = values(MatrixUtils::FormatMatrix(projection));
-  return original && serialized && original == serialized;
+// Verify numeric source preservation through the same typed serialization contract.
+bool SymdefMatrixPreservesSource(const std::string &text, const Matrix &projection,
+                                const std::optional<MvrMatrixSource> &source) {
+  const auto original = ParseCanonicalMatrix(text);
+  const auto serialized = ParseCanonicalMatrix(FormatCanonicalMatrix(projection, source));
+  return original && serialized && original->values == serialized->values;
 }
 
 std::filesystem::path ResolveSymdefResource(const MvrScene &scene, const std::string &file) {
@@ -120,7 +110,8 @@ std::vector<MvrExportDiagnostic> CheckMvrSymdefs(const MvrScene &scene) {
       result.push_back(Block(uuid, "Nonidentity Symbol placement needs a separate canonical node/display transform contract."));
     if (auto definition = scene.symdefs.find(truss.sourceSymdefUuid); definition != scene.symdefs.end())
       if (!definition->second.geometries.empty() &&
-          !Equal(definition->second.geometries.front().transform, MatrixUtils::Identity()))
+          !CanonicalMatrixIsIdentity(definition->second.geometries.front().transform,
+                                    definition->second.geometries.front().matrixSource))
         result.push_back(Block(uuid, "First definition geometry placement is baked into the Truss display transform."));
   }
   return result;
@@ -152,7 +143,12 @@ std::vector<MvrExportDiagnostic> CheckSerializedSymdefs(
                index < expected.geometries.size();
       if (element) valid &= element->GetText() && MatrixUtils::ParseMatrix(element->GetText(), matrix);
       if (index < expected.geometries.size()) {
-        valid &= Equal(matrix, expected.geometries[index].transform);
+        const auto &geometry = expected.geometries[index];
+        valid &= Equal(matrix, geometry.transform);
+        const auto canonical = ParseCanonicalMatrix(FormatCanonicalMatrix(geometry.transform, geometry.matrixSource));
+        const auto actual = ParseCanonicalMatrix(element && element->GetText()
+            ? element->GetText() : MatrixUtils::FormatMatrix(Matrix{}));
+        valid &= canonical && actual && canonical->values == actual->values;
         const auto *file = geo->Attribute("fileName");
         const auto original = ResolveSymdefResource(scene, expected.geometries[index].file);
         const auto planned = file ? resourceLookup(file) : std::filesystem::path{};

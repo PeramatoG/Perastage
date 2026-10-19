@@ -1,6 +1,7 @@
 /* This file is part of Perastage. */
 #include "mvr_symdef_preservation.h"
 #include "matrixutils.h"
+#include "mvr_matrix_precision.h"
 #include "uuidutils.h"
 #include <tinyxml2.h>
 #include <string_view>
@@ -33,20 +34,20 @@ bool Attributes(Element &node, const std::unordered_set<std::string> &allowed) {
     if (!allowed.contains(attribute->Name())) return false;
   return true;
 }
-bool ReadMatrix(Element &node, Matrix &matrix) {
+bool ReadMatrix(Element &node, Matrix &matrix, std::optional<MvrMatrixSource> *source = nullptr) {
   matrix = MatrixUtils::Identity();
   auto *element = node.FirstChildElement("Matrix");
   if (!element) return true;
-  if (element->NextSiblingElement("Matrix") || element->FirstAttribute() ||
-      element->FirstChildElement() || !element->GetText() ||
-      !MatrixUtils::ParseMatrix(element->GetText(), matrix)) return false;
+  const auto parsed = ReadCanonicalMatrixElement(*element);
+  if (element->NextSiblingElement("Matrix") || !parsed) return false;
+  matrix = parsed->projection;
+  if (source) *source = parsed;
   for (const auto &row : {matrix.u, matrix.v, matrix.w, matrix.o})
     for (float value : row) if (!std::isfinite(value)) return false;
-  return SymdefMatrixPreservesSource(element->GetText(), matrix);
-}
-bool IdentityMatrix(const Matrix &matrix) {
-  const auto id = MatrixUtils::Identity();
-  return matrix.u == id.u && matrix.v == id.v && matrix.w == id.w && matrix.o == id.o;
+  std::string original;
+  for (auto *child = element->FirstChild(); child; child = child->NextSibling())
+    if (child->ToText()) original += child->Value();
+  return SymdefMatrixPreservesSource(original, matrix, parsed);
 }
 bool OnlyMatrix(Element &node) {
   for (auto *child = node.FirstChildElement(); child; child = child->NextSiblingElement())
@@ -87,7 +88,7 @@ void ReadMvrSymdefs(Element &sceneElement, MvrScene &scene,
         SymdefGeometry geometry;
         if (std::string_view(geo->Name()) != "Geometry3D" ||
             !Attributes(*geo, {"fileName"}) || !geo->Attribute("fileName") ||
-            !OnlyMatrix(*geo) || !ReadMatrix(*geo, geometry.transform)) {
+            !OnlyMatrix(*geo) || !ReadMatrix(*geo, geometry.transform, &geometry.matrixSource)) {
           reject("Only direct standard Geometry3D children are preserved; nested Symbol graphs remain protected.");
           continue;
         }
@@ -105,6 +106,7 @@ void ReadMvrSymdefs(Element &sceneElement, MvrScene &scene,
       const auto uuid = Identity(node.Attribute("uuid"));
       const auto target = Identity(node.Attribute("symdef"));
       Matrix matrix;
+      std::optional<MvrMatrixSource> symbolSource;
       if (uuid.empty() || identities[uuid] != 1 || target.empty() ||
           !scene.symdefs.contains(target) || !Attributes(node, {"uuid", "symdef"}) ||
           !OnlyMatrix(node) || !ReadMatrix(node, matrix))
@@ -112,11 +114,11 @@ void ReadMvrSymdefs(Element &sceneElement, MvrScene &scene,
       auto *parent = node.Parent() ? node.Parent()->ToElement() : nullptr;
       auto *container = parent && parent->Parent() ? parent->Parent()->ToElement() : nullptr;
       if (container && std::string_view(container->Name()) == "Truss" &&
-          (!ReadMatrix(node, matrix) || !IdentityMatrix(matrix)))
+          (!ReadMatrix(node, matrix, &symbolSource) || !CanonicalMatrixIsIdentity(matrix, symbolSource)))
         Record(scene, node, path, owner, "Nonidentity Truss Symbol placement is currently baked into the display transform.");
       if (container && std::string_view(container->Name()) == "Truss" && scene.symdefs.contains(target)) {
         const auto &geometries = scene.symdefs.at(target).geometries;
-        if (!geometries.empty() && !IdentityMatrix(geometries.front().transform))
+        if (!geometries.empty() && !CanonicalMatrixIsIdentity(geometries.front().transform, geometries.front().matrixSource))
           Record(scene, node, path, owner, "The first definition geometry placement is currently baked into the Truss display transform.");
       }
     }
@@ -133,7 +135,7 @@ void ReadMvrSymdefs(Element &sceneElement, MvrScene &scene,
       if (!ReadMatrix(node, matrix)) {
         auto *value = node.FirstChildElement("Matrix");
         Record(scene, value ? *value : node, path + "/Matrix", owner,
-               "Symbol ancestor placement exceeds the current canonical coordinate precision or structure.");
+               "Symbol ancestor Matrix is malformed, nonfinite, out of numeric range or structurally ambiguous.");
       }
     }
     if (std::string_view(node.Name()) == "Truss") {
@@ -143,7 +145,8 @@ void ReadMvrSymdefs(Element &sceneElement, MvrScene &scene,
           Record(scene, *geometries, path + "/Geometries", owner, "Multiple or mixed Truss geometry entries have no complete instance representation.");
         if (first && std::string_view(first->Name()) == "Geometry3D") {
           Matrix matrix;
-          if (!ReadMatrix(*first, matrix) || !IdentityMatrix(matrix))
+          std::optional<MvrMatrixSource> source;
+          if (!ReadMatrix(*first, matrix, &source) || !CanonicalMatrixIsIdentity(matrix, source))
             Record(scene, *first, path + "/Geometries/Geometry3D", owner,
                    "Nonidentity direct Truss geometry placement is currently baked into the display transform.");
         }

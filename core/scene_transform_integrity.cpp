@@ -248,7 +248,7 @@ Result ValidateAndRepair(MvrScene &scene, float tolerance) {
       const Matrix expectedLocal = MatrixUtils::Multiply(inverse, node.transform);
       if (!node.hasLocalTransform ||
           !NearlyEqual(MatrixUtils::Multiply(parentWorld, node.localTransform),
-                       node.transform, tolerance)) {
+                       node.transform, node.matrixSource ? 0.0f : tolerance)) {
         AddRepair(result, type, uuid,
                   node.hasLocalTransform ? "stale local transform" : "missing local transform");
         node.localTransform = expectedLocal;
@@ -278,7 +278,7 @@ Result ValidateAndRepair(MvrScene &scene, float tolerance) {
                                : MatrixUtils::Multiply(
                                      scene.groupObjects.at(group.parentGroupUuid).transform,
                                      group.localTransform);
-    if (!NearlyEqual(rebuilt, group.transform, tolerance)) {
+    if (!NearlyEqual(rebuilt, group.transform, group.matrixSource ? 0.0f : tolerance)) {
       AddRepair(result, MvrNodeType::GroupObject, uuid, "stale local transform");
       group.localTransform = expectedLocal;
     }

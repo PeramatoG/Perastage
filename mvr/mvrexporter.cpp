@@ -31,6 +31,7 @@
 #include "mvr_export_preparation.h"
 #include "mvr_standard_preservation.h"
 #include "mvr_symdef_preservation.h"
+#include "mvr_matrix_precision.h"
 #include "mvr_class_preservation.h"
 #include "mvr_export_archive_writer.h"
 #include "mvr_export_transport.h"
@@ -2488,6 +2489,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   mvr_export_resources::ResourcePlan resourcePlan =
       std::move(gdtfPreparation.plan);
   auto &resourceEntries = resourcePlan.entries;
+  mvr::WriteCanonicalMatrices(*sceneNode, scene);
   const auto symbolDiagnostics = mvr::CheckSerializedSymdefs(*sceneNode, scene, options,
       [&](const std::string &name) {
         for (const auto &entry : resourceEntries)

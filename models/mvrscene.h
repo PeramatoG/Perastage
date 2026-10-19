@@ -32,6 +32,7 @@
 struct SymdefGeometry {
     std::string file;
     Matrix transform;
+    std::optional<MvrMatrixSource> matrixSource;
 };
 
 // Canonical direct-geometry Symdef. Nested Symbol graphs remain protected.

@@ -18,6 +18,8 @@
 #include <iostream>
 #include <map>
 
+void RunMatrixPrecisionRegression(const std::filesystem::path &directory);
+
 namespace fs = std::filesystem;
 using namespace perastage::inspection;
 constexpr auto definitionId = "a0000000-0000-4000-8000-000000000001";
@@ -137,6 +139,7 @@ int main(int argc, char **argv) {
   assert(initializer.IsOk());
   const fs::path dir = argc > 1 ? fs::path(argv[1]) : fs::temp_directory_path() / "perastage_mvr_symdef_integrity";
   fs::create_directories(dir);
+  RunMatrixPrecisionRegression(dir);
   CheckSchema(Source(), false);
   WriteSource(dir / "source.mvr", Source());
   MvrScene scene = Import(dir / "source.mvr");
@@ -338,7 +341,10 @@ int main(int argc, char **argv) {
   protectedStructures.push_back(geometryPlacement);
   auto precise = Source(true);
   precise.replace(precise.find("{40,50,60}"), 10, "{40.123456789,50,60}");
-  protectedStructures.push_back(precise);
+  WriteSource(dir / "precise-definition.mvr", precise);
+  auto preciseScene = Import(dir / "precise-definition.mvr");
+  assert(preciseScene.preservationIssues.empty());
+  assert(exporter.ExportCanonicalSnapshotToBuffer(preciseScene, bytes));
   for (const auto &kind : {"SceneObject", "FocusPoint", "Support"}) {
     auto projected = Source(true);
     const std::string open = std::string("<") + kind + " uuid='f0000000-0000-4000-8000-000000000001'>";

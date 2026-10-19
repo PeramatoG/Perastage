@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "types.h"
+#include "mvr_matrix_source.h"
 
 enum class MvrNodeType {
   Fixture,
@@ -44,5 +45,6 @@ struct GroupObject {
   std::string parentGroupUuid;
   Matrix transform{};
   Matrix localTransform{};
+    std::optional<MvrMatrixSource> matrixSource;
   std::vector<GroupObjectChildRef> children;
 };
