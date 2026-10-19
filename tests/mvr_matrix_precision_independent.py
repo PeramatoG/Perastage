@@ -65,6 +65,23 @@ def check_precision(directory):
     cycle_root, cycle_resources = read_package(directory / 'edited-cycle.mvr', True)
     assert ET.canonicalize(ET.tostring(edited_root)) == ET.canonicalize(ET.tostring(cycle_root))
     assert edited_resources == cycle_resources
+    reopened_root, reopened_resources = read_package(directory / 'edited-reopened.mvr', True)
+    assert ET.canonicalize(ET.tostring(edited_root)) == ET.canonicalize(ET.tostring(reopened_root))
+    assert edited_resources == reopened_resources
+    with zipfile.ZipFile(directory / 'edited.pstg') as project:
+        embedded, embedded_resources = read_package(io.BytesIO(project.read('scene.mvr')), True)
+    assert ET.canonicalize(ET.tostring(embedded)) == ET.canonicalize(ET.tostring(edited_root))
+    assert embedded_resources == edited_resources
+    for name in ('rotated', 'scaled'):
+        changed, resources = read_package(directory / (name + '.mvr'))
+        symbols, owners, transforms = graph(changed)
+        assert symbols == expected_graph[0] and owners == expected_graph[1]
+        assert definitions(changed, resources) == expected_definitions
+        assert transforms[TRUSS][:9] != expected_graph[2][TRUSS][:9]
+        # A linear edit around the insertion point cannot move that insertion point.
+        assert transforms[TRUSS][9:] == expected_graph[2][TRUSS][9:]
+        assert {key: value for key, value in transforms.items() if key != TRUSS} == {
+            key: value for key, value in expected_graph[2].items() if key != TRUSS}
     edited, resources = read_package(directory / 'definition-edited.mvr')
     assert graph(edited) == expected_graph
     changed_definition = definitions(edited, resources)[DEFINITION]

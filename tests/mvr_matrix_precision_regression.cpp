@@ -120,6 +120,22 @@ void RunMatrixPrecisionRegression(const std::filesystem::path &directory) {
   scene_grouping::TranslateTargets(edited, {{MvrNodeType::Truss, Id('3', 1)}}, {17, 23, 31});
   Export(edited, dir / "edited.mvr");
   Export(Import(dir / "edited.mvr"), dir / "edited-cycle.mvr");
+  config.GetScene() = edited;
+  assert(config.SaveProject((dir / "edited.pstg").string()));
+  config.Reset();
+  assert(config.LoadProject((dir / "edited.pstg").string()));
+  Export(config.GetScene(), dir / "edited-reopened.mvr");
+  for (const bool rotate : {true, false}) {
+    auto changed = scene;
+    auto changedWorld = changed.trusses.at(Id('3', 1)).transform;
+    const auto insertion = changedWorld.o;
+    if (rotate) changedWorld = MatrixUtils::Multiply(MatrixUtils::EulerToMatrix(17, 23, 31), changedWorld);
+    else for (auto *axis : {&changedWorld.u, &changedWorld.v, &changedWorld.w})
+      for (float &value : *axis) value *= 1.125f;
+    changedWorld.o = insertion;
+    scene_grouping::SetTargetWorldTransform(changed, {MvrNodeType::Truss, Id('3', 1)}, changedWorld);
+    Export(changed, dir / (rotate ? "rotated.mvr" : "scaled.mvr"));
+  }
   auto parentEdited = scene;
   scene_grouping::TranslateTargets(parentEdited, {{MvrNodeType::GroupObject, outer}}, {17, 23, 31});
   Export(parentEdited, dir / "parent-edited.mvr");
