@@ -60,7 +60,7 @@ void TestPreparedValuesAndSourceImmutability() {
   assert(result.objectIds.at(firstUuid).first == "House 7");
   assert(result.objectIds.at(firstUuid).second == 7);
   assert(result.objectIds.at(secondUuid).second > 0);
-  assert(result.objectIds.at(secondUuid).second != 7);
+  assert(result.objectIds.at(secondUuid).second == 7);
   assert(result.objectIds.at(thirdUuid).second > 0);
   assert(result.fixtureUnitNumbers.at(firstUuid) == 5);
   assert(result.fixtureUnitNumbers.at(secondUuid) == 1);
@@ -80,11 +80,7 @@ void TestPreparedValuesAndSourceImmutability() {
   assert(scene.layers.contains("legacy-layer"));
   const MvrExportDiagnostic *fixtureIdDiagnostic = FindDiagnostic(
       result.objectIdDiagnostics, MvrExportDiagnosticCode::FixtureIdReassigned);
-  assert(fixtureIdDiagnostic != nullptr);
-  assert(fixtureIdDiagnostic->severity == MvrExportDiagnosticSeverity::Warning);
-  assert(fixtureIdDiagnostic->impact ==
-         MvrExportDiagnosticImpact::IdentityChanged);
-  assert(fixtureIdDiagnostic->userVisible);
+  assert(fixtureIdDiagnostic == nullptr);
 }
 
 // Verifies Position normalization, reference resolution, and diagnostics.

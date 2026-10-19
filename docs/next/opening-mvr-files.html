@@ -106,6 +106,7 @@ keep the original MVR for use in an application that preserves that information.
 There is no lossy-conversion override. An export that completes is not a
 guarantee that every possible MVR structure has been verified; see the
 <a href="https://github.com/PeramatoG/Perastage/blob/main/docs/audits/mvr-1.6-data-integrity-and-roundtrip.md">data-integrity coverage report</a>.</p>
+<p>Imported FixtureID, FixtureIDNumeric and UnitNumber values are retained on supported fixtures, trusses, supports and scene objects, including zero, duplicates and optional UnitNumber presence. Copying and merging do not implicitly renumber those labels. Values beyond the supported integer range stop project save and export; keep the source file. Explicit numbering edits remain possible.</p>
 <h2 id="export-mvr">Export MVR</h2>
 <ol>
 <li>Choose <strong>File → Export MVR...</strong>.</li>

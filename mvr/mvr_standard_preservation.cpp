@@ -1,3 +1,4 @@
+#include "mvr_identifier_preservation.h"
 #include "mvr_standard_preservation.h"
 #include "mvr_class_preservation.h"
 #include "mvr_symdef_preservation.h"
@@ -28,11 +29,11 @@ const std::unordered_map<std::string, Names> unsupportedChildren = {
                  "Mappings", "Gobo"}},
     {"SceneObject", {"GDTFSpec", "GDTFMode", "CastShadow",
                      "Addresses", "Alignments", "CustomCommands", "Overwrites",
-                     "Connections", "UnitNumber", "CustomId", "CustomIdType"}},
+                     "Connections", "CustomId", "CustomIdType"}},
     {"Truss", {"CastShadow", "Addresses", "Alignments",
                "CustomCommands", "Overwrites", "Connections", "ChildPosition"}},
     {"Support", {"CastShadow", "Addresses", "Alignments",
-                 "CustomCommands", "Overwrites", "Connections", "UnitNumber",
+                 "CustomCommands", "Overwrites", "Connections",
                  "CustomIdType", "CustomId"}}};
 
 void Record(MvrScene &scene, tinyxml2::XMLElement &element,
@@ -49,6 +50,7 @@ void Scan(tinyxml2::XMLElement &element, MvrScene &scene,
           std::string owner, const std::string &location,
           const std::string &geometricOwner = {}) {
   const std::string name = element.Name();
+  mvr_identifiers::ScanSource(element, scene, location);
   if (const char *uuid = element.Attribute("uuid")) owner = uuid;
   if (name == "FixtureTypeId") {
     Record(scene, element, owner, location,

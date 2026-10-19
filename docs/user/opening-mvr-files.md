@@ -50,6 +50,8 @@ There is no lossy-conversion override. An export that completes is not a
 guarantee that every possible MVR structure has been verified; see the
 [data-integrity coverage report](../audits/mvr-1.6-data-integrity-and-roundtrip.md).
 
+Imported FixtureID, FixtureIDNumeric and UnitNumber values are retained on supported fixtures, trusses, supports and scene objects, including zero, duplicates and optional UnitNumber presence. Copying and merging do not implicitly renumber those labels. Values beyond the supported integer range stop project save and export; keep the source file. Explicit numbering edits remain possible.
+
 ## Export MVR
 
 1. Choose **File → Export MVR...**.

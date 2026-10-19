@@ -25,6 +25,8 @@ Los GDTF, símbolos y modelos importados se conservan entre los recursos del pro
 
 Guarda el trabajo en `.pstg`, que conserva el contexto de Perastage, los layouts y los símbolos del proyecto. MVR es el formato de intercambio. Perastage guarda sus metadatos de intercambio en UserData propio compatible con el estándar; otras aplicaciones pueden no conservarlos.
 
+Los valores importados de FixtureID, FixtureIDNumeric y UnitNumber se conservan en los fixtures, trusses, soportes y objetos de escena compatibles, incluidos los ceros, duplicados y la presencia opcional de UnitNumber. Copiar y fusionar no renumera esas etiquetas de forma implícita. Los valores que exceden el rango de enteros admitido bloquean el guardado y la exportación; conserva el archivo original. Sigue siendo posible editar la numeración de forma explícita.
+
 ## Exportar MVR
 
 1. Elige **File → Export MVR...**.

@@ -674,8 +674,9 @@ int main() {
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000002")
                .fixtureIdNumeric == 101);
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureId == 707);
-    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureIdNumeric == 44);
-    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureIdText == "Imported ID");
+    // Canonical MVR edits take precedence over stale provider snapshots on reopen.
+    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureIdNumeric == 707);
+    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureIdText == "707");
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004")
                .visualColorHex == "#778899");
     assert(scene2.fixtures.count(canonicalFixtureUuid) == 1);

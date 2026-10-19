@@ -84,7 +84,7 @@ struct TrussValues {
   std::string gdtfMode;
   std::string fixtureId;
   int fixtureIdNumeric = 0;
-  int unitNumber = 0;
+  std::optional<int> unitNumber;
   int customIdType = 0;
   int customId = 0;
 };
@@ -101,6 +101,7 @@ struct SupportValues {
   std::string gdtfMode;
   std::string fixtureId;
   int fixtureIdNumeric = 0;
+  std::optional<int> unitNumber;
 };
 
 struct SceneObjectValues {
@@ -110,6 +111,7 @@ struct SceneObjectValues {
   std::string fixtureId;
   int fixtureIdNumeric = 0;
   bool isFocusPoint = false;
+  std::optional<int> unitNumber;
 };
 
 // Appends one standard MVR Fixture node using fully resolved export values.

@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "mvr_identifier_preservation.h"
 #include "mvrexporter.h"
 #include "app_version.h"
 #include "build_info.h"
@@ -542,7 +543,6 @@ static bool ValidateMvr16Export(
     return false;
   }
 
-  std::unordered_set<int> numericIds;
   std::vector<std::string> referencedFiles;
   std::unordered_set<std::string> positionUuids;
   std::unordered_set<std::string> referencedPositionUuids;
@@ -677,45 +677,10 @@ static bool ValidateMvr16Export(
                      "category metadata");
           return false;
         }
-        auto *idNode = cur->FirstChildElement("FixtureID");
-        auto *numNode = cur->FirstChildElement("FixtureIDNumeric");
-        const std::string fixtureUuid =
-            cur->Attribute("uuid") ? cur->Attribute("uuid") : "(missing uuid)";
-        const std::string fixtureName = cur->Attribute("name")
-                                            ? cur->Attribute("name")
-                                            : "(unnamed fixture)";
-
-        const std::string fixtureId =
-            idNode && idNode->GetText() ? TrimAscii(idNode->GetText()) : "";
-        const std::string fixtureNumericText =
-            numNode && numNode->GetText() ? TrimAscii(numNode->GetText()) : "";
-        int fixtureNumeric = 0;
-
-        if (fixtureId.empty() ||
-            !TryParseInt(fixtureNumericText, fixtureNumeric) ||
-            fixtureNumeric <= 0) {
-          wxLogError(
-              "MVR export validation failed: Fixture '%s' (uuid=%s) must have "
-              "a non-empty FixtureID and a positive integer FixtureIDNumeric",
-              fixtureName, fixtureUuid);
-          return false;
-        }
-
-        auto *unitNode = cur->FirstChildElement("UnitNumber");
-        int unitValue = 0;
-        const std::string unitText = unitNode && unitNode->GetText()
-                                         ? TrimAscii(unitNode->GetText())
-                                         : "";
-        if (unitText.empty() || !TryParseInt(unitText, unitValue) ||
-            unitValue <= 0) {
-          wxLogError("MVR export validation failed: Fixture '%s' (uuid=%s) "
-                     "must have a positive integer UnitNumber",
-              fixtureName, fixtureUuid);
-          return false;
-        }
-
-        if (!numericIds.insert(fixtureNumeric).second) {
-          wxLogError("MVR export validation failed: FixtureIDNumeric must be globally unique positive integer");
+        const std::string fixtureUuid = cur->Attribute("uuid") ? cur->Attribute("uuid") : "";
+        const std::string fixtureName = cur->Attribute("name") ? cur->Attribute("name") : "";
+        if (!mvr_identifiers::ValidateElement(*cur, true)) {
+          wxLogError("MVR export validation failed: invalid Fixture identifiers");
           return false;
         }
 
@@ -765,26 +730,8 @@ static bool ValidateMvr16Export(
                      cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
           return false;
         }
-        auto *sceneObjectIdNode = cur->FirstChildElement("FixtureID");
-        auto *sceneObjectNumNode = cur->FirstChildElement("FixtureIDNumeric");
-        const std::string sceneObjectId =
-            sceneObjectIdNode && sceneObjectIdNode->GetText()
-                ? TrimAscii(sceneObjectIdNode->GetText())
-                : "";
-        const std::string sceneObjectNumericText =
-            sceneObjectNumNode && sceneObjectNumNode->GetText()
-                ? TrimAscii(sceneObjectNumNode->GetText())
-                : "";
-        int sceneObjectNumeric = 0;
-        if (sceneObjectId.empty() ||
-            !TryParseInt(sceneObjectNumericText, sceneObjectNumeric) ||
-            sceneObjectNumeric <= 0) {
-          wxLogError("MVR export validation failed: SceneObject uuid '%s' must have FixtureID and FixtureIDNumeric",
-                     cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
-          return false;
-        }
-        if (!numericIds.insert(sceneObjectNumeric).second) {
-          wxLogError("MVR export validation failed: FixtureIDNumeric must be globally unique positive integer");
+        if (!mvr_identifiers::ValidateElement(*cur, false)) {
+          wxLogError("MVR export validation failed: invalid SceneObject identifiers");
           return false;
         }
         int matrixOrder = -1;
@@ -897,25 +844,8 @@ static bool ValidateMvr16Export(
             isMultipatchChild =
                 std::string(mp) == "true" || std::string(mp) == "1";
           if (!isMultipatchChild) {
-            const char *idText =
-                cur->FirstChildElement("FixtureID")
-                                     ? cur->FirstChildElement("FixtureID")->GetText()
-                                     : nullptr;
-            const char *numText =
-                cur->FirstChildElement("FixtureIDNumeric")
-                                      ? cur->FirstChildElement("FixtureIDNumeric")->GetText()
-                                      : nullptr;
-            if (!idText || TrimAscii(idText).empty() || !numText) {
-              wxLogError("MVR export validation failed: %s is missing "
-                         "FixtureID/FixtureIDNumeric",
-                         tagName);
-              return false;
-            }
-            int numeric = 0;
-            if (!TryParseInt(numText, numeric) || numeric <= 0 ||
-                !numericIds.insert(numeric).second) {
-              wxLogError("MVR export validation failed: FixtureIDNumeric must "
-                         "be globally unique positive integer");
+            if (!mvr_identifiers::ValidateElement(*cur, false)) {
+              wxLogError("MVR export validation failed: invalid %s identifiers", tagName);
               return false;
             }
           }
@@ -1748,16 +1678,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     const std::string fixtureExportName = TrimAscii(f.instanceName).empty()
                                               ? "Fixture"
                                               : TrimAscii(f.instanceName);
-    auto idIt = assignedIds.find(f.uuid);
-    auto fixtureExportId =
-        idIt != assignedIds.end() ? idIt->second
-                                  : std::pair<std::string, int>{std::to_string(f.fixtureId), f.fixtureId};
-    if (fixtureExportId.second <= 0) {
-      fixtureExportId.second = 1;
-      fixtureExportId.first = "1";
-    }
-    if (fixtureExportId.first.empty())
-      fixtureExportId.first = std::to_string(fixtureExportId.second);
+    const auto &fixtureExportId = assignedIds.at(f.uuid);
     std::string fixtureSourceGdtf = f.gdtfSpec;
     if (fixtureSourceGdtf.empty() && !f.originalMvrGdtfSpec.empty()) {
       fixtureSourceGdtf = f.originalMvrGdtfSpec;
@@ -1967,12 +1888,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
             : DeriveDeterministicUuid("mvr-export-truss:" + t.uuid + ":" +
                                       t.name);
     values.object = {exportedTrussUuid, t.name, t.classing};
-    auto idIt = assignedIds.find(t.uuid);
-    int fixtureNumericId =
-        (idIt != assignedIds.end()) ? idIt->second.second : 0;
-    if (fixtureNumericId <= 0)
-      fixtureNumericId = 1;
-    const std::string fixtureId = std::to_string(fixtureNumericId);
+    const auto &trussIdentifiers = assignedIds.at(t.uuid);
 
     std::string trussTypeKey = BuildTrussTypeKey(effectiveTruss);
     std::string trussGdtfArchivePath;
@@ -2153,9 +2069,9 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     values.gdtfSpec = trussGdtfArchivePath;
     if (!trussGdtfArchivePath.empty())
       values.gdtfMode = t.gdtfMode.empty() ? "Default" : t.gdtfMode;
-    values.fixtureId = fixtureId;
-    values.fixtureIdNumeric = fixtureNumericId;
-    values.unitNumber = t.unitNumber;
+    values.fixtureId = trussIdentifiers.first;
+    values.fixtureIdNumeric = trussIdentifiers.second;
+    values.unitNumber = mvr_identifiers::OptionalUnit(t.identifierSource, t.unitNumber);
     values.customIdType = t.customIdType;
     values.customId = t.customId;
 
@@ -2203,11 +2119,10 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     values.gdtfSpec = registerGdtfResource(s.uuid, s.gdtfSpec, "");
     if (!values.gdtfSpec.empty())
       values.gdtfMode = s.gdtfMode.empty() ? "Default" : s.gdtfMode;
-    auto id = assignedIds.find(s.uuid);
-    values.fixtureIdNumeric = id != assignedIds.end() ? id->second.second : 0;
-    if (values.fixtureIdNumeric <= 0)
-      values.fixtureIdNumeric = 1;
-    values.fixtureId = std::to_string(values.fixtureIdNumeric);
+    const auto &supportIdentifiers = assignedIds.at(s.uuid);
+    values.fixtureIdNumeric = supportIdentifiers.second;
+    values.fixtureId = supportIdentifiers.first;
+    values.unitNumber = mvr_identifiers::OptionalUnit(s.identifierSource, s.unitNumber);
 
     if (ShouldExportSupportHoistInfo(s))
       AppendSupportHoistInfoMetadata(doc, hoistInfoMap, s);
@@ -2383,19 +2298,11 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       values.geometries.push_back({*placeholder, std::nullopt});
     }
 
-    auto sceneObjectIdIt = assignedIds.find(obj.uuid);
-    int sceneObjectNumericId = sceneObjectIdIt != assignedIds.end()
-                                   ? sceneObjectIdIt->second.second
-                                   : 0;
-    if (sceneObjectNumericId <= 0)
-      sceneObjectNumericId = 1;
-    std::string sceneObjectFixtureId = sceneObjectIdIt != assignedIds.end()
-                                           ? sceneObjectIdIt->second.first
-                                           : std::to_string(sceneObjectNumericId);
-    if (sceneObjectFixtureId.empty())
-      sceneObjectFixtureId = std::to_string(sceneObjectNumericId);
-    values.fixtureId = sceneObjectFixtureId;
-    values.fixtureIdNumeric = sceneObjectNumericId;
+    if (const auto id = assignedIds.find(obj.uuid); id != assignedIds.end()) {
+      values.fixtureId = id->second.first;
+      values.fixtureIdNumeric = id->second.second;
+      values.unitNumber = mvr_identifiers::OptionalUnit(obj.identifierSource, obj.unitNumber);
+    }
     mvr_xml_serialization::AppendSceneObject(doc, parent, values);
     return true;
   };
@@ -2611,6 +2518,11 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       }
     }
   }
+
+  const auto identifierProjection = mvr_identifiers::CheckProjection(
+      *doc.RootElement(), scene, assignedIds, assignedUnitNumbers);
+  for (const auto &diagnostic : identifierProjection) AddDiagnostic(diagnostic);
+  if (!identifierProjection.empty()) return false;
 
   const auto layerValidation = layerdomain::ValidateSceneLayers(scene);
   if (layerValidation.status != layerdomain::LayerStatus::Success) {

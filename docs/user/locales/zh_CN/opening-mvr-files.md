@@ -25,6 +25,8 @@ UUID 冲突时，可为导入对象生成新 UUID（默认选项，保留两个�
 
 将工作保存为 `.pstg`，可保留 Perastage 项目上下文、版面和项目符号。MVR 用于数据交换。Perastage 将自身的交换元数据存储在兼容标准、由应用管理的 UserData 中；其他应用可能不保留这些元数据。
 
+支持的灯具、桁架、吊挂设备和场景对象会保留导入的 FixtureID、FixtureIDNumeric 和 UnitNumber，包括零值、重复值以及可选 UnitNumber 的存在状态。复制和合并不会自动重新编号。超出支持的整数范围会阻止项目保存和导出；请保留源文件。仍可显式修改编号。
+
 ## 导出 MVR
 
 1. 选择 **File → Export MVR...**。

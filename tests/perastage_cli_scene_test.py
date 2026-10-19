@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
@@ -71,6 +72,25 @@ def main() -> int:
                     "--command", "clear", "--json")
         assert clear.returncode == 0, clear.stderr
         assert json.loads(clear.stdout)["scene_changed"] is False
+
+        zero_source = root / "zero-identifiers.mvr"
+        zero_output = root / "zero-output.mvr"
+        zero_xml = SCENE_XML.replace('<FixtureID>1</FixtureID>',
+                                    '<FixtureID>  F &amp; 0  </FixtureID>').replace(
+            '<FixtureIDNumeric>1</FixtureIDNumeric>',
+            '<FixtureIDNumeric>0</FixtureIDNumeric><UnitNumber>0</UnitNumber>')
+        with zipfile.ZipFile(zero_source, 'w') as archive:
+            archive.writestr('GeneralSceneDescription.xml', zero_xml)
+            archive.writestr('fixture.gdtf', fixture_bytes.getvalue())
+        zero = run(cli, 'scene', str(zero_source), '--output', str(zero_output),
+                   '--command', 'clear', '--json')
+        assert zero.returncode == 0, zero.stderr
+        assert json.loads(zero.stdout)['output_published'] is True
+        with zipfile.ZipFile(zero_output) as archive:
+            fixture = ET.fromstring(archive.read('GeneralSceneDescription.xml')).find('.//Fixture')
+            assert fixture.findtext('FixtureID') == '  F & 0  '
+            assert fixture.findtext('FixtureIDNumeric') == '0'
+            assert fixture.findtext('UnitNumber') == '0'
 
         result = run(cli, "scene", str(source), "--output", str(output),
                      "--command", "f 1", "--command", "pos x 1",

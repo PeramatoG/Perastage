@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include "mvr_identifier_source.h"
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -32,6 +33,10 @@
 
 // Represents a hoist parsed from MVR
 struct Support {
+    std::optional<MvrIdentifierSource> identifierSource;
+    std::string fixtureIdText;
+    int fixtureIdNumeric = 0;
+    int unitNumber = 0;
     std::string uuid;
     std::string classing; // Scene-wide MVR Class UUID, independent of layer ownership.
     std::string name;

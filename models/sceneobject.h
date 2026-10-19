@@ -17,6 +17,8 @@
  */
 #pragma once
 
+#include "mvr_identifier_source.h"
+#include <optional>
 #include "types.h"
 #include <string>
 #include <utility>
@@ -53,8 +55,10 @@ struct SceneObject {
     Matrix localTransform;
     bool hasLocalTransform = false;
     std::string parentGroupUuid;
+    std::optional<MvrIdentifierSource> identifierSource;
     std::string fixtureIdText;
     int fixtureIdNumeric = 0;
+    int unitNumber = 0;
 
     // Returns the first available model reference for this scene object.
     std::string GetPrimaryModel() const {
