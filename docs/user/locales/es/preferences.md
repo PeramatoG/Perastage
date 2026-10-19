@@ -64,3 +64,5 @@ explícita de propiedades físicas sigue disponible.
 - **Direct Geometry3D for truss symbols:** expande las referencias a símbolos de truss para aplicaciones que necesitan geometría directa.
 
 Ambas generan MVR compatible con 1.6. Guardar el proyecto conserva la representación estándar. Las opciones de importación se describen en [Abrir archivos MVR](opening-mvr-files.md).
+
+La exportación normal siempre usa MVR canónico y coincide con `scene.mvr` de PSTG para el mismo estado de escena. Para crear un archivo alternativo, activa **Usar la exportación de compatibilidad para este archivo** en el diálogo de exportación y elige la representación. La preferencia guardada sugiere esa elección; no activa la compatibilidad automáticamente. Geometry3D directo expande las referencias Symbol/Symdef de los trusses sin modificar la escena del proyecto ni sus identificadores.

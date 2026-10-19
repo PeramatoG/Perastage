@@ -39,3 +39,10 @@ struct MvrExportOptions {
 
 // Returns the single canonical policy used by project and interchange serialization.
 inline MvrExportOptions CanonicalMvrExportOptions() { return {}; }
+
+// A persisted alternate representation requires explicit consent for this output.
+// Canonical output never inherits compatibility or future repair preferences.
+inline MvrExportOptions ResolveStandaloneMvrExportOptions(
+    const MvrExportOptions &preferred, bool compatibilityRequested = false) {
+  return compatibilityRequested ? preferred : CanonicalMvrExportOptions();
+}

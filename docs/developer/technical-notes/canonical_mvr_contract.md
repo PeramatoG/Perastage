@@ -3,9 +3,8 @@
 Perastage Canonical MVR is the standards-valid MVR 1.6 representation of the
 current domain scene. Project `scene.mvr`, MVR-xchange, and read-only consumers
 use `CanonicalMvrExportOptions()` and the same serializer. The canonical truss
-representation is the standard MVR Symbol/Symdef representation. A standalone
-export also uses this policy when the user selects **Standard MVR
-representation**.
+representation is the standard MVR Symbol/Symdef representation. Every normal standalone
+export uses this policy, independently of saved compatibility preferences.
 
 For an explicit **Direct Geometry3D for truss symbols** standalone export, the
 same serializer derives a compatibility representation from a private copy of
@@ -48,10 +47,12 @@ Interactive project save and standalone export both call `SyncSceneData()` as
 an explicit command-boundary preparation step. This commits pending derived
 fixture type colors to the domain scene without reintroducing table-wide GUI
 resynchronization. Project save then requests the canonical policy. File >
-Export MVR resolves the persisted standalone preference at the application
-boundary and passes explicit options to the same exporter; Standard therefore
-matches canonical geometry policy, while Direct Geometry3D derives only the
-standalone compatibility representation. Direct domain serialization and
+Export MVR starts with **Use compatibility export for this file** unchecked.
+The saved preference suggests the representation only after that explicit opt-in;
+it remains stored under its existing key. The dialog shows the transformation
+and passes explicit options to the same exporter. Cancelling or unavailable dialog
+customization leaves the canonical policy in effect. Direct Geometry3D derives
+only the standalone compatibility representation. Direct domain serialization and
 Inspector snapshots remain independent of GUI preferences and operate on the
 scene supplied by their caller.
 
@@ -100,3 +101,47 @@ This preserves the identity model needed for future class visibility filtering
 across layers in Viewer2D, Viewer3D and Layout Mode. There are no visibility
 controls or flags in this change. Visibility presets and documentation settings
 will belong to PSTG, without adding proprietary Class attributes to MVR.
+
+
+## Preservation, canonicalization and controlled repair
+
+Preservation protects valid authored information and meaning, including fields
+without an editor. Canonicalization may change representation: standard element
+ordering, equivalent numeric spelling, resource packaging with consistent
+reference rewriting, identity layer matrices, empty optional assignment
+containers, and required XSD containers. It does not authorize changing arbitrary
+text, precision, identities or relationships. XML whitespace in otherwise empty
+optional assignment containers, including character references, is insignificant; attributes,
+child elements and non-whitespace text remain protected. This is a bounded rule,
+not permission to discard unknown fields.
+
+For the same scene and effective canonical options, PSTG scene.mvr and standalone
+canonical output must have exactly the same ordered ZIP entry names and
+uncompressed bytes, including XML text, attributes, values and element order.
+ZIP metadata and compression may differ. This compares two generated outputs,
+not generated output with imported XML. Project documentation, styles,
+visibility presets and preferences belong outside scene.mvr.
+
+FixtureID and FixtureIDNumeric are selection labels, independent of persistent
+UUID identity. Authored duplicates, zero, empty strings and optional presence
+retain the bounded #2484 policy. Future allocation/duplicate repair must be an
+explicit reusable plan, with diagnostics and Undo/Redo when applied to the live
+scene. Import repair changes state at an explicit command boundary; canonical
+export only derives a private snapshot; compatibility export is a named alternate
+operation. None may consume future repair preferences implicitly.
+
+UUID spelling/unique-alias recovery on a private export snapshot remains
+available and diagnosed. An ambiguous alias reported by identity recovery now
+returns IdentityConflict / Error / ExportFailed before transform preparation or
+serialization. No guessed or cleared reference is published. The lower-level
+recovery utility still exposes its historical recovery result and is not itself
+a general validation API. Generic source UUID/reference coverage, Position
+recovery and opaque provider references remain P0; this gate is not proof of
+complete reference preservation.
+
+Safe representable content should save without a consent loop. Genuine unsupported
+standard content still blocks both serializers until an actual preservation
+owner exists. This is an unresolved workflow constraint, not the final product
+policy. No validation bypass, alternate project scene or lossy-save override is
+provided. The audit records the smallest proposed recovery design and acceptance
+conditions separately from implemented behavior.

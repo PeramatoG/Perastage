@@ -164,6 +164,17 @@ void AppendIdentityDiagnostics(Result &result,
                                const mvridentity::RecoveryResult &recovery) {
   std::unordered_set<std::string> emittedWarnings;
   for (const auto &diagnostic : recovery.diagnostics) {
+    const bool ambiguous =
+        diagnostic.reason == mvridentity::RecoveryReason::AmbiguousReference;
+    if (ambiguous) {
+      result.diagnostics.push_back(
+          {MvrExportDiagnosticCode::IdentityConflict,
+           MvrExportDiagnosticSeverity::Error, MvrExportDiagnosticImpact::ExportFailed,
+           true, diagnostic.objectKind, diagnostic.objectName, {}, {},
+           mvridentity::FormatRecoveryDiagnostic(diagnostic) +
+               " Resolve the UUID conflict before exporting; no reference target was selected."});
+      continue;
+    }
     const bool conflict = diagnostic.conflictingValidIdentities;
     const bool visibleCandidate =
         diagnostic.reason == mvridentity::RecoveryReason::Duplicate ||
@@ -393,6 +404,11 @@ Result Prepare(const MvrScene &sourceScene, const MvrExportOptions &options) {
   const auto recovery =
       mvridentity::RecoverSceneIdentities(result.scene, "editable-scene");
   AppendIdentityDiagnostics(result, recovery);
+  if (std::any_of(result.diagnostics.begin(), result.diagnostics.end(),
+                  [](const auto &diagnostic) {
+                    return diagnostic.severity == MvrExportDiagnosticSeverity::Error;
+                  }))
+    return result;
   const auto integrity =
       scene_transform_integrity::ValidateAndRepair(result.scene);
   for (const auto &diagnostic : integrity.diagnostics) {

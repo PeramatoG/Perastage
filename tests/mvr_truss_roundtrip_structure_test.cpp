@@ -26,6 +26,7 @@
 #include "scene_node_operations.h"
 #include "truss_gdtf_builder.h"
 #include "uuidutils.h"
+#include "support/archive_entry_test_utils.h"
 
 namespace fs = std::filesystem;
 
@@ -252,6 +253,9 @@ int main() {
 
   assert(mvr::preferences::LoadExportOptions(cfg).trussGeometryExportMode ==
          MvrTrussGeometryExportMode::Standard);
+  MvrExportOptions futurePreference;
+  futurePreference.trussGeometryAuthority = MvrTrussGeometryAuthority::Gdtf;
+  assert(!ResolveStandaloneMvrExportOptions(futurePreference).trussGeometryAuthority);
   assert(CanonicalMvrExportOptions().trussGeometryExportMode ==
          MvrTrussGeometryExportMode::Standard);
   MvrExportOptions directPreferenceOptions;
@@ -403,8 +407,8 @@ int main() {
   const ConfigManager::DirtyState dirtyBeforeCompatibilityExport =
       cfg.CaptureDirtyState();
   const MvrScene sceneBeforeCompatibilityExport = scene;
-  const MvrExportOptions directOptions =
-      mvr::preferences::LoadExportOptions(cfg);
+  const MvrExportOptions directOptions = ResolveStandaloneMvrExportOptions(
+      mvr::preferences::LoadExportOptions(cfg), true);
   const fs::path directMvrPath = tempDir / "direct-truss-geometry.mvr";
   assert(exporter.ExportToFile(directMvrPath.string(), directOptions));
   const auto directEntries = ReadArchiveTextEntries(directMvrPath);
@@ -466,6 +470,22 @@ int main() {
       projectSceneIt->second.begin(), projectSceneIt->second.end());
   WriteArchiveBytes(projectScenePath, projectSceneArchive);
   assert(!ReadFirstSymbolUuid(projectScenePath).empty());
+
+  // The GUI defaults to canonical output even with a saved compatibility preference.
+  const fs::path normalGuiPath = tempDir / "normal-gui-export.mvr";
+  const auto normalOptions = ResolveStandaloneMvrExportOptions(
+      mvr::preferences::LoadExportOptions(cfg));
+  assert(exporter.ExportToFile(normalGuiPath.string(), normalOptions));
+  assert(ReadArchiveTextEntries(normalGuiPath) ==
+         ReadArchiveTextEntries(projectScenePath));
+  std::string orderError;
+  const auto normalOrder = tests::archive::ReadRawCentralDirectoryEntryNames(
+      normalGuiPath.string(), orderError);
+  assert(orderError.empty());
+  const auto projectOrder = tests::archive::ReadRawCentralDirectoryEntryNames(
+      projectScenePath.string(), orderError);
+  assert(orderError.empty());
+  assert(normalOrder == projectOrder);
 
   std::vector<uint8_t> projectSceneBytes;
   assert(exporter.ExportToBuffer(projectSceneBytes));

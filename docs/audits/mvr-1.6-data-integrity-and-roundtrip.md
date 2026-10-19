@@ -1,6 +1,6 @@
 # MVR 1.6 data integrity and round-trip audit
 
-Status: **bounded P0 correction; universal preservation and complete fail-closed coverage remain unfinished**.
+Status: **bounded P0 corrections through #2484 plus canonical export policy consolidation; non-blocking persistence and complete semantic provenance remain unfinished**.
 
 The scene-format inventory below covers every attribute/child entry in published
 MVR 1.6 Tables 2–64, plus value types, archive rules, references and version policy.
@@ -189,8 +189,8 @@ loss; `B` unsupported with explicit write protection; `U` unverified. Risk/actio
 keys: `f` direct-focus subset; `s` fixture scalar/color subset; `h` hierarchy/local
 transform path; `r` resource/reference contract; `u` root opaque UserData policy;
 `c` tested Class/Classing preservation without visibility or an editor;
-`b` add typed/preservation support before allowing write; `i` identifier recovery
-policy requires correction; `d` direct Symdef/self-contained resource and simple Truss Symbol subset;
+`b` add typed/preservation support before allowing write; `i` persistent UUID/reference
+recovery remains incomplete; `d` direct Symdef/self-contained resource and simple Truss Symbol subset;
 `a` AUXData retention requires follow-up; `v` version
 and semantic validation incomplete; `j` bounded authored identifiers, with wider
 integer ranges protected and explicit mutation/legacy limits below. Detailed limitations follow the matrix.
@@ -515,32 +515,39 @@ These are explicitly **unfinished P0 requirements**, not waived acceptance
 criteria. The branch is a coherent tested correction and protective boundary;
 it is not completion of the whole mission.
 
-### Recommended next PRs, in order
+### Remaining P0 roadmap (consolidated after #2479–#2484)
 
-1. Complete fail-closed semantic provenance: version-specific element/attribute
-   ownership, authored values and reference/resource obligations, comparison
-   rules for user-intended mutation, all GUI/Core entry points, and protection
-   for currently known unguarded cases above. Preserve or reject source data
-   before the edit that makes restoration impossible. Retain bounded memory and
-   avoid routine full round-trip cycles.
-2. Correct authored identifier/UnitNumber policy across export, PSTG, copy,
-   merge and grouping, without treating Annex A’s recommendation for unique selection IDs as
-   permission to rewrite unrelated authored values. The informative annex says
-   IDs “should” be unique and describes multipatch selection sharing. Add string/number provenance and
-   version-specific semantics, including legacy FixtureTypeId conversion.
-3. Extend the direct-definition phase to nested Symdef/Symbol graphs and all
-   consumers, with canonical node versus display/local placement, multiple and
-   mixed geometry entries, complete external dependency ownership and merge
-   remapping. Add validated preservation for noneditable VideoScreen/Projector
-   and their media resources through existing interchange owners.
-4. Typed DMX-break/network assignments and layer elevation,
-   with local/world transforms and exact identity/reference remapping. Permit
-   these workflows only after their current blockers can be removed safely.
-5. Complete protocols, alignments, connections, mappings, commands/overwrites,
-   Gobo/Universal.gdtt and GDTF revision/resource obligations. Reconcile the
-   documented schema discrepancies with upstream without weakening pinned
-   official copies; run the reference implementation and receiving applications
-   against a published interoperability corpus.
+Completed bounded work is not pending: direct FocusPoint/Fixture Focus (#2479),
+Class/Classing (#2480), direct Symdef and simple Truss Symbol ownership (#2482),
+Save UI/failure diagnostics (#2483), and authored selection identifiers/UnitNumber
+(#2484). Their explicit subset limitations still apply. This continuation aligns
+normal standalone/PSTG policy, removes one empty-container blocker and refines
+ambiguous UUID recovery diagnostics; it does not redo those implementations.
+
+1. Non-blocking persistence design and incremental preservation: inventory each
+   remaining source-owned obligation and its canonical owner, first addressing
+   common recoverable valid structures. Specify an explicit recovery result when
+   complete working state and a canonical scene.mvr cannot both be written. Add
+   source-independent verification before removing each blocker.
+2. General semantic provenance and UUID/reference integrity: protect source
+   identities before reader normalization/map insertion, retained resources,
+   user-intended mutation, Position references and opaque-provider limitations.
+   A valid-key/field conflict needs an explicit resolution policy. Keep memory
+   bounded; do not perform full import/export/import on each save.
+3. Nested Symdef/Symbol graphs, other Symbol consumers and canonical placement:
+   multiple/mixed geometry, exact local/world ownership, dependency closure,
+   merge remapping, noneditable VideoScreen/Projector and media resources.
+4. Typed DMX breaks/networks and layer elevation; complete reference/resource
+   handling before removing their current blockers.
+5. Configurable selection numbering and controlled repairs through shared
+   planners/commands: allocate missing labels, optionally resolve duplicates,
+   preserve authored defaults, record provenance and support Undo/Redo. Complete
+   wider integer, optional-presence editing and legacy/CustomId policies without
+   confusing selection labels with UUIDs.
+6. Protocols, alignments, connections, mappings, commands/overwrites,
+   Gobo/Universal.gdtt, GDTF revision/resource obligations and upstream schema
+   reconciliation. Execute the official reference implementation and receiving
+   applications against a published interoperability corpus.
 
 ### Validation scope
 
@@ -1006,3 +1013,136 @@ checks. English user documentation and its four translated mirrors are updated;
 the generated Next page is synchronized and Stable is unchanged. Hosted CI for
 the new draft PR remains separate from these local results. External application
 and official reference-runtime interoperability were not executed.
+
+
+## Canonicalization and controlled repair policy continuation
+
+Base: updated origin/main `d450ca22`, including merged #2484. Published MVR 1.6
+`8e0e0ccf` was read again (SHA-256 `687b8e796e47783c7acbeb502021b13b78d89b5c457cbf30325db67187b484d3`).
+The fetched official XSD `e199c6ed` matches the pinned copy byte for byte
+(SHA-256 `85bc42015b706b2ab2bcc2ce69649e7245272b3606217263c90126cda21cb86c`).
+No official schema, VERSION, CAD, Layout or Class visibility change.
+
+### Established product contracts
+
+- **Preservation:** retain valid authored standard identities, references,
+  hierarchy, resources and values, even without a UI editor. Meaning and
+  source-owned obligations are the comparison target, not imported formatting.
+- **Canonicalization:** produce deterministic, high-quality standard structure,
+  order and packaging. Representation can improve without changing information.
+  Safe examples are the documented standard child order, XSD-required empty
+  Group ChildList, equivalent integer spelling, identity Layer Matrix omission,
+  and empty optional assignments. Resource renaming is safe only when every
+  affected reference is updated and payload meaning/bytes are retained. This
+  policy does not authorize arbitrary text trimming or precision loss.
+- **Required repair:** diagnose invalid persistent identities and references;
+  repair only when resolution is unique and deterministic, updating every
+  affected supported reference and reporting scope. Ambiguity requires a
+  structured conflict and user resolution, never a guessed target.
+- **Optional improvement:** numbering conventions, allocating missing selection
+  labels and duplicate FixtureIDNumeric repair are explicit future operations.
+  Authored selection labels are preserved by default and are not UUIDs.
+- **Canonical equality:** same scene/effective canonical options means exactly
+  equal XML, resources, uncompressed bytes and ZIP entry order in standalone MVR
+  and PSTG scene.mvr. Compression/ZIP metadata may differ. Imported XML need not
+  equal generated XML. Project-only state stays outside scene.mvr.
+- **Compatibility:** explicitly opt into an alternate output, with its scope
+  visible before export. Existing saved preference keys/values remain readable;
+  they suggest the representation but never authorize alternate output by
+  themselves. No hidden mutation or separate serializer is introduced.
+
+### Confirmed implementation and regression-before-fix evidence
+
+`MvrTrussRoundtripStructure` now exercises the old GUI call with the saved Direct
+Geometry3D preference and compares the actual output with PSTG scene.mvr. Before
+the fix it failed at complete entry payload equality: GUI output expanded the
+truss Symbol, whereas project output retained Symbol/Symdef. The normal GUI path
+now uses the shared canonical resolver; compatibility is unchecked for every
+export and requires explicit activation. The existing preference remains the
+suggestion for that explicit operation. Supported direct conversion remains
+available, with scene identities, definitions and dirty revision unchanged.
+The regression compares complete payloads and raw central-directory entry order.
+
+`MvrStandardPreservation` failed before the fix on a Protocols container with
+only XML whitespace from character references. The XSD permits empty Protocols/assignments;
+Character references do not change the meaning of whitespace. The scanner now recognizes
+only truly empty assignments (XML whitespace/comments, no attributes or child
+elements). Significant text, nested elements and unknown attributes remain
+blocked. The schema-valid identifier integration corpus includes this source;
+PSTG save/reopen and repeated canonical exports are verified independently.
+This removes one demonstrably unnecessary blocker without disabling validation.
+
+`MvrExportPreparation` distinguishes unique alias recovery from ambiguity. The
+pre-fix ambiguous-parent case was already rejected later by transform integrity,
+but lacked an IdentityConflict error for the actual UUID ambiguity. Export now
+returns that structured conflict directly, including identity source/context and
+resolution guidance, before transformation or serialization. Unique hierarchy
+alias repair preserves all tested edges and unrelated authored identity; input
+state stays unchanged. This covers the existing recovery service's supported
+identity graph, not every source UUID conflict before import normalization.
+
+Independent Python ZIP/XML tests now compare raw same-state XML/resource bytes
+and ordered ZIP entries, not just XML canonicalization. Existing identifier
+variants cover zero, duplicate, empty and missing values; numeric `+0007` becomes
+`7` with its value retained. Existing independent Focus, Class and Symdef tests
+remain the source-semantic and resource/reference authorities for those subsets.
+
+### Blocker classification and non-blocking recovery design
+
+| Category | Current examples | Behavior / next acceptance condition |
+| --- | --- | --- |
+| Harmless canonicalization | Whitespace-only optional assignments, identity Layer Matrix, child order, equivalent integer spelling | Accept the tested subset; source-meaning verification accompanies normalization. |
+| Recoverable representation limitation | Direct noneditable definitions now supported; nested Symdefs, other Symbol consumers, layer elevation and valid media nodes still unrepresented | Add bounded canonical owners and resource/reference checks, then remove the individual blocker. No fatal save solely because there is no editor. |
+| Safe automatic repair | Unique internal UUID alias recovery and equivalent spelling | Operate on a private export snapshot, report provenance, preserve unrelated identities and verify all affected supported edges. Generic source conflict handling remains unfinished. |
+| Optional user-authorized change | Direct truss geometry output; future numbering allocation/duplicate repair | Explicit alternate export or shared edit command with a plan, provenance and Undo/Redo; never implicit in canonical save. |
+| Ambiguous/unrecoverable integrity | Ambiguous UUID aliases, missing geometry bytes, unknown reference/resource closure, unsupported versions or out-of-range values | Structured failure, no archive replacement and concrete recovery guidance. A valid unsupported field is a representation limitation, not corrupt source. |
+
+PSTG currently requires every standard scene obligation to be representable in
+canonical scene.mvr. For still-unrepresented valid structures, unconditional
+save, complete preservation and that contract cannot all be satisfied by the
+current architecture. This remains a product defect. Ordinary compatibility
+warnings must remain nonfatal; tests retain the previous valid project after
+actual I/O/resource/serialization failures.
+
+**Proposed follow-up, not implemented:** first extend the existing shared model/
+serializer for bounded fields, rather than introduce a project-only scene. When
+that cannot preserve the current working state, return a typed RecoveryRequired
+result distinguishing representation limits from I/O failure. The smallest
+recovery proposal to review is retaining the acquired original package and its
+resource lifetime plus an explicit bounded edit journal in a separately named
+recovery artifact. It must not be labeled a successfully saved PSTG, substituted
+for scene.mvr, or claimed to preserve edits that it cannot replay. Do not ship
+that artifact without reviewed journal/version/resource/reference semantics.
+Until then, retain the original input and previous valid PSTG; exporting a lossy
+scene is not an automatic recovery path.
+
+Follow-up acceptance tests: unsupported valid source plus edits survives process
+restart and deletion of the source/extraction directory; resource namesakes do
+not retarget data; mixed edits/merge/Undo/Redo preserve source obligations; replay
+is deterministic/idempotent or returns a structured conflict; cancellation never
+replaces a valid project; successful canonical save still matches normal MVR
+exactly. Future informed lossy export must list each proposed loss and require
+explicit consent without affecting native state. No consent workflow, recovery
+format or general repair preference is implemented here.
+
+The full XSD/UserData and signed-integer disagreements documented above remain;
+no full-document conformance or external-application interoperability claim is
+made. Local validation results are recorded in the PR; hosted CI is reported
+separately from local tests.
+
+Local Debug verification for this continuation: **23/23 focused regressions
+passed**, covering the new native GTK export-dialog opt-in, canonical/alternate
+output, complete same-state ZIP payload/order comparison, identifier independent
+reader, Focus/Class/Symdef integration and independent readers, schema validation,
+project metadata/save/reopen, actual ProjectSession I/O failures with prior archive
+retention, identity recovery, export preparation and resource/archive writers.
+The whitespace regression also fails when linked against the unchanged mainline
+scanner, using the schema-valid character-reference source. **21 distinct
+repository/architecture policy checks passed**, including all four mandatory
+repository guards, official-schema integrity, module/include ownership,
+repository structure and portability. Strict perastage_check_translations,
+MainWindow I/O/preferences/helper syntax compilation and generated-document drift
+checks passed. GTK widgets ran under Xvfb; the first socket-restricted attempt
+could not initialize GTK, and passed with the local display-socket capability.
+No complete application link, native Windows/macOS dialog interaction, official
+reference runtime or receiving-application interoperability execution is claimed.
