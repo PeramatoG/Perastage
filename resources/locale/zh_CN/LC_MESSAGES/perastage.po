@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-18 22:10+0000\n"
+"POT-Creation-Date: 2026-10-19 09:09+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -836,7 +836,7 @@ msgstr "DMX 模式"
 
 #: gui/dictionaryeditdialog.cpp:1556 gui/dictionaryeditdialog.cpp:2307
 #: gui/mainwindow_menu.cpp:1057 gui/mainwindow_menu.cpp:1076
-#: gui/mainwindow_truss_replace.cpp:114
+#: gui/mainwindow_truss_replace.cpp:115
 msgid "Select Truss file"
 msgstr "选择桁架文件"
 
@@ -1320,13 +1320,13 @@ msgstr "无效的数值"
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:283
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:509
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:652
-#: gui/mainwindow_io.cpp:252 gui/mainwindow_io.cpp:341
-#: gui/mainwindow_io.cpp:407 gui/mainwindow_io.cpp:440
-#: gui/mainwindow_io.cpp:462 gui/mainwindow_io.cpp:486
-#: gui/mainwindow_io.cpp:545 gui/mainwindow_io.cpp:678
-#: gui/mainwindow_io.cpp:688 gui/mainwindow_io.cpp:738
-#: gui/mainwindow_io.cpp:824 gui/mainwindow_io.cpp:865
-#: gui/mainwindow_io.cpp:883 gui/mainwindow_menu.cpp:1103
+#: gui/mainwindow_io.cpp:253 gui/mainwindow_io.cpp:342
+#: gui/mainwindow_io.cpp:408 gui/mainwindow_io.cpp:441
+#: gui/mainwindow_io.cpp:463 gui/mainwindow_io.cpp:487
+#: gui/mainwindow_io.cpp:546 gui/mainwindow_io.cpp:681
+#: gui/mainwindow_io.cpp:691 gui/mainwindow_io.cpp:741
+#: gui/mainwindow_io.cpp:827 gui/mainwindow_io.cpp:868
+#: gui/mainwindow_io.cpp:886 gui/mainwindow_menu.cpp:1103
 #: gui/ridertextdialog.cpp:218 gui/ridertextdialog.cpp:224
 #: gui/ridertextdialog.cpp:233 gui/ridertextdialog.cpp:245
 #: gui/ridertextdialog.cpp:319 gui/ridertextdialog.cpp:334
@@ -2860,12 +2860,12 @@ msgid "loading a project"
 msgstr "加载项目"
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:648
-#: gui/mainwindow_io.cpp:241
+#: gui/mainwindow_io.cpp:242
 msgid "Open Project"
 msgstr "打开项目"
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:652
-#: gui/mainwindow_io.cpp:252
+#: gui/mainwindow_io.cpp:253
 msgid "Failed to load project."
 msgstr "无法加载目录列表"
 
@@ -3157,12 +3157,12 @@ msgstr "更换夹具选择无效。"
 msgid "Could not read fixture modes from the selected GDTF."
 msgstr "无法从选定的 GDTF 读取灯具模式。"
 
-#: gui/mainwindow_io.cpp:232 gui/mainwindow_io.cpp:363
+#: gui/mainwindow_io.cpp:233 gui/mainwindow_io.cpp:364
 #, c-format
 msgid "Perastage files (*%s)|*%s"
 msgstr "Perastage 文件 (*%s)|*%s"
 
-#: gui/mainwindow_io.cpp:340 gui/mainwindow_io.cpp:406
+#: gui/mainwindow_io.cpp:341 gui/mainwindow_io.cpp:407
 msgid ""
 "Failed to save project.\n"
 "\n"
@@ -3170,112 +3170,112 @@ msgstr ""
 "无法保存项目.\n"
 "\n"
 
-#: gui/mainwindow_io.cpp:382
+#: gui/mainwindow_io.cpp:383
 msgid "Save Project"
 msgstr "保存项目"
 
-#: gui/mainwindow_io.cpp:429 gui/ridertextdialog.cpp:201
+#: gui/mainwindow_io.cpp:430 gui/ridertextdialog.cpp:201
 msgid "Import Rider"
 msgstr "导入 Rider"
 
-#: gui/mainwindow_io.cpp:440
+#: gui/mainwindow_io.cpp:441
 msgid "Failed to read rider."
 msgstr "导入 Rider 失败。"
 
-#: gui/mainwindow_io.cpp:462 gui/ridertextdialog.cpp:233
+#: gui/mainwindow_io.cpp:463 gui/ridertextdialog.cpp:233
 msgid "Failed to import rider."
 msgstr "导入 Rider 失败。"
 
-#: gui/mainwindow_io.cpp:486 gui/ridertextdialog.cpp:319
+#: gui/mainwindow_io.cpp:487 gui/ridertextdialog.cpp:319
 #: gui/ridertextdialog.cpp:346
 msgid "Rider text is empty."
 msgstr "Rider 文本为空。"
 
-#: gui/mainwindow_io.cpp:527
+#: gui/mainwindow_io.cpp:528
 msgid "Text scene creation progress"
 msgstr "文本场景创建进度"
 
-#: gui/mainwindow_io.cpp:534
+#: gui/mainwindow_io.cpp:535
 #, c-format
 msgid "Text import: %s (%d/%d)"
 msgstr "文本导入：%s (%d/%d)"
 
-#: gui/mainwindow_io.cpp:540
+#: gui/mainwindow_io.cpp:541
 #, c-format
 msgid "Text import: %s"
 msgstr "文本导入：%s"
 
-#: gui/mainwindow_io.cpp:545
+#: gui/mainwindow_io.cpp:546
 msgid "Failed to import rider text."
 msgstr "导入 Rider 失败。"
 
-#: gui/mainwindow_io.cpp:549
+#: gui/mainwindow_io.cpp:550
 msgid "Text import failed."
 msgstr "导入 Rider 失败。"
 
-#: gui/mainwindow_io.cpp:571
+#: gui/mainwindow_io.cpp:572
 msgid "Text import completed."
 msgstr "文本导入完成。"
 
-#: gui/mainwindow_io.cpp:593
+#: gui/mainwindow_io.cpp:596
 msgid "Export MVR file"
 msgstr "导出 MVR 文件"
 
-#: gui/mainwindow_io.cpp:609 gui/project_save_ui.cpp:20
+#: gui/mainwindow_io.cpp:612 gui/project_save_ui.cpp:20
 msgid "Saving project..."
 msgstr "正在加载上次项目..."
 
-#: gui/mainwindow_io.cpp:638
+#: gui/mainwindow_io.cpp:641
 msgid "No truss data available."
 msgstr "没有可用的 GDTF 目录。"
 
-#: gui/mainwindow_io.cpp:638 gui/mainwindow_io.cpp:697
+#: gui/mainwindow_io.cpp:641 gui/mainwindow_io.cpp:700
 msgid "Export Truss"
 msgstr "导出桁架..."
 
-#: gui/mainwindow_io.cpp:666
+#: gui/mainwindow_io.cpp:669
 msgid "Save Truss"
 msgstr "保存桁架"
 
-#: gui/mainwindow_io.cpp:678 gui/mainwindow_io.cpp:865
+#: gui/mainwindow_io.cpp:681 gui/mainwindow_io.cpp:868
 msgid "Model file not found."
 msgstr "模型文件"
 
-#: gui/mainwindow_io.cpp:687
+#: gui/mainwindow_io.cpp:690
 msgid "Failed to export truss GDTF."
 msgstr "导入 Rider 失败。"
 
-#: gui/mainwindow_io.cpp:697
+#: gui/mainwindow_io.cpp:700
 msgid "Truss exported successfully."
 msgstr "桁架导出成功。"
 
-#: gui/mainwindow_io.cpp:711
+#: gui/mainwindow_io.cpp:714
 msgid "No fixture data available."
 msgstr "没有可用的 GDTF 目录。"
 
-#: gui/mainwindow_io.cpp:711 gui/mainwindow_io.cpp:752
-#: gui/mainwindow_io.cpp:761 gui/mainwindow_io.cpp:769
-#: gui/mainwindow_io.cpp:828
+#: gui/mainwindow_io.cpp:714 gui/mainwindow_io.cpp:755
+#: gui/mainwindow_io.cpp:764 gui/mainwindow_io.cpp:772
+#: gui/mainwindow_io.cpp:831
 msgid "Export Fixture"
 msgstr "导出灯具..."
 
-#: gui/mainwindow_io.cpp:738
+#: gui/mainwindow_io.cpp:741
 msgid "GDTF file not found."
 msgstr "未找到 GDTF 文件。"
 
-#: gui/mainwindow_io.cpp:751
+#: gui/mainwindow_io.cpp:754
 msgid "Could not create the Perastage fixture derivative."
 msgstr "无法创建 Perastage 固定装置衍生产品。"
 
-#: gui/mainwindow_io.cpp:760
+#: gui/mainwindow_io.cpp:763
 msgid "Could not update the Perastage fixture derivative."
 msgstr "无法更新 Perastage 固定装置衍生品。"
 
-#: gui/mainwindow_io.cpp:792
+#: gui/mainwindow_io.cpp:795
 msgid "Save Fixture"
 msgstr "保存夹具"
 
-#: gui/mainwindow_io.cpp:804
+#: gui/mainwindow_io.cpp:807
 msgid ""
 "This will overwrite the original GDTF library asset. Perastage normally "
 "preserves originals and exports a derived copy instead.\n"
@@ -3286,44 +3286,44 @@ msgstr ""
 "\n"
 "您要覆盖原始 GDTF 文件吗？"
 
-#: gui/mainwindow_io.cpp:807
+#: gui/mainwindow_io.cpp:810
 msgid "Overwrite Original GDTF"
 msgstr "覆盖原始 GDTF"
 
-#: gui/mainwindow_io.cpp:822
+#: gui/mainwindow_io.cpp:825
 #, c-format
 msgid "Failed to write file: %s"
 msgstr "写入文件失败：%s"
 
-#: gui/mainwindow_io.cpp:828
+#: gui/mainwindow_io.cpp:831
 msgid "Fixture exported successfully."
 msgstr "夹具导出成功。"
 
-#: gui/mainwindow_io.cpp:841
+#: gui/mainwindow_io.cpp:844
 msgid "No scene objects available."
 msgstr "没有可用的 GDTF 目录。"
 
-#: gui/mainwindow_io.cpp:841 gui/mainwindow_io.cpp:887
+#: gui/mainwindow_io.cpp:844 gui/mainwindow_io.cpp:890
 msgid "Export Scene Object"
 msgstr "导出场景对象..."
 
-#: gui/mainwindow_io.cpp:873
+#: gui/mainwindow_io.cpp:876
 msgid "Save Object"
 msgstr "保存对象"
 
-#: gui/mainwindow_io.cpp:883
+#: gui/mainwindow_io.cpp:886
 msgid "Failed to copy file."
 msgstr "导入 Rider 失败。"
 
-#: gui/mainwindow_io.cpp:887
+#: gui/mainwindow_io.cpp:890
 msgid "Object exported successfully."
 msgstr "对象导出成功。"
 
-#: gui/mainwindow_io.cpp:904 gui/mainwindow_print.cpp:658
+#: gui/mainwindow_io.cpp:907 gui/mainwindow_print.cpp:658
 msgid "Select table"
 msgstr "选择表格"
 
-#: gui/mainwindow_io.cpp:904 gui/tableprinter.cpp:164 gui/tableprinter.cpp:172
+#: gui/mainwindow_io.cpp:907 gui/tableprinter.cpp:164 gui/tableprinter.cpp:172
 #: gui/tableprinter.cpp:207
 msgid "Export CSV"
 msgstr "导出 CSV..."
@@ -3787,7 +3787,7 @@ msgstr ""
 msgid "You are up to date."
 msgstr "你是最新的。"
 
-#: gui/mainwindow_menu.cpp:1101 gui/mainwindow_truss_replace.cpp:182
+#: gui/mainwindow_menu.cpp:1101 gui/mainwindow_truss_replace.cpp:145
 msgid ""
 "Unsupported or unreadable truss file. Supported formats are GDTF, GTruss, "
 "GLB, and 3DS."
@@ -4133,52 +4133,74 @@ msgstr "正在打印布局..."
 msgid "Print Table"
 msgstr "打印表格"
 
-#: gui/mainwindow_truss_replace.cpp:45
+#: gui/mainwindow_truss_replace.cpp:46
 msgid "Truss from scene"
 msgstr "场景中的桁架"
 
-#: gui/mainwindow_truss_replace.cpp:46
+#: gui/mainwindow_truss_replace.cpp:47
 msgid "Truss from dictionary"
 msgstr "字典中的桁架"
 
-#: gui/mainwindow_truss_replace.cpp:47
+#: gui/mainwindow_truss_replace.cpp:48
 msgid "Truss file"
 msgstr "桁架锉刀"
 
-#: gui/mainwindow_truss_replace.cpp:49
+#: gui/mainwindow_truss_replace.cpp:50
 msgid "Choose the source for the replacement truss:"
 msgstr "选择替换桁架的来源："
 
-#: gui/mainwindow_truss_replace.cpp:49 gui/mainwindow_truss_replace.cpp:60
-#: gui/mainwindow_truss_replace.cpp:68 gui/mainwindow_truss_replace.cpp:82
-#: gui/mainwindow_truss_replace.cpp:97 gui/mainwindow_truss_replace.cpp:102
-#: gui/mainwindow_truss_replace.cpp:172 gui/mainwindow_truss_replace.cpp:184
+#: gui/mainwindow_truss_replace.cpp:50 gui/mainwindow_truss_replace.cpp:61
+#: gui/mainwindow_truss_replace.cpp:69 gui/mainwindow_truss_replace.cpp:83
+#: gui/mainwindow_truss_replace.cpp:98 gui/mainwindow_truss_replace.cpp:103
+#: gui/mainwindow_truss_replace.cpp:135 gui/mainwindow_truss_replace.cpp:147
 msgid "Replace Trusses"
 msgstr "替换灯具..."
 
-#: gui/mainwindow_truss_replace.cpp:59
+#: gui/mainwindow_truss_replace.cpp:60
 msgid "There are no reusable truss definitions in the scene."
 msgstr "场景中没有可重用的桁架定义。"
 
-#: gui/mainwindow_truss_replace.cpp:68
+#: gui/mainwindow_truss_replace.cpp:69
 msgid "Choose a truss from the scene:"
 msgstr "从场景中选择一个桁架："
 
-#: gui/mainwindow_truss_replace.cpp:82
+#: gui/mainwindow_truss_replace.cpp:83
 msgid "The truss dictionary is empty."
 msgstr "所选布局为空。"
 
-#: gui/mainwindow_truss_replace.cpp:96
+#: gui/mainwindow_truss_replace.cpp:97
 msgid "No dictionary entries contain a truss file path."
 msgstr "没有字典条目包含桁架文件路径。"
 
-#: gui/mainwindow_truss_replace.cpp:101
+#: gui/mainwindow_truss_replace.cpp:102
 msgid "Choose a truss from the dictionary:"
 msgstr "从字典中选择桁架："
 
-#: gui/mainwindow_truss_replace.cpp:171
+#: gui/mainwindow_truss_replace.cpp:134
 msgid "Select at least one truss before running Replace Trusses."
 msgstr "在运行“替换桁架”之前，至少选择一个桁架。"
+
+#: gui/mvr_export_dialog.cpp:6
+msgid "Canonical MVR matches the scene saved in PSTG."
+msgstr "规范 MVR 与 PSTG 中保存的场景一致。"
+
+#: gui/mvr_export_dialog.cpp:7
+msgid "Use compatibility export for this file"
+msgstr "对此文件使用兼容性导出"
+
+#: gui/mvr_export_dialog.cpp:11 gui/preferences/mvr_preferences_page.cpp:29
+msgid "Standard MVR representation"
+msgstr "标准 MVR 表示"
+
+#: gui/mvr_export_dialog.cpp:12 gui/preferences/mvr_preferences_page.cpp:31
+msgid "Direct Geometry3D for truss symbols"
+msgstr "桁架符号使用直接 Geometry3D"
+
+#: gui/mvr_export_dialog.cpp:17
+msgid ""
+"Direct Geometry3D expands truss Symbol/Symdef references. The project scene "
+"stays unchanged."
+msgstr "直接 Geometry3D 会展开桁架的 Symbol/Symdef 引用。项目场景保持不变。"
 
 #: gui/mvr_export_result_dialog.cpp:50
 #, c-format
@@ -4855,15 +4877,13 @@ msgstr "导出"
 msgid "Truss geometry export mode:"
 msgstr "桁架几何导出模式："
 
-#: gui/preferences/mvr_preferences_page.cpp:29
-msgid "Standard MVR representation"
-msgstr "标准 MVR 表示"
+#: gui/preferences/mvr_preferences_page.cpp:35
+msgid ""
+"The preference is used only after enabling compatibility export in the "
+"export dialog."
+msgstr "仅在导出对话框中启用兼容性导出后，才会使用此首选项。"
 
-#: gui/preferences/mvr_preferences_page.cpp:31
-msgid "Direct Geometry3D for truss symbols"
-msgstr "桁架符号使用直接 Geometry3D"
-
-#: gui/preferences/mvr_preferences_page.cpp:36
+#: gui/preferences/mvr_preferences_page.cpp:39
 msgid ""
 "Standard MVR representation: preserves imported Symbol/Symdef references "
 "when possible and is Perastage's canonical representation.\n"
@@ -5179,7 +5199,9 @@ msgstr "需要重启"
 msgid ""
 "The project contains MVR information that cannot yet be saved without loss. "
 "The previous file was kept. See the diagnostic log for the affected content."
-msgstr "项目包含目前尚无法无损保存的 MVR 信息。原有文件已保留。请查看诊断日志以了解受影响的内容。"
+msgstr ""
+"项目包含目前尚无法无损保存的 MVR 信息。原有文件已保留。请查看诊断日志以了解受"
+"影响的内容。"
 
 #: gui/project_save_ui.cpp:56
 msgid ""
@@ -5191,7 +5213,8 @@ msgstr "无法保存项目所需的资源。请查看诊断日志了解详情。
 msgid ""
 "The project archive could not be written. Check the destination and "
 "available disk space. See the diagnostic log for details."
-msgstr "无法写入项目文件。请检查保存位置和可用磁盘空间，并查看诊断日志了解详情。"
+msgstr ""
+"无法写入项目文件。请检查保存位置和可用磁盘空间，并查看诊断日志了解详情。"
 
 #: gui/project_save_ui.cpp:60
 msgid ""

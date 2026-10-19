@@ -36,6 +36,19 @@ const std::unordered_map<std::string, Names> unsupportedChildren = {
                  "CustomCommands", "Overwrites", "Connections",
                  "CustomIdType", "CustomId"}}};
 
+// Character references and CDATA can encode insignificant XML whitespace.
+bool IsEmptyAssignment(const tinyxml2::XMLElement &element) {
+  if (element.FirstAttribute()) return false;
+  for (auto *node = element.FirstChild(); node; node = node->NextSibling()) {
+    if (node->ToComment()) continue;
+    const auto *text = node->ToText();
+    if (!text || std::string_view(text->Value()).find_first_not_of(" \t\r\n") !=
+                     std::string_view::npos)
+      return false;
+  }
+  return true;
+}
+
 void Record(MvrScene &scene, tinyxml2::XMLElement &element,
             const std::string &owner, const std::string &location,
             const std::string &reason) {
@@ -115,8 +128,7 @@ void Scan(tinyxml2::XMLElement &element, MvrScene &scene,
       }
       static const Names emptyContainers = {"Alignments", "Protocols", "CustomCommands",
           "Overwrites", "Connections", "Mappings", "Addresses"};
-      if (emptyContainers.contains(childName) && !child->FirstChildElement() &&
-          !child->FirstAttribute() && !child->GetText())
+      if (emptyContainers.contains(childName) && IsEmptyAssignment(*child))
         continue;
       Record(scene, *child, owner, childLocation,
              "The current serializer omits or changes this standard field.");

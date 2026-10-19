@@ -231,6 +231,35 @@ void TestFocusDoesNotConsumeObjectIds() {
   assert(result.objectIds.at(object.uuid).first == "Deck");
 }
 
+// Identity repair must retain a unique hierarchy edge and reject ambiguous aliases.
+void TestIdentityRepairScope() {
+  MvrScene scene;
+  GroupObject group;
+  group.uuid = "10000000-0000-4000-8000-000000000001";
+  scene.groupObjects["legacy-group"] = group;
+  auto fixture = MakeFixture("20000000-0000-4000-8000-000000000001", "Light", 7, 0, 0);
+  fixture.parentGroupUuid = "legacy-group";
+  scene.fixtures[fixture.uuid] = fixture;
+  scene.groupObjects.at("legacy-group").children.push_back({MvrNodeType::Fixture, fixture.uuid});
+  const auto repaired = mvr_export_preparation::Prepare(scene, CanonicalMvrExportOptions());
+  assert(repaired.success);
+  assert(repaired.scene.fixtures.at(fixture.uuid).parentGroupUuid == group.uuid);
+  assert(repaired.scene.groupObjects.at(group.uuid).children.front().uuid == fixture.uuid);
+  assert(scene.fixtures.at(fixture.uuid).parentGroupUuid == "legacy-group");
+  assert(!repaired.diagnostics.empty());
+
+  scene.groupObjects["second-group"] = group;
+  scene.fixtures.at(fixture.uuid).parentGroupUuid = group.uuid;
+  const auto conflict = mvr_export_preparation::Prepare(scene, CanonicalMvrExportOptions());
+  assert(!conflict.success);
+  const auto *diagnostic = FindDiagnostic(conflict.diagnostics, MvrExportDiagnosticCode::IdentityConflict);
+  assert(diagnostic && diagnostic->severity == MvrExportDiagnosticSeverity::Error);
+  assert(diagnostic->impact == MvrExportDiagnosticImpact::ExportFailed);
+  assert(diagnostic->technicalDetail.find("ambiguous-reference") != std::string::npos);
+  assert(scene.groupObjects.size() == 2);
+  assert(scene.fixtures.at(fixture.uuid).parentGroupUuid == group.uuid);
+}
+
 } // namespace
 
 // Runs focused MVR export preparation characterization.
@@ -240,5 +269,6 @@ int main() {
   TestFatalTransformPreparation();
   TestDeterminismAcrossInsertionOrder();
   TestFocusDoesNotConsumeObjectIds();
+  TestIdentityRepairScope();
   return 0;
 }

@@ -50,3 +50,5 @@ Les préférences GDTF gèrent les identifiants Share. Perastage stocke automati
 - **Direct Geometry3D for truss symbols:** développer ces références pour les applications nécessitant une géométrie directe.
 
 Les deux produisent un MVR compatible 1.6. L’enregistrement du projet conserve la représentation standard. Les choix d’import sont décrits dans [Ouvrir des fichiers MVR](opening-mvr-files.md).
+
+L’exportation normale utilise toujours le MVR canonique, identique à `scene.mvr` du PSTG pour le même état de scène. Pour créer un fichier alternatif, activez **Utiliser l’exportation de compatibilité pour ce fichier** dans la boîte de dialogue d’exportation et choisissez la représentation. La préférence enregistrée suggère ce choix ; elle n’active pas automatiquement la compatibilité. Geometry3D direct développe les références Symbol/Symdef des structures sans modifier la scène du projet ni ses identifiants.

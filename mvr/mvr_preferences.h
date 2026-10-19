@@ -61,7 +61,8 @@ inline const char *SerializeTrussGeometryExportMode(MvrTrussGeometryExportMode m
   }
 }
 
-// Loads MVR export options from the existing user preference store.
+// Loads the preferred representation for an explicitly requested alternate export.
+// Normal output uses CanonicalMvrExportOptions(), independent of these preferences.
 template <typename Store>
 inline MvrExportOptions LoadExportOptions(const Store &config) {
   MvrExportOptions options;

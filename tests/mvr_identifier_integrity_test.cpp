@@ -143,12 +143,20 @@ int main(int argc, char **argv) {
       "</ProjectFixtureMetadataMap></Data></UserData>");
   for (const auto &[name, variant] : std::vector<std::pair<std::string, std::string>>{
            {"units", units}, {"stale", stale},
+           {"empty-containers", replaceAll(xml, "</UnitNumber>",
+             "</UnitNumber><Protocols>&#x20;&#xA;&#x9;</Protocols>"
+             "<Alignments> </Alignments><CustomCommands> </CustomCommands>"
+             "<Overwrites> </Overwrites><Connections> </Connections><Mappings> </Mappings>")},
            {"empty", replaceAll(replaceAll(xml, "<FixtureID>  House &amp; 1  </FixtureID>", "<FixtureID/>"),
                                 "<FixtureID>101</FixtureID>", "<FixtureID/>")},
            {"positive", replaceAll(replaceAll(xml, "Numeric>0", "Numeric>7"), "Number>0", "Number>+0007")},
            {"negative", replaceAll(replaceAll(xml, "Numeric>0", "Numeric>-6"), "Number>0", "Number>-6")}}) {
-    if (name == "units" || name == "positive" || name == "empty")
-      assert(ValidateXmlAgainstSchema(variant, Mvr16Schema()).schema.status == ValidationStatus::Valid);
+    if (name == "units" || name == "positive" || name == "empty" || name == "empty-containers") {
+      const auto validation = ValidateXmlAgainstSchema(variant, Mvr16Schema());
+      for (const auto &diagnostic : validation.schema.diagnostics)
+        std::cerr << name << ": " << diagnostic.message << '\n';
+      assert(validation.schema.status == ValidationStatus::Valid);
+    }
     if (name == "negative")
       assert(ValidateXmlAgainstSchema(variant, Mvr16Schema()).schema.status == ValidationStatus::Invalid);
     WriteSource(dir, variant);

@@ -34,3 +34,5 @@ Los valores importados de FixtureID, FixtureIDNumeric y UnitNumber se conservan 
 3. Exporta y comprueba el resultado en la aplicación de destino.
 
 [Preferencias](preferences.md#importación--exportación-mvr) ofrece una opción de compatibilidad para la geometría de trusses. Los símbolos del proyecto guardados en PSTG no se exportan a MVR ni a los GDTF incrustados.
+
+La exportación normal siempre usa MVR canónico y coincide con `scene.mvr` de PSTG para el mismo estado de escena. Para crear un archivo alternativo, activa **Usar la exportación de compatibilidad para este archivo** en el diálogo de exportación y elige la representación. La preferencia guardada sugiere esa elección; no activa la compatibilidad automáticamente. Geometry3D directo expande las referencias Symbol/Symdef de los trusses sin modificar la escena del proyecto ni sus identificadores.

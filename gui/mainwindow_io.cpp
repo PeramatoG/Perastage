@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "mvr_export_dialog.h"
 #include "mvrxchange/mvr_xchange_dialog.h"
 #include "filesystem_path_utils.h"
 #include "mainwindow_io_controller.h"
@@ -590,10 +591,13 @@ void MainWindow::OnExportMVR(wxCommandEvent &event) {
   const wxString suggestedFileName = suggestedProjectName.IsEmpty()
                                          ? wxString()
                                          : suggestedProjectName + ".mvr";
+  MvrExportDialogOptions dialogOptions(mvr::preferences::LoadExportOptions(
+      guiConfigServices->LegacyConfigManager()));
   wxFileDialog saveFileDialog(this, _("Export MVR file"), miscDir,
                               suggestedFileName, "MVR files (*.mvr)|*.mvr",
                               wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 
+  saveFileDialog.SetCustomizeHook(dialogOptions);
   if (saveFileDialog.ShowModal() == wxID_CANCEL)
     return;
 
@@ -604,8 +608,7 @@ void MainWindow::OnExportMVR(wxCommandEvent &event) {
       diagnostics::DiagnosticLogger::FileNameOnly(path.ToStdString()));
   // Apply the same explicit GUI-to-domain preparation used by project save.
   SyncSceneData();
-  const MvrExportOptions exportOptions = mvr::preferences::LoadExportOptions(
-      guiConfigServices->LegacyConfigManager());
+  const MvrExportOptions exportOptions = dialogOptions.GetOptions();
   wxBusyInfo *busy = new wxBusyInfo(_("Saving project..."), this);
   const bool exported =
       exporter.ExportToFile(path.ToStdString(), exportOptions);

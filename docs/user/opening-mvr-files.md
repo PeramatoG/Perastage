@@ -59,3 +59,5 @@ Imported FixtureID, FixtureIDNumeric and UnitNumber values are retained on suppo
 3. Export and check the result in the receiving application.
 
 [Preferences](preferences.md#mvr-import--export) offers a truss-geometry compatibility option. Project symbols saved in PSTG are not exported into MVR or embedded GDTFs.
+
+Normal export always uses canonical MVR, matching `scene.mvr` saved in PSTG for the same scene state. To create an alternate file, enable **Use compatibility export for this file** in the export dialog and choose the representation. The saved preference suggests that choice; it does not enable compatibility export automatically. Direct Geometry3D expands truss Symbol/Symdef references without changing the project scene or its identifiers.

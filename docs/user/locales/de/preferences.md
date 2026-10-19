@@ -50,3 +50,5 @@ GDTF-Einstellungen verwalten Share-Zugangsdaten. Perastage speichert scheinwerfe
 - **Direct Geometry3D for truss symbols:** Symbolverweise für empfangende Anwendungen mit Bedarf an direkter Geometrie auflösen.
 
 Beide schreiben MVR-1.6-kompatible Ausgaben. Projektspeicherung behält die Standarddarstellung. Importoptionen beschreibt [MVR-Dateien öffnen](opening-mvr-files.md).
+
+Der normale Export verwendet immer kanonisches MVR und entspricht bei gleichem Szenenzustand der `scene.mvr` im PSTG. Für eine alternative Datei aktivieren Sie **Kompatibilitätsexport für diese Datei verwenden** im Exportdialog und wählen die Darstellung. Die gespeicherte Voreinstellung schlägt diese Auswahl vor; sie aktiviert den Kompatibilitätsexport nicht automatisch. Direktes Geometry3D löst die Symbol/Symdef-Verweise der Traversen auf, ohne die Projektszene oder ihre Kennungen zu verändern.

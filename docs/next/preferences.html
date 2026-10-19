@@ -124,6 +124,7 @@ across restarts and is independent of GDTF Share credentials.</p>
 <li><strong>Direct Geometry3D for truss symbols:</strong> expand truss symbol references for receiving applications that need direct geometry.</li>
 </ul>
 <p>Both write MVR 1.6-compatible output. Project saves keep the standard representation. Import choices are described in <a href="opening-mvr-files.html">Opening MVR Files</a>.</p>
+<p>Normal export always uses canonical MVR, matching <code>scene.mvr</code> saved in PSTG for the same scene state. To create an alternate file, enable <strong>Use compatibility export for this file</strong> in the export dialog and choose the representation. The saved preference suggests that choice; it does not enable compatibility export automatically. Direct Geometry3D expands truss Symbol/Symdef references without changing the project scene or its identifiers.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

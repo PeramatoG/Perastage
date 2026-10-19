@@ -31,6 +31,9 @@ MvrPreferencesPage::MvrPreferencesPage(wxWindow *parent)
       _("Direct Geometry3D for truss symbols"));
   mvrExportGrid->Add(mvrTrussGeometryExportModeChoice, 1, wxEXPAND);
   mvrExportSizer->Add(mvrExportGrid, 0, wxALL | wxEXPAND, 8);
+  mvrExportSizer->Add(new wxStaticText(mvrExportSizer->GetStaticBox(), wxID_ANY,
+      _("The preference is used only after enabling compatibility export in the export dialog.")),
+      0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
   wxStaticText *mvrExportHint =
       new wxStaticText(mvrExportSizer->GetStaticBox(), wxID_ANY,
                        _("Standard MVR representation: preserves imported "

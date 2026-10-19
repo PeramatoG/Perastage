@@ -59,3 +59,5 @@ Top/Front/Side/Bottom 符号保存到 PSTG。保存项目即可保留生成的�
 - **Direct Geometry3D for truss symbols:**为需要直接几何体的接收应用展开桁架符号引用。
 
 两者都生成兼容 MVR 1.6 的输出。项目保存使用标准表示方式。导入选项见[打开 MVR 文件](opening-mvr-files.md)。
+
+普通导出始终使用规范 MVR；对于相同的场景状态，其内容与 PSTG 中保存的 `scene.mvr` 一致。若要生成替代文件，请在导出对话框中启用**对此文件使用兼容性导出**，然后选择表示方式。保存的首选项仅提供建议，不会自动启用兼容性导出。直接 Geometry3D 会展开桁架的 Symbol/Symdef 引用，而不会修改项目场景或其标识符。

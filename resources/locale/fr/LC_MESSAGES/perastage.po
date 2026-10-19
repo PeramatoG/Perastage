@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-18 22:10+0000\n"
+"POT-Creation-Date: 2026-10-19 09:09+0000\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: French\n"
@@ -857,7 +857,7 @@ msgstr "Mode DMX"
 
 #: gui/dictionaryeditdialog.cpp:1556 gui/dictionaryeditdialog.cpp:2307
 #: gui/mainwindow_menu.cpp:1057 gui/mainwindow_menu.cpp:1076
-#: gui/mainwindow_truss_replace.cpp:114
+#: gui/mainwindow_truss_replace.cpp:115
 msgid "Select Truss file"
 msgstr "Sélectionner un fichier de structure"
 
@@ -1347,13 +1347,13 @@ msgstr "Valeur numérique invalide"
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:283
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:509
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:652
-#: gui/mainwindow_io.cpp:252 gui/mainwindow_io.cpp:341
-#: gui/mainwindow_io.cpp:407 gui/mainwindow_io.cpp:440
-#: gui/mainwindow_io.cpp:462 gui/mainwindow_io.cpp:486
-#: gui/mainwindow_io.cpp:545 gui/mainwindow_io.cpp:678
-#: gui/mainwindow_io.cpp:688 gui/mainwindow_io.cpp:738
-#: gui/mainwindow_io.cpp:824 gui/mainwindow_io.cpp:865
-#: gui/mainwindow_io.cpp:883 gui/mainwindow_menu.cpp:1103
+#: gui/mainwindow_io.cpp:253 gui/mainwindow_io.cpp:342
+#: gui/mainwindow_io.cpp:408 gui/mainwindow_io.cpp:441
+#: gui/mainwindow_io.cpp:463 gui/mainwindow_io.cpp:487
+#: gui/mainwindow_io.cpp:546 gui/mainwindow_io.cpp:681
+#: gui/mainwindow_io.cpp:691 gui/mainwindow_io.cpp:741
+#: gui/mainwindow_io.cpp:827 gui/mainwindow_io.cpp:868
+#: gui/mainwindow_io.cpp:886 gui/mainwindow_menu.cpp:1103
 #: gui/ridertextdialog.cpp:218 gui/ridertextdialog.cpp:224
 #: gui/ridertextdialog.cpp:233 gui/ridertextdialog.cpp:245
 #: gui/ridertextdialog.cpp:319 gui/ridertextdialog.cpp:334
@@ -2923,12 +2923,12 @@ msgid "loading a project"
 msgstr "charger un projet"
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:648
-#: gui/mainwindow_io.cpp:241
+#: gui/mainwindow_io.cpp:242
 msgid "Open Project"
 msgstr "Ouvrir un projet"
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:652
-#: gui/mainwindow_io.cpp:252
+#: gui/mainwindow_io.cpp:253
 msgid "Failed to load project."
 msgstr "Impossible de charger le projet."
 
@@ -3233,12 +3233,12 @@ msgstr "Sélection du projecteur de remplacement invalide."
 msgid "Could not read fixture modes from the selected GDTF."
 msgstr "Impossible de lire les modes du projecteur dans le GDTF sélectionné."
 
-#: gui/mainwindow_io.cpp:232 gui/mainwindow_io.cpp:363
+#: gui/mainwindow_io.cpp:233 gui/mainwindow_io.cpp:364
 #, c-format
 msgid "Perastage files (*%s)|*%s"
 msgstr "Fichiers Perastage (*%s)|*%s"
 
-#: gui/mainwindow_io.cpp:340 gui/mainwindow_io.cpp:406
+#: gui/mainwindow_io.cpp:341 gui/mainwindow_io.cpp:407
 msgid ""
 "Failed to save project.\n"
 "\n"
@@ -3246,112 +3246,112 @@ msgstr ""
 "Impossible d’enregistrer le projet.\n"
 "\n"
 
-#: gui/mainwindow_io.cpp:382
+#: gui/mainwindow_io.cpp:383
 msgid "Save Project"
 msgstr "Enregistrer le projet"
 
-#: gui/mainwindow_io.cpp:429 gui/ridertextdialog.cpp:201
+#: gui/mainwindow_io.cpp:430 gui/ridertextdialog.cpp:201
 msgid "Import Rider"
 msgstr "Importer une fiche technique"
 
-#: gui/mainwindow_io.cpp:440
+#: gui/mainwindow_io.cpp:441
 msgid "Failed to read rider."
 msgstr "Impossible de lire la fiche technique."
 
-#: gui/mainwindow_io.cpp:462 gui/ridertextdialog.cpp:233
+#: gui/mainwindow_io.cpp:463 gui/ridertextdialog.cpp:233
 msgid "Failed to import rider."
 msgstr "Impossible d’importer la fiche technique."
 
-#: gui/mainwindow_io.cpp:486 gui/ridertextdialog.cpp:319
+#: gui/mainwindow_io.cpp:487 gui/ridertextdialog.cpp:319
 #: gui/ridertextdialog.cpp:346
 msgid "Rider text is empty."
 msgstr "Le texte de la fiche technique est vide."
 
-#: gui/mainwindow_io.cpp:527
+#: gui/mainwindow_io.cpp:528
 msgid "Text scene creation progress"
 msgstr "Progression de la création de scène à partir de texte"
 
-#: gui/mainwindow_io.cpp:534
+#: gui/mainwindow_io.cpp:535
 #, c-format
 msgid "Text import: %s (%d/%d)"
 msgstr "Import de texte : %s (%d/%d)"
 
-#: gui/mainwindow_io.cpp:540
+#: gui/mainwindow_io.cpp:541
 #, c-format
 msgid "Text import: %s"
 msgstr "Import de texte : %s"
 
-#: gui/mainwindow_io.cpp:545
+#: gui/mainwindow_io.cpp:546
 msgid "Failed to import rider text."
 msgstr "Impossible d’importer le texte de la fiche technique."
 
-#: gui/mainwindow_io.cpp:549
+#: gui/mainwindow_io.cpp:550
 msgid "Text import failed."
 msgstr "Échec de l’import de texte."
 
-#: gui/mainwindow_io.cpp:571
+#: gui/mainwindow_io.cpp:572
 msgid "Text import completed."
 msgstr "Import de texte terminé."
 
-#: gui/mainwindow_io.cpp:593
+#: gui/mainwindow_io.cpp:596
 msgid "Export MVR file"
 msgstr "Exporter un fichier MVR"
 
-#: gui/mainwindow_io.cpp:609 gui/project_save_ui.cpp:20
+#: gui/mainwindow_io.cpp:612 gui/project_save_ui.cpp:20
 msgid "Saving project..."
 msgstr "Enregistrement du projet…"
 
-#: gui/mainwindow_io.cpp:638
+#: gui/mainwindow_io.cpp:641
 msgid "No truss data available."
 msgstr "Aucune donnée de structure disponible."
 
-#: gui/mainwindow_io.cpp:638 gui/mainwindow_io.cpp:697
+#: gui/mainwindow_io.cpp:641 gui/mainwindow_io.cpp:700
 msgid "Export Truss"
 msgstr "Exporter la structure"
 
-#: gui/mainwindow_io.cpp:666
+#: gui/mainwindow_io.cpp:669
 msgid "Save Truss"
 msgstr "Enregistrer la structure"
 
-#: gui/mainwindow_io.cpp:678 gui/mainwindow_io.cpp:865
+#: gui/mainwindow_io.cpp:681 gui/mainwindow_io.cpp:868
 msgid "Model file not found."
 msgstr "Fichier du modèle introuvable."
 
-#: gui/mainwindow_io.cpp:687
+#: gui/mainwindow_io.cpp:690
 msgid "Failed to export truss GDTF."
 msgstr "Impossible d’exporter le GDTF de la structure."
 
-#: gui/mainwindow_io.cpp:697
+#: gui/mainwindow_io.cpp:700
 msgid "Truss exported successfully."
 msgstr "Structure exportée avec succès."
 
-#: gui/mainwindow_io.cpp:711
+#: gui/mainwindow_io.cpp:714
 msgid "No fixture data available."
 msgstr "Aucune donnée de projecteur disponible."
 
-#: gui/mainwindow_io.cpp:711 gui/mainwindow_io.cpp:752
-#: gui/mainwindow_io.cpp:761 gui/mainwindow_io.cpp:769
-#: gui/mainwindow_io.cpp:828
+#: gui/mainwindow_io.cpp:714 gui/mainwindow_io.cpp:755
+#: gui/mainwindow_io.cpp:764 gui/mainwindow_io.cpp:772
+#: gui/mainwindow_io.cpp:831
 msgid "Export Fixture"
 msgstr "Exporter le projecteur"
 
-#: gui/mainwindow_io.cpp:738
+#: gui/mainwindow_io.cpp:741
 msgid "GDTF file not found."
 msgstr "Fichier GDTF introuvable."
 
-#: gui/mainwindow_io.cpp:751
+#: gui/mainwindow_io.cpp:754
 msgid "Could not create the Perastage fixture derivative."
 msgstr "Impossible de créer la copie dérivée Perastage du projecteur."
 
-#: gui/mainwindow_io.cpp:760
+#: gui/mainwindow_io.cpp:763
 msgid "Could not update the Perastage fixture derivative."
 msgstr "Impossible de mettre à jour la copie dérivée Perastage du projecteur."
 
-#: gui/mainwindow_io.cpp:792
+#: gui/mainwindow_io.cpp:795
 msgid "Save Fixture"
 msgstr "Enregistrer le projecteur"
 
-#: gui/mainwindow_io.cpp:804
+#: gui/mainwindow_io.cpp:807
 msgid ""
 "This will overwrite the original GDTF library asset. Perastage normally "
 "preserves originals and exports a derived copy instead.\n"
@@ -3363,44 +3363,44 @@ msgstr ""
 "\n"
 "Voulez-vous écraser le fichier GDTF original ?"
 
-#: gui/mainwindow_io.cpp:807
+#: gui/mainwindow_io.cpp:810
 msgid "Overwrite Original GDTF"
 msgstr "Écraser le GDTF original"
 
-#: gui/mainwindow_io.cpp:822
+#: gui/mainwindow_io.cpp:825
 #, c-format
 msgid "Failed to write file: %s"
 msgstr "Impossible d’écrire le fichier : %s"
 
-#: gui/mainwindow_io.cpp:828
+#: gui/mainwindow_io.cpp:831
 msgid "Fixture exported successfully."
 msgstr "Projecteur exporté avec succès."
 
-#: gui/mainwindow_io.cpp:841
+#: gui/mainwindow_io.cpp:844
 msgid "No scene objects available."
 msgstr "Aucun objet de scène disponible."
 
-#: gui/mainwindow_io.cpp:841 gui/mainwindow_io.cpp:887
+#: gui/mainwindow_io.cpp:844 gui/mainwindow_io.cpp:890
 msgid "Export Scene Object"
 msgstr "Exporter l’objet de scène"
 
-#: gui/mainwindow_io.cpp:873
+#: gui/mainwindow_io.cpp:876
 msgid "Save Object"
 msgstr "Enregistrer l’objet"
 
-#: gui/mainwindow_io.cpp:883
+#: gui/mainwindow_io.cpp:886
 msgid "Failed to copy file."
 msgstr "Impossible de copier le fichier."
 
-#: gui/mainwindow_io.cpp:887
+#: gui/mainwindow_io.cpp:890
 msgid "Object exported successfully."
 msgstr "Objet exporté avec succès."
 
-#: gui/mainwindow_io.cpp:904 gui/mainwindow_print.cpp:658
+#: gui/mainwindow_io.cpp:907 gui/mainwindow_print.cpp:658
 msgid "Select table"
 msgstr "Sélectionner une table"
 
-#: gui/mainwindow_io.cpp:904 gui/tableprinter.cpp:164 gui/tableprinter.cpp:172
+#: gui/mainwindow_io.cpp:907 gui/tableprinter.cpp:164 gui/tableprinter.cpp:172
 #: gui/tableprinter.cpp:207
 msgid "Export CSV"
 msgstr "Exporter en CSV"
@@ -3867,7 +3867,7 @@ msgstr ""
 msgid "You are up to date."
 msgstr "Vous êtes à jour."
 
-#: gui/mainwindow_menu.cpp:1101 gui/mainwindow_truss_replace.cpp:182
+#: gui/mainwindow_menu.cpp:1101 gui/mainwindow_truss_replace.cpp:145
 msgid ""
 "Unsupported or unreadable truss file. Supported formats are GDTF, GTruss, "
 "GLB, and 3DS."
@@ -4215,53 +4215,77 @@ msgstr "Impression de la mise en page…"
 msgid "Print Table"
 msgstr "Imprimer la table"
 
-#: gui/mainwindow_truss_replace.cpp:45
+#: gui/mainwindow_truss_replace.cpp:46
 msgid "Truss from scene"
 msgstr "Structure de la scène"
 
-#: gui/mainwindow_truss_replace.cpp:46
+#: gui/mainwindow_truss_replace.cpp:47
 msgid "Truss from dictionary"
 msgstr "Structure du dictionnaire"
 
-#: gui/mainwindow_truss_replace.cpp:47
+#: gui/mainwindow_truss_replace.cpp:48
 msgid "Truss file"
 msgstr "Fichier de structure"
 
-#: gui/mainwindow_truss_replace.cpp:49
+#: gui/mainwindow_truss_replace.cpp:50
 msgid "Choose the source for the replacement truss:"
 msgstr "Choisissez la source de la structure de remplacement :"
 
-#: gui/mainwindow_truss_replace.cpp:49 gui/mainwindow_truss_replace.cpp:60
-#: gui/mainwindow_truss_replace.cpp:68 gui/mainwindow_truss_replace.cpp:82
-#: gui/mainwindow_truss_replace.cpp:97 gui/mainwindow_truss_replace.cpp:102
-#: gui/mainwindow_truss_replace.cpp:172 gui/mainwindow_truss_replace.cpp:184
+#: gui/mainwindow_truss_replace.cpp:50 gui/mainwindow_truss_replace.cpp:61
+#: gui/mainwindow_truss_replace.cpp:69 gui/mainwindow_truss_replace.cpp:83
+#: gui/mainwindow_truss_replace.cpp:98 gui/mainwindow_truss_replace.cpp:103
+#: gui/mainwindow_truss_replace.cpp:135 gui/mainwindow_truss_replace.cpp:147
 msgid "Replace Trusses"
 msgstr "Remplacer les structures"
 
-#: gui/mainwindow_truss_replace.cpp:59
+#: gui/mainwindow_truss_replace.cpp:60
 msgid "There are no reusable truss definitions in the scene."
 msgstr "La scène ne contient aucune définition de structure réutilisable."
 
-#: gui/mainwindow_truss_replace.cpp:68
+#: gui/mainwindow_truss_replace.cpp:69
 msgid "Choose a truss from the scene:"
 msgstr "Choisissez une structure de la scène :"
 
-#: gui/mainwindow_truss_replace.cpp:82
+#: gui/mainwindow_truss_replace.cpp:83
 msgid "The truss dictionary is empty."
 msgstr "Le dictionnaire des structures est vide."
 
-#: gui/mainwindow_truss_replace.cpp:96
+#: gui/mainwindow_truss_replace.cpp:97
 msgid "No dictionary entries contain a truss file path."
 msgstr ""
 "Aucune entrée du dictionnaire ne contient de chemin de fichier de structure."
 
-#: gui/mainwindow_truss_replace.cpp:101
+#: gui/mainwindow_truss_replace.cpp:102
 msgid "Choose a truss from the dictionary:"
 msgstr "Choisissez une structure du dictionnaire :"
 
-#: gui/mainwindow_truss_replace.cpp:171
+#: gui/mainwindow_truss_replace.cpp:134
 msgid "Select at least one truss before running Replace Trusses."
 msgstr "Sélectionnez au moins une structure avant de lancer le remplacement."
+
+#: gui/mvr_export_dialog.cpp:6
+msgid "Canonical MVR matches the scene saved in PSTG."
+msgstr "Le MVR canonique correspond à la scène enregistrée dans le PSTG."
+
+#: gui/mvr_export_dialog.cpp:7
+msgid "Use compatibility export for this file"
+msgstr "Utiliser l’exportation de compatibilité pour ce fichier"
+
+#: gui/mvr_export_dialog.cpp:11 gui/preferences/mvr_preferences_page.cpp:29
+msgid "Standard MVR representation"
+msgstr "Représentation MVR standard"
+
+#: gui/mvr_export_dialog.cpp:12 gui/preferences/mvr_preferences_page.cpp:31
+msgid "Direct Geometry3D for truss symbols"
+msgstr "Geometry3D directe pour les symboles de structures"
+
+#: gui/mvr_export_dialog.cpp:17
+msgid ""
+"Direct Geometry3D expands truss Symbol/Symdef references. The project scene "
+"stays unchanged."
+msgstr ""
+"Geometry3D direct développe les références Symbol/Symdef des structures. La "
+"scène du projet reste inchangée."
 
 #: gui/mvr_export_result_dialog.cpp:50
 #, c-format
@@ -4988,15 +5012,15 @@ msgstr "Export"
 msgid "Truss geometry export mode:"
 msgstr "Mode d’export de la géométrie des structures :"
 
-#: gui/preferences/mvr_preferences_page.cpp:29
-msgid "Standard MVR representation"
-msgstr "Représentation MVR standard"
+#: gui/preferences/mvr_preferences_page.cpp:35
+msgid ""
+"The preference is used only after enabling compatibility export in the "
+"export dialog."
+msgstr ""
+"Cette préférence est utilisée uniquement après activation de l’exportation "
+"de compatibilité dans la boîte de dialogue d’exportation."
 
-#: gui/preferences/mvr_preferences_page.cpp:31
-msgid "Direct Geometry3D for truss symbols"
-msgstr "Geometry3D directe pour les symboles de structures"
-
-#: gui/preferences/mvr_preferences_page.cpp:36
+#: gui/preferences/mvr_preferences_page.cpp:39
 msgid ""
 "Standard MVR representation: preserves imported Symbol/Symdef references "
 "when possible and is Perastage's canonical representation.\n"
@@ -5326,30 +5350,42 @@ msgstr "Redémarrage nécessaire"
 msgid ""
 "The project contains MVR information that cannot yet be saved without loss. "
 "The previous file was kept. See the diagnostic log for the affected content."
-msgstr "Le projet contient des informations MVR qui ne peuvent pas encore être enregistrées sans perte. Le fichier précédent a été conservé. Consultez le journal de diagnostic pour identifier le contenu concerné."
+msgstr ""
+"Le projet contient des informations MVR qui ne peuvent pas encore être "
+"enregistrées sans perte. Le fichier précédent a été conservé. Consultez le "
+"journal de diagnostic pour identifier le contenu concerné."
 
 #: gui/project_save_ui.cpp:56
 msgid ""
 "Required project resources could not be saved. See the diagnostic log for "
 "details."
-msgstr "Les ressources nécessaires au projet n’ont pas pu être enregistrées. Consultez le journal de diagnostic pour plus de détails."
+msgstr ""
+"Les ressources nécessaires au projet n’ont pas pu être enregistrées. "
+"Consultez le journal de diagnostic pour plus de détails."
 
 #: gui/project_save_ui.cpp:58
 msgid ""
 "The project archive could not be written. Check the destination and "
 "available disk space. See the diagnostic log for details."
-msgstr "Le fichier du projet n’a pas pu être écrit. Vérifiez la destination et l’espace disque disponible. Consultez le journal de diagnostic pour plus de détails."
+msgstr ""
+"Le fichier du projet n’a pas pu être écrit. Vérifiez la destination et "
+"l’espace disque disponible. Consultez le journal de diagnostic pour plus de "
+"détails."
 
 #: gui/project_save_ui.cpp:60
 msgid ""
 "Project data could not be serialized. See the diagnostic log for details."
-msgstr "Les données du projet n’ont pas pu être sérialisées. Consultez le journal de diagnostic pour plus de détails."
+msgstr ""
+"Les données du projet n’ont pas pu être sérialisées. Consultez le journal de "
+"diagnostic pour plus de détails."
 
 #: gui/project_save_ui.cpp:62
 msgid ""
 "An unexpected error interrupted project saving. See the diagnostic log for "
 "details."
-msgstr "Une erreur inattendue a interrompu l’enregistrement du projet. Consultez le journal de diagnostic pour plus de détails."
+msgstr ""
+"Une erreur inattendue a interrompu l’enregistrement du projet. Consultez le "
+"journal de diagnostic pour plus de détails."
 
 #: gui/rider_fixture_resolution_dialog.cpp:40
 #: gui/rider_fixture_resolution_workflow.cpp:321

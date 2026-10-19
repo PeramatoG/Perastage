@@ -34,3 +34,5 @@ Importierte Werte von FixtureID, FixtureIDNumeric und UnitNumber bleiben bei unt
 3. Exportieren Sie und prüfen Sie das Ergebnis in der empfangenden Anwendung.
 
 Die [Einstellungen](preferences.md#mvr-import---export) bieten eine Kompatibilitätsoption für Traversengeometrie. In PSTG gespeicherte Projektsymbole werden weder nach MVR exportiert noch in GDTFs eingebettet.
+
+Der normale Export verwendet immer kanonisches MVR und entspricht bei gleichem Szenenzustand der `scene.mvr` im PSTG. Für eine alternative Datei aktivieren Sie **Kompatibilitätsexport für diese Datei verwenden** im Exportdialog und wählen die Darstellung. Die gespeicherte Voreinstellung schlägt diese Auswahl vor; sie aktiviert den Kompatibilitätsexport nicht automatisch. Direktes Geometry3D löst die Symbol/Symdef-Verweise der Traversen auf, ohne die Projektszene oder ihre Kennungen zu verändern.

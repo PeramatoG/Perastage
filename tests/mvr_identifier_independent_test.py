@@ -46,6 +46,12 @@ def main():
                 root, resources = package(io.BytesIO(project.read('scene.mvr')))
             assert identifiers(root) == expected
             same_state, same_state_resources = package(directory / (reference + '.mvr'))
+            with zipfile.ZipFile(directory / (name + '.pstg')) as project:
+                with zipfile.ZipFile(io.BytesIO(project.read('scene.mvr'))) as embedded:
+                    with zipfile.ZipFile(directory / (reference + '.mvr')) as standalone:
+                        assert embedded.namelist() == standalone.namelist()
+                        assert [(n, embedded.read(n)) for n in embedded.namelist()] == [
+                            (n, standalone.read(n)) for n in standalone.namelist()]
             assert ET.canonicalize(ET.tostring(root)) == ET.canonicalize(ET.tostring(same_state))
             assert ET.canonicalize(ET.tostring(root.find('Scene'))) == ET.canonicalize(ET.tostring(canonical.find('Scene')))
             assert resources == same_state_resources
@@ -73,12 +79,22 @@ def main():
         assert unit_values.pop(support) == ('Support', 'Hoist tag', 0, 5)
         actual.pop(support)
         assert unit_values == actual
-        for name in ('units', 'stale', 'positive', 'negative', 'empty'):
+        for name in ('units', 'stale', 'positive', 'negative', 'empty', 'empty-containers'):
             authored, _ = package(directory / (name + '-source.mvr'))
             expected_variant = identifiers(authored)
+            if name == 'positive':
+                assert any(node.text == '+0007' for node in authored.iter('UnitNumber'))
+            if name == 'empty-containers':
+                for node in authored.iter('Protocols'):
+                    assert not node.attrib and not list(node)
+                    assert node.text and not node.text.strip()
             for suffix in ('', '-reopened'):
                 output, _ = package(directory / (name + suffix + '.mvr'))
                 assert identifiers(output) == expected_variant
+                if name == 'positive':
+                    assert all(node.text == '7' for node in output.iter('UnitNumber'))
+                if name == 'empty-containers':
+                    assert output.find('.//Protocols') is None
             with zipfile.ZipFile(directory / (name + '.pstg')) as project:
                 embedded, _ = package(io.BytesIO(project.read('scene.mvr')))
                 assert identifiers(embedded) == expected_variant

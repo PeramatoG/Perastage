@@ -50,6 +50,17 @@ int main() {
   assert(mvr::CheckStandardPreservation(safe).empty());
   auto ordinary = Scan("<Fixture><Function>Key</Function><DMXInvertPan>true</DMXInvertPan><Addresses><Address break='0'>1025</Address></Addresses></Fixture>");
   assert(ordinary.preservationIssues.empty());
+  // Whitespace-only optional containers have the same empty standard meaning.
+  auto emptyContainers = Scan("<Fixture><Protocols>&#x20;&#xA;&#x9;</Protocols><Alignments> \r </Alignments>"
+      "<CustomCommands> </CustomCommands><Overwrites> </Overwrites>"
+      "<Connections> </Connections><Mappings> </Mappings></Fixture>");
+  assert(emptyContainers.preservationIssues.empty());
+  assert(mvr::CheckStandardPreservation(emptyContainers).empty());
+  for (const auto *payload : {"text", "<Protocol/>", "<![CDATA[meaningful]]>"}) {
+    auto nonempty = Scan(std::string("<Fixture><Protocols>") + payload + "</Protocols></Fixture>");
+    assert(!nonempty.preservationIssues.empty());
+  }
+  assert(!Scan("<Fixture><Protocols unknown='value'> </Protocols></Fixture>").preservationIssues.empty());
   safe.versionMinor = 7;
   assert(!mvr::CheckStandardPreservation(safe).empty());
   safe.Clear();
