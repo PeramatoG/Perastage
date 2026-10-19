@@ -708,8 +708,9 @@ Confirmed corrections:
   count/order, Matrix values, definition resource ownership and instance targets.
   The precision blocker compared source doubles exactly with six-digit float
   output. Existing node/geometry owners now retain typed double values plus an
-  exact float projection sentinel. Unchanged locals retain authored precision;
-  edits use current transforms, including one-ULP world edits. Parsing is strict
+  exact float projection sentinel. Unchanged components retain authored precision;
+  edits use current transforms, including one-ULP world edits. Translation-only
+  repair retains authored linear placement. Parsing is strict
   canonical 4x3 and locale-independent. Canonical output uses double max_digits10
   (edited floats lift exactly); edited export/import is stable. MatrixUtils float
   output uses float max_digits10.

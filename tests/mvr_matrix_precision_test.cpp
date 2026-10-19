@@ -35,6 +35,8 @@ int main() {
   const auto editedText = mvr::FormatCanonicalMatrix(edited, source);
   const auto editedSource = mvr::ParseCanonicalMatrix(editedText);
   assert(editedSource && editedSource->values[9] == static_cast<double>(edited.o[0]));
+  for (size_t index = 0; index < source->values.size(); ++index)
+    if (index != 9) assert(editedSource->values[index] == source->values[index]);
   assert(mvr::FormatCanonicalMatrix(editedSource->projection, editedSource) == editedText);
   assert(mvr::ParseCanonicalMatrix(mvr::FormatCanonicalMatrix(edited, source))->values != source->values);
   const auto hiddenNonidentity = mvr::ParseCanonicalMatrix("{1.0000000000000002,0,0}{0,1,0}{0,0,1}{0,0,0}");

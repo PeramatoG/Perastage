@@ -74,12 +74,18 @@ std::optional<MvrMatrixSource> ReadCanonicalMatrixElement(const tinyxml2::XMLEle
 std::string FormatCanonicalMatrix(const Matrix &edited,
                                  const std::optional<MvrMatrixSource> &source) {
   if (source && Equal(edited, source->projection)) return Format(source->values);
-  // Lift edited floats exactly into the canonical double representation. This
-  // makes the first edited export and subsequent imported exports identical.
+  // Preserve untouched authored components; lift changed floats exactly. Both
+  // paths use one canonical precision, including the first edited export.
+  const Matrix &baseline = source ? source->projection : edited;
+  const std::array rows{edited.u, edited.v, edited.w, edited.o};
+  const std::array projected{baseline.u, baseline.v, baseline.w, baseline.o};
   std::array<double, 12> values;
-  size_t index = 0;
-  for (const auto &row : {edited.u, edited.v, edited.w, edited.o})
-    for (float value : row) values[index++] = static_cast<double>(value);
+  for (size_t row = 0; row < rows.size(); ++row)
+    for (size_t col = 0; col < rows[row].size(); ++col) {
+      const size_t index = row * 3 + col;
+      values[index] = source && rows[row][col] == projected[row][col]
+          ? source->values[index] : static_cast<double>(rows[row][col]);
+    }
   return Format(values);
 }
 bool CanonicalMatrixIsIdentity(const Matrix &matrix,

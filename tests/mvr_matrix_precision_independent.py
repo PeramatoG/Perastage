@@ -57,6 +57,8 @@ def check_precision(directory):
         assert symbols == expected_graph[0] and owners == expected_graph[1]
         assert definitions(scene, resources) == expected_definitions
         assert transforms[changed] != expected_graph[2][changed]
+        # All these edits change translation only, without narrowing authored linear placement.
+        assert transforms[changed][:9] == expected_graph[2][changed][:9]
         assert {key: value for key, value in transforms.items() if key != changed} == {
             key: value for key, value in expected_graph[2].items() if key != changed}
     edited_root, edited_resources = read_package(directory / 'edited.mvr', True)
@@ -66,7 +68,10 @@ def check_precision(directory):
     edited, resources = read_package(directory / 'definition-edited.mvr')
     assert graph(edited) == expected_graph
     changed_definition = definitions(edited, resources)[DEFINITION]
-    assert changed_definition[1][1][0][9] == 8765.125
+    actual_matrix = changed_definition[1][1][0]
+    source_matrix = expected_definitions[DEFINITION][1][1][0]
+    assert actual_matrix[9] == 8765.125
+    assert actual_matrix[:9] == source_matrix[:9] and actual_matrix[10:] == source_matrix[10:]
     merged, resources = read_package(directory / 'merged.mvr')
     merged_definitions = definitions(merged, resources)
     assert len(merged_definitions) == 2
