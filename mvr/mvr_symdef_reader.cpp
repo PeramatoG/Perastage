@@ -130,14 +130,7 @@ void ReadMvrSymdefs(Element &sceneElement, MvrScene &scene,
         containsSymbolTruss |= geometries && geometries->FirstChildElement("Symbol");
       });
     }
-    if (containsSymbolTruss) {
-      Matrix matrix;
-      if (!ReadMatrix(node, matrix)) {
-        auto *value = node.FirstChildElement("Matrix");
-        Record(scene, value ? *value : node, path + "/Matrix", owner,
-               "Symbol ancestor Matrix is malformed, nonfinite, out of numeric range or structurally ambiguous.");
-      }
-    }
+    if (containsSymbolTruss) (void)ReadMatrixSource(node, scene);
     if (std::string_view(node.Name()) == "Truss") {
       if (auto *geometries = node.FirstChildElement("Geometries")) {
         auto *first = geometries->FirstChildElement();

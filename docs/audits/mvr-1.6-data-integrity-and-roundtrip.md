@@ -713,7 +713,8 @@ Confirmed corrections:
   repair retains authored linear placement. Parsing is strict
   canonical 4x3 and locale-independent. Canonical output uses double max_digits10
   (edited floats lift exactly); edited export/import is stable. MatrixUtils float
-  output uses float max_digits10.
+  output uses float max_digits10. Known Perastage TrussInfo v1 comma lists migrate
+  through a bounded compatibility path; malformed canonical matrices stay protected.
 
 Supported boundary: named/unnamed, empty/unused and shared definitions containing
 only direct Geometry3D with self-contained glTF 2.0 (.glb/.gltf) or

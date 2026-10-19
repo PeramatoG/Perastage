@@ -3,6 +3,8 @@
 #include "matrixutils.h"
 #include <tinyxml2.h>
 #include <cmath>
+#include <algorithm>
+#include <cctype>
 #include <iomanip>
 #include <limits>
 #include <locale>
@@ -29,6 +31,43 @@ std::string Format(const std::array<double, 12> &values) {
   }
   return stream.str();
 }
+// Historical Perastage TrussInfo v1 files used one flat comma-separated list.
+// This compatibility boundary never relaxes the canonical MVR matrix parser.
+std::optional<MvrMatrixSource> ReadLegacyTrussMatrix(const tinyxml2::XMLElement &node,
+    const tinyxml2::XMLElement &element, const MvrScene &scene) {
+  const auto owned = [](const char *value) {
+    std::string provider = value ? value : "";
+    std::transform(provider.begin(), provider.end(), provider.begin(),
+        [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    return provider == "perastage";
+  };
+  if (std::string_view(node.Name()) != "Truss" || !owned(scene.provider.c_str()) ||
+      element.FirstAttribute()) return std::nullopt;
+  bool recognized = false;
+  const auto *userData = node.FirstChildElement("UserData");
+  for (auto *data = userData ? userData->FirstChildElement("Data") : nullptr;
+       data; data = data->NextSiblingElement("Data"))
+    recognized |= owned(data->Attribute("provider")) && data->Attribute("ver") &&
+        std::string_view(data->Attribute("ver")) == "1.0" && data->FirstChildElement("TrussInfo");
+  if (!recognized) return std::nullopt;
+  std::string text;
+  for (auto *child = element.FirstChild(); child; child = child->NextSibling()) {
+    if (child->ToText()) text += child->Value();
+    else if (!child->ToComment()) return std::nullopt;
+  }
+  std::istringstream input(text);
+  input.imbue(std::locale::classic());
+  std::array<double, 12> values;
+  for (size_t index = 0; index < values.size(); ++index) {
+    if (!(input >> values[index]) || !std::isfinite(values[index])) return std::nullopt;
+    char comma;
+    if (index + 1 < values.size() && (!(input >> comma) || comma != ',')) return std::nullopt;
+  }
+  input >> std::ws;
+  if (!input.eof()) return std::nullopt;
+  return ParseCanonicalMatrix(Format(values));
+}
+
 void Write(tinyxml2::XMLElement &node, const Matrix &edited,
            const std::optional<MvrMatrixSource> &source) {
   if (auto *matrix = node.FirstChildElement("Matrix"))
@@ -99,6 +138,7 @@ std::optional<MvrMatrixSource> ReadMatrixSource(tinyxml2::XMLElement &node, MvrS
   auto *element = node.FirstChildElement("Matrix");
   if (!element) return ParseCanonicalMatrix("{1,0,0}{0,1,0}{0,0,1}{0,0,0}");
   auto source = ReadCanonicalMatrixElement(*element);
+  if (!source) source = ReadLegacyTrussMatrix(node, *element, scene);
   if (source && !element->NextSiblingElement("Matrix")) return source;
   const auto *uuid = node.Attribute("uuid");
   scene.preservationIssues.push_back({"Matrix", uuid ? uuid : "",

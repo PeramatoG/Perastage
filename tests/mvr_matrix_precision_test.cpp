@@ -69,6 +69,20 @@ int main() {
     assert(invalidScene.preservationIssues.size() == 1);
     assert(!invalidScene.preservationIssues.front().reason.empty());
   }
+  const auto legacy = "<Truss><Matrix>1,0,0,0,1,0,0,0,1,0.12345678901234567,0,0</Matrix>"
+      "<UserData><Data provider='Perastage' ver='1.0'><TrussInfo/></Data></UserData></Truss>";
+  assert(document.Parse(legacy) == tinyxml2::XML_SUCCESS);
+  MvrScene legacyScene;
+  legacyScene.provider = "PERASTAGE";
+  const auto legacySource = mvr::ReadMatrixSource(*document.RootElement(), legacyScene);
+  assert(legacySource && legacySource->values[9] == 0.12345678901234567);
+  assert(legacyScene.preservationIssues.empty());
+  MvrScene foreignScene;
+  foreignScene.provider = "External";
+  assert(!mvr::ReadMatrixSource(*document.RootElement(), foreignScene));
+  assert(!foreignScene.preservationIssues.empty());
+  assert(document.Parse("<Truss><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix></Truss>") == tinyxml2::XML_SUCCESS);
+  assert(!mvr::ReadMatrixSource(*document.RootElement(), legacyScene));
   std::mt19937 random(42);
   for (int i = 0; i < 10000; ++i) {
     const auto value = std::bit_cast<float>(static_cast<uint32_t>(random()));
