@@ -45,6 +45,7 @@
 #include "pdf_font_metrics.h"
 #include "pdf_fixture_symbol_source.h"
 #include "pdf_objects.h"
+#include "pdf_label_fonts.h"
 #include "symbols/fixture_symbol_availability.h"
 #include "viewer2dcommandrenderer.h"
 
@@ -544,14 +545,9 @@ Viewer2DExportResult ExportViewer2DToPdf(
     }
   }
 
-  PdfFontDefinition regularFont;
-  regularFont.key = "F1";
-  regularFont.family = "sans";
-  regularFont.baseName = "PerastageSans";
-  PdfFontDefinition boldFont;
-  boldFont.key = "F2";
-  boldFont.family = "sans-bold";
-  boldFont.baseName = "PerastageSansBold";
+  LegacyFontPair legacyFonts;
+  auto &regularFont = legacyFonts.regular;
+  auto &boldFont = legacyFonts.bold;
 
   bool regularMetricsLoaded = LoadPdfFontMetrics(regularFont, false);
   bool boldMetricsLoaded = LoadPdfFontMetrics(boldFont, true);
@@ -559,6 +555,13 @@ Viewer2DExportResult ExportViewer2DToPdf(
     boldFont.metrics = regularFont.metrics;
 
   PdfFontCatalog fontCatalog{&regularFont, &boldFont};
+  LabelFonts labelFonts;
+  std::vector<PdfObject> objects;
+  if (!labelFonts.Prepare(objects, fontCatalog, HasComposedLabels(buffer))) {
+    result.message = "Bundled label fonts are unavailable; PDF export stopped.";
+    return result;
+  }
+
 
   RenderOptions mainOptions{};
   mainOptions.includeText = true;
@@ -578,7 +581,6 @@ Viewer2DExportResult ExportViewer2DToPdf(
       useCompression = true;
     }
   }
-  std::vector<PdfObject> objects;
   if (regularMetricsLoaded && AppendEmbeddedFontObjects(objects, regularFont)) {
     // Embedded font loaded successfully.
   } else {
@@ -677,6 +679,7 @@ Viewer2DExportResult ExportViewer2DToPdf(
 
   std::ostringstream resources;
   resources << "<< /Font << /F1 " << regularFont.objectId << " 0 R";
+  labelFonts.Resources(resources);
   if (boldFont.objectId != 0 && boldFont.objectId != regularFont.objectId)
     resources << " /F2 " << boldFont.objectId << " 0 R";
   else if (boldFont.objectId == regularFont.objectId)
@@ -1098,14 +1101,9 @@ Viewer2DExportResult ExportLayoutToPdf(
   };
 
   std::vector<PdfObject> objects;
-  PdfFontDefinition regularFont;
-  regularFont.key = "F1";
-  regularFont.family = "sans";
-  regularFont.baseName = "PerastageSans";
-  PdfFontDefinition boldFont;
-  boldFont.key = "F2";
-  boldFont.family = "sans-bold";
-  boldFont.baseName = "PerastageSansBold";
+  LegacyFontPair legacyFonts;
+  auto &regularFont = legacyFonts.regular;
+  auto &boldFont = legacyFonts.bold;
 
   auto loadFont = [&](PdfFontDefinition &font, bool bold) {
     if (!LoadPdfFontMetrics(font, bold))
@@ -1131,6 +1129,12 @@ Viewer2DExportResult ExportLayoutToPdf(
   }
 
   PdfFontCatalog fontCatalog{&regularFont, &boldFont};
+  LabelFonts labelFonts;
+  if (!labelFonts.Prepare(objects, fontCatalog, std::any_of(views.begin(), views.end(), [](const auto &v) { return HasComposedLabels(v.buffer); }))) {
+    result.message = "Bundled label fonts are unavailable; PDF export stopped.";
+    return result;
+  }
+
 
   auto appendSymbolObject = [&](const std::string &name,
                                 const std::vector<CanvasCommand> &commands,
@@ -2275,6 +2279,7 @@ Viewer2DExportResult ExportLayoutToPdf(
 
   std::ostringstream resources;
   resources << "<< /Font << /F1 " << regularFont.objectId << " 0 R";
+  labelFonts.Resources(resources);
   if (boldFont.objectId != 0 && boldFont.objectId != regularFont.objectId)
     resources << " /F2 " << boldFont.objectId << " 0 R";
   else

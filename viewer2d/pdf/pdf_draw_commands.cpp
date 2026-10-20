@@ -1,4 +1,5 @@
 #include "pdf_draw_commands.h"
+#include <stdexcept>
 
 #include <algorithm>
 #include <array>
@@ -193,6 +194,8 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
   const std::string encodedText = EncodeWinAnsi(cmd.text);
   const PdfFontDefinition *font =
       fonts ? fonts->Resolve(style.fontFamily) : nullptr;
+  if (style.fontFamily.rfind("perastage-sans", 0) == 0 && (!font || !font->embedded))
+    throw std::runtime_error("Composed fixture labels require bundled PerastageSans fonts");
   double scaledFontSize = style.fontSize * scale;
   if (font && font->embedded && font->metrics.unitsPerEm > 0 &&
       style.ascent > 0.0f && style.descent > 0.0f) {

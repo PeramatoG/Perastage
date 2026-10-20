@@ -1,3 +1,4 @@
+Copyright 2015 Google LLC. All Rights Reserved. (bundled Noto Sans 2.004 regular/bold)
 Copyright 2022 The Noto Project Authors (https://github.com/notofonts/latin-greek-cyrillic)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.

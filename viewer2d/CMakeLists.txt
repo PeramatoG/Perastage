@@ -7,6 +7,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_draw_commands.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_font_metrics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_objects.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_label_fonts.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_graphics_encoder.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_writer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/print_diagnostics.cpp
@@ -18,6 +19,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2d_measure_tool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2d_coordinate_math.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_overrides.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_style.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_composition.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/viewer2d_interaction_scope_policy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/viewer2d_interaction_session.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/viewer2d_line_point_selection_session.cpp

@@ -401,6 +401,12 @@ int main() {
   f4.fixtureId = 707;
   scene.fixtures[f4.uuid] = f4;
     viewer2d::ApplyShowLabelNameOverride(cfg, {nonCanonicalFixtureUuid}, 0, true);
+    auto labelStyles = viewer2d::LoadFixtureLabelOverrides(cfg);
+    viewer2d::LabelFieldStyle labelStyle;
+    labelStyle.size = .177f; labelStyle.bold = true; labelStyle.x = .13f;
+    labelStyles[nonCanonicalFixtureUuid].fieldStyles[0][0] = labelStyle;
+    labelStyles[viewer2d::kLabelDefaultsKey].fieldStyles[1][2] = labelStyle;
+    viewer2d::SaveFixtureLabelOverrides(cfg, labelStyles);
   Truss t;
   t.uuid = "30000000-0000-4000-8000-000000000001";
   t.name = "Truss";
@@ -557,7 +563,8 @@ int main() {
     const nlohmann::json firstOverrides = nlohmann::json::parse(
         firstConfig.at(project_identity::kFixtureLabelOverridesConfigKey)
             .get<std::string>());
-    assert(firstOverrides.size() == 1);
+    assert(firstOverrides.size() == 2);
+    assert(firstOverrides.contains(viewer2d::kLabelDefaultsKey));
     assert(firstOverrides.contains(canonicalFixtureUuid));
     assert(!firstOverrides.contains(nonCanonicalFixtureUuid));
     assert(firstPayload.sceneXml.find("uuid=\"" + canonicalFixtureUuid + "\"") !=
@@ -681,7 +688,9 @@ int main() {
                .visualColorHex == "#778899");
     assert(scene2.fixtures.count(canonicalFixtureUuid) == 1);
     const auto fixtureOverrides = viewer2d::LoadFixtureLabelOverrides(cfg);
-    assert(fixtureOverrides.size() == 1);
+    assert(fixtureOverrides.size() == 2);
+    assert(fixtureOverrides.at(viewer2d::kLabelDefaultsKey).fieldStyles[1][2] == labelStyle);
+    assert(fixtureOverrides.at(canonicalFixtureUuid).fieldStyles[0][0] == labelStyle);
     assert(!fixtureOverrides.contains("previous-project-fixture"));
     assert(fixtureOverrides.count(canonicalFixtureUuid) == 1);
     const auto &fixture3Override = fixtureOverrides.at(canonicalFixtureUuid);
@@ -742,7 +751,8 @@ int main() {
     assert(cfg.LoadProject(legacyProject.string()));
     const auto recoveredOverrides =
         viewer2d::LoadFixtureLabelOverrides(cfg);
-    assert(recoveredOverrides.size() == 1);
+    assert(recoveredOverrides.size() == 2);
+    assert(recoveredOverrides.at(viewer2d::kLabelDefaultsKey).fieldStyles[1][2] == labelStyle);
     assert(recoveredOverrides.contains(canonicalFixtureUuid));
     assert(!recoveredOverrides.contains(nonCanonicalFixtureUuid));
     assert(*recoveredOverrides.at(canonicalFixtureUuid).showLabelName[0]);

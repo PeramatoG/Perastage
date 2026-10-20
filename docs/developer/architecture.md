@@ -576,3 +576,23 @@ Project history captures Layout metadata presence and image registry bytes along
 with scene, selection, layer state, label overrides and fixture symbols. History
 restoration bypasses startup default loading and resource re-reading, preserving
 absent metadata and explicitly empty collections without rewriting configuration.
+
+## Fixture label typography
+
+Core's GUI-independent `typography/` boundary owns the existing TrueType metrics
+reader, WinAnsi encoding and bounded text composition. It produces advances,
+line boundaries and baselines in explicit scene metres or paper points. Bundled
+PerastageSans resolves to Noto Sans 2.004 regular/bold; composed fixture labels
+use those exact files, independently positioned glyphs and no backend kerning.
+Viewer2D owns fixture field resolution and composition into existing canvas text
+commands. GUI owns the editor's draft and symbol preview; Viewer3D submits the
+same composed positions to NanoVG and capture, and PDF embeds the resolved fonts.
+
+Version-1 `presentation` fields extend existing PSTG label overrides. The reserved
+`__project_defaults__` entry participates in the same project history and is
+excluded from UUID normalization/pruning. Legacy keys remain a read-only adapter
+until a field is edited; existing line-spacing and Layout compensation constants
+remain intact. Layout free text, legends, tables, 3D labels and the old global PDF
+metrics compatibility API remain legacy consumers. The next integration is shared
+composition for Layout free text, with explicit migration and wrapping tests;
+this change does not claim preview/PDF parity for those paths.

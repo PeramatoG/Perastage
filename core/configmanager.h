@@ -133,6 +133,8 @@ public:
         const layouts::LayoutImageResourceRegistry &departingResources,
         const std::string &description, bool recordHistory);
 
+    bool CommitFixtureLabelMutation(const std::optional<std::string> &metadata,
+                                    const std::string &description);
     bool CanUndo() const;
     bool CanRedo() const;
     std::string Undo();

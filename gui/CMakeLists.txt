@@ -1,4 +1,6 @@
 target_sources(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_editor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_preview.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_export_dialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_download_queue_dialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_download_queue_table.cpp

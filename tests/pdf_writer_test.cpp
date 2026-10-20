@@ -1,4 +1,8 @@
 #include "pdf_draw_commands.h"
+#include "typography/composition.h"
+#include "typography/font_resources.h"
+#include <cassert>
+#include <cmath>
 #include "pdf_objects.h"
 #include "pdf_writer.h"
 #include "support/pdf_test_fixture_builder.h"
@@ -161,5 +165,47 @@ bool CheckWriterSerialization() {
 
 // Runs PDF writer portability and serialization controls.
 int main() {
+  const typography::FontPair fonts(PERASTAGE_TEST_RESOURCE_DIR);
+  typography::TextStyle style; style.size = 12; style.unit = typography::TextUnit::PaperPoints;
+  style.maxWidth = 45;
+  const auto a = typography::Compose("Euro € — Süd\nÉclairage", style, fonts.regular);
+  const auto b = typography::Compose("Euro € — Süd\nÉclairage", style, fonts.regular);
+  assert(a.unsupportedBytes.empty() && a.lines.size() == 4 && a.lines.size() == b.lines.size());
+  const std::array<std::string,4> expectedLines{"Euro € ", "— Süd", "Éclairag", "e"};
+  const std::array<double,4> expectedWidths{39.408,36.504,44.424,6.768};
+  for (size_t i=0; i<4; ++i) {
+    std::string line;
+    for (size_t j=a.lines[i].first; j<a.lines[i].first+a.lines[i].count; ++j) line += a.glyphs[j].text;
+    assert(line == expectedLines[i]);
+    assert(std::abs(a.lines[i].width - expectedWidths[i]) < 0.000001);
+    assert(std::abs(a.lines[i].baseline + i*16.344) < 0.000001);
+  }
+  assert(fonts.regular.advanceWidths[0x80] == 572); // Euro, not U+0080.
+  assert(fonts.regular.advanceWidths[0x97] == 1000); // Em dash.
+  bool missingFont = false;
+  try { typography::FontPair missing("/perastage/nonexistent/resources"); }
+  catch (const std::runtime_error &) { missingFont = true; }
+  assert(missingFont);
+  for (size_t i=0; i<a.lines.size(); ++i) {
+    assert(a.lines[i].first == b.lines[i].first && a.lines[i].count == b.lines[i].count);
+    assert(a.lines[i].baseline == b.lines[i].baseline && a.lines[i].width <= 45);
+  }
+  assert(!typography::Compose("灯", style, fonts.regular).unsupportedBytes.empty());
+  assert(!typography::Compose(std::string("\xc0\x80",2), style, fonts.regular).unsupportedBytes.empty());
+  assert(typography::Compose("a\n\n", style, fonts.regular).lines.size() == 3);
+  layout_pdf_internal::PdfFontDefinition regular;
+  regular.metrics = fonts.regular; regular.embedded = true; regular.key = "F3";
+  layout_pdf_internal::PdfFontCatalog catalog; catalog.labelRegular = &regular;
+  assert(catalog.Resolve("perastage-sans") == &regular);
+  const layout_pdf_internal::FloatFormatter fmt(6);
+  for (const auto &glyph : a.glyphs) {
+    TextCommand text; text.text = glyph.text; text.style.fontFamily = "perastage-sans";
+    text.style.fontSize = 12; text.style.ascent = a.ascent; text.style.descent = a.descent;
+    std::ostringstream out;
+    layout_pdf_internal::AppendText(out, fmt, {glyph.x, glyph.baseline}, text, text.style, 1, &catalog);
+    // Shared positions are serialized directly: error below 0.000001 PDF points.
+    assert(out.str().find(fmt.Format(glyph.x) + " " + fmt.Format(glyph.baseline)) != std::string::npos);
+  }
+
   return CheckWriterSerialization() && CheckLocaleIndependentNumbers() ? 0 : 1;
 }

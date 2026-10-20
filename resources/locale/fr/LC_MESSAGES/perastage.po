@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-19 09:09+0000\n"
+"POT-Creation-Date: 2026-10-20 12:27+0000\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: French\n"
@@ -491,13 +491,13 @@ msgstr "Catégorie"
 msgid "Type Color"
 msgstr "Couleur du type"
 
-#: gui/dictionaryeditdialog.cpp:599 gui/mainwindow_layout.cpp:330
+#: gui/dictionaryeditdialog.cpp:599 gui/mainwindow_layout.cpp:328
 #: gui/mainwindow_menu_builders.cpp:79 gui/mainwindow_print.cpp:640
 #: gui/riggingpanel.cpp:185 gui/summarypanel.cpp:139
 msgid "Fixtures"
 msgstr "Projecteurs"
 
-#: gui/dictionaryeditdialog.cpp:600 gui/mainwindow_layout.cpp:335
+#: gui/dictionaryeditdialog.cpp:600 gui/mainwindow_layout.cpp:333
 #: gui/mainwindow_print.cpp:643 gui/riggingpanel.cpp:188
 #: gui/summarypanel.cpp:172
 msgid "Trusses"
@@ -1173,6 +1173,150 @@ msgstr "Depuis un point dans la direction choisie"
 msgid "Placement"
 msgstr "Placement"
 
+#: gui/fixture_label_editor.cpp:12
+msgid "Fixture Label Editor"
+msgstr "Éditeur des étiquettes des projecteurs"
+
+#: gui/fixture_label_editor.cpp:25
+msgid "Project defaults"
+msgstr "Valeurs par défaut du projet"
+
+#
+#: gui/fixture_label_editor.cpp:26
+msgid "Selected fixtures"
+msgstr "Projecteurs sélectionnés"
+
+#: gui/fixture_label_editor.cpp:29 gui/fixture_label_editor.cpp:53
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:55
+#: viewer2d/viewer2drenderpanel.cpp:84
+msgid "Top"
+msgstr "Dessus"
+
+#: gui/fixture_label_editor.cpp:29
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:56
+#: viewer2d/viewer2drenderpanel.cpp:84
+msgid "Front"
+msgstr "Face"
+
+#: gui/fixture_label_editor.cpp:29
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:57
+#: viewer2d/viewer2drenderpanel.cpp:84
+msgid "Side"
+msgstr "Côté"
+
+#: gui/fixture_label_editor.cpp:35
+msgid "Fixture Name"
+msgstr "Nom du projecteur"
+
+#: gui/fixture_label_editor.cpp:35
+#: gui/fixturetable/fixture_table_columns.cpp:12
+#: tests/localization_catalog_integration_test.cpp:247
+msgid "Fixture ID"
+msgstr "ID du projecteur"
+
+#: gui/fixture_label_editor.cpp:35
+msgid "DMX Address"
+msgstr "Adresse DMX"
+
+#: gui/fixture_label_editor.cpp:42
+msgid "Show field"
+msgstr "Afficher le champ"
+
+#: gui/fixture_label_editor.cpp:42
+msgid "Visibility"
+msgstr "Visibilité"
+
+#: gui/fixture_label_editor.cpp:44
+msgid "Font family"
+msgstr "Famille de police"
+
+#: gui/fixture_label_editor.cpp:45
+msgid "Bold"
+msgstr "Gras"
+
+#: gui/fixture_label_editor.cpp:45
+msgid "Style"
+msgstr "Style"
+
+#: gui/fixture_label_editor.cpp:50
+msgid "Size (m)"
+msgstr "Taille (m)"
+
+#: gui/fixture_label_editor.cpp:51
+#: gui/inspection/gdtf_inspector_details_panel.cpp:158
+#: gui/inspection/gdtf_inspector_details_panel.cpp:173 gui/layerpanel.cpp:88
+#: gui/layerpanel.cpp:102 gui/summarypanel.cpp:266 gui/summarypanel.cpp:320
+#: viewer2d/viewer2drenderpanel.cpp:217
+msgid "Color"
+msgstr "Couleur"
+
+#: gui/fixture_label_editor.cpp:53 gui/fixture_label_editor.cpp:55
+msgid "Center"
+msgstr "Centre"
+
+#: gui/fixture_label_editor.cpp:53
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:59
+msgid "Bottom"
+msgstr "Dessous"
+
+#: gui/fixture_label_editor.cpp:53 gui/fixture_label_editor.cpp:55
+msgid "Left"
+msgstr "Gauche"
+
+#: gui/fixture_label_editor.cpp:53 gui/fixture_label_editor.cpp:55
+msgid "Right"
+msgstr "Droite"
+
+#: gui/fixture_label_editor.cpp:53
+msgid "Anchor"
+msgstr "Ancrage"
+
+#: gui/fixture_label_editor.cpp:55
+msgid "Alignment"
+msgstr "Alignement"
+
+#: gui/fixture_label_editor.cpp:56
+msgid "X offset (m)"
+msgstr "Décalage X (m)"
+
+#: gui/fixture_label_editor.cpp:57
+msgid "Y offset (m)"
+msgstr "Décalage Y (m)"
+
+#: gui/fixture_label_editor.cpp:67
+msgid ""
+"Legacy rendering is preserved until edited; its preview is approximate. "
+"Sizes and offsets use scene metres.\n"
+"Supported text: English and Western European WinAnsi characters. No viewport-"
+"specific styles yet."
+msgstr "Le rendu existant est conservé jusqu’à sa modification ; son aperçu est approximatif. Les tailles et décalages utilisent les mètres de la scène.\nTexte pris en charge : anglais et caractères WinAnsi d’Europe occidentale. Les styles par fenêtre ne sont pas encore disponibles."
+
+#: gui/fixture_label_editor.cpp:70
+msgid "Reset to Default"
+msgstr "Rétablir les valeurs par défaut"
+
+#: gui/fixture_label_preview.cpp:26 gui/fixture_label_preview.cpp:85
+#: viewer3d/labels/composed_fixture_labels.cpp:81
+msgid "Bundled label fonts are unavailable."
+msgstr "Les polices d’étiquettes fournies sont indisponibles."
+
+#: gui/fixture_label_preview.cpp:73 gui/fixture_label_preview.cpp:80
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:137
+msgid "Present; preview unavailable"
+msgstr "Présent ; aperçu indisponible"
+
+#: gui/fixture_label_preview.cpp:185
+msgid "Unsupported text: change the fixture attribute before export."
+msgstr "Texte non pris en charge : modifiez l’attribut du projecteur avant l’exportation."
+
+#: gui/fixture_label_preview.cpp:186
+msgid "Preview uses the first fixture in this scope."
+msgstr "L’aperçu utilise le premier projecteur de cette portée."
+
+#: gui/fixture_label_preview.cpp:186
+msgid "Symbol unavailable"
+msgstr "Symbole indisponible"
+
 #: gui/fixtureeditdialog.cpp:253
 msgid "Fixture instance"
 msgstr "Instance du projecteur"
@@ -1215,11 +1359,6 @@ msgstr "Validation GDTF"
 #: gui/fixtureeditdialog.cpp:1014 gui/fixtureeditdialog.cpp:1019
 msgid "GDTF update"
 msgstr "Mise à jour GDTF"
-
-#: gui/fixturetable/fixture_table_columns.cpp:12
-#: tests/localization_catalog_integration_test.cpp:247
-msgid "Fixture ID"
-msgstr "ID du projecteur"
 
 #: gui/fixturetable/fixture_table_columns.cpp:13 gui/hoisttablepanel.cpp:461
 #: gui/inspection/gdtf_inspector_details_panel.cpp:154
@@ -1424,25 +1563,6 @@ msgstr "GDTF standard"
 msgid "Perastage project (PSTG)"
 msgstr "Projet Perastage (PSTG)"
 
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:55
-#: viewer2d/viewer2drenderpanel.cpp:109
-msgid "Top"
-msgstr "Dessus"
-
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:56
-#: viewer2d/viewer2drenderpanel.cpp:109
-msgid "Front"
-msgstr "Face"
-
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:57
-#: viewer2d/viewer2drenderpanel.cpp:109
-msgid "Side"
-msgstr "Côté"
-
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:59
-msgid "Bottom"
-msgstr "Dessous"
-
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:72
 #, c-format
 msgid "%s [%s]"
@@ -1475,10 +1595,6 @@ msgstr ""
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:114
 msgid "No Models available"
 msgstr "Aucun Model disponible"
-
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:137
-msgid "Present; preview unavailable"
-msgstr "Présent ; aperçu indisponible"
 
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:137
 msgid "Missing"
@@ -2206,13 +2322,6 @@ msgstr "Historique des révisions"
 msgid "Wheel"
 msgstr "Roue"
 
-#: gui/inspection/gdtf_inspector_details_panel.cpp:158
-#: gui/inspection/gdtf_inspector_details_panel.cpp:173 gui/layerpanel.cpp:88
-#: gui/layerpanel.cpp:102 gui/summarypanel.cpp:266 gui/summarypanel.cpp:320
-#: viewer2d/viewer2drenderpanel.cpp:347
-msgid "Color"
-msgstr "Couleur"
-
 #: gui/inspection/gdtf_inspector_details_panel.cpp:159
 #: gui/inspection/gdtf_inspector_details_panel.cpp:172
 msgid "Filter"
@@ -2322,8 +2431,6 @@ msgstr "Type de ressource"
 
 #: gui/inspection/inspector_workspace_panel.cpp:478
 #: gui/mvrxchange/mvr_xchange_dialog.cpp:180
-#: viewer2d/viewer2drenderpanel.cpp:380 viewer2d/viewer2drenderpanel.cpp:387
-#: viewer2d/viewer2drenderpanel.cpp:394
 msgid "Size"
 msgstr "Taille"
 
@@ -2373,7 +2480,7 @@ msgid "Source: none"
 msgstr "Source : aucune"
 
 #: gui/inspection/inspector_workspace_panel.cpp:527
-#: gui/mainwindow_layout.cpp:423 gui/mainwindow_menu_builders.cpp:85
+#: gui/mainwindow_layout.cpp:421 gui/mainwindow_menu_builders.cpp:85
 #: gui/summarypanel.cpp:112
 msgid "Summary"
 msgstr "Résumé"
@@ -2447,7 +2554,7 @@ msgstr "Une erreur inattendue a empêché l’inspection du projet actuel."
 #: gui/inspection/inspector_workspace_panel.cpp:1082
 #: gui/inspection/inspector_workspace_panel.cpp:1458
 #: gui/inspection/inspector_workspace_panel.cpp:1466
-#: gui/mainwindow_layout.cpp:453 gui/mainwindow_menu.cpp:235
+#: gui/mainwindow_layout.cpp:451 gui/mainwindow_menu.cpp:235
 #: gui/mainwindow_menu_builders.cpp:71
 msgid "MVR / GDTF Inspector"
 msgstr "Inspecteur MVR / GDTF"
@@ -3144,7 +3251,7 @@ msgstr ""
 "Choisissez deux points sur la ligne de structure, ou appuyez sur Échap pour "
 "annuler."
 
-#: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:484
+#: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:482
 #: gui/mainwindow_startup_splash.cpp:123
 #: gui/services/fixture_symbol_preparation_service.cpp:509
 #: gui/viewer_load_status.cpp:26
@@ -3405,54 +3512,54 @@ msgstr "Sélectionner une table"
 msgid "Export CSV"
 msgstr "Exporter en CSV"
 
-#: gui/mainwindow_layout.cpp:340 gui/mainwindow_print.cpp:646
+#: gui/mainwindow_layout.cpp:338 gui/mainwindow_print.cpp:646
 #: gui/riggingpanel.cpp:191 gui/summarypanel.cpp:182
 msgid "Hoists"
 msgstr "Palans"
 
-#: gui/mainwindow_layout.cpp:345 gui/mainwindow_print.cpp:649
+#: gui/mainwindow_layout.cpp:343 gui/mainwindow_print.cpp:649
 #: gui/summarypanel.cpp:199
 msgid "Objects"
 msgstr "Objets"
 
-#: gui/mainwindow_layout.cpp:353
+#: gui/mainwindow_layout.cpp:351
 msgid "Data Views"
 msgstr "Vues de données"
 
-#: gui/mainwindow_layout.cpp:367 gui/mainwindow_menu_builders.cpp:78
+#: gui/mainwindow_layout.cpp:365 gui/mainwindow_menu_builders.cpp:78
 msgid "Console"
 msgstr "Console"
 
-#: gui/mainwindow_layout.cpp:380 gui/mainwindow_menu_builders.cpp:83
+#: gui/mainwindow_layout.cpp:378 gui/mainwindow_menu_builders.cpp:83
 msgid "Layers"
 msgstr "Calques"
 
-#: gui/mainwindow_layout.cpp:394 gui/mainwindow_menu_builders.cpp:84
+#: gui/mainwindow_layout.cpp:392 gui/mainwindow_menu_builders.cpp:84
 msgid "Layouts"
 msgstr "Mises en page"
 
-#: gui/mainwindow_layout.cpp:408
+#: gui/mainwindow_layout.cpp:406
 msgid "Layout Viewer"
 msgstr "Vue de mise en page"
 
-#: gui/mainwindow_layout.cpp:437 gui/mainwindow_menu_builders.cpp:86
+#: gui/mainwindow_layout.cpp:435 gui/mainwindow_menu_builders.cpp:86
 msgid "Rigging"
 msgstr "Accroche"
 
-#: gui/mainwindow_layout.cpp:485
+#: gui/mainwindow_layout.cpp:483
 msgid "X: -- m  Y: -- m  Z: -- m"
 msgstr "X : -- m  Y : -- m  Z : -- m"
 
-#: gui/mainwindow_layout.cpp:487
+#: gui/mainwindow_layout.cpp:485
 #, c-format
 msgid "Version %s"
 msgstr "Version %s"
 
-#: gui/mainwindow_layout.cpp:1154
+#: gui/mainwindow_layout.cpp:1142
 msgid "Layout view update skipped: target view not found."
 msgstr "Mise à jour de la vue de mise en page ignorée : vue cible introuvable."
 
-#: gui/mainwindow_layout.cpp:1184
+#: gui/mainwindow_layout.cpp:1172
 msgid "Layout view update failed."
 msgstr "Échec de la mise à jour de la vue de mise en page."
 
@@ -5251,12 +5358,12 @@ msgstr ""
 "inchangées."
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:39
-#: viewer2d/viewer2drenderpanel.cpp:92
+#: viewer2d/viewer2drenderpanel.cpp:67
 msgid "Render mode"
 msgstr "Mode de rendu"
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:44
-#: viewer2d/viewer2drenderpanel.cpp:90
+#: viewer2d/viewer2drenderpanel.cpp:65
 msgid "White"
 msgstr "Blanc"
 
@@ -5269,22 +5376,22 @@ msgid "Textured"
 msgstr "Texturé"
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:50
-#: viewer2d/viewer2drenderpanel.cpp:90
+#: viewer2d/viewer2drenderpanel.cpp:65
 msgid "Wireframe"
 msgstr "Fil de fer"
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:52
-#: viewer2d/viewer2drenderpanel.cpp:90
+#: viewer2d/viewer2drenderpanel.cpp:65
 msgid "By device type"
 msgstr "Par type d’appareil"
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:54
-#: viewer2d/viewer2drenderpanel.cpp:91
+#: viewer2d/viewer2drenderpanel.cpp:66
 msgid "By layer"
 msgstr "Par calque"
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:56
-#: viewer2d/viewer2drenderpanel.cpp:91
+#: viewer2d/viewer2drenderpanel.cpp:66
 msgid "By universe"
 msgstr "Par univers"
 
@@ -6080,100 +6187,71 @@ msgstr "Aucune position"
 msgid "Select by position"
 msgstr "Sélectionner par position"
 
-#: viewer2d/viewer2drenderpanel.cpp:97
+#: viewer2d/viewer2drenderpanel.cpp:72
 msgid "Dark mode"
 msgstr "Mode sombre"
 
-#: viewer2d/viewer2drenderpanel.cpp:102
+#: viewer2d/viewer2drenderpanel.cpp:77
 msgid "Force bottom view"
 msgstr "Forcer la vue de dessous"
 
-#: viewer2d/viewer2drenderpanel.cpp:110
+#: viewer2d/viewer2drenderpanel.cpp:85
 msgid "View"
 msgstr "Vue"
 
-#: viewer2d/viewer2drenderpanel.cpp:115
+#: viewer2d/viewer2drenderpanel.cpp:90
 msgid "Grid"
 msgstr "Grille"
 
-#: viewer2d/viewer2drenderpanel.cpp:118
+#: viewer2d/viewer2drenderpanel.cpp:93
 msgid "Show grid"
 msgstr "Afficher la grille"
 
-#: viewer2d/viewer2drenderpanel.cpp:122
+#: viewer2d/viewer2drenderpanel.cpp:97
 msgid "Lines"
 msgstr "Lignes"
 
-#: viewer2d/viewer2drenderpanel.cpp:122
+#: viewer2d/viewer2drenderpanel.cpp:97
 msgid "Points"
 msgstr "Points"
 
-#: viewer2d/viewer2drenderpanel.cpp:122
+#: viewer2d/viewer2drenderpanel.cpp:97
 msgid "Crosses"
 msgstr "Croix"
 
-#: viewer2d/viewer2drenderpanel.cpp:123
+#: viewer2d/viewer2drenderpanel.cpp:98
 msgid "Grid style"
 msgstr "Style de grille"
 
-#: viewer2d/viewer2drenderpanel.cpp:137
+#: viewer2d/viewer2drenderpanel.cpp:112
 msgid "Draw grid on top"
 msgstr "Dessiner la grille au premier plan"
 
-#: viewer2d/viewer2drenderpanel.cpp:141
+#: viewer2d/viewer2drenderpanel.cpp:116
 msgid "Ruler"
 msgstr "Règle"
 
-#: viewer2d/viewer2drenderpanel.cpp:144
+#: viewer2d/viewer2drenderpanel.cpp:119
 msgid "Show ruler"
 msgstr "Afficher la règle"
 
-#: viewer2d/viewer2drenderpanel.cpp:233
-msgid "Labels"
-msgstr "Étiquettes"
-
-#: viewer2d/viewer2drenderpanel.cpp:236 viewer2d/viewer2drenderpanel.cpp:449
-msgid "Global profile (all fixtures)"
-msgstr "Profil global (tous les projecteurs)"
-
-#: viewer2d/viewer2drenderpanel.cpp:238
-msgid "Show name"
-msgstr "Afficher le nom"
-
-#: viewer2d/viewer2drenderpanel.cpp:259
-msgid "Show ID"
-msgstr "Afficher l’ID"
-
-#: viewer2d/viewer2drenderpanel.cpp:280
-msgid "Show DMX"
-msgstr "Afficher le DMX"
-
-#: viewer2d/viewer2drenderpanel.cpp:356
+#: viewer2d/viewer2drenderpanel.cpp:226
 msgid "X ruler"
 msgstr "Règle X"
 
-#: viewer2d/viewer2drenderpanel.cpp:362
+#: viewer2d/viewer2drenderpanel.cpp:232
 msgid "Y ruler"
 msgstr "Règle Y"
 
-#: viewer2d/viewer2drenderpanel.cpp:368
+#: viewer2d/viewer2drenderpanel.cpp:238
 msgid "Z ruler"
 msgstr "Règle Z"
 
-#: viewer2d/viewer2drenderpanel.cpp:400
-msgid "Distance"
-msgstr "Distance"
+#: viewer2d/viewer2drenderpanel.cpp:245
+msgid "Edit Fixture Labels..."
+msgstr "Modifier les étiquettes des projecteurs..."
 
-#: viewer2d/viewer2drenderpanel.cpp:406
-msgid "Angle"
-msgstr "Angle"
-
-#: viewer2d/viewer2drenderpanel.cpp:446
-#, c-format
-msgid "Selection profile active (%zu fixtures)"
-msgstr "Profil de sélection actif (%zu projecteurs)"
-
-#: viewer3d/labels/label_render_system.cpp:187
+#: viewer3d/labels/label_render_system.cpp:189
 #, c-format
 msgid "ID: %d"
 msgstr "ID : %d"
@@ -6212,6 +6290,31 @@ msgstr "Style de rendu"
 #: viewer3d/viewer3dpanel.cpp:2288
 msgid "Export image..."
 msgstr "Exporter l’image…"
+
+#~ msgid "Labels"
+#~ msgstr "Étiquettes"
+
+#~ msgid "Global profile (all fixtures)"
+#~ msgstr "Profil global (tous les projecteurs)"
+
+#~ msgid "Show name"
+#~ msgstr "Afficher le nom"
+
+#~ msgid "Show ID"
+#~ msgstr "Afficher l’ID"
+
+#~ msgid "Show DMX"
+#~ msgstr "Afficher le DMX"
+
+#~ msgid "Distance"
+#~ msgstr "Distance"
+
+#~ msgid "Angle"
+#~ msgstr "Angle"
+
+#, c-format
+#~ msgid "Selection profile active (%zu fixtures)"
+#~ msgstr "Profil de sélection actif (%zu projecteurs)"
 
 #
 #~ msgid "Apply selections"

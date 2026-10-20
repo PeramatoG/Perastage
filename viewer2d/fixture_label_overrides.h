@@ -1,6 +1,7 @@
 #pragma once
 
 #include "configmanager.h"
+#include "fixture_label_style.h"
 
 #include <array>
 #include <optional>
@@ -11,6 +12,7 @@
 namespace viewer2d {
 
 struct FixtureLabelOverride {
+  LabelFieldStyles fieldStyles;
   std::array<std::optional<bool>, 3> showLabelName;
   std::array<std::optional<bool>, 3> showLabelId;
   std::array<std::optional<bool>, 3> showLabelDmx;
@@ -32,9 +34,14 @@ size_t RemapFixtureLabelOverrideKeys(
     size_t *collisionCount = nullptr);
 
 FixtureLabelOverrideMap LoadFixtureLabelOverrides(const ConfigManager &cfg);
+std::optional<std::string> SerializeFixtureLabelOverrides(const FixtureLabelOverrideMap &overrides);
 void SaveFixtureLabelOverrides(ConfigManager &cfg,
                                const FixtureLabelOverrideMap &overrides);
 void ReconcileFixtureLabelOverridesWithScene(ConfigManager &cfg);
+
+LabelFieldStyle ResolveFieldStyle(const ConfigManager &cfg,
+    const FixtureLabelOverrideMap &all, const std::string &uuid, int view, int field);
+bool CommitFixtureLabelStyles(ConfigManager &cfg, const FixtureLabelOverrideMap &candidate);
 
 float ResolveLabelFontSizeName(const ConfigManager &cfg,
                                const FixtureLabelOverride *overrideSettings);

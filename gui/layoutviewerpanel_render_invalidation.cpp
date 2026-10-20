@@ -116,7 +116,8 @@ size_t HashSceneMapWithValues(const TMap &items, ValueHasher hasher) {
 size_t LayoutViewerPanel::ComputeSceneContentHash() const {
   const auto &scene =
       GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
-  size_t hash = 0;
+  size_t hash = std::hash<std::string>{}(
+      GetDefaultGuiConfigServices().LegacyConfigManager().GetValue("label_fixture_overrides").value_or(""));
   HashCombine(hash, std::hash<int>{}(kLayoutFixtureSymbolProjectionVersion));
   HashCombine(hash, HashSceneMapWithValues(scene.fixtures, HashFixtureValue));
   HashCombine(hash, HashSceneMapWithValues(scene.trusses, HashTrussValue));

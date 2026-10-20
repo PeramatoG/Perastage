@@ -50,14 +50,6 @@ private:
   void OnRulerAxisXColor(wxColourPickerEvent &evt);
   void OnRulerAxisYColor(wxColourPickerEvent &evt);
   void OnRulerAxisZColor(wxColourPickerEvent &evt);
-  void OnShowLabelName(wxCommandEvent &evt);
-  void OnShowLabelId(wxCommandEvent &evt);
-  void OnShowLabelAddress(wxCommandEvent &evt);
-  void OnLabelNameSize(wxSpinEvent &evt);
-  void OnLabelIdSize(wxSpinEvent &evt);
-  void OnLabelAddressSize(wxSpinEvent &evt);
-  void OnLabelOffsetDistance(wxSpinDoubleEvent &evt);
-  void OnLabelOffsetAngle(wxSpinEvent &evt);
   void OnView(wxCommandEvent &evt);
   void OnBeginTextEdit(wxFocusEvent &evt);
   void OnEndTextEdit(wxFocusEvent &evt);
@@ -66,9 +58,6 @@ private:
   void OnNumericCharHook(wxKeyEvent &evt);
   wxWindow *ResolveNumericCommitSource(const wxWindow *focused) const;
   void ApplyViewSelection(int selection);
-  void ApplyLabelControlValuesForCurrentSelection();
-  void RefreshLabelScopeHint();
-  bool HasFixtureSelection() const;
   void UpdateRulerControlState();
 
   wxRadioBox *m_radio = nullptr;
@@ -86,14 +75,5 @@ private:
   wxColourPickerCtrl *m_rulerAxisXColor = nullptr;
   wxColourPickerCtrl *m_rulerAxisYColor = nullptr;
   wxColourPickerCtrl *m_rulerAxisZColor = nullptr;
-  wxCheckBox *m_showLabelName = nullptr;
-  wxCheckBox *m_showLabelId = nullptr;
-  wxCheckBox *m_showLabelAddress = nullptr;
-  wxSpinCtrl *m_labelNameSize = nullptr;
-  wxSpinCtrl *m_labelIdSize = nullptr;
-  wxSpinCtrl *m_labelAddressSize = nullptr;
-  wxSpinCtrlDouble *m_labelOffsetDistance = nullptr;
-  wxSpinCtrl *m_labelOffsetAngle = nullptr;
-  wxStaticText *m_labelScopeHint = nullptr;
   static Viewer2DRenderPanel *s_instance;
 };

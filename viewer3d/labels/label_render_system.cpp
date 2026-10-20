@@ -1,5 +1,7 @@
 #include "layer_identity.h"
 #include "label_render_system.h"
+#include "composed_fixture_labels.h"
+#include "fixture_label_composition.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -745,6 +747,8 @@ void LabelRenderSystem::DrawFixtureLabels(int width, int height) {
 void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
                                              Viewer2DView view, float zoom,
                                              bool interactiveLabelMode) {
+  // Final capture must not inherit the active drag's reduced label mode.
+  if (m_controller.GetCaptureCanvas()) interactiveLabelMode = false;
   ConfigManager &cfg = ConfigManager::Get();
   const auto distanceUnitSystem =
       Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
@@ -759,9 +763,10 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
   const auto &fixtureOverrides =
       GetCachedFixtureLabelOverrides(layoutCacheState, cfg);
 
+  DrawComposedFixtureLabels(m_controller, height, view, zoom, !interactiveLabelMode);
   const CullingSettings culling = GetCullingSettings(cfg);
   const bool useLabelOptimizations =
-      !interactiveLabelMode &&
+      !m_controller.GetCaptureCanvas() && !interactiveLabelMode &&
       (cfg.GetFloat("label_optimizations_enabled") >= 0.5f);
   const int maxFixtureLabels = interactiveLabelMode
                                    ? 0
@@ -809,8 +814,11 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     if (auto oit = fixtureOverrides.find(uuid); oit != fixtureOverrides.end())
       overrideSettings = &oit->second;
 
-    const FixtureLayoutKey desiredKey =
+    FixtureLayoutKey desiredKey =
         BuildFixtureLayoutKey(uuid, f, overrideSettings, cfg, view, viewIdx);
+    if (viewer2d::HasFieldPresentation(fixtureOverrides, uuid, viewIdx, 0)) desiredKey.showName = false;
+    if (viewer2d::HasFieldPresentation(fixtureOverrides, uuid, viewIdx, 1)) desiredKey.showId = false;
+    if (viewer2d::HasFieldPresentation(fixtureOverrides, uuid, viewIdx, 2)) desiredKey.showDmx = false;
     if (!desiredKey.showName && !desiredKey.showId && !desiredKey.showDmx)
       continue;
 

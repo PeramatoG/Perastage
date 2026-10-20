@@ -3,6 +3,7 @@
 #include "json.hpp"
 #include "project_fixture_identity.h"
 #include "uuidutils.h"
+#include "fixture_label_style_serialization.h"
 
 #include <algorithm>
 #include <array>
@@ -86,6 +87,9 @@ bool FixtureLabelOverride::HasAnyValue() const {
       return v.has_value();
     });
   };
+  for (const auto &view : fieldStyles)
+    for (const auto &field : view)
+      if (field) return true;
   return hasAnyArrayValue(showLabelName) || hasAnyArrayValue(showLabelId) ||
          hasAnyArrayValue(showLabelDmx) ||
          hasAnyArrayValue(labelOffsetDistance) ||
@@ -151,6 +155,7 @@ FixtureLabelOverrideMap LoadFixtureLabelOverrides(const ConfigManager &cfg) {
     if (!it.value().is_object())
       continue;
     FixtureLabelOverride entry;
+    ReadFieldStyles(it.value(), entry.fieldStyles);
     ReadOptionalArray<bool>(it.value(), "showLabelName", entry.showLabelName);
     ReadOptionalArray<bool>(it.value(), "showLabelId", entry.showLabelId);
     ReadOptionalArray<bool>(it.value(), "showLabelDmx", entry.showLabelDmx);
@@ -176,13 +181,14 @@ FixtureLabelOverrideMap LoadFixtureLabelOverrides(const ConfigManager &cfg) {
   return overrides;
 }
 
-void SaveFixtureLabelOverrides(ConfigManager &cfg,
-                               const FixtureLabelOverrideMap &overrides) {
+std::optional<std::string> SerializeFixtureLabelOverrides(
+    const FixtureLabelOverrideMap &overrides) {
   nlohmann::json root = nlohmann::json::object();
   for (const auto &[uuid, entry] : overrides) {
     if (!entry.HasAnyValue())
       continue;
     nlohmann::json fixtureJson = nlohmann::json::object();
+    WriteFieldStyles(fixtureJson, entry.fieldStyles);
     if (auto arr = WriteOptionalArray(entry.showLabelName); !arr.is_null())
       fixtureJson["showLabelName"] = arr;
     if (auto arr = WriteOptionalArray(entry.showLabelId); !arr.is_null())
@@ -203,11 +209,15 @@ void SaveFixtureLabelOverrides(ConfigManager &cfg,
       root[uuid] = std::move(fixtureJson);
   }
 
-  if (root.empty()) {
-    cfg.RemoveKey(project_identity::kFixtureLabelOverridesConfigKey);
-    return;
-  }
-  cfg.SetValue(project_identity::kFixtureLabelOverridesConfigKey, root.dump());
+  if (root.empty()) return std::nullopt;
+  return root.dump();
+}
+
+void SaveFixtureLabelOverrides(ConfigManager &cfg,
+                               const FixtureLabelOverrideMap &overrides) {
+  const auto serialized = SerializeFixtureLabelOverrides(overrides);
+  if (serialized) cfg.SetValue(project_identity::kFixtureLabelOverridesConfigKey, *serialized);
+  else cfg.RemoveKey(project_identity::kFixtureLabelOverridesConfigKey);
 }
 
 void ReconcileFixtureLabelOverridesWithScene(ConfigManager &cfg) {
@@ -218,7 +228,7 @@ void ReconcileFixtureLabelOverridesWithScene(ConfigManager &cfg) {
   const auto &fixtures = cfg.GetScene().fixtures;
   bool changed = false;
   for (auto it = overrides.begin(); it != overrides.end();) {
-    if (fixtures.count(it->first) == 0) {
+    if (it->first != kLabelDefaultsKey && fixtures.count(it->first) == 0) {
       it = overrides.erase(it);
       changed = true;
       continue;
