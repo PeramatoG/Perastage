@@ -161,13 +161,18 @@ const LayoutImageDefinition *FindImage(const LayoutCollection &layouts,
 }
 
 // Captures or refreshes packaged resource metadata before an image is stored.
-void PrepareImageResource(LayoutImageDefinition &image,
+bool PrepareImageResource(LayoutImageDefinition &image,
                           const LayoutImageDefinition *existingImage) {
-  if (existingImage != nullptr && image.imagePath != existingImage->imagePath) {
-    image.originalImagePath.clear();
-    image.projectResourcePath.clear();
+  if (existingImage != nullptr) {
+    if (image.imagePath != existingImage->imagePath) {
+      image.originalImagePath.clear();
+      image.projectResourcePath.clear();
+    } else {
+      image.originalImagePath = existingImage->originalImagePath;
+      image.projectResourcePath = existingImage->projectResourcePath;
+    }
   }
-  LayoutImageResourceRegistry::Get().AttachResource(image);
+  return LayoutImageResourceRegistry::Get().AttachResource(image);
 }
 
 } // namespace
@@ -181,162 +186,165 @@ LayoutManager &LayoutManager::Get() {
 
 const LayoutCollection &LayoutManager::GetLayouts() const { return layouts; }
 
-// Adds a layout after capturing any image resources it references.
+// Validates a candidate before publishing one project history entry.
+bool LayoutManager::ApplyMutation(
+    const std::string &description,
+    const std::function<bool(LayoutCollection &)> &mutation,
+    bool recordHistory) {
+  LayoutCollection candidate = layouts;
+  auto &resources = LayoutImageResourceRegistry::Get();
+  auto previousResources = resources;
+  try {
+    if (!mutation(candidate)) {
+      resources = std::move(previousResources);
+      return false;
+    }
+    const auto document = ToTemplateDocument(candidate.Items());
+    if (document == ToTemplateDocument(layouts.Items())) {
+      resources = std::move(previousResources);
+      return true;
+    }
+    const std::string metadata = document.dump();
+    resources.SynchronizeWithLayouts(candidate);
+    ConfigManager::Get().CommitLayoutMutation(
+        metadata, previousResources, description, recordHistory);
+    layouts = std::move(candidate);
+    return true;
+  } catch (...) {
+    resources = std::move(previousResources);
+    return false;
+  }
+}
+
 bool LayoutManager::AddLayout(const LayoutDefinition &layout) {
-  LayoutDefinition preparedLayout = layout;
-  for (auto &image : preparedLayout.imageViews)
-    PrepareImageResource(image, nullptr);
-  if (!layouts.AddLayout(preparedLayout))
-    return false;
-  LayoutImageResourceRegistry::Get().SynchronizeWithLayouts(layouts);
-  SyncToConfig();
-  return true;
+  return ApplyMutation("add layout", [&](LayoutCollection &candidate) {
+    LayoutDefinition prepared = layout;
+    // Legacy templates may retain unresolved image paths with import warnings.
+    for (auto &image : prepared.imageViews)
+      LayoutImageResourceRegistry::Get().AttachResource(image);
+    return candidate.AddLayout(prepared);
+  });
 }
 
-bool LayoutManager::RenameLayout(const std::string &currentName,
-                                 const std::string &newName) {
-  if (!layouts.RenameLayout(currentName, newName))
-    return false;
-  SyncToConfig();
-  return true;
+bool LayoutManager::RenameLayout(
+    const std::string &currentName, const std::string &newName) {
+  return ApplyMutation("rename layout", [&](LayoutCollection &candidate) {
+    return candidate.RenameLayout(currentName, newName);
+  });
 }
 
-// Removes a layout and refreshes image resource usage counters.
 bool LayoutManager::RemoveLayout(const std::string &name) {
-  if (!layouts.RemoveLayout(name))
-    return false;
-  LayoutImageResourceRegistry::Get().SynchronizeWithLayouts(layouts);
-  SyncToConfig();
-  return true;
+  return ApplyMutation("delete layout", [&](LayoutCollection &candidate) {
+    return candidate.RemoveLayout(name);
+  });
 }
 
-bool LayoutManager::SetLayoutOrientation(const std::string &name,
-                                         bool landscape) {
-  if (!layouts.SetLayoutOrientation(name, landscape))
-    return false;
-  SyncToConfig();
-  return true;
+bool LayoutManager::SetLayoutOrientation(const std::string &name, bool landscape) {
+  return ApplyMutation("change layout orientation", [&](LayoutCollection &candidate) {
+    return candidate.SetLayoutOrientation(name, landscape);
+  });
 }
 
-bool LayoutManager::UpdateLayout2DView(const std::string &name,
-                                       const Layout2DViewDefinition &view) {
-  if (!layouts.UpdateLayout2DView(name, view))
-    return false;
-  SyncToConfig();
-  return true;
+bool LayoutManager::UpdateLayout2DView(
+    const std::string &name, const Layout2DViewDefinition &view,
+    bool recordHistory) {
+  return ApplyMutation("edit layout 2d view", [&](LayoutCollection &candidate) {
+    return candidate.UpdateLayout2DView(name, view);
+  }, recordHistory);
 }
 
-bool LayoutManager::RemoveLayout2DView(const std::string &name, int viewId) {
-  if (!layouts.RemoveLayout2DView(name, viewId))
-    return false;
-  SyncToConfig();
-  return true;
+bool LayoutManager::RemoveLayout2DView(const std::string &name, int id) {
+  return ApplyMutation("delete layout 2d view", [&](LayoutCollection &candidate) {
+    return candidate.RemoveLayout2DView(name, id);
+  });
 }
 
-bool LayoutManager::MoveLayout2DView(const std::string &name, int viewId,
-                                     bool toFront) {
-  if (!layouts.MoveLayout2DView(name, viewId, toFront))
-    return false;
-  SyncToConfig();
-  return true;
+bool LayoutManager::MoveLayout2DView(const std::string &name, int id, bool toFront) {
+  return ApplyMutation("stack layout element", [&](LayoutCollection &candidate) {
+    return candidate.MoveLayout2DView(name, id, toFront);
+  });
 }
 
-bool LayoutManager::UpdateLayoutLegend(const std::string &name,
-                                       const LayoutLegendDefinition &legend) {
-  if (!layouts.UpdateLayoutLegend(name, legend))
-    return false;
-  SyncToConfig();
-  return true;
+bool LayoutManager::UpdateLayoutLegend(
+    const std::string &name, const LayoutLegendDefinition &legend) {
+  return ApplyMutation("edit layout legend", [&](LayoutCollection &candidate) {
+    return candidate.UpdateLayoutLegend(name, legend);
+  });
 }
 
-bool LayoutManager::RemoveLayoutLegend(const std::string &name, int legendId) {
-  if (!layouts.RemoveLayoutLegend(name, legendId))
-    return false;
-  SyncToConfig();
-  return true;
+bool LayoutManager::RemoveLayoutLegend(const std::string &name, int id) {
+  return ApplyMutation("delete layout legend", [&](LayoutCollection &candidate) {
+    return candidate.RemoveLayoutLegend(name, id);
+  });
 }
 
-bool LayoutManager::MoveLayoutLegend(const std::string &name, int legendId,
-                                     bool toFront) {
-  if (!layouts.MoveLayoutLegend(name, legendId, toFront))
-    return false;
-  SyncToConfig();
-  return true;
+bool LayoutManager::MoveLayoutLegend(const std::string &name, int id, bool toFront) {
+  return ApplyMutation("stack layout element", [&](LayoutCollection &candidate) {
+    return candidate.MoveLayoutLegend(name, id, toFront);
+  });
 }
 
-bool LayoutManager::UpdateLayoutEventTable(const std::string &name,
-                                           const LayoutEventTableDefinition &table) {
-  if (!layouts.UpdateLayoutEventTable(name, table))
-    return false;
-  SyncToConfig();
-  return true;
+bool LayoutManager::UpdateLayoutEventTable(
+    const std::string &name, const LayoutEventTableDefinition &table) {
+  return ApplyMutation("edit layout event table", [&](LayoutCollection &candidate) {
+    return candidate.UpdateLayoutEventTable(name, table);
+  });
 }
 
-bool LayoutManager::RemoveLayoutEventTable(const std::string &name, int tableId) {
-  if (!layouts.RemoveLayoutEventTable(name, tableId))
-    return false;
-  SyncToConfig();
-  return true;
+bool LayoutManager::RemoveLayoutEventTable(const std::string &name, int id) {
+  return ApplyMutation("delete layout event table", [&](LayoutCollection &candidate) {
+    return candidate.RemoveLayoutEventTable(name, id);
+  });
 }
 
-bool LayoutManager::MoveLayoutEventTable(const std::string &name, int tableId,
-                                         bool toFront) {
-  if (!layouts.MoveLayoutEventTable(name, tableId, toFront))
-    return false;
-  SyncToConfig();
-  return true;
+bool LayoutManager::MoveLayoutEventTable(
+    const std::string &name, int id, bool toFront) {
+  return ApplyMutation("stack layout element", [&](LayoutCollection &candidate) {
+    return candidate.MoveLayoutEventTable(name, id, toFront);
+  });
 }
 
-bool LayoutManager::UpdateLayoutText(const std::string &name,
-                                     const LayoutTextDefinition &text) {
-  if (!layouts.UpdateLayoutText(name, text))
-    return false;
-  SyncToConfig();
-  return true;
+bool LayoutManager::UpdateLayoutText(
+    const std::string &name, const LayoutTextDefinition &text) {
+  return ApplyMutation("edit layout text", [&](LayoutCollection &candidate) {
+    return candidate.UpdateLayoutText(name, text);
+  });
 }
 
-bool LayoutManager::RemoveLayoutText(const std::string &name, int textId) {
-  if (!layouts.RemoveLayoutText(name, textId))
-    return false;
-  SyncToConfig();
-  return true;
+bool LayoutManager::RemoveLayoutText(const std::string &name, int id) {
+  return ApplyMutation("delete layout text", [&](LayoutCollection &candidate) {
+    return candidate.RemoveLayoutText(name, id);
+  });
 }
 
-bool LayoutManager::MoveLayoutText(const std::string &name, int textId,
-                                   bool toFront) {
-  if (!layouts.MoveLayoutText(name, textId, toFront))
-    return false;
-  SyncToConfig();
-  return true;
+bool LayoutManager::MoveLayoutText(const std::string &name, int id, bool toFront) {
+  return ApplyMutation("stack layout element", [&](LayoutCollection &candidate) {
+    return candidate.MoveLayoutText(name, id, toFront);
+  });
 }
 
-// Updates or adds an image element while capturing its packaged resource.
-bool LayoutManager::UpdateLayoutImage(const std::string &name,
-                                      const LayoutImageDefinition &image) {
-  LayoutImageDefinition preparedImage = image;
-  PrepareImageResource(preparedImage, FindImage(layouts, name, image.id));
-  if (!layouts.UpdateLayoutImage(name, preparedImage))
-    return false;
-  LayoutImageResourceRegistry::Get().SynchronizeWithLayouts(layouts);
-  SyncToConfig();
-  return true;
+bool LayoutManager::UpdateLayoutImage(
+    const std::string &name, const LayoutImageDefinition &image) {
+  return ApplyMutation("edit layout image", [&](LayoutCollection &candidate) {
+    LayoutImageDefinition prepared = image;
+    const auto *existing = FindImage(layouts, name, image.id);
+    if (!PrepareImageResource(prepared, existing) &&
+        (!existing || image.imagePath != existing->imagePath))
+      return false;
+    return candidate.UpdateLayoutImage(name, prepared);
+  });
 }
 
-// Removes an image element and refreshes packaged resource usage counters.
-bool LayoutManager::RemoveLayoutImage(const std::string &name, int imageId) {
-  if (!layouts.RemoveLayoutImage(name, imageId))
-    return false;
-  LayoutImageResourceRegistry::Get().SynchronizeWithLayouts(layouts);
-  SyncToConfig();
-  return true;
+bool LayoutManager::RemoveLayoutImage(const std::string &name, int id) {
+  return ApplyMutation("delete layout image", [&](LayoutCollection &candidate) {
+    return candidate.RemoveLayoutImage(name, id);
+  });
 }
 
-bool LayoutManager::MoveLayoutImage(const std::string &name, int imageId,
-                                    bool toFront) {
-  if (!layouts.MoveLayoutImage(name, imageId, toFront))
-    return false;
-  SyncToConfig();
-  return true;
+bool LayoutManager::MoveLayoutImage(const std::string &name, int id, bool toFront) {
+  return ApplyMutation("stack layout element", [&](LayoutCollection &candidate) {
+    return candidate.MoveLayoutImage(name, id, toFront);
+  });
 }
 
 // Exports the named layout as a portable layout package.
@@ -361,40 +369,42 @@ bool LayoutManager::ImportLayoutTemplate(const std::string &filePath,
                                          const std::string &preferredName,
                                          std::string *createdLayoutName,
                                          std::string *error) {
-  LayoutTemplateImportResult importResult;
-  if (!LayoutTemplatePackageService::ImportFile(filePath, importResult, error))
-    return false;
+  auto previousResources = LayoutImageResourceRegistry::Get();
+  bool committed = false;
+  try {
+    LayoutTemplateImportResult importResult;
+    if (!LayoutTemplatePackageService::ImportFile(filePath, importResult, error)) {
+      LayoutImageResourceRegistry::Get() = std::move(previousResources);
+      return false;
+    }
 
-  LayoutDefinition imported = importResult.layout;
-  EnsureUniqueViewIds(imported);
-  EnsureUniqueLegendIds(imported);
-  EnsureUniqueEventTableIds(imported);
-  EnsureUniqueTextIds(imported);
-  EnsureUniqueImageIds(imported);
-  if (!preferredName.empty())
-    imported.name = preferredName;
-  imported.name = MakeUniqueLayoutName(imported.name);
+    LayoutDefinition imported = importResult.layout;
+    EnsureUniqueViewIds(imported);
+    EnsureUniqueLegendIds(imported);
+    EnsureUniqueEventTableIds(imported);
+    EnsureUniqueTextIds(imported);
+    EnsureUniqueImageIds(imported);
+    if (!preferredName.empty())
+      imported.name = preferredName;
+    imported.name = MakeUniqueLayoutName(imported.name);
 
-  if (!AddLayout(imported)) {
+    if (!AddLayout(imported)) {
+      if (error)
+        *error = "Could not add imported layout.";
+      LayoutImageResourceRegistry::Get() = std::move(previousResources);
+      return false;
+    }
+
+    committed = true;
+    if (createdLayoutName)
+      createdLayoutName->swap(imported.name);
+    return true;
+  } catch (...) {
+    if (!committed)
+      LayoutImageResourceRegistry::Get() = std::move(previousResources);
     if (error)
-      *error = "Could not add imported layout.";
+      *error = "Could not import layout template.";
     return false;
-  }
-
-  if (createdLayoutName)
-    *createdLayoutName = imported.name;
-  return true;
-}
-
-void LayoutManager::BeginBatchUpdate() { ++batchDepth; }
-
-void LayoutManager::EndBatchUpdate() {
-  if (batchDepth <= 0)
-    return;
-  --batchDepth;
-  if (batchDepth == 0 && pendingSync) {
-    pendingSync = false;
-    SaveToConfig(ConfigManager::Get());
   }
 }
 
@@ -419,7 +429,7 @@ void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
   }
   std::vector<LayoutDefinition> loaded;
   std::string parseError;
-  if (!FromTemplateDocument(parsed, loaded, &parseError) || loaded.empty()) {
+  if (!FromTemplateDocument(parsed, loaded, &parseError)) {
     loadDefaultsOrFallback();
     return;
   }
@@ -432,8 +442,21 @@ void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
     EnsureUniqueImageIds(layout);
   }
 
-  layouts.ReplaceAll(std::move(loaded));
+  layouts.Items() = std::move(loaded);
   PrepareImageResourcesForSave();
+}
+
+// Restores history metadata without loading defaults or rewriting its presence.
+void LayoutManager::RestoreFromHistory(const std::optional<std::string> &metadata) {
+  layouts = LayoutCollection();
+  if (metadata) {
+    std::vector<LayoutDefinition> restored;
+    std::string error;
+    const auto parsed = nlohmann::json::parse(*metadata, nullptr, false);
+    if (!parsed.is_discarded() && FromTemplateDocument(parsed, restored, &error))
+      layouts.Items() = std::move(restored);
+  }
+  LayoutImageResourceRegistry::Get().SynchronizeWithLayouts(layouts);
 }
 
 // Saves the current layout collection to configuration metadata.
@@ -493,15 +516,6 @@ bool LayoutManager::LoadDefaultsForNewProject(ConfigManager &cfg) {
   PrepareImageResourcesForSave();
   SaveToConfig(cfg);
   return true;
-}
-
-void LayoutManager::SyncToConfig() {
-  if (batchDepth > 0) {
-    pendingSync = true;
-    return;
-  }
-  pendingSync = false;
-  SaveToConfig(ConfigManager::Get());
 }
 
 std::string LayoutManager::MakeUniqueLayoutName(

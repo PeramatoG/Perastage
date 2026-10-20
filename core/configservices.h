@@ -1,5 +1,7 @@
 #pragma once
 
+#include "layouts/LayoutImageResourceRegistry.h"
+
 #include <optional>
 #include <ostream>
 #include <cstdint>
@@ -103,6 +105,7 @@ public:
     std::unordered_set<std::string> hiddenLayers;
     std::string currentLayer;
     symbols::ProjectFixtureSymbolStore fixtureSymbols;
+    std::optional<layouts::LayoutImageResourceRegistry> layoutImageResources;
   };
 
   void PushUndoState(const MvrScene &scene, const SelectionState &selection,
@@ -112,19 +115,23 @@ public:
                      const LayerVisibilityState *layerState = nullptr,
                      const std::optional<std::string> &fixtureLabelOverrides =
                          std::nullopt,
-                     const symbols::ProjectFixtureSymbolStore *fixtureSymbols = nullptr);
+                     const symbols::ProjectFixtureSymbolStore *fixtureSymbols = nullptr,
+                     const layouts::LayoutImageResourceRegistry *layoutImageResources = nullptr);
   bool CanUndo() const;
   bool CanRedo() const;
+  // Optional metadata pointers are in/out: supply the departing state.
   std::string Undo(MvrScene &scene, SelectionState &selection,
                    std::optional<std::string> *layoutsCollection = nullptr,
                    LayerVisibilityState *layerState = nullptr,
                    std::optional<std::string> *fixtureLabelOverrides = nullptr,
-                   symbols::ProjectFixtureSymbolStore *fixtureSymbols = nullptr);
+                   symbols::ProjectFixtureSymbolStore *fixtureSymbols = nullptr,
+                   layouts::LayoutImageResourceRegistry *layoutImageResources = nullptr);
   std::string Redo(MvrScene &scene, SelectionState &selection,
                    std::optional<std::string> *layoutsCollection = nullptr,
                    LayerVisibilityState *layerState = nullptr,
                    std::optional<std::string> *fixtureLabelOverrides = nullptr,
-                   symbols::ProjectFixtureSymbolStore *fixtureSymbols = nullptr);
+                   symbols::ProjectFixtureSymbolStore *fixtureSymbols = nullptr,
+                   layouts::LayoutImageResourceRegistry *layoutImageResources = nullptr);
   void ClearHistory();
 
 private:

@@ -179,9 +179,8 @@ void LayoutViewerPanel::OnEditImage(wxCommandEvent &) {
   auto result = PromptForLayoutImage(this, "Selecciona una imagen");
   if (!result)
     return;
-  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  cfg.PushUndoState("edit layout image");
 
+  const auto previousImage = *image;
   wxScopedCharBuffer pathBuf = result->path.ToUTF8();
   image->imagePath = pathBuf.data() ? pathBuf.data() : "";
   image->aspectRatio = result->aspectRatio;
@@ -204,7 +203,10 @@ void LayoutViewerPanel::OnEditImage(wxCommandEvent &) {
   }
 
   if (!currentLayout.name.empty()) {
-    layouts::LayoutManager::Get().UpdateLayoutImage(currentLayout.name, *image);
+    if (!layouts::LayoutManager::Get().UpdateLayoutImage(currentLayout.name, *image)) {
+      *image = previousImage;
+      return;
+    }
   }
   ImageCache &cache = GetImageCache(image->id);
   cache.renderDirty = true;
@@ -222,8 +224,6 @@ void LayoutViewerPanel::OnDeleteImage(wxCommandEvent &) {
     return;
   const int imageId = image->id;
   if (!currentLayout.name.empty()) {
-    auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    cfg.PushUndoState("delete layout image");
     if (layouts::LayoutManager::Get().RemoveLayoutImage(currentLayout.name,
                                                         imageId)) {
       auto &images = currentLayout.imageViews;

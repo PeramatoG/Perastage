@@ -545,6 +545,10 @@ void LayoutViewerPanel::ResetPreviewCachesForProjectLoad() {
 // rebuilds when renderable data changes.
 void LayoutViewerPanel::SetLayoutDefinition(
     const layouts::LayoutDefinition &layout) {
+  if (interactionSession_.DragMode() != FrameDragMode::None) {
+    CancelFrameGesture();
+    mouseCapture_.Release("frame-drag");
+  }
   if (IsSameRenderableLayout(currentLayout, layout)) {
     currentLayout = layout;
     InvalidateSelectionIndexCache();
@@ -1247,11 +1251,6 @@ void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
         interactionSession_.CancelAfterCaptureLoss();
         return;
       }
-      if (!currentLayout.name.empty()) {
-        auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-        cfg.PushUndoState("edit layout element frame");
-        layouts::LayoutManager::Get().BeginBatchUpdate();
-      }
       return;
     }
   }
@@ -1263,23 +1262,21 @@ void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
 void LayoutViewerPanel::OnLeftUp(wxMouseEvent &) {
   const FrameDragMode dragMode = interactionSession_.DragMode();
   if (dragMode != FrameDragMode::None) {
-    if (dragMode != FrameDragMode::Move &&
-        interactionSession_.DeferredResize().has_value()) {
-      const layouts::Layout2DViewFrame finalFrame =
-          gui::layoutinteraction::FinalizeResizedFrame(
-              *interactionSession_.DeferredResize());
-      ApplyFrameUpdateToSelection(finalFrame, false);
-    }
-    if (dragMode == FrameDragMode::Move) {
-      layouts::Layout2DViewFrame finalFrame;
-      if (GetSelectedFrame(finalFrame)) {
-        finalFrame = gui::layoutinteraction::FinalizeMovedFrame(finalFrame);
-        ApplyFrameUpdateToSelection(finalFrame, true);
+    layouts::Layout2DViewFrame preview;
+    if (GetSelectedFrame(preview)) {
+      if (dragMode != FrameDragMode::Move)
+        preview = interactionSession_.DeferredResize().value_or(
+            interactionSession_.DragStartFrame());
+      const auto final = interactionSession_.FinalFrame(preview);
+      if (final) {
+        ApplyFrameUpdateToSelection(*final, dragMode == FrameDragMode::Move);
+        CommitPendingFrameUpdate();
+      } else if (dragMode == FrameDragMode::Move) {
+        ApplyFrameUpdateToSelection(interactionSession_.DragStartFrame(), true);
+        pendingFrameCommit_ = false;
       }
-      CommitPendingFrameUpdate();
     }
     interactionSession_.CompleteFrameDrag();
-    layouts::LayoutManager::Get().EndBatchUpdate();
     mouseCapture_.Release("frame-drag");
     return;
   }
@@ -1356,7 +1353,16 @@ void LayoutViewerPanel::OnKeyDown(wxKeyEvent &event) {
   }
 
   const int key = event.GetKeyCode();
+  if (key == WXK_ESCAPE && interactionSession_.DragMode() != FrameDragMode::None) {
+    CancelFrameGesture();
+    mouseCapture_.Release("frame-drag");
+    return;
+  }
   if (key == WXK_DELETE || key == WXK_NUMPAD_DELETE) {
+    if (interactionSession_.DragMode() != FrameDragMode::None) {
+      CancelFrameGesture();
+      mouseCapture_.Release("frame-drag");
+    }
     DeleteSelectedElement();
     return;
   }
@@ -1448,14 +1454,18 @@ void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
   Refresh();
 }
 
-// Commits pending movement and cancels transient state after capture loss.
+// Discards the local preview when a gesture is cancelled.
+void LayoutViewerPanel::CancelFrameGesture() {
+  if (interactionSession_.DragMode() == FrameDragMode::Move)
+    ApplyFrameUpdateToSelection(interactionSession_.DragStartFrame(), true);
+  pendingFrameCommit_ = false;
+  interactionSession_.CancelAfterCaptureLoss();
+  Refresh();
+}
+
 void LayoutViewerPanel::OnCaptureLost(wxMouseCaptureLostEvent &) {
   mouseCapture_.AbandonOnLoss("active-gesture");
-  CommitPendingFrameUpdate();
-  if (interactionSession_.DragMode() != FrameDragMode::None) {
-    layouts::LayoutManager::Get().EndBatchUpdate();
-  }
-  interactionSession_.CancelAfterCaptureLoss();
+  CancelFrameGesture();
 }
 
 void LayoutViewerPanel::ApplyFrameUpdateToSelection(
@@ -1520,6 +1530,10 @@ void LayoutViewerPanel::CommitPendingFrameUpdate() {
 }
 
 void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
+  if (interactionSession_.DragMode() != FrameDragMode::None) {
+    CancelFrameGesture();
+    mouseCapture_.Release("frame-drag");
+  }
   SetFocus();
   const wxPoint pos = layoutviewerpanel::GetLogicalMousePosition(event);
   if (!SelectElementAtPosition(pos)) {
@@ -1601,175 +1615,47 @@ void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
 }
 
 void LayoutViewerPanel::OnBringToFront(wxCommandEvent &) {
-  if (selectionState_.Current().id < 0)
-    return;
-  const int targetZ =
-      gui::layoutselection::BringToFrontTarget(BuildZOrderedElements());
-  if (selectionState_.Current().kind == LayoutElementKind::View2D) {
-    auto it = std::find_if(currentLayout.view2dViews.begin(),
-                           currentLayout.view2dViews.end(),
-                           [this](const auto &entry) {
-                             return entry.id == selectionState_.Current().id;
-                           });
-    if (it == currentLayout.view2dViews.end())
-      return;
-    it->zIndex = targetZ;
-    if (!currentLayout.name.empty()) {
-      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-      cfg.PushUndoState("bring layout element to front");
-      layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name, *it);
-    }
-  } else if (selectionState_.Current().kind == LayoutElementKind::Legend) {
-    auto it = std::find_if(currentLayout.legendViews.begin(),
-                           currentLayout.legendViews.end(),
-                           [this](const auto &entry) {
-                             return entry.id == selectionState_.Current().id;
-                           });
-    if (it == currentLayout.legendViews.end())
-      return;
-    it->zIndex = targetZ;
-    if (!currentLayout.name.empty()) {
-      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-      cfg.PushUndoState("bring layout element to front");
-      layouts::LayoutManager::Get().UpdateLayoutLegend(currentLayout.name, *it);
-    }
-  } else if (selectionState_.Current().kind == LayoutElementKind::EventTable) {
-    auto it = std::find_if(currentLayout.eventTables.begin(),
-                           currentLayout.eventTables.end(),
-                           [this](const auto &entry) {
-                             return entry.id == selectionState_.Current().id;
-                           });
-    if (it == currentLayout.eventTables.end())
-      return;
-    it->zIndex = targetZ;
-    if (!currentLayout.name.empty()) {
-      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-      cfg.PushUndoState("bring layout element to front");
-      layouts::LayoutManager::Get().UpdateLayoutEventTable(currentLayout.name,
-                                                           *it);
-    }
-  } else if (selectionState_.Current().kind == LayoutElementKind::Text) {
-    auto it =
-        std::find_if(currentLayout.textViews.begin(),
-                     currentLayout.textViews.end(), [this](const auto &entry) {
-                       return entry.id == selectionState_.Current().id;
-                     });
-    if (it == currentLayout.textViews.end())
-      return;
-    it->zIndex = targetZ;
-    if (!currentLayout.name.empty()) {
-      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-      cfg.PushUndoState("bring layout element to front");
-      layouts::LayoutManager::Get().UpdateLayoutText(currentLayout.name, *it);
-    }
-  } else if (selectionState_.Current().kind == LayoutElementKind::Image) {
-    auto it =
-        std::find_if(currentLayout.imageViews.begin(),
-                     currentLayout.imageViews.end(), [this](const auto &entry) {
-                       return entry.id == selectionState_.Current().id;
-                     });
-    if (it == currentLayout.imageViews.end())
-      return;
-    it->zIndex = targetZ;
-    if (!currentLayout.name.empty()) {
-      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-      cfg.PushUndoState("bring layout element to front");
-      layouts::LayoutManager::Get().UpdateLayoutImage(currentLayout.name, *it);
-    }
-  } else {
-    return;
-  }
-  layoutVersion++;
-  InvalidateSelectionIndexCache();
-  renderDirty = true;
-  RequestRenderRebuild();
-  Refresh();
+  StackSelectedElement(true);
 }
 
 void LayoutViewerPanel::OnSendToBack(wxCommandEvent &) {
-  if (selectionState_.Current().id < 0)
+  StackSelectedElement(false);
+}
+
+// Routes stacking to the Core operation, which preserves order on later edits.
+void LayoutViewerPanel::StackSelectedElement(bool toFront) {
+  const auto selected = selectionState_.Current();
+  if (selected.id < 0 || currentLayout.name.empty())
     return;
-  const int targetZ =
-      gui::layoutselection::SendToBackTarget(BuildZOrderedElements());
-  if (selectionState_.Current().kind == LayoutElementKind::View2D) {
-    auto it = std::find_if(currentLayout.view2dViews.begin(),
-                           currentLayout.view2dViews.end(),
-                           [this](const auto &entry) {
-                             return entry.id == selectionState_.Current().id;
-                           });
-    if (it == currentLayout.view2dViews.end())
-      return;
-    it->zIndex = targetZ;
-    if (!currentLayout.name.empty()) {
-      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-      cfg.PushUndoState("send layout element to back");
-      layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name, *it);
-    }
-  } else if (selectionState_.Current().kind == LayoutElementKind::Legend) {
-    auto it = std::find_if(currentLayout.legendViews.begin(),
-                           currentLayout.legendViews.end(),
-                           [this](const auto &entry) {
-                             return entry.id == selectionState_.Current().id;
-                           });
-    if (it == currentLayout.legendViews.end())
-      return;
-    it->zIndex = targetZ;
-    if (!currentLayout.name.empty()) {
-      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-      cfg.PushUndoState("send layout element to back");
-      layouts::LayoutManager::Get().UpdateLayoutLegend(currentLayout.name, *it);
-    }
-  } else if (selectionState_.Current().kind == LayoutElementKind::EventTable) {
-    auto it = std::find_if(currentLayout.eventTables.begin(),
-                           currentLayout.eventTables.end(),
-                           [this](const auto &entry) {
-                             return entry.id == selectionState_.Current().id;
-                           });
-    if (it == currentLayout.eventTables.end())
-      return;
-    it->zIndex = targetZ;
-    if (!currentLayout.name.empty()) {
-      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-      cfg.PushUndoState("send layout element to back");
-      layouts::LayoutManager::Get().UpdateLayoutEventTable(currentLayout.name,
-                                                           *it);
-    }
-  } else if (selectionState_.Current().kind == LayoutElementKind::Text) {
-    auto it =
-        std::find_if(currentLayout.textViews.begin(),
-                     currentLayout.textViews.end(), [this](const auto &entry) {
-                       return entry.id == selectionState_.Current().id;
-                     });
-    if (it == currentLayout.textViews.end())
-      return;
-    it->zIndex = targetZ;
-    if (!currentLayout.name.empty()) {
-      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-      cfg.PushUndoState("send layout element to back");
-      layouts::LayoutManager::Get().UpdateLayoutText(currentLayout.name, *it);
-    }
-  } else if (selectionState_.Current().kind == LayoutElementKind::Image) {
-    auto it =
-        std::find_if(currentLayout.imageViews.begin(),
-                     currentLayout.imageViews.end(), [this](const auto &entry) {
-                       return entry.id == selectionState_.Current().id;
-                     });
-    if (it == currentLayout.imageViews.end())
-      return;
-    it->zIndex = targetZ;
-    if (!currentLayout.name.empty()) {
-      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-      cfg.PushUndoState("send layout element to back");
-      layouts::LayoutManager::Get().UpdateLayoutImage(currentLayout.name, *it);
-    }
-  } else {
+  auto &manager = layouts::LayoutManager::Get();
+  bool success = false;
+  switch (selected.kind) {
+  case LayoutElementKind::View2D:
+    success = manager.MoveLayout2DView(currentLayout.name, selected.id, toFront);
+    break;
+  case LayoutElementKind::Legend:
+    success = manager.MoveLayoutLegend(currentLayout.name, selected.id, toFront);
+    break;
+  case LayoutElementKind::EventTable:
+    success = manager.MoveLayoutEventTable(currentLayout.name, selected.id, toFront);
+    break;
+  case LayoutElementKind::Text:
+    success = manager.MoveLayoutText(currentLayout.name, selected.id, toFront);
+    break;
+  case LayoutElementKind::Image:
+    success = manager.MoveLayoutImage(currentLayout.name, selected.id, toFront);
+    break;
+  default:
     return;
   }
-  layoutVersion++;
-  InvalidateSelectionIndexCache();
-  renderDirty = true;
-  RequestRenderRebuild();
-  Refresh();
+  if (success) {
+    for (const auto &layout : manager.GetLayouts().Items()) {
+      if (layout.name == currentLayout.name) {
+        SetLayoutDefinition(layout);
+        break;
+      }
+    }
+  }
 }
 
 // Reports whether the current client area can produce a reliable automatic fit.

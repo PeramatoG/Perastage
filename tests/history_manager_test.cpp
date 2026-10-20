@@ -2,8 +2,103 @@
 
 #include <cassert>
 
+namespace {
+// Exercises combined project states, absent metadata, empty metadata and branching.
+void TestLayoutHistory() {
+  HistoryManager history;
+  MvrScene scene;
+  SelectionState selection;
+  LayerVisibilityState layers;
+  std::optional<std::string> layout;
+  std::optional<std::string> labels;
+  const std::optional<std::string> values[]{std::nullopt, "", "{\"layouts\":[]}"};
+  const auto setState = [&](int index) {
+    scene.fixtures.clear();
+    Fixture fixture;
+    fixture.uuid = std::to_string(index);
+    scene.fixtures[fixture.uuid] = fixture;
+    selection.SetSelectedFixtures({fixture.uuid});
+    selection.SetSelectedTrusses({"truss-" + fixture.uuid});
+    selection.SetSelectedSupports({"support-" + fixture.uuid});
+    selection.SetSelectedSceneObjects({"object-" + fixture.uuid});
+    layers.SetHiddenLayers({fixture.uuid});
+    layers.SetCurrentLayer(fixture.uuid);
+    layout = values[index];
+    labels = "labels-" + fixture.uuid;
+  };
+  const auto check = [&](int index) {
+    const auto id = std::to_string(index);
+    assert(scene.fixtures.size() == 1 && scene.fixtures.contains(id));
+    assert(selection.GetSelectedFixtures() == std::vector<std::string>{id});
+    assert(selection.GetSelectedTrusses() == std::vector<std::string>{"truss-" + id});
+    assert(selection.GetSelectedSupports() == std::vector<std::string>{"support-" + id});
+    assert(selection.GetSelectedSceneObjects() == std::vector<std::string>{"object-" + id});
+    assert(layers.GetHiddenLayers() == std::unordered_set<std::string>{id});
+    assert(layers.GetCurrentLayer() == id);
+    assert(layout == values[index]);
+    assert(labels == "labels-" + id);
+  };
+  setState(0);
+  for (int next = 1; next <= 2; ++next) {
+    history.PushUndoState(scene, selection, "layout change", layout, &layers, labels);
+    setState(next);
+  }
+  for (int cycle = 0; cycle < 3; ++cycle) {
+    for (int previous : {1, 0}) {
+      assert(history.Undo(scene, selection, &layout, &layers, &labels) == "layout change");
+      check(previous);
+    }
+    assert(!history.CanUndo());
+    for (int next : {1, 2}) {
+      assert(history.Redo(scene, selection, &layout, &layers, &labels) == "layout change");
+      check(next);
+    }
+    assert(!history.CanRedo());
+  }
+  history.Undo(scene, selection, &layout, &layers, &labels);
+  history.PushUndoState(scene, selection, "new branch", layout, &layers, labels);
+  layout = "replacement";
+  assert(!history.CanRedo());
+  history.Undo(scene, selection, &layout, &layers, &labels);
+  check(1);
+  history.Redo(scene, selection, &layout, &layers, &labels);
+  assert(layout == "replacement");
+}
+// Interleaves scene-only and document-only operations in one history.
+void TestInterleavedHistory() {
+  HistoryManager history;
+  MvrScene scene;
+  SelectionState selection;
+  std::optional<std::string> layout = "A";
+  history.PushUndoState(scene, selection, "scene add", layout);
+  Fixture fixture;
+  fixture.uuid = "fixture";
+  scene.fixtures[fixture.uuid] = fixture;
+  history.PushUndoState(scene, selection, "layout edit", layout);
+  layout = "B";
+  history.PushUndoState(scene, selection, "scene delete", layout);
+  scene.fixtures.clear();
+  for (int cycle = 0; cycle < 2; ++cycle) {
+    assert(history.Undo(scene, selection, &layout) == "scene delete");
+    assert(scene.fixtures.size() == 1 && layout == "B");
+    assert(history.Undo(scene, selection, &layout) == "layout edit");
+    assert(scene.fixtures.size() == 1 && layout == "A");
+    assert(history.Undo(scene, selection, &layout) == "scene add");
+    assert(scene.fixtures.empty() && layout == "A");
+    assert(history.Redo(scene, selection, &layout) == "scene add");
+    assert(scene.fixtures.size() == 1 && layout == "A");
+    assert(history.Redo(scene, selection, &layout) == "layout edit");
+    assert(scene.fixtures.size() == 1 && layout == "B");
+    assert(history.Redo(scene, selection, &layout) == "scene delete");
+    assert(scene.fixtures.empty() && layout == "B");
+  }
+}
+} // namespace
+
 // Verifies scene history restoration for standard and continuous placement flows.
 int main() {
+  TestLayoutHistory();
+  TestInterleavedHistory();
   HistoryManager history;
   SelectionState selection;
   ProjectSession session;

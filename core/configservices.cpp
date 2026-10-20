@@ -586,7 +586,8 @@ void HistoryManager::PushUndoState(
     const std::optional<std::string> &layoutsCollection,
     const LayerVisibilityState *layerState,
     const std::optional<std::string> &fixtureLabelOverrides,
-    const symbols::ProjectFixtureSymbolStore *fixtureSymbols) {
+    const symbols::ProjectFixtureSymbolStore *fixtureSymbols,
+    const layouts::LayoutImageResourceRegistry *layoutImageResources) {
   Snapshot snap{scene,
                 selection.GetSelectedFixtures(),
                 selection.GetSelectedTrusses(),
@@ -597,7 +598,8 @@ void HistoryManager::PushUndoState(
                 fixtureLabelOverrides,
                 layerState ? layerState->GetHiddenLayers() : std::unordered_set<std::string>{},
                 layerState ? layerState->GetCurrentLayer() : std::string{},
-                fixtureSymbols ? *fixtureSymbols : symbols::ProjectFixtureSymbolStore{}};
+                fixtureSymbols ? *fixtureSymbols : symbols::ProjectFixtureSymbolStore{},
+                layoutImageResources ? std::optional(*layoutImageResources) : std::nullopt};
   undoStack.push_back(std::move(snap));
   if (undoStack.size() > maxHistory)
     undoStack.erase(undoStack.begin());
@@ -613,7 +615,8 @@ std::string HistoryManager::Undo(
     std::optional<std::string> *layoutsCollection,
     LayerVisibilityState *layerState,
     std::optional<std::string> *fixtureLabelOverrides,
-    symbols::ProjectFixtureSymbolStore *fixtureSymbols) {
+    symbols::ProjectFixtureSymbolStore *fixtureSymbols,
+    layouts::LayoutImageResourceRegistry *layoutImageResources) {
   if (undoStack.empty())
     return {};
   const Snapshot snap = undoStack.back();
@@ -623,13 +626,17 @@ std::string HistoryManager::Undo(
                        selection.GetSelectedSupports(),
                        selection.GetSelectedSceneObjects(),
                        snap.description,
-                       snap.layoutsCollection,
+                       layoutsCollection ? *layoutsCollection : snap.layoutsCollection,
                        fixtureLabelOverrides ? *fixtureLabelOverrides
                                              : snap.fixtureLabelOverrides,
                        layerState ? layerState->GetHiddenLayers() : std::unordered_set<std::string>{},
                        layerState ? layerState->GetCurrentLayer() : std::string{},
-                       fixtureSymbols ? *fixtureSymbols : symbols::ProjectFixtureSymbolStore{}});
+                       fixtureSymbols ? *fixtureSymbols : symbols::ProjectFixtureSymbolStore{},
+                       layoutImageResources ? std::optional(*layoutImageResources)
+                                            : snap.layoutImageResources});
   scene = snap.scene;
+  if (layoutImageResources && snap.layoutImageResources)
+    *layoutImageResources = *snap.layoutImageResources;
   if (fixtureSymbols)
     *fixtureSymbols = snap.fixtureSymbols;
   if (layoutsCollection)
@@ -654,7 +661,8 @@ std::string HistoryManager::Redo(
     std::optional<std::string> *layoutsCollection,
     LayerVisibilityState *layerState,
     std::optional<std::string> *fixtureLabelOverrides,
-    symbols::ProjectFixtureSymbolStore *fixtureSymbols) {
+    symbols::ProjectFixtureSymbolStore *fixtureSymbols,
+    layouts::LayoutImageResourceRegistry *layoutImageResources) {
   if (redoStack.empty())
     return {};
   const Snapshot snap = redoStack.back();
@@ -664,13 +672,17 @@ std::string HistoryManager::Redo(
                        selection.GetSelectedSupports(),
                        selection.GetSelectedSceneObjects(),
                        snap.description,
-                       snap.layoutsCollection,
+                       layoutsCollection ? *layoutsCollection : snap.layoutsCollection,
                        fixtureLabelOverrides ? *fixtureLabelOverrides
                                              : snap.fixtureLabelOverrides,
                        layerState ? layerState->GetHiddenLayers() : std::unordered_set<std::string>{},
                        layerState ? layerState->GetCurrentLayer() : std::string{},
-                       fixtureSymbols ? *fixtureSymbols : symbols::ProjectFixtureSymbolStore{}});
+                       fixtureSymbols ? *fixtureSymbols : symbols::ProjectFixtureSymbolStore{},
+                       layoutImageResources ? std::optional(*layoutImageResources)
+                                            : snap.layoutImageResources});
   scene = snap.scene;
+  if (layoutImageResources && snap.layoutImageResources)
+    *layoutImageResources = *snap.layoutImageResources;
   if (fixtureSymbols)
     *fixtureSymbols = snap.fixtureSymbols;
   if (layoutsCollection)

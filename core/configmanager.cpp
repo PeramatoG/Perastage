@@ -855,7 +855,8 @@ void ConfigManager::PushUndoState(const std::string &description) {
                                description, GetValue(kLayoutsConfigKey),
                                &layerVisibilityState,
                                GetValue(project_identity::kFixtureLabelOverridesConfigKey),
-                               &GetProjectFixtureSymbols());
+                               &GetProjectFixtureSymbols(),
+                               &layouts::LayoutImageResourceRegistry::Get());
   projectSession.Touch();
 }
 
@@ -867,8 +868,28 @@ void ConfigManager::PushUndoSnapshot(
   historyManager.PushUndoState(scene, selection, description,
                                GetValue(kLayoutsConfigKey),
                                &layerVisibilityState, fixtureLabelOverrides,
-                               &GetProjectFixtureSymbols());
+                               &GetProjectFixtureSymbols(),
+                               &layouts::LayoutImageResourceRegistry::Get());
   projectSession.Touch();
+}
+
+// Prepares configuration before history publication; the remaining moves cannot fail.
+void ConfigManager::CommitLayoutMutation(
+    const std::string &metadata,
+    const layouts::LayoutImageResourceRegistry &departingResources,
+    const std::string &description, bool recordHistory) {
+  auto preparedPreferences = preferencesStore;
+  preparedPreferences.SetValue(kLayoutsConfigKey, metadata);
+  if (recordHistory) {
+    historyManager.PushUndoState(
+        GetScene(), selectionState, description, GetValue(kLayoutsConfigKey),
+        &layerVisibilityState,
+        GetValue(project_identity::kFixtureLabelOverridesConfigKey),
+        &GetProjectFixtureSymbols(), &departingResources);
+  }
+  preferencesStore = std::move(preparedPreferences);
+  if (!suppressRevision)
+    projectSession.Touch();
 }
 
 bool ConfigManager::CanUndo() const { return historyManager.CanUndo(); }
@@ -879,25 +900,25 @@ std::string ConfigManager::Undo() {
   if (!historyManager.CanUndo())
     return {};
   projectSession.InvalidateRenderState();
-  std::optional<std::string> layoutsCollection;
+  projectSession.Touch();
+  std::optional<std::string> layoutsCollection = GetValue(kLayoutsConfigKey);
   std::optional<std::string> fixtureLabelOverrides =
       GetValue(project_identity::kFixtureLabelOverridesConfigKey);
   std::string action =
       historyManager.Undo(projectSession.GetScene(), selectionState,
                           &layoutsCollection, &layerVisibilityState,
-                          &fixtureLabelOverrides, &GetProjectFixtureSymbols());
+                          &fixtureLabelOverrides, &GetProjectFixtureSymbols(),
+                          &layouts::LayoutImageResourceRegistry::Get());
   if (fixtureLabelOverrides)
     SetValue(project_identity::kFixtureLabelOverridesConfigKey,
              *fixtureLabelOverrides);
   else
     RemoveKey(project_identity::kFixtureLabelOverridesConfigKey);
-  if (!action.empty() || layoutsCollection.has_value()) {
-    if (layoutsCollection.has_value())
-      SetValue(kLayoutsConfigKey, *layoutsCollection);
-    else
-      RemoveKey(kLayoutsConfigKey);
-    layouts::LayoutManager::Get().LoadFromConfig(*this);
-  }
+  if (layoutsCollection.has_value())
+    SetValue(kLayoutsConfigKey, *layoutsCollection);
+  else
+    RemoveKey(kLayoutsConfigKey);
+  layouts::LayoutManager::Get().RestoreFromHistory(layoutsCollection);
   return action;
 }
 
@@ -906,25 +927,24 @@ std::string ConfigManager::Redo() {
     return {};
   projectSession.InvalidateRenderState();
   projectSession.Touch();
-  std::optional<std::string> layoutsCollection;
+  std::optional<std::string> layoutsCollection = GetValue(kLayoutsConfigKey);
   std::optional<std::string> fixtureLabelOverrides =
       GetValue(project_identity::kFixtureLabelOverridesConfigKey);
   std::string action =
       historyManager.Redo(projectSession.GetScene(), selectionState,
                           &layoutsCollection, &layerVisibilityState,
-                          &fixtureLabelOverrides, &GetProjectFixtureSymbols());
+                          &fixtureLabelOverrides, &GetProjectFixtureSymbols(),
+                          &layouts::LayoutImageResourceRegistry::Get());
   if (fixtureLabelOverrides)
     SetValue(project_identity::kFixtureLabelOverridesConfigKey,
              *fixtureLabelOverrides);
   else
     RemoveKey(project_identity::kFixtureLabelOverridesConfigKey);
-  if (!action.empty() || layoutsCollection.has_value()) {
-    if (layoutsCollection.has_value())
-      SetValue(kLayoutsConfigKey, *layoutsCollection);
-    else
-      RemoveKey(kLayoutsConfigKey);
-    layouts::LayoutManager::Get().LoadFromConfig(*this);
-  }
+  if (layoutsCollection.has_value())
+    SetValue(kLayoutsConfigKey, *layoutsCollection);
+  else
+    RemoveKey(kLayoutsConfigKey);
+  layouts::LayoutManager::Get().RestoreFromHistory(layoutsCollection);
   return action;
 }
 

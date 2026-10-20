@@ -77,7 +77,6 @@ layouts::Layout2DViewFrame BuildDefaultLayout2DFrame(
   return {x, y, width, height};
 }
 
-
 bool IsPaneShown(wxAuiManager *manager, const char *name) {
   if (!manager)
     return false;
@@ -175,7 +174,6 @@ std::string ApplyBottomPaneProportionsToPerspective(
   OverridePaneProportion(adjusted, "RiggingPanel", "55000");
   return adjusted;
 }
-
 
 layouts::Layout2DViewFrame BuildDefaultLayoutLegendFrame(
     const layouts::LayoutDefinition &layout) {
@@ -743,7 +741,6 @@ void MainWindow::ApplySavedLayout() {
   if (view2dPane.IsOk())
     view2dPane.MinSize(wxSize(250, 600));
 
-
   auiManager->Update();
   if (startupSplashInitializationPending && startupMetrics_)
     ++startupMetrics_->auiUpdates;
@@ -848,7 +845,6 @@ void MainWindow::OnLayoutAdd2DView(wxCommandEvent &WXUNUSED(event)) {
   layouts::Layout2DViewDefinition view =
       viewer2d::ToLayoutDefinition(baseState, frame);
 
-  cfg.PushUndoState("add layout 2d view");
   layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName, view);
 
   if (layoutViewerPanel) {
@@ -879,8 +875,6 @@ void MainWindow::OnLayoutAddLegend(wxCommandEvent &WXUNUSED(event)) {
   layouts::LayoutLegendDefinition legend;
   legend.frame = BuildDefaultLayoutLegendFrame(*layout);
 
-  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  cfg.PushUndoState("add layout legend");
   layouts::LayoutManager::Get().UpdateLayoutLegend(activeLayoutName, legend);
 
   if (layoutViewerPanel) {
@@ -911,8 +905,6 @@ void MainWindow::OnLayoutAddEventTable(wxCommandEvent &WXUNUSED(event)) {
   layouts::LayoutEventTableDefinition table;
   table.frame = BuildDefaultLayoutEventTableFrame(*layout);
 
-  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  cfg.PushUndoState("add layout event table");
   layouts::LayoutManager::Get().UpdateLayoutEventTable(activeLayoutName, table);
 
   if (layoutViewerPanel) {
@@ -946,8 +938,6 @@ void MainWindow::OnLayoutAddText(wxCommandEvent &WXUNUSED(event)) {
   text.solidBackground = true;
   text.drawFrame = true;
 
-  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  cfg.PushUndoState("add layout text");
   layouts::LayoutManager::Get().UpdateLayoutText(activeLayoutName, text);
 
   if (layoutViewerPanel) {
@@ -985,8 +975,6 @@ void MainWindow::OnLayoutAddImage(wxCommandEvent &WXUNUSED(event)) {
   image.imagePath = pathBuf.data() ? pathBuf.data() : "";
   image.aspectRatio = result->aspectRatio;
 
-  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  cfg.PushUndoState("add layout image");
   layouts::LayoutManager::Get().UpdateLayoutImage(activeLayoutName, image);
 
   if (layoutViewerPanel) {
@@ -1175,7 +1163,7 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   } else if (editableView) {
     updatedView.zIndex = editableView->zIndex;
   }
-  cfg.PushUndoState("edit layout 2d view");
+
   if (!layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName,
                                                         updatedView)) {
     Logger::Instance().Log(
@@ -1262,7 +1250,7 @@ void MainWindow::PersistLayout2DViewState() {
   } else if (editableView) {
     view.zIndex = editableView->zIndex;
   }
-  layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName, view);
+  layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName, view, false);
 }
 
 // Restores the selected layout 2D view into the active 2D viewport while preserving startup clean-state semantics.

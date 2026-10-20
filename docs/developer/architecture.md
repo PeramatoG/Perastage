@@ -563,3 +563,16 @@ and shared package validation). Native queue controls, credentials and catalog
 selection stay in `gui/`; the existing download queue modal boundary is reused.
 See [MVR GDTF resolution](technical-notes/mvr_gdtf_download_queue.md) for ownership,
 automatic selection policy and the proposed headless adapter boundary.
+
+## Layout mutation history
+
+`LayoutManager` owns candidate validation and semantic change detection for page
+and element operations. Successful changes publish one departing project snapshot
+through `ConfigManager`; unchanged or rejected candidates publish nothing. GUI
+frame movement remains a local preview until release, and cancellation discards
+it. Passive 2D viewport persistence explicitly skips history publication.
+
+Project history captures Layout metadata presence and image registry bytes along
+with scene, selection, layer state, label overrides and fixture symbols. History
+restoration bypasses startup default loading and resource re-reading, preserving
+absent metadata and explicitly empty collections without rewriting configuration.

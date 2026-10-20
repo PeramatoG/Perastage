@@ -18,6 +18,7 @@
 #pragma once
 
 #include "LayoutCollection.h"
+#include <functional>
 
 class ConfigManager;
 
@@ -35,7 +36,7 @@ public:
   bool RemoveLayout(const std::string &name);
   bool SetLayoutOrientation(const std::string &name, bool landscape);
   bool UpdateLayout2DView(const std::string &name,
-                          const Layout2DViewDefinition &view);
+                          const Layout2DViewDefinition &view, bool recordHistory = true);
   bool RemoveLayout2DView(const std::string &name, int viewId);
   bool MoveLayout2DView(const std::string &name, int viewId, bool toFront);
   bool UpdateLayoutLegend(const std::string &name,
@@ -62,23 +63,21 @@ public:
                             std::string *createdLayoutName,
                             std::string *error);
 
-  void BeginBatchUpdate();
-  void EndBatchUpdate();
-
   void LoadFromConfig(ConfigManager &cfg);
+  void RestoreFromHistory(const std::optional<std::string> &metadata);
   void SaveToConfig(ConfigManager &cfg) const;
   void PrepareImageResourcesForSave();
   void ResetToDefault(ConfigManager &cfg);
   bool LoadDefaultsForNewProject(ConfigManager &cfg);
 
 private:
+  bool ApplyMutation(const std::string &description,
+                     const std::function<bool(LayoutCollection &)> &mutation,
+                     bool recordHistory = true);
   LayoutManager();
   std::string MakeUniqueLayoutName(const std::string &baseName) const;
-  void SyncToConfig();
 
   LayoutCollection layouts;
-  int batchDepth = 0;
-  bool pendingSync = false;
 };
 
 } // namespace layouts
