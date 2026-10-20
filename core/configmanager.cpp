@@ -904,8 +904,7 @@ bool ConfigManager::CommitFixtureLabelMutation(
       &layerVisibilityState, previous, &GetProjectFixtureSymbols(),
       &layouts::LayoutImageResourceRegistry::Get());
   preferencesStore = std::move(preparedPreferences);
-  projectSession.InvalidateRenderState();
-  if (!suppressRevision) projectSession.Touch();
+  if (!suppressRevision) projectSession.TouchPresentation();
   return true;
 }
 

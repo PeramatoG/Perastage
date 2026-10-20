@@ -38,6 +38,8 @@ FixtureLabelComposition ComposeFixtureLabels(const ConfigManager &cfg,
     if (style.anchor == 2) y = bounds.minY;
     if (style.anchor == 3) x = bounds.minX;
     if (style.anchor == 4) x = bounds.maxX;
+    FixtureLabelComposition::Field field;
+    field.first = out.text.size();
     for (const auto &g : diagnostic.glyphs) {
       CanvasTextStyle canvas;
       canvas.fontFamily = style.bold ? "perastage-sans-bold" : "perastage-sans";
@@ -45,9 +47,23 @@ FixtureLabelComposition ComposeFixtureLabels(const ConfigManager &cfg,
       canvas.ascent = diagnostic.ascent; canvas.descent = diagnostic.descent;
       canvas.lineHeight = diagnostic.lineHeight;
       canvas.color = {style.color[0], style.color[1], style.color[2], 1};
+      canvas.outlineColor = {style.outlineColor[0], style.outlineColor[1], style.outlineColor[2], 1};
+      canvas.outlineWidth = style.outlineEnabled ? style.outlineWidth : 0;
+      const double gx = x + style.x + g.x, gy = y + style.y + g.baseline;
+      const LabelBounds glyph{gx - canvas.outlineWidth, gy - diagnostic.descent - canvas.outlineWidth,
+                              gx + g.advance + canvas.outlineWidth, gy + diagnostic.ascent + canvas.outlineWidth};
+      if (!field.count) field.bounds = glyph;
+      else {
+        field.bounds.minX = std::min(field.bounds.minX,glyph.minX);
+        field.bounds.minY = std::min(field.bounds.minY,glyph.minY);
+        field.bounds.maxX = std::max(field.bounds.maxX,glyph.maxX);
+        field.bounds.maxY = std::max(field.bounds.maxY,glyph.maxY);
+      }
+      ++field.count;
       out.text.push_back({static_cast<float>(x + style.x + g.x),
                          static_cast<float>(y + style.y + g.baseline), g.text, canvas});
     }
+    if (field.count) out.fields[f] = field;
   }
   return out;
 }

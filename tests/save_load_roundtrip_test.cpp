@@ -403,6 +403,7 @@ int main() {
     viewer2d::ApplyShowLabelNameOverride(cfg, {nonCanonicalFixtureUuid}, 0, true);
     auto labelStyles = viewer2d::LoadFixtureLabelOverrides(cfg);
     viewer2d::LabelFieldStyle labelStyle;
+    labelStyle.outlineColor = {.1f,.2f,.3f}; labelStyle.outlineWidth = .017f;
     labelStyle.size = .177f; labelStyle.bold = true; labelStyle.x = .13f;
     labelStyles[nonCanonicalFixtureUuid].fieldStyles[0][0] = labelStyle;
     labelStyles[viewer2d::kLabelDefaultsKey].fieldStyles[1][2] = labelStyle;

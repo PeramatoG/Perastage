@@ -1,6 +1,11 @@
 target_sources(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_editor_drag.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_editor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_preview_composition.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_preview_symbol.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_preview_interaction.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_preview.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_label_presentation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_export_dialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_download_queue_dialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_download_queue_table.cpp

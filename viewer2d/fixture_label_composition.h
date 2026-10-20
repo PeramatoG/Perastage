@@ -9,6 +9,8 @@ struct LabelBounds {
   bool operator==(const LabelBounds &) const = default;
 };
 struct FixtureLabelComposition {
+  struct Field { size_t first = 0, count = 0; LabelBounds bounds; };
+  std::array<std::optional<Field>,3> fields;
   std::vector<TextCommand> text;
   std::vector<std::string> diagnostics;
 };

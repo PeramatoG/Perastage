@@ -247,3 +247,10 @@ application keeps the window open for review; it cannot acknowledge incomplete
 work. Escape, Cancel and close always restore every original MVR profile and
 per-instance mode, including when cancellation follows an OK application request.
 No global accelerator is registered or remapped.
+
+## Fixture Label Editor preview
+
+While the preview owns an active label drag, its local character hook consumes
+`Escape`, restores the draft from before the drag and releases mouse capture.
+The dialog stays open. Outside a drag, normal dialog cancellation applies. No
+global accelerator or viewport navigation shortcut changes.

@@ -19,6 +19,7 @@
 #include <nanovg.h>
 #include <wx/translation.h>
 #include "render/opengl_state_guard.h"
+#include "nanovg_canvas_text.h"
 
 void DrawComposedFixtureLabels(ISelectionContext &controller, int width, int height,
     Viewer2DView view, float zoom, const viewer2d::FixtureLabelOverrideMap &styles,
@@ -74,18 +75,16 @@ void DrawComposedFixtureLabels(ISelectionContext &controller, int width, int hei
       }
       const auto &layout = cache.Resolve(cfg, styles, fixture, static_cast<int>(view), bounds, *fonts);
       if (capture && controller.GetCaptureCanvas()) controller.GetCaptureCanvas()->SetSourceKey("label:" + uuid);
+      for (auto pass : {typography::TextInkPass::Outline, typography::TextInkPass::Fill})
       for (const auto &t : layout.text) {
-        if (capture && controller.GetCaptureCanvas()) controller.RecordText(t.x, t.y, t.text, t.style);
+        if (pass == typography::TextInkPass::Fill && capture && controller.GetCaptureCanvas())
+          controller.RecordText(t.x, t.y, t.text, t.style);
         double wx = t.x, wy = t.y, wz = 0;
         if (view == Viewer2DView::Front) { wy = 0; wz = t.y; }
         if (view == Viewer2DView::Side) { wx = 0; wy = -t.x; wz = t.y; }
         double sx, sy, sz;
         if (gluProject(wx, wy, wz, model, projection, viewport, &sx, &sy, &sz) != GL_TRUE) continue;
-        nvgFontFace(vg, t.style.fontFamily.c_str());
-        nvgFontSize(vg, (t.style.ascent + t.style.descent) * 25.f * zoom);
-        nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_BASELINE);
-        nvgFillColor(vg, nvgRGBAf(t.style.color.r,t.style.color.g,t.style.color.b,1));
-        nvgText(vg, sx, height - sy, t.text.c_str(), nullptr);
+        viewer2d::DrawCanvasText(vg, t, sx, height - sy, 25.0 * zoom, pass);
       }
     }
   } catch (const std::exception &e) {

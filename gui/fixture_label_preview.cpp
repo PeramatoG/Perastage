@@ -17,28 +17,42 @@
 #include "symbols/project_fixture_symbol_runtime.h"
 #include "projectutils.h"
 #include "opaque_pass_utils.h"
+#include "nanovg_canvas_text.h"
 #include <wx/dcclient.h>
 #include <wx/font.h>
 #include <wx/stattext.h>
 #include <cmath>
 
 FixtureLabelPreview::FixtureLabelPreview(wxWindow *parent, ConfigManager &cfg, wxStaticText &status)
-    : wxGLCanvas(parent, wxID_ANY, gl_lifecycle::GetStandardCanvasAttributes(), wxDefaultPosition, wxSize(300,300)), cfg_(cfg), status_(status) {
+    : wxGLCanvas(parent, wxID_ANY, gl_lifecycle::GetStandardCanvasAttributes(), wxDefaultPosition, wxSize(300,300)), cfg_(cfg), status_(status), mouseCapture_(*this,"FixtureLabelPreview") {
   SetBackgroundStyle(wxBG_STYLE_CUSTOM);
   const auto root = ProjectUtils::GetResourceRoot();
   try { fonts_.emplace(root); }
   catch (const std::exception &) { error_ = _("Bundled label fonts are unavailable."); }
   Bind(wxEVT_PAINT, &FixtureLabelPreview::Paint, this);
-  Bind(wxEVT_SIZE, [this](wxSizeEvent &e) { Refresh(); e.Skip(); });
+  Bind(wxEVT_SIZE, [this](wxSizeEvent &e) { CancelDrag(); lockedScale_.reset(); Refresh(false); e.Skip(); });
+  Bind(wxEVT_LEFT_DOWN, &FixtureLabelPreview::MouseDown, this);
+  Bind(wxEVT_MOTION, &FixtureLabelPreview::MouseMove, this);
+  Bind(wxEVT_LEFT_UP, &FixtureLabelPreview::MouseUp, this);
+  Bind(wxEVT_MOUSE_CAPTURE_LOST, &FixtureLabelPreview::CaptureLost, this);
+  Bind(wxEVT_CHAR_HOOK, [this](wxKeyEvent &e) {
+    if (e.GetKeyCode() == WXK_ESCAPE && drag_.Active()) CancelDrag(); else e.Skip();
+  });
 }
 FixtureLabelPreview::~FixtureLabelPreview() {
+  if (mouseCapture_.IsOwned()) mouseCapture_.Release("preview destroy");
   if (vg_ && gl_lifecycle::TrySetCurrent(*this, context_.get(), "FixtureLabelPreview", "destroy", false))
     nvgDeleteGL2(vg_);
 }
 void FixtureLabelPreview::SetContent(const Fixture &fixture, int view,
     const viewer2d::FixtureLabelOverrideMap &styles) {
   const bool resourceChanged = fixture_.uuid != fixture.uuid || fixture_.gdtfSpec != fixture.gdtfSpec || fixture_.gdtfMode != fixture.gdtfMode;
+  const bool geometryChanged = resourceChanged || view_ != view || symbolRevision_ != cfg_.GetRenderRevision() ||
+      fixture_.transform.u != fixture.transform.u || fixture_.transform.v != fixture.transform.v || fixture_.transform.w != fixture.transform.w;
+  if (view_ != view) { CancelDrag(); lockedScale_.reset(); }
   fixture_ = fixture; styles_ = styles; view_ = view;
+  if (!geometryChanged) { RebuildComposition(); Refresh(false); return; }
+  symbolRevision_ = cfg_.GetRenderRevision();
   const auto projection = ResolveFixtureSymbolProjection(fixture.transform,
       static_cast<Viewer2DView>(view), cfg_.GetFloat("view2d_top_fixtures_inverted") != 0);
   symbolTransform_ = projection.instanceTransform;
@@ -66,7 +80,7 @@ void FixtureLabelPreview::SetContent(const Fixture &fixture, int view,
            bounds_.maxX = std::max(bounds_.maxX,x); bounds_.maxY = std::max(bounds_.maxY,y); }
   }
   symbol_ = symbol_cache::LoadUsableFixtureSymbol(source, kind);
-  Refresh();
+  RebuildComposition(); Refresh(false);
 }
 void FixtureLabelPreview::Paint(wxPaintEvent &) {
   wxPaintDC dc(this);
@@ -74,120 +88,55 @@ void FixtureLabelPreview::Paint(wxPaintEvent &) {
   if (!context_) {
     context_ = std::make_unique<wxGLContext>(this);
     if (!gl_lifecycle::InitializeGlew(*this, *context_, "FixtureLabelPreview").success) {
-      error_ = _("Present; preview unavailable");
-      dc.DrawText(error_,10,10); return;
+      error_ = _("Present; preview unavailable"); dc.DrawText(error_,10,10); return;
     }
   }
-  if (!gl_lifecycle::TrySetCurrent(*this, context_.get(), "FixtureLabelPreview", "paint")) return;
+  if (!gl_lifecycle::TrySetCurrent(*this,context_.get(),"FixtureLabelPreview","paint")) return;
   if (!vg_) {
     vg_ = nvgCreateGL2(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
     if (!vg_) { dc.DrawText(_("Present; preview unavailable"),10,10); return; }
     const auto root = ProjectUtils::GetResourceRoot();
     for (const bool bold : {false,true}) {
       const auto path = typography::BundledFontPath(root,bold);
-      if (nvgCreateFont(vg_, bold ? "perastage-sans-bold" : "perastage-sans", path.string().c_str()) < 0) {
+      if (nvgCreateFont(vg_,bold?"perastage-sans-bold":"perastage-sans",path.string().c_str()) < 0) {
         error_ = _("Bundled label fonts are unavailable.");
-        nvgDeleteGL2(vg_); vg_ = nullptr; dc.DrawText(error_,10,10); return;
+        nvgDeleteGL2(vg_); vg_=nullptr; dc.DrawText(error_,10,10); return;
       }
     }
   }
   const auto size = GetClientSize();
-  const double ratio = GetContentScaleFactor();
+  if(size.x<=0 || size.y<=0)return;
+  const double ratio=GetContentScaleFactor();
   glViewport(0,0,std::lround(size.x*ratio),std::lround(size.y*ratio));
-  glClearColor(1,1,1,1); glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  const float background=darkBackground_?.10f:1.f;
+  glClearColor(background,background,background,1);
+  glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glDisable(GL_DEPTH_TEST);
-  nvgBeginFrame(vg_,size.x,size.y,ratio);
-  nvgScissor(vg_,0,0,size.x,size.y);
-  double minX = -.1, minY = -.1, maxX = .1, maxY = .1;
-  double anchorX = 0, anchorY = 0;
-  if (symbol_) {
-    bool first = true;
-    const auto include = [&](const auto &points) {
-      for (const auto &p : points) {
-        const double x = (p.x + symbol_->offsetXmm) / 1000;
-        const double y = (p.y + symbol_->offsetYmm) / 1000;
-        if (first) { minX = maxX = x; minY = maxY = y; first = false; }
-        else { minX = std::min(minX,x); minY = std::min(minY,y);
-               maxX = std::max(maxX,x); maxY = std::max(maxY,y); }
-      }
-    };
-    for (const auto &p : symbol_->strokes) include(p.points);
-    for (const auto &p : symbol_->fills) include(p.points);
-    anchorX = (minX + maxX) / 2;
-    const bool hang = symbol_->viewKind == SymbolViewKind::Front || symbol_->viewKind == SymbolViewKind::Left;
-    anchorY = hang ? maxY : (minY + maxY) / 2;
-    minX -= anchorX; maxX -= anchorX; minY -= anchorY; maxY -= anchorY;
+  nvgBeginFrame(vg_,size.x,size.y,ratio); nvgScissor(vg_,0,0,size.x,size.y);
+  double extentX=std::max(.5,std::max(std::abs(bounds_.minX),std::abs(bounds_.maxX)));
+  double extentY=std::max(.5,std::max(std::abs(bounds_.minY),std::abs(bounds_.maxY)));
+  for(const auto &field:composition_.fields)if(field){
+    extentX=std::max({extentX,std::abs(field->bounds.minX),std::abs(field->bounds.maxX)});
+    extentY=std::max({extentY,std::abs(field->bounds.minY),std::abs(field->bounds.maxY)});
   }
-  const auto &bounds = bounds_;
-  // Estimate legacy group stacking without migrating its saved settings.
-  auto previewStyles = styles_;
-  std::array<viewer2d::LabelFieldStyle,3> legacy;
-  double groupHeight = 0;
-  for (int f = 0; f < 3; ++f) {
-    legacy[f] = viewer2d::ResolveFieldStyle(cfg_, styles_, fixture_.uuid, view_, f);
-    if (!viewer2d::HasFieldPresentation(styles_, fixture_.uuid, view_, f) && legacy[f].visible) {
-      const auto &font = legacy[f].bold ? fonts_->bold : fonts_->regular;
-      groupHeight += (font.ascent + std::abs(font.descent)) * legacy[f].size / font.unitsPerEm;
-    }
+  const double scale=lockedScale_.value_or(std::min(std::max(1,size.x-30)/(extentX*2),std::max(1,size.y-30)/(extentY*2)));
+  previewTransform_={size.x/2.0,size.y/2.0,scale};
+  DrawSymbol(scale);
+  if((hover_ || drag_.Active()) && composition_.fields[activeField_]){
+    const auto &b=composition_.fields[activeField_]->bounds;
+    const auto p=previewTransform_.ToScreen(b.minX,b.maxY);
+    nvgBeginPath(vg_);nvgRect(vg_,p.x-2,p.y-2,(b.maxX-b.minX)*scale+4,(b.maxY-b.minY)*scale+4);
+    nvgStrokeColor(vg_,nvgRGB(45,140,255));nvgStrokeWidth(vg_,drag_.Active()?2:1);nvgStroke(vg_);
   }
-  double top = groupHeight / 2;
-  for (int f = 0; f < 3; ++f) {
-    if (viewer2d::HasFieldPresentation(styles_, fixture_.uuid, view_, f)) continue;
-    auto &s = legacy[f];
-    const auto &font = s.bold ? fonts_->bold : fonts_->regular;
-    const double ascent = font.ascent * s.size / font.unitsPerEm;
-    const double height = (font.ascent + std::abs(font.descent)) * s.size / font.unitsPerEm;
-    s.y += f * s.size + top - ascent;
-    if (s.visible) top -= height;
-    previewStyles[fixture_.uuid].fieldStyles[view_][f] = s;
+  // Finish every halo before any fill so adjacent glyphs cannot erase each other.
+  for (auto pass : {typography::TextInkPass::Outline, typography::TextInkPass::Fill})
+  for(const auto &text:composition_.text){
+    const auto p=previewTransform_.ToScreen(text.x,text.y);
+    viewer2d::DrawCanvasText(vg_,text,p.x,p.y,scale,pass);
   }
-  const auto layout = viewer2d::ComposeFixtureLabels(cfg_, previewStyles, fixture_, view_, bounds, *fonts_);
-  double extentX = std::max(.5, std::max(std::abs(bounds.minX),std::abs(bounds.maxX)));
-  double extentY = std::max(.5, std::max(std::abs(bounds.minY),std::abs(bounds.maxY)));
-  for (const auto &t : layout.text) {
-    extentX = std::max(extentX, std::abs(static_cast<double>(t.x)) + t.style.fontSize);
-    extentY = std::max(extentY, std::abs(t.y) + t.style.fontSize*1.5);
-  }
-  const double scale = std::min((size.x-30)/(extentX*2), (size.y-60)/(extentY*2));
-  const auto point = [&](double x, double y) {
-    return std::array<float,2>{static_cast<float>(size.x/2+x*scale),static_cast<float>(size.y/2-y*scale)};
-  };
-  nvgStrokeColor(vg_,nvgRGB(60,60,65)); nvgStrokeWidth(vg_,1);
-  const auto contour = [&](const auto &points) {
-    if (points.size() < 2) return;
-    bool first = true;
-    for (const auto &v : points) {
-      const double x = (v.x+symbol_->offsetXmm)/1000-anchorX;
-      const double y = (v.y+symbol_->offsetYmm)/1000-anchorY;
-      const auto p = point(symbolTransform_.a*x+symbolTransform_.c*y,
-                           symbolTransform_.b*x+symbolTransform_.d*y);
-      if (first) { nvgMoveTo(vg_,p[0],p[1]); first = false; }
-      else nvgLineTo(vg_,p[0],p[1]);
-    }
-  };
-  if (symbol_) {
-    for (const auto &p : symbol_->strokes) { nvgBeginPath(vg_); contour(p.points); nvgStroke(vg_); }
-    for (const auto &p : symbol_->fills) {
-      nvgBeginPath(vg_); contour(p.points); nvgClosePath(vg_);
-      for (const auto &hole : p.holes) { contour(hole); nvgClosePath(vg_); nvgPathWinding(vg_,NVG_HOLE); }
-      nvgFillColor(vg_,nvgRGB(60,60,65)); nvgFill(vg_);
-    }
-  } else {
-    const auto a = point(bounds.minX,bounds.maxY), b = point(bounds.maxX,bounds.minY);
-    nvgBeginPath(vg_); nvgRect(vg_,a[0],a[1],b[0]-a[0],b[1]-a[1]); nvgStroke(vg_);
-
-  }
-  for (const auto &t : layout.text) {
-    const auto p = point(t.x,t.y);
-    nvgFontFace(vg_,t.style.fontFamily.c_str());
-    nvgFontSize(vg_,(t.style.ascent+t.style.descent)*scale);
-    nvgTextAlign(vg_,NVG_ALIGN_LEFT | NVG_ALIGN_BASELINE);
-    nvgFillColor(vg_,nvgRGBAf(t.style.color.r,t.style.color.g,t.style.color.b,1));
-    nvgText(vg_,p[0],p[1],t.text.c_str(),nullptr);
-  }
-  status_.SetLabel(!layout.diagnostics.empty()
+  status_.SetLabel(!composition_.diagnostics.empty()
       ? _("Unsupported text: change the fixture attribute before export.")
+      : darkBackground_ ? _("Dark preview: symbol contours are lightened for display only.")
       : symbol_ ? _("Preview uses the first fixture in this scope.") : _("Symbol unavailable"));
-  status_.Wrap(290);
-  nvgEndFrame(vg_); SwapBuffers();
+  status_.Wrap(290); nvgEndFrame(vg_); SwapBuffers();
 }

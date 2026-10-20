@@ -53,6 +53,7 @@ struct LabelLine2D {
   std::string text;
   float size;
   std::string fontFamily;
+  bool suppressed = false;
 };
 
 struct SupportLabelText {
@@ -68,6 +69,7 @@ struct FixtureLayoutLine {
   float baseSize = 0.0f;
   std::string fontFamily;
   bool useBoldFont = false;
+  bool suppressed = false;
 };
 
 struct FixtureLayoutKey {
@@ -78,6 +80,7 @@ struct FixtureLayoutKey {
   bool showName = false;
   bool showId = false;
   bool showDmx = false;
+  std::array<bool,3> modernFields{};
   float nameSize = 0.0f;
   float idSize = 0.0f;
   float dmxSize = 0.0f;
@@ -92,7 +95,7 @@ struct FixtureLayoutKey {
            showDmx == other.showDmx && nameSize == other.nameSize &&
            idSize == other.idSize && dmxSize == other.dmxSize &&
            labelDist == other.labelDist && labelAngle == other.labelAngle &&
-           view == other.view;
+           view == other.view && modernFields == other.modernFields;
   }
 };
 
@@ -186,7 +189,7 @@ FixtureLayoutCacheEntry BuildFixtureLayoutEntry(const FixtureLayoutKey &layoutKe
       auto utf8 = line.ToUTF8();
       entry.lines.push_back(
           {std::string(utf8.data(), utf8.length()), layoutKey.nameSize,
-           kRegularFamily, false});
+           kRegularFamily, false, layoutKey.modernFields[0]});
     }
   }
 
@@ -195,7 +198,7 @@ FixtureLayoutCacheEntry BuildFixtureLayoutEntry(const FixtureLayoutKey &layoutKe
     auto utf8 = idLine.ToUTF8();
     entry.lines.push_back(
         {std::string(utf8.data(), utf8.length()), layoutKey.idSize, kRegularFamily,
-         false});
+         false, layoutKey.modernFields[1]});
   }
 
   if (layoutKey.showDmx && !layoutKey.address.empty()) {
@@ -203,7 +206,7 @@ FixtureLayoutCacheEntry BuildFixtureLayoutEntry(const FixtureLayoutKey &layoutKe
     auto utf8 = addrLine.ToUTF8();
     entry.lines.push_back(
         {std::string(utf8.data(), utf8.length()), layoutKey.dmxSize, kBoldFamily,
-         boldFont >= 0 && boldFont != regularFont});
+         boldFont >= 0 && boldFont != regularFont, layoutKey.modernFields[2]});
   }
 
   return entry;
@@ -217,7 +220,7 @@ std::vector<LabelLine2D> BuildDrawableLines(const FixtureLayoutCacheEntry &entry
   for (const auto &line : entry.lines) {
     const int font = line.useBoldFont ? boldFont : regularFont;
     lines.push_back(
-        {font, line.text, line.baseSize * zoom, line.fontFamily});
+        {font, line.text, line.baseSize * zoom, line.fontFamily, line.suppressed});
   }
   return lines;
 }
@@ -647,6 +650,10 @@ void DrawLabelLines2D(NVGcontext *vg, const std::vector<LabelLine2D> &lines,
 
   float currentY = y - totalHeight * 0.5f;
   for (size_t i = 0; i < lines.size(); ++i) {
+    if (lines[i].suppressed) {
+      currentY += heights[i] + lineSpacing;
+      continue;
+    }
     nvgFontSize(vg, lines[i].size);
     nvgFontFaceId(vg, lines[i].font);
     nvgTextAlign(vg, horizontalAlign | NVG_ALIGN_TOP);
@@ -825,9 +832,10 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
 
     FixtureLayoutKey desiredKey =
         BuildFixtureLayoutKey(uuid, f, overrideSettings, cfg, view, viewIdx);
-    if (viewer2d::HasFieldPresentation(fixtureOverrides, uuid, viewIdx, 0)) desiredKey.showName = false;
-    if (viewer2d::HasFieldPresentation(fixtureOverrides, uuid, viewIdx, 1)) desiredKey.showId = false;
-    if (viewer2d::HasFieldPresentation(fixtureOverrides, uuid, viewIdx, 2)) desiredKey.showDmx = false;
+    // Preserve legacy stack slots when a field moves into independent composition.
+    for (int field = 0; field < 3; ++field)
+      desiredKey.modernFields[field] = viewer2d::HasFieldPresentation(fixtureOverrides, uuid, viewIdx, field);
+    if (std::all_of(desiredKey.modernFields.begin(), desiredKey.modernFields.end(), [](bool modern) { return modern; })) continue;
     if (!desiredKey.showName && !desiredKey.showId && !desiredKey.showDmx)
       continue;
 
@@ -1019,7 +1027,8 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
                 << " size=" << style.fontSize << " vAlign=Baseline";
           Logger::Instance().Log(trace.str());
         }
-        m_controller.RecordText(canvasAnchor[0], baseline, lines[i].text, style);
+        if (!lines[i].suppressed)
+          m_controller.RecordText(canvasAnchor[0], baseline, lines[i].text, style);
         if (i + 1 < lines.size())
           currentY -=
               (lineHeightsWorld[i] + lineSpacingWorld) *

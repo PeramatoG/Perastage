@@ -112,6 +112,7 @@ public:
   void PersistLayout2DViewState();
   void RestoreLayout2DViewState(int viewId);
   void RefreshAfterFixtureSymbolUpdate();
+  void RefreshAfterFixtureLabelUpdate();
   void NotifyFixtureSymbolProjectReplaced(bool scheduleScan = true);
   void PromoteManualFixtureSymbolPreparation(const std::string &fixtureUuid);
   void CompleteManualFixtureSymbolPreparation(const std::string &fixtureUuid,

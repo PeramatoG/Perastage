@@ -215,10 +215,7 @@ const SymbolDefinition *FindSymbolDefinitionExact(
   return nullptr;
 }
 
-// Emits only the stroke portion of a drawing command. Keeping strokes and
-// fills in separate functions allows the caller to control layering
-// explicitly, which is required to match the on-screen 2D viewer where fills
-// occlude internal wireframe edges within the same group.
+// Groups vector inks while preserving source and transform barriers.
 std::string RenderCommandsToStream(
     const std::vector<CanvasCommand> &commands,
     const std::vector<CommandMetadata> &metadata,
@@ -331,6 +328,12 @@ std::string RenderCommandsToStream(
 
   for (size_t i = 0; i < commands.size(); ++i) {
     const auto &cmd = commands[i];
+    if (const auto *text = std::get_if<TextCommand>(&cmd);
+        text && options.includeText && text->style.fontFamily.starts_with("perastage-sans")) {
+      flushGroup();
+      i = AppendComposedTextRun(content, formatter, mapping, current, commands, sources, i, options.fonts) - 1;
+      continue;
+    }
 
     bool isBarrier = std::visit(
         [&](auto &&c) {

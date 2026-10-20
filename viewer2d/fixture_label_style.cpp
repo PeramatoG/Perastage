@@ -25,6 +25,10 @@ LabelFieldStyle ResolveFieldStyle(const ConfigManager &cfg,
     return s;
   }
   LabelFieldStyle s;
+  if (cfg.GetFloat("view2d_dark_mode") != 0) {
+    s.color = {1,1,1};
+    s.outlineColor = {0,0,0};
+  }
   s.visible = field == 0 ? ResolveShowLabelName(cfg, legacy, view) :
               field == 1 ? ResolveShowLabelId(cfg, legacy, view) : ResolveShowLabelDmx(cfg, legacy, view);
   s.size = (field == 0 ? ResolveLabelFontSizeName(cfg, legacy) :

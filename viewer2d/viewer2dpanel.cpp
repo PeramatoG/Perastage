@@ -1662,7 +1662,7 @@ bool Viewer2DPanel::RenderToRGBABackBufferFallback(
 void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   wxPaintDC dc(this);
   ResetRepaintCoalescing();
-  if (!IsEnabled()) return;
+  if (!IsThisEnabled()) return;
   if (m_paintInProgress)
     return;
   m_paintInProgress = true;

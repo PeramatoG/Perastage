@@ -1,6 +1,7 @@
 #include "pdf_draw_commands.h"
 #include "typography/composition.h"
 #include "typography/font_resources.h"
+#include "typography/text_outline.h"
 #include <cassert>
 #include <cmath>
 #include "pdf_objects.h"
@@ -207,5 +208,31 @@ int main() {
     assert(out.str().find(fmt.Format(glyph.x) + " " + fmt.Format(glyph.baseline)) != std::string::npos);
   }
 
+  TextCommand outlined;
+  outlined.text = "A"; outlined.style.fontFamily = "perastage-sans";
+  outlined.style.fontSize = 12; outlined.style.ascent = a.ascent;
+  outlined.style.descent = a.descent; outlined.style.outlineWidth = .013f;
+  outlined.style.outlineColor = {.9f,.8f,.7f,1}; outlined.style.color = {.2f,.3f,.4f,1};
+  std::ostringstream outlinedPdf;
+  layout_pdf_internal::AppendText(outlinedPdf,fmt,{1,2},outlined,outlined.style,20,&catalog);
+  const auto output = outlinedPdf.str();
+  for (const auto &offset : typography::OutlineOffsets(outlined.style.outlineWidth*20))
+    assert(output.find(fmt.Format(1+offset[0])+" "+fmt.Format(2+offset[1])+" Td") != std::string::npos);
+  assert(output.find("0.900000 0.800000 0.700000 rg") != std::string::npos);
+  assert(output.find("0.200000 0.300000 0.400000 rg") != std::string::npos);
+  auto adjacent = outlined;
+  adjacent.x = .07f; adjacent.text = "B";
+  std::vector<CanvasCommand> run{outlined, adjacent, SaveCommand{}};
+  std::ostringstream layeredPdf;
+  assert(layout_pdf_internal::AppendComposedTextRun(layeredPdf,fmt,{}, {},run,
+      {"label:fixture","label:fixture","label:fixture"},0,&catalog) == 2);
+  // A neighbouring glyph's halo must never paint over a completed text fill.
+  const auto layered = layeredPdf.str();
+  assert(layered.rfind("0.900000 0.800000 0.700000 rg") <
+         layered.find("0.200000 0.300000 0.400000 rg"));
+  outlined.style.outlineWidth = 0;
+  std::ostringstream plainPdf;
+  layout_pdf_internal::AppendText(plainPdf,fmt,{1,2},outlined,outlined.style,20,&catalog);
+  assert(plainPdf.str().find("0.900000 0.800000 0.700000 rg") == std::string::npos);
   return CheckWriterSerialization() && CheckLocaleIndependentNumbers() ? 0 : 1;
 }

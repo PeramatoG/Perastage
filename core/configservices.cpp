@@ -1425,6 +1425,9 @@ void ProjectSession::RestoreDirtyState(const DirtyState &state) {
 
 void ProjectSession::Touch() { ++revision; ++renderRevision; }
 
+// Presentation metadata has its own cache keys and does not change scene resources.
+void ProjectSession::TouchPresentation() { ++revision; }
+
 void ProjectSession::MarkSaved() { savedRevision = revision; }
 
 void ProjectSession::ResetDirty() {

@@ -363,6 +363,17 @@ void LayoutViewerPanel::RefreshAfterSceneContentUpdate() {
 // Refreshes the layout viewer after selection-only updates.
 void LayoutViewerPanel::RefreshAfterSelectionOnlyUpdate() { Refresh(); }
 
+// Only viewport content depends on fixture labels; legends keep their symbols.
+void LayoutViewerPanel::RefreshAfterFixtureLabelUpdate() {
+  ++viewRenderVersion;
+  captureInProgress = false;
+  for (auto &entry : viewCaches_)
+    InvalidateViewCacheForSceneContent(entry.second);
+  renderDirty = true;
+  RequestRenderRebuild();
+  Refresh(false);
+}
+
 // Invalidates render data after fixture symbol changes.
 void LayoutViewerPanel::RefreshAfterFixtureSymbolUpdate() {
   RefreshAfterSceneContentUpdate();

@@ -549,10 +549,36 @@ bool ParseCompoundPolygonPath(const char *data, PerastageSvgPolygon &polygon) {
   return true;
 }
 
+// Retain inherited contour width for previews without interpreting SVG again.
+std::optional<double> ReadStrokeWidthMm(const tinyxml2::XMLElement *element,
+                                      double userUnitMm) {
+  for (auto *node = element; node;
+       node = node->Parent() ? node->Parent()->ToElement() : nullptr) {
+    std::string value;
+    if (const char *style = node->Attribute("style")) {
+      const std::string css(style);
+      const auto property = css.find("stroke-width");
+      const auto colon = property == std::string::npos ? property : css.find(':',property+12);
+      if (colon != std::string::npos) value = css.substr(colon+1,css.find(';',colon)-colon-1);
+    }
+    if (value.empty() && node->Attribute("stroke-width")) value = node->Attribute("stroke-width");
+    value = TrimAscii(value);
+    if (value.empty()) continue;
+    if (const auto physical = ParseSvgLengthToMillimeters(value.c_str());
+        physical && std::isfinite(*physical) && *physical >= 0) return physical;
+    char *end = nullptr;
+    const double units = std::strtod(value.c_str(),&end);
+    if (end != value.c_str() && *end == '\0' && std::isfinite(units) && units >= 0)
+      return units * userUnitMm;
+  }
+  return std::nullopt;
+}
+
 bool CollectSvgElements(
     const tinyxml2::XMLElement *node,
     std::vector<std::pair<PerastageSvgPolygon, bool>> &rawPolygons,
-    std::vector<PerastageSvgPolyline> &strokes, bool strictCompoundPaths) {
+    std::vector<PerastageSvgPolyline> &strokes, bool strictCompoundPaths,
+    double userUnitMm) {
   for (const tinyxml2::XMLElement *element = node ? node->FirstChildElement() : nullptr;
        element; element = element->NextSiblingElement()) {
     const std::string tag = element->Name() ? element->Name() : "";
@@ -575,12 +601,13 @@ bool CollectSvgElements(
       }
     } else if (tag == "polyline") {
       PerastageSvgPolyline line;
+      line.strokeWidthMm = ReadStrokeWidthMm(element,userUnitMm);
       if (ParsePointList(element->Attribute("points"), line.points) &&
           line.points.size() >= 2) {
         strokes.push_back(std::move(line));
       }
     }
-    if (!CollectSvgElements(element, rawPolygons, strokes, strictCompoundPaths))
+    if (!CollectSvgElements(element, rawPolygons, strokes, strictCompoundPaths,userUnitMm))
       return false;
   }
   return true;
@@ -630,19 +657,19 @@ bool ParseSvgData(const std::string &svgXml, PerastageSvgSymbolData &out,
     return false;
 
   std::vector<std::pair<PerastageSvgPolygon, bool>> rawPolygons;
+  const auto svgWidthMm = ParseSvgLengthToMillimeters(svg->Attribute("width"));
+  const auto svgHeightMm = ParseSvgLengthToMillimeters(svg->Attribute("height"));
+  const double userUnitMm = svgWidthMm && svgHeightMm && *svgWidthMm > 0 && *svgHeightMm > 0
+      ? std::sqrt((*svgWidthMm/viewBox[2])*(*svgHeightMm/viewBox[3])) : 1;
   out.strokes.clear();
   // Supported SVG geometry is independent from resource ownership/provenance.
   // Preserve authored import recovery for unsupported paths, while project and
   // positively identified generated resources must parse their complete subset.
   if (!CollectSvgElements(svg, rawPolygons, out.strokes,
-                          strictCompoundPaths || metadata.marked))
+                          strictCompoundPaths || metadata.marked,userUnitMm))
     return false;
   AssignWhitePolygonsAsHoles(rawPolygons, out.fills);
 
-  const std::optional<double> svgWidthMm =
-      ParseSvgLengthToMillimeters(svg->Attribute("width"));
-  const std::optional<double> svgHeightMm =
-      ParseSvgLengthToMillimeters(svg->Attribute("height"));
   if (svgWidthMm.has_value() && svgHeightMm.has_value() &&
       *svgWidthMm > 0.0 && *svgHeightMm > 0.0) {
     const double scaleX = *svgWidthMm / viewBox[2];

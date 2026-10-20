@@ -11,6 +11,9 @@ struct LabelFieldStyle {
   bool bold = false;
   float size = 0.12f; // Scene metres, independent of zoom and DPI.
   std::array<float, 3> color{0, 0, 0};
+  bool outlineEnabled = true;
+  std::array<float, 3> outlineColor{1, 1, 1};
+  float outlineWidth = 0.04f; // Eight-pass halo radius in scene metres.
   int anchor = 1; // Center, top, bottom, left, right of projected fixture bounds.
   int alignment = 1;
   float x = 0, y = 0;

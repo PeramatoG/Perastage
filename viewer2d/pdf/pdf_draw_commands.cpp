@@ -1,4 +1,5 @@
 #include "pdf_draw_commands.h"
+#include "typography/text_outline.h"
 #include <stdexcept>
 
 #include <algorithm>
@@ -190,7 +191,7 @@ void AppendCircle(std::ostringstream &out, GraphicsStateCache &cache,
 void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
                 const Point &pos, const TextCommand &cmd,
                 const CanvasTextStyle &style, double scale,
-                const PdfFontCatalog *fonts) {
+                const PdfFontCatalog *fonts, typography::TextInkPass pass) {
   const std::string encodedText = EncodeWinAnsi(cmd.text);
   const PdfFontDefinition *font =
       fonts ? fonts->Resolve(style.fontFamily) : nullptr;
@@ -301,21 +302,34 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
   };
 
   const double outline = style.outlineWidth * scale;
-  if (outline > 0.0f) {
-    const std::array<std::array<double, 2>, 8> offsets = {
-        std::array<double, 2>{-outline, 0.0},
-        std::array<double, 2>{outline, 0.0},
-        std::array<double, 2>{0.0, -outline},
-        std::array<double, 2>{0.0, outline},
-        std::array<double, 2>{-outline, -outline},
-        std::array<double, 2>{outline, -outline},
-        std::array<double, 2>{-outline, outline},
-        std::array<double, 2>{outline, outline}};
-    for (const auto &offset : offsets)
+  if (pass != typography::TextInkPass::Fill && outline > 0.0f) {
+    for (const auto &offset : typography::OutlineOffsets(outline))
       emitText(style.outlineColor, offset[0], offset[1]);
   }
 
-  emitText(style.color, 0.0, 0.0);
+  if (pass != typography::TextInkPass::Outline)
+    emitText(style.color, 0.0, 0.0);
+}
+
+// Composed glyphs keep their positions; only ink layering is batched per fixture.
+size_t AppendComposedTextRun(std::ostringstream &out, const FloatFormatter &fmt,
+    const Mapping &mapping, const Transform &current, const std::vector<CanvasCommand> &commands,
+    const std::vector<std::string> &sources, size_t first, const PdfFontCatalog *fonts) {
+  size_t end = first;
+  while (end < commands.size()) {
+    const auto *text = std::get_if<TextCommand>(&commands[end]);
+    if (!text || !text->style.fontFamily.starts_with("perastage-sans") ||
+        (end < sources.size() && first < sources.size() && sources[end] != sources[first])) break;
+    ++end;
+  }
+  for (auto pass : {typography::TextInkPass::Outline, typography::TextInkPass::Fill}) {
+    for (size_t i = first; i < end; ++i) {
+      const auto &text = std::get<TextCommand>(commands[i]);
+      const auto pos = MapPointWithTransform(text.x, text.y, current, mapping);
+      AppendText(out, fmt, pos, text, text.style, mapping.scale, fonts, pass);
+    }
+  }
+  return end;
 }
 
 Point MapPointWithTransform(double x, double y, const Transform &current,

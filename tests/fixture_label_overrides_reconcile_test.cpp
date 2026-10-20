@@ -3,12 +3,21 @@
 #include "fixture_label_overrides.h"
 #include "fixture_label_composition.h"
 #include "LayoutManager.h"
+#include "../gui/fixture_label_preview_geometry.h"
+#include "fixture_label_style_serialization.h"
 
 #include <cassert>
 
 int main() {
   ConfigManager &cfg = ConfigManager::Get();
   cfg.Reset();
+  const auto versionOne = nlohmann::json::parse(R"({"presentation":{"version":1,"fields":[[{"sizeMetres":0.12,"color":[0,0,0]}]]}})");
+  viewer2d::LabelFieldStyles migrated;
+  viewer2d::ReadFieldStyles(versionOne,migrated);
+  assert(migrated[0][0] && migrated[0][0]->outlineEnabled && migrated[0][0]->outlineWidth>0);
+  nlohmann::json versionTwo;
+  viewer2d::WriteFieldStyles(versionTwo,migrated);
+  assert(versionTwo["presentation"]["version"]==2);
 
   Fixture validFixture;
   validFixture.uuid = "fixture-valid";
@@ -39,10 +48,14 @@ int main() {
   assert(legacy.visible && legacy.size == viewer2d::ResolveLabelFontSizeName(cfg, &draft.at(validFixture.uuid)) / 25.f);
   assert(!cfg.IsDirty() && !cfg.CanUndo());
   auto style = legacy; style.size = .173f; style.bold = true; style.x = .27f; style.alignment = 2;
+  assert(legacy.outlineEnabled && legacy.outlineWidth > 0);
+  style.outlineColor = {.2f,.3f,.4f}; style.outlineWidth = .013f;
   draft[validFixture.uuid].fieldStyles[0][0] = style;
   // Cancelling a draft leaves storage/history untouched.
   assert(cfg.GetValue("label_fixture_overrides") == before && !cfg.CanUndo());
+  const auto renderRevision = cfg.GetRenderRevision();
   assert(viewer2d::CommitFixtureLabelStyles(cfg, draft));
+  assert(cfg.GetRenderRevision() == renderRevision);
   const auto applied = cfg.GetValue("label_fixture_overrides");
   assert(cfg.IsDirty() && cfg.CanUndo());
   assert(!viewer2d::CommitFixtureLabelStyles(cfg, draft));
@@ -59,6 +72,12 @@ int main() {
   const viewer2d::LabelBounds bounds{-.1,-.2,.1,.2};
   const auto compose = [&] { return viewer2d::ComposeFixtureLabels(cfg, draft, validFixture, 0, bounds, fonts); };
   auto a = compose(); std::string text;
+  assert(a.fields[0] && a.fields[1] && a.fields[2]);
+  assert(a.text.front().style.outlineWidth == style.outlineWidth);
+  assert(a.text.front().style.outlineColor.r == style.outlineColor[0]);
+  draft[validFixture.uuid].fieldStyles[0][0]->outlineEnabled = false;
+  assert(compose().text.front().style.outlineWidth == 0);
+  draft[validFixture.uuid].fieldStyles[0][0] = style;
   for (const auto &t : a.text) text += t.text;
   assert(text == "Éclairage SüdID: 423.157" && a.diagnostics.empty());
   validFixture.instanceName = "Changed";
@@ -76,6 +95,21 @@ int main() {
   assert(compositionCache.Resolve(cfg, draft, validFixture, 0, bounds, fonts).text.data() == cachedGlyph);
   validFixture.instanceName = "Renamed"; validFixture.fixtureId = 9; validFixture.address = "1.002";
   assert(cachedText() == "RenamedID: 91.002");
+  label_preview::Transform preview{250,175,100};
+  const viewer2d::LabelBounds hitBounds{1,-2,3,4};
+  assert(preview.Hit(hitBounds,{400,75}));
+  assert(!preview.Hit(hitBounds,{300,75}));
+  label_preview::Drag drag;
+  drag.Begin({400,75},style,preview.scale);
+  assert(!drag.Move({400,75}) && !drag.Changed());
+  const auto movedStyle = drag.Move({420,55});
+  assert(movedStyle && std::abs(movedStyle->x-style.x-.2f)<1e-6f);
+  assert(std::abs(movedStyle->y-style.y-.2f)<1e-6f);
+  assert(movedStyle->anchor==style.anchor && movedStyle->alignment==style.alignment);
+  preview.scale = 200; // A resize cannot change the scale captured by the gesture.
+  assert(std::abs(drag.Move({420,55})->x-style.x-.2f)<1e-6f);
+  assert(drag.Move({400,75}) && !drag.Changed());
+  drag.Finish(); assert(!drag.Active() && !drag.Move({500,500}));
   const auto x = compositionCache.Resolve(cfg, draft, validFixture, 0, bounds, fonts).text.front().x;
   draft[validFixture.uuid].fieldStyles[0][0]->x += .5f;
   assert(std::abs(compositionCache.Resolve(cfg, draft, validFixture, 0, bounds, fonts).text.front().x - x - .5f) < 1e-6f);

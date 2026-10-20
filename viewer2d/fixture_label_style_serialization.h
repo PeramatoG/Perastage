@@ -9,7 +9,7 @@ inline void ReadFieldStyles(const nlohmann::json &json, LabelFieldStyles &styles
   const auto it = json.find("presentation");
   if (it == json.end() || !it->is_object()) return;
   const auto version = it->find("version");
-  if (version == it->end() || !version->is_number_integer() || *version != 1) return;
+  if (version == it->end() || !version->is_number_integer() || (*version != 1 && *version != 2)) return;
   auto a = it->find("fields");
   if (a == it->end() || !a->is_array()) return;
   for (size_t v = 0; v < 3 && v < a->size(); ++v) {
@@ -24,10 +24,17 @@ inline void ReadFieldStyles(const nlohmann::json &json, LabelFieldStyles &styles
         s.x = j.value("xMetres", 0.f); s.y = j.value("yMetres", 0.f);
         s.anchor = j.value("anchor", 1); s.alignment = j.value("alignment", 1);
         s.color = j.value("color", s.color);
+        s.outlineEnabled = j.value("outlineEnabled", true);
+        if (*version == 1 && s.color[0]+s.color[1]+s.color[2] > 1.5f)
+          s.outlineColor = {0,0,0};
+        s.outlineColor = j.value("outlineColor", s.outlineColor);
+        s.outlineWidth = j.value("outlineWidthMetres", s.outlineWidth);
         if (!std::isfinite(s.size) || s.size < 0.004 || s.size > 4 ||
             !std::isfinite(s.x) || !std::isfinite(s.y) ||
             std::abs(s.x) > 100 || std::abs(s.y) > 100 ||
             s.anchor < 0 || s.anchor > 4 || s.alignment < 0 || s.alignment > 2 ||
+            !std::isfinite(s.outlineWidth) || s.outlineWidth < 0 || s.outlineWidth > 1 ||
+            !std::all_of(s.outlineColor.begin(), s.outlineColor.end(), [](float c) { return std::isfinite(c) && c >= 0 && c <= 1; }) ||
             !std::all_of(s.color.begin(), s.color.end(), [](float c) { return std::isfinite(c) && c >= 0 && c <= 1; })) continue;
         styles[v][f] = s;
       } catch (const nlohmann::json::exception &) { }
@@ -44,10 +51,12 @@ inline void WriteFieldStyles(nlohmann::json &json, const LabelFieldStyles &style
       any = true;
       row.push_back({{"visible", s->visible}, {"bold", s->bold}, {"sizeMetres", s->size},
         {"xMetres", s->x}, {"yMetres", s->y}, {"anchor", s->anchor},
-        {"alignment", s->alignment}, {"color", s->color}});
+        {"alignment", s->alignment}, {"color", s->color},
+        {"outlineEnabled", s->outlineEnabled}, {"outlineColor", s->outlineColor},
+        {"outlineWidthMetres", s->outlineWidth}});
     }
     a.push_back(row);
   }
-  if (any) json["presentation"] = {{"version", 1}, {"fields", a}};
+  if (any) json["presentation"] = {{"version", 2}, {"fields", a}};
 }
 } // namespace viewer2d

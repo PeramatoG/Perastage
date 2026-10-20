@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-20 12:27+0000\n"
+"POT-Creation-Date: 2026-10-20 18:04+0000\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -1186,7 +1186,7 @@ msgstr "Valores predeterminados del proyecto"
 msgid "Selected fixtures"
 msgstr "Aparatos seleccionados"
 
-#: gui/fixture_label_editor.cpp:29 gui/fixture_label_editor.cpp:53
+#: gui/fixture_label_editor.cpp:29 gui/fixture_label_editor.cpp:59
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:55
 #: viewer2d/viewer2drenderpanel.cpp:84
 msgid "Top"
@@ -1204,45 +1204,45 @@ msgstr "Frontal"
 msgid "Side"
 msgstr "Lateral"
 
-#: gui/fixture_label_editor.cpp:35
+#: gui/fixture_label_editor.cpp:36
 msgid "Fixture Name"
 msgstr "Nombre del aparato"
 
-#: gui/fixture_label_editor.cpp:35
+#: gui/fixture_label_editor.cpp:36
 #: gui/fixturetable/fixture_table_columns.cpp:12
 #: tests/localization_catalog_integration_test.cpp:247
 msgid "Fixture ID"
 msgstr "ID del aparato"
 
-#: gui/fixture_label_editor.cpp:35
+#: gui/fixture_label_editor.cpp:36
 msgid "DMX Address"
 msgstr "Dirección DMX"
 
-#: gui/fixture_label_editor.cpp:42
+#: gui/fixture_label_editor.cpp:43
 msgid "Show field"
 msgstr "Mostrar campo"
 
-#: gui/fixture_label_editor.cpp:42
+#: gui/fixture_label_editor.cpp:43
 msgid "Visibility"
 msgstr "Visibilidad"
 
-#: gui/fixture_label_editor.cpp:44
+#: gui/fixture_label_editor.cpp:45
 msgid "Font family"
 msgstr "Familia tipográfica"
 
-#: gui/fixture_label_editor.cpp:45
+#: gui/fixture_label_editor.cpp:46
 msgid "Bold"
 msgstr "Negrita"
 
-#: gui/fixture_label_editor.cpp:45
+#: gui/fixture_label_editor.cpp:46
 msgid "Style"
 msgstr "Estilo"
 
-#: gui/fixture_label_editor.cpp:50
+#: gui/fixture_label_editor.cpp:51
 msgid "Size (m)"
 msgstr "Tamaño (m)"
 
-#: gui/fixture_label_editor.cpp:51
+#: gui/fixture_label_editor.cpp:52
 #: gui/inspection/gdtf_inspector_details_panel.cpp:158
 #: gui/inspection/gdtf_inspector_details_panel.cpp:173 gui/layerpanel.cpp:88
 #: gui/layerpanel.cpp:102 gui/summarypanel.cpp:266 gui/summarypanel.cpp:320
@@ -1250,70 +1250,114 @@ msgstr "Tamaño (m)"
 msgid "Color"
 msgstr "Color"
 
-#: gui/fixture_label_editor.cpp:53 gui/fixture_label_editor.cpp:55
+#: gui/fixture_label_editor.cpp:53
+msgid "Enabled"
+msgstr "Activado"
+
+#: gui/fixture_label_editor.cpp:53
+msgid "Outline"
+msgstr "Contorno"
+
+#: gui/fixture_label_editor.cpp:54
+msgid "Outline color"
+msgstr "Color del contorno"
+
+#: gui/fixture_label_editor.cpp:55
+msgid "Outline thickness (m)"
+msgstr "Grosor del contorno (m)"
+
+#: gui/fixture_label_editor.cpp:59 gui/fixture_label_editor.cpp:61
 msgid "Center"
 msgstr "Centro"
 
-#: gui/fixture_label_editor.cpp:53
+#: gui/fixture_label_editor.cpp:59
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:59
 msgid "Bottom"
 msgstr "Inferior"
 
-#: gui/fixture_label_editor.cpp:53 gui/fixture_label_editor.cpp:55
+#: gui/fixture_label_editor.cpp:59 gui/fixture_label_editor.cpp:61
 msgid "Left"
 msgstr "Izquierda"
 
-#: gui/fixture_label_editor.cpp:53 gui/fixture_label_editor.cpp:55
+#: gui/fixture_label_editor.cpp:59 gui/fixture_label_editor.cpp:61
 msgid "Right"
 msgstr "Derecha"
 
-#: gui/fixture_label_editor.cpp:53
+#: gui/fixture_label_editor.cpp:59
 msgid "Anchor"
 msgstr "Anclaje"
 
-#: gui/fixture_label_editor.cpp:55
+#: gui/fixture_label_editor.cpp:61
 msgid "Alignment"
 msgstr "Alineación"
 
-#: gui/fixture_label_editor.cpp:56
+#: gui/fixture_label_editor.cpp:62
 msgid "X offset (m)"
 msgstr "Desplazamiento X (m)"
 
-#: gui/fixture_label_editor.cpp:57
+#: gui/fixture_label_editor.cpp:63
 msgid "Y offset (m)"
 msgstr "Desplazamiento Y (m)"
 
-#: gui/fixture_label_editor.cpp:67
+#: gui/fixture_label_editor.cpp:68
+msgid "Preview background"
+msgstr "Fondo de la vista previa"
+
+#: gui/fixture_label_editor.cpp:69
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:44
+#: viewer2d/viewer2drenderpanel.cpp:65
+msgid "White"
+msgstr "Blanco"
+
+#: gui/fixture_label_editor.cpp:69
+msgid "Dark"
+msgstr "Oscuro"
+
+#: gui/fixture_label_editor.cpp:77
+msgid "Drag the selected field in the preview."
+msgstr "Arrastre el campo seleccionado en la vista previa."
+
+#: gui/fixture_label_editor.cpp:81
 msgid ""
 "Legacy rendering is preserved until edited; its preview is approximate. "
 "Sizes and offsets use scene metres.\n"
 "Supported text: English and Western European WinAnsi characters. No viewport-"
 "specific styles yet."
-msgstr "El renderizado heredado se conserva hasta editarlo; su vista previa es aproximada. Los tamaños y desplazamientos usan metros de escena.\nTexto admitido: inglés y caracteres WinAnsi de Europa occidental. Aún no hay estilos por ventana gráfica."
+msgstr ""
+"El renderizado heredado se conserva hasta editarlo; su vista previa es "
+"aproximada. Los tamaños y desplazamientos usan metros de escena.\n"
+"Texto admitido: inglés y caracteres WinAnsi de Europa occidental. Aún no hay "
+"estilos por ventana gráfica."
 
-#: gui/fixture_label_editor.cpp:70
+#: gui/fixture_label_editor.cpp:84
 msgid "Reset to Default"
 msgstr "Restablecer valores predeterminados"
 
-#: gui/fixture_label_preview.cpp:26 gui/fixture_label_preview.cpp:85
-#: viewer3d/labels/composed_fixture_labels.cpp:81
+#: gui/fixture_label_preview.cpp:31 gui/fixture_label_preview.cpp:102
+#: viewer3d/labels/composed_fixture_labels.cpp:102
 msgid "Bundled label fonts are unavailable."
 msgstr "Las fuentes de etiquetas incluidas no están disponibles."
 
-#: gui/fixture_label_preview.cpp:73 gui/fixture_label_preview.cpp:80
+#: gui/fixture_label_preview.cpp:91 gui/fixture_label_preview.cpp:97
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:137
 msgid "Present; preview unavailable"
 msgstr "Presente; vista previa no disponible"
 
-#: gui/fixture_label_preview.cpp:185
+#: gui/fixture_label_preview.cpp:138
 msgid "Unsupported text: change the fixture attribute before export."
 msgstr "Texto no admitido: cambie el atributo del aparato antes de exportar."
 
-#: gui/fixture_label_preview.cpp:186
+#: gui/fixture_label_preview.cpp:139
+msgid "Dark preview: symbol contours are lightened for display only."
+msgstr ""
+"Vista previa oscura: los contornos del símbolo se aclaran solo para su "
+"visualización."
+
+#: gui/fixture_label_preview.cpp:140
 msgid "Preview uses the first fixture in this scope."
 msgstr "La vista previa usa el primer aparato de este ámbito."
 
-#: gui/fixture_label_preview.cpp:186
+#: gui/fixture_label_preview.cpp:140
 msgid "Symbol unavailable"
 msgstr "Símbolo no disponible"
 
@@ -1371,7 +1415,7 @@ msgid "Type"
 msgstr "Tipo"
 
 #: gui/fixturetable/fixture_table_columns.cpp:13 gui/fixturetablepanel.cpp:742
-#: gui/hoisttablepanel.cpp:465 gui/hoisttablepanel.cpp:784
+#: gui/hoisttablepanel.cpp:465 gui/hoisttablepanel.cpp:786
 #: gui/layerpanel.cpp:86 gui/sceneobjecttablepanel.cpp:265
 #: gui/sceneobjecttablepanel.cpp:433 gui/trusstablepanel.cpp:300
 #: gui/trusstablepanel.cpp:533
@@ -1460,20 +1504,20 @@ msgstr "Filtro de color"
 msgid "Weight"
 msgstr "Peso"
 
-#: gui/fixturetablepanel.cpp:742 gui/hoisttablepanel.cpp:784
+#: gui/fixturetablepanel.cpp:742 gui/hoisttablepanel.cpp:786
 #: gui/sceneobjecttablepanel.cpp:433 gui/trusstablepanel.cpp:533
 msgid "Select layer"
 msgstr "Seleccionar capa"
 
-#: gui/fixturetablepanel.cpp:984 gui/hoisttablepanel.cpp:846
-#: gui/sceneobjecttablepanel.cpp:499 gui/trusstablepanel.cpp:675
+#: gui/fixturetablepanel.cpp:984 gui/hoisttablepanel.cpp:849
+#: gui/sceneobjecttablepanel.cpp:499 gui/trusstablepanel.cpp:677
 msgid "Edit value:"
 msgstr "Editar valor:"
 
 #: gui/fixturetablepanel.cpp:1035 gui/fixturetablepanel.cpp:1040
-#: gui/hoisttablepanel.cpp:894 gui/hoisttablepanel.cpp:899
+#: gui/hoisttablepanel.cpp:897 gui/hoisttablepanel.cpp:902
 #: gui/sceneobjecttablepanel.cpp:545 gui/sceneobjecttablepanel.cpp:550
-#: gui/trusstablepanel.cpp:721 gui/trusstablepanel.cpp:726
+#: gui/trusstablepanel.cpp:723 gui/trusstablepanel.cpp:728
 msgid "Invalid numeric value"
 msgstr "Valor numérico no válido"
 
@@ -1482,9 +1526,9 @@ msgstr "Valor numérico no válido"
 #: gui/fixturetablepanel.cpp:1061 gui/fixturetablepanel.cpp:1067
 #: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
 #: gui/gdtf_share_download_workflow.cpp:477
-#: gui/gdtf_share_download_workflow.cpp:481 gui/hoisttablepanel.cpp:894
-#: gui/hoisttablepanel.cpp:899 gui/hoisttablepanel.cpp:905
-#: gui/hoisttablepanel.cpp:912
+#: gui/gdtf_share_download_workflow.cpp:481 gui/hoisttablepanel.cpp:897
+#: gui/hoisttablepanel.cpp:902 gui/hoisttablepanel.cpp:908
+#: gui/hoisttablepanel.cpp:915
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:283
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:509
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:652
@@ -1500,17 +1544,17 @@ msgstr "Valor numérico no válido"
 #: gui/ridertextdialog.cpp:319 gui/ridertextdialog.cpp:334
 #: gui/ridertextdialog.cpp:346 gui/sceneobjecttablepanel.cpp:545
 #: gui/sceneobjecttablepanel.cpp:550 gui/sceneobjecttablepanel.cpp:556
-#: gui/sceneobjecttablepanel.cpp:563 gui/trusstablepanel.cpp:721
-#: gui/trusstablepanel.cpp:726 gui/trusstablepanel.cpp:732
-#: gui/trusstablepanel.cpp:739
+#: gui/sceneobjecttablepanel.cpp:563 gui/trusstablepanel.cpp:723
+#: gui/trusstablepanel.cpp:728 gui/trusstablepanel.cpp:734
+#: gui/trusstablepanel.cpp:741
 msgid "Error"
 msgstr "Error"
 
 #: gui/fixturetablepanel.cpp:1047 gui/fixturetablepanel.cpp:1061
 #: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
-#: gui/hoisttablepanel.cpp:905 gui/hoisttablepanel.cpp:912
+#: gui/hoisttablepanel.cpp:908 gui/hoisttablepanel.cpp:915
 #: gui/sceneobjecttablepanel.cpp:556 gui/sceneobjecttablepanel.cpp:563
-#: gui/trusstablepanel.cpp:732 gui/trusstablepanel.cpp:739
+#: gui/trusstablepanel.cpp:734 gui/trusstablepanel.cpp:741
 msgid "Invalid value"
 msgstr "Valor no válido"
 
@@ -2187,8 +2231,8 @@ msgstr "Función"
 msgid "Motor"
 msgstr "Motor"
 
-#: gui/hoisttablepanel.cpp:464 gui/hoisttablepanel.cpp:740
-#: gui/hoisttablepanel.cpp:764
+#: gui/hoisttablepanel.cpp:464 gui/hoisttablepanel.cpp:741
+#: gui/hoisttablepanel.cpp:765
 msgid "Dummy Preset"
 msgstr "Preajuste simulado"
 
@@ -2220,11 +2264,11 @@ msgstr "Seleccionar función"
 msgid "Enter function"
 msgstr "Ingresar función"
 
-#: gui/hoisttablepanel.cpp:740
+#: gui/hoisttablepanel.cpp:741
 msgid "Select dummy preset"
 msgstr "Seleccionar preajuste ficticio"
 
-#: gui/hoisttablepanel.cpp:763
+#: gui/hoisttablepanel.cpp:764
 msgid ""
 "Dummy preset can only be assigned when there is no linked motor fixture."
 msgstr ""
@@ -5365,11 +5409,6 @@ msgstr ""
 msgid "Render mode"
 msgstr "Modo de render"
 
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:44
-#: viewer2d/viewer2drenderpanel.cpp:65
-msgid "White"
-msgstr "Blanco"
-
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:46
 msgid "Sketch mode"
 msgstr "Modo boceto"
@@ -6010,7 +6049,7 @@ msgstr "Armazón GDTF"
 msgid "Model"
 msgstr "Modelo"
 
-#: gui/trusstablepanel.cpp:559
+#: gui/trusstablepanel.cpp:560
 msgid "Select Truss Model"
 msgstr "Seleccionar modelo de armadura"
 
@@ -6171,23 +6210,23 @@ msgstr "Seleccionar todo"
 msgid "Spanish"
 msgstr "Español"
 
-#: viewer2d/viewer2dpanel.cpp:3580
+#: viewer2d/viewer2dpanel.cpp:3575
 msgid "Gap measure: "
 msgstr "Medida de brecha:"
 
-#: viewer2d/viewer2dpanel.cpp:3581
+#: viewer2d/viewer2dpanel.cpp:3576
 msgid "Measure: "
 msgstr "Medida:"
 
-#: viewer2d/viewer2dpanel.cpp:3653 viewer3d/viewer3dpanel.cpp:2255
+#: viewer2d/viewer2dpanel.cpp:3648 viewer3d/viewer3dpanel.cpp:2255
 msgid "Convert to Truss"
 msgstr "Convertir a armadura"
 
-#: viewer2d/viewer2dpanel.cpp:3739 viewer3d/viewer3dpanel.cpp:2272
+#: viewer2d/viewer2dpanel.cpp:3734 viewer3d/viewer3dpanel.cpp:2272
 msgid "No position"
 msgstr "Sin posición"
 
-#: viewer2d/viewer2dpanel.cpp:3750 viewer3d/viewer3dpanel.cpp:2283
+#: viewer2d/viewer2dpanel.cpp:3745 viewer3d/viewer3dpanel.cpp:2283
 msgid "Select by position"
 msgstr "Seleccionar por posición"
 
@@ -6255,7 +6294,7 @@ msgstr "regla Z"
 msgid "Edit Fixture Labels..."
 msgstr "Editar etiquetas de aparatos..."
 
-#: viewer3d/labels/label_render_system.cpp:189
+#: viewer3d/labels/label_render_system.cpp:197
 #, c-format
 msgid "ID: %d"
 msgstr "Identificación: %d"
