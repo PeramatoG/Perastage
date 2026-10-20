@@ -726,7 +726,8 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
     if (Viewer3DPanel::Instance()) {
       Viewer3DPanel::Instance()->UpdateScene();
       Viewer3DPanel::Instance()->Refresh();
-    } else if (Viewer2DPanel::Instance()) {
+    }
+    if (Viewer2DPanel::Instance()) {
       Viewer2DPanel::Instance()->UpdateScene();
     }
     return;
@@ -770,7 +771,8 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
     if (Viewer3DPanel::Instance()) {
       Viewer3DPanel::Instance()->UpdateScene();
       Viewer3DPanel::Instance()->Refresh();
-    } else if (Viewer2DPanel::Instance()) {
+    }
+    if (Viewer2DPanel::Instance()) {
       Viewer2DPanel::Instance()->UpdateScene();
     }
     return;
@@ -797,7 +799,8 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
     if (Viewer3DPanel::Instance()) {
       Viewer3DPanel::Instance()->UpdateScene();
       Viewer3DPanel::Instance()->Refresh();
-    } else if (Viewer2DPanel::Instance()) {
+    }
+    if (Viewer2DPanel::Instance()) {
       Viewer2DPanel::Instance()->UpdateScene();
     }
     return;
@@ -953,7 +956,8 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
   if (Viewer3DPanel::Instance()) {
     Viewer3DPanel::Instance()->UpdateScene();
     Viewer3DPanel::Instance()->Refresh();
-  } else if (Viewer2DPanel::Instance()) {
+  }
+  if (Viewer2DPanel::Instance()) {
     Viewer2DPanel::Instance()->UpdateScene();
   }
 }
@@ -1358,7 +1362,8 @@ void HoistTablePanel::DeleteSelected(bool pushUndoState) {
     Viewer3DPanel::Instance()->SetSelectedFixtures(mergedSelection);
     Viewer3DPanel::Instance()->UpdateScene();
     Viewer3DPanel::Instance()->Refresh();
-  } else if (Viewer2DPanel::Instance()) {
+  }
+  if (Viewer2DPanel::Instance()) {
     Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
     Viewer2DPanel::Instance()->UpdateScene();
   }

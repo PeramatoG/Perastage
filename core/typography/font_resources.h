@@ -8,8 +8,9 @@ inline std::filesystem::path BundledFontPath(const std::filesystem::path &root, 
   return root / "fonts" / (bold ? "PerastageSans-Bold.ttf" : "PerastageSans.ttf");
 }
 struct FontPair {
+  const std::filesystem::path resourceRoot;
   TtfFontMetrics regular, bold;
-  explicit FontPair(const std::filesystem::path &root) {
+  explicit FontPair(const std::filesystem::path &root) : resourceRoot(root) {
     if (!LoadTtfFontMetrics(BundledFontPath(root, false), regular) ||
         !LoadTtfFontMetrics(BundledFontPath(root, true), bold))
       throw std::runtime_error("Bundled PerastageSans fonts are unavailable");

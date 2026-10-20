@@ -28,6 +28,18 @@ def function_body(path: str, signature: str) -> str:
 
 def main() -> None:
     """Keep selection publication synchronized without scene side effects."""
+    panel = function_body('viewer2d/viewer2dpanel.cpp',
+                          'void Viewer2DPanel::SetSelectedUuids(')
+    assert 'm_lastApplied' not in panel, (
+        'Picking and history can change controller selection independently of tables'
+    )
+    assert 'm_controller.SetSelectedUuids(expandedSelection, selection);' in panel
+    assert 'RequestRepaint();' in panel
+    for table in ('fixturetablepanel', 'trusstablepanel', 'hoisttablepanel'):
+        assert not re.search(r'else\s+if\s*\(Viewer2DPanel::Instance\(\)\)',
+                             (ROOT / f'gui/{table}.cpp').read_text()), (
+            'An initialized, hidden 3D viewport must not suppress 2D publication'
+        )
     active = function_body(
         "app/active_project_command_context.cpp",
         "void ActiveProjectCommandContext::Publish(",

@@ -8,6 +8,7 @@
 #include <GL/glew.h>
 #include "fixture_label_preview.h"
 #include "gl_context_utils.h"
+#include "gl_canvas_config.h"
 #include <nanovg.h>
 #define NANOVG_GL2
 #include <nanovg_gl.h>
@@ -21,12 +22,8 @@
 #include <wx/stattext.h>
 #include <cmath>
 
-namespace {
-const int kPreviewAttributes[] = {WX_GL_RGBA, WX_GL_DOUBLEBUFFER, WX_GL_DEPTH_SIZE, 24,
-                                  WX_GL_STENCIL_SIZE, 8, 0};
-}
 FixtureLabelPreview::FixtureLabelPreview(wxWindow *parent, ConfigManager &cfg, wxStaticText &status)
-    : wxGLCanvas(parent, wxID_ANY, kPreviewAttributes, wxDefaultPosition, wxSize(300,300)), cfg_(cfg), status_(status) {
+    : wxGLCanvas(parent, wxID_ANY, gl_lifecycle::GetStandardCanvasAttributes(), wxDefaultPosition, wxSize(300,300)), cfg_(cfg), status_(status) {
   SetBackgroundStyle(wxBG_STYLE_CUSTOM);
   const auto root = ProjectUtils::GetResourceRoot();
   try { fonts_.emplace(root); }

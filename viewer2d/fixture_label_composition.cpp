@@ -51,4 +51,25 @@ FixtureLabelComposition ComposeFixtureLabels(const ConfigManager &cfg,
   }
   return out;
 }
+
+const FixtureLabelComposition &FixtureLabelCompositionCache::Resolve(
+    const ConfigManager &cfg, const FixtureLabelOverrideMap &all,
+    const Fixture &fixture, int view, const LabelBounds &bounds,
+    const typography::FontPair &fonts) {
+  if (resourceRoot_ != fonts.resourceRoot) {
+    Clear();
+    resourceRoot_ = fonts.resourceRoot;
+  }
+  Key key{fixture.instanceName, fixture.address, fixture.fixtureId, view, bounds, {}};
+  for (int field = 0; field < 3; ++field)
+    if (HasFieldPresentation(all, fixture.uuid, view, field))
+      key.styles[field] = ResolveFieldStyle(cfg, all, fixture.uuid, view, field);
+  auto it = entries_.find(fixture.uuid);
+  if (it == entries_.end() || !(it->second.key == key)) {
+    auto composition = ComposeFixtureLabels(cfg, all, fixture, view, bounds, fonts);
+    it = entries_.insert_or_assign(fixture.uuid,
+        Entry{std::move(key), std::move(composition)}).first;
+  }
+  return it->second.composition;
+}
 } // namespace viewer2d

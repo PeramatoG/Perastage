@@ -105,11 +105,14 @@ struct FixtureLayoutCacheEntry {
 };
 
 struct FixtureLabelOverridesCache {
+  bool loaded = false;
   std::optional<std::string> serialized;
   viewer2d::FixtureLabelOverrideMap overrides;
 };
 
 struct FixtureLabelLayoutCacheState {
+  viewer2d::FixtureLabelCompositionCache composed;
+  size_t composedRevision = 0;
   std::unordered_map<std::string, FixtureLayoutCacheEntry> fixtureLayoutByUuid;
   FixtureLabelOverridesCache overridesCache;
 };
@@ -135,8 +138,10 @@ const viewer2d::FixtureLabelOverrideMap &GetCachedFixtureLabelOverrides(
     FixtureLabelLayoutCacheState &cacheState, const ConfigManager &cfg) {
   const std::optional<std::string> serialized =
       cfg.GetValue("label_fixture_overrides");
-  if (!cacheState.overridesCache.serialized.has_value() ||
+  if (!cacheState.overridesCache.loaded ||
       cacheState.overridesCache.serialized != serialized) {
+    cacheState.overridesCache.loaded = true;
+    cacheState.composed.Clear();
     cacheState.overridesCache.serialized = serialized;
     cacheState.overridesCache.overrides = viewer2d::LoadFixtureLabelOverrides(cfg);
   }
@@ -763,7 +768,11 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
   const auto &fixtureOverrides =
       GetCachedFixtureLabelOverrides(layoutCacheState, cfg);
 
-  DrawComposedFixtureLabels(m_controller, height, view, zoom, !interactiveLabelMode);
+  if (layoutCacheState.composedRevision != cfg.GetRenderRevision()) {
+    layoutCacheState.composed.Clear();
+    layoutCacheState.composedRevision = cfg.GetRenderRevision();
+  }
+  DrawComposedFixtureLabels(m_controller, width, height, view, zoom, fixtureOverrides, layoutCacheState.composed);
   const CullingSettings culling = GetCullingSettings(cfg);
   const bool useLabelOptimizations =
       !m_controller.GetCaptureCanvas() && !interactiveLabelMode &&

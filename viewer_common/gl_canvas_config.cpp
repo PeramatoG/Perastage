@@ -2,10 +2,12 @@
 
 namespace gl_lifecycle {
 namespace {
+// NanoVG symbol fills require stencil in every canvas profile.
 static const int kStandardAttributes[] = {
     WX_GL_RGBA,
     WX_GL_DOUBLEBUFFER,
     WX_GL_DEPTH_SIZE, 24,
+    WX_GL_STENCIL_SIZE, 8,
     0
 };
 
@@ -13,6 +15,7 @@ static const int kMsaa2xAttributes[] = {
     WX_GL_RGBA,
     WX_GL_DOUBLEBUFFER,
     WX_GL_DEPTH_SIZE, 24,
+    WX_GL_STENCIL_SIZE, 8,
     WX_GL_SAMPLE_BUFFERS, 1,
     WX_GL_SAMPLES, 2,
     0
@@ -22,6 +25,7 @@ static const int kMsaa4xAttributes[] = {
     WX_GL_RGBA,
     WX_GL_DOUBLEBUFFER,
     WX_GL_DEPTH_SIZE, 24,
+    WX_GL_STENCIL_SIZE, 8,
     WX_GL_SAMPLE_BUFFERS, 1,
     WX_GL_SAMPLES, 4,
     0

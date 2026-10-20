@@ -2,6 +2,14 @@
 
 #include <chrono>
 
+// A load-time paint can be consumed while interaction is disabled.
+bool Viewer2DPanel::Enable(bool enable) {
+  const bool changed = wxGLCanvas::Enable(enable);
+  if (enable)
+    RequestRepaint();
+  return changed;
+}
+
 // Queues a coalesced full repaint.
 void Viewer2DPanel::RequestRepaint() {
   if (m_fullRepaintQueued)

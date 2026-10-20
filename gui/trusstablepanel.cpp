@@ -546,7 +546,8 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
     if (Viewer3DPanel::Instance()) {
             Viewer3DPanel::Instance()->UpdateScene();
             Viewer3DPanel::Instance()->Refresh();
-    } else if (Viewer2DPanel::Instance()) {
+    }
+    if (Viewer2DPanel::Instance()) {
             Viewer2DPanel::Instance()->UpdateScene();
         }
         return;
@@ -648,7 +649,8 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
       if (Viewer3DPanel::Instance()) {
                 Viewer3DPanel::Instance()->UpdateScene();
                 Viewer3DPanel::Instance()->Refresh();
-      } else if (Viewer2DPanel::Instance()) {
+      }
+      if (Viewer2DPanel::Instance()) {
                 Viewer2DPanel::Instance()->UpdateScene();
             }
         }
@@ -780,7 +782,7 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
         Viewer3DPanel::Instance()->UpdateScene();
         Viewer3DPanel::Instance()->Refresh();
     }
-    else if (Viewer2DPanel::Instance())
+    if (Viewer2DPanel::Instance())
     {
         Viewer2DPanel::Instance()->UpdateScene();
     }

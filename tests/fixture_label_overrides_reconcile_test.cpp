@@ -64,6 +64,26 @@ int main() {
   validFixture.instanceName = "Changed";
   auto b = compose(); text.clear(); for (const auto &t : b.text) text += t.text;
   assert(text == "ChangedID: 423.157");
+  viewer2d::FixtureLabelCompositionCache compositionCache;
+  const auto cachedText = [&] {
+    std::string result;
+    for (const auto &t : compositionCache.Resolve(cfg, draft, validFixture, 0, bounds, fonts).text)
+      result += t.text;
+    return result;
+  };
+  assert(cachedText() == "ChangedID: 423.157");
+  const auto *cachedGlyph = compositionCache.Resolve(cfg, draft, validFixture, 0, bounds, fonts).text.data();
+  assert(compositionCache.Resolve(cfg, draft, validFixture, 0, bounds, fonts).text.data() == cachedGlyph);
+  validFixture.instanceName = "Renamed"; validFixture.fixtureId = 9; validFixture.address = "1.002";
+  assert(cachedText() == "RenamedID: 91.002");
+  const auto x = compositionCache.Resolve(cfg, draft, validFixture, 0, bounds, fonts).text.front().x;
+  draft[validFixture.uuid].fieldStyles[0][0]->x += .5f;
+  assert(std::abs(compositionCache.Resolve(cfg, draft, validFixture, 0, bounds, fonts).text.front().x - x - .5f) < 1e-6f);
+  const viewer2d::LabelBounds moved{bounds.minX+1,bounds.minY,bounds.maxX+1,bounds.maxY};
+  assert(std::abs(compositionCache.Resolve(cfg, draft, validFixture, 0, moved, fonts).text.front().x - x - 1.5f) < 1e-6f);
+  draft[validFixture.uuid].fieldStyles[0][0] = style;
+  compositionCache.Clear();
+  assert(cachedText() == "RenamedID: 91.002");
   validFixture.instanceName = "灯";
   assert(!compose().diagnostics.empty());
   // Global styles survive scene reconciliation; Bottom keeps the historical Side fallback.

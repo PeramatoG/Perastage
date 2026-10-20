@@ -97,6 +97,7 @@ public:
 
   static Viewer2DPanel *Instance();
   static void SetInstance(Viewer2DPanel *panel);
+  bool Enable(bool enable = true) override;
 
   void UpdateScene(bool reload = true);
   void PrepareForSceneReplacement();
@@ -390,8 +391,6 @@ private:
   bool m_lastUpdateSceneReloadRequested = false;
   bool m_enableSelection = true;
   Viewer2DMeasureToolState m_measureToolState;
-  std::vector<std::string> m_lastAppliedSelectionUuids;
-  std::vector<std::string> m_lastAppliedPrimarySelectionUuids;
   std::string m_hoverUuid;
   CursorWorldPositionCallback m_cursorWorldPositionCallback;
 

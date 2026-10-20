@@ -18,23 +18,32 @@
 #endif
 #include <nanovg.h>
 #include <wx/translation.h>
+#include "render/opengl_state_guard.h"
 
-void DrawComposedFixtureLabels(ISelectionContext &controller, int height,
-                              Viewer2DView view, float zoom, bool capture) {
+void DrawComposedFixtureLabels(ISelectionContext &controller, int width, int height,
+    Viewer2DView view, float zoom, const viewer2d::FixtureLabelOverrideMap &styles,
+    viewer2d::FixtureLabelCompositionCache &cache) {
   auto &cfg = ConfigManager::Get();
-  const auto styles = viewer2d::LoadFixtureLabelOverrides(cfg);
   bool any = false;
   for (const auto &[uuid, entry] : styles)
     for (const auto &v : entry.fieldStyles) for (const auto &f : v) any |= f.has_value();
   if (!any) return;
+  auto *vg = controller.GetNanoVGContext();
+  if (!vg || width <= 0 || height <= 0) return;
+  // NanoVG flushes alter GL state also used by picking and selection outlines.
+  viewer3d::render::OpenGLStateGuard glState;
+  nvgBeginFrame(vg, width, height, 1.0f);
+  struct FrameGuard {
+    NVGcontext *vg;
+    ~FrameGuard() { nvgEndFrame(vg); }
+  } frame{vg};
+  const bool capture = controller.GetCaptureCanvas() != nullptr;
   const auto root = ProjectUtils::GetResourceRoot();
   try {
     // Application resources are immutable during a renderer's frame.
     static std::filesystem::path loadedRoot;
     static std::optional<typography::FontPair> fonts;
-    if (!fonts || loadedRoot != root) { fonts.emplace(root); loadedRoot = root; }
-    auto *vg = controller.GetNanoVGContext();
-    if (!vg) return;
+    if (!fonts || loadedRoot != root) { fonts.emplace(root); loadedRoot = root; cache.Clear(); }
     for (const bool bold : {false, true}) {
       const char *name = bold ? "perastage-sans-bold" : "perastage-sans";
       if (nvgFindFont(vg, name) < 0) {
@@ -63,7 +72,7 @@ void DrawComposedFixtureLabels(ISelectionContext &controller, int height,
         const auto c = point(b.max[0], b.max[1], b.max[2]);
         bounds = {std::min(a[0],c[0]), std::min(a[1],c[1]), std::max(a[0],c[0]), std::max(a[1],c[1])};
       }
-      const auto layout = viewer2d::ComposeFixtureLabels(cfg, styles, fixture, static_cast<int>(view), bounds, *fonts);
+      const auto &layout = cache.Resolve(cfg, styles, fixture, static_cast<int>(view), bounds, *fonts);
       if (capture && controller.GetCaptureCanvas()) controller.GetCaptureCanvas()->SetSourceKey("label:" + uuid);
       for (const auto &t : layout.text) {
         if (capture && controller.GetCaptureCanvas()) controller.RecordText(t.x, t.y, t.text, t.style);
@@ -87,7 +96,7 @@ void DrawComposedFixtureLabels(ISelectionContext &controller, int height,
       controller.GetCaptureCanvas()->SetSourceKey("label:diagnostic");
       controller.RecordText(0, 0, "[label fonts unavailable]", failure);
     }
-    if (auto *vg = controller.GetNanoVGContext(); vg && controller.GetLabelFont() >= 0) {
+    if (controller.GetLabelFont() >= 0) {
       nvgFontFaceId(vg, controller.GetLabelFont()); nvgFontSize(vg, 14);
       nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
       nvgFillColor(vg, controller.IsDarkMode() ? nvgRGB(255,255,255) : nvgRGB(0,0,0));
