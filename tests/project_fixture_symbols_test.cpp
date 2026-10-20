@@ -240,7 +240,9 @@ int main() {
     // earlier immutable bundle as well as the explicit scene definition binding.
     HistoryManager history;
     SelectionState selection;
-    history.PushUndoState(scene, selection, "Replace symbol", {}, nullptr, {}, &store);
+    std::optional<std::string> layout = "layout before symbol replacement";
+    history.PushUndoState(scene, selection, "Replace symbol", layout, nullptr, {}, &store);
+    layout = "layout after symbol replacement";
     auto replacement = bundle;
     replacement.views.front().offsetXmm += 2.0;
     assert(store.ApplyToFixtures(scene, {kFirst, kSecond}, replacement, error));
@@ -269,12 +271,14 @@ int main() {
     assert(store.AppendReferencedResourceFingerprints(scene, saveFingerprints, error));
     assert(changedValidation.packagedLayoutResourceFingerprint ==
            project_cache::AggregateNamedPayloadFingerprints(saveFingerprints));
-    assert(history.Undo(scene, selection, nullptr, nullptr, nullptr, &store) ==
+    assert(history.Undo(scene, selection, &layout, nullptr, nullptr, &store) ==
            "Replace symbol");
     assert(*store.FindForFixture(scene.fixtures.at(kFirst)) == bundle);
-    assert(history.Redo(scene, selection, nullptr, nullptr, nullptr, &store) ==
+    assert(layout == "layout before symbol replacement");
+    assert(history.Redo(scene, selection, &layout, nullptr, nullptr, &store) ==
            "Replace symbol");
     assert(*store.FindForFixture(scene.fixtures.at(kFirst)) == replacement);
+    assert(layout == "layout after symbol replacement");
     scene.fixtures.clear();
     std::vector<ProjectArchiveResource> unreferenced;
     assert(store.CollectArchiveResources(scene, unreferenced, error));

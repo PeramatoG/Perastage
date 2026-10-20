@@ -294,8 +294,6 @@ void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
     return;
   const int viewId = view->id;
   if (!currentLayout.name.empty()) {
-    auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    cfg.PushUndoState("delete layout 2d view");
     if (layouts::LayoutManager::Get().RemoveLayout2DView(currentLayout.name,
                                                          viewId)) {
       auto &views = currentLayout.view2dViews;
@@ -344,8 +342,6 @@ void LayoutViewerPanel::OnToggleViewFrame(wxCommandEvent &) {
     return;
   view->drawFrame = !view->drawFrame;
   if (!currentLayout.name.empty()) {
-    auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    cfg.PushUndoState("toggle layout 2d view border");
     layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name, *view);
   }
   RequestRenderRebuild();

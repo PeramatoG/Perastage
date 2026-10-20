@@ -23,6 +23,11 @@ Edit each element's available settings to choose content and presentation. Check
 
 Drag a frame to move it and a frame handle to resize it. Double-click a frame to edit the element. Right-click for editing, deletion and stacking controls. Drag empty space to pan and use the wheel to zoom. **Z** fits the layout; **Delete** removes the selected layout element.
 
+Page Add, Rename, Delete, Orientation and template Import share the project's
+Undo/Redo history with element editing. Selection clicks and unchanged edits do
+not add history. A completed move or resize records one change; **Escape** or
+loss of mouse capture cancels the preview without changing the saved document.
+
 Save the `.pstg` project to keep your layouts. **Export template** creates a portable `.pslayout` package including referenced images. **Import template** accepts `.pslayout` and legacy `.json` templates.
 
 ## Export PDF

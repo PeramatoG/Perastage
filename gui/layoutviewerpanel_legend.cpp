@@ -620,8 +620,6 @@ void LayoutViewerPanel::OnDeleteLegend(wxCommandEvent &) {
     return;
   const int legendId = legend->id;
   if (!currentLayout.name.empty()) {
-    auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    cfg.PushUndoState("delete layout legend");
     if (layouts::LayoutManager::Get().RemoveLayoutLegend(currentLayout.name,
                                                          legendId)) {
       auto &legends = currentLayout.legendViews;
@@ -673,8 +671,6 @@ void LayoutViewerPanel::OnEditLegend(wxCommandEvent &) {
   if (dialog.ShowModal() != wxID_OK)
     return;
 
-  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  cfg.PushUndoState("edit layout legend");
   legend->showChannelColumn = dialog.GetShowChannelColumn();
   legend->itemSettings = dialog.GetItemSettings();
   layouts::LayoutManager::Get().UpdateLayoutLegend(currentLayout.name, *legend);

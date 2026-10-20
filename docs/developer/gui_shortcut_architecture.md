@@ -95,6 +95,14 @@ This makes shortcut behavior deterministic and keeps one single decision point f
 Viewer-specific direct handling for these migrated shortcuts is intentionally avoided,
 so routing stays centralized in GUI.
 
+## Layout frame cancellation
+
+While the focused Layout viewer owns a move or resize gesture, its local
+`Escape` handling discards the provisional frame and releases mouse capture.
+Native capture loss uses the same cancellation path. Neither action publishes
+history. This does not add a global shortcut; editable-widget focus retains
+its existing priority.
+
 ## Continuous placement cancellation
 
 `Escape` remains a viewer-local interaction key rather than a registered global

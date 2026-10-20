@@ -30,6 +30,8 @@ class LayoutViewerInteractionSession {
 public:
   void BeginFrameDrag(FrameDragMode mode, Point pointer,
                       const layouts::Layout2DViewFrame &frame);
+  std::optional<layouts::Layout2DViewFrame> FinalFrame(
+      const layouts::Layout2DViewFrame &preview) const;
   void CompleteFrameDrag();
   void UpdateHoverMode(FrameDragMode mode);
   void SetDeferredResize(const layouts::Layout2DViewFrame &frame);

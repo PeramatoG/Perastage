@@ -132,8 +132,7 @@ void LayoutViewerPanel::OnEditEventTable(wxCommandEvent &) {
   if (table->fields == editedFields) {
     return;
   }
-  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  cfg.PushUndoState("edit layout event table");
+
   table->fields = editedFields;
   if (!currentLayout.name.empty()) {
     layouts::LayoutManager::Get().UpdateLayoutEventTable(currentLayout.name,
@@ -153,8 +152,6 @@ void LayoutViewerPanel::OnDeleteEventTable(wxCommandEvent &) {
     return;
   const int tableId = table->id;
   if (!currentLayout.name.empty()) {
-    auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    cfg.PushUndoState("delete layout event table");
     if (layouts::LayoutManager::Get().RemoveLayoutEventTable(currentLayout.name,
                                                              tableId)) {
       auto &tables = currentLayout.eventTables;

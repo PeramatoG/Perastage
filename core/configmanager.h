@@ -127,6 +127,12 @@ public:
         const MvrScene &scene, const SelectionState &selection,
         const std::optional<std::string> &fixtureLabelOverrides,
         const std::string &description);
+    // Publishes a prepared Layout candidate only after all allocations succeed.
+    void CommitLayoutMutation(
+        const std::string &metadata,
+        const layouts::LayoutImageResourceRegistry &departingResources,
+        const std::string &description, bool recordHistory);
+
     bool CanUndo() const;
     bool CanRedo() const;
     std::string Undo();

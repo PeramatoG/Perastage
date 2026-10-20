@@ -1,4 +1,9 @@
 #include "LayoutManager.h"
+#include "LayoutImageResourceRegistry.h"
+#include "LayoutTemplateSerializer.h"
+#include "configmanager.h"
+
+void FailNextLayoutPublicationForTest();
 
 #include <cassert>
 #include <filesystem>
@@ -75,6 +80,26 @@ int main() {
     }
   }
   assert(foundImportedLayout);
+
+  // A failed publication must discard candidate pages and prepared resources.
+  const auto before = layouts::ToTemplateDocument(manager.GetLayouts().Items());
+  const auto metadataBefore = ConfigManager::Get().GetValue("layouts_collection");
+  layouts::LayoutDefinition failedPage;
+  failedPage.name = "Unpublished page";
+  layouts::LayoutImageDefinition image;
+  image.imagePath = tempPath.string();
+  failedPage.imageViews.push_back(image);
+  FailNextLayoutPublicationForTest();
+  assert(!manager.AddLayout(failedPage));
+  assert(layouts::ToTemplateDocument(manager.GetLayouts().Items()) == before);
+  assert(ConfigManager::Get().GetValue("layouts_collection") == metadataBefore);
+  assert(layouts::LayoutImageResourceRegistry::Get().UsedResources().empty());
+  FailNextLayoutPublicationForTest();
+  assert(!manager.ImportLayoutTemplate(tempPath.string(), "Unpublished import", nullptr, &error));
+  assert(!error.empty());
+  assert(layouts::ToTemplateDocument(manager.GetLayouts().Items()) == before);
+  assert(ConfigManager::Get().GetValue("layouts_collection") == metadataBefore);
+  assert(layouts::LayoutImageResourceRegistry::Get().UsedResources().empty());
 
   std::error_code ec;
   std::filesystem::remove(tempPath, ec);

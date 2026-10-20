@@ -17,7 +17,6 @@
  */
 #pragma once
 
-#include "LayoutCollection.h"
 
 #include <cstdint>
 #include <string>
@@ -25,6 +24,9 @@
 #include <vector>
 
 namespace layouts {
+
+class LayoutCollection;
+struct LayoutImageDefinition;
 
 class LayoutImageResourceRegistry {
 public:

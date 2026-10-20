@@ -39,6 +39,23 @@ void LayoutViewerInteractionSession::BeginFrameDrag(
   isPanning_ = false;
 }
 
+// Finalizes only a real gesture change; clicks never snap existing geometry.
+std::optional<layouts::Layout2DViewFrame>
+LayoutViewerInteractionSession::FinalFrame(
+    const layouts::Layout2DViewFrame &preview) const {
+  const auto equal = [](const auto &a, const auto &b) {
+    return a.x == b.x && a.y == b.y && a.width == b.width && a.height == b.height;
+  };
+  if (dragMode_ == FrameDragMode::None || equal(preview, dragStartFrame_))
+    return std::nullopt;
+  const auto final = dragMode_ == FrameDragMode::Move
+                         ? FinalizeMovedFrame(preview)
+                         : FinalizeResizedFrame(preview);
+  if (equal(final, dragStartFrame_))
+    return std::nullopt;
+  return final;
+}
+
 // Returns the session to a neutral state after a completed frame edit.
 void LayoutViewerInteractionSession::CompleteFrameDrag() {
   dragMode_ = FrameDragMode::None;

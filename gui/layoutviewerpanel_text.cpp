@@ -129,8 +129,7 @@ void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
                           text->drawFrame);
   if (dialog.ShowModal() != wxID_OK)
     return;
-  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  cfg.PushUndoState("edit layout text");
+
   wxString updatedRichText = dialog.GetRichText();
   wxString updatedPlainText = dialog.GetPlainText();
   const bool hadRichText = !text->richText.empty();
@@ -163,8 +162,6 @@ void LayoutViewerPanel::OnDeleteText(wxCommandEvent &) {
     return;
   const int textId = text->id;
   if (!currentLayout.name.empty()) {
-    auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    cfg.PushUndoState("delete layout text");
     if (layouts::LayoutManager::Get().RemoveLayoutText(currentLayout.name,
                                                        textId)) {
       auto &texts = currentLayout.textViews;
@@ -211,8 +208,6 @@ void LayoutViewerPanel::OnToggleTextFrame(wxCommandEvent &) {
     return;
   text->drawFrame = !text->drawFrame;
   if (!currentLayout.name.empty()) {
-    auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    cfg.PushUndoState("toggle layout text border");
     layouts::LayoutManager::Get().UpdateLayoutText(currentLayout.name, *text);
   }
   TextCache &cache = GetTextCache(text->id);
@@ -229,8 +224,6 @@ void LayoutViewerPanel::OnToggleTextTransparentBackground(wxCommandEvent &) {
     return;
   text->solidBackground = !text->solidBackground;
   if (!currentLayout.name.empty()) {
-    auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    cfg.PushUndoState("toggle layout text transparent background");
     layouts::LayoutManager::Get().UpdateLayoutText(currentLayout.name, *text);
   }
   TextCache &cache = GetTextCache(text->id);

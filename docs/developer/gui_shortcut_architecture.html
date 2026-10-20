@@ -238,6 +238,12 @@ is consistent across both viewers.</li>
 </ol>
 <p>Viewer-specific direct handling for these migrated shortcuts is intentionally avoided,
 so routing stays centralized in GUI.</p>
+<h2 id="layout-frame-cancellation">Layout frame cancellation</h2>
+<p>While the focused Layout viewer owns a move or resize gesture, its local
+<code>Escape</code> handling discards the provisional frame and releases mouse capture.
+Native capture loss uses the same cancellation path. Neither action publishes
+history. This does not add a global shortcut; editable-widget focus retains
+its existing priority.</p>
 <h2 id="continuous-placement-cancellation">Continuous placement cancellation</h2>
 <p><code>Escape</code> remains a viewer-local interaction key rather than a registered global
 shortcut. While continuous placement from Add Fixture, Add Truss, or Add Object

@@ -52,6 +52,32 @@ void TestSessionLifecycle() {
   assert(session.HoverMode() == FrameDragMode::None);
 }
 
+// Verifies clicks, pointer round trips, snapping no-ops and cancellation.
+void TestGestureCommit() {
+  LayoutViewerInteractionSession session;
+  const layouts::Layout2DViewFrame unsnapped{12, 17, 102, 79};
+  session.BeginFrameDrag(FrameDragMode::Move, {0, 0}, unsnapped);
+  assert(!session.FinalFrame(unsnapped));
+  assert(session.FinalFrame({32, 17, 102, 79}));
+  assert(!session.FinalFrame(unsnapped));
+  session.CancelAfterCaptureLoss();
+  assert(!session.FinalFrame({32, 17, 102, 79}));
+  const layouts::Layout2DViewFrame snapped{10, 20, 100, 80};
+  session.BeginFrameDrag(FrameDragMode::Move, {0, 0}, snapped);
+  assert(!session.FinalFrame({11, 20, 100, 80}));
+  const auto move = session.FinalFrame({24, 26, 100, 80});
+  assert(move && FramesEqual(*move, {25, 25, 100, 80}));
+  session.CompleteFrameDrag();
+  assert(!session.FinalFrame({24, 26, 100, 80}));
+  session.BeginFrameDrag(FrameDragMode::ResizeCorner, {0, 0}, unsnapped);
+  assert(!session.FinalFrame(unsnapped));
+  session.SetDeferredResize({12, 17, 121, 94});
+  const auto resize = session.FinalFrame(*session.DeferredResize());
+  assert(resize && FramesEqual(*resize, {12, 17, 120, 95}));
+  session.CancelAfterCaptureLoss();
+  assert(!session.DeferredResize());
+}
+
 // Verifies resize handles, interior movement, padding boundaries, and misses.
 void TestHitTesting() {
   const Rect frame{100, 100, 100, 80};
@@ -184,6 +210,7 @@ void TestElementFrameIsolation() {
 // Runs deterministic interaction-session and frame-policy checks.
 int main() {
   TestSessionLifecycle();
+  TestGestureCommit();
   TestHitTesting();
   TestFrameGeometry();
   TestAspectRatioGeometry();

@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "LayoutImageResourceRegistry.h"
+#include "LayoutCollection.h"
 #include "filesystem_path_utils.h"
 
 #include <algorithm>
@@ -98,7 +99,11 @@ bool LayoutImageResourceRegistry::AttachResource(LayoutImageDefinition &image) {
 
   if (image.originalImagePath.empty())
     image.originalImagePath = image.imagePath;
-  const std::string archivePath = image.projectResourcePath.empty()
+  const auto existing = resources.find(image.projectResourcePath);
+  const bool changedPayload = existing != resources.end() &&
+                              !existing->second.bytes.empty() &&
+                              existing->second.bytes != bytes;
+  const std::string archivePath = image.projectResourcePath.empty() || changedPayload
                                       ? BuildArchivePath(bytes, image.imagePath)
                                       : image.projectResourcePath;
   image.projectResourcePath = archivePath;

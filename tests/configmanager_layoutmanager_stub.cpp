@@ -2,12 +2,14 @@
 #include "mvrscene.h"
 
 #include <unordered_map>
+#include <stdexcept>
 #include <unordered_set>
 #include <vector>
 
 namespace {
 std::unordered_map<std::string, std::string> g_values;
 MvrScene g_scene;
+bool g_failNextLayoutPublication = false;
 std::vector<std::string> g_selectedFixtures;
 std::vector<std::string> g_selectedTrusses;
 std::vector<std::string> g_selectedSupports;
@@ -122,3 +124,17 @@ void ConfigManager::PushUndoState(const std::string &) {}
 
 // Destroys the lightweight ProjectSession test stub.
 ProjectSession::~ProjectSession() = default;
+
+// Injects a publication failure without changing the document or configuration.
+void FailNextLayoutPublicationForTest() { g_failNextLayoutPublication = true; }
+
+void ConfigManager::CommitLayoutMutation(
+    const std::string &metadata,
+    const layouts::LayoutImageResourceRegistry &,
+    const std::string &, bool) {
+  if (g_failNextLayoutPublication) {
+    g_failNextLayoutPublication = false;
+    throw std::runtime_error("Injected Layout publication failure");
+  }
+  SetValue("layouts_collection", metadata);
+}

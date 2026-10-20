@@ -255,6 +255,8 @@ private:
   void ApplyFrameUpdateToSelection(const layouts::Layout2DViewFrame &frame,
                                    bool updatePosition);
   void CommitPendingFrameUpdate();
+  void CancelFrameGesture();
+  void StackSelectedElement(bool toFront);
   bool InitGL();
   bool RebuildCachedTexture();
   void ClearCachedTexture();
