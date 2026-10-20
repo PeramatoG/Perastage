@@ -1,3 +1,10 @@
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#undef DrawText
+#endif
+
 #include "composed_fixture_labels.h"
 #include "fixture_label_composition.h"
 #include "projectutils.h"

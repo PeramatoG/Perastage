@@ -1,3 +1,10 @@
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#undef DrawText
+#endif
+
 #include <GL/glew.h>
 #include "fixture_label_preview.h"
 #include "gl_context_utils.h"
