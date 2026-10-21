@@ -1,3 +1,4 @@
+#include "fixture_label_name.h"
 #include "layer_identity.h"
 #include "label_render_system.h"
 #include "composed_fixture_labels.h"
@@ -528,20 +529,7 @@ SupportLabelText BuildSupportLabelText(const Support &support,
 }
 
 wxString WrapEveryTwoWords(const wxString &text) {
-  wxStringTokenizer tk(text, " ");
-  wxString result;
-  int count = 0;
-  while (tk.HasMoreTokens()) {
-    if (count > 0) {
-      if (count % 2 == 0)
-        result += "\n";
-      else
-        result += " ";
-    }
-    result += tk.GetNextToken();
-    ++count;
-  }
-  return result;
+  return wxString::FromUTF8(viewer2d::WrapFixtureLabelName(text.ToStdString(wxConvUTF8)));
 }
 
 void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x, int y,

@@ -5,7 +5,8 @@
 #include <nanovg.h>
 
 namespace viewer2d {
-// Both inks use identical unhinted contours; atlas rounding must not move the fill.
+// Composition owns glyph positions. Screen fill uses the legacy font rasterizer:
+// polygon AA fringes overfill subpixel stems when zoomed out. Halos stay vector.
 inline void DrawCanvasText(NVGcontext *vg, const TextCommand &text,
                            float x, float y, double scenePixelsPerUnit,
                            typography::TextInkPass pass = typography::TextInkPass::Both,
@@ -14,6 +15,21 @@ inline void DrawCanvasText(NVGcontext *vg, const TextCommand &text,
   if (!style.glyphOutline) return;
   const double em = style.fontSize * scenePixelsPerUnit;
   nvgSave(vg);
+  const int font = nvgFindFont(vg, style.fontFamily.c_str());
+  const auto fill = [&] {
+    nvgFillColor(vg, nvgRGBAf(style.color.r, style.color.g, style.color.b, style.color.a));
+    if (font >= 0) {
+      nvgFontFaceId(vg, font);
+      nvgFontSize(vg, em);
+      nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_BASELINE);
+      nvgText(vg, x, y, text.text.c_str(), nullptr);
+    } else nvgFill(vg); // Non-font synthetic contours retain their vector fill.
+  };
+  if (pass == typography::TextInkPass::Fill && font >= 0) {
+    fill();
+    nvgRestore(vg);
+    return;
+  }
   nvgBeginPath(vg);
   for (const auto &p : style.glyphOutline->path) {
     using Kind = typography::GlyphPathElement::Kind;
@@ -38,8 +54,7 @@ inline void DrawCanvasText(NVGcontext *vg, const TextCommand &text,
     nvgStroke(vg);
   }
   if (pass != typography::TextInkPass::Outline) {
-    nvgFillColor(vg, nvgRGBAf(style.color.r, style.color.g, style.color.b, style.color.a));
-    nvgFill(vg);
+    fill();
   }
   nvgRestore(vg);
 }

@@ -1,4 +1,5 @@
 #include "fixture_label_composition.h"
+#include "fixture_label_name.h"
 #include <algorithm>
 #include "typography/glyph_outline.h"
 
@@ -26,11 +27,18 @@ std::array<LabelFieldStyle, 3> ResolveEditableFieldStyles(const ConfigManager &c
   }
   std::array<LabelFieldStyle, 3> result;
   double groupHeight = 0;
+  std::array<size_t, 3> lineCounts{1,1,1};
+  if (const auto it = cfg.GetScene().fixtures.find(uuid); it != cfg.GetScene().fixtures.end()) {
+    const auto &fixture = it->second;
+    const auto name = WrapFixtureLabelName(fixture.instanceName.empty() ? uuid : fixture.instanceName);
+    lineCounts[0] += std::count(name.begin(), name.end(), '\n');
+  }
   for (int f = 0; f < 3; ++f) {
     result[f] = ResolveFieldStyle(cfg, legacy, uuid, view, f);
     const auto &s = result[f];
     const auto &font = s.bold ? fonts.bold : fonts.regular;
-    if (s.visible) groupHeight += (font.ascent + std::abs(font.descent)) * s.size / font.unitsPerEm;
+    if (s.visible) groupHeight += (font.ascent + std::abs(font.descent)) * s.size / font.unitsPerEm +
+        (lineCounts[f] - 1) * (font.ascent + std::abs(font.descent) + font.lineGap) * s.size / font.unitsPerEm;
   }
   double top = groupHeight / 2;
   for (int f = 0; f < 3; ++f) {
@@ -39,7 +47,8 @@ std::array<LabelFieldStyle, 3> ResolveEditableFieldStyles(const ConfigManager &c
     const double ascent = font.ascent * s.size / font.unitsPerEm;
     const double height = (font.ascent + std::abs(font.descent)) * s.size / font.unitsPerEm;
     s.y += f * s.size + top - ascent;
-    if (s.visible) top -= height;
+    if (s.visible) top -= height + (lineCounts[f] - 1) *
+        (font.ascent + std::abs(font.descent) + font.lineGap) * s.size / font.unitsPerEm;
     if (HasFieldPresentation(all, uuid, view, f)) s = ResolveFieldStyle(cfg, all, uuid, view, f);
   }
   return result;
@@ -51,7 +60,7 @@ FixtureLabelComposition ComposeFixtureLabels(const ConfigManager &cfg,
   FixtureLabelComposition out;
   std::array<std::array<std::shared_ptr<const typography::GlyphOutline>, 256>, 2> outlines;
   const std::array<std::string, 3> values{
-    fixture.instanceName.empty() ? fixture.uuid : fixture.instanceName,
+    WrapFixtureLabelName(fixture.instanceName.empty() ? fixture.uuid : fixture.instanceName),
     "ID: " + std::to_string(fixture.fixtureId), fixture.address};
   for (int f = 0; f < 3; ++f) {
     if (!HasFieldPresentation(all, fixture.uuid, view, f)) continue;

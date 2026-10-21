@@ -2,6 +2,8 @@
 #include "fixture.h"
 #include "fixture_label_overrides.h"
 #include "fixture_label_composition.h"
+#include "fixture_label_name.h"
+#include <wx/tokenzr.h>
 #include "LayoutManager.h"
 #include "../gui/fixture_label_preview_geometry.h"
 #include "fixture_label_style_serialization.h"
@@ -84,6 +86,46 @@ int main() {
     assert(resolved[0].anchor == editing[0].anchor && resolved[0].alignment == editing[0].alignment);
     assert(resolved[1] == editing[1] && resolved[2] == editing[2]);
   }
+  // Compare the exact historical wx tokenization with the shared, backend-free rule.
+  for (const std::string name : {"LITE BEYE 10R4", "  LITE   BEYE  10R4  ",
+      "One", "One two three four five", "Éclairage Süd Grande Scène", "", "One\ntwo three"}) {
+    wxStringTokenizer words(wxString::FromUTF8(name), " ");
+    std::string expected; size_t count=0;
+    while (words.HasMoreTokens()) {
+      if (count) expected += count % 2 == 0 ? "\n" : " ";
+      expected += words.GetNextToken().ToStdString(wxConvUTF8); ++count;
+    }
+    assert(viewer2d::WrapFixtureLabelName(name) == expected);
+  }
+  validFixture.instanceName = "LITE BEYE 10R4 Long Fixture Name";
+  cfg.GetScene().fixtures[validFixture.uuid] = validFixture;
+  for (int view=0; view<3; ++view) {
+    auto adapted = viewer2d::ResolveEditableFieldStyles(cfg, legacyDraft, validFixture.uuid, view, fonts);
+    auto changed = legacyDraft;
+    changed[validFixture.uuid].fieldStyles[view][0] = adapted[0];
+    const auto original = viewer2d::ComposeFixtureLabels(cfg, changed, validFixture, view, bounds, fonts);
+    changed[validFixture.uuid].fieldStyles[view][0]->x += .01f;
+    const auto shifted = viewer2d::ComposeFixtureLabels(cfg, changed, validFixture, view, bounds, fonts);
+    const auto &wrapped = typography::Compose(viewer2d::WrapFixtureLabelName(validFixture.instanceName),
+        typography::TextStyle{adapted[0].size}, fonts.regular);
+    assert(wrapped.lines.size() == 3 && original.text.size() == wrapped.glyphs.size());
+    for (size_t i=0; i<original.text.size(); ++i) {
+      assert(original.text[i].text == wrapped.glyphs[i].text);
+      assert(std::abs(original.text[i].y - original.text.front().y - wrapped.glyphs[i].baseline) < 1e-6);
+      assert(original.text[i].y == shifted.text[i].y);
+      assert(std::abs(shifted.text[i].x - original.text[i].x - .01f) < 1e-6);
+    }
+    assert(viewer2d::CommitFixtureLabelStyles(cfg, changed));
+    assert(viewer2d::LoadFixtureLabelOverrides(cfg).at(validFixture.uuid).fieldStyles[view][0] ==
+        changed.at(validFixture.uuid).fieldStyles[view][0]);
+    cfg.Undo(); cfg.Redo();
+    const auto roundtrip = viewer2d::ComposeFixtureLabels(cfg, viewer2d::LoadFixtureLabelOverrides(cfg),
+        validFixture, view, bounds, fonts);
+    assert(roundtrip.text.size() == shifted.text.size());
+    for (size_t i=0; i<shifted.text.size(); ++i)
+      assert(roundtrip.text[i].x == shifted.text[i].x && roundtrip.text[i].y == shifted.text[i].y);
+  }
+  validFixture.instanceName = "Éclairage Süd";
   auto a = compose(); std::string text;
   assert(a.fields[0] && a.fields[1] && a.fields[2]);
   assert(a.text.front().style.outlineWidth == style.outlineWidth);

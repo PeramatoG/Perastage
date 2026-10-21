@@ -4,6 +4,7 @@
 #define NANOVG_GL2
 #include <nanovg_gl.h>
 #include "nanovg_canvas_text.h"
+#include "support/fixture_label_display_probe.h"
 #include "../viewer_common/gl_framebuffer_capture_target.h"
 #include "../viewer3d/render/opengl_state_guard.h"
 #include <wx/wx.h>
@@ -158,7 +159,7 @@ class ViewportSmoke : public wxApp {
   }
   void CheckPreviewEditing() {
     auto *preview=Preview();preview->Update();
-    CheckScreenOutlineRaster(); preview->Refresh(false); preview->Update();
+    CheckFixtureLabelInkBalance(); CheckScreenOutlineRaster(); preview->Refresh(false); preview->Update();
     auto &cfg=ConfigManager::Get();const auto before=cfg.CaptureDirtyState();
     const auto bounds=preview->GetComposition().fields[0]->bounds;
     const auto otherFields=preview->GetComposition().fields;
@@ -170,7 +171,10 @@ class ViewportSmoke : public wxApp {
     Require(clear[0]==1 && cfg.CaptureDirtyState().revision==before.revision,"Preview background mutated the project");
     const auto transform=preview->GetPreviewTransform();
     auto *initialX=dynamic_cast<wxSpinCtrlDouble *>(editor_->FindWindowByName("fixtureLabelOffsetX",editor_));
-    const double originalX=initialX->GetValue();
+    Require(initialX,"Initial offset control missing");
+    // Compare against the stored precision, not the already rounded control text.
+    const double originalX=preview->ResolveEditingStyle(
+        viewer2d::LoadFixtureLabelOverrides(cfg),fixtureUuid,0,0).x;
     const auto centre=transform.ToScreen((bounds.minX+bounds.maxX)/2,(bounds.minY+bounds.maxY)/2);
     const wxPoint start(std::lround(centre.x),std::lround(centre.y));
     Pointer(*preview,wxEVT_LEFT_DOWN,start);Pointer(*preview,wxEVT_LEFT_UP,start);
