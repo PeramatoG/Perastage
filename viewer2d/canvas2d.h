@@ -24,6 +24,8 @@
 #include <variant>
 #include <vector>
 
+namespace typography { struct GlyphOutline; }
+
 // Simple RGBA color container expressed in floating point values.
 struct CanvasColor {
   float r = 0.0f;
@@ -62,6 +64,7 @@ struct CanvasTextStyle {
   CanvasColor color{};
   CanvasColor outlineColor{};
   float outlineWidth = 0.0f;
+  std::shared_ptr<const typography::GlyphOutline> glyphOutline;
   enum class HorizontalAlign { Left, Center, Right } hAlign =
       HorizontalAlign::Left;
   enum class VerticalAlign { Baseline, Middle, Top, Bottom } vAlign =

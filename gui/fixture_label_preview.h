@@ -24,6 +24,8 @@ public:
   const viewer2d::FixtureLabelComposition &GetComposition() const { return composition_; }
   const label_preview::Transform &GetPreviewTransform() const { return previewTransform_; }
   bool IsDragging() const { return drag_.Active(); }
+  viewer2d::LabelFieldStyle ResolveEditingStyle(const viewer2d::FixtureLabelOverrideMap &styles,
+      const std::string &uuid, int view, int field) const;
 private:
   void Paint(wxPaintEvent &);
   void RebuildComposition();

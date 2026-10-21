@@ -19,6 +19,7 @@ struct TtfFontMetrics {
   int xMax = 0;
   int yMax = 0;
   std::array<int, 256> advanceWidths{};
+  std::array<uint16_t, 256> glyphIndices{};
   std::array<int, 256> widths1000{};
   std::string data;
   bool valid = false;

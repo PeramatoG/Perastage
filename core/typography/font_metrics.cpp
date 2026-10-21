@@ -320,6 +320,7 @@ bool LoadTtfFontMetrics(const std::filesystem::path &path,
       0x2dc,0x2122,0x161,0x203a,0x153,0,0x17e,0x178};
     const uint16_t code = i >= 128 && i < 160 ? cp1252[i-128] : i;
     uint16_t glyphIndex = glyphForCodepoint(code);
+    metrics.glyphIndices[i] = glyphIndex;
     int advance = missingWidth;
     if (glyphIndex < advanceWidths.size())
       advance = advanceWidths[glyphIndex];

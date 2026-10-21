@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-20 18:04+0000\n"
+"POT-Creation-Date: 2026-10-20 18:54+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -1315,19 +1315,19 @@ msgstr "内置标签字体不可用。"
 msgid "Present; preview unavailable"
 msgstr "存在；预览不可用"
 
-#: gui/fixture_label_preview.cpp:138
+#: gui/fixture_label_preview.cpp:140
 msgid "Unsupported text: change the fixture attribute before export."
 msgstr "文本不受支持：导出前请修改灯具属性。"
 
-#: gui/fixture_label_preview.cpp:139
+#: gui/fixture_label_preview.cpp:141
 msgid "Dark preview: symbol contours are lightened for display only."
 msgstr "深色预览：符号轮廓仅为显示而调亮。"
 
-#: gui/fixture_label_preview.cpp:140
+#: gui/fixture_label_preview.cpp:142
 msgid "Preview uses the first fixture in this scope."
 msgstr "预览使用此范围内的第一个灯具。"
 
-#: gui/fixture_label_preview.cpp:140
+#: gui/fixture_label_preview.cpp:142
 msgid "Symbol unavailable"
 msgstr "符号不可用"
 

@@ -1,5 +1,6 @@
 #include "fixture_label_composition.h"
 #include <algorithm>
+#include "typography/glyph_outline.h"
 
 namespace viewer2d {
 bool HasFieldPresentation(const FixtureLabelOverrideMap &all,
@@ -11,10 +12,44 @@ bool HasFieldPresentation(const FixtureLabelOverrideMap &all,
   }
   return false;
 }
+std::array<LabelFieldStyle, 3> ResolveEditableFieldStyles(const ConfigManager &cfg,
+    const FixtureLabelOverrideMap &all, const std::string &uuid, int view,
+    const typography::FontPair &fonts) {
+  // Adapt legacy stack baselines once, identically for preview and property edits.
+  FixtureLabelOverrideMap legacy;
+  for (const auto &key : {uuid, std::string(kLabelDefaultsKey)}) {
+    if (const auto it = all.find(key); it != all.end()) {
+      auto entry = it->second;
+      entry.fieldStyles = {};
+      legacy.emplace(key, std::move(entry));
+    }
+  }
+  std::array<LabelFieldStyle, 3> result;
+  double groupHeight = 0;
+  for (int f = 0; f < 3; ++f) {
+    result[f] = ResolveFieldStyle(cfg, legacy, uuid, view, f);
+    const auto &s = result[f];
+    const auto &font = s.bold ? fonts.bold : fonts.regular;
+    if (s.visible) groupHeight += (font.ascent + std::abs(font.descent)) * s.size / font.unitsPerEm;
+  }
+  double top = groupHeight / 2;
+  for (int f = 0; f < 3; ++f) {
+    auto &s = result[f];
+    const auto &font = s.bold ? fonts.bold : fonts.regular;
+    const double ascent = font.ascent * s.size / font.unitsPerEm;
+    const double height = (font.ascent + std::abs(font.descent)) * s.size / font.unitsPerEm;
+    s.y += f * s.size + top - ascent;
+    if (s.visible) top -= height;
+    if (HasFieldPresentation(all, uuid, view, f)) s = ResolveFieldStyle(cfg, all, uuid, view, f);
+  }
+  return result;
+}
+
 FixtureLabelComposition ComposeFixtureLabels(const ConfigManager &cfg,
     const FixtureLabelOverrideMap &all, const Fixture &fixture, int view,
     const LabelBounds &bounds, const typography::FontPair &fonts) {
   FixtureLabelComposition out;
+  std::array<std::array<std::shared_ptr<const typography::GlyphOutline>, 256>, 2> outlines;
   const std::array<std::string, 3> values{
     fixture.instanceName.empty() ? fixture.uuid : fixture.instanceName,
     "ID: " + std::to_string(fixture.fixtureId), fixture.address};
@@ -49,6 +84,13 @@ FixtureLabelComposition ComposeFixtureLabels(const ConfigManager &cfg,
       canvas.color = {style.color[0], style.color[1], style.color[2], 1};
       canvas.outlineColor = {style.outlineColor[0], style.outlineColor[1], style.outlineColor[2], 1};
       canvas.outlineWidth = style.outlineEnabled ? style.outlineWidth : 0;
+      const auto encoded = typography::EncodeWinAnsi(g.text);
+      if (!encoded.empty()) {
+        auto &outline = outlines[style.bold][static_cast<unsigned char>(encoded.front())];
+        if (!outline) outline = typography::ReadGlyphOutline(style.bold ? fonts.bold : fonts.regular,
+                                                             static_cast<unsigned char>(encoded.front()));
+        canvas.glyphOutline = outline;
+      }
       const double gx = x + style.x + g.x, gy = y + style.y + g.baseline;
       const LabelBounds glyph{gx - canvas.outlineWidth, gy - diagnostic.descent - canvas.outlineWidth,
                               gx + g.advance + canvas.outlineWidth, gy + diagnostic.ascent + canvas.outlineWidth};

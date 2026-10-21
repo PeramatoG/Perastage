@@ -1147,7 +1147,6 @@ add_executable(fixture_label_overrides_reconcile_test
                fixture_label_overrides_reconcile_test.cpp
                ../viewer2d/fixture_label_style.cpp
                ../viewer2d/fixture_label_composition.cpp
-               ../core/typography/font_metrics.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
@@ -1166,7 +1165,7 @@ add_executable(fixture_label_overrides_reconcile_test
 target_include_directories(fixture_label_overrides_reconcile_test PRIVATE
                            . ../core ../third_party)
 target_link_libraries(fixture_label_overrides_reconcile_test PRIVATE
-                      ${wxWidgets_LIBRARIES})
+                      ${wxWidgets_LIBRARIES} perastage_typography)
 add_test(NAME FixtureLabelOverridesReconcile
          COMMAND fixture_label_overrides_reconcile_test)
 
@@ -1174,10 +1173,10 @@ add_executable(pdf_writer_test
                pdf_writer_test.cpp
                ../viewer2d/pdf/pdf_draw_commands.cpp
                ../viewer2d/pdf/pdf_font_metrics.cpp
-               ../core/typography/font_metrics.cpp
                ../viewer2d/pdf/pdf_objects.cpp
                ../viewer2d/pdf/pdf_writer.cpp)
 target_include_directories(pdf_writer_test PRIVATE .)
+target_link_libraries(pdf_writer_test PRIVATE perastage_typography)
 if(TARGET ZLIB::ZLIB)
     target_link_libraries(pdf_writer_test PRIVATE ZLIB::ZLIB)
 endif()

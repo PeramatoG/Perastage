@@ -16,6 +16,9 @@ struct FixtureLabelComposition {
 };
 bool HasFieldPresentation(const FixtureLabelOverrideMap &all,
                          const std::string &uuid, int view, int field);
+std::array<LabelFieldStyle, 3> ResolveEditableFieldStyles(const ConfigManager &cfg,
+    const FixtureLabelOverrideMap &all, const std::string &uuid, int view,
+    const typography::FontPair &fonts);
 FixtureLabelComposition ComposeFixtureLabels(const ConfigManager &cfg,
     const FixtureLabelOverrideMap &all, const Fixture &fixture, int view,
     const LabelBounds &bounds, const typography::FontPair &fonts);

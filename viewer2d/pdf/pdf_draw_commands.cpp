@@ -281,11 +281,13 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
   }
   if (lineAdvance > 0.0)
     lineAdvance = -lineAdvance;
-  auto emitText = [&](const CanvasColor &color, double dx, double dy) {
+  auto emitText = [&](const CanvasColor &color, double dx, double dy, bool stroke = false) {
     const char *fontKey = font ? font->key.c_str() : "F1";
+    if (stroke) out << "q\n" << fmt.Format(2 * style.outlineWidth * scale) << " w\n1 J\n1 j\n";
     out << "BT\n/" << fontKey << ' ' << fmt.Format(scaledFontSize) << " Tf\n";
+    if (stroke) out << "1 Tr\n";
     out << fmt.Format(color.r) << ' ' << fmt.Format(color.g) << ' '
-        << fmt.Format(color.b) << " rg\n";
+        << fmt.Format(color.b) << (stroke ? " RG\n" : " rg\n");
     out << fmt.Format(pos.x + horizontalOffset + dx) << ' '
         << fmt.Format(pos.y + verticalOffset + dy) << " Td\n";
     out << "(";
@@ -299,12 +301,16 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
       out << ch;
     }
     out << ") Tj\nET\n";
+    if (stroke) out << "Q\n";
   };
 
   const double outline = style.outlineWidth * scale;
   if (pass != typography::TextInkPass::Fill && outline > 0.0f) {
-    for (const auto &offset : typography::OutlineOffsets(outline))
-      emitText(style.outlineColor, offset[0], offset[1]);
+    if (style.fontFamily.starts_with("perastage-sans"))
+      emitText(style.outlineColor, 0, 0, true);
+    else
+      for (const auto &offset : typography::OutlineOffsets(outline))
+        emitText(style.outlineColor, offset[0], offset[1]);
   }
 
   if (pass != typography::TextInkPass::Outline)

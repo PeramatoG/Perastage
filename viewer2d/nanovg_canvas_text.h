@@ -1,26 +1,45 @@
 #pragma once
 #include "canvas2d.h"
 #include "typography/text_outline.h"
+#include "typography/glyph_outline.h"
 #include <nanovg.h>
 
 namespace viewer2d {
-// Draw within the caller's NanoVG frame, using precomposed baselines and units.
+// Both inks use identical unhinted contours; atlas rounding must not move the fill.
 inline void DrawCanvasText(NVGcontext *vg, const TextCommand &text,
                            float x, float y, double pixelsPerUnit,
                            typography::TextInkPass pass = typography::TextInkPass::Both) {
   const auto &style = text.style;
-  nvgFontFace(vg, style.fontFamily.c_str());
-  nvgFontSize(vg, (style.ascent + style.descent) * pixelsPerUnit);
-  nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_BASELINE);
+  if (!style.glyphOutline) return;
+  const double em = style.fontSize * pixelsPerUnit;
+  nvgSave(vg);
+  nvgBeginPath(vg);
+  for (const auto &p : style.glyphOutline->path) {
+    using Kind = typography::GlyphPathElement::Kind;
+    switch (p.kind) {
+    case Kind::Move: nvgMoveTo(vg, x + p.x * em, y - p.y * em); break;
+    case Kind::Line: nvgLineTo(vg, x + p.x * em, y - p.y * em); break;
+    case Kind::Quadratic:
+      nvgQuadTo(vg, x + p.cx * em, y - p.cy * em, x + p.x * em, y - p.y * em);
+      break;
+    case Kind::Close:
+      nvgClosePath(vg);
+      nvgPathWinding(vg, p.hole ? NVG_HOLE : NVG_SOLID);
+      break;
+    }
+  }
   if (pass != typography::TextInkPass::Fill && style.outlineWidth > 0) {
-    nvgFillColor(vg, nvgRGBAf(style.outlineColor.r, style.outlineColor.g,
-                             style.outlineColor.b, style.outlineColor.a));
-    for (const auto &offset : typography::OutlineOffsets(style.outlineWidth * pixelsPerUnit))
-      nvgText(vg, x + offset[0], y + offset[1], text.text.c_str(), nullptr);
+    nvgStrokeColor(vg, nvgRGBAf(style.outlineColor.r, style.outlineColor.g,
+                               style.outlineColor.b, style.outlineColor.a));
+    nvgStrokeWidth(vg, 2 * style.outlineWidth * pixelsPerUnit);
+    nvgLineJoin(vg, NVG_ROUND);
+    nvgLineCap(vg, NVG_ROUND);
+    nvgStroke(vg);
   }
   if (pass != typography::TextInkPass::Outline) {
-    nvgFillColor(vg, nvgRGBAf(style.color.r,style.color.g,style.color.b,style.color.a));
-    nvgText(vg,x,y,text.text.c_str(),nullptr);
+    nvgFillColor(vg, nvgRGBAf(style.color.r, style.color.g, style.color.b, style.color.a));
+    nvgFill(vg);
   }
+  nvgRestore(vg);
 }
 } // namespace viewer2d

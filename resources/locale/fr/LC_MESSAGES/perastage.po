@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-20 18:04+0000\n"
+"POT-Creation-Date: 2026-10-20 18:54+0000\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: French\n"
@@ -1343,23 +1343,23 @@ msgstr "Les polices d’étiquettes fournies sont indisponibles."
 msgid "Present; preview unavailable"
 msgstr "Présent ; aperçu indisponible"
 
-#: gui/fixture_label_preview.cpp:138
+#: gui/fixture_label_preview.cpp:140
 msgid "Unsupported text: change the fixture attribute before export."
 msgstr ""
 "Texte non pris en charge : modifiez l’attribut du projecteur avant "
 "l’exportation."
 
-#: gui/fixture_label_preview.cpp:139
+#: gui/fixture_label_preview.cpp:141
 msgid "Dark preview: symbol contours are lightened for display only."
 msgstr ""
 "Aperçu sombre : les contours du symbole sont éclaircis uniquement pour "
 "l’affichage."
 
-#: gui/fixture_label_preview.cpp:140
+#: gui/fixture_label_preview.cpp:142
 msgid "Preview uses the first fixture in this scope."
 msgstr "L’aperçu utilise le premier projecteur de cette portée."
 
-#: gui/fixture_label_preview.cpp:140
+#: gui/fixture_label_preview.cpp:142
 msgid "Symbol unavailable"
 msgstr "Symbole indisponible"
 

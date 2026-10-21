@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-20 18:04+0000\n"
+"POT-Creation-Date: 2026-10-20 18:54+0000\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: German\n"
@@ -1342,19 +1342,19 @@ msgstr "Die mitgelieferten Beschriftungsschriften sind nicht verfügbar."
 msgid "Present; preview unavailable"
 msgstr "Vorhanden; Vorschau nicht verfügbar"
 
-#: gui/fixture_label_preview.cpp:138
+#: gui/fixture_label_preview.cpp:140
 msgid "Unsupported text: change the fixture attribute before export."
 msgstr "Nicht unterstützter Text: Geräteattribut vor dem Export ändern."
 
-#: gui/fixture_label_preview.cpp:139
+#: gui/fixture_label_preview.cpp:141
 msgid "Dark preview: symbol contours are lightened for display only."
 msgstr "Dunkle Vorschau: Symbolkonturen werden nur für die Anzeige aufgehellt."
 
-#: gui/fixture_label_preview.cpp:140
+#: gui/fixture_label_preview.cpp:142
 msgid "Preview uses the first fixture in this scope."
 msgstr "Die Vorschau verwendet das erste Gerät dieses Bereichs."
 
-#: gui/fixture_label_preview.cpp:140
+#: gui/fixture_label_preview.cpp:142
 msgid "Symbol unavailable"
 msgstr "Symbol nicht verfügbar"
 

@@ -588,7 +588,7 @@ Viewer2D owns fixture field resolution and composition into existing canvas text
 commands. GUI owns the editor's draft and symbol preview; Viewer3D submits the
 same composed positions to NanoVG and capture, and PDF embeds the resolved fonts.
 
-Version-2 `presentation` fields extend existing PSTG label overrides with an independent fill and eight-offset halo in scene metres. Version 1 remains readable with contrasting outline defaults. Opening the editor never reserializes metadata. Label-only commits touch document history/dirty state without changing the scene-resource revision; serialized styles invalidate composition and Layout viewport caches. The reserved
+Version-2 `presentation` fields extend existing PSTG label overrides with an independent fill and an outward contour radius in scene metres. Bundled TrueType contours (including composite accents) feed both NanoVG inks without font-atlas rounding; PDF strokes the same embedded glyphs with twice the radius as line width. Unedited legacy text retains its eight-offset rendering. Version 1 remains readable with contrasting outline defaults. Opening the editor never reserializes metadata. Preview and property controls share the legacy stack adapter; property edits retain unrelated geometry and unrounded offsets. Label-only commits touch document history/dirty state without changing the scene-resource revision; serialized styles invalidate composition and Layout viewport caches. The reserved
 `__project_defaults__` entry participates in the same project history and is
 excluded from UUID normalization/pruning. Legacy keys remain a read-only adapter
 until a field is edited; existing line-spacing and Layout compensation constants

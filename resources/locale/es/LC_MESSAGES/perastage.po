@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-20 18:04+0000\n"
+"POT-Creation-Date: 2026-10-20 18:54+0000\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -1343,21 +1343,21 @@ msgstr "Las fuentes de etiquetas incluidas no están disponibles."
 msgid "Present; preview unavailable"
 msgstr "Presente; vista previa no disponible"
 
-#: gui/fixture_label_preview.cpp:138
+#: gui/fixture_label_preview.cpp:140
 msgid "Unsupported text: change the fixture attribute before export."
 msgstr "Texto no admitido: cambie el atributo del aparato antes de exportar."
 
-#: gui/fixture_label_preview.cpp:139
+#: gui/fixture_label_preview.cpp:141
 msgid "Dark preview: symbol contours are lightened for display only."
 msgstr ""
 "Vista previa oscura: los contornos del símbolo se aclaran solo para su "
 "visualización."
 
-#: gui/fixture_label_preview.cpp:140
+#: gui/fixture_label_preview.cpp:142
 msgid "Preview uses the first fixture in this scope."
 msgstr "La vista previa usa el primer aparato de este ámbito."
 
-#: gui/fixture_label_preview.cpp:140
+#: gui/fixture_label_preview.cpp:142
 msgid "Symbol unavailable"
 msgstr "Símbolo no disponible"
 

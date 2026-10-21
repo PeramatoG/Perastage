@@ -2,6 +2,7 @@
 #include "typography/composition.h"
 #include "typography/font_resources.h"
 #include "typography/text_outline.h"
+#include "typography/glyph_outline.h"
 #include <cassert>
 #include <cmath>
 #include "pdf_objects.h"
@@ -208,6 +209,34 @@ int main() {
     assert(out.str().find(fmt.Format(glyph.x) + " " + fmt.Format(glyph.baseline)) != std::string::npos);
   }
 
+  // Continuous contours cover the bounded repertoire, including composite accents.
+  for (const auto *font : {&fonts.regular, &fonts.bold}) {
+    for (unsigned code = 32; code < 256; ++code) {
+      const auto outline = typography::ReadGlyphOutline(*font, code);
+      for (const auto &p : outline->path)
+        assert(std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.cx) && std::isfinite(p.cy));
+    }
+  }
+  const auto accent = typography::ReadGlyphOutline(fonts.regular, 0xc9);
+  double accentTop = 0;
+  for (const auto &p : accent->path) accentTop = std::max(accentTop, p.y);
+  assert(std::abs(accentTop - .944) < 1e-9);
+  const auto round = typography::ReadGlyphOutline(fonts.regular, 'O');
+  assert(std::count_if(round->path.begin(), round->path.end(), [](const auto &p) {
+    return p.kind == typography::GlyphPathElement::Kind::Close;
+  }) == 2);
+  assert(std::count_if(round->path.begin(), round->path.end(), [](const auto &p) {
+    return p.kind == typography::GlyphPathElement::Kind::Close && p.hole;
+  }) == 1);
+  assert(std::any_of(round->path.begin(), round->path.end(), [](const auto &p) {
+    return p.kind == typography::GlyphPathElement::Kind::Quadratic;
+  }));
+  auto truncated = fonts.regular; truncated.data.resize(4);
+  bool invalidContour = false;
+  try { typography::ReadGlyphOutline(truncated, 'A'); }
+  catch (const std::runtime_error &) { invalidContour = true; }
+  assert(invalidContour);
+
   TextCommand outlined;
   outlined.text = "A"; outlined.style.fontFamily = "perastage-sans";
   outlined.style.fontSize = 12; outlined.style.ascent = a.ascent;
@@ -216,9 +245,14 @@ int main() {
   std::ostringstream outlinedPdf;
   layout_pdf_internal::AppendText(outlinedPdf,fmt,{1,2},outlined,outlined.style,20,&catalog);
   const auto output = outlinedPdf.str();
-  for (const auto &offset : typography::OutlineOffsets(outlined.style.outlineWidth*20))
-    assert(output.find(fmt.Format(1+offset[0])+" "+fmt.Format(2+offset[1])+" Td") != std::string::npos);
-  assert(output.find("0.900000 0.800000 0.700000 rg") != std::string::npos);
+  assert(output.find("1 Tr") != std::string::npos);
+  assert(output.find(fmt.Format(2*outlined.style.outlineWidth*20)+" w") != std::string::npos);
+  assert(output.find("1.000000 2.000000 Td") != std::string::npos);
+  assert(output.find("0.900000 0.800000 0.700000 RG") != std::string::npos);
+  const auto firstPaint = output.find("(A) Tj");
+  const auto secondPaint = output.find("(A) Tj", firstPaint + 1);
+  assert(firstPaint != std::string::npos && secondPaint != std::string::npos);
+  assert(output.find("(A) Tj", secondPaint + 1) == std::string::npos);
   assert(output.find("0.200000 0.300000 0.400000 rg") != std::string::npos);
   auto adjacent = outlined;
   adjacent.x = .07f; adjacent.text = "B";
@@ -228,11 +262,11 @@ int main() {
       {"label:fixture","label:fixture","label:fixture"},0,&catalog) == 2);
   // A neighbouring glyph's halo must never paint over a completed text fill.
   const auto layered = layeredPdf.str();
-  assert(layered.rfind("0.900000 0.800000 0.700000 rg") <
+  assert(layered.rfind("0.900000 0.800000 0.700000 RG") <
          layered.find("0.200000 0.300000 0.400000 rg"));
   outlined.style.outlineWidth = 0;
   std::ostringstream plainPdf;
   layout_pdf_internal::AppendText(plainPdf,fmt,{1,2},outlined,outlined.style,20,&catalog);
-  assert(plainPdf.str().find("0.900000 0.800000 0.700000 rg") == std::string::npos);
+  assert(plainPdf.str().find("1 Tr") == std::string::npos);
   return CheckWriterSerialization() && CheckLocaleIndependentNumbers() ? 0 : 1;
 }

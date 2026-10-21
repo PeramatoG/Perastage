@@ -89,14 +89,14 @@ FixtureLabelEditor::FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int
   for (auto *choice : {scope_, view_}) choice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &) { preview_->CancelDrag(); preview_->ResetFit(); LoadField(); });
   fields_->Bind(wxEVT_LISTBOX, [this](wxCommandEvent &) { preview_->CancelDrag(); LoadField(); });
   background->Bind(wxEVT_CHOICE,[this,background](wxCommandEvent &){ preview_->SetDarkBackground(background->GetSelection()==1); });
-  for (auto *choice : {anchor_,align_}) choice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &) { StoreField(); });
-  for (auto *check : {visible_,bold_,outline_}) check->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent &) { StoreField(); });
+  for (auto *choice : {anchor_,align_}) choice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &event) { StoreField(event.GetEventObject()); });
+  for (auto *check : {visible_,bold_,outline_}) check->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent &event) { StoreField(event.GetEventObject()); });
   for (auto *s : {size_,x_,y_,outlineWidth_}) {
-    s->Bind(wxEVT_SPINCTRLDOUBLE, [this](wxSpinDoubleEvent &) { StoreField(); });
-    s->Bind(wxEVT_TEXT, [this](wxCommandEvent &) { StoreField(); });
+    s->Bind(wxEVT_SPINCTRLDOUBLE, [this](wxSpinDoubleEvent &event) { StoreField(event.GetEventObject()); });
+    s->Bind(wxEVT_TEXT, [this](wxCommandEvent &event) { StoreField(event.GetEventObject()); });
   }
-  color_->Bind(wxEVT_COLOURPICKER_CHANGED, [this](wxColourPickerEvent &) { StoreField(); });
-  outlineColor_->Bind(wxEVT_COLOURPICKER_CHANGED, [this](wxColourPickerEvent &) { StoreField(); });
+  color_->Bind(wxEVT_COLOURPICKER_CHANGED, [this](wxColourPickerEvent &event) { StoreField(event.GetEventObject()); });
+  outlineColor_->Bind(wxEVT_COLOURPICKER_CHANGED, [this](wxColourPickerEvent &event) { StoreField(event.GetEventObject()); });
   preview_->SetDragCallback([this](auto phase,const auto &style){ OnPreviewDrag(phase,style); });
   Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Apply(); }, wxID_APPLY);
   Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Apply(); if(IsModal())EndModal(wxID_OK);else Hide(); }, wxID_OK);
@@ -114,7 +114,7 @@ std::string FixtureLabelEditor::ScopeUuid() const {
 }
 void FixtureLabelEditor::LoadField() {
   loading_ = true;
-  const auto s = viewer2d::ResolveFieldStyle(cfg_, draft_, ScopeUuid(), view_->GetSelection(), fields_->GetSelection());
+  const auto s = preview_->ResolveEditingStyle(draft_, ScopeUuid(), view_->GetSelection(), fields_->GetSelection());
   visible_->SetValue(s.visible); bold_->SetValue(s.bold); size_->SetValue(s.size);
   x_->SetValue(s.x); y_->SetValue(s.y); anchor_->SetSelection(s.anchor); align_->SetSelection(s.alignment);
   color_->SetColour(wxColour(s.color[0]*255,s.color[1]*255,s.color[2]*255));
@@ -123,21 +123,35 @@ void FixtureLabelEditor::LoadField() {
   outlineColor_->Enable(s.outlineEnabled); outlineWidth_->Enable(s.outlineEnabled);
   loading_ = false; RefreshPreview();
 }
-void FixtureLabelEditor::StoreField() {
+void FixtureLabelEditor::StoreField(wxObject *source) {
   if (loading_) return;
   double size, x, y, width;
   if (!size_->GetTextValue().ToDouble(&size) || !x_->GetTextValue().ToDouble(&x) ||
       !y_->GetTextValue().ToDouble(&y) || !std::isfinite(size) || !std::isfinite(x) || !std::isfinite(y) || size < .004 || size > 4 ||
       std::abs(x)>100 || std::abs(y)>100 || !outlineWidth_->GetTextValue().ToDouble(&width) ||
       !std::isfinite(width) || width<0 || width>1) return;
-  viewer2d::LabelFieldStyle s;
-  s.visible = visible_->GetValue(); s.bold = bold_->GetValue(); s.size = size;
-  s.x = x; s.y = y; s.anchor = anchor_->GetSelection(); s.alignment = align_->GetSelection();
-  const auto c = color_->GetColour(); s.color = {c.Red()/255.f,c.Green()/255.f,c.Blue()/255.f};
-  s.outlineEnabled=outline_->GetValue(); s.outlineWidth=width;
-  const auto ink=outlineColor_->GetColour(); s.outlineColor={ink.Red()/255.f,ink.Green()/255.f,ink.Blue()/255.f};
   const auto ids = scope_->GetSelection() == 0 ? std::vector<std::string>{viewer2d::kLabelDefaultsKey} : selection_;
-  for (const auto &id : ids) draft_[id].fieldStyles[view_->GetSelection()][fields_->GetSelection()] = s;
+  for (const auto &id : ids) {
+    auto s = preview_->ResolveEditingStyle(draft_, id, view_->GetSelection(), fields_->GetSelection());
+    if (source == visible_) s.visible = visible_->GetValue();
+    if (source == bold_) s.bold = bold_->GetValue();
+    if (source == size_) s.size = size;
+    if (source == x_) s.x = x;
+    if (source == y_) s.y = y;
+    if (source == anchor_) s.anchor = anchor_->GetSelection();
+    if (source == align_) s.alignment = align_->GetSelection();
+    if (source == color_) {
+      const auto c = color_->GetColour(); s.color = {c.Red()/255.f,c.Green()/255.f,c.Blue()/255.f};
+    }
+    if (source == outline_) s.outlineEnabled = outline_->GetValue();
+    if (source == outlineWidth_) s.outlineWidth = width;
+    if (source == outlineColor_) {
+      const auto ink = outlineColor_->GetColour();
+      s.outlineColor = {ink.Red()/255.f,ink.Green()/255.f,ink.Blue()/255.f};
+    }
+    draft_[id].fieldStyles[view_->GetSelection()][fields_->GetSelection()] = s;
+  }
+  outlineColor_->Enable(outline_->GetValue()); outlineWidth_->Enable(outline_->GetValue());
   changed_ = true; RefreshPreview();
 }
 void FixtureLabelEditor::RefreshPreview() {

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.20\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-20 18:04+0000\n"
+"POT-Creation-Date: 2026-10-20 18:54+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1210,19 +1210,19 @@ msgstr ""
 msgid "Present; preview unavailable"
 msgstr ""
 
-#: gui/fixture_label_preview.cpp:138
+#: gui/fixture_label_preview.cpp:140
 msgid "Unsupported text: change the fixture attribute before export."
 msgstr ""
 
-#: gui/fixture_label_preview.cpp:139
+#: gui/fixture_label_preview.cpp:141
 msgid "Dark preview: symbol contours are lightened for display only."
 msgstr ""
 
-#: gui/fixture_label_preview.cpp:140
+#: gui/fixture_label_preview.cpp:142
 msgid "Preview uses the first fixture in this scope."
 msgstr ""
 
-#: gui/fixture_label_preview.cpp:140
+#: gui/fixture_label_preview.cpp:142
 msgid "Symbol unavailable"
 msgstr ""
 

@@ -16,7 +16,7 @@ public:
   ~FixtureLabelEditor() override;
 private:
   void LoadField();
-  void StoreField();
+  void StoreField(wxObject *source);
   void Apply();
   void Reset();
   void RefreshPreview();

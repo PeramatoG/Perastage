@@ -104,6 +104,10 @@ void CheckNeutralCompoundSvg() {
   assert(anchor[0]==5 && anchor[1]==5);
   data.viewKind=View::Front;
   assert(symbols::SvgPresentationAnchor(data)[1]==10);
+  data.viewKind=View::Left;
+  assert(symbols::SvgPresentationAnchor(data)[1]==10);
+  data.viewKind=View::Bottom;
+  assert(symbols::SvgPresentationAnchor(data)[1]==5);
 }
 
 void CheckCapturedSourceWithMixedModes() {

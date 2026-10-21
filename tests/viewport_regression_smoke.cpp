@@ -14,6 +14,9 @@
 #include "viewer3dpanel.h"
 #include "startup_profile.h"
 #include <cmath>
+#include <cstdlib>
+#include <wx/dcscreen.h>
+#include <wx/dcmemory.h>
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
@@ -122,6 +125,25 @@ class ViewportSmoke : public wxApp {
     Pointer(*preview,wxEVT_LEFT_DOWN,start);Pointer(*preview,wxEVT_LEFT_UP,start);
     Button(wxID_APPLY);
     Require(cfg.CaptureDirtyState().revision==before.revision,"Click without movement created history");
+    // The first unrelated edit must adopt the baseline already shown in preview.
+    const auto originalText=preview->GetComposition().text;
+    auto *outlineWidth=dynamic_cast<wxSpinCtrlDouble *>(editor_->FindWindowByName("fixtureLabelOutlineWidth",editor_));
+    auto *offsetY=dynamic_cast<wxSpinCtrlDouble *>(editor_->FindWindowByName("fixtureLabelOffsetY",editor_));
+    Require(outlineWidth && offsetY,"Editor presentation controls missing");
+    const double originalWidth=outlineWidth->GetValue(),originalY=offsetY->GetValue();
+    for (double width : {originalWidth+.001,originalWidth}) {
+      outlineWidth->SetValue(width);
+      wxCommandEvent edit(wxEVT_TEXT,outlineWidth->GetId());edit.SetEventObject(outlineWidth);
+      outlineWidth->GetEventHandler()->ProcessEvent(edit);
+      preview->Update();
+      Require(preview->GetPreviewTransform().scale==transform.scale,"Outline edit changed preview framing");
+      const auto &updated=preview->GetComposition().text;
+      Require(updated.size()==originalText.size(),"Outline edit changed glyph count");
+      for(size_t i=0;i<updated.size();++i)
+        Require(updated[i].x==originalText[i].x && updated[i].y==originalText[i].y,
+                "First outline edit moved a label baseline");
+      Require(offsetY->GetValue()==originalY,"Outline edit changed the numeric offset");
+    }
     Pointer(*preview,wxEVT_LEFT_DOWN,start);Pointer(*preview,wxEVT_MOTION,start+wxPoint(20,-10));
     Require(preview->IsDragging(),"Preview did not begin a label drag");
     wxKeyEvent escape(wxEVT_CHAR_HOOK); escape.m_keyCode=WXK_ESCAPE;
@@ -169,7 +191,7 @@ class ViewportSmoke : public wxApp {
     for(const auto &command:probe->commands.commands)
       if(const auto *text=std::get_if<TextCommand>(&command))
         outline|=text->style.fontFamily.starts_with("perastage-sans") &&
-            std::abs(text->style.outlineWidth-width->GetValue())<1e-6;
+            text->style.glyphOutline && std::abs(text->style.outlineWidth-width->GetValue())<1e-6;
     Require(outline,"Natural viewport paint omitted the configured text outline");
     const auto after=panel->GetViewState();
     Require(before.zoom==after.zoom && before.offsetPixelsX==after.offsetPixelsX &&
@@ -178,6 +200,19 @@ class ViewportSmoke : public wxApp {
   void CloseEditor() {
     if(editor_->IsModal())editor_->EndModal(wxID_CANCEL);else editor_->Hide();
     editor_->Destroy();editor_=nullptr;
+  }
+  void SnapshotEditor(bool wide=false) {
+    const char *path=std::getenv("PERASTAGE_SMOKE_SCREENSHOT");
+    if(!path)return;
+    Preview()->Update();
+    const auto size=editor_->GetSize();
+    const auto position=editor_->GetScreenPosition();
+    wxBitmap bitmap(size);wxMemoryDC target(bitmap);wxScreenDC screen;
+    target.Blit(0,0,size.x,size.y,&screen,position.x,position.y);
+    target.SelectObject(wxNullBitmap);
+    std::string file=std::string(path)+(wide?".wide.png":"");
+    if(std::filesystem::exists(file))file+=".reload.png";
+    Require(bitmap.SaveFile(wxString::FromUTF8(file),wxBITMAP_TYPE_PNG),"Editor screenshot failed");
   }
 public:
   wxAppTraits *CreateTraits() override { return new SmokeTraits; }
@@ -189,7 +224,7 @@ public:
     if (argc < 3) {
       cfg.SetValue("layout_view_mode", "2d_layout_view");
       cfg.SetFloat("view2d_zoom", 8);
-      Fixture fixture; fixture.uuid = fixtureUuid; fixture.instanceName = "Smoke fixture";
+      Fixture fixture; fixture.uuid = fixtureUuid; fixture.instanceName = "LITE BEYE 10R4";
       fixture.fixtureId = 1; fixture.address = "1.001"; fixture.typeName = "Smoke";
       cfg.GetScene().fixtures.emplace(fixture.uuid, fixture);
       Require(cfg.SaveProject((scratch/"scene.pstg").string()), "Synthetic PSTG save failed");
@@ -265,15 +300,15 @@ public:
         labels_ = cfg.GetValue("label_fixture_overrides").value_or("");
         legacyPositions_=LegacyPositions();
         Require(!legacyPositions_.empty(),"Synthetic legacy ID label missing");
-        CheckPreviewEditing();ApplyAndObservePaint();
+        CheckPreviewEditing();SnapshotEditor();ApplyAndObservePaint();
         firstApply_=cfg.GetValue("label_fixture_overrides").value_or("");
         Require(firstApply_!=labels_,"First Apply did not commit");
         Require(LegacyPositions()==legacyPositions_,"Editing Name moved the legacy ID baseline");
         auto *width=dynamic_cast<wxSpinCtrlDouble *>(editor_->FindWindowByName("fixtureLabelOutlineWidth",editor_));
         Require(width,"Outline width control missing");
-        width->SetValue(std::abs(width->GetValue()-.021)<1e-5?.031:.021);
+        width->SetValue(std::abs(width->GetValue()-.040)<1e-5?.031:.040);
         wxCommandEvent edit(wxEVT_TEXT,width->GetId());edit.SetEventObject(width);width->GetEventHandler()->ProcessEvent(edit);
-        ApplyAndObservePaint();secondApply_=cfg.GetValue("label_fixture_overrides").value_or("");
+        ApplyAndObservePaint();SnapshotEditor(true);secondApply_=cfg.GetValue("label_fixture_overrides").value_or("");
         Require(secondApply_!=firstApply_,"Second Apply did not commit");
         const auto revision=cfg.CaptureDirtyState().revision;Button(wxID_APPLY);
         Require(cfg.CaptureDirtyState().revision==revision,"No-op Apply created history");

@@ -120,6 +120,8 @@ void FixtureLabelPreview::Paint(wxPaintEvent &) {
     extentY=std::max({extentY,std::abs(field->bounds.minY),std::abs(field->bounds.maxY)});
   }
   const double scale=lockedScale_.value_or(std::min(std::max(1,size.x-30)/(extentX*2),std::max(1,size.y-30)/(extentY*2)));
+  // Property edits keep the same visual frame; view/scope/resize explicitly refit.
+  if (!lockedScale_) lockedScale_ = scale;
   previewTransform_={size.x/2.0,size.y/2.0,scale};
   DrawSymbol(scale);
   if((hover_ || drag_.Active()) && composition_.fields[activeField_]){

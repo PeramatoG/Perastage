@@ -71,6 +71,19 @@ int main() {
   for (int f = 1; f < 3; ++f) draft[validFixture.uuid].fieldStyles[0][f] = style;
   const viewer2d::LabelBounds bounds{-.1,-.2,.1,.2};
   const auto compose = [&] { return viewer2d::ComposeFixtureLabels(cfg, draft, validFixture, 0, bounds, fonts); };
+  // Adopting only an ink property retains the exact legacy preview baseline.
+  auto legacyDraft = viewer2d::LoadFixtureLabelOverrides(cfg);
+  legacyDraft[validFixture.uuid].fieldStyles = {};
+  for (int view = 0; view < 3; ++view) {
+    const auto editing = viewer2d::ResolveEditableFieldStyles(cfg, legacyDraft, validFixture.uuid, view, fonts);
+    auto adopted = editing[0]; adopted.outlineWidth = .04f;
+    auto changed = legacyDraft;
+    changed[validFixture.uuid].fieldStyles[view][0] = adopted;
+    const auto resolved = viewer2d::ResolveEditableFieldStyles(cfg, changed, validFixture.uuid, view, fonts);
+    assert(resolved[0].x == editing[0].x && resolved[0].y == editing[0].y);
+    assert(resolved[0].anchor == editing[0].anchor && resolved[0].alignment == editing[0].alignment);
+    assert(resolved[1] == editing[1] && resolved[2] == editing[2]);
+  }
   auto a = compose(); std::string text;
   assert(a.fields[0] && a.fields[1] && a.fields[2]);
   assert(a.text.front().style.outlineWidth == style.outlineWidth);
