@@ -7,11 +7,12 @@
 namespace viewer2d {
 // Both inks use identical unhinted contours; atlas rounding must not move the fill.
 inline void DrawCanvasText(NVGcontext *vg, const TextCommand &text,
-                           float x, float y, double pixelsPerUnit,
-                           typography::TextInkPass pass = typography::TextInkPass::Both) {
+                           float x, float y, double scenePixelsPerUnit,
+                           typography::TextInkPass pass = typography::TextInkPass::Both,
+                           double devicePixelRatio = 1) {
   const auto &style = text.style;
   if (!style.glyphOutline) return;
-  const double em = style.fontSize * pixelsPerUnit;
+  const double em = style.fontSize * scenePixelsPerUnit;
   nvgSave(vg);
   nvgBeginPath(vg);
   for (const auto &p : style.glyphOutline->path) {
@@ -31,7 +32,7 @@ inline void DrawCanvasText(NVGcontext *vg, const TextCommand &text,
   if (pass != typography::TextInkPass::Fill && style.outlineWidth > 0) {
     nvgStrokeColor(vg, nvgRGBAf(style.outlineColor.r, style.outlineColor.g,
                                style.outlineColor.b, style.outlineColor.a));
-    nvgStrokeWidth(vg, 2 * style.outlineWidth * pixelsPerUnit);
+    nvgStrokeWidth(vg, typography::ScreenOutlineStrokeWidth(style.outlineWidth, devicePixelRatio));
     nvgLineJoin(vg, NVG_ROUND);
     nvgLineCap(vg, NVG_ROUND);
     nvgStroke(vg);

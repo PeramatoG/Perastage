@@ -1,5 +1,11 @@
 // Native smoke against the built application objects; see run_viewport_regression_smoke.py.
 #include <GL/glew.h>
+#include <nanovg.h>
+#define NANOVG_GL2
+#include <nanovg_gl.h>
+#include "nanovg_canvas_text.h"
+#include "../viewer_common/gl_framebuffer_capture_target.h"
+#include "../viewer3d/render/opengl_state_guard.h"
 #include <wx/wx.h>
 #include "fixture_label_preview.h"
 #include <wx/apptrait.h>
@@ -36,6 +42,50 @@ class SmokeTraits : public wxGUIAppTraits {
 public:
   wxStandardPaths &GetStandardPaths() override { return paths_; }
 };
+
+// Measure a straight contour through the real display adapter, avoiding glyph hinting.
+void CheckScreenOutlineRaster() {
+  viewer3d::render::OpenGLStateGuard state;
+  GLfloat clear[4]; glGetFloatv(GL_COLOR_CLEAR_VALUE,clear);
+  glcapture::FramebufferCaptureTarget target;
+  Require(target.Initialize(512,512),"Outline probe framebuffer failed");
+  std::unique_ptr<NVGcontext,decltype(&nvgDeleteGL2)> vg(
+      nvgCreateGL2(NVG_ANTIALIAS | NVG_STENCIL_STROKES),nvgDeleteGL2);
+  Require(vg!=nullptr,"Outline probe NanoVG context failed");
+  auto shape=std::make_shared<typography::GlyphOutline>();
+  using Kind=typography::GlyphPathElement::Kind;
+  shape->path={{Kind::Move,0,0},{Kind::Line,1,0},{Kind::Line,1,1},
+               {Kind::Line,0,1},{Kind::Close}};
+  TextCommand text; text.style.fontSize=2; text.style.glyphOutline=shape;
+  text.style.outlineColor={.25f,.5f,.75f,1};
+  const float reference=typography::kFixtureLabelOutlineReferenceMetres;
+  for(double dpi : {1.,1.5,2.}) for(double zoom : {.25,.5,1.,2.,4.}) {
+    for(float radius : {reference,2*reference,0.f}) {
+      text.style.outlineWidth=radius;
+      target.BindForRendering(); glViewport(0,0,512,512);
+      glDisable(GL_SCISSOR_TEST); glClearColor(0,0,0,1);
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+      nvgBeginFrame(vg.get(),512/dpi,512/dpi,dpi);
+      viewer2d::DrawCanvasText(vg.get(),text,64/dpi,448/dpi,25*zoom,
+                              typography::TextInkPass::Outline,dpi);
+      nvgEndFrame(vg.get()); target.BindForReading();
+      const int row=511-static_cast<int>(std::lround(448-25*zoom*dpi));
+      std::array<unsigned char,17*4> pixels{};
+      glReadPixels(56,row,17,1,GL_RGBA,GL_UNSIGNED_BYTE,pixels.data());
+      int width=0;
+      for(size_t i=0;i<pixels.size();i+=4) if(pixels[i+2]>80) {
+        ++width;
+        Require(std::abs(2*static_cast<int>(pixels[i])-pixels[i+1])<=3 &&
+                std::abs(3*static_cast<int>(pixels[i+1])-2*pixels[i+2])<=4,
+                "Display outline changed its authored color");
+      }
+      const int expected=radius==0?0:radius==reference?2:4;
+      Require(width==expected,"Rendered outline width changed with zoom or DPI");
+    }
+  }
+  glClearColor(clear[0],clear[1],clear[2],clear[3]);
+  std::cout<<"Outline raster probe passed: 5 zooms, 3 pixel ratios, default/custom/disabled"<<std::endl;
+}
 }
 class ViewportSmoke : public wxApp {
   MainWindow *frame_ = nullptr;
@@ -108,6 +158,7 @@ class ViewportSmoke : public wxApp {
   }
   void CheckPreviewEditing() {
     auto *preview=Preview();preview->Update();
+    CheckScreenOutlineRaster(); preview->Refresh(false); preview->Update();
     auto &cfg=ConfigManager::Get();const auto before=cfg.CaptureDirtyState();
     const auto bounds=preview->GetComposition().fields[0]->bounds;
     const auto otherFields=preview->GetComposition().fields;

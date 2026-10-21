@@ -84,7 +84,7 @@ void DrawComposedFixtureLabels(ISelectionContext &controller, int width, int hei
         if (view == Viewer2DView::Side) { wx = 0; wy = -t.x; wz = t.y; }
         double sx, sy, sz;
         if (gluProject(wx, wy, wz, model, projection, viewport, &sx, &sy, &sz) != GL_TRUE) continue;
-        viewer2d::DrawCanvasText(vg, t, sx, height - sy, 25.0 * zoom, pass);
+        viewer2d::DrawCanvasText(vg, t, sx, height - sy, 25.0 * zoom, pass, 1.0);
       }
     }
   } catch (const std::exception &e) {

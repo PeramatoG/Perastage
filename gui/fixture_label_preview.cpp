@@ -134,7 +134,7 @@ void FixtureLabelPreview::Paint(wxPaintEvent &) {
   for (auto pass : {typography::TextInkPass::Outline, typography::TextInkPass::Fill})
   for(const auto &text:composition_.text){
     const auto p=previewTransform_.ToScreen(text.x,text.y);
-    viewer2d::DrawCanvasText(vg_,text,p.x,p.y,scale,pass);
+    viewer2d::DrawCanvasText(vg_,text,p.x,p.y,scale,pass,ratio);
   }
   status_.SetLabel(!composition_.diagnostics.empty()
       ? _("Unsupported text: change the fixture attribute before export.")

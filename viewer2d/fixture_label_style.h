@@ -1,5 +1,6 @@
 #pragma once
 #include "typography/composition.h"
+#include "typography/text_outline.h"
 #include "fixture_label_keys.h"
 #include <array>
 #include <optional>
@@ -13,7 +14,7 @@ struct LabelFieldStyle {
   std::array<float, 3> color{0, 0, 0};
   bool outlineEnabled = true;
   std::array<float, 3> outlineColor{1, 1, 1};
-  float outlineWidth = 0.004f; // Outward contour radius in scene metres.
+  float outlineWidth = typography::kFixtureLabelOutlineReferenceMetres; // Physical export radius; relative screen weight.
   int anchor = 1; // Center, top, bottom, left, right of projected fixture bounds.
   int alignment = 1;
   float x = 0, y = 0;

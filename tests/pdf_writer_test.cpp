@@ -242,6 +242,20 @@ int main() {
   outlined.style.fontSize = 12; outlined.style.ascent = a.ascent;
   outlined.style.descent = a.descent; outlined.style.outlineWidth = .013f;
   outlined.style.outlineColor = {.9f,.8f,.7f,1}; outlined.style.color = {.2f,.3f,.4f,1};
+  for (double zoom : {.25,.5,1.,2.,4.}) {
+    for (double dpi : {1.,1.5,2.,3.}) {
+      const auto radius = typography::kFixtureLabelOutlineReferenceMetres;
+      const double screenStroke = typography::ScreenOutlineStrokeWidth(radius,dpi);
+      assert(std::abs(screenStroke*dpi-2) < 1e-6);
+      assert(std::abs(typography::ScreenOutlineStrokeWidth(2*radius,dpi)*dpi-4) < 1e-6);
+      assert(typography::ScreenOutlineStrokeWidth(0,dpi)==0);
+      // Printing still uses the authored physical radius at its own mapping scale.
+      std::ostringstream physicalPdf;
+      layout_pdf_internal::AppendText(physicalPdf,fmt,{1,2},outlined,outlined.style,20*zoom,&catalog);
+      assert(physicalPdf.str().find(fmt.Format(2*outlined.style.outlineWidth*20*zoom)+" w")!=std::string::npos);
+    }
+  }
+  assert(typography::ScreenOutlineStrokeWidth(.004,0)==0);
   std::ostringstream outlinedPdf;
   layout_pdf_internal::AppendText(outlinedPdf,fmt,{1,2},outlined,outlined.style,20,&catalog);
   const auto output = outlinedPdf.str();
