@@ -169,8 +169,9 @@ footer a:hover, footer a:focus-visible { color:var(--accent-strong); }
 .download-card { display: grid; grid-template-rows: subgrid; grid-row: span 5; row-gap: .6rem; min-width: 0; padding: 1rem; font-size: .9rem; line-height: 1.5; }
 .product-page .download-card .product-icon { margin: 0; }
 .download-card h3 { margin: 0; font-size: 1rem; line-height: 1.35; }
-.download-card > [data-platform] { align-self: end; margin-top: .4rem; }
+.download-card > [data-platform], .download-actions { align-self: end; margin-top: .4rem; }
 .download-card .product-button { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 3.5rem; padding: .4rem .5rem; font-size: .85rem; line-height: 1.4; text-align: center; }
+.download-actions { display: grid; gap: .6rem; }
 .download-size { display: block; color: var(--text-muted); font-size: .8rem; margin-top: .4rem; }
 .download-unavailable { color: var(--text-muted); }
 .download-card details { margin: 0; }

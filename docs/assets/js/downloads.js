@@ -36,7 +36,7 @@
       for (const [slot, asset] of entries) {
         if (!asset) continue;
         const link = document.createElement('a');
-        link.className = 'product-button product-button-primary';
+        link.className = slot.dataset.platform === 'windows' ? 'product-button' : 'product-button product-button-primary';
         link.href = asset.url;
         link.textContent = `Download ${slot.dataset.label}`;
         slot.replaceChildren(link);

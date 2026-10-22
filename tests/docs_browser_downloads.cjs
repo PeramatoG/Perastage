@@ -1,4 +1,10 @@
 const assert = require('node:assert/strict');
+const storeUrl = 'https://apps.microsoft.com/detail/9NM4CFTK4H6Z';
+async function checkStore(page) {
+  const store = page.getByRole('link', { name: 'Get it from Microsoft Store', exact: true });
+  assert.equal(await store.getAttribute('href'), storeUrl);
+  assert(await store.isVisible());
+}
 const current = require('../docs/assets/data/latest-release.json');
 
 // Exercise actual download controls, fallback behavior and installation help at mobile/desktop sizes.
@@ -15,7 +21,15 @@ async function checkDownloads(browser, base) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(base + 'index.html#download');
       await page.locator('[data-platform="windows"] a').waitFor();
+      await checkStore(page);
+      assert.equal(await page.locator('[data-platform="windows"] a').textContent(), 'Download Windows installer (.exe)');
       assert.equal(await page.locator('#download [data-platform] a').count(), 5);
+      for (const link of await page.locator('.download-actions a').all()) {
+        await link.focus();
+        assert.notEqual(await link.evaluate(el => getComputedStyle(el).outlineStyle), 'none');
+        assert(await link.evaluate(el => el.getBoundingClientRect().right <= el.closest('article').getBoundingClientRect().right));
+      }
+      assert(await page.locator('[data-platform="windows"] .download-size').isVisible());
       for (const [platform, asset] of Object.entries(current.assets)) {
         assert.equal(await page.locator(`[data-platform="${platform}"] a`).getAttribute('href'), asset.url);
       }
@@ -30,7 +44,7 @@ async function checkDownloads(browser, base) {
       assert.equal(await page.locator('[data-release-notes]').first().getAttribute('href'), current.release_notes_url);
       assert(await page.locator('#download-status').textContent().then(text => text.includes(current.version)));
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-      const help = page.locator('[data-platform="windows"]').locator('..').locator('summary');
+      const help = page.locator('[data-platform="windows"]').locator('xpath=ancestor::article').locator('summary');
       const wasOpen = await help.locator('..').evaluate(element => element.open);
       await help.focus(); await page.keyboard.press('Enter');
       await page.waitForFunction(previous => document.querySelector('.download-card details').open !== previous, wasOpen);
@@ -40,6 +54,7 @@ async function checkDownloads(browser, base) {
     const newer = JSON.parse(JSON.stringify(current).replaceAll(current.version, '1.8.0'));
     await page.route('**/assets/data/latest-release.json', route => route.fulfill({json: newer}));
     await page.reload(); await page.locator('[data-platform="windows"] a').waitFor();
+    await checkStore(page);
     assert((await page.locator('#download').innerHTML()).includes('1.8.0'));
     assert(!(await page.locator('main').innerHTML()).includes(current.version), 'new stable leaves no pinned version links or title');
     await page.unroute('**/assets/data/latest-release.json');
@@ -50,12 +65,20 @@ async function checkDownloads(browser, base) {
     assert(await page.locator('[data-platform="macos15"]').textContent().then(text => text.includes('unavailable')));
     assert.equal(await page.locator('#download [data-platform] a').count(), 4);
     await page.unroute('**/assets/data/latest-release.json');
+    const noWindows = structuredClone(current); delete noWindows.assets.windows;
+    await page.route('**/assets/data/latest-release.json', route => route.fulfill({json: noWindows}));
+    await page.reload(); await page.locator('[data-platform="linux"] a').waitFor();
+    await checkStore(page);
+    assert.equal(await page.locator('[data-platform="windows"] a').count(), 0);
+    assert.equal(await page.locator('#download [data-platform] a').count(), 4);
+    await page.unroute('**/assets/data/latest-release.json');
     for (const invalid of [null, {}, {...current, version:'1.8.0-rc.1'}, {...current, tag:'v1.6.0'},
       {...current, assets: {windows: {...current.assets.windows, url:'javascript:alert(1)'}}},
       {...current, assets: {...current.assets, macos26: current.assets.macos15}},
       {...current, assets: {...current.assets, windows: {...current.assets.windows, size:0}}}]) {
       await page.route('**/assets/data/latest-release.json', route => route.fulfill({body:JSON.stringify(invalid), contentType:'application/json'}));
       await page.reload(); await page.waitForFunction(() => document.querySelector('#download-status').textContent.includes('unavailable right now'));
+      await checkStore(page);
       assert.equal(await page.locator('#download [data-platform] a').count(), 0);
       assert(await page.locator('#download a[href$="/releases/latest"]').first().isVisible());
       assert(await page.locator('#features h2').isVisible());
@@ -65,6 +88,7 @@ async function checkDownloads(browser, base) {
       await page.route('**/assets/data/latest-release.json', route => failure === 'network' ? route.abort() :
         route.fulfill({status:failure === 'missing' ? 404 : 200, body:'not JSON'}));
       await page.reload(); await page.waitForFunction(() => document.querySelector('#download-status').textContent.includes('unavailable right now'));
+      await checkStore(page);
       assert.equal(await page.locator('#download [data-platform] a').count(), 0);
       await page.unroute('**/assets/data/latest-release.json');
     }
@@ -74,6 +98,7 @@ async function checkDownloads(browser, base) {
   try {
     const plain = await disabled.newPage();
     await plain.goto(base + 'index.html#download');
+    await checkStore(plain);
     assert(await plain.locator('#download h2').isVisible());
     assert(await plain.locator('#download a[href$="/releases/latest"]').first().isVisible());
     await plain.locator('.download-security summary').click();
@@ -82,6 +107,6 @@ async function checkDownloads(browser, base) {
     assert.equal(await plain.locator('#download [data-platform]').count(), 5);
     assert.equal(await plain.locator('#download [data-platform] a').count(), 0);
   } finally { await disabled.close(); }
-  console.log('PASS: downloads at 1440/768/390/320px, five distinct destinations, newer stable refresh, missing platforms, invalid/missing/network metadata fallbacks, no browser API calls, keyboard/focus and JavaScript-disabled installation help.');
+  console.log('PASS: downloads at 1440/768/390/320px, five distinct release destinations plus a permanent Store link, newer stable refresh, missing platforms, invalid/missing/network metadata fallbacks, no browser API calls, keyboard/focus and JavaScript-disabled installation help.');
 }
 module.exports = { checkDownloads };
