@@ -64,6 +64,7 @@ public:
   void RefreshAfterSelectionOnlyUpdate();
   void RefreshAfterSceneContentUpdate();
   void RefreshAfterFixtureSymbolUpdate();
+  void RefreshAfterFixtureLabelUpdate();
   void RefreshEditedViewById(int viewId);
   std::vector<ProjectSession::ArchiveResource>
   CollectPersistentViewCacheResources(

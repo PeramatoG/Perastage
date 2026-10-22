@@ -808,11 +808,6 @@ void Viewer2DPanel::SetSelectedUuids(
           ConfigManager::Get().GetScene(), typedSelection,
           selection_movement_settings::LoadInteractiveTransformPolicy(
               ConfigManager::Get()));
-  if (expandedSelection == m_lastAppliedSelectionUuids &&
-      selection == m_lastAppliedPrimarySelectionUuids)
-    return;
-  m_lastAppliedSelectionUuids = expandedSelection;
-  m_lastAppliedPrimarySelectionUuids = selection;
   m_controller.SetSelectedUuids(expandedSelection, selection);
   RequestRepaint();
 }
@@ -1666,7 +1661,8 @@ bool Viewer2DPanel::RenderToRGBABackBufferFallback(
 // Handles paint events by refreshing interaction state and rendering the view.
 void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   wxPaintDC dc(this);
-  if (!IsEnabled()) return;
+  ResetRepaintCoalescing();
+  if (!IsThisEnabled()) return;
   if (m_paintInProgress)
     return;
   m_paintInProgress = true;
@@ -1675,7 +1671,6 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
     // Clears the paint guard when the current frame exits.
     ~PaintGuard() { active = false; }
   } paintGuard{m_paintInProgress};
-  ResetRepaintCoalescing();
   InitGL();
 
   const bool wasInteracting = m_runtimeState.IsInteracting();

@@ -4,8 +4,10 @@
 #include "symbols/fixture_symbol_lookup_source.h"
 #include "pdf/pdf_fixture_symbol_source.h"
 #include "mvrscene.h"
+#include "symbols/svg_symbol_presentation.h"
 
 #include <cassert>
+#include <cmath>
 #include <string>
 
 namespace {
@@ -87,6 +89,25 @@ void CheckNeutralCompoundSvg() {
       "d=\"M 0 0 L 10 0 L 10 10 L 0 10 Z M 2 2 L 2 8 L 8 8 L 8 2 Z\"/></svg>";
   assert(ParseFixtureSymbolSvg(svg, data));
   assert(data.fills.size() == 1 && data.fills[0].holes.size() == 1);
+  const std::string strokes = "<svg width=\"10mm\" height=\"10mm\" viewBox=\"0 0 100 100\">"
+      "<polygon points=\"0,0 100,0 100,100\"/><g stroke-width=\"2\">"
+      "<polyline points=\"0,0 100,100\"/><polyline stroke-width=\"0.5mm\" points=\"100,0 0,100\"/>"
+      "</g></svg>";
+  assert(ParseFixtureSymbolSvg(strokes,data));
+  assert(data.strokes.size()==2 && data.strokes[0].strokeWidthMm && data.strokes[1].strokeWidthMm);
+  assert(std::abs(*data.strokes[0].strokeWidthMm-.2)<1e-9);
+  assert(std::abs(*data.strokes[1].strokeWidthMm-.5)<1e-9);
+  std::string order;
+  symbols::VisitSvgPresentation(data,[&](const auto &){order+='F';},[&](const auto &){order+='S';});
+  assert(order=="FSS");
+  const auto anchor=symbols::SvgPresentationAnchor(data);
+  assert(anchor[0]==5 && anchor[1]==5);
+  data.viewKind=View::Front;
+  assert(symbols::SvgPresentationAnchor(data)[1]==10);
+  data.viewKind=View::Left;
+  assert(symbols::SvgPresentationAnchor(data)[1]==10);
+  data.viewKind=View::Bottom;
+  assert(symbols::SvgPresentationAnchor(data)[1]==5);
 }
 
 void CheckCapturedSourceWithMixedModes() {

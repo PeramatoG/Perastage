@@ -236,6 +236,7 @@ public:
   DirtyState CaptureDirtyState() const;
   void RestoreDirtyState(const DirtyState &state);
   void Touch();
+  void TouchPresentation();
   size_t GetRenderRevision() const { return renderRevision; }
   void InvalidateRenderState() { ++renderRevision; }
   void MarkSaved();

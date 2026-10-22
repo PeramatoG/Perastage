@@ -238,3 +238,19 @@ requests extra viewport frames. Where
 diagnostics are available, compare the same project and preset before/after for
 resource synchronization count, scene paint count and load duration. Separate
 the one-time native control publication cost from ongoing scene rendering.
+
+## 2D regression smoke
+
+A consumed 2D paint clears its repaint-coalescing flags even while loading has
+disabled interaction. Re-enabling the viewport queues one presentation; wheel
+and table-selection updates must not depend on switching view modes. Controller
+selection remains authoritative after picking, project loading and history replay.
+
+After a Linux Ninja build with compile commands enabled, run
+`xvfb-run -a python3 tests/run_viewport_regression_smoke.py build/wsl-x64-debug`
+(or use the current desktop display). This optional native smoke reuses the
+application objects and creates its own synthetic PSTG and isolated app-data
+directory. It checks actual pane visibility on two saved-2D launches, project
+opening, wheel input, picking, selection pixels, view switching, label Apply/Close,
+Undo/Redo and save/reload. Cross-platform CI retains the normal lifecycle,
+composition, history and publication tests.

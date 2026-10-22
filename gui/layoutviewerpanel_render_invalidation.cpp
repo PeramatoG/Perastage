@@ -116,7 +116,8 @@ size_t HashSceneMapWithValues(const TMap &items, ValueHasher hasher) {
 size_t LayoutViewerPanel::ComputeSceneContentHash() const {
   const auto &scene =
       GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
-  size_t hash = 0;
+  size_t hash = std::hash<std::string>{}(
+      GetDefaultGuiConfigServices().LegacyConfigManager().GetValue("label_fixture_overrides").value_or(""));
   HashCombine(hash, std::hash<int>{}(kLayoutFixtureSymbolProjectionVersion));
   HashCombine(hash, HashSceneMapWithValues(scene.fixtures, HashFixtureValue));
   HashCombine(hash, HashSceneMapWithValues(scene.trusses, HashTrussValue));
@@ -361,6 +362,17 @@ void LayoutViewerPanel::RefreshAfterSceneContentUpdate() {
 
 // Refreshes the layout viewer after selection-only updates.
 void LayoutViewerPanel::RefreshAfterSelectionOnlyUpdate() { Refresh(); }
+
+// Only viewport content depends on fixture labels; legends keep their symbols.
+void LayoutViewerPanel::RefreshAfterFixtureLabelUpdate() {
+  ++viewRenderVersion;
+  captureInProgress = false;
+  for (auto &entry : viewCaches_)
+    InvalidateViewCacheForSceneContent(entry.second);
+  renderDirty = true;
+  RequestRenderRebuild();
+  Refresh(false);
+}
 
 // Invalidates render data after fixture symbol changes.
 void LayoutViewerPanel::RefreshAfterFixtureSymbolUpdate() {

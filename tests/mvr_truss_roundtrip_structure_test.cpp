@@ -15,6 +15,7 @@
 
 #include <tinyxml2.h>
 #include <wx/init.h>
+#include <wx/mstream.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
@@ -65,9 +66,83 @@ ReadArchiveTextEntries(const fs::path &archivePath) {
   std::unordered_map<std::string, std::string> entries;
   std::unique_ptr<wxZipEntry> entry;
   while ((entry.reset(zip.GetNextEntry())), entry) {
-    entries[entry->GetName().ToStdString()] = ReadCurrentZipEntry(zip);
+    entries[entry->GetName(wxPATH_UNIX).ToStdString()] = ReadCurrentZipEntry(zip);
   }
   return entries;
+}
+
+// Compare generated GDTF payloads, excluding the clock time of this export's
+// effective-change audit entry and ZIP transport timestamps.
+static std::vector<std::pair<std::string, std::string>>
+ReadComparableGdtfEntries(const std::string &bytes) {
+  wxMemoryInputStream input(bytes.data(), bytes.size());
+  wxZipInputStream zip(input);
+  std::vector<std::pair<std::string, std::string>> entries;
+  std::unordered_set<std::string> names;
+  std::unique_ptr<wxZipEntry> entry;
+  while ((entry.reset(zip.GetNextEntry())), entry) {
+    const std::string name = entry->GetName(wxPATH_UNIX).ToStdString();
+    std::string payload = ReadCurrentZipEntry(zip);
+    if (name == "description.xml") {
+      tinyxml2::XMLDocument doc;
+      assert(doc.Parse(payload.c_str()) == tinyxml2::XML_SUCCESS);
+      auto *revisions = doc.FirstChildElement("GDTF")
+                            ->FirstChildElement("FixtureType")
+                            ->FirstChildElement("Revisions");
+      for (auto *revision = revisions ? revisions->FirstChildElement("Revision") : nullptr;
+           revision; revision = revision->NextSiblingElement("Revision")) {
+        const char *text = revision->Attribute("Text");
+        if (text && std::string(text) ==
+            "Updated physical properties for Perastage MVR export") {
+          assert(revision->Attribute("Date") && *revision->Attribute("Date"));
+          revision->SetAttribute("Date", "export-time");
+        }
+      }
+      tinyxml2::XMLPrinter printer;
+      doc.Print(&printer);
+      payload = printer.CStr();
+    }
+    assert(names.insert(name).second);
+    entries.emplace_back(name, std::move(payload));
+  }
+  return entries;
+}
+
+static void TestExportClockComparison() {
+  const auto archive = [](const char *clock, const char *name, const char *authored) {
+    const std::string xml = std::string("<GDTF><FixtureType Name=\"") + name +
+        "\"><Revisions><Revision Date=\"" + authored + "\" Text=\"Authored\"/>" +
+        "<Revision Date=\"" + clock +
+        "\" Text=\"Updated physical properties for Perastage MVR export\"/>" +
+        "</Revisions></FixtureType></GDTF>";
+    wxMemoryOutputStream output;
+    wxZipOutputStream zip(output);
+    assert(zip.PutNextEntry("description.xml"));
+    zip.Write(xml.data(), xml.size());
+    assert(zip.Close());
+    std::string bytes(output.GetSize(), '\0');
+    output.CopyTo(bytes.data(), bytes.size());
+    return ReadComparableGdtfEntries(bytes);
+  };
+  assert(archive("2026-01-01T00:00:00Z", "Tower", "original") ==
+         archive("2026-01-01T00:00:04Z", "Tower", "original"));
+  assert(archive("clock", "Tower", "original") != archive("clock", "Changed", "original"));
+  assert(archive("clock", "Tower", "original") != archive("clock", "Tower", "changed"));
+}
+
+static void AssertCanonicalArchiveContentEqual(const fs::path &lhs,
+                                               const fs::path &rhs) {
+  const auto left = ReadArchiveTextEntries(lhs);
+  const auto right = ReadArchiveTextEntries(rhs);
+  assert(left.size() == right.size());
+  for (const auto &[name, payload] : left) {
+    assert(right.contains(name));
+    if (fs::path(name).extension() == ".gdtf")
+      assert(ReadComparableGdtfEntries(payload) ==
+             ReadComparableGdtfEntries(right.at(name)));
+    else
+      assert(payload == right.at(name));
+  }
 }
 
 // Writes an in-memory archive payload to a file for structural inspection.
@@ -228,6 +303,7 @@ static std::string ReadFirstSymbolUuid(const fs::path &mvrPath) {
 int main() {
   wxInitializer initializer;
   assert(initializer.IsOk());
+  TestExportClockComparison();
 
   const fs::path tempDir =
       fs::temp_directory_path() / "mvr_truss_roundtrip_structure_test";
@@ -476,8 +552,7 @@ int main() {
   const auto normalOptions = ResolveStandaloneMvrExportOptions(
       mvr::preferences::LoadExportOptions(cfg));
   assert(exporter.ExportToFile(normalGuiPath.string(), normalOptions));
-  assert(ReadArchiveTextEntries(normalGuiPath) ==
-         ReadArchiveTextEntries(projectScenePath));
+  AssertCanonicalArchiveContentEqual(normalGuiPath, projectScenePath);
   std::string orderError;
   const auto normalOrder = tests::archive::ReadRawCentralDirectoryEntryNames(
       normalGuiPath.string(), orderError);

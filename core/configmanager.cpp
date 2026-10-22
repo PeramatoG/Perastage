@@ -892,6 +892,22 @@ void ConfigManager::CommitLayoutMutation(
     projectSession.Touch();
 }
 
+bool ConfigManager::CommitFixtureLabelMutation(
+    const std::optional<std::string> &metadata, const std::string &description) {
+  const auto previous = GetValue(project_identity::kFixtureLabelOverridesConfigKey);
+  if (previous == metadata) return false;
+  auto preparedPreferences = preferencesStore;
+  if (metadata) preparedPreferences.SetValue(project_identity::kFixtureLabelOverridesConfigKey, *metadata);
+  else preparedPreferences.RemoveKey(project_identity::kFixtureLabelOverridesConfigKey);
+  historyManager.PushUndoState(
+      GetScene(), selectionState, description, GetValue(kLayoutsConfigKey),
+      &layerVisibilityState, previous, &GetProjectFixtureSymbols(),
+      &layouts::LayoutImageResourceRegistry::Get());
+  preferencesStore = std::move(preparedPreferences);
+  if (!suppressRevision) projectSession.TouchPresentation();
+  return true;
+}
+
 bool ConfigManager::CanUndo() const { return historyManager.CanUndo(); }
 
 bool ConfigManager::CanRedo() const { return historyManager.CanRedo(); }

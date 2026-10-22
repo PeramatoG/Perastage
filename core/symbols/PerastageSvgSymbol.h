@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <optional>
 
 #include "fixture_symbol_resolution.h"
 
@@ -12,6 +13,7 @@ struct PerastageSvgPoint {
 
 struct PerastageSvgPolyline {
   std::vector<PerastageSvgPoint> points;
+  std::optional<double> strokeWidthMm;
 };
 
 struct PerastageSvgPolygon {

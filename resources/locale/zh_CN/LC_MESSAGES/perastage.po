@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-19 09:09+0000\n"
+"POT-Creation-Date: 2026-10-20 18:54+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -478,13 +478,13 @@ msgstr "类别"
 msgid "Type Color"
 msgstr "类型颜色"
 
-#: gui/dictionaryeditdialog.cpp:599 gui/mainwindow_layout.cpp:330
+#: gui/dictionaryeditdialog.cpp:599 gui/mainwindow_layout.cpp:328
 #: gui/mainwindow_menu_builders.cpp:79 gui/mainwindow_print.cpp:640
 #: gui/riggingpanel.cpp:185 gui/summarypanel.cpp:139
 msgid "Fixtures"
 msgstr "灯具"
 
-#: gui/dictionaryeditdialog.cpp:600 gui/mainwindow_layout.cpp:335
+#: gui/dictionaryeditdialog.cpp:600 gui/mainwindow_layout.cpp:333
 #: gui/mainwindow_print.cpp:643 gui/riggingpanel.cpp:188
 #: gui/summarypanel.cpp:172
 msgid "Trusses"
@@ -1147,6 +1147,190 @@ msgstr "从选定方向的一点开始"
 msgid "Placement"
 msgstr "放置："
 
+#: gui/fixture_label_editor.cpp:12
+msgid "Fixture Label Editor"
+msgstr "灯具标签编辑器"
+
+#: gui/fixture_label_editor.cpp:25
+msgid "Project defaults"
+msgstr "项目默认值"
+
+#
+#: gui/fixture_label_editor.cpp:26
+msgid "Selected fixtures"
+msgstr "所选灯具"
+
+#: gui/fixture_label_editor.cpp:29 gui/fixture_label_editor.cpp:59
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:55
+#: viewer2d/viewer2drenderpanel.cpp:84
+msgid "Top"
+msgstr "顶视图"
+
+#: gui/fixture_label_editor.cpp:29
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:56
+#: viewer2d/viewer2drenderpanel.cpp:84
+msgid "Front"
+msgstr "前视图"
+
+#: gui/fixture_label_editor.cpp:29
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:57
+#: viewer2d/viewer2drenderpanel.cpp:84
+msgid "Side"
+msgstr "侧视图"
+
+#: gui/fixture_label_editor.cpp:36
+msgid "Fixture Name"
+msgstr "灯具名称"
+
+#: gui/fixture_label_editor.cpp:36
+#: gui/fixturetable/fixture_table_columns.cpp:12
+#: tests/localization_catalog_integration_test.cpp:247
+msgid "Fixture ID"
+msgstr "灯具 ID"
+
+#: gui/fixture_label_editor.cpp:36
+msgid "DMX Address"
+msgstr "DMX 地址"
+
+#: gui/fixture_label_editor.cpp:43
+msgid "Show field"
+msgstr "显示字段"
+
+#: gui/fixture_label_editor.cpp:43
+msgid "Visibility"
+msgstr "可见性"
+
+#: gui/fixture_label_editor.cpp:45
+msgid "Font family"
+msgstr "字体系列"
+
+#: gui/fixture_label_editor.cpp:46
+msgid "Bold"
+msgstr "粗体"
+
+#: gui/fixture_label_editor.cpp:46
+msgid "Style"
+msgstr "样式"
+
+#: gui/fixture_label_editor.cpp:51
+msgid "Size (m)"
+msgstr "大小（m）"
+
+#: gui/fixture_label_editor.cpp:52
+#: gui/inspection/gdtf_inspector_details_panel.cpp:158
+#: gui/inspection/gdtf_inspector_details_panel.cpp:173 gui/layerpanel.cpp:88
+#: gui/layerpanel.cpp:102 gui/summarypanel.cpp:266 gui/summarypanel.cpp:320
+#: viewer2d/viewer2drenderpanel.cpp:217
+msgid "Color"
+msgstr "颜色"
+
+#: gui/fixture_label_editor.cpp:53
+msgid "Enabled"
+msgstr "启用"
+
+#: gui/fixture_label_editor.cpp:53
+msgid "Outline"
+msgstr "描边"
+
+#: gui/fixture_label_editor.cpp:54
+msgid "Outline color"
+msgstr "描边颜色"
+
+#: gui/fixture_label_editor.cpp:55
+msgid "Outline thickness (m)"
+msgstr "描边粗细（m）"
+
+#: gui/fixture_label_editor.cpp:59 gui/fixture_label_editor.cpp:61
+msgid "Center"
+msgstr "居中"
+
+#: gui/fixture_label_editor.cpp:59
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:59
+msgid "Bottom"
+msgstr "底部"
+
+#: gui/fixture_label_editor.cpp:59 gui/fixture_label_editor.cpp:61
+msgid "Left"
+msgstr "左"
+
+#: gui/fixture_label_editor.cpp:59 gui/fixture_label_editor.cpp:61
+msgid "Right"
+msgstr "右"
+
+#: gui/fixture_label_editor.cpp:59
+msgid "Anchor"
+msgstr "锚点"
+
+#: gui/fixture_label_editor.cpp:61
+msgid "Alignment"
+msgstr "对齐"
+
+#: gui/fixture_label_editor.cpp:62
+msgid "X offset (m)"
+msgstr "X 偏移（m）"
+
+#: gui/fixture_label_editor.cpp:63
+msgid "Y offset (m)"
+msgstr "Y 偏移（m）"
+
+#: gui/fixture_label_editor.cpp:68
+msgid "Preview background"
+msgstr "预览背景"
+
+#: gui/fixture_label_editor.cpp:69
+#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:44
+#: viewer2d/viewer2drenderpanel.cpp:65
+msgid "White"
+msgstr "白色"
+
+#: gui/fixture_label_editor.cpp:69
+msgid "Dark"
+msgstr "深色"
+
+#: gui/fixture_label_editor.cpp:77
+msgid "Drag the selected field in the preview."
+msgstr "在预览中拖动选中的字段。"
+
+#: gui/fixture_label_editor.cpp:81
+msgid ""
+"Legacy rendering is preserved until edited; its preview is approximate. "
+"Sizes and offsets use scene metres.\n"
+"Supported text: English and Western European WinAnsi characters. No viewport-"
+"specific styles yet."
+msgstr ""
+"旧样式在编辑前保留原有显示效果；其预览为近似效果。大小和偏移使用场景米。\n"
+"支持文本：英语及西欧 WinAnsi 字符。暂不支持按视口设置样式。"
+
+#: gui/fixture_label_editor.cpp:84
+msgid "Reset to Default"
+msgstr "重置为默认值"
+
+#: gui/fixture_label_preview.cpp:31 gui/fixture_label_preview.cpp:102
+#: viewer3d/labels/composed_fixture_labels.cpp:102
+msgid "Bundled label fonts are unavailable."
+msgstr "内置标签字体不可用。"
+
+#: gui/fixture_label_preview.cpp:91 gui/fixture_label_preview.cpp:97
+#: gui/gdtf/fixture_symbol_comparison_panel.cpp:137
+msgid "Present; preview unavailable"
+msgstr "存在；预览不可用"
+
+#: gui/fixture_label_preview.cpp:140
+msgid "Unsupported text: change the fixture attribute before export."
+msgstr "文本不受支持：导出前请修改灯具属性。"
+
+#: gui/fixture_label_preview.cpp:141
+msgid "Dark preview: symbol contours are lightened for display only."
+msgstr "深色预览：符号轮廓仅为显示而调亮。"
+
+#: gui/fixture_label_preview.cpp:142
+msgid "Preview uses the first fixture in this scope."
+msgstr "预览使用此范围内的第一个灯具。"
+
+#: gui/fixture_label_preview.cpp:142
+msgid "Symbol unavailable"
+msgstr "符号不可用"
+
 #: gui/fixtureeditdialog.cpp:253
 msgid "Fixture instance"
 msgstr "灯具类型"
@@ -1189,11 +1373,6 @@ msgstr "GDTF 验证"
 msgid "GDTF update"
 msgstr "GDTF 更新"
 
-#: gui/fixturetable/fixture_table_columns.cpp:12
-#: tests/localization_catalog_integration_test.cpp:247
-msgid "Fixture ID"
-msgstr "灯具 ID"
-
 #: gui/fixturetable/fixture_table_columns.cpp:13 gui/hoisttablepanel.cpp:461
 #: gui/inspection/gdtf_inspector_details_panel.cpp:154
 #: gui/inspection/inspector_workspace_panel.cpp:476
@@ -1203,7 +1382,7 @@ msgid "Type"
 msgstr "类型"
 
 #: gui/fixturetable/fixture_table_columns.cpp:13 gui/fixturetablepanel.cpp:742
-#: gui/hoisttablepanel.cpp:465 gui/hoisttablepanel.cpp:784
+#: gui/hoisttablepanel.cpp:465 gui/hoisttablepanel.cpp:786
 #: gui/layerpanel.cpp:86 gui/sceneobjecttablepanel.cpp:265
 #: gui/sceneobjecttablepanel.cpp:433 gui/trusstablepanel.cpp:300
 #: gui/trusstablepanel.cpp:533
@@ -1292,20 +1471,20 @@ msgstr "滤色片"
 msgid "Weight"
 msgstr "重量"
 
-#: gui/fixturetablepanel.cpp:742 gui/hoisttablepanel.cpp:784
+#: gui/fixturetablepanel.cpp:742 gui/hoisttablepanel.cpp:786
 #: gui/sceneobjecttablepanel.cpp:433 gui/trusstablepanel.cpp:533
 msgid "Select layer"
 msgstr "选择图层"
 
-#: gui/fixturetablepanel.cpp:984 gui/hoisttablepanel.cpp:846
-#: gui/sceneobjecttablepanel.cpp:499 gui/trusstablepanel.cpp:675
+#: gui/fixturetablepanel.cpp:984 gui/hoisttablepanel.cpp:849
+#: gui/sceneobjecttablepanel.cpp:499 gui/trusstablepanel.cpp:677
 msgid "Edit value:"
 msgstr "编辑值："
 
 #: gui/fixturetablepanel.cpp:1035 gui/fixturetablepanel.cpp:1040
-#: gui/hoisttablepanel.cpp:894 gui/hoisttablepanel.cpp:899
+#: gui/hoisttablepanel.cpp:897 gui/hoisttablepanel.cpp:902
 #: gui/sceneobjecttablepanel.cpp:545 gui/sceneobjecttablepanel.cpp:550
-#: gui/trusstablepanel.cpp:721 gui/trusstablepanel.cpp:726
+#: gui/trusstablepanel.cpp:723 gui/trusstablepanel.cpp:728
 msgid "Invalid numeric value"
 msgstr "无效的数值"
 
@@ -1314,9 +1493,9 @@ msgstr "无效的数值"
 #: gui/fixturetablepanel.cpp:1061 gui/fixturetablepanel.cpp:1067
 #: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
 #: gui/gdtf_share_download_workflow.cpp:477
-#: gui/gdtf_share_download_workflow.cpp:481 gui/hoisttablepanel.cpp:894
-#: gui/hoisttablepanel.cpp:899 gui/hoisttablepanel.cpp:905
-#: gui/hoisttablepanel.cpp:912
+#: gui/gdtf_share_download_workflow.cpp:481 gui/hoisttablepanel.cpp:897
+#: gui/hoisttablepanel.cpp:902 gui/hoisttablepanel.cpp:908
+#: gui/hoisttablepanel.cpp:915
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:283
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:509
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:652
@@ -1332,17 +1511,17 @@ msgstr "无效的数值"
 #: gui/ridertextdialog.cpp:319 gui/ridertextdialog.cpp:334
 #: gui/ridertextdialog.cpp:346 gui/sceneobjecttablepanel.cpp:545
 #: gui/sceneobjecttablepanel.cpp:550 gui/sceneobjecttablepanel.cpp:556
-#: gui/sceneobjecttablepanel.cpp:563 gui/trusstablepanel.cpp:721
-#: gui/trusstablepanel.cpp:726 gui/trusstablepanel.cpp:732
-#: gui/trusstablepanel.cpp:739
+#: gui/sceneobjecttablepanel.cpp:563 gui/trusstablepanel.cpp:723
+#: gui/trusstablepanel.cpp:728 gui/trusstablepanel.cpp:734
+#: gui/trusstablepanel.cpp:741
 msgid "Error"
 msgstr "错误"
 
 #: gui/fixturetablepanel.cpp:1047 gui/fixturetablepanel.cpp:1061
 #: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
-#: gui/hoisttablepanel.cpp:905 gui/hoisttablepanel.cpp:912
+#: gui/hoisttablepanel.cpp:908 gui/hoisttablepanel.cpp:915
 #: gui/sceneobjecttablepanel.cpp:556 gui/sceneobjecttablepanel.cpp:563
-#: gui/trusstablepanel.cpp:732 gui/trusstablepanel.cpp:739
+#: gui/trusstablepanel.cpp:734 gui/trusstablepanel.cpp:741
 msgid "Invalid value"
 msgstr "无效值"
 
@@ -1396,25 +1575,6 @@ msgstr "标准 GDTF"
 msgid "Perastage project (PSTG)"
 msgstr "Perastage 项目 (PSTG)"
 
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:55
-#: viewer2d/viewer2drenderpanel.cpp:109
-msgid "Top"
-msgstr "顶视图"
-
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:56
-#: viewer2d/viewer2drenderpanel.cpp:109
-msgid "Front"
-msgstr "前视图"
-
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:57
-#: viewer2d/viewer2drenderpanel.cpp:109
-msgid "Side"
-msgstr "侧视图"
-
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:59
-msgid "Bottom"
-msgstr "底部"
-
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:72
 #, c-format
 msgid "%s [%s]"
@@ -1447,10 +1607,6 @@ msgstr ""
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:114
 msgid "No Models available"
 msgstr "没有可用的 Model"
-
-#: gui/gdtf/fixture_symbol_comparison_panel.cpp:137
-msgid "Present; preview unavailable"
-msgstr "存在；预览不可用"
 
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:137
 msgid "Missing"
@@ -2021,8 +2177,8 @@ msgstr "功能"
 msgid "Motor"
 msgstr "电机"
 
-#: gui/hoisttablepanel.cpp:464 gui/hoisttablepanel.cpp:740
-#: gui/hoisttablepanel.cpp:764
+#: gui/hoisttablepanel.cpp:464 gui/hoisttablepanel.cpp:741
+#: gui/hoisttablepanel.cpp:765
 msgid "Dummy Preset"
 msgstr "虚拟预设"
 
@@ -2054,11 +2210,11 @@ msgstr "选择功能"
 msgid "Enter function"
 msgstr "输入功能"
 
-#: gui/hoisttablepanel.cpp:740
+#: gui/hoisttablepanel.cpp:741
 msgid "Select dummy preset"
 msgstr "选择虚拟预设"
 
-#: gui/hoisttablepanel.cpp:763
+#: gui/hoisttablepanel.cpp:764
 msgid ""
 "Dummy preset can only be assigned when there is no linked motor fixture."
 msgstr "仅当未关联电机灯具时，才能分配虚拟预设。"
@@ -2148,13 +2304,6 @@ msgstr "修订历史"
 #: gui/inspection/gdtf_inspector_details_panel.cpp:153
 msgid "Wheel"
 msgstr "色轮"
-
-#: gui/inspection/gdtf_inspector_details_panel.cpp:158
-#: gui/inspection/gdtf_inspector_details_panel.cpp:173 gui/layerpanel.cpp:88
-#: gui/layerpanel.cpp:102 gui/summarypanel.cpp:266 gui/summarypanel.cpp:320
-#: viewer2d/viewer2drenderpanel.cpp:347
-msgid "Color"
-msgstr "颜色"
 
 #: gui/inspection/gdtf_inspector_details_panel.cpp:159
 #: gui/inspection/gdtf_inspector_details_panel.cpp:172
@@ -2265,8 +2414,6 @@ msgstr "资源类型"
 
 #: gui/inspection/inspector_workspace_panel.cpp:478
 #: gui/mvrxchange/mvr_xchange_dialog.cpp:180
-#: viewer2d/viewer2drenderpanel.cpp:380 viewer2d/viewer2drenderpanel.cpp:387
-#: viewer2d/viewer2drenderpanel.cpp:394
 msgid "Size"
 msgstr "尺寸"
 
@@ -2316,7 +2463,7 @@ msgid "Source: none"
 msgstr "来源：无"
 
 #: gui/inspection/inspector_workspace_panel.cpp:527
-#: gui/mainwindow_layout.cpp:423 gui/mainwindow_menu_builders.cpp:85
+#: gui/mainwindow_layout.cpp:421 gui/mainwindow_menu_builders.cpp:85
 #: gui/summarypanel.cpp:112
 msgid "Summary"
 msgstr "摘要"
@@ -2390,7 +2537,7 @@ msgstr "由于意外错误，无法检查当前项目。"
 #: gui/inspection/inspector_workspace_panel.cpp:1082
 #: gui/inspection/inspector_workspace_panel.cpp:1458
 #: gui/inspection/inspector_workspace_panel.cpp:1466
-#: gui/mainwindow_layout.cpp:453 gui/mainwindow_menu.cpp:235
+#: gui/mainwindow_layout.cpp:451 gui/mainwindow_menu.cpp:235
 #: gui/mainwindow_menu_builders.cpp:71
 msgid "MVR / GDTF Inspector"
 msgstr "MVR / GDTF 检查器"
@@ -3068,7 +3215,7 @@ msgstr "在选择端点之前激活 2D 或 3D 场景视口。"
 msgid "Choose two points on the truss line, or press Esc to cancel."
 msgstr "选择桁架线上的两个点，或按 Esc 键取消。"
 
-#: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:484
+#: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:482
 #: gui/mainwindow_startup_splash.cpp:123
 #: gui/services/fixture_symbol_preparation_service.cpp:509
 #: gui/viewer_load_status.cpp:26
@@ -3328,54 +3475,54 @@ msgstr "选择表格"
 msgid "Export CSV"
 msgstr "导出 CSV..."
 
-#: gui/mainwindow_layout.cpp:340 gui/mainwindow_print.cpp:646
+#: gui/mainwindow_layout.cpp:338 gui/mainwindow_print.cpp:646
 #: gui/riggingpanel.cpp:191 gui/summarypanel.cpp:182
 msgid "Hoists"
 msgstr "电动葫芦"
 
-#: gui/mainwindow_layout.cpp:345 gui/mainwindow_print.cpp:649
+#: gui/mainwindow_layout.cpp:343 gui/mainwindow_print.cpp:649
 #: gui/summarypanel.cpp:199
 msgid "Objects"
 msgstr "对象"
 
-#: gui/mainwindow_layout.cpp:353
+#: gui/mainwindow_layout.cpp:351
 msgid "Data Views"
 msgstr "布局视图"
 
-#: gui/mainwindow_layout.cpp:367 gui/mainwindow_menu_builders.cpp:78
+#: gui/mainwindow_layout.cpp:365 gui/mainwindow_menu_builders.cpp:78
 msgid "Console"
 msgstr "控制台"
 
-#: gui/mainwindow_layout.cpp:380 gui/mainwindow_menu_builders.cpp:83
+#: gui/mainwindow_layout.cpp:378 gui/mainwindow_menu_builders.cpp:83
 msgid "Layers"
 msgstr "图层"
 
-#: gui/mainwindow_layout.cpp:394 gui/mainwindow_menu_builders.cpp:84
+#: gui/mainwindow_layout.cpp:392 gui/mainwindow_menu_builders.cpp:84
 msgid "Layouts"
 msgstr "布局"
 
-#: gui/mainwindow_layout.cpp:408
+#: gui/mainwindow_layout.cpp:406
 msgid "Layout Viewer"
 msgstr "布局视图"
 
-#: gui/mainwindow_layout.cpp:437 gui/mainwindow_menu_builders.cpp:86
+#: gui/mainwindow_layout.cpp:435 gui/mainwindow_menu_builders.cpp:86
 msgid "Rigging"
 msgstr "吊挂"
 
-#: gui/mainwindow_layout.cpp:485
+#: gui/mainwindow_layout.cpp:483
 msgid "X: -- m  Y: -- m  Z: -- m"
 msgstr "X: -- 米 Y: -- 米 Z: -- 米"
 
-#: gui/mainwindow_layout.cpp:487
+#: gui/mainwindow_layout.cpp:485
 #, c-format
 msgid "Version %s"
 msgstr "版本 %s"
 
-#: gui/mainwindow_layout.cpp:1154
+#: gui/mainwindow_layout.cpp:1142
 msgid "Layout view update skipped: target view not found."
 msgstr "布局视图更新已跳过：未找到目标视图。"
 
-#: gui/mainwindow_layout.cpp:1184
+#: gui/mainwindow_layout.cpp:1172
 msgid "Layout view update failed."
 msgstr "布局视图更新失败。"
 
@@ -5100,14 +5247,9 @@ msgstr ""
 "网格。GDTF 资源保持不变。"
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:39
-#: viewer2d/viewer2drenderpanel.cpp:92
+#: viewer2d/viewer2drenderpanel.cpp:67
 msgid "Render mode"
 msgstr "渲染模式"
-
-#: gui/preferences/viewer3d_rendering_preferences_panel.cpp:44
-#: viewer2d/viewer2drenderpanel.cpp:90
-msgid "White"
-msgstr "白色"
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:46
 msgid "Sketch mode"
@@ -5118,22 +5260,22 @@ msgid "Textured"
 msgstr "纹理"
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:50
-#: viewer2d/viewer2drenderpanel.cpp:90
+#: viewer2d/viewer2drenderpanel.cpp:65
 msgid "Wireframe"
 msgstr "线框"
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:52
-#: viewer2d/viewer2drenderpanel.cpp:90
+#: viewer2d/viewer2drenderpanel.cpp:65
 msgid "By device type"
 msgstr "按设备类型"
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:54
-#: viewer2d/viewer2drenderpanel.cpp:91
+#: viewer2d/viewer2drenderpanel.cpp:66
 msgid "By layer"
 msgstr "按图层"
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:56
-#: viewer2d/viewer2drenderpanel.cpp:91
+#: viewer2d/viewer2drenderpanel.cpp:66
 msgid "By universe"
 msgstr "按 DMX 域"
 
@@ -5715,7 +5857,7 @@ msgstr "桁架 GDTF"
 msgid "Model"
 msgstr "型号"
 
-#: gui/trusstablepanel.cpp:559
+#: gui/trusstablepanel.cpp:560
 msgid "Select Truss Model"
 msgstr "选择桁架模型"
 
@@ -5869,120 +6011,91 @@ msgstr "全选"
 msgid "Spanish"
 msgstr "西班牙语"
 
-#: viewer2d/viewer2dpanel.cpp:3580
+#: viewer2d/viewer2dpanel.cpp:3575
 msgid "Gap measure: "
 msgstr "测量工具"
 
-#: viewer2d/viewer2dpanel.cpp:3581
+#: viewer2d/viewer2dpanel.cpp:3576
 msgid "Measure: "
 msgstr "测量工具"
 
-#: viewer2d/viewer2dpanel.cpp:3653 viewer3d/viewer3dpanel.cpp:2255
+#: viewer2d/viewer2dpanel.cpp:3648 viewer3d/viewer3dpanel.cpp:2255
 msgid "Convert to Truss"
 msgstr "转换为电动葫芦"
 
-#: viewer2d/viewer2dpanel.cpp:3739 viewer3d/viewer3dpanel.cpp:2272
+#: viewer2d/viewer2dpanel.cpp:3734 viewer3d/viewer3dpanel.cpp:2272
 msgid "No position"
 msgstr "位置"
 
-#: viewer2d/viewer2dpanel.cpp:3750 viewer3d/viewer3dpanel.cpp:2283
+#: viewer2d/viewer2dpanel.cpp:3745 viewer3d/viewer3dpanel.cpp:2283
 msgid "Select by position"
 msgstr "选择"
 
-#: viewer2d/viewer2drenderpanel.cpp:97
+#: viewer2d/viewer2drenderpanel.cpp:72
 msgid "Dark mode"
 msgstr "渲染模式"
 
-#: viewer2d/viewer2drenderpanel.cpp:102
+#: viewer2d/viewer2drenderpanel.cpp:77
 msgid "Force bottom view"
 msgstr "强制底视图"
 
-#: viewer2d/viewer2drenderpanel.cpp:110
+#: viewer2d/viewer2drenderpanel.cpp:85
 msgid "View"
 msgstr "视图"
 
-#: viewer2d/viewer2drenderpanel.cpp:115
+#: viewer2d/viewer2drenderpanel.cpp:90
 msgid "Grid"
 msgstr "网格"
 
-#: viewer2d/viewer2drenderpanel.cpp:118
+#: viewer2d/viewer2drenderpanel.cpp:93
 msgid "Show grid"
 msgstr "显示网格"
 
-#: viewer2d/viewer2drenderpanel.cpp:122
+#: viewer2d/viewer2drenderpanel.cpp:97
 msgid "Lines"
 msgstr "线条"
 
-#: viewer2d/viewer2drenderpanel.cpp:122
+#: viewer2d/viewer2drenderpanel.cpp:97
 msgid "Points"
 msgstr "点"
 
-#: viewer2d/viewer2drenderpanel.cpp:122
+#: viewer2d/viewer2drenderpanel.cpp:97
 msgid "Crosses"
 msgstr "十字"
 
-#: viewer2d/viewer2drenderpanel.cpp:123
+#: viewer2d/viewer2drenderpanel.cpp:98
 msgid "Grid style"
 msgstr "网格样式"
 
-#: viewer2d/viewer2drenderpanel.cpp:137
+#: viewer2d/viewer2drenderpanel.cpp:112
 msgid "Draw grid on top"
 msgstr "在上面画网格"
 
-#: viewer2d/viewer2drenderpanel.cpp:141
+#: viewer2d/viewer2drenderpanel.cpp:116
 msgid "Ruler"
 msgstr "统治者"
 
-#: viewer2d/viewer2drenderpanel.cpp:144
+#: viewer2d/viewer2drenderpanel.cpp:119
 msgid "Show ruler"
 msgstr "显示标尺"
 
-#: viewer2d/viewer2drenderpanel.cpp:233
-msgid "Labels"
-msgstr "标签"
-
-#: viewer2d/viewer2drenderpanel.cpp:236 viewer2d/viewer2drenderpanel.cpp:449
-msgid "Global profile (all fixtures)"
-msgstr "全球概况（所有赛程）"
-
-#: viewer2d/viewer2drenderpanel.cpp:238
-msgid "Show name"
-msgstr "显示名称"
-
-#: viewer2d/viewer2drenderpanel.cpp:259
-msgid "Show ID"
-msgstr "显示身份证"
-
-#: viewer2d/viewer2drenderpanel.cpp:280
-msgid "Show DMX"
-msgstr "显示 DMX"
-
-#: viewer2d/viewer2drenderpanel.cpp:356
+#: viewer2d/viewer2drenderpanel.cpp:226
 msgid "X ruler"
 msgstr "X尺"
 
-#: viewer2d/viewer2drenderpanel.cpp:362
+#: viewer2d/viewer2drenderpanel.cpp:232
 msgid "Y ruler"
 msgstr "Y标尺"
 
-#: viewer2d/viewer2drenderpanel.cpp:368
+#: viewer2d/viewer2drenderpanel.cpp:238
 msgid "Z ruler"
 msgstr "Z尺"
 
-#: viewer2d/viewer2drenderpanel.cpp:400
-msgid "Distance"
-msgstr "距离单位："
+#: viewer2d/viewer2drenderpanel.cpp:245
+msgid "Edit Fixture Labels..."
+msgstr "编辑灯具标签..."
 
-#: viewer2d/viewer2drenderpanel.cpp:406
-msgid "Angle"
-msgstr "角度"
-
-#: viewer2d/viewer2drenderpanel.cpp:446
-#, c-format
-msgid "Selection profile active (%zu fixtures)"
-msgstr "选择配置文件处于活动状态（%zu 灯具）"
-
-#: viewer3d/labels/label_render_system.cpp:187
+#: viewer3d/labels/label_render_system.cpp:197
 #, c-format
 msgid "ID: %d"
 msgstr "ID：%d"
@@ -6021,6 +6134,31 @@ msgstr "渲染模式"
 #: viewer3d/viewer3dpanel.cpp:2288
 msgid "Export image..."
 msgstr "导出灯具..."
+
+#~ msgid "Labels"
+#~ msgstr "标签"
+
+#~ msgid "Global profile (all fixtures)"
+#~ msgstr "全球概况（所有赛程）"
+
+#~ msgid "Show name"
+#~ msgstr "显示名称"
+
+#~ msgid "Show ID"
+#~ msgstr "显示身份证"
+
+#~ msgid "Show DMX"
+#~ msgstr "显示 DMX"
+
+#~ msgid "Distance"
+#~ msgstr "距离单位："
+
+#~ msgid "Angle"
+#~ msgstr "角度"
+
+#, c-format
+#~ msgid "Selection profile active (%zu fixtures)"
+#~ msgstr "选择配置文件处于活动状态（%zu 灯具）"
 
 #
 #~ msgid "Apply selections"
@@ -6328,9 +6466,6 @@ msgstr "导出灯具..."
 
 #~ msgid "file-output"
 #~ msgstr "文件输出"
-
-#~ msgid "printer"
-#~ msgstr "打印"
 
 #~ msgid "undo-2"
 #~ msgstr "撤消-2"

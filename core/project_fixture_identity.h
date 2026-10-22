@@ -1,4 +1,5 @@
 #pragma once
+#include "fixture_label_keys.h"
 
 #include "json.hpp"
 #include "mvrscene.h"
@@ -104,6 +105,10 @@ inline FixtureMetadataNormalizationResult NormalizeFixtureLabelOverrides(
   });
 
   for (const std::string &key : keys) {
+    if (key == fixture_labels::kProjectDefaultsEntry && source.at(key).is_object()) {
+      normalized[key] = source.at(key);
+      continue;
+    }
     if (!source.at(key).is_object())
       continue;
     const std::string canonical = CanonicalizeUuid(key);

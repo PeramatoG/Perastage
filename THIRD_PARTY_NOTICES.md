@@ -34,3 +34,10 @@ The versions resolved by a package manager can vary for system-package builds. O
 Official builds made with vcpkg copy the available `share/*/copyright` metadata into `licenses/vcpkg/` in the staged application. Those generated files supplement this curated notice set and can include notices for transitive dependencies and build helpers. System and platform packages may supply additional notices through their own package metadata.
 
 This curated document is not an exhaustive inventory of every operating-system library that a downstream packager may choose to bundle. Distributors remain responsible for preserving notices required by the exact dependency set they redistribute.
+
+The `resources/fonts/PerastageSans*.ttf` assets are unmodified Noto Sans 2.004
+regular/bold (Debian `fonts-noto-core` distribution), with internal family name
+Noto Sans and unrestricted embedding (`OS/2.fsType = 0`). The existing SIL OFL
+notice permits bundling and PDF embedding; the Perastage filenames are resource
+aliases, not a renamed font family. Earlier assets at these paths contained HTML
+rather than usable TrueType data.

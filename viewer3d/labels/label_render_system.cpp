@@ -1,5 +1,8 @@
+#include "fixture_label_name.h"
 #include "layer_identity.h"
 #include "label_render_system.h"
+#include "composed_fixture_labels.h"
+#include "fixture_label_composition.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -51,6 +54,7 @@ struct LabelLine2D {
   std::string text;
   float size;
   std::string fontFamily;
+  bool suppressed = false;
 };
 
 struct SupportLabelText {
@@ -66,6 +70,7 @@ struct FixtureLayoutLine {
   float baseSize = 0.0f;
   std::string fontFamily;
   bool useBoldFont = false;
+  bool suppressed = false;
 };
 
 struct FixtureLayoutKey {
@@ -76,6 +81,7 @@ struct FixtureLayoutKey {
   bool showName = false;
   bool showId = false;
   bool showDmx = false;
+  std::array<bool,3> modernFields{};
   float nameSize = 0.0f;
   float idSize = 0.0f;
   float dmxSize = 0.0f;
@@ -90,7 +96,7 @@ struct FixtureLayoutKey {
            showDmx == other.showDmx && nameSize == other.nameSize &&
            idSize == other.idSize && dmxSize == other.dmxSize &&
            labelDist == other.labelDist && labelAngle == other.labelAngle &&
-           view == other.view;
+           view == other.view && modernFields == other.modernFields;
   }
 };
 
@@ -103,11 +109,14 @@ struct FixtureLayoutCacheEntry {
 };
 
 struct FixtureLabelOverridesCache {
+  bool loaded = false;
   std::optional<std::string> serialized;
   viewer2d::FixtureLabelOverrideMap overrides;
 };
 
 struct FixtureLabelLayoutCacheState {
+  viewer2d::FixtureLabelCompositionCache composed;
+  size_t composedRevision = 0;
   std::unordered_map<std::string, FixtureLayoutCacheEntry> fixtureLayoutByUuid;
   FixtureLabelOverridesCache overridesCache;
 };
@@ -133,8 +142,10 @@ const viewer2d::FixtureLabelOverrideMap &GetCachedFixtureLabelOverrides(
     FixtureLabelLayoutCacheState &cacheState, const ConfigManager &cfg) {
   const std::optional<std::string> serialized =
       cfg.GetValue("label_fixture_overrides");
-  if (!cacheState.overridesCache.serialized.has_value() ||
+  if (!cacheState.overridesCache.loaded ||
       cacheState.overridesCache.serialized != serialized) {
+    cacheState.overridesCache.loaded = true;
+    cacheState.composed.Clear();
     cacheState.overridesCache.serialized = serialized;
     cacheState.overridesCache.overrides = viewer2d::LoadFixtureLabelOverrides(cfg);
   }
@@ -179,7 +190,7 @@ FixtureLayoutCacheEntry BuildFixtureLayoutEntry(const FixtureLayoutKey &layoutKe
       auto utf8 = line.ToUTF8();
       entry.lines.push_back(
           {std::string(utf8.data(), utf8.length()), layoutKey.nameSize,
-           kRegularFamily, false});
+           kRegularFamily, false, layoutKey.modernFields[0]});
     }
   }
 
@@ -188,7 +199,7 @@ FixtureLayoutCacheEntry BuildFixtureLayoutEntry(const FixtureLayoutKey &layoutKe
     auto utf8 = idLine.ToUTF8();
     entry.lines.push_back(
         {std::string(utf8.data(), utf8.length()), layoutKey.idSize, kRegularFamily,
-         false});
+         false, layoutKey.modernFields[1]});
   }
 
   if (layoutKey.showDmx && !layoutKey.address.empty()) {
@@ -196,7 +207,7 @@ FixtureLayoutCacheEntry BuildFixtureLayoutEntry(const FixtureLayoutKey &layoutKe
     auto utf8 = addrLine.ToUTF8();
     entry.lines.push_back(
         {std::string(utf8.data(), utf8.length()), layoutKey.dmxSize, kBoldFamily,
-         boldFont >= 0 && boldFont != regularFont});
+         boldFont >= 0 && boldFont != regularFont, layoutKey.modernFields[2]});
   }
 
   return entry;
@@ -210,7 +221,7 @@ std::vector<LabelLine2D> BuildDrawableLines(const FixtureLayoutCacheEntry &entry
   for (const auto &line : entry.lines) {
     const int font = line.useBoldFont ? boldFont : regularFont;
     lines.push_back(
-        {font, line.text, line.baseSize * zoom, line.fontFamily});
+        {font, line.text, line.baseSize * zoom, line.fontFamily, line.suppressed});
   }
   return lines;
 }
@@ -518,20 +529,7 @@ SupportLabelText BuildSupportLabelText(const Support &support,
 }
 
 wxString WrapEveryTwoWords(const wxString &text) {
-  wxStringTokenizer tk(text, " ");
-  wxString result;
-  int count = 0;
-  while (tk.HasMoreTokens()) {
-    if (count > 0) {
-      if (count % 2 == 0)
-        result += "\n";
-      else
-        result += " ";
-    }
-    result += tk.GetNextToken();
-    ++count;
-  }
-  return result;
+  return wxString::FromUTF8(viewer2d::WrapFixtureLabelName(text.ToStdString(wxConvUTF8)));
 }
 
 void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x, int y,
@@ -640,6 +638,10 @@ void DrawLabelLines2D(NVGcontext *vg, const std::vector<LabelLine2D> &lines,
 
   float currentY = y - totalHeight * 0.5f;
   for (size_t i = 0; i < lines.size(); ++i) {
+    if (lines[i].suppressed) {
+      currentY += heights[i] + lineSpacing;
+      continue;
+    }
     nvgFontSize(vg, lines[i].size);
     nvgFontFaceId(vg, lines[i].font);
     nvgTextAlign(vg, horizontalAlign | NVG_ALIGN_TOP);
@@ -745,6 +747,8 @@ void LabelRenderSystem::DrawFixtureLabels(int width, int height) {
 void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
                                              Viewer2DView view, float zoom,
                                              bool interactiveLabelMode) {
+  // Final capture must not inherit the active drag's reduced label mode.
+  if (m_controller.GetCaptureCanvas()) interactiveLabelMode = false;
   ConfigManager &cfg = ConfigManager::Get();
   const auto distanceUnitSystem =
       Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
@@ -759,9 +763,14 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
   const auto &fixtureOverrides =
       GetCachedFixtureLabelOverrides(layoutCacheState, cfg);
 
+  if (layoutCacheState.composedRevision != cfg.GetRenderRevision()) {
+    layoutCacheState.composed.Clear();
+    layoutCacheState.composedRevision = cfg.GetRenderRevision();
+  }
+  DrawComposedFixtureLabels(m_controller, width, height, view, zoom, fixtureOverrides, layoutCacheState.composed);
   const CullingSettings culling = GetCullingSettings(cfg);
   const bool useLabelOptimizations =
-      !interactiveLabelMode &&
+      !m_controller.GetCaptureCanvas() && !interactiveLabelMode &&
       (cfg.GetFloat("label_optimizations_enabled") >= 0.5f);
   const int maxFixtureLabels = interactiveLabelMode
                                    ? 0
@@ -809,8 +818,12 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     if (auto oit = fixtureOverrides.find(uuid); oit != fixtureOverrides.end())
       overrideSettings = &oit->second;
 
-    const FixtureLayoutKey desiredKey =
+    FixtureLayoutKey desiredKey =
         BuildFixtureLayoutKey(uuid, f, overrideSettings, cfg, view, viewIdx);
+    // Preserve legacy stack slots when a field moves into independent composition.
+    for (int field = 0; field < 3; ++field)
+      desiredKey.modernFields[field] = viewer2d::HasFieldPresentation(fixtureOverrides, uuid, viewIdx, field);
+    if (std::all_of(desiredKey.modernFields.begin(), desiredKey.modernFields.end(), [](bool modern) { return modern; })) continue;
     if (!desiredKey.showName && !desiredKey.showId && !desiredKey.showDmx)
       continue;
 
@@ -1002,7 +1015,8 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
                 << " size=" << style.fontSize << " vAlign=Baseline";
           Logger::Instance().Log(trace.str());
         }
-        m_controller.RecordText(canvasAnchor[0], baseline, lines[i].text, style);
+        if (!lines[i].suppressed)
+          m_controller.RecordText(canvasAnchor[0], baseline, lines[i].text, style);
         if (i + 1 < lines.size())
           currentY -=
               (lineHeightsWorld[i] + lineSpacingWorld) *

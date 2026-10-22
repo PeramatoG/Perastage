@@ -35,3 +35,5 @@ Save the `.pstg` project to keep your layouts. **Export template** creates a por
 Select a non-empty layout and choose **File → Print Layout...**. Choose a writable `.pdf` destination. The PDF uses the selected layout's page size and orientation and includes its supported elements. Review the exported file before printing or sharing.
 
 For missing views, incorrect output or export errors, see [Troubleshooting](troubleshooting.md#layout-and-pdf-problems).
+
+Fixture labels are configured in **2D View settings → Edit Fixture Labels...**. Project defaults and UUID-based fixture overrides also feed Layout viewports and vector PDF. Newly edited fields use the same bundled fonts and positioned composition in both targets. Legacy fields keep their earlier rendering; Layout free text, legends and tables still use their existing typography paths. See [Fixture labels](views.md#fixture-labels) for scope, units, Apply/Cancel and supported characters.

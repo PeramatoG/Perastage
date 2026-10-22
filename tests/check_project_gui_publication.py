@@ -94,4 +94,9 @@ ordered(layout, 'Ensure2DViewport(false)', 'Ensure3DViewport(false)',
         'auiManager->Update();', 'SendSizeEvent();')
 assert 'Preparing scene for navigation' not in idle + publish + complete
 assert 'GetResourceLoadProgress' not in idle + publish + complete
+paint2d = function('viewer2d/viewer2dpanel.cpp', 'void Viewer2DPanel::OnPaint')
+ordered(paint2d, 'wxPaintDC dc(this);', 'ResetRepaintCoalescing();',
+        'if (!IsThisEnabled())', 'InitGL();')
+resume2d = function('viewer2d/viewer2dpanel_presentation.cpp', 'bool Viewer2DPanel::Enable')
+ordered(resume2d, 'wxGLCanvas::Enable(enable)', 'if (enable)', 'RequestRepaint();')
 print('OK: startup and project-open GUI publication ordering and progress contracts.')

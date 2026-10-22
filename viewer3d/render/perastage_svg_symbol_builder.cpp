@@ -1,4 +1,5 @@
 #include "perastage_svg_symbol_builder.h"
+#include "symbols/svg_symbol_presentation.h"
 
 #include <algorithm>
 #include <array>
@@ -90,53 +91,17 @@ bool TryBuildPerastageSvgSymbolDefinition(const std::string &gdtfPath,
   if (!svg.IsValid())
     return false;
 
-  double minX = 0.0;
-  double minY = 0.0;
-  double maxX = 0.0;
-  double maxY = 0.0;
-  bool hasBounds = false;
-  auto includePoint = [&](const PerastageSvgPoint &point) {
-    const double px = point.x + svg.offsetXmm;
-    const double py = point.y + svg.offsetYmm;
-    if (!hasBounds) {
-      minX = maxX = px;
-      minY = maxY = py;
-      hasBounds = true;
-      return;
-    }
-    minX = std::min(minX, px);
-    minY = std::min(minY, py);
-    maxX = std::max(maxX, px);
-    maxY = std::max(maxY, py);
-  };
-  for (const auto &polygon : svg.fills) {
-    for (const auto &point : polygon.points)
-      includePoint(point);
-    for (const auto &hole : polygon.holes) {
-      for (const auto &point : hole)
-        includePoint(point);
-    }
-  }
-  for (const auto &line : svg.strokes) {
-    for (const auto &point : line.points)
-      includePoint(point);
-  }
-  const double anchorX = hasBounds ? (minX + maxX) * 0.5 : 0.0;
-  const bool useTopHangAnchor =
-      svg.viewKind == SymbolViewKind::Front ||
-      svg.viewKind == SymbolViewKind::Left;
-  const double anchorY =
-      hasBounds ? (useTopHangAnchor ? maxY : (minY + maxY) * 0.5) : 0.0;
+  const auto anchor = symbols::SvgPresentationAnchor(svg);
+  const double anchorX = anchor[0], anchorY = anchor[1];
 
   out = SymbolDefinition{};
   out.symbolId = symbolId;
   out.source = SymbolDefinition::Source::PerastageSvg;
   out.localCommands.currentSourceKey = "svg";
 
-  for (const auto &polygon : svg.fills)
-    AppendSvgPolygon(polygon, fillRgb, out.localCommands);
-  for (const auto &line : svg.strokes)
-    AppendSvgPolyline(line, out.localCommands);
+  symbols::VisitSvgPresentation(svg,
+      [&](const auto &polygon) { AppendSvgPolygon(polygon, fillRgb, out.localCommands); },
+      [&](const auto &line) { AppendSvgPolyline(line, out.localCommands); });
 
   if (out.localCommands.commands.empty())
     return false;

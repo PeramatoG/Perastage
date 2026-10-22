@@ -647,6 +647,7 @@ target_link_libraries(perastage_test_required_fixture_svg PUBLIC
 perastage_resolve_git_bash(RESOLVED_BASH_EXECUTABLE REQUIRED_FOR_TESTING)
 set(BASH_EXECUTABLE "${RESOLVED_BASH_EXECUTABLE}" CACHE FILEPATH "Resolved shell for repository policy tests" FORCE)
 if(BASH_EXECUTABLE)
+    add_bash_policy_test(SharedTypographyBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_shared_typography.sh LABELS standard-strict architecture core)
     add_bash_policy_test(UserManualBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_user_manual_boundary.sh LABELS standard-strict architecture help)
     add_bash_policy_test(ExternalSceneWorkflowBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_external_scene_workflow_boundary.sh LABELS standard-strict architecture cli mvr)
     add_bash_policy_test(InspectionContractBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_contract_boundary.sh LABELS standard-strict architecture core)
@@ -1144,6 +1145,8 @@ add_test(NAME LayoutPdfSymbolUsage COMMAND layout_pdf_symbol_usage_test)
 
 add_executable(fixture_label_overrides_reconcile_test
                fixture_label_overrides_reconcile_test.cpp
+               ../viewer2d/fixture_label_style.cpp
+               ../viewer2d/fixture_label_composition.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
@@ -1162,7 +1165,7 @@ add_executable(fixture_label_overrides_reconcile_test
 target_include_directories(fixture_label_overrides_reconcile_test PRIVATE
                            . ../core ../third_party)
 target_link_libraries(fixture_label_overrides_reconcile_test PRIVATE
-                      ${wxWidgets_LIBRARIES})
+                      ${wxWidgets_LIBRARIES} perastage_typography)
 add_test(NAME FixtureLabelOverridesReconcile
          COMMAND fixture_label_overrides_reconcile_test)
 
@@ -1173,6 +1176,7 @@ add_executable(pdf_writer_test
                ../viewer2d/pdf/pdf_objects.cpp
                ../viewer2d/pdf/pdf_writer.cpp)
 target_include_directories(pdf_writer_test PRIVATE .)
+target_link_libraries(pdf_writer_test PRIVATE perastage_typography)
 if(TARGET ZLIB::ZLIB)
     target_link_libraries(pdf_writer_test PRIVATE ZLIB::ZLIB)
 endif()
@@ -4529,3 +4533,6 @@ target_link_libraries(mvr_matrix_precision_test PRIVATE perastage_mvr_read tinyx
 add_test(NAME MvrMatrixPrecision COMMAND mvr_matrix_precision_test)
 set_library_env(MvrMatrixPrecision)
 set_perastage_test_labels(MvrMatrixPrecision LAYER standard-strict DOMAINS mvr)
+
+target_compile_definitions(pdf_writer_test PRIVATE PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
+target_compile_definitions(fixture_label_overrides_reconcile_test PRIVATE PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
