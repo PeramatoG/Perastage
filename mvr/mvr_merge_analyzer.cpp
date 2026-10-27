@@ -242,7 +242,9 @@ bool SymdefDefinitionsEqual(const MvrScene &target, const MvrScene &imported,
 // Reports whether two layer entries share the same merge-visible content.
 bool LayerValuesEqual(const Layer &current, const Layer &incoming) {
   return current.name == incoming.name && current.color == incoming.color &&
-         current.childUUIDs == incoming.childUUIDs;
+         current.childUUIDs == incoming.childUUIDs &&
+         FormatCanonicalMatrix(current.transform, current.matrixSource) ==
+             FormatCanonicalMatrix(incoming.transform, incoming.matrixSource);
 }
 
 

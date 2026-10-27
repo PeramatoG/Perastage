@@ -10,6 +10,9 @@ std::string FormatCanonicalMatrix(const Matrix &edited,
                                  const std::optional<MvrMatrixSource> &source);
 bool CanonicalMatrixIsIdentity(const Matrix &matrix,
                                const std::optional<MvrMatrixSource> &source);
+// MVR 1.6 Table 17 permits elevation only, including source precision.
+bool CanonicalLayerMatrixIsElevation(const Matrix &matrix,
+                                     const std::optional<MvrMatrixSource> &source);
 std::optional<MvrMatrixSource> ReadMatrixSource(tinyxml2::XMLElement &node, MvrScene &scene);
 // Final numeric serialization uses existing node ownership and current local transforms.
 void WriteCanonicalMatrices(tinyxml2::XMLElement &sceneElement, const MvrScene &scene);

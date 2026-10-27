@@ -1,6 +1,7 @@
 #include "scene_transform_integrity.h"
 
 #include "matrixutils.h"
+#include "scene_parent_transform.h"
 
 #include <algorithm>
 #include <cmath>
@@ -182,6 +183,8 @@ Result ValidateAndRepair(MvrScene &scene, float tolerance) {
         continue;
       if (!scene.groupObjects.contains(node.parentGroupUuid))
         AddFatal(result, type, uuid, "missing parent group");
+      else if (node.layerUuid != scene.groupObjects.at(node.parentGroupUuid).layerUuid)
+        AddFatal(result, type, uuid, "parent and child layer ownership disagree");
       else if (!ownership.contains({type, uuid}))
         AddFatal(result, type, uuid, "parent metadata has no matching child reference");
     }
@@ -213,7 +216,7 @@ Result ValidateAndRepair(MvrScene &scene, float tolerance) {
       const auto &node = nodes.at(uuid);
       if (!IsFinite(node.transform))
         AddFatal(result, type, uuid, "non-finite world transform");
-      if (!node.parentGroupUuid.empty() && node.hasLocalTransform &&
+      if (node.hasLocalTransform &&
           !IsFinite(node.localTransform))
         AddFatal(result, type, uuid, "non-finite local transform");
     }
@@ -247,10 +250,8 @@ Result ValidateAndRepair(MvrScene &scene, float tolerance) {
     std::sort(uuids.begin(), uuids.end());
     for (const auto &uuid : uuids) {
       auto &node = nodes.at(uuid);
-      if (node.parentGroupUuid.empty())
-        continue;
       Matrix inverse;
-      const Matrix &parentWorld = scene.groupObjects.at(node.parentGroupUuid).transform;
+      const Matrix parentWorld = scene_parent_transform::World(scene, node);
       if (!Invert(parentWorld, inverse)) {
         AddFatal(result, type, uuid, "non-invertible parent transform");
         continue;
@@ -262,9 +263,11 @@ Result ValidateAndRepair(MvrScene &scene, float tolerance) {
         RetainUneditedSourceParts(expectedLocal, projection, projectedWorld, node.transform);
         RetainUneditedSourceParts(node.localTransform, projection, projectedWorld, node.transform);
       }
+      const float localTolerance =
+          node.matrixSource || node.parentGroupUuid.empty() ? 0.0f : tolerance;
       if (!node.hasLocalTransform ||
           !NearlyEqual(MatrixUtils::Multiply(parentWorld, node.localTransform),
-                       node.transform, node.matrixSource ? 0.0f : tolerance)) {
+                       node.transform, localTolerance)) {
         AddRepair(result, type, uuid,
                   node.hasLocalTransform ? "stale local transform" : "missing local transform");
         node.localTransform = expectedLocal;
@@ -279,29 +282,23 @@ Result ValidateAndRepair(MvrScene &scene, float tolerance) {
 
   for (const auto &uuid : groupUuids) {
     auto &group = scene.groupObjects.at(uuid);
-    Matrix expectedLocal = group.transform;
-    if (!group.parentGroupUuid.empty()) {
-      Matrix inverse;
-      const Matrix &parentWorld = scene.groupObjects.at(group.parentGroupUuid).transform;
-      if (!Invert(parentWorld, inverse)) {
-        AddFatal(result, MvrNodeType::GroupObject, uuid, "non-invertible parent transform");
-        continue;
-      }
-      expectedLocal = MatrixUtils::Multiply(inverse, group.transform);
+    Matrix inverse;
+    const Matrix parentWorld = scene_parent_transform::World(scene, group);
+    if (!Invert(parentWorld, inverse)) {
+      AddFatal(result, MvrNodeType::GroupObject, uuid, "non-invertible parent transform");
+      continue;
     }
+    Matrix expectedLocal = MatrixUtils::Multiply(inverse, group.transform);
     if (group.matrixSource) {
       const auto &projection = group.matrixSource->projection;
-      const auto projectedWorld = group.parentGroupUuid.empty() ? projection
-          : MatrixUtils::Multiply(scene.groupObjects.at(group.parentGroupUuid).transform, projection);
+      const auto projectedWorld = MatrixUtils::Multiply(parentWorld, projection);
       RetainUneditedSourceParts(expectedLocal, projection, projectedWorld, group.transform);
       RetainUneditedSourceParts(group.localTransform, projection, projectedWorld, group.transform);
     }
-    const Matrix rebuilt = group.parentGroupUuid.empty()
-                               ? group.localTransform
-                               : MatrixUtils::Multiply(
-                                     scene.groupObjects.at(group.parentGroupUuid).transform,
-                                     group.localTransform);
-    if (!NearlyEqual(rebuilt, group.transform, group.matrixSource ? 0.0f : tolerance)) {
+    const Matrix rebuilt = MatrixUtils::Multiply(parentWorld, group.localTransform);
+    const float localTolerance =
+        group.matrixSource || group.parentGroupUuid.empty() ? 0.0f : tolerance;
+    if (!NearlyEqual(rebuilt, group.transform, localTolerance)) {
       AddRepair(result, MvrNodeType::GroupObject, uuid, "stale local transform");
       group.localTransform = expectedLocal;
     }

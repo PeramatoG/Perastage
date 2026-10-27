@@ -1,6 +1,6 @@
 # MVR 1.6 data integrity and round-trip audit
 
-Status: **bounded P0 corrections through #2484 plus canonical export policy consolidation; non-blocking persistence and complete semantic provenance remain unfinished**.
+Status: **bounded P0 corrections through #2484 plus canonical export policy consolidation and Layer elevation preservation; non-blocking persistence and complete semantic provenance remain unfinished**.
 
 The scene-format inventory below covers every attribute/child entry in published
 MVR 1.6 Tables 2–64, plus value types, archive rules, references and version policy.
@@ -143,8 +143,8 @@ cannot establish it.
    VideoScreen/Projector and all unrelated unsupported structures remain.
 
 Known structures protected now: malformed/ambiguous/unrepresented Class/Classing;
-MappingDefinition; nonidentity
-Layer Matrix/elevation; multipatch; fixture CastShadow/ChildPosition, Protocols,
+MappingDefinition; malformed or non-elevation
+Layer matrices; multipatch; fixture CastShadow/ChildPosition, Protocols,
 Alignments, CustomCommands, Overwrites, Connections, Mappings and Gobo; multiple
 or nonzero DMX breaks and network assignments; noneditable VideoScreen/Projector
 subtrees; unsupported generic/rigging standard fields listed in the matrix;
@@ -179,7 +179,7 @@ coverage. `Y` means within the explicitly bounded tested subset; `p` partial;
 `N` absent; `?` unverified; `B` operation blocked if present (diagnostic evidence
 is retained, **not** a preserved semantic entity). M=`p` must never be read as
 full reference/resource remapping. A=`C` class integration/protection/independent tests;
-`D` Symdef integration/protection/independent tests; `F` #2479 focus tests; `K` blocker tests;
+`D` Symdef integration/protection/independent tests; `E` Layer Matrix integration/independent tests; `F` #2479 focus tests; `K` blocker tests;
 `I` identifier integration and independent ZIP/XML tests; `X` existing named tests; `–` no executed feature-specific proof. A test name in
 this matrix identifies coverage, not proof of every possible value.
 
@@ -231,7 +231,7 @@ integer ranges protected and explicit mutation/legacy limits below. Detailed lim
 | 15 | `Layers/Layer` | ? (listed) | Y | Y | p | p | p | p | p | F,X | P | P0/h |
 | 16 | `Layer/@uuid` | R | Y | Y | p | p | p | p | p | F,X | P | P0/i |
 | 16 | `Layer/@name` | Empty | Y | Y | p | p | p | p | p | F,X | P | P0/i |
-| 17 | `Layer/Matrix` | 0 or 1; identity accepted, elevation blocked | N | B | N | B | B | B | B | K | B | P0/b |
+| 17 | `Layer/Matrix` | 0 or 1; vertical elevation, identity linear part | Y | Y | N | Y | Y | Y | Y | E | V | P0/h |
 | 17 | `Layer/ChildList` | 0 or 1 | Y | Y | p | p | p | p | p | F,X | P | P0/h |
 | 18 | `ChildList/SceneObject` | ? (listed) | Y | Y | p | p | p | p | p | F,X | P | P0/h |
 | 18 | `ChildList/GroupObject` | ? (listed) | Y | Y | p | p | p | p | p | F,X | P | P0/h |
@@ -537,7 +537,7 @@ ambiguous UUID recovery diagnostics; it does not redo those implementations.
 3. Nested Symdef/Symbol graphs, other Symbol consumers and canonical placement:
    multiple/mixed geometry, exact local/world ownership, dependency closure,
    merge remapping, noneditable VideoScreen/Projector and media resources.
-4. Typed DMX breaks/networks and layer elevation; complete reference/resource
+4. Typed DMX breaks/networks; complete reference/resource
    handling before removing their current blockers.
 5. Configurable selection numbering and controlled repairs through shared
    planners/commands: allocate missing labels, optionally resolve duplicates,
@@ -1104,7 +1104,7 @@ remain the source-semantic and resource/reference authorities for those subsets.
 | Category | Current examples | Behavior / next acceptance condition |
 | --- | --- | --- |
 | Harmless canonicalization | Whitespace-only optional assignments, identity Layer Matrix, child order, equivalent integer spelling | Accept the tested subset; source-meaning verification accompanies normalization. |
-| Recoverable representation limitation | Direct noneditable definitions now supported; nested Symdefs, other Symbol consumers, layer elevation and valid media nodes still unrepresented | Add bounded canonical owners and resource/reference checks, then remove the individual blocker. No fatal save solely because there is no editor. |
+| Recoverable representation limitation | Direct noneditable definitions now supported; nested Symdefs, other Symbol consumers and valid media nodes still unrepresented | Add bounded canonical owners and resource/reference checks, then remove the individual blocker. No fatal save solely because there is no editor. |
 | Safe automatic repair | Unique internal UUID alias recovery and equivalent spelling | Operate on a private export snapshot, report provenance, preserve unrelated identities and verify all affected supported edges. Generic source conflict handling remains unfinished. |
 | Optional user-authorized change | Direct truss geometry output; future numbering allocation/duplicate repair | Explicit alternate export or shared edit command with a plan, provenance and Undo/Redo; never implicit in canonical save. |
 | Ambiguous/unrecoverable integrity | Ambiguous UUID aliases, missing geometry bytes, unknown reference/resource closure, unsupported versions or out-of-range values | Structured failure, no archive replacement and concrete recovery guidance. A valid unsupported field is a representation limitation, not corrupt source. |
@@ -1158,3 +1158,50 @@ checks passed. GTK widgets ran under Xvfb; the first socket-restricted attempt
 could not initialize GTK, and passed with the local display-socket capability.
 No complete application link, native Windows/macOS dialog interaction, official
 reference runtime or receiving-application interoperability execution is claimed.
+
+
+## Layer Matrix/elevation correction
+
+Base: fetched `origin/main` `7a197594`. Published MVR 1.6 Table 17 was
+rechecked: a Layer Matrix permits only vertical elevation with identity rotation
+and scale. Before production changes, a schema-valid synthetic MVR reproduced
+missing elevation in the imported child's world matrix. The old model had no
+layer transform owner, import started children at identity, export omitted the
+matrix, and `mvr_standard_preservation.cpp` blocked nonidentity layers.
+
+Layer now owns its transform and original numeric source. Import composes it
+into world placement once; direct children remain local to the layer and grouped
+children to their immediate group. The shared export snapshot repairs locals
+against that parent, retaining unedited source precision. Canonical output writes
+the authored elevation, with optional identity omission. PSTG uses the identical
+serializer and resource pipeline. Layer merge comparison includes authored
+numeric values, including differences hidden by the float display projection.
+Grouping/reparenting retains world placement and propagates layer ownership
+through descendants; existing whole-scene Undo/Redo snapshots retain these values.
+
+`MvrLayerMatrix` and `MvrLayerMatrixIndependent` cover two elevated layers, nested
+groups, all supported scene node kinds, world-only and command transform edits,
+three PSTG cycles, same-state XML/resource bytes and ZIP order, UUID/Class/Focus/
+Symbol edges, merge collisions, grouping and Undo/Redo. An independent Python
+ZIP/XML reader composes exported world matrices. Unedited authored values compare
+exactly; recomputed hierarchy placement uses the existing float scene precision.
+Synthetic GDTF/model payloads remain byte-identical. Malformed/duplicate matrices,
+nonfinite/out-of-range values, non-elevation matrices (including hidden precision
+differences), conflicting ownership and unrelated unsupported fields remain fatal.
+Serialization failures retain the previous valid PSTG bytes. No layer-transform
+editor, general affine-layer support, new recovery format or unrelated standard
+support is added. Existing unsupported structures above remain protected.
+
+Same-state equality compares complete XML/resources and ordered ZIP entries.
+Across reimport, standard-scene/resource equality is checked separately: existing
+Perastage FixtureTypeInfo runtime-path metadata changes with extraction directories
+and is outside this layer correction. No whole-package fixed-point claim is made
+for that pre-existing metadata behavior. Native platform/build results belong to
+the PR verification record; receiving-application interoperability is unexecuted.
+
+Local verification for this correction: **30/30 focused regressions** and
+**16/16 architecture/policy CTests** passed, together with all four mandatory
+repository guards, additional import/Command/Query boundaries, license and
+generated-document checks. Linux x86_64 Debug application and production CLI
+builds, CLI help smoke and strict translation checks passed. Windows, macOS,
+Release and external interoperability were not run locally; hosted CI is separate.

@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvr_xml_scene_object_writer.h"
+#include "mvr_matrix_precision.h"
 
 #include "matrixutils.h"
 
@@ -239,8 +240,12 @@ tinyxml2::XMLElement *CreateLayers(tinyxml2::XMLDocument &document) {
 
 // Appends a standard Layer containing an already-populated ChildList.
 void AppendLayer(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *layers,
-                 const ObjectValues &values, tinyxml2::XMLElement *childList) {
+                 const ObjectValues &values, tinyxml2::XMLElement *childList,
+                 const Layer &owner) {
   tinyxml2::XMLElement *layer = CreateObject(document, "Layer", values);
+  if (!mvr::CanonicalMatrixIsIdentity(owner.transform, owner.matrixSource))
+    AppendText(document, layer, "Matrix",
+               mvr::FormatCanonicalMatrix(owner.transform, owner.matrixSource));
   layer->InsertEndChild(childList);
   layers->InsertEndChild(layer);
 }

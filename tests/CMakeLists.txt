@@ -1784,6 +1784,41 @@ if(Python3_Interpreter_FOUND)
 endif()
 
 
+add_executable(mvr_layer_matrix_test mvr_layer_matrix_test.cpp
+               ../mvr/mvrscenemerger.cpp
+               ../mvr/mvr_merge_analyzer.cpp
+               ../mvr/mvr_merge_applier.cpp
+               ../mvr/mvr_merge_resource_rewriter.cpp
+               support/gdtf_test_fixture_builder.cpp
+               build_info_stub.cpp
+               ../core/configservices.cpp
+               ../core/library/library_bootstrap.cpp
+               ../core/gdtfdictionary.cpp
+               ../core/trussdictionary.cpp
+               ../core/trussloader.cpp
+               ../core/truss_gdtf_builder.cpp
+               ../core/gdtf_canonicalizer.cpp
+               ../core/gdtf_mutation_audit.cpp
+               ../core/logger.cpp
+               gdtfloader_stub.cpp
+               consolepanel_stub.cpp
+               ${PERASTAGE_TEST_MVR_ROUNDTRIP_SUPPORT_OBJECTS})
+target_include_directories(mvr_layer_matrix_test PRIVATE
+                           . support ../core ../models ../mvr ../gui ../third_party)
+target_link_libraries(mvr_layer_matrix_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2
+                      perastage_mvr_read perastage_mvr_import_application_read
+                      perastage_inspection_validation)
+add_test(NAME MvrLayerMatrix COMMAND mvr_layer_matrix_test)
+set_library_env(MvrLayerMatrix)
+
+set_perastage_test_labels(MvrLayerMatrix LAYER standard-strict DOMAINS mvr project zip)
+add_test(NAME MvrLayerMatrixIndependent
+         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/mvr_layer_matrix_independent_test.py
+                 $<TARGET_FILE:mvr_layer_matrix_test>)
+set_library_env(MvrLayerMatrixIndependent)
+set_perastage_test_labels(MvrLayerMatrixIndependent LAYER standard-strict DOMAINS mvr project zip)
+
 add_executable(mvr_symdef_integrity_test mvr_symdef_integrity_test.cpp
                mvr_matrix_precision_regression.cpp
                ../core/scene_clipboard.cpp
@@ -3263,6 +3298,7 @@ set(PERASTAGE_CONFIGMANAGER_TEST_TARGETS
     mvr_focus_integrity_test
     mvr_class_integrity_test
     mvr_symdef_integrity_test
+    mvr_layer_matrix_test
     mvr_identifier_integrity_test
     mvr_project_fixture_metadata_contracts_test
     project_support_userdata_roundtrip_test
@@ -3959,7 +3995,7 @@ add_executable(mvr_xml_serialization_test
                ../core/uuidutils.cpp)
 target_include_directories(mvr_xml_serialization_test PRIVATE
                            ../mvr ../core ../models ../third_party)
-target_link_libraries(mvr_xml_serialization_test PRIVATE tinyxml2::tinyxml2)
+target_link_libraries(mvr_xml_serialization_test PRIVATE perastage_mvr_read tinyxml2::tinyxml2)
 add_test(NAME MvrXmlSerialization COMMAND mvr_xml_serialization_test)
 set_perastage_test_labels(MvrXmlSerialization
                           LAYER standard-strict DOMAINS mvr architecture)
@@ -4042,6 +4078,7 @@ foreach(mvr_read_consumer
         mvr_focus_integrity_test
         mvr_class_integrity_test
         mvr_symdef_integrity_test
+        mvr_layer_matrix_test
         mvr_identifier_integrity_test
         mvr_project_fixture_metadata_contracts_test
         project_support_userdata_roundtrip_test
@@ -4073,6 +4110,7 @@ set(PERASTAGE_GDTF_DICTIONARY_PUBLICATION_TEST_TARGETS
     mvr_focus_integrity_test
     mvr_class_integrity_test
     mvr_symdef_integrity_test
+    mvr_layer_matrix_test
     mvr_identifier_integrity_test
     mvr_project_fixture_metadata_contracts_test
     project_support_userdata_roundtrip_test
@@ -4128,6 +4166,7 @@ foreach(PERASTAGE_MVR_ROUNDTRIP_CONSUMER IN ITEMS
         mvr_focus_integrity_test
         mvr_class_integrity_test
         mvr_symdef_integrity_test
+        mvr_layer_matrix_test
         mvr_identifier_integrity_test
         mvr_importer_archive_characterization_test
         project_support_userdata_roundtrip_test

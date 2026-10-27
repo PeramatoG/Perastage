@@ -1817,8 +1817,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     MergeFixtureTypeInfoExport(fixtureTypeMetadata, f,
                                    fixtureGdtfArchivePath);
 
-    const Matrix fixtureMatrixToWrite =
-        f.parentGroupUuid.empty() ? f.transform : f.localTransform;
+    const Matrix fixtureMatrixToWrite = f.localTransform;
     const std::string position =
         (!f.position.empty() || !f.positionName.empty())
             ? resolveObjectPosition(f.uuid)
@@ -1970,8 +1969,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       ov.model = effectiveTruss.model;
     }
 
-    values.matrix =
-        t.parentGroupUuid.empty() ? t.transform : t.localTransform;
+    values.matrix = t.localTransform;
     values.position = resolveObjectPosition(t.uuid);
 
     if (trussGeometryAuthority == MvrTrussGeometryAuthority::MvrGeometry) {
@@ -2085,7 +2083,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   auto exportSupport = [&](tinyxml2::XMLElement *parent, const Support &s) {
     mvr_xml_serialization::SupportValues values;
     values.object = {s.uuid, s.name, s.classing};
-    values.matrix = s.parentGroupUuid.empty() ? s.transform : s.localTransform;
+    values.matrix = s.localTransform;
     values.position = resolveObjectPosition(s.uuid);
 
     for (const auto &geometry : s.geometries) {
@@ -2199,8 +2197,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     mvr_xml_serialization::SceneObjectValues values;
     values.isFocusPoint = obj.kind == SceneObjectKind::FocusPoint;
     values.object = {obj.uuid, obj.name, obj.classing};
-    values.matrix =
-        obj.parentGroupUuid.empty() ? obj.transform : obj.localTransform;
+    values.matrix = obj.localTransform;
 
     auto resolveGeometry = [&](const std::string &sourceModel,
                                const Matrix &sourceMatrix,
@@ -2398,7 +2395,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     }
 
     mvr_xml_serialization::AppendLayer(
-        doc, layersNode, {exportLayerUuid, layer.name}, childList);
+        doc, layersNode, {exportLayerUuid, layer.name}, childList, layer);
   }
 
   if (hierarchyRecursionDetected || sceneObjectExportFailed ||

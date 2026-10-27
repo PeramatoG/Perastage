@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include "mvr_matrix_source.h"
 #include <string>
 #include <vector>
 
@@ -28,4 +29,8 @@ struct Layer {
 
     // UUIDs of child objects in this layer
     std::vector<std::string> childUUIDs;
+
+    // Authored layer-to-world placement; children retain parent-local matrices.
+    Matrix transform;
+    std::optional<MvrMatrixSource> matrixSource;
 };
