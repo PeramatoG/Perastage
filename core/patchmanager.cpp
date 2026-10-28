@@ -16,6 +16,8 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "patchmanager.h"
+#include <cstdint>
+#include <limits>
 
 namespace PatchManager {
 
@@ -25,8 +27,8 @@ std::vector<PatchAddress> SequentialPatch(const std::vector<int>& channelCounts,
     std::vector<PatchAddress> result;
     result.reserve(channelCounts.size());
 
-    int uni = startUniverse < 1 ? 1 : startUniverse;
-    int ch  = startChannel < 1 ? 1 : startChannel;
+    std::int64_t uni = startUniverse < 1 ? 1 : startUniverse;
+    std::int64_t ch  = startChannel < 1 ? 1 : startChannel;
 
     for (int count : channelCounts) {
         if (count < 1)
@@ -37,7 +39,8 @@ std::vector<PatchAddress> SequentialPatch(const std::vector<int>& channelCounts,
             ch = 1;
         }
 
-        result.push_back({uni, ch});
+        if (uni > std::numeric_limits<int>::max()) return {};
+        result.push_back({static_cast<int>(uni), static_cast<int>(ch)});
 
         ch += count;
         if (ch > 512) {

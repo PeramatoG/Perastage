@@ -107,6 +107,21 @@ parent once. Export preserves unedited numeric source values, repairs locals on
 a private snapshot after world-space edits, and may omit an identity Layer Matrix.
 Layer merge equality includes the authored matrix values. Non-elevation,
 malformed or ambiguous layer matrices remain fail-closed.</p>
+<p>Fixture owns an optional ordered standard DMX Address list, retaining container
+presence, optional break attributes and authored values. Missing break means 0;
+break IDs identify assignments and never universes. Fixture.address is the
+compatibility projection of break 0 only. Unedited nonzero-only or out-of-editor-
+range assignments remain preservable without an invented primary assignment.
+Core <code>perastage::patch::SetFixturePrimaryPatch</code> edits only break 0. Explicit patching
+of an absent/empty list creates it; clearing removes only it and retains the
+container/other entries. A missing primary in a nonempty list, duplicate breaks
+or invalid values produces a structured conflict. Existing table/auto-patch
+workflows use that policy; auto-patch publication is atomic. Pending legacy
+scalar edits reconcile only on a private export snapshot with an unambiguous
+mapping. A final serialized projection check protects the complete ordered list.
+Network, other address consumers and unsupported extensions remain guarded.
+Published Universe.Address strings and signed break IDs are preserved even where
+the unchanged pinned XSD&#39;s integer/nonnegative restrictions disagree.</p>
 <p>Root <code>UserData</code> precedes <code>Scene</code>, as required by the official XSD. Every exported
 GroupObject retains <code>ChildList</code>, including empty groups, to satisfy the pinned
 XSD; published MVR 1.6 Table 22 permits its absence. These

@@ -1,5 +1,6 @@
 #include "layer_identity.h"
 #include "fixture_table_edit_service.h"
+#include "fixture_patch_service.h"
 
 #include "fixture_table_columns.h"
 
@@ -26,6 +27,23 @@ namespace {
 const wxString &DegreeSymbol() {
   static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
   return kDegreeSymbol;
+}
+
+// Presentation-only adapter; Core owns assignment selection and mutation.
+bool ApplyPrimaryPatch(Fixture &fixture, const std::string &requested) {
+  const auto result = perastage::patch::SetFixturePrimaryPatch(fixture, requested);
+  if (!result && ConsolePanel::Instance())
+    ConsolePanel::Instance()->AppendMessage(wxString::FromUTF8(result.detail));
+  return static_cast<bool>(result);
+}
+
+// Rejected edits must not leave displayed patch cells ahead of scene state.
+void RestorePatchCells(wxDataViewListCtrl *table, size_t row, const Fixture &fixture) {
+  const auto patch = perastage::patch::ParseFixturePatchAddress(fixture.address);
+  table->SetValue(wxVariant(patch ? static_cast<long>(patch->universe) : 0L), row,
+      FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Universe));
+  table->SetValue(wxVariant(patch ? static_cast<long>(patch->channel) : 0L), row,
+      FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Channel));
 }
 
 constexpr const char *kUnassignedPosition = "Unassigned";
@@ -214,10 +232,12 @@ void ApplyFullRowChanges(
         v, i, FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Mode));
     next.gdtfMode = std::string(v.GetString().ToUTF8());
 
-    if (uni > 0 && ch > 0)
-      next.address = wxString::Format("%ld.%ld", uni, ch).ToStdString();
-    else
-      next.address.clear();
+    const auto requestedPatch = uni > 0 && ch > 0
+        ? wxString::Format("%ld.%ld", uni, ch).ToStdString() : std::string{};
+    if (requestedPatch != old.address && !ApplyPrimaryPatch(next, requestedPatch)) {
+      RestorePatchCells(table, i, old);
+      continue;
+    }
 
     double xMm = old.transform.o[0];
     double yMm = old.transform.o[1];
@@ -431,8 +451,12 @@ void ApplyPatchChanges(FixtureTableEditService::ISceneAdapter &adapter,
     if (old.address == next.address)
       continue;
 
+    if (!ApplyPrimaryPatch(next, next.address)) {
+      RestorePatchCells(table, row, old);
+      continue;
+    }
     PushUndoIfNeeded(adapter, tracking);
-    it->second.address = next.address;
+    it->second = std::move(next);
     TrackUpdatedFixture(it->second, tracking, logChanges);
   }
 

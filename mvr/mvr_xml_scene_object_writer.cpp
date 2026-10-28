@@ -78,7 +78,16 @@ void AppendFixture(tinyxml2::XMLDocument &document,
   addString("Position", values.position);
   addString("Function", values.function);
   AppendIdentifiers(document, fixture, values.fixtureId, values.fixtureIdNumeric, values.unitNumber);
-  if (values.absoluteDmxAddress.has_value()) {
+  if (values.dmxAddresses) {
+    auto *addresses = document.NewElement("Addresses");
+    for (const auto &entry : values.dmxAddresses->entries) {
+      auto *address = document.NewElement("Address");
+      if (entry.breakId) address->SetAttribute("break", entry.breakId->c_str());
+      address->SetText(entry.value.c_str());
+      addresses->InsertEndChild(address);
+    }
+    fixture->InsertEndChild(addresses);
+  } else if (values.absoluteDmxAddress.has_value()) {
     tinyxml2::XMLElement *addresses = document.NewElement("Addresses");
     tinyxml2::XMLElement *address = document.NewElement("Address");
     address->SetAttribute("break", 0);

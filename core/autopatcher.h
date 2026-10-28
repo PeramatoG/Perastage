@@ -18,6 +18,7 @@
 #pragma once
 
 #include "mvrscene.h"
+#include "fixture_patch_service.h"
 #include <string>
 #include <vector>
 
@@ -26,12 +27,12 @@ namespace AutoPatcher {
 // Transverse Positions run front-to-back before longitudinal Positions, while
 // disconnected parallel components use a deterministic serpentine traversal.
 // Positions and components that fit one universe are kept intact when possible.
-void AutoPatch(MvrScene &scene, int startUniverse = 1, int startChannel = 1);
+perastage::patch::FixturePatchResult AutoPatch(MvrScene &scene, int startUniverse = 1, int startChannel = 1);
 
 // Re-patch only the selected fixtures in the exact order provided by
 // selectionOrder. Existing patch values for the selected fixtures are cleared
 // before re-patching. The new patch starts at the next free channel after the
 // highest already-patched fixture that remains in the scene.
-void AutoPatchSelection(MvrScene &scene,
+perastage::patch::FixturePatchResult AutoPatchSelection(MvrScene &scene,
                         const std::vector<std::string> &selectionOrder);
 } // namespace AutoPatcher

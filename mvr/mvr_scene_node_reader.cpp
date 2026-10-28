@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layer_identity.h"
+#include "mvr_fixture_addresses.h"
 #include "mvr_scene_node_reader.h"
 #include "mvr_matrix_precision.h"
 #include "mvr_identifier_preservation.h"
@@ -402,32 +403,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
         boolOf("DMXInvertPan", fixture.dmxInvertPan);
         boolOf("DMXInvertTilt", fixture.dmxInvertTilt);
 
-        if (tinyxml2::XMLElement *addresses =
-                node->FirstChildElement("Addresses")) {
-          tinyxml2::XMLElement *addr = addresses->FirstChildElement("Address");
-          if (addr) {
-            const char *breakAttr = addr->Attribute("break");
-            int breakNum = breakAttr ? std::atoi(breakAttr) : 0;
-            const char *txt = addr->GetText();
-            if (txt) {
-              std::string t = txt;
-              std::string normalized;
-              if (t.find('.') == std::string::npos) {
-                int value = std::atoi(t.c_str());
-                int universe = breakNum + 1;
-                if (value > 512) {
-                  universe += (value - 1) / 512;
-                  value = (value - 1) % 512 + 1;
-                }
-                normalized =
-                    std::to_string(universe) + "." + std::to_string(value);
-              } else {
-                normalized = t;
-              }
-              fixture.address = normalized;
-            }
-          }
-        }
+        ReadFixtureAddresses(*node, fixture, scene);
 
         if (tinyxml2::XMLElement *matrix = node->FirstChildElement("Matrix")) {
           if (const char *txt = matrix->GetText())
