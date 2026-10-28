@@ -174,7 +174,7 @@ int main() {
   assert(fixtures["a"].gdtfSpec.find(".working") == std::string::npos);
   request.changedDocumentFields.clear();
   request.changedContextFields = {gdtf::GdtfFieldId::PowerConsumption};
-  request.values.powerConsumptionW = 380;
+  request.values.powerConsumptionW = 380.0f;
   request.sourcePath.clear();
   request.writePolicy = gdtf::GdtfWritePolicy::ReadOnly;
   gdtf::ProjectFixtureGdtfApplyAdapter overrideAdapter({});
@@ -195,7 +195,7 @@ int main() {
   assert(result.updatedFixtures.at("a").planningPowerOverrideW == 380);
   assert(!result.physicalPropertiesWritten && !result.externalFileCreatedOrModified);
   fixtures["a"] = result.updatedFixtures.at("a");
-  fixtures["a"].sourcePowerConsumptionW = 100;
+  fixtures["a"].sourcePowerConsumptionW = 100.0f;
   request.changedDocumentFields.clear();
   request.changedContextFields = {gdtf::GdtfFieldId::PowerConsumption};
   request.values.powerConsumptionW.reset();
