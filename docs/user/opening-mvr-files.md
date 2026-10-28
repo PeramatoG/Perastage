@@ -26,6 +26,10 @@ the same name. The layer list adds a UUID to labels when needed to distinguish
 these layers. Renaming a layer keeps its objects assigned to it, and export
 preserves the authored layer name independently of that display label.
 
+Authored MVR layer elevations are retained when saving and reopening a project
+or exporting MVR. Objects keep their world placement when regrouped or moved
+between layers. Layer rotation and scale are not supported by MVR 1.6.
+
 ## Resources and project storage
 
 Imported GDTFs, symbols and models are retained with project resources so they can be resolved after saving and reopening. Check missing profiles and modes before export; see [GDTF Download](gdtf-download.md) and [Troubleshooting](troubleshooting.md).

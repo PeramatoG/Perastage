@@ -68,6 +68,28 @@ int main() {
   auto result = scene_transform_integrity::ValidateAndRepair(valid);
   assert(result.success && !result.repaired && result.diagnostics.empty());
 
+  // World-space root edits must not disappear below the grouped repair tolerance.
+  MvrScene rootEdited;
+  Layer elevated;
+  elevated.uuid = "layer";
+  elevated.transform.o[2] = 1000;
+  rootEdited.layers[elevated.uuid] = elevated;
+  Fixture root;
+  root.layerUuid = elevated.uuid;
+  root.localTransform = Transform(1, 2, 30);
+  root.transform = Transform(std::nextafter(1.0f, 2.0f), 2, 1030);
+  root.hasLocalTransform = true;
+  rootEdited.fixtures["root"] = root;
+  GroupObject rootGroup;
+  rootGroup.layerUuid = elevated.uuid;
+  rootGroup.localTransform = root.localTransform;
+  rootGroup.transform = root.transform;
+  rootEdited.groupObjects["root-group"] = rootGroup;
+  result = scene_transform_integrity::ValidateAndRepair(rootEdited);
+  assert(result.success && result.repaired);
+  assert(rootEdited.fixtures.at("root").localTransform.o[0] == root.transform.o[0]);
+  assert(rootEdited.groupObjects.at("root-group").localTransform.o[0] == root.transform.o[0]);
+
   MvrScene stale = ValidScene();
   stale.fixtures["fixture"].localTransform = MatrixUtils::Identity();
   result = scene_transform_integrity::ValidateAndRepair(stale);

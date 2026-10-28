@@ -1424,15 +1424,19 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
       services.logWarning("Repaired malformed or conflicting Layer UUID: " + authoredUuid);
     }
     services.recordAuthoredLayer(authoredUuid, layerStr);
+    const auto layerSource = ReadMatrixSource(*layer, scene);
+    const Matrix layerTransform = layerSource ? layerSource->projection : Matrix{};
     tinyxml2::XMLElement *childList = layer->FirstChildElement("ChildList");
     if (childList)
       parseChildList(childList, layerStr,
-                     layerUuid, MatrixUtils::Identity(), "", "", true);
+                     layerUuid, layerTransform, "", "", true);
 
     {
       Layer l;
       l.uuid = layerUuid;
       l.name = layerStr;
+      l.transform = layerTransform;
+      l.matrixSource = layerSource;
       auto colorByUuid = layerColorByUuid.find(CanonicalizeUuid(l.uuid));
       if (colorByUuid != layerColorByUuid.end()) {
         l.color = colorByUuid->second;

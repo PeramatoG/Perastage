@@ -17,6 +17,7 @@
  */
 #include "layer_identity.h"
 #include "scene_grouping.h"
+#include "scene_parent_transform.h"
 
 #include "matrixutils.h"
 #include "uuidutils.h"
@@ -473,7 +474,8 @@ void UpdateLocalTransformForTarget(MvrScene &scene,
                                    const SceneTransformTarget &target,
                                    const Matrix &worldTransform) {
   const std::string parentUuid = ParentGroupUuidForTarget(scene, target);
-  Matrix localTransform = worldTransform;
+  Matrix localTransform = scene_parent_transform::LayerLocal(
+      scene, LayerForObject(scene, target.type, target.uuid).value_or(""), worldTransform);
   if (!parentUuid.empty()) {
     auto parentIt = scene.groupObjects.find(parentUuid);
     if (parentIt != scene.groupObjects.end())
@@ -673,28 +675,10 @@ void ReparentChildPreservingWorld(MvrScene &scene,
                                   const std::string &newParentUuid) {
   const SceneTransformTarget target{child.type, child.uuid};
   const Matrix worldTransform = GetTargetWorldTransform(scene, target);
-  if (child.type == MvrNodeType::GroupObject) {
-    auto childGroupIt = scene.groupObjects.find(child.uuid);
-    if (childGroupIt != scene.groupObjects.end()) {
-      childGroupIt->second.parentGroupUuid = newParentUuid;
-      childGroupIt->second.localTransform =
-          newParentUuid.empty()
-              ? worldTransform
-              : MatrixUtils::Multiply(
-                    InverseMatrix(scene.groupObjects[newParentUuid].transform),
-                    worldTransform);
-    }
-    return;
-  }
-
   SelectedObjectRef ref = BuildSelectedObjectRefForTarget(scene, target);
-  ApplyParentAndLocalTransform(
-      scene, ref, newParentUuid,
-      newParentUuid.empty()
-          ? worldTransform
-          : MatrixUtils::Multiply(
-                InverseMatrix(scene.groupObjects[newParentUuid].transform),
-                worldTransform));
+  const Matrix parentWorld = scene_parent_transform::World(scene, newParentUuid, ref.layerUuid);
+  ApplyParentAndLocalTransform(scene, ref, newParentUuid,
+      MatrixUtils::Multiply(InverseMatrix(parentWorld), worldTransform));
 }
 
 // Removes a group while promoting its direct children to the group's parent.
@@ -767,7 +751,7 @@ OperationResult GroupSelection(MvrScene &scene,
   group.transform = groupWorldTransform;
   group.localTransform =
       parentGroupUuid.empty()
-          ? groupWorldTransform
+          ? scene_parent_transform::LayerLocal(scene, group.layerUuid, groupWorldTransform)
           : MatrixUtils::Multiply(
                 InverseMatrix(scene.groupObjects[parentGroupUuid].transform),
                 groupWorldTransform);
@@ -790,6 +774,7 @@ OperationResult GroupSelection(MvrScene &scene,
   }
 
   scene.groupObjects[group.uuid] = group;
+  SynchronizeGroupObjectLayerOwnershipFrom(scene, group.uuid);
   if (!parentGroupUuid.empty())
     scene.groupObjects[parentGroupUuid].children.push_back(
         {MvrNodeType::GroupObject, group.uuid});

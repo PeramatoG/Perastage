@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+#include "layer.h"
 
 #include "types.h"
 
@@ -136,7 +137,8 @@ tinyxml2::XMLElement *CreateLayers(tinyxml2::XMLDocument &document);
 
 // Appends a standard Layer containing an already-populated ChildList.
 void AppendLayer(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *layers,
-                 const ObjectValues &values, tinyxml2::XMLElement *childList);
+                 const ObjectValues &values, tinyxml2::XMLElement *childList,
+                 const Layer &layer = {});
 
 // Creates a standard GroupObject with matrix and ChildList.
 void AppendGroupObject(tinyxml2::XMLDocument &document,

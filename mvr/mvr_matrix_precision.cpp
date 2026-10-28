@@ -134,6 +134,16 @@ bool CanonicalMatrixIsIdentity(const Matrix &matrix,
   return parsed && parsed->values == identity->values;
 }
 
+bool CanonicalLayerMatrixIsElevation(const Matrix &matrix,
+                                     const std::optional<MvrMatrixSource> &source) {
+  const auto value = ParseCanonicalMatrix(FormatCanonicalMatrix(matrix, source));
+  const auto identity = ParseCanonicalMatrix(MatrixUtils::FormatMatrix(Matrix{}));
+  if (!value) return false;
+  for (size_t index = 0; index < 11; ++index)
+    if (value->values[index] != identity->values[index]) return false;
+  return true;
+}
+
 std::optional<MvrMatrixSource> ReadMatrixSource(tinyxml2::XMLElement &node, MvrScene &scene) {
   auto *element = node.FirstChildElement("Matrix");
   if (!element) return ParseCanonicalMatrix("{1,0,0}{0,1,0}{0,0,1}{0,0,0}");
@@ -157,7 +167,7 @@ void WriteCanonicalMatrices(tinyxml2::XMLElement &sceneElement, const MvrScene &
         const auto found = objects.find(uuid);
         if (found == objects.end()) return;
         const auto &value = found->second;
-        Write(node, value.parentGroupUuid.empty() ? value.transform : value.localTransform,
+        Write(node, value.localTransform,
               value.matrixSource);
       };
       if (kind == "Truss") object(scene.trusses);

@@ -67,6 +67,14 @@ never replace authored MVR names. The default layer has a canonical deterministi
 UUID before export. See [Layer identity](../layer_identity.md) for default policy,
 legacy `layer_default` migration, workspace state, and compatibility boundaries.
 
+Layer owns its MVR 1.6 vertical elevation and authored matrix precision. Scene
+node transforms are world-space; exported local matrices are relative to the
+immediate GroupObject or, for roots, the owning Layer. Import composes each
+parent once. Export preserves unedited numeric source values, repairs locals on
+a private snapshot after world-space edits, and may omit an identity Layer Matrix.
+Layer merge equality includes the authored matrix values. Non-elevation,
+malformed or ambiguous layer matrices remain fail-closed.
+
 Root `UserData` precedes `Scene`, as required by the official XSD. Every exported
 GroupObject retains `ChildList`, including empty groups, to satisfy the pinned
 XSD; published MVR 1.6 Table 22 permits its absence. These

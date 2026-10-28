@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mvrscene.h"
+#include "scene_parent_transform.h"
 #include <unordered_set>
 
 namespace layerdomain {
@@ -27,15 +28,21 @@ void PrepareLayerEdit(const MvrScene &scene, Object &object,
       (reference == object.layer ||
        (reference.empty() && object.layerUuid == DefaultLayerUuid())))
     return;
+  const auto previousLayer = object.layerUuid;
   object.layerUuid = ResolveLayerReference(scene, reference);
   object.layer = object.layerUuid.empty()
                      ? reference : PresentationName(scene, object.layerUuid);
+  if (object.layerUuid != previousLayer)
+    scene_parent_transform::SynchronizeRootLocal(scene, object);
 }
 
 template <typename Object>
 void AssignLayer(MvrScene &scene, Object &object, const std::string &reference) {
+  const auto previousLayer = object.layerUuid;
   object.layerUuid = EnsureLayerReference(scene, reference);
   object.layer = PresentationName(scene, object.layerUuid);
+  if (object.layerUuid != previousLayer)
+    scene_parent_transform::SynchronizeRootLocal(scene, object);
 }
 
 template <typename Object>

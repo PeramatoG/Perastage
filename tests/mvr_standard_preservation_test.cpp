@@ -15,7 +15,7 @@ int main() {
   for (const auto *xml : {
       "<AUXData><Class uuid='invalid'/></AUXData>",
       "<AUXData><MappingDefinition><SizeX>1920</SizeX></MappingDefinition></AUXData>",
-      "<Layer><Matrix>{1,0,0}{0,1,0}{0,0,1}{0,0,1000}</Matrix></Layer>",
+      "<Layer><Matrix>{1,0,0}{0,1,0}{0,0,1}{1,0,1000}</Matrix></Layer>",
       "<Fixture><Classing>10000000-0000-4000-8000-000000000001</Classing></Fixture>",
       "<Fixture multipatch='10000000-0000-4000-8000-000000000001'/>",
       "<Fixture><FixtureTypeId>12</FixtureTypeId></Fixture>",
@@ -48,6 +48,7 @@ int main() {
   auto safe = Scan("<GeneralSceneDescription><UserData><Data provider='Vendor'><Fixture><Alignments/></Fixture></Data></UserData><Scene><Layers/></Scene></GeneralSceneDescription>");
   assert(safe.preservationIssues.empty());
   assert(mvr::CheckStandardPreservation(safe).empty());
+  assert(Scan("<Layer><Matrix>{1,0,0}{0,1,0}{0,0,1}{0,0,1000}</Matrix></Layer>").preservationIssues.empty());
   auto ordinary = Scan("<Fixture><Function>Key</Function><DMXInvertPan>true</DMXInvertPan><Addresses><Address break='0'>1025</Address></Addresses></Fixture>");
   assert(ordinary.preservationIssues.empty());
   // Whitespace-only optional containers have the same empty standard meaning.

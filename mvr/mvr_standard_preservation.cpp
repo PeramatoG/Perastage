@@ -4,7 +4,7 @@
 #include "mvr_symdef_preservation.h"
 
 #include "filesystem_path_utils.h"
-#include "matrixutils.h"
+#include "mvr_matrix_precision.h"
 #include "uuidutils.h"
 
 #include <tinyxml2.h>
@@ -23,7 +23,6 @@ using Names = std::unordered_set<std::string>;
 // Only known discarded structures are rejected; absence is never an error.
 const std::unordered_map<std::string, Names> unsupportedChildren = {
     {"AUXData", {"MappingDefinition"}},
-    {"Layer", {"Matrix"}},
     {"Fixture", {"CastShadow", "ChildPosition", "Protocols",
                  "Alignments", "CustomCommands", "Overwrites", "Connections",
                  "Mappings", "Gobo"}},
@@ -65,6 +64,12 @@ void Scan(tinyxml2::XMLElement &element, MvrScene &scene,
   const std::string name = element.Name();
   mvr_identifiers::ScanSource(element, scene, location);
   if (const char *uuid = element.Attribute("uuid")) owner = uuid;
+  if (name == "Layer") {
+    const auto source = ReadMatrixSource(element, scene);
+    if (source && !CanonicalLayerMatrixIsElevation(source->projection, source))
+      Record(scene, *element.FirstChildElement("Matrix"), owner, location + "/Matrix",
+             "MVR 1.6 Layer Matrix permits vertical elevation only.");
+  }
   if (name == "FixtureTypeId") {
     Record(scene, element, owner, location,
            "Legacy FixtureTypeId has no preserved canonical equivalent.");
@@ -118,14 +123,6 @@ void Scan(tinyxml2::XMLElement &element, MvrScene &scene,
     const std::string childLocation = location + "/" + childName;
     const auto rule = unsupportedChildren.find(name);
     if (rule != unsupportedChildren.end() && rule->second.contains(childName)) {
-      if (name == "Layer" && childName == "Matrix") {
-        Matrix matrix;
-        const auto identity = MatrixUtils::Identity();
-        if (child->GetText() && MatrixUtils::ParseMatrix(child->GetText(), matrix) &&
-            matrix.u == identity.u && matrix.v == identity.v &&
-            matrix.w == identity.w && matrix.o == identity.o)
-          continue;
-      }
       static const Names emptyContainers = {"Alignments", "Protocols", "CustomCommands",
           "Overwrites", "Connections", "Mappings", "Addresses"};
       if (emptyContainers.contains(childName) && IsEmptyAssignment(*child))
@@ -178,6 +175,10 @@ std::vector<MvrExportDiagnostic> CheckStandardPreservation(const MvrScene &scene
     }
     result.push_back(std::move(diagnostic));
   }
+  for (const auto &[uuid, layer] : scene.layers)
+    if (!CanonicalLayerMatrixIsElevation(layer.transform, layer.matrixSource))
+      result.push_back(Block("Layer", uuid, "Layer/Matrix",
+                             "MVR 1.6 Layer Matrix permits finite vertical elevation only."));
   std::unordered_set<std::string> focusUuids;
   for (const auto &[uuid, object] : scene.sceneObjects) {
     if (object.kind != SceneObjectKind::FocusPoint) continue;

@@ -31,6 +31,8 @@ Only include completed and verified features.
 
 ## MVR / GDTF
 
+- MVR layer elevations now survive import, project save/reopen and MVR export, keeping child objects correctly placed through grouping, merging and Undo/Redo.
+
 <!--
 Document improvements to:
 - MVR import and export.
