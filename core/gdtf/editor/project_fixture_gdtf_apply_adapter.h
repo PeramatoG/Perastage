@@ -2,6 +2,7 @@
 
 #include "gdtf_editor_context.h"
 #include "fixture.h"
+#include "fixture_network_service.h"
 #include "fixture_gdtf_derivative_publication.h"
 
 #include <filesystem>
@@ -26,6 +27,7 @@ struct ProjectFixtureGdtfApplyServices {
       publishDerivative;
   std::function<void(const fixture_gdtf::PreparedDerivative &)>
       discardDerivative;
+  std::function<fixture_network::Result(const Fixture &, const std::filesystem::path &)> inspectNetworks;
 };
 
 struct ProjectFixtureGdtfApplyInput {
@@ -49,6 +51,7 @@ struct ProjectFixtureGdtfApplyResult {
   bool contextSelectionChanged = false;
   bool physicalPropagationOccurred = false;
   bool externalFileCreatedOrModified = false;
+  std::optional<fixture_network::Result> networkConflict;
 };
 
 class ProjectFixtureGdtfApplyAdapter {

@@ -2,6 +2,7 @@
 #include "mvr_standard_preservation.h"
 #include "mvr_fixture_addresses.h"
 #include "fixture_patch_service.h"
+#include "fixture_network_reference.h"
 #include "mvr_class_preservation.h"
 #include "mvr_symdef_preservation.h"
 
@@ -201,9 +202,26 @@ std::vector<MvrExportDiagnostic> CheckStandardPreservation(const MvrScene &scene
     if (object.geometries.empty() && !object.modelFile.empty())
       checkGeometry(object.modelFile, false);
   }
+  std::unordered_map<std::string, std::optional<fixture_network::WireNames>> networkEvidence;
   for (const auto &[uuid, fixture] : scene.fixtures) {
     if (const auto patch = perastage::patch::ResolveFixturePatch(fixture); !patch)
       result.push_back(Block("Fixture", uuid, "Fixture/Addresses", patch.detail));
+    if (fixture.dmxAddresses && !fixture.dmxAddresses->networks.empty()) {
+      const auto &networkSpec = fixture.gdtfSpec.empty() ? fixture.originalMvrGdtfSpec : fixture.gdtfSpec;
+      auto gdtfPath = PathUtils::PathFromUtf8(networkSpec);
+      if (!gdtfPath.is_absolute()) gdtfPath = PathUtils::PathFromUtf8(scene.basePath) / gdtfPath;
+      auto [evidence, inserted] = networkEvidence.try_emplace(PathUtils::PathToUtf8(gdtfPath));
+      if (inserted) evidence->second = fixture_network::ReadWireNames(gdtfPath);
+      const auto network = fixture_network::CheckReferences(fixture, evidence->second);
+      if (!network) {
+        auto diagnostic = Block("Fixture", uuid, "Fixture/Addresses/Network", network.detail);
+        if (network.conflict == fixture_network::Conflict::UnavailableGdtf) {
+          diagnostic.code = MvrExportDiagnosticCode::ResourceMissing;
+          diagnostic.resourceName = networkSpec;
+        }
+        result.push_back(std::move(diagnostic));
+      }
+    }
     if (!fixture.focus.empty() &&
         !focusUuids.contains(CanonicalizeUuid(fixture.focus)))
       result.push_back(Block("Fixture", uuid, "Focus",

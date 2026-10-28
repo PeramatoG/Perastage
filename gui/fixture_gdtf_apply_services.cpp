@@ -1,4 +1,5 @@
 #include "fixture_gdtf_apply_services.h"
+#include "fixture_network_reference.h"
 
 #include "gdtf_mutation_audit.h"
 #include "gdtf_power_write_target.h"
@@ -85,6 +86,7 @@ namespace gui {
 // Builds the GUI-hosted service bridge used by the non-GUI fixture adapter.
 gdtf::ProjectFixtureGdtfApplyServices MakeFixtureGdtfApplyServices() {
   gdtf::ProjectFixtureGdtfApplyServices services;
+  services.inspectNetworks = fixture_network::InspectReferences;
   services.readPlanningPower = [](const std::filesystem::path &path) {
     return gdtf::ReadGdtfDescription(gdtf::ReadGdtfArchive(path).descriptionXml).electricalPower.planningW;
   };

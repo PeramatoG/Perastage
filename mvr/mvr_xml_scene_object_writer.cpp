@@ -86,6 +86,16 @@ void AppendFixture(tinyxml2::XMLDocument &document,
       address->SetText(entry.value.c_str());
       addresses->InsertEndChild(address);
     }
+    for (const auto &entry : values.dmxAddresses->networks) {
+      auto *network = document.NewElement("Network");
+      network->SetAttribute("geometry", entry.geometry.c_str());
+      const std::pair<const char *, const std::optional<std::string> *> attributes[] = {
+          {"ipv4", &entry.ipv4}, {"subnetmask", &entry.subnetmask},
+          {"ipv6", &entry.ipv6}, {"dhcp", &entry.dhcp}, {"hostname", &entry.hostname}};
+      for (const auto &[name, value] : attributes)
+        if (*value) network->SetAttribute(name, (*value)->c_str());
+      addresses->InsertEndChild(network);
+    }
     fixture->InsertEndChild(addresses);
   } else if (values.absoluteDmxAddress.has_value()) {
     tinyxml2::XMLElement *addresses = document.NewElement("Addresses");

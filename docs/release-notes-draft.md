@@ -31,6 +31,8 @@ Only include completed and verified features.
 
 ## MVR / GDTF
 
+- Fixture network interface assignments now survive MVR import, project save/reopen and export, including alongside multiple DMX breaks and through patch edits.
+
 - MVR fixtures now retain all DMX-break assignments through project saves and exports; editing the primary patch leaves other breaks unchanged.
 
 - MVR layer elevations now survive import, project save/reopen and MVR export, keeping child objects correctly placed through grouping, merging and Undo/Redo.

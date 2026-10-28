@@ -1,6 +1,6 @@
 # MVR 1.6 data integrity and round-trip audit
 
-Status: **bounded P0 corrections through #2484 plus canonical export policy consolidation and Layer elevation preservation; non-blocking persistence and complete semantic provenance remain unfinished**.
+Status: **bounded P0 corrections through #2484 plus canonical export policy consolidation and Layer elevation, Fixture DMX breaks and Fixture Network preservation; non-blocking persistence and complete semantic provenance remain unfinished**.
 
 The scene-format inventory below covers every attribute/child entry in published
 MVR 1.6 Tables 2–64, plus value types, archive rules, references and version policy.
@@ -146,7 +146,7 @@ Known structures protected now: malformed/ambiguous/unrepresented Class/Classing
 MappingDefinition; malformed or non-elevation
 Layer matrices; multipatch; fixture CastShadow/ChildPosition, Protocols,
 Alignments, CustomCommands, Overwrites, Connections, Mappings and Gobo;
-malformed or ambiguous Fixture DMX assignments and network assignments; noneditable VideoScreen/Projector
+malformed or ambiguous Fixture assignments and unsupported non-Fixture network assignments; noneditable VideoScreen/Projector
 subtrees; unsupported generic/rigging standard fields listed in the matrix;
 parametric-object child ownership that would be flattened; nested Symdefs; unrepresented/multiple Truss geometry entries and baked
 Symbol/first-definition placement; malformed identities/references, unavailable or
@@ -404,14 +404,14 @@ integer ranges protected and explicit mutation/legacy limits below. Detailed lim
 | 48 | `Projection/Source` | ? (listed) | N | B | N | B | B | B | B | K | B | P0/b |
 | 48 | `Projection/ScaleHandeling` | ? (listed) | N | B | N | B | B | B | B | K | B | P0/b |
 | 49 | `Fixture/Addresses/Address` | ? (listed); ordered Fixture subset | Y | Y | p | Y | Y | Y | Y | X | V | P0/r |
-| 49 | `Addresses/Network` | ? (listed) | N | B | N | B | B | B | B | K | B | P0/b |
+| 49 | `Fixture/Addresses/Network` | ordered after Address (XSD) | Y | Y | p | Y | Y | Y | Y | X | V | P0/r |
 | 50 | `Fixture/Address/@break` | 0; unique per Fixture | Y | Y | N | Y | Y | Y | Y | X | V | P0/r |
-| 52 | `Network/@geometry` | R | N | B | N | B | B | B | B | K | B | P0/b |
-| 52 | `Network/@ipv4` | Optional | N | B | N | B | B | B | B | K | B | P0/b |
-| 52 | `Network/@subnetmask` | optional | N | B | N | B | B | B | B | K | B | P0/b |
-| 52 | `Network/@ipv6` | optional | N | B | N | B | B | B | B | K | B | P0/b |
-| 52 | `Network/@dhcp` | false | N | B | N | B | B | B | B | K | B | P0/b |
-| 52 | `Network/@hostname` | optional | N | B | N | B | B | B | B | K | B | P0/b |
+| 52 | `Fixture/Addresses/Network/@geometry` | R | Y | Y | p | Y | Y | Y | Y | X | V | P0/r |
+| 52 | `Fixture/Addresses/Network/@ipv4` | Optional | Y | Y | p | Y | Y | Y | Y | X | V | P0/r |
+| 52 | `Fixture/Addresses/Network/@subnetmask` | optional | Y | Y | p | Y | Y | Y | Y | X | V | P0/r |
+| 52 | `Fixture/Addresses/Network/@ipv6` | optional | Y | Y | p | Y | Y | Y | Y | X | V | P0/r |
+| 52 | `Fixture/Addresses/Network/@dhcp` | false | Y | Y | p | Y | Y | Y | Y | X | V | P0/r |
+| 52 | `Fixture/Addresses/Network/@hostname` | optional | Y | Y | p | Y | Y | Y | Y | X | V | P0/r |
 | 53 | `Protocols/Protocol` | ? (listed) | N | B | N | B | B | B | B | K | B | P0/b |
 | 54 | `Protocol/@geometry` | NetworkInOut_1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 54 | `Protocol/@name` | empty | N | B | N | B | B | B | B | K | B | P0/b |
@@ -446,7 +446,7 @@ Additional value, relationship and package requirements:
 | Gobo value: filename, rotation float default 0 (T36) | N/B/N | B/B/B/B | K | B: protected under Fixture/Gobo; image payload not represented. |
 | Source value (T39): NDI/File/CITP/CaptureDevice-dependent string, required | N/B/N | B/B/B/B | K | B: parent VideoScreen/Projector/MappingDefinition protected. |
 | ScaleHandeling value (T40): ScaleKeepRatio default; ScaleIgnoreRatio or KeepSizeCenter | N/B/N | B/B/B/B | K | B: exact published spelling retained in inventory; no writer. |
-| Address value (T51): required absolute integer or Universe.Address; distinct break IDs default 0 | Y/Y/p | Y/Y/Y/Y | X | V: ordered Fixture assignments preserved; primary editing targets break 0 only. Network and other consumers remain blocked. |
+| Address value (T51): required absolute integer or Universe.Address; distinct break IDs default 0 | Y/Y/p | Y/Y/Y/Y | X | V: ordered Fixture assignments preserved; primary editing targets break 0 only. Fixture Network is covered below; other consumers remain blocked. |
 | CustomCommand value: GDTF command syntax, e.g. geometry,f value | N/B/N | B/B/B/B | K | B: no typed commands or static-property ownership. |
 | Generic Integer/Float/Bool/String/UUID/Vector/CIE/FileName/IPv4/IPv6 (T1) | p/p/p | p/p/p/p | F,K,X | P: nil UUID disallowed by spec; unique identities/reference graph still incompletely validated. Strings may be trimmed. |
 | Persistent UUIDs, parent ownership, referenced Class/Position/Focus/Symdef/MappingDefinition/toObject | p/p/p | p/p/p/p | F,K,X | P: direct Focus validated before recovery and after serialization; Class/Classing validated before normalization/recovery and compared after serialization; remaining reference types partial or blocked. |
@@ -537,8 +537,8 @@ ambiguous UUID recovery diagnostics; it does not redo those implementations.
 3. Nested Symdef/Symbol graphs, other Symbol consumers and canonical placement:
    multiple/mixed geometry, exact local/world ownership, dependency closure,
    merge remapping, noneditable VideoScreen/Projector and media resources.
-4. Typed Network assignments; complete reference/resource
-   handling before removing their current blockers.
+4. Other scene-object Network consumers and Protocol associations; complete
+   their reference/resource handling before removing remaining blockers.
 5. Configurable selection numbering and controlled repairs through shared
    planners/commands: allocate missing labels, optionally resolve duplicates,
    preserve authored defaults, record provenance and support Undo/Redo. Complete
@@ -1258,10 +1258,10 @@ old incorrect universe projection before production changes.
 Normal PSTG saves are no longer blocked for the represented standard Fixture
 DMX Address subset, including nonzero-only lists and nonconsecutive breaks.
 Duplicate/missing/invalid assignments, duplicate containers, unknown content and
-Network assignments remain fatal, as do unrelated preservation safeguards.
-Serialization failures retain the previous valid PSTG bytes. The next logical
-preservation gap is Network assignments and their owning/reference semantics;
-other scene-object address consumers remain separate follow-ups.
+At #2493, Network assignments remained fatal; the continuation below removes only the represented Fixture blocker.
+Serialization failures retain the previous valid PSTG bytes. The Fixture Network
+continuation below addresses the next gap identified at #2493; other scene-object
+address consumers remain separate follow-ups.
 
 Local verification: **40/40 focused regressions** and **17/17 architecture/policy
 CTest checks** passed, together with all four mandatory repository guards,
@@ -1269,3 +1269,54 @@ license and generated-document checks. Linux x86_64 Debug application/CLI builds
 CLI help smoke and strict translation checks passed. Hosted platform CI evidence
 is recorded in the PR; Release and receiving-application interoperability are not
 claimed. No pinned schema, GDTF payload, VERSION or source-size baseline change.
+
+
+## Fixture Network preservation
+
+Base: `78a70c2d`, including #2492–#2494. Published 1.6 Tables 49–52 and the
+unchanged pinned XSD define lowercase geometry/ipv4/subnetmask/ipv6/dhcp/hostname.
+The required geometry is a case-sensitive wire-geometry **name in the linked
+GDTF**, never an MVR UUID. The XSD orders all Address children before Network
+children; each list retains its source order, including repeated interfaces.
+No uniqueness rule for Network entries is invented. Examples using Interface,
+IPv4 and DHCP contradict the definitions and remain unsupported. Bool defines
+true/false while Table 52 explicitly describes on: these three DHCP spellings
+are retained verbatim, without applying network configuration. The pinned XSD's
+IPv6 regex can reject normative compressed/uppercase hexadecimal notation;
+those forms remain preservable, with the disagreement tested explicitly.
+
+The existing optional Fixture address collection now also owns ordered Network
+values. Required geometry and all optional attribute presence/text survive
+canonical standalone/PSTG output, repeated cycles, patch add/edit/clear,
+AutoPatch, grouping/layers, UUID collisions, clipboard and history. Networks are
+never reconstructed from Fixture.address. Complete projection checking includes
+both child lists; GDTF bytes remain unchanged. Independent Python ZIP/XML checks
+compare source/output attributes, ordering, assignments, resources and same-state
+PSTG scene.mvr equality. Synthetic Network-only input exercises the former fatal
+blocker. Missing local GDTF resources retain all metadata as unverified. The
+existing ResourceMissing diagnostic blocks canonical publication for these
+Fixtures, preventing the exporter's legacy dummy fallback from changing the
+meaning of their wire references; explicit verified rebinding can resolve it.
+
+Core reference evidence distinguishes unavailable GDTF, missing/ambiguous wire
+names and malformed assignment values. Rebind, fixture replacement, editor
+source changes and merge definition selection validate before publication;
+import definition substitutions retain the original on conflict. Pure resource
+relocation and byte-preserving derivative/consolidation paths retain the names.
+Canonical validation also checks directly edited bindings against available
+GDTFs. No automatic geometry substitution or original-resource mutation occurs.
+
+Normal saves now support empty, Network-only and mixed Fixture Addresses when
+resources are available and references valid. Unknown/case-mismatched attributes,
+child content, duplicate containers, invalid IP/DHCP values, missing geometry,
+invalid child ordering and known-invalid references still fail closed. Other
+scene-object consumers and unrelated guards remain active. Failed serialization
+retains previous PSTG bytes. Next: address consumers on other scene-object types,
+with their GDTF ownership, followed by Protocol associations; no active networking
+or new GUI configuration is included. Platform evidence is recorded in the PR.
+
+Local verification: **41/41 focused regressions**, **17/17 architecture/policy
+checks**, all four mandatory guards, license/document checks, strict translations
+and Linux x86_64 Debug application/CLI builds passed. CLI help smoke passed.
+Hosted Linux/Windows/macOS results are recorded in the PR; no Release or external
+application interoperability claim is made.

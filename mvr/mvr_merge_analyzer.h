@@ -24,10 +24,12 @@
 #include <vector>
 
 #include "mvrscene.h"
+#include "mvr_export_diagnostic.h"
 
 namespace mvr {
 
 struct MvrSceneMergeResult {
+  std::vector<MvrExportDiagnostic> networkConflicts;
   std::size_t fixturesAdded = 0;
   std::size_t trussesAdded = 0;
   std::size_t supportsAdded = 0;
