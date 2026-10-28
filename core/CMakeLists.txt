@@ -388,7 +388,9 @@ target_compile_features(perastage_fixture_network PUBLIC cxx_std_20)
 target_include_directories(perastage_fixture_network PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(perastage_fixture_network
     PUBLIC perastage_gdtf_read PRIVATE tinyxml2::tinyxml2)
-target_link_libraries(${PROJECT_NAME} PRIVATE perastage_fixture_network)
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    perastage_fixture_network
+)
 
 add_library(perastage_inspection_gdtf STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/gdtf_inspection.cpp

@@ -29,7 +29,6 @@
 namespace mvr {
 
 struct MvrSceneMergeResult {
-  std::vector<MvrExportDiagnostic> networkConflicts;
   std::size_t fixturesAdded = 0;
   std::size_t trussesAdded = 0;
   std::size_t supportsAdded = 0;
@@ -40,6 +39,7 @@ struct MvrSceneMergeResult {
   std::size_t fixtureTypeConflictsBlocked = 0;
   std::size_t nonObjectLookupConflictsResolved = 0;
   std::unordered_map<std::string, std::string> fixtureUuidRemap;
+  std::vector<MvrExportDiagnostic> networkConflicts;
 };
 
 enum class MvrMergeFixtureTypeDecision {
