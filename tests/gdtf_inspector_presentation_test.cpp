@@ -83,7 +83,7 @@ void CheckOverview() {
 
   source.powerConsumptionWPresent = true;
   source.powerConsumptionW = 250.0f;
-  source.electricalPower.beamTotalW = 760;
+  source.electricalPower.beamTotalW = 760.0f;
   source.electricalPower.source = gdtf::PlanningPowerSource::WiringConsumer;
   const auto withPower =
       gui::inspection::BuildGdtfOverviewPresentation(source);
