@@ -68,6 +68,15 @@ inline bool Ipv6(std::string_view text) {
 inline Result Validate(const Fixture &fixture) {
   if (!fixture.dmxAddresses) return {};
   for (const auto &entry : fixture.dmxAddresses->networks) {
+    const auto control = [](const std::string &value) {
+      return std::any_of(value.begin(), value.end(), [](char ch) {
+        return static_cast<unsigned char>(ch) < 0x20;
+      });
+    };
+    // The canonical XML writer cannot retain character-reference whitespace in attributes.
+    if (control(entry.geometry) || (entry.hostname && control(*entry.hostname)))
+      return Failure(fixture, Conflict::InvalidValue, entry.geometry,
+          "control characters in Network attributes cannot be serialized faithfully");
     if (entry.geometry.find_first_not_of(" \t\r\n") == std::string::npos)
       return Failure(fixture, Conflict::MissingGeometry, entry.geometry, "required geometry name is missing");
     if ((entry.ipv4 && !Ipv4(*entry.ipv4)) || (entry.subnetmask && !Ipv4(*entry.subnetmask)) ||

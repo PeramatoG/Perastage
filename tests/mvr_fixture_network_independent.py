@@ -82,3 +82,5 @@ def verify_network_cases(directory, root, package, assignments):
         assert networks(root(directory / f'network-{name}-primary.mvr')) == only
     assert assignments(root(directory / 'network-added-primary.mvr'))[MULTI] == (('0', '529'),)
     assert assignments(root(directory / 'network-removed-primary.mvr'))[MULTI] == ()
+    with zipfile.ZipFile(directory / 'network-retained.pstg') as project:
+        assert package(io.BytesIO(project.read('scene.mvr'))) == package(directory / 'unchanged.mvr')

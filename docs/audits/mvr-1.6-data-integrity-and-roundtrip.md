@@ -1309,7 +1309,10 @@ GDTFs. No automatic geometry substitution or original-resource mutation occurs.
 Normal saves now support empty, Network-only and mixed Fixture Addresses when
 resources are available and references valid. Unknown/case-mismatched attributes,
 child content, duplicate containers, invalid IP/DHCP values, missing geometry,
-invalid child ordering and known-invalid references still fail closed. Other
+invalid child ordering and known-invalid references still fail closed. Character-
+reference control whitespace in geometry/hostname is retained on import but
+blocked at publication: the existing XML writer would otherwise normalize it.
+Other
 scene-object consumers and unrelated guards remain active. Failed serialization
 retains previous PSTG bytes. Next: address consumers on other scene-object types,
 with their GDTF ownership, followed by Protocol associations; no active networking

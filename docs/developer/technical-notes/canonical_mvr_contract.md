@@ -95,7 +95,9 @@ Known-invalid or ambiguous GDTF references block publication; unavailable local
 GDTF evidence retains metadata without guessing and reports ResourceMissing at
 publication, preventing a dummy GDTF from invalidating wire references. Core rebind validation rejects unsafe definition changes before
 publishing. Malformed/unknown data, other address consumers and unsupported
-extensions remain guarded. No network settings are applied.
+extensions remain guarded. Network geometry/hostname control whitespace also
+fails closed because the XML writer cannot retain its character-reference form.
+No network settings are applied.
 Published Universe.Address strings and signed break IDs are preserved even where
 the unchanged pinned XSD's integer/nonnegative restrictions disagree.
 
