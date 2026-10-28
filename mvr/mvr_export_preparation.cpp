@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvr_export_preparation.h"
+#include "fixture_patch_service.h"
 
 #include "mvr_identity_recovery.h"
 #include "mvr_standard_preservation.h"
@@ -409,6 +410,9 @@ Result Prepare(const MvrScene &sourceScene, const MvrExportOptions &options) {
                     return diagnostic.severity == MvrExportDiagnosticSeverity::Error;
                   }))
     return result;
+  for (auto &[uuid, fixture] : result.scene.fixtures)
+    if (const auto patch = perastage::patch::ResolveFixturePatch(fixture); patch)
+      fixture.dmxAddresses = patch.addresses;
   const auto integrity =
       scene_transform_integrity::ValidateAndRepair(result.scene);
   for (const auto &diagnostic : integrity.diagnostics) {

@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layer_identity.h"
+#include "fixture_patch_workflow.h"
 #include "about_dialog.h"
 #include "filesystem_path_utils.h"
 #include "gdtf_share_download_workflow.h"
@@ -53,7 +54,6 @@
 #include "addfixturedialog.h"
 #include "addsceneobjectdialog.h"
 #include "addtrussdialog.h"
-#include "autopatcher.h"
 #include "configmanager.h"
 #include "consolepanel.h"
 #include "diagnostics/DiagnosticLogger.h"
@@ -433,14 +433,7 @@ void MainWindow::OnOpenUserLibraryFolder(wxCommandEvent &WXUNUSED(event)) {
 // Automatically assigns DMX patch values to fixtures.
 void MainWindow::OnAutoPatch(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  cfg.PushUndoState("auto patch");
-  const std::vector<std::string> selectedFixtureUuids =
-      cfg.GetSelectedFixtures();
-  if (!selectedFixtureUuids.empty())
-    AutoPatcher::AutoPatchSelection(cfg.GetScene(), selectedFixtureUuids);
-  else
-    AutoPatcher::AutoPatch(cfg.GetScene());
-  RefreshAfterSceneChange();
+  if (fixture_patch_workflow::AutoPatch(cfg)) RefreshAfterSceneChange();
 }
 
 // Distributes rigging weight totals across selected hoists.

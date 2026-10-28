@@ -145,8 +145,8 @@ cannot establish it.
 Known structures protected now: malformed/ambiguous/unrepresented Class/Classing;
 MappingDefinition; malformed or non-elevation
 Layer matrices; multipatch; fixture CastShadow/ChildPosition, Protocols,
-Alignments, CustomCommands, Overwrites, Connections, Mappings and Gobo; multiple
-or nonzero DMX breaks and network assignments; noneditable VideoScreen/Projector
+Alignments, CustomCommands, Overwrites, Connections, Mappings and Gobo;
+malformed or ambiguous Fixture DMX assignments and network assignments; noneditable VideoScreen/Projector
 subtrees; unsupported generic/rigging standard fields listed in the matrix;
 parametric-object child ownership that would be flattened; nested Symdefs; unrepresented/multiple Truss geometry entries and baked
 Symbol/first-definition placement; malformed identities/references, unavailable or
@@ -288,7 +288,7 @@ integer ranges protected and explicit mutation/legacy limits below. Detailed lim
 | 26 | `Fixture/FixtureIDNumeric` | 1 | Y | Y | p | Y | Y | Y | Y | I | V | P0/j |
 | 26 | `Fixture/UnitNumber` | 1 | Y | Y | p | Y | Y | Y | Y | I | V | P0/j |
 | 26 | `Fixture/ChildPosition` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
-| 26 | `Fixture/Addresses` | 0 or 1 | p | p | p | p | p | p | p | F,X | P | P0/r |
+| 26 | `Fixture/Addresses` | 0 or 1 | Y | Y | p | Y | Y | Y | Y | X | V | P0/r |
 | 26 | `Fixture/Protocols` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 26 | `Fixture/Alignments` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 26 | `Fixture/CustomCommands` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
@@ -403,9 +403,9 @@ integer ranges protected and explicit mutation/legacy limits below. Detailed lim
 | 47 | `Projections/Projection` | ? (listed) | N | B | N | B | B | B | B | K | B | P0/b |
 | 48 | `Projection/Source` | ? (listed) | N | B | N | B | B | B | B | K | B | P0/b |
 | 48 | `Projection/ScaleHandeling` | ? (listed) | N | B | N | B | B | B | B | K | B | P0/b |
-| 49 | `Addresses/Address` | ? (listed) | p | p | p | p | p | p | p | F,X | P | P0/r |
+| 49 | `Fixture/Addresses/Address` | ? (listed); ordered Fixture subset | Y | Y | p | Y | Y | Y | Y | X | V | P0/r |
 | 49 | `Addresses/Network` | ? (listed) | N | B | N | B | B | B | B | K | B | P0/b |
-| 50 | `Address/@break` | 0 | p | p | p | p | p | p | p | F,X | P | P0/r |
+| 50 | `Fixture/Address/@break` | 0; unique per Fixture | Y | Y | N | Y | Y | Y | Y | X | V | P0/r |
 | 52 | `Network/@geometry` | R | N | B | N | B | B | B | B | K | B | P0/b |
 | 52 | `Network/@ipv4` | Optional | N | B | N | B | B | B | B | K | B | P0/b |
 | 52 | `Network/@subnetmask` | optional | N | B | N | B | B | B | B | K | B | P0/b |
@@ -446,7 +446,7 @@ Additional value, relationship and package requirements:
 | Gobo value: filename, rotation float default 0 (T36) | N/B/N | B/B/B/B | K | B: protected under Fixture/Gobo; image payload not represented. |
 | Source value (T39): NDI/File/CITP/CaptureDevice-dependent string, required | N/B/N | B/B/B/B | K | B: parent VideoScreen/Projector/MappingDefinition protected. |
 | ScaleHandeling value (T40): ScaleKeepRatio default; ScaleIgnoreRatio or KeepSizeCenter | N/B/N | B/B/B/B | K | B: exact published spelling retained in inventory; no writer. |
-| Address value (T51): required absolute integer or Universe.Address; distinct break IDs default 0 | p/p/p | p/p/p/p | F,K,X | P: one break 0 supported; multiple/nonzero/network assignments blocked. Max/int overflow and unusual valid spelling need semantic validation. |
+| Address value (T51): required absolute integer or Universe.Address; distinct break IDs default 0 | Y/Y/p | Y/Y/Y/Y | X | V: ordered Fixture assignments preserved; primary editing targets break 0 only. Network and other consumers remain blocked. |
 | CustomCommand value: GDTF command syntax, e.g. geometry,f value | N/B/N | B/B/B/B | K | B: no typed commands or static-property ownership. |
 | Generic Integer/Float/Bool/String/UUID/Vector/CIE/FileName/IPv4/IPv6 (T1) | p/p/p | p/p/p/p | F,K,X | P: nil UUID disallowed by spec; unique identities/reference graph still incompletely validated. Strings may be trimmed. |
 | Persistent UUIDs, parent ownership, referenced Class/Position/Focus/Symdef/MappingDefinition/toObject | p/p/p | p/p/p/p | F,K,X | P: direct Focus validated before recovery and after serialization; Class/Classing validated before normalization/recovery and compared after serialization; remaining reference types partial or blocked. |
@@ -537,7 +537,7 @@ ambiguous UUID recovery diagnostics; it does not redo those implementations.
 3. Nested Symdef/Symbol graphs, other Symbol consumers and canonical placement:
    multiple/mixed geometry, exact local/world ownership, dependency closure,
    merge remapping, noneditable VideoScreen/Projector and media resources.
-4. Typed DMX breaks/networks; complete reference/resource
+4. Typed Network assignments; complete reference/resource
    handling before removing their current blockers.
 5. Configurable selection numbering and controlled repairs through shared
    planners/commands: allocate missing labels, optionally resolve duplicates,
@@ -1205,3 +1205,67 @@ repository guards, additional import/Command/Query boundaries, license and
 generated-document checks. Linux x86_64 Debug application and production CLI
 builds, CLI help smoke and strict translation checks passed. Windows, macOS,
 Release and external interoperability were not run locally; hosted CI is separate.
+
+
+## Fixture DMX Address preservation
+
+Base: latest main `041526d8`, including #2492. Published Tables 49–51 define
+ordered Address children, unique integer break identifiers (default 0), and
+absolute addresses or Universe.Address strings. A break is not a universe.
+The pinned XSD permits empty Addresses and unbounded Address children, but uses
+xs:integer content and nonnegative breaks; it disagrees with published string
+address/signed-integer spelling. No schema change is proposed.
+
+The baseline reader reads only the first Address and incorrectly offsets an
+absolute address's universe by its break number. Fixture.address is the existing
+primary patch field. AutoPatcher and fixture-table full-row/patch edits write it;
+fixture replacement retains it. The serializer writes a single break 0 entry.
+The preservation scanner blocks multiple/nonzero breaks and Network assignments.
+Merge, clipboard and history copy complete Fixture values; PSTG stores canonical
+scene.mvr. The address continuation must retain those owners and preserve
+unrelated assignments when that primary field changes.
+
+The correction stores an optional ordered Fixture Address list in the domain,
+including empty-container and omitted-break presence and authored numeric text.
+Import projects only the unique default/explicit break 0 into Fixture.address;
+other breaks never offset universes. Decimal identities/values do not overflow
+or narrow to UI integers. Published Universe.Address strings and signed break
+identifiers are retained despite the pinned XSD disagreement. Large valid values
+outside the primary editor's range can still be saved and exported unchanged.
+
+The GUI-independent `perastage::patch::SetFixturePrimaryPatch` service changes
+only break 0, retaining its position/attribute spelling and every other entry.
+An explicit patch on an absent/empty list creates break 0; clearing removes only
+that assignment and retains the container and remaining entries. A nonempty
+list without break 0, duplicate identifiers, invalid values or an uneditable
+primary produces a typed conflict for a requested change. No general repair or
+renumbering policy is introduced. Legacy scalar writes reconcile on a private
+canonical snapshot only when mapping is unambiguous; native legacy single-patch
+fixtures keep their serializer path. Existing patch/footprint planning remains
+primary-only. AutoPatch uses its existing algorithm and publishes atomically
+only after all primary changes succeed; failure creates no GUI Undo entry.
+
+Merge, clipboard, scene hierarchy/layer edits, history and PSTG retain the same
+Fixture value owner; no project-only patch graph or new controls are added.
+The canonical serializer emits the ordered list and verifies its complete
+projection before publication. Standalone/PSTG same-state equality still compares
+complete XML/resource bytes and ZIP order. Independent Python ZIP/XML checks
+compare source assignments, optional presence, spelling and entry order across
+cycles, primary edits/clear, auto-patch, merge/copy and Undo/Redo. Synthetic GDTF
+payloads remain byte-identical. A source fixture with only break 7 reproduced the
+old incorrect universe projection before production changes.
+
+Normal PSTG saves are no longer blocked for the represented standard Fixture
+DMX Address subset, including nonzero-only lists and nonconsecutive breaks.
+Duplicate/missing/invalid assignments, duplicate containers, unknown content and
+Network assignments remain fatal, as do unrelated preservation safeguards.
+Serialization failures retain the previous valid PSTG bytes. The next logical
+preservation gap is Network assignments and their owning/reference semantics;
+other scene-object address consumers remain separate follow-ups.
+
+Local verification: **40/40 focused regressions** and **17/17 architecture/policy
+CTest checks** passed, together with all four mandatory repository guards,
+license and generated-document checks. Linux x86_64 Debug application/CLI builds,
+CLI help smoke and strict translation checks passed. Hosted platform CI evidence
+is recorded in the PR; Release and receiving-application interoperability are not
+claimed. No pinned schema, GDTF payload, VERSION or source-size baseline change.

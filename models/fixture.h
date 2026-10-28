@@ -18,6 +18,7 @@
 #pragma once
 
 #include "mvr_identifier_source.h"
+#include "fixture_dmx_addresses.h"
 #include "types.h"
 #include "mvr_matrix_source.h"
 #include <string>
@@ -56,6 +57,7 @@ struct Fixture {
     std::string position;         // Position reference UUID or raw vector (if applicable)
     std::string positionName;     // Resolved position name if available
     std::string address;          // DMX address in string format (e.g., "1.1")
+    std::optional<FixtureDmxAddresses> dmxAddresses; // Standard ordered assignments; address projects break 0.
     std::string matrixRaw;        // Raw matrix string from XML (to be parsed later)
     Matrix transform;             // Parsed transformation matrix
     Matrix localTransform;         // Local transform relative to parent GroupObject

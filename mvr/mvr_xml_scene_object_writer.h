@@ -17,6 +17,7 @@
  */
 #pragma once
 #include "layer.h"
+#include "fixture_dmx_addresses.h"
 
 #include "types.h"
 
@@ -43,6 +44,7 @@ struct FixtureValues {
   int fixtureIdNumeric = 0;
   int unitNumber = 0;
   std::optional<int> absoluteDmxAddress;
+  std::optional<FixtureDmxAddresses> dmxAddresses;
   std::string color;
   std::string focus;
   std::string function;

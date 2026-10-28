@@ -1,5 +1,7 @@
 #include "mvr_identifier_preservation.h"
 #include "mvr_standard_preservation.h"
+#include "mvr_fixture_addresses.h"
+#include "fixture_patch_service.h"
 #include "mvr_class_preservation.h"
 #include "mvr_symdef_preservation.h"
 
@@ -64,6 +66,7 @@ void Scan(tinyxml2::XMLElement &element, MvrScene &scene,
   const std::string name = element.Name();
   mvr_identifiers::ScanSource(element, scene, location);
   if (const char *uuid = element.Attribute("uuid")) owner = uuid;
+  if (name == "Fixture") ScanFixtureAddresses(element, scene);
   if (name == "Layer") {
     const auto source = ReadMatrixSource(element, scene);
     if (source && !CanonicalLayerMatrixIsElevation(source->projection, source))
@@ -109,7 +112,8 @@ void Scan(tinyxml2::XMLElement &element, MvrScene &scene,
            "Geometry expansion would discard Symbol identity and Symdef relationships.");
     return;
   }
-  if (name == "Addresses") {
+  if (name == "Addresses" && (!element.Parent()->ToElement() ||
+      std::string_view(element.Parent()->ToElement()->Name()) != "Fixture")) {
     auto *address = element.FirstChildElement("Address");
     if (element.FirstChildElement("Network") ||
         (address && (address->NextSiblingElement("Address") ||
@@ -197,11 +201,14 @@ std::vector<MvrExportDiagnostic> CheckStandardPreservation(const MvrScene &scene
     if (object.geometries.empty() && !object.modelFile.empty())
       checkGeometry(object.modelFile, false);
   }
-  for (const auto &[uuid, fixture] : scene.fixtures)
+  for (const auto &[uuid, fixture] : scene.fixtures) {
+    if (const auto patch = perastage::patch::ResolveFixturePatch(fixture); !patch)
+      result.push_back(Block("Fixture", uuid, "Fixture/Addresses", patch.detail));
     if (!fixture.focus.empty() &&
         !focusUuids.contains(CanonicalizeUuid(fixture.focus)))
       result.push_back(Block("Fixture", uuid, "Focus",
                              "Unresolved FocusPoint reference: " + fixture.focus));
+  }
   return result;
 }
 } // namespace mvr

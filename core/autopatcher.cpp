@@ -366,7 +366,7 @@ BuildLogicalPatchPositions(MvrScene &scene,
 }
 
 // Advances to a fresh universe when a protected block cannot fit completely.
-void ProtectBlock(int blockChannels, int &universe, int &channel) {
+void ProtectBlock(int blockChannels, std::int64_t &universe, int &channel) {
   if (blockChannels <= 512 && channel + blockChannels - 1 > 512) {
     ++universe;
     channel = 1;
@@ -375,7 +375,7 @@ void ProtectBlock(int blockChannels, int &universe, int &channel) {
 
 // Assigns one fixture without allowing it to cross a universe boundary.
 void AssignFixture(MvrScene &scene, const FixturePatchInfo &fixture,
-                   int &universe, int &channel) {
+                   std::int64_t &universe, int &channel) {
   if (channel + fixture.channels - 1 > 512) {
     ++universe;
     channel = 1;
@@ -393,7 +393,7 @@ void AssignFixture(MvrScene &scene, const FixturePatchInfo &fixture,
 void PackLogicalPositions(MvrScene &scene,
                           const std::vector<LogicalPatchPosition> &positions,
                           int startUniverse, int startChannel) {
-  int universe = std::max(1, startUniverse);
+  std::int64_t universe = std::max(1, startUniverse);
   int channel = std::clamp(startChannel, 1, 512);
   for (const LogicalPatchPosition &position : positions) {
     ProtectBlock(position.channels, universe, channel);
@@ -415,7 +415,7 @@ std::optional<PatchManager::PatchAddress>
 FindNextAddressAfterHighestPatchedFixture(
     const MvrScene &scene,
     const std::unordered_set<std::string> &ignoredUuids) {
-  int highestAbsoluteEnd = 0;
+  std::int64_t highestAbsoluteEnd = 0;
   for (const auto &[uuid, fixture] : scene.fixtures) {
     if (ignoredUuids.contains(uuid))
       continue;
@@ -423,23 +423,25 @@ FindNextAddressAfterHighestPatchedFixture(
         perastage::patch::ParseFixturePatchAddress(fixture.address);
     if (!parsedAddress)
       continue;
-    const int absoluteStart =
-        (parsedAddress->universe - 1) * 512 + parsedAddress->channel;
+    const std::int64_t absoluteStart =
+        (static_cast<std::int64_t>(parsedAddress->universe) - 1) * 512 + parsedAddress->channel;
     highestAbsoluteEnd = std::max(
         highestAbsoluteEnd,
         absoluteStart + ResolveFixtureChannelCount(scene, fixture) - 1);
   }
   if (highestAbsoluteEnd <= 0)
     return PatchManager::PatchAddress{1, 1};
-  const int nextAbsolute = highestAbsoluteEnd + 1;
-  return PatchManager::PatchAddress{((nextAbsolute - 1) / 512) + 1,
-                                    ((nextAbsolute - 1) % 512) + 1};
+  const auto nextAbsolute = highestAbsoluteEnd + 1;
+  const auto universe = (nextAbsolute - 1) / 512 + 1;
+  if (universe > std::numeric_limits<int>::max()) return std::nullopt;
+  return PatchManager::PatchAddress{static_cast<int>(universe),
+                                    static_cast<int>((nextAbsolute - 1) % 512 + 1)};
 }
 
 } // namespace
 
 // Automatically patches fixtures using logical and physical rig topology.
-void AutoPatch(MvrScene &scene, int startUniverse, int startChannel) {
+static void PlanAutoPatch(MvrScene &scene, int startUniverse, int startChannel) {
   std::vector<FixturePatchInfo> fixtureStorage;
   fixtureStorage.reserve(scene.fixtures.size());
   const std::vector<LogicalPatchPosition> positions =
@@ -448,10 +450,10 @@ void AutoPatch(MvrScene &scene, int startUniverse, int startChannel) {
 }
 
 // Re-patches selected fixtures in their exact user-provided order.
-void AutoPatchSelection(MvrScene &scene,
+static bool PlanAutoPatchSelection(MvrScene &scene,
                         const std::vector<std::string> &selectionOrder) {
   if (selectionOrder.empty())
-    return;
+    return true;
   std::unordered_set<std::string> uniqueSelection(selectionOrder.begin(),
                                                   selectionOrder.end());
   for (const std::string &uuid : uniqueSelection) {
@@ -462,7 +464,7 @@ void AutoPatchSelection(MvrScene &scene,
   const auto nextStart =
       FindNextAddressAfterHighestPatchedFixture(scene, uniqueSelection);
   if (!nextStart)
-    return;
+    return false;
 
   std::vector<int> channelCounts;
   std::vector<std::string> orderedFixtureUuids;
@@ -480,12 +482,42 @@ void AutoPatchSelection(MvrScene &scene,
   const std::vector<PatchManager::PatchAddress> addresses =
       PatchManager::SequentialPatch(channelCounts, nextStart->universe,
                                     nextStart->channel);
+  if (addresses.size() != orderedFixtureUuids.size()) return false;
   for (size_t i = 0; i < orderedFixtureUuids.size() && i < addresses.size();
        ++i) {
     scene.fixtures[orderedFixtureUuids[i]].address =
         std::to_string(addresses[i].universe) + "." +
         std::to_string(addresses[i].channel);
   }
+  return true;
 }
 
+// The existing packing algorithm produces a private plan. Publish only after
+// every primary edit has passed the shared assignment policy.
+static perastage::patch::FixturePatchResult CommitPlan(MvrScene &scene, MvrScene planned) {
+  for (auto &[uuid, fixture] : planned.fixtures) {
+    const auto &original = scene.fixtures.at(uuid);
+    if (fixture.address == original.address) continue;
+    const auto requested = fixture.address;
+    fixture = original;
+    auto result = perastage::patch::SetFixturePrimaryPatch(fixture, requested);
+    if (!result) return result;
+  }
+  scene.fixtures = std::move(planned.fixtures);
+  return {};
+}
+perastage::patch::FixturePatchResult AutoPatch(MvrScene &scene, int universe, int channel) {
+  auto planned = scene;
+  PlanAutoPatch(planned, universe, channel);
+  return CommitPlan(scene, std::move(planned));
+}
+perastage::patch::FixturePatchResult AutoPatchSelection(MvrScene &scene,
+    const std::vector<std::string> &selection) {
+  auto planned = scene;
+  if (!PlanAutoPatchSelection(planned, selection))
+    return perastage::patch::PatchFailure(Fixture{},
+        perastage::patch::FixturePatchConflict::InvalidPrimary,
+        "No sequential patch start is available within the editable universe range.");
+  return CommitPlan(scene, std::move(planned));
+}
 } // namespace AutoPatcher

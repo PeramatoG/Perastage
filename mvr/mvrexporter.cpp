@@ -17,6 +17,7 @@
  */
 #include "mvr_identifier_preservation.h"
 #include "mvrexporter.h"
+#include "mvr_fixture_addresses.h"
 #include "app_version.h"
 #include "build_info.h"
 #include "filesystem_path_utils.h"
@@ -76,8 +77,6 @@ namespace fs = std::filesystem;
 using FixtureTypeInfoExport = mvr_xml_extension::FixtureTypeMetadata;
 
 static bool TryParseInt(std::string_view text, int &out);
-static bool ParseMvrAddressNodeText(const std::string &text, int &universeOut,
-                                    int &channelOut);
 static bool TryComputeAbsoluteDmx(int universe1Based, int address1Based,
                                   int &absoluteOut);
 static std::string TrimAscii(std::string value);
@@ -678,47 +677,16 @@ static bool ValidateMvr16Export(
                      "category metadata");
           return false;
         }
-        const std::string fixtureUuid = cur->Attribute("uuid") ? cur->Attribute("uuid") : "";
-        const std::string fixtureName = cur->Attribute("name") ? cur->Attribute("name") : "";
         if (!mvr_identifiers::ValidateElement(*cur, true)) {
           wxLogError("MVR export validation failed: invalid Fixture identifiers");
           return false;
         }
 
         if (auto *addresses = cur->FirstChildElement("Addresses"); addresses) {
-          std::unordered_set<int> usedBreaks;
-          for (auto *addressNode = addresses->FirstChildElement("Address");
-               addressNode;
-               addressNode = addressNode->NextSiblingElement("Address")) {
-            int breakNum = 0;
-            const std::string breakText =
-                addressNode->Attribute("break")
-                                              ? TrimAscii(addressNode->Attribute("break"))
-                                              : "0";
-            if (!TryParseInt(breakText, breakNum) || breakNum < 0) {
-              wxLogError("MVR export validation failed: Fixture '%s' (uuid=%s) "
-                         "has invalid Address break '%s'",
-                  fixtureName, fixtureUuid, breakText);
-              return false;
-            }
-            if (!usedBreaks.insert(breakNum).second) {
-              wxLogError("MVR export validation failed: Fixture '%s' (uuid=%s) "
-                         "has duplicate Address break %d",
-                  fixtureName, fixtureUuid, breakNum);
-              return false;
-            }
-
-            const std::string addressText =
-                addressNode->GetText() ? TrimAscii(addressNode->GetText()) : "";
-            int universe = 0;
-            int channel = 0;
-            if (!ParseMvrAddressNodeText(addressText, universe, channel)) {
-              wxLogError("MVR export validation failed: Fixture '%s' (uuid=%s) "
-                         "has invalid Address value '%s'",
-                  fixtureName, fixtureUuid, addressText);
-              return false;
-            }
-          }
+          Fixture validation;
+          MvrScene evidence;
+          mvr::ReadFixtureAddresses(*cur, validation, evidence);
+          if (!evidence.preservationIssues.empty()) return false;
         }
       }
 
@@ -1197,30 +1165,6 @@ static std::pair<int, int> ParseAddress(const std::string &addr) {
   TryParseInt(std::string_view(addr).substr(0, dot), u);
   TryParseInt(std::string_view(addr).substr(dot + 1), c);
   return {u, c};
-}
-
-static bool ParseMvrAddressNodeText(const std::string &text, int &universeOut,
-                                    int &channelOut) {
-  const std::string trimmed = TrimAscii(text);
-  if (trimmed.empty())
-    return false;
-
-  if (trimmed.find('.') != std::string::npos) {
-    auto [u, c] = ParseAddress(trimmed);
-    if (u < 1 || c < 1 || c > 512)
-      return false;
-    universeOut = u;
-    channelOut = c;
-    return true;
-  }
-
-  int absolute = 0;
-  if (!TryParseInt(trimmed, absolute) || absolute < 1)
-    return false;
-
-  universeOut = ((absolute - 1) / 512) + 1;
-  channelOut = ((absolute - 1) % 512) + 1;
-  return true;
 }
 
 int ComputeAbsoluteDmx(int universe1Based, int address1Based) {
@@ -1827,7 +1771,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
         unitIt != assignedUnitNumbers.end() ? unitIt->second : f.unitNumber;
 
     std::optional<int> absoluteDmxAddress;
-    if (!f.address.empty()) {
+    if (!f.dmxAddresses && !f.address.empty()) {
       const std::string trimmedAddress = TrimAscii(f.address);
       auto [universe, channel] = ParseAddress(trimmedAddress);
       int absoluteAddress = 0;
@@ -1868,6 +1812,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     values.fixtureIdNumeric = fixtureExportId.second;
     values.unitNumber = unitNumber;
     values.absoluteDmxAddress = absoluteDmxAddress;
+    values.dmxAddresses = f.dmxAddresses;
     if (!f.mvrFixtureColorCie.empty() &&
         f.mvrFixtureColorHex == f.mvrFixtureColorAtImport)
       values.color = f.mvrFixtureColorCie;
@@ -2487,6 +2432,9 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       std::move(gdtfPreparation.plan);
   auto &resourceEntries = resourcePlan.entries;
   mvr::WriteCanonicalMatrices(*sceneNode, scene);
+  const auto addressProjection = mvr::CheckFixtureAddressProjection(*doc.RootElement(), scene);
+  for (const auto &diagnostic : addressProjection) AddDiagnostic(diagnostic);
+  if (!addressProjection.empty()) return false;
   const auto symbolDiagnostics = mvr::CheckSerializedSymdefs(*sceneNode, scene, options,
       [&](const std::string &name) {
         for (const auto &entry : resourceEntries)
