@@ -110,7 +110,8 @@ Pan/Tilt inversion, explicit project color/symbol/power or unresolved physical
 property overrides and retained
 source conflicts or missing required GDTF mode/binding return a structured
 field-specific refusal before mutation or
-Undo publication. Derived fixture metadata is not a new Support standard field;
+Undo publication. Unresolved scene preservation evidence also blocks conversion:
+its source UUIDs survive merge remapping and may contain opaque references. Derived fixture metadata is not a new Support standard field;
 existing hoist load/function defaults remain intentional conversion semantics.
 No network settings are applied.
 Published Universe.Address strings and signed break IDs are preserved even where

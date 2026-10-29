@@ -1346,7 +1346,9 @@ retains UUID, GDTF binding, position, layer/hierarchy and world/local placement,
 and uses the shared identifier/primary-patch policy. Source conflicts, Focus,
 Fixture Color, true Pan/Tilt inversion, explicit project color/symbol/power and
 unresolved manual/legacy physical overrides produce structured field-specific refusals before any mutation or
-Undo publication. No unsupported field is hidden in an extension. Existing
+Undo publication. This source-conflict gate is scene-wide because issue UUIDs
+retain their source identity after merge and opaque references cannot be
+reassigned safely. No unsupported field is hidden in an extension. Existing
 hoist load/function defaults are intentional application semantics, not new
 standard equivalents for Fixture-only fields.
 

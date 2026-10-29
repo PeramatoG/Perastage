@@ -268,7 +268,7 @@ int main() {
          std::vector<std::string>{convertible.uuid});
   assert(fixtureConversion.mutation.selectionChanged);
 
-  for (const auto *field : {"Focus", "Color", "DMXInvertPan", "DMXInvertTilt", "ProjectColor", "GDTFSpec", "GDTFMode", "PhysicalProperties", "ManualPhysicalProperties", "LegacyPhysicalProperties"}) {
+  for (const auto *field : {"Focus", "Color", "DMXInvertPan", "DMXInvertTilt", "ProjectColor", "GDTFSpec", "GDTFMode", "PhysicalProperties", "ManualPhysicalProperties", "LegacyPhysicalProperties", "PreservationConflict"}) {
     auto blocked = BuildFixtureConversionScene();
     auto &fixture = blocked.fixtures.at("fixture-a");
     if (std::string(field) == "Focus") fixture.focus = "focus-ref";
@@ -281,6 +281,9 @@ int main() {
     if (std::string(field) == "PhysicalProperties") fixture.physicalPropertiesDirty = true;
     if (std::string(field) == "ManualPhysicalProperties") fixture.physicalPropertiesSource = FixturePhysicalPropertiesSource::Manual;
     if (std::string(field) == "LegacyPhysicalProperties") fixture.physicalPropertiesSource = FixturePhysicalPropertiesSource::LegacyMvrFixtureNode;
+    if (std::string(field) == "PreservationConflict")
+      blocked.preservationIssues.push_back({"Connections", "original-uuid-before-merge",
+          "Fixture/Connections", "<Connections/>", "unrepresented standard references", "resolve source data"});
     auto second = fixture; second.uuid = "second"; second.focus.clear();
     second.mvrFixtureColorCie.clear(); second.dmxInvertPan = second.dmxInvertTilt = false;
     second.visualColorHex.clear(); second.gdtfSpec.clear(); second.gdtfMode.clear();

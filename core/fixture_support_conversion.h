@@ -26,9 +26,10 @@ inline ConversionResult InspectFixtureToSupport(const MvrScene &scene,
   if ((!fixture.gdtfMode.empty() || (fixture.dmxAddresses && !fixture.dmxAddresses->networks.empty())) &&
       fixture.gdtfSpec.empty() && fixture.originalMvrGdtfSpec.empty())
     return refuse("GDTFSpec", "authored modes and Network assignments require a linked GDTF reference");
+  // Source UUIDs survive collision remapping; opaque standard references cannot be reassigned safely.
   for (const auto &issue : scene.preservationIssues)
-    if (issue.objectUuid == fixture.uuid)
-      return refuse(issue.sourceLocation, "resolve the source preservation conflict before conversion: " + issue.reason);
+    return refuse(issue.sourceLocation, "resolve the scene source conflict (source uuid=" +
+        issue.objectUuid + ") before conversion: " + issue.reason);
   for (const auto &[field, present] : {
       std::pair{"Focus", !fixture.focus.empty()},
       std::pair{"Color", !fixture.mvrFixtureColorHex.empty() || !fixture.mvrFixtureColorCie.empty()},
