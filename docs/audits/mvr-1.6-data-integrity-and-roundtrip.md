@@ -1344,8 +1344,8 @@ FixtureID, numeric identifier, UnitNumber presence and numeric Matrix provenance
 Conversion now copies standard Support equivalents, including CustomId/CustomIdType,
 retains UUID, GDTF binding, position, layer/hierarchy and world/local placement,
 and uses the shared identifier/primary-patch policy. Source conflicts, Focus,
-Fixture Color, true Pan/Tilt inversion and explicit project color/symbol/power
-overrides produce structured field-specific refusals before any mutation or
+Fixture Color, true Pan/Tilt inversion, explicit project color/symbol/power and
+unresolved manual/legacy physical overrides produce structured field-specific refusals before any mutation or
 Undo publication. No unsupported field is hidden in an extension. Existing
 hoist load/function defaults are intentional application semantics, not new
 standard equivalents for Fixture-only fields.

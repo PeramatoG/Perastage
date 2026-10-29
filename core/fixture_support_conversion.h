@@ -36,7 +36,10 @@ inline ConversionResult InspectFixtureToSupport(const MvrScene &scene,
       std::pair{"DMXInvertTilt", fixture.dmxInvertTilt},
       std::pair{"ProjectColor", !fixture.visualColorHex.empty() || fixture.visualColorState != FixtureProjectColorState::Missing},
       std::pair{"ProjectSymbol", !fixture.projectSymbolDefinitionId.empty()},
-      std::pair{"PlanningPowerOverride", fixture.planningPowerOverrideW.has_value()}})
+      std::pair{"PlanningPowerOverride", fixture.planningPowerOverrideW.has_value()},
+      std::pair{"PhysicalProperties", fixture.physicalPropertiesDirty ||
+          fixture.physicalPropertiesSource == FixturePhysicalPropertiesSource::Manual ||
+          fixture.physicalPropertiesSource == FixturePhysicalPropertiesSource::LegacyMvrFixtureNode}})
     if (present) return refuse(field, "Support has no equivalent; retain the Fixture or explicitly clear this field before conversion");
   if (const auto patch = ConversionAddresses(fixture); !patch)
     return refuse("Addresses", patch.detail);

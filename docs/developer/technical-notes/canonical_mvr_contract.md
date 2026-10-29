@@ -106,7 +106,8 @@ standard identifiers (including CustomId/CustomIdType presence and explicit
 zero), GDTF binding, position,
 layer/group ownership and numeric matrix source. Legacy primary patch strings
 are materialized through the existing patch policy. Focus, Fixture Color,
-Pan/Tilt inversion, explicit project color/symbol/power overrides and retained
+Pan/Tilt inversion, explicit project color/symbol/power or unresolved physical
+property overrides and retained
 source conflicts or missing required GDTF mode/binding return a structured
 field-specific refusal before mutation or
 Undo publication. Derived fixture metadata is not a new Support standard field;

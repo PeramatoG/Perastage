@@ -268,7 +268,7 @@ int main() {
          std::vector<std::string>{convertible.uuid});
   assert(fixtureConversion.mutation.selectionChanged);
 
-  for (const auto *field : {"Focus", "Color", "DMXInvertPan", "DMXInvertTilt", "ProjectColor", "GDTFSpec", "GDTFMode"}) {
+  for (const auto *field : {"Focus", "Color", "DMXInvertPan", "DMXInvertTilt", "ProjectColor", "GDTFSpec", "GDTFMode", "PhysicalProperties", "ManualPhysicalProperties", "LegacyPhysicalProperties"}) {
     auto blocked = BuildFixtureConversionScene();
     auto &fixture = blocked.fixtures.at("fixture-a");
     if (std::string(field) == "Focus") fixture.focus = "focus-ref";
@@ -278,9 +278,13 @@ int main() {
     if (std::string(field) == "ProjectColor") fixture.visualColorHex = "#123456";
     if (std::string(field) == "GDTFSpec") fixture.gdtfMode = "AuthoredMode";
     if (std::string(field) == "GDTFMode") fixture.gdtfSpec = "authored.gdtf";
+    if (std::string(field) == "PhysicalProperties") fixture.physicalPropertiesDirty = true;
+    if (std::string(field) == "ManualPhysicalProperties") fixture.physicalPropertiesSource = FixturePhysicalPropertiesSource::Manual;
+    if (std::string(field) == "LegacyPhysicalProperties") fixture.physicalPropertiesSource = FixturePhysicalPropertiesSource::LegacyMvrFixtureNode;
     auto second = fixture; second.uuid = "second"; second.focus.clear();
     second.mvrFixtureColorCie.clear(); second.dmxInvertPan = second.dmxInvertTilt = false;
     second.visualColorHex.clear(); second.gdtfSpec.clear(); second.gdtfMode.clear();
+    second.physicalPropertiesDirty = false; second.physicalPropertiesSource = FixturePhysicalPropertiesSource::Unknown;
     blocked.fixtures[second.uuid] = second;
     scene_grouping::ObjectSelection selection; selection.fixtures = {second.uuid, fixture.uuid};
     const auto selectionBefore = selection;
