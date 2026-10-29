@@ -1,6 +1,7 @@
 /* This file is part of Perastage. */
 #pragma once
 #include "fixture.h"
+#include "fixture_network_service.h"
 #include "fixture_patch_address.h"
 #include <algorithm>
 #include <cstdint>
@@ -10,7 +11,7 @@
 namespace perastage::patch {
 enum class FixturePatchConflict {
   None, InvalidBreak, DuplicateBreak, InvalidValue, MissingPrimary,
-  PrimaryOutsideEditableRange, InvalidPrimary
+  PrimaryOutsideEditableRange, InvalidPrimary, InvalidNetworkAssignment
 };
 struct FixturePatchResult {
   FixturePatchConflict conflict = FixturePatchConflict::None;
@@ -82,6 +83,8 @@ inline FixturePatchResult PatchFailure(const Fixture &fixture, FixturePatchConfl
 // Validates native values as well as source data. Missing break defaults to 0;
 // duplicates after integer normalization are ambiguous and are never repaired.
 inline FixturePatchResult InspectFixtureAddresses(const Fixture &fixture) {
+  if (const auto network = fixture_network::Validate(fixture); !network)
+    return PatchFailure(fixture, FixturePatchConflict::InvalidNetworkAssignment, network.detail);
   FixturePatchResult result;
   result.fixtureUuid = fixture.uuid;
   result.addresses = fixture.dmxAddresses;

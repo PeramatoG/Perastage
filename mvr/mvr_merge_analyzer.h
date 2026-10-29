@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "mvrscene.h"
+#include "mvr_export_diagnostic.h"
 
 namespace mvr {
 
@@ -38,6 +39,7 @@ struct MvrSceneMergeResult {
   std::size_t fixtureTypeConflictsBlocked = 0;
   std::size_t nonObjectLookupConflictsResolved = 0;
   std::unordered_map<std::string, std::string> fixtureUuidRemap;
+  std::vector<MvrExportDiagnostic> networkConflicts;
 };
 
 enum class MvrMergeFixtureTypeDecision {

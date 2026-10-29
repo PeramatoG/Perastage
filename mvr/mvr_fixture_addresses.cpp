@@ -32,10 +32,32 @@ void ReadFixtureAddresses(const tinyxml2::XMLElement &node, Fixture &fixture, Mv
     if (child->ToComment()) continue;
     if (child->ToText() && perastage::patch::TrimDmx(child->Value()).empty()) continue;
     auto *entry = child->ToElement();
-    if (!entry || std::string_view(entry->Name()) != "Address") {
-      Issue(*container, fixture, scene, "Only standard Fixture Address entries are represented; Network/extension data is unsupported.");
+    if (entry && std::string_view(entry->Name()) == "Network") {
+      FixtureNetworkAssignment network;
+      if (const auto *geometry = entry->Attribute("geometry")) network.geometry = geometry;
+      const std::pair<const char *, std::optional<std::string> *> attributes[] = {
+          {"ipv4", &network.ipv4}, {"subnetmask", &network.subnetmask},
+          {"ipv6", &network.ipv6}, {"dhcp", &network.dhcp}, {"hostname", &network.hostname}};
+      for (const auto &[name, value] : attributes)
+        if (const auto *text = entry->Attribute(name)) *value = text;
+      for (auto *attribute = entry->FirstAttribute(); attribute; attribute = attribute->Next()) {
+        const std::string_view name = attribute->Name();
+        if (name != "geometry" && std::none_of(std::begin(attributes), std::end(attributes),
+            [&](const auto &known) { return name == known.first; }))
+          Issue(*entry, fixture, scene, "Unsupported Network attribute.");
+      }
+      std::string text;
+      if (!TextOnly(*entry, text) || !perastage::patch::TrimDmx(text).empty())
+        Issue(*entry, fixture, scene, "Network contains unsupported child content.");
+      fixture.dmxAddresses->networks.push_back(std::move(network));
       continue;
     }
+    if (!entry || std::string_view(entry->Name()) != "Address") {
+      Issue(*container, fixture, scene, "Unsupported Fixture Addresses child.");
+      continue;
+    }
+    if (!fixture.dmxAddresses->networks.empty())
+      Issue(*entry, fixture, scene, "Address children must precede Network children.");
     FixtureDmxAddress value;
     if (const auto *identifier = entry->Attribute("break")) value.breakId = identifier;
     for (auto *attribute = entry->FirstAttribute(); attribute; attribute = attribute->Next())

@@ -129,6 +129,20 @@ ProjectFixtureGdtfApplyResult ProjectFixtureGdtfApplyAdapter::Apply(
       (request.sourcePath.empty() || !std::filesystem::is_regular_file(request.sourcePath, ec)))
     return Fail("Resolved GDTF source path is not an existing regular file.");
 
+  if (sourceChanged || documentChanged) {
+    for (const auto &[uuid, fixture] : *input.fixtures) {
+      if (uuid != request.stableHostId && (!documentChanged ||
+          !MatchesResultingFamily(fixture, original.gdtfSpec, resultingSource, resultingType))) continue;
+      auto check = fixture_network::CheckBindingReference(fixture, resultingSource);
+      if (check) check = services_.inspectNetworks ? services_.inspectNetworks(fixture, request.sourcePath)
+          : fixture_network::CheckReferences(fixture, std::nullopt);
+      if (!check) {
+        auto failed = Fail(check.detail);
+        failed.networkConflict = check;
+        return failed;
+      }
+    }
+  }
   std::unordered_map<std::string, Fixture> preparedUpdates;
 
   ProjectFixtureGdtfApplyResult result;

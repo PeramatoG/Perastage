@@ -17,6 +17,8 @@
  */
 #include "layer_identity.h"
 #include "mvr_merge_applier.h"
+#include "fixture_network_reference.h"
+#include "filesystem_path_utils.h"
 
 #include "mvr_merge_resource_rewriter.h"
 #include "runtime_storage.h"
@@ -225,6 +227,23 @@ MvrSceneMergeResult ApplyImportedSceneMerge(MvrScene &target,
       analysis.nonObjectLookupConflictsResolved;
   if (HasBlockingFixtureTypeConflicts(analysis)) {
     result.fixtureTypeConflictsBlocked = analysis.fixtureTypeConflicts.size();
+    return result;
+  }
+  for (const auto &[uuid, fixture] : imported.fixtures) {
+    const auto type = NormalizeFixtureTypeName(fixture.typeName);
+    const auto decision = analysis.fixtureTypeDecisions.find(type);
+    const auto current = analysis.currentFixtureTypes.find(type);
+    if (decision == analysis.fixtureTypeDecisions.end() || current == analysis.currentFixtureTypes.end() ||
+        decision->second != MvrMergeFixtureTypeDecision::UseCurrentDefinition) continue;
+    const auto check = fixture_network::InspectReferences(fixture,
+        PathUtils::PathFromUtf8(current->second.resolvedGdtfSpec));
+    if (!check) result.networkConflicts.push_back({
+        MvrExportDiagnosticCode::StandardDataPreservationBlocked,
+        MvrExportDiagnosticSeverity::Error, MvrExportDiagnosticImpact::ExportFailed,
+        true, "Fixture", {}, uuid, "Fixture/Addresses/Network", check.detail});
+  }
+  if (!result.networkConflicts.empty()) {
+    result.fixtureTypeConflictsBlocked = result.networkConflicts.size();
     return result;
   }
   result.fixtureUuidRemap = analysis.fixtureUuidRemap;

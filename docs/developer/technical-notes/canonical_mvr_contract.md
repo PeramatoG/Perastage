@@ -75,7 +75,8 @@ a private snapshot after world-space edits, and may omit an identity Layer Matri
 Layer merge equality includes the authored matrix values. Non-elevation,
 malformed or ambiguous layer matrices remain fail-closed.
 
-Fixture owns an optional ordered standard DMX Address list, retaining container
+Fixture owns one optional standard Addresses collection with ordered DMX Address
+and Network lists (Address children precede Network), retaining container
 presence, optional break attributes and authored values. Missing break means 0;
 break IDs identify assignments and never universes. Fixture.address is the
 compatibility projection of break 0 only. Unedited nonzero-only or out-of-editor-
@@ -87,7 +88,17 @@ or invalid values produces a structured conflict. Existing table/auto-patch
 workflows use that policy; auto-patch publication is atomic. Pending legacy
 scalar edits reconcile only on a private export snapshot with an unambiguous
 mapping. A final serialized projection check protects the complete ordered list.
-Network, other address consumers and unsupported extensions remain guarded.
+Fixture Network retains required case-sensitive GDTF wire-geometry names and
+optional ipv4/subnetmask/ipv6/dhcp/hostname presence and text. Patch edits never
+modify this list. Names are not UUID references and are not remapped at merge.
+Known-invalid or ambiguous GDTF references block publication; unavailable local
+GDTF evidence retains metadata without guessing and reports ResourceMissing at
+publication, preventing a dummy GDTF from invalidating wire references. Core rebind validation rejects unsafe definition changes before
+publishing. Malformed/unknown data, other address consumers and unsupported
+extensions remain guarded. Network geometry/hostname control whitespace also
+fails closed because the XML writer cannot retain its character-reference form.
+Fixture-to-Support conversion rejects Network-bearing fixtures before mutation;
+the target consumer remains unsupported. No network settings are applied.
 Published Universe.Address strings and signed break IDs are preserved even where
 the unchanged pinned XSD's integer/nonnegative restrictions disagree.
 

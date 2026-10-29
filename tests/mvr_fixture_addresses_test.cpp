@@ -10,6 +10,7 @@
 #include "mvrimporter.h"
 #include "mvrscenemerger.h"
 #include "mvr_fixture_addresses.h"
+#include "mvr_fixture_network_cases.h"
 #include "scene_grouping.h"
 #include "support/archive_entry_test_utils.h"
 #include "support/gdtf_test_fixture_builder.h"
@@ -31,7 +32,10 @@ std::string FixtureXml(const char *uuid, const std::string &addresses) {
       "<UnitNumber>7</UnitNumber>" + addresses + "</Fixture>";
 }
 std::string Source(const std::string &addresses = "<Addresses><Address break='0'>1025</Address>"
-    "<Address break='7'>2049</Address><Address break='19'>4097</Address></Addresses>") {
+    "<Address break='7'>2049</Address><Address break='19'>4097</Address>"
+    "<Network geometry='ethernet_1' ipv4='192.168.001.005' subnetmask='255.255.0.0'/>"
+    "<Network geometry='wireless_1' dhcp='on' hostname='Rig.Left'/>"
+    "<Network geometry='51000000-0000-4000-8000-000000000001'/></Addresses>") {
   return "<GeneralSceneDescription verMajor='1' verMinor='6' provider='AddressTest' providerVersion='1'>"
       "<Scene><Layers><Layer uuid='11000000-0000-4000-8000-000000000001' name='Rig'>"
       "<Matrix>{1,0,0}{0,1,0}{0,0,1}{0,0,1200}</Matrix><ChildList>" +
@@ -41,7 +45,14 @@ std::string Source(const std::string &addresses = "<Addresses><Address break='0'
 }
 void Archive(const fs::path &path, const std::string &xml) {
   const auto fixture = path.parent_path() / "fixture.gdtf";
-  tests::gdtf::BuildMinimalValidFixture().WithDmxMode("Mode", "Base").WriteArchive(fixture);
+  auto description = tests::gdtf::BuildMinimalValidFixture().WithDmxMode("Mode", "Root").WithModelResource("body").BuildDescriptionXml();
+  const auto end = description.find("</Geometries>");
+  description.insert(end, "<WiringObject Name='ethernet_1' ComponentType='NetworkInOut' ConnectorType='RJ45' SignalType='Ethernet' PinCount='8'/>"
+      "<WiringObject Name='wireless_1' ComponentType='NetworkInOut' ConnectorType='Wireless' SignalType='Ethernet' PinCount='0'/>"
+      "<WiringObject Name='51000000-0000-4000-8000-000000000001' ComponentType='NetworkInOut' ConnectorType='RJ45' SignalType='Ethernet' PinCount='8'/>");
+  std::string resourceError;
+  assert(tests::archive::WriteStoredZipWithRawNames(fixture, {{"description.xml", description},
+      {"models/gltf/body.glb", tests::gdtf::BuildMinimalValidGlb()}}, resourceError));
   std::ifstream file(fixture, std::ios::binary);
   const std::string gdtf(std::istreambuf_iterator<char>(file), {});
   std::string error;
@@ -148,6 +159,8 @@ int main(int argc, char **argv) {
   selection.fixtures = {single, multi};
   const auto grouped = scene_grouping::GroupSelection(altered, selection);
   assert(grouped.changed);
+  assert(scene_grouping::GroupSelection(altered, selection).changed);
+  Export(altered, dir / "nested-groups.mvr");
   scene_grouping::TranslateTargets(altered, {{MvrNodeType::GroupObject, grouped.groupUuid}}, {10, 20, 30});
   assert(scene_grouping::RemoveSelectionFromGroup(altered, selection).changed);
   layerdomain::AssignLayer(altered, altered.fixtures.at(multi), layerdomain::DefaultLayerUuid());
@@ -168,6 +181,11 @@ int main(int argc, char **argv) {
   assert(copied.fixtures.at(paste.uuidRemap.at(multi)).dmxAddresses == scene.fixtures.at(multi).dmxAddresses);
   Export(copied, dir / "copied.mvr");
 
+  auto fullyPatched = scene;
+  // Whole-scene AutoPatch remains primary-only and keeps every interface.
+  fullyPatched.fixtures.erase(nonzero);
+  assert(AutoPatcher::AutoPatch(fullyPatched));
+  Export(fullyPatched, dir / "auto-all.mvr");
   auto planned = scene;
   assert(AutoPatcher::AutoPatchSelection(planned, {multi}));
   Export(planned, dir / "auto-patched.mvr");
@@ -234,7 +252,7 @@ int main(int argc, char **argv) {
       "<Addresses><Address>1<Extra/></Address></Addresses>",
       "<Addresses><Address future='x'>1</Address></Addresses>",
       "<Addresses future='x'/>", "<Addresses/><Addresses/>",
-      "<Addresses><Network geometry='ethernet' ipv4='127.0.0.1'/></Addresses>",
+      "<Addresses><Network ipv4='127.0.0.1'/></Addresses>",
       "<Addresses><Extension/></Addresses>"}) {
     Archive(dir / "invalid.mvr", Source(addresses));
     const auto invalid = Import(dir / "invalid.mvr");
@@ -251,5 +269,6 @@ int main(int argc, char **argv) {
     assert(config.GetLastProjectSaveFailure().stage == "SerializeScene");
     assert(read() == previous);
   }
+  RunFixtureNetworkCases(dir, scene, {Source, Archive, Import, Export});
   config.Reset();
 }

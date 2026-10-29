@@ -122,6 +122,8 @@ ConversionResult ConvertFixtureToSupport(MvrScene &scene,
     return {.error = "support UUID already exists"};
 
   const Fixture &fixture = fixtureIt->second;
+  if (fixture.dmxAddresses && !fixture.dmxAddresses->networks.empty())
+    return {.uuid = fixtureUuid, .error = "Fixture Network assignments are not represented on Support nodes"};
   Support support;
   support.uuid = fixture.uuid;
   support.name = fixture.instanceName;

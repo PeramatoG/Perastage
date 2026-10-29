@@ -35,6 +35,7 @@ target_link_libraries(perastage_mvr_read
     PUBLIC perastage_uuid perastage_runtime_storage perastage_layer_identity
            perastage_gdtf_matching
     PRIVATE perastage_mvr_core_support perastage_mvr_scene_model perastage_gdtf_read
+            perastage_fixture_network
             tinyxml2::tinyxml2 ${_wx_base_libs}
 )
 

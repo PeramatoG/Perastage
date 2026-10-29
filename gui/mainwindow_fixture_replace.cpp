@@ -17,6 +17,9 @@
 
 #include "configmanager.h"
 #include "fixture.h"
+#include "fixture_network_reference.h"
+#include "filesystem_path_utils.h"
+#include "consolepanel.h"
 #include "fixturetablepanel.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
@@ -256,6 +259,15 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
   if (replacement.visualColorHex.empty())
     replacement.visualColorHex = GetGdtfModelColor(replacement.gdtfSpec);
 
+  for (const auto &uuid : selectedUuids) {
+    const auto found = cfg.GetScene().fixtures.find(uuid);
+    if (found == cfg.GetScene().fixtures.end()) continue;
+    const auto check = fixture_network::InspectReferences(found->second, PathUtils::PathFromUtf8(replacement.gdtfSpec));
+    if (!check) {
+      if (ConsolePanel::Instance()) ConsolePanel::Instance()->AppendMessage(wxString::FromUTF8(check.detail));
+      return;
+    }
+  }
   cfg.PushUndoState("replace selected fixtures");
   auto &scene = cfg.GetScene();
   const std::string replacementColor = ResolveReplacementColor(

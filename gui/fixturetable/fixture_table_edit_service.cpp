@@ -1,6 +1,8 @@
 #include "layer_identity.h"
 #include "fixture_table_edit_service.h"
 #include "fixture_patch_service.h"
+#include "fixture_network_reference.h"
+#include "filesystem_path_utils.h"
 
 #include "fixture_table_columns.h"
 
@@ -196,6 +198,15 @@ void ApplyFullRowChanges(
       next.gdtfSpec = gui::PreserveSceneResourceReferenceForTableSync(
           scene.basePath, old.gdtfSpec, std::string(gdtfPaths[i].ToUTF8()));
 
+    if (next.gdtfSpec != old.gdtfSpec) {
+      auto path = PathUtils::PathFromUtf8(next.gdtfSpec);
+      if (!path.is_absolute()) path = PathUtils::PathFromUtf8(scene.basePath) / path;
+      const auto check = fixture_network::InspectReferences(next, path);
+      if (!check) {
+        if (ConsolePanel::Instance()) ConsolePanel::Instance()->AppendMessage(wxString::FromUTF8(check.detail));
+        continue;
+      }
+    }
     wxVariant v;
     table->GetValue(
         v, i, FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Name));

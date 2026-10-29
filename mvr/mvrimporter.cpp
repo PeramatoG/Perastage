@@ -33,6 +33,7 @@
 #include "dummyprofilelibrary.h"
 #include "gdtfdictionary.h"
 #include "fixture_visual_color.h"
+#include "fixture_network_reference.h"
 #include "gdtf_fixture_category.h"
 #include "gdtf_import_matching.h"
 #include "gdtf_patch_evidence.h"
@@ -621,6 +622,11 @@ static void ApplyApplicationDictionaryMappings(
                 continue;
               if (selectedPathIt->second.empty())
                 continue;
+              if (const auto check = fixture_network::InspectReferences(f,
+                    PathUtils::PathFromUtf8(resolveFixtureGdtfPathForRead(selectedPathIt->second))); !check) {
+                reportProgress(check.detail);
+                continue;
+              }
               f.gdtfSpec = selectedPathIt->second;
               f.gdtfSpec = resources.MakeSceneRelative(PathUtils::PathFromUtf8(
                   resolveFixtureGdtfPathForRead(f.gdtfSpec)));
@@ -681,6 +687,11 @@ static void ApplyApplicationDictionaryMappings(
                     ? getGdtfModeChannelCountCached(resolvedGdtfPath,
                                                     f.gdtfMode)
                     : -1;
+            if (const auto check = fixture_network::InspectReferences(f,
+                  PathUtils::PathFromUtf8(dictionaryResolvedPath)); !check) {
+              reportProgress(check.detail);
+              continue;
+            }
             f.gdtfSpec = resources.MakeSceneRelative(
                 PathUtils::PathFromUtf8(dictionaryResolvedPath));
             if (f.gdtfMode.empty())

@@ -8,6 +8,7 @@ import tempfile
 import uuid
 import xml.etree.ElementTree as ET
 import zipfile
+from mvr_fixture_network_independent import verify_network_cases
 
 SINGLE = '51000000-0000-4000-8000-000000000001'
 MULTI = '51000000-0000-4000-8000-000000000002'
@@ -38,8 +39,8 @@ def assignments(scene):
         containers = fixture.findall('Addresses')
         assert len(containers) <= 1
         entries = None if not containers else tuple(
-            (entry.get('break'), entry.text or '') for entry in containers[0])
-        assert all(entry.tag == 'Address' for container in containers for entry in container)
+            (entry.get('break'), entry.text or '') for entry in containers[0] if entry.tag == 'Address')
+        assert all(entry.tag in ('Address', 'Network') for container in containers for entry in container)
         if entries:
             breaks = [int(identifier or '0') for identifier, _ in entries]
             assert len(breaks) == len(set(breaks))
@@ -110,6 +111,7 @@ def main():
             else:
                 expected[source[MULTI]] += 1
             assert collections.Counter(actual.values()) == expected
+        verify_network_cases(directory, root, package, assignments)
         for name in ('empty', 'absent', 'spelling', 'published', 'large'):
             assert assignments(root(directory / f'{name}-source.mvr')) == assignments(root(directory / f'{name}.mvr'))
 

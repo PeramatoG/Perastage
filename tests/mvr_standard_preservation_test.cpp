@@ -21,7 +21,7 @@ int main() {
       "<Fixture><FixtureTypeId>12</FixtureTypeId></Fixture>",
       "<Fixture><Addresses><Address break='1'>1</Address><Address break='1'>513</Address></Addresses></Fixture>",
       "<Fixture><Addresses><Address>1</Address><Address break='0'>513</Address></Addresses></Fixture>",
-      "<Fixture><Addresses><Network geometry='ethernet_1' ipv4='192.168.1.1'/></Addresses></Fixture>",
+      "<Fixture><Addresses><Network ipv4='192.168.1.1'/></Addresses></Fixture>",
       "<Fixture><Alignments><Alignment up='1,0,0'/></Alignments></Fixture>",
       "<Fixture><Protocols><Protocol type='sACN'/></Protocols></Fixture>",
       "<Fixture><CustomCommands><CustomCommand>Pan,f 50</CustomCommand></CustomCommands></Fixture>",
@@ -50,6 +50,9 @@ int main() {
   assert(mvr::CheckStandardPreservation(safe).empty());
   assert(Scan("<Layer><Matrix>{1,0,0}{0,1,0}{0,0,1}{0,0,1000}</Matrix></Layer>").preservationIssues.empty());
   assert(Scan("<Fixture><Addresses><Address break='7'>1</Address><Address>513</Address></Addresses></Fixture>").preservationIssues.empty());
+  assert(Scan("<Fixture><Addresses><Network geometry='ethernet_1' ipv4='192.168.1.1'/></Addresses></Fixture>").preservationIssues.empty());
+  for (const auto *type : {"Truss", "Support", "SceneObject", "VideoScreen", "Projector"})
+    assert(!Scan(std::string("<") + type + "><Addresses><Network geometry='ethernet_1'/></Addresses></" + type + ">").preservationIssues.empty());
   auto ordinary = Scan("<Fixture><Function>Key</Function><DMXInvertPan>true</DMXInvertPan><Addresses><Address break='0'>1025</Address></Addresses></Fixture>");
   assert(ordinary.preservationIssues.empty());
   // Whitespace-only optional containers have the same empty standard meaning.
