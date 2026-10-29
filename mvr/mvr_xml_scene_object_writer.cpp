@@ -40,6 +40,29 @@ void AppendIdentifiers(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *pa
     parent->InsertEndChild(element);
   }
 }
+void AppendAddresses(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *parent,
+                     const std::optional<FixtureDmxAddresses> &assignments) {
+  if (assignments) {
+    auto *addresses = document.NewElement("Addresses");
+    for (const auto &entry : assignments->entries) {
+      auto *address = document.NewElement("Address");
+      if (entry.breakId) address->SetAttribute("break", entry.breakId->c_str());
+      address->SetText(entry.value.c_str());
+      addresses->InsertEndChild(address);
+    }
+    for (const auto &entry : assignments->networks) {
+      auto *network = document.NewElement("Network");
+      network->SetAttribute("geometry", entry.geometry.c_str());
+      const std::pair<const char *, const std::optional<std::string> *> attributes[] = {
+          {"ipv4", &entry.ipv4}, {"subnetmask", &entry.subnetmask},
+          {"ipv6", &entry.ipv6}, {"dhcp", &entry.dhcp}, {"hostname", &entry.hostname}};
+      for (const auto &[name, value] : attributes)
+        if (*value) network->SetAttribute(name, (*value)->c_str());
+      addresses->InsertEndChild(network);
+    }
+    parent->InsertEndChild(addresses);
+  }
+}
 } // namespace
 
 // Appends one standard MVR Fixture node in the established child order.
@@ -78,26 +101,8 @@ void AppendFixture(tinyxml2::XMLDocument &document,
   addString("Position", values.position);
   addString("Function", values.function);
   AppendIdentifiers(document, fixture, values.fixtureId, values.fixtureIdNumeric, values.unitNumber);
-  if (values.dmxAddresses) {
-    auto *addresses = document.NewElement("Addresses");
-    for (const auto &entry : values.dmxAddresses->entries) {
-      auto *address = document.NewElement("Address");
-      if (entry.breakId) address->SetAttribute("break", entry.breakId->c_str());
-      address->SetText(entry.value.c_str());
-      addresses->InsertEndChild(address);
-    }
-    for (const auto &entry : values.dmxAddresses->networks) {
-      auto *network = document.NewElement("Network");
-      network->SetAttribute("geometry", entry.geometry.c_str());
-      const std::pair<const char *, const std::optional<std::string> *> attributes[] = {
-          {"ipv4", &entry.ipv4}, {"subnetmask", &entry.subnetmask},
-          {"ipv6", &entry.ipv6}, {"dhcp", &entry.dhcp}, {"hostname", &entry.hostname}};
-      for (const auto &[name, value] : attributes)
-        if (*value) network->SetAttribute(name, (*value)->c_str());
-      addresses->InsertEndChild(network);
-    }
-    fixture->InsertEndChild(addresses);
-  } else if (values.absoluteDmxAddress.has_value()) {
+  AppendAddresses(document, fixture, values.dmxAddresses);
+  if (!values.dmxAddresses && values.absoluteDmxAddress.has_value()) {
     tinyxml2::XMLElement *addresses = document.NewElement("Addresses");
     tinyxml2::XMLElement *address = document.NewElement("Address");
     address->SetAttribute("break", 0);
@@ -229,7 +234,11 @@ void AppendSupport(tinyxml2::XMLDocument &document,
              std::to_string(values.chainLength));
   AppendText(document, support, "GDTFSpec", values.gdtfSpec);
   AppendText(document, support, "GDTFMode", values.gdtfMode);
+  AppendAddresses(document, support, values.dmxAddresses);
   AppendIdentifiers(document, support, values.fixtureId, values.fixtureIdNumeric, values.unitNumber);
+  for (const auto &[name, value] : {std::pair{"CustomIdType", values.customIdType},
+                                    std::pair{"CustomId", values.customId}})
+    if (value != 0) AppendText(document, support, name, std::to_string(value));
   parent->InsertEndChild(support);
 }
 

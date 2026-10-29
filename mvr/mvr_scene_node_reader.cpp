@@ -773,8 +773,11 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
                          const std::string &parentGroupUuid) {
         Support support;
         mvr_identifiers::Read(*node, support);
+        if (auto *id = node->FirstChildElement("CustomId")) id->QueryIntText(&support.customId);
+        if (auto *id = node->FirstChildElement("CustomIdType")) id->QueryIntText(&support.customIdType);
         support.uuid =
             resolveStableUuid("Support", node, layerName, nodeTransform);
+        ReadSupportAddresses(*node, support, scene);
         support.layer = layerName;
         support.transform = nodeTransform;
         support.localTransform = localTransform;

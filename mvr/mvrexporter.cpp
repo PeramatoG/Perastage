@@ -2027,6 +2027,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
 
   auto exportSupport = [&](tinyxml2::XMLElement *parent, const Support &s) {
     mvr_xml_serialization::SupportValues values;
+    values.dmxAddresses = s.dmxAddresses;
+    values.customId = s.customId; values.customIdType = s.customIdType;
     values.object = {s.uuid, s.name, s.classing};
     values.matrix = s.localTransform;
     values.position = resolveObjectPosition(s.uuid);

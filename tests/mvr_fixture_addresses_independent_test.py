@@ -9,6 +9,7 @@ import uuid
 import xml.etree.ElementTree as ET
 import zipfile
 from mvr_fixture_network_independent import verify_network_cases
+from mvr_support_addresses_independent import verify_support_cases
 
 SINGLE = '51000000-0000-4000-8000-000000000001'
 MULTI = '51000000-0000-4000-8000-000000000002'
@@ -112,6 +113,7 @@ def main():
                 expected[source[MULTI]] += 1
             assert collections.Counter(actual.values()) == expected
         verify_network_cases(directory, root, package, assignments)
+        verify_support_cases(directory, root, package)
         for name in ('empty', 'absent', 'spelling', 'published', 'large'):
             assert assignments(root(directory / f'{name}-source.mvr')) == assignments(root(directory / f'{name}.mvr'))
 

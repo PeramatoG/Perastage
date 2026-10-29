@@ -34,9 +34,8 @@ const std::unordered_map<std::string, Names> unsupportedChildren = {
                      "Connections", "CustomId", "CustomIdType"}},
     {"Truss", {"CastShadow", "Addresses", "Alignments",
                "CustomCommands", "Overwrites", "Connections", "ChildPosition"}},
-    {"Support", {"CastShadow", "Addresses", "Alignments",
-                 "CustomCommands", "Overwrites", "Connections",
-                 "CustomIdType", "CustomId"}}};
+    {"Support", {"CastShadow", "Alignments",
+                 "CustomCommands", "Overwrites", "Connections"}}};
 
 // Character references and CDATA can encode insignificant XML whitespace.
 bool IsEmptyAssignment(const tinyxml2::XMLElement &element) {
@@ -67,7 +66,7 @@ void Scan(tinyxml2::XMLElement &element, MvrScene &scene,
   const std::string name = element.Name();
   mvr_identifiers::ScanSource(element, scene, location);
   if (const char *uuid = element.Attribute("uuid")) owner = uuid;
-  if (name == "Fixture") ScanFixtureAddresses(element, scene);
+  if (name == "Fixture" || name == "Support") ScanFixtureAddresses(element, scene);
   if (name == "Layer") {
     const auto source = ReadMatrixSource(element, scene);
     if (source && !CanonicalLayerMatrixIsElevation(source->projection, source))
@@ -114,7 +113,8 @@ void Scan(tinyxml2::XMLElement &element, MvrScene &scene,
     return;
   }
   if (name == "Addresses" && (!element.Parent()->ToElement() ||
-      std::string_view(element.Parent()->ToElement()->Name()) != "Fixture")) {
+      (std::string_view(element.Parent()->ToElement()->Name()) != "Fixture" &&
+       std::string_view(element.Parent()->ToElement()->Name()) != "Support"))) {
     auto *address = element.FirstChildElement("Address");
     if (element.FirstChildElement("Network") ||
         (address && (address->NextSiblingElement("Address") ||
@@ -226,6 +226,28 @@ std::vector<MvrExportDiagnostic> CheckStandardPreservation(const MvrScene &scene
         !focusUuids.contains(CanonicalizeUuid(fixture.focus)))
       result.push_back(Block("Fixture", uuid, "Focus",
                              "Unresolved FocusPoint reference: " + fixture.focus));
+  }
+  for (const auto &[uuid, support] : scene.supports) {
+    if (const auto addresses = perastage::patch::InspectFixtureAddresses(support); !addresses)
+      result.push_back(Block("Support", uuid, "Support/Addresses", addresses.detail));
+    if (!support.dmxAddresses || support.dmxAddresses->networks.empty()) continue;
+    if (const auto binding = fixture_network::CheckBindingReference(support, support.gdtfSpec); !binding) {
+      result.push_back(Block("Support", uuid, "Support/GDTFSpec", binding.detail));
+      continue;
+    }
+    auto path = PathUtils::PathFromUtf8(support.gdtfSpec);
+    if (!path.is_absolute()) path = PathUtils::PathFromUtf8(scene.basePath) / path;
+    auto [evidence, inserted] = networkEvidence.try_emplace(PathUtils::PathToUtf8(path));
+    if (inserted) evidence->second = fixture_network::ReadWireNames(path);
+    const auto network = fixture_network::CheckReferences(support, evidence->second);
+    if (!network) {
+      auto diagnostic = Block("Support", uuid, "Support/Addresses/Network", network.detail);
+      if (network.conflict == fixture_network::Conflict::UnavailableGdtf) {
+        diagnostic.code = MvrExportDiagnosticCode::ResourceMissing;
+        diagnostic.resourceName = support.gdtfSpec;
+      }
+      result.push_back(std::move(diagnostic));
+    }
   }
   return result;
 }

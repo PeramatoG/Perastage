@@ -105,6 +105,8 @@ struct SupportValues {
   std::string fixtureId;
   int fixtureIdNumeric = 0;
   std::optional<int> unitNumber;
+  std::optional<FixtureDmxAddresses> dmxAddresses;
+  int customId = 0, customIdType = 0;
 };
 
 struct SceneObjectValues {

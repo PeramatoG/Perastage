@@ -72,7 +72,8 @@ inline std::string DmxPrimaryProjection(std::string_view text) {
       : *DmxInteger(text.substr(dot + 1), false);
   return std::to_string(universe) + "." + channel;
 }
-inline FixturePatchResult PatchFailure(const Fixture &fixture, FixturePatchConflict code,
+template <class Node>
+inline FixturePatchResult PatchFailure(const Node &fixture, FixturePatchConflict code,
                                        const std::string &reason) {
   FixturePatchResult result;
   result.conflict = code;
@@ -82,13 +83,17 @@ inline FixturePatchResult PatchFailure(const Fixture &fixture, FixturePatchConfl
 }
 // Validates native values as well as source data. Missing break defaults to 0;
 // duplicates after integer normalization are ambiguous and are never repaired.
-inline FixturePatchResult InspectFixtureAddresses(const Fixture &fixture) {
+template <class Node>
+inline FixturePatchResult InspectFixtureAddresses(const Node &fixture) {
   if (const auto network = fixture_network::Validate(fixture); !network)
     return PatchFailure(fixture, FixturePatchConflict::InvalidNetworkAssignment, network.detail);
   FixturePatchResult result;
   result.fixtureUuid = fixture.uuid;
   result.addresses = fixture.dmxAddresses;
-  if (!fixture.dmxAddresses) { result.primary = fixture.address; return result; }
+  if (!fixture.dmxAddresses) {
+    if constexpr (requires { fixture.address; }) result.primary = fixture.address;
+    return result;
+  }
   std::unordered_set<std::string> identifiers;
   for (const auto &entry : fixture.dmxAddresses->entries) {
     const auto key = DmxInteger(entry.breakId.value_or("0"), true);

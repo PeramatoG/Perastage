@@ -2,6 +2,7 @@
 
 #include "command/command_mutation_transaction.h"
 #include "scene_node_operations.h"
+#include "fixture_support_conversion.h"
 #include "scene_object_truss_converter.h"
 
 #include <algorithm>
@@ -239,6 +240,14 @@ Result ExecuteFixtureToSupport(const FixtureToSupportCommand &command,
          "At least one fixture UUID is required.", "fixture_uuids"});
     return result;
   }
+  for (const auto &uuid : command.fixtureUuids) {
+    const auto conflict = scene_node_operations::InspectFixtureToSupport(context.scene, context.scene.fixtures.at(uuid));
+    if (conflict.error.empty()) continue;
+    result.outcome = Outcome::ValidationError;
+    result.diagnostics.push_back({DiagnosticSeverity::Error, DiagnosticPhase::Validation,
+        "scene.convert.unsupported_fixture_field", conflict.error, conflict.conflictField});
+    return result;
+  }
   MutationTransaction transaction(context);
   const scene_grouping::ObjectSelection selectionBefore = context.selection;
   try {
@@ -249,7 +258,7 @@ Result ExecuteFixtureToSupport(const FixtureToSupportCommand &command,
       if (!conversion.changed)
         return ExecutionFailure(std::move(result),
                                 "scene.convert.fixture_failed",
-                                "Fixture conversion failed.");
+                                conversion.error);
       cleared.insert(cleared.end(),
                      conversion.clearedMotorFixtureReferences.begin(),
                      conversion.clearedMotorFixtureReferences.end());

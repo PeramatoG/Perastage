@@ -19,6 +19,7 @@ struct ConversionResult {
   std::string uuid;
   std::vector<std::string> clearedMotorFixtureReferences;
   std::string error;
+  std::string conflictField; // Stable source field identifying a refused conversion.
 };
 
 // Applies an exact world transform while preserving hierarchy-local metadata.

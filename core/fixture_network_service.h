@@ -13,9 +13,10 @@ struct Result {
   std::string fixtureUuid, geometry, detail;
   explicit operator bool() const { return conflict == Conflict::None; }
 };
-inline Result Failure(const Fixture &fixture, Conflict conflict,
+template <class Node>
+inline Result Failure(const Node &fixture, Conflict conflict,
                       const std::string &geometry, const std::string &reason) {
-  return {conflict, fixture.uuid, geometry, "Fixture Network (uuid=" + fixture.uuid +
+  return {conflict, fixture.uuid, geometry, "MVR Network (uuid=" + fixture.uuid +
       ", geometry=" + geometry + "): " + reason};
 }
 inline bool Ipv4(std::string_view text) {
@@ -65,7 +66,8 @@ inline bool Ipv6(std::string_view text) {
   const int right = groups(text.substr(compression + 2), true);
   return left >= 0 && right >= 0 && left + right < 8;
 }
-inline Result Validate(const Fixture &fixture) {
+template <class Node>
+inline Result Validate(const Node &fixture) {
   if (!fixture.dmxAddresses) return {};
   for (const auto &entry : fixture.dmxAddresses->networks) {
     const auto control = [](const std::string &value) {
@@ -86,7 +88,8 @@ inline Result Validate(const Fixture &fixture) {
   }
   return {};
 }
-inline Result CheckBindingReference(const Fixture &fixture, const std::string &reference) {
+template <class Node>
+inline Result CheckBindingReference(const Node &fixture, const std::string &reference) {
   if (fixture.dmxAddresses && !fixture.dmxAddresses->networks.empty() && reference.empty())
     return Failure(fixture, Conflict::InvalidBinding, {}, "Network assignments require a linked GDTF reference");
   return {};
@@ -94,7 +97,8 @@ inline Result CheckBindingReference(const Fixture &fixture, const std::string &r
 // The caller supplies exact wire-geometry name counts from the selected GDTF.
 // Unavailable evidence is distinct from a name proven missing or ambiguous.
 using WireNames = std::unordered_map<std::string, unsigned>;
-inline Result CheckReferences(const Fixture &fixture,
+template <class Node>
+inline Result CheckReferences(const Node &fixture,
     const std::optional<WireNames> &wireNames) {
   if (auto result = Validate(fixture); !result) return result;
   if (!fixture.dmxAddresses || fixture.dmxAddresses->networks.empty()) return {};

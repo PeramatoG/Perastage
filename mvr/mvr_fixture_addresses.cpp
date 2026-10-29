@@ -3,14 +3,16 @@
 #include "fixture_patch_service.h"
 #include <tinyxml2.h>
 #include <string_view>
+#include <type_traits>
 
 namespace mvr {
 namespace {
-void Issue(const tinyxml2::XMLElement &node, const Fixture &fixture, MvrScene &scene,
+template <class Node>
+void Issue(const tinyxml2::XMLElement &node, const Node &fixture, MvrScene &scene,
            const std::string &reason) {
   tinyxml2::XMLPrinter printer(nullptr, true);
   node.Accept(&printer);
-  scene.preservationIssues.push_back({"Addresses", fixture.uuid, "Fixture/Addresses", printer.CStr(),
+  scene.preservationIssues.push_back({"Addresses", fixture.uuid, std::is_same_v<Node, Support> ? "Support/Addresses" : "Fixture/Addresses", printer.CStr(),
       reason, "Keep the original MVR; resolve the unsupported or ambiguous assignment before exporting."});
 }
 bool TextOnly(const tinyxml2::XMLElement &element, std::string &text) {
@@ -22,7 +24,8 @@ bool TextOnly(const tinyxml2::XMLElement &element, std::string &text) {
   return true;
 }
 }
-void ReadFixtureAddresses(const tinyxml2::XMLElement &node, Fixture &fixture, MvrScene &scene) {
+template <class Node>
+void ReadAddresses(const tinyxml2::XMLElement &node, Node &fixture, MvrScene &scene) {
   auto *container = node.FirstChildElement("Addresses");
   if (!container) return;
   fixture.dmxAddresses.emplace();
@@ -53,7 +56,7 @@ void ReadFixtureAddresses(const tinyxml2::XMLElement &node, Fixture &fixture, Mv
       continue;
     }
     if (!entry || std::string_view(entry->Name()) != "Address") {
-      Issue(*container, fixture, scene, "Unsupported Fixture Addresses child.");
+      Issue(*container, fixture, scene, "Unsupported Addresses child.");
       continue;
     }
     if (!fixture.dmxAddresses->networks.empty())
@@ -68,12 +71,20 @@ void ReadFixtureAddresses(const tinyxml2::XMLElement &node, Fixture &fixture, Mv
   }
   const auto result = perastage::patch::InspectFixtureAddresses(fixture);
   if (!result) Issue(*container, fixture, scene, result.detail);
-  else fixture.address = result.primary;
+  else if constexpr (requires { fixture.address; }) fixture.address = result.primary;
+}
+void ReadFixtureAddresses(const tinyxml2::XMLElement &node, Fixture &fixture, MvrScene &scene) {
+  ReadAddresses(node, fixture, scene);
+}
+void ReadSupportAddresses(const tinyxml2::XMLElement &node, Support &support, MvrScene &scene) {
+  ReadAddresses(node, support, scene);
 }
 void ScanFixtureAddresses(const tinyxml2::XMLElement &node, MvrScene &scene) {
   Fixture value;
   if (const auto *uuid = node.Attribute("uuid")) value.uuid = uuid;
-  ReadFixtureAddresses(node, value, scene);
+  if (std::string_view(node.Name()) == "Support") {
+    Support support; support.uuid = value.uuid; ReadSupportAddresses(node, support, scene);
+  } else ReadFixtureAddresses(node, value, scene);
 }
 std::vector<MvrExportDiagnostic> CheckFixtureAddressProjection(
     const tinyxml2::XMLElement &root, const MvrScene &scene) {
@@ -82,20 +93,27 @@ std::vector<MvrExportDiagnostic> CheckFixtureAddressProjection(
   const auto fail = [&](const std::string &uuid) {
     diagnostics.push_back({MvrExportDiagnosticCode::StandardDataPreservationBlocked,
         MvrExportDiagnosticSeverity::Error, MvrExportDiagnosticImpact::ExportFailed,
-        true, "Fixture", {}, uuid, "Addresses",
-        "Serialized Fixture Addresses disagree with the canonical scene assignments."});
+        true, "Addresses", {}, uuid, "Addresses",
+        "Serialized Addresses disagree with the canonical scene assignments."});
   };
   const auto visit = [&](auto &&self, const tinyxml2::XMLElement &node) -> void {
     if (std::string_view(node.Name()) == "UserData") return;
-    if (std::string_view(node.Name()) == "Fixture") {
+    if (std::string_view(node.Name()) == "Fixture" || std::string_view(node.Name()) == "Support") {
       const std::string uuid = node.Attribute("uuid") ? node.Attribute("uuid") : "";
-      const auto found = scene.fixtures.find(uuid);
-      if (found != scene.fixtures.end() && found->second.dmxAddresses) {
+      const auto *expected = [&]() -> const std::optional<FixtureDmxAddresses> * {
+        if (std::string_view(node.Name()) == "Fixture" && scene.fixtures.contains(uuid) &&
+            scene.fixtures.at(uuid).dmxAddresses)
+          return &scene.fixtures.at(uuid).dmxAddresses;
+        if (std::string_view(node.Name()) == "Support" && scene.supports.contains(uuid))
+          return &scene.supports.at(uuid).dmxAddresses;
+        return nullptr;
+      }();
+      if (expected) {
         Fixture actual;
         MvrScene evidence;
         ReadFixtureAddresses(node, actual, evidence);
         if (!seen.insert(uuid).second || !evidence.preservationIssues.empty() ||
-            actual.dmxAddresses != found->second.dmxAddresses) fail(uuid);
+            actual.dmxAddresses != *expected) fail(uuid);
       }
     }
     for (auto *child = node.FirstChildElement(); child; child = child->NextSiblingElement())
@@ -104,6 +122,8 @@ std::vector<MvrExportDiagnostic> CheckFixtureAddressProjection(
   visit(visit, root);
   for (const auto &[uuid, fixture] : scene.fixtures)
     if (fixture.dmxAddresses && !seen.contains(uuid)) fail(uuid);
+  for (const auto &[uuid, support] : scene.supports)
+    if (support.dmxAddresses && !seen.contains(uuid)) fail(uuid);
   return diagnostics;
 }
 } // namespace mvr

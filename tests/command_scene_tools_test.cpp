@@ -268,6 +268,31 @@ int main() {
          std::vector<std::string>{convertible.uuid});
   assert(fixtureConversion.mutation.selectionChanged);
 
+  for (const auto *field : {"Focus", "Color", "DMXInvertPan", "DMXInvertTilt", "ProjectColor"}) {
+    auto blocked = BuildFixtureConversionScene();
+    auto &fixture = blocked.fixtures.at("fixture-a");
+    if (std::string(field) == "Focus") fixture.focus = "focus-ref";
+    if (std::string(field) == "Color") fixture.mvrFixtureColorCie = "0.2,0.3,50";
+    if (std::string(field) == "DMXInvertPan") fixture.dmxInvertPan = true;
+    if (std::string(field) == "DMXInvertTilt") fixture.dmxInvertTilt = true;
+    if (std::string(field) == "ProjectColor") fixture.visualColorHex = "#123456";
+    auto second = fixture; second.uuid = "second"; second.focus.clear();
+    second.mvrFixtureColorCie.clear(); second.dmxInvertPan = second.dmxInvertTilt = false;
+    second.visualColorHex.clear(); blocked.fixtures[second.uuid] = second;
+    scene_grouping::ObjectSelection selection; selection.fixtures = {second.uuid, fixture.uuid};
+    const auto selectionBefore = selection;
+    RecordingHost host;
+    ExecutionContext execution{blocked, selection, host};
+    const auto refused = scene_tools::ExecuteFixtureToSupport({{second.uuid, fixture.uuid}}, execution);
+    assert(refused.outcome == Outcome::ValidationError && host.commits == 0);
+    assert(refused.diagnostics.front().code == "scene.convert.unsupported_fixture_field");
+    assert(blocked.fixtures.size() == 2 && blocked.supports.size() == 1);
+    assert(blocked.supports.at("support-b").motorFixtureUuid == "fixture-a");
+    assert(blocked.groupObjects.at("fixture-group").children.front().type == MvrNodeType::Fixture);
+    assert(EqualSelection(selection, selectionBefore));
+    assert(EqualMatrix(blocked.fixtures.at("fixture-a").transform, fixtureWorldBeforeConversion));
+  }
+
   MvrScene unchangedSelectionScene = BuildFixtureConversionScene();
   scene_grouping::ObjectSelection unchangedConversionSelection;
   unchangedConversionSelection.supports = {convertible.uuid};

@@ -1,4 +1,6 @@
 #include "scene_node_operations.h"
+#include "fixture_support_conversion.h"
+#include "fixture_identifier_values.h"
 
 #include <algorithm>
 #include <set>
@@ -122,12 +124,21 @@ ConversionResult ConvertFixtureToSupport(MvrScene &scene,
     return {.error = "support UUID already exists"};
 
   const Fixture &fixture = fixtureIt->second;
-  if (fixture.dmxAddresses && !fixture.dmxAddresses->networks.empty())
-    return {.uuid = fixtureUuid, .error = "Fixture Network assignments are not represented on Support nodes"};
+  if (auto conflict = InspectFixtureToSupport(scene, fixture); !conflict.error.empty())
+    return conflict;
   Support support;
   support.uuid = fixture.uuid;
   support.name = fixture.instanceName;
-  support.gdtfSpec = fixture.gdtfSpec;
+  support.classing = fixture.classing;
+  support.identifierSource = fixture.identifierSource;
+  const auto identity = fixture_identity::Resolve(fixture);
+  support.fixtureIdText = identity.text;
+  support.fixtureIdNumeric = identity.numeric;
+  support.unitNumber = fixture.unitNumber;
+  support.customId = fixture.customId; support.customIdType = fixture.customIdType;
+  support.matrixSource = fixture.matrixSource;
+  support.dmxAddresses = ConversionAddresses(fixture).addresses;
+  support.gdtfSpec = fixture.gdtfSpec.empty() ? fixture.originalMvrGdtfSpec : fixture.gdtfSpec;
   support.gdtfMode = fixture.gdtfMode;
   support.function = fixture.function.empty() ? "Hoist" : fixture.function;
   support.position = fixture.position;
@@ -162,10 +173,10 @@ ConversionResult ConvertFixtureToSupport(MvrScene &scene,
     }
   }
   scene.supports.emplace(fixtureUuid, std::move(support));
+  ConversionResult result{.changed = true, .uuid = fixtureUuid,
+      .clearedMotorFixtureReferences = std::move(clearedReferences)};
   scene.fixtures.erase(fixtureIt);
-  return {.changed = true,
-          .uuid = fixtureUuid,
-          .clearedMotorFixtureReferences = std::move(clearedReferences)};
+  return result;
 }
 
 // Removes typed nodes and recursively prunes empty ancestor groups.

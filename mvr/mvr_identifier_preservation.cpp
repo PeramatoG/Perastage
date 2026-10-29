@@ -62,7 +62,10 @@ std::optional<int> OptionalUnit(const std::optional<MvrIdentifierSource> &source
 void ScanSource(const tinyxml2::XMLElement &node, MvrScene &scene,
                 const std::string &location) {
   if (!IsConsumer(node.Name())) return;
-  for (const auto *name : {"FixtureID", "FixtureIDNumeric", "UnitNumber"}) {
+  const auto names = std::string_view(node.Name()) == "Support"
+      ? std::vector<const char *>{"FixtureID", "FixtureIDNumeric", "UnitNumber", "CustomId", "CustomIdType"}
+      : std::vector<const char *>{"FixtureID", "FixtureIDNumeric", "UnitNumber"};
+  for (const auto *name : names) {
     const auto *element = node.FirstChildElement(name);
     if (!element) continue;
     int value = 0;
@@ -119,6 +122,16 @@ std::vector<MvrExportDiagnostic> CheckProjection(
       if (kind == "Truss") unitOf(scene.trusses);
       if (kind == "Support") unitOf(scene.supports);
       if (kind == "SceneObject") unitOf(scene.sceneObjects);
+      if (kind == "Support" && owns) {
+        const auto &support = scene.supports.at(uuid);
+        for (const auto &[name, expected] : {std::pair{"CustomIdType", support.customIdType},
+                                           std::pair{"CustomId", support.customId}}) {
+          const auto *element = node.FirstChildElement(name);
+          if ((element != nullptr) != (expected != 0) ||
+              (element && (!ParseInteger(Text(element), unitValue) || unitValue != expected)))
+            result.push_back(Block(uuid, "Serialized Support custom identifier changed."));
+        }
+      }
       if (!owns || !seen.insert(uuid).second || found == ids.end() ||
           !ValidateElement(node, kind == "Fixture") ||
           Text(node.FirstChildElement("FixtureID")) != found->second.first ||
