@@ -17,7 +17,8 @@
 #include <fstream>
 namespace fs = std::filesystem;
 namespace {
-constexpr auto uuid = "51000000-0000-4000-8000-000000000002";
+// The wire name also equals this Support UUID, exercising accidental UUID remapping.
+constexpr auto uuid = "51000000-0000-4000-8000-000000000001";
 std::string Source(const std::string &addresses) {
   return "<GeneralSceneDescription verMajor='1' verMinor='6' provider='SupportTest' providerVersion='1'>"
       "<Scene><Layers><Layer uuid='11000000-0000-4000-8000-000000000001' name='Rig'>"
@@ -105,9 +106,12 @@ void RunSupportAddressCases(const fs::path &dir, const FixtureNetworkTestService
     layerdomain::AssignLayer(changed, anchor, support.layerUuid); changed.fixtures[anchor.uuid] = anchor;
     scene_grouping::ObjectSelection selection; selection.supports = {uuid}; selection.fixtures = {anchor.uuid};
     assert(scene_grouping::GroupSelection(changed, selection).changed);
+    assert(changed.supports.at(uuid).transform.o == support.transform.o);
+    assert(changed.supports.at(uuid).dmxAddresses == support.dmxAddresses);
     Export(changed, dir / "support-grouped.mvr");
     assert(scene_grouping::RemoveSelectionFromGroup(changed, selection).changed);
     layerdomain::AssignLayer(changed, changed.supports.at(uuid), layerdomain::DefaultLayerUuid());
+    assert(changed.supports.at(uuid).transform.o == support.transform.o);
     Export(changed, dir / "support-layer.mvr");
     auto merged = scene;
     const auto plan = mvr::AnalyzeImportedSceneMerge(merged, scene);
