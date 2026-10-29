@@ -107,7 +107,7 @@ parent once. Export preserves unedited numeric source values, repairs locals on
 a private snapshot after world-space edits, and may omit an identity Layer Matrix.
 Layer merge equality includes the authored matrix values. Non-elevation,
 malformed or ambiguous layer matrices remain fail-closed.</p>
-<p>Fixture owns one optional standard Addresses collection with ordered DMX Address
+<p>Fixture and Support each own one optional standard Addresses collection with ordered DMX Address
 and Network lists (Address children precede Network), retaining container
 presence, optional break attributes and authored values. Missing break means 0;
 break IDs identify assignments and never universes. Fixture.address is the
@@ -126,11 +126,26 @@ modify this list. Names are not UUID references and are not remapped at merge.
 Known-invalid or ambiguous GDTF references block publication; unavailable local
 GDTF evidence retains metadata without guessing and reports ResourceMissing at
 publication, preventing a dummy GDTF from invalidating wire references. Core rebind validation rejects unsafe definition changes before
-publishing. Malformed/unknown data, other address consumers and unsupported
+publishing. Support uses the same reference policy and XML assignment writer;
+its Addresses follow GDTFMode and precede FixtureID. Authored Support GDTF
+bindings also require an available resource and explicit mode, even without
+Network; a dangling mode cannot be omitted or replaced by Default. Malformed/unknown data,
+other address consumers and unsupported
 extensions remain guarded. Network geometry/hostname control whitespace also
 fails closed because the XML writer cannot retain its character-reference form.
-Fixture-to-Support conversion rejects Network-bearing fixtures before mutation;
-the target consumer remains unsupported. No network settings are applied.
+Fixture-to-Support conversion preserves the complete collection, Classing,
+standard identifiers (including CustomId/CustomIdType presence and explicit
+zero), GDTF binding, position,
+layer/group ownership and numeric matrix source. Legacy primary patch strings
+are materialized through the existing patch policy. Focus, Fixture Color,
+Pan/Tilt inversion, explicit project color/symbol/power or unresolved physical
+property overrides and retained
+source conflicts or missing required GDTF mode/binding return a structured
+field-specific refusal before mutation or
+Undo publication. Unresolved scene preservation evidence also blocks conversion:
+its source UUIDs survive merge remapping and may contain opaque references. Derived fixture metadata is not a new Support standard field;
+existing hoist load/function defaults remain intentional conversion semantics.
+No network settings are applied.
 Published Universe.Address strings and signed break IDs are preserved even where
 the unchanged pinned XSD&#39;s integer/nonnegative restrictions disagree.</p>
 <p>Root <code>UserData</code> precedes <code>Scene</code>, as required by the official XSD. Every exported

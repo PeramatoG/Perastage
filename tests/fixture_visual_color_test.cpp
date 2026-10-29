@@ -53,7 +53,13 @@ static void TestResolution() {
 
   Fixture missing;
   PersistAutomaticFixtureVisualColor(missing, "#abcdef");
-  assert(missing.visualColorHex == "#ABCDEF");
+  assert(missing.visualColorHex.empty());
+  assert(missing.visualColorState == FixtureProjectColorState::Missing);
+  assert(missing.automaticVisualColorHex == "#ABCDEF");
+  PersistAutomaticFixtureVisualColor(missing, "#123456");
+  assert(missing.automaticVisualColorHex == "#ABCDEF");
+  assert(ResolveFixturePresentationColor(missing).source ==
+         FixtureVisualColorSource::AutomaticFixtureType);
 }
 
 // Verifies deterministic uniform, mixed, empty, and unresolved aggregation.

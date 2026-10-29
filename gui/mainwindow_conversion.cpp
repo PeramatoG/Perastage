@@ -59,7 +59,15 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
   const auto result = perastage::command::scene_tools::ExecuteFixtureToSupport(
       {.fixtureUuids = convertible}, context);
   if (!result.Success()) {
-    wxMessageBox(_("The selected fixtures cannot be converted."),
+    wxString message = _("The selected fixtures cannot be converted.");
+    for (const auto &diagnostic : result.diagnostics) {
+      if (diagnostic.message.empty())
+        continue;
+      message = wxString::Format(_("The selected fixtures cannot be converted: %s"),
+                                 wxString::FromUTF8(diagnostic.message).c_str());
+      break;
+    }
+    wxMessageBox(message,
                  _("Convert to Hoist"), wxOK | wxICON_INFORMATION);
     return;
   }

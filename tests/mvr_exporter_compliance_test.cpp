@@ -544,6 +544,7 @@ int main(int argc, char **argv) {
   sup.uuid = "sup-1";
   sup.name = "Hoist 1";
   sup.gdtfSpec = (tempDir / "A" / "Same.gdtf").generic_string();
+  sup.gdtfMode = "Default"; // The actual authored mode in the synthetic GDTF.
   sup.motorName = "ChainMaster D8+";
   sup.motorManufacturer = "ChainMaster";
   sup.motorModel = "D8+";
@@ -1289,6 +1290,7 @@ int main(int argc, char **argv) {
   const std::string recoveredSupportUuid = supportNode->Attribute("uuid");
   assert(CanonicalizeUuid(recoveredSupportUuid) == recoveredSupportUuid);
   assert(supportNode->FirstChildElement("Geometries") != nullptr);
+  assert(std::string(supportNode->FirstChildElement("GDTFMode")->GetText()) == sup.gdtfMode);
   assert(supportNode->FirstChildElement("UserData") == nullptr);
   assert(supportNode->FirstChildElement("SupportInfo") == nullptr);
   assert(supportNode->FirstChildElement("HoistInfo") == nullptr);

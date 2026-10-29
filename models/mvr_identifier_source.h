@@ -5,4 +5,6 @@
 struct MvrIdentifierSource {
   int selectionIdAtImport = 0;
   bool unitNumberPresent = false;
+  bool customIdPresent = false;
+  bool customIdTypePresent = false;
 };

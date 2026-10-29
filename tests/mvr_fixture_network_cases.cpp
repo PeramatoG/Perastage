@@ -41,10 +41,12 @@ void RunFixtureNetworkCases(const fs::path &dir, const MvrScene &scene,
                            const FixtureNetworkTestServices &services) {
   auto &config = ConfigManager::Get();
   auto conversionScene = scene;
+  conversionScene.fixtures.at(multi).focus = "authored-focus";
   const auto conversion = scene_node_operations::ConvertFixtureToSupport(conversionScene, multi);
   assert(!conversion.changed && conversion.uuid == multi && !conversion.error.empty());
   assert(conversionScene.supports.empty());
   assert(conversionScene.fixtures.at(multi).dmxAddresses == scene.fixtures.at(multi).dmxAddresses);
+  conversionScene.fixtures.at(multi).focus.clear();
   services.exportScene(conversionScene, dir / "network-conversion-blocked.mvr");
   for (const auto &[name, content] : std::vector<std::pair<std::string, std::string>>{
       {"none", ""}, {"empty", "<Addresses/>"},

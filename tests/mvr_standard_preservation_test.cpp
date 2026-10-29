@@ -51,8 +51,13 @@ int main() {
   assert(Scan("<Layer><Matrix>{1,0,0}{0,1,0}{0,0,1}{0,0,1000}</Matrix></Layer>").preservationIssues.empty());
   assert(Scan("<Fixture><Addresses><Address break='7'>1</Address><Address>513</Address></Addresses></Fixture>").preservationIssues.empty());
   assert(Scan("<Fixture><Addresses><Network geometry='ethernet_1' ipv4='192.168.1.1'/></Addresses></Fixture>").preservationIssues.empty());
-  for (const auto *type : {"Truss", "Support", "SceneObject", "VideoScreen", "Projector"})
+  for (const auto *type : {"Truss", "SceneObject", "VideoScreen", "Projector"})
     assert(!Scan(std::string("<") + type + "><Addresses><Network geometry='ethernet_1'/></Addresses></" + type + ">").preservationIssues.empty());
+  assert(Scan("<Support><Addresses><Network geometry='ethernet_1'/></Addresses></Support>").preservationIssues.empty());
+  for (const auto *source : {"<Support><CustomId future='x'>3</CustomId></Support>",
+      "<Support><CustomId>3</CustomId><CustomId>4</CustomId></Support>",
+      "<Support><CustomIdType>2147483648</CustomIdType></Support>"})
+    assert(!Scan(source).preservationIssues.empty());
   auto ordinary = Scan("<Fixture><Function>Key</Function><DMXInvertPan>true</DMXInvertPan><Addresses><Address break='0'>1025</Address></Addresses></Fixture>");
   assert(ordinary.preservationIssues.empty());
   // Whitespace-only optional containers have the same empty standard meaning.

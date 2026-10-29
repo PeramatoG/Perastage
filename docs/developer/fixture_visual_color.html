@@ -72,9 +72,14 @@ changing <code>mvrFixtureColorHex</code>.</p>
 <p><code>ResolveFixturePresentationColor</code> is the fixture-level boundary used by the 3D
 opaque and selection paths, fixture summaries, and shared layout legends.
 Layout preview, print, and PDF legends consume the shared legend result.
-Automatic persistence only changes <code>Missing</code> fixtures, so refresh and scene
-synchronization preserve <code>ExplicitEmpty</code>; save and reload retain both the state
-and any canonical recovered project value.</p>
+GDTF insertion stores dictionary/model defaults in <code>automaticVisualColorHex</code>.
+Automatic persistence fills only a missing automatic candidate on a <code>Missing</code>
+fixture; it never promotes a fallback to project-instance ownership. Refresh and
+scene synchronization preserve <code>ExplicitEmpty</code>, existing automatic candidates,
+and authored project values. Save and reload retain the ownership distinction.
+Fixture-to-Support conversion can discard an automatic presentation fallback,
+but refuses project-instance values (including legacy values with uncertain
+provenance), explicit-empty state, and official MVR <code>Fixture/Color</code> independently.</p>
 <p>For a legend or summary group, equal normalized resolved colors produce that
 color. Different valid colors, or valid and intentional-empty values together,
 produce the deterministic mixed neutral/no-fill presentation. A group of only

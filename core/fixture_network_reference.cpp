@@ -29,14 +29,9 @@ std::optional<WireNames> ReadWireNames(const std::filesystem::path &path) {
   return names;
 }
 Result InspectReferences(const Fixture &fixture, const std::filesystem::path &path) {
-  if (auto result = Validate(fixture); !result) return result;
-  if (!fixture.dmxAddresses || fixture.dmxAddresses->networks.empty()) return {};
-  return CheckReferences(fixture, ReadWireNames(path));
+  return InspectNodeReferences(fixture, path);
 }
 Result Rebind(Fixture &fixture, const std::string &reference, const std::filesystem::path &path) {
-  if (auto binding = CheckBindingReference(fixture, reference); !binding) return binding;
-  auto result = InspectReferences(fixture, path);
-  if (result) fixture.gdtfSpec = reference;
-  return result;
+  return RebindNode(fixture, reference, path);
 }
 }

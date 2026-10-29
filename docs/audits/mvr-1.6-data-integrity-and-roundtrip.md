@@ -97,8 +97,9 @@ cannot establish it.
    verifies target UUIDs, required Geometries and prohibited Focus child lists.
 3. **Fixture scalar omissions**: Function, DMXInvertPan/DMXInvertTilt and
    CustomId/CustomIdType were parsed in the base reader but not written. They
-   are now written in schema order. Optional false/zero values may be omitted
-   where semantically default; source lexical spelling/presence is not retained.
+   are now written in schema order. Optional false inversion flags may be omitted where semantically default.
+   The Support continuation now retains CustomId/CustomIdType presence, including
+   explicit zero, on Fixture and Support; integer spelling remains canonical.
 4. **CIE color drift**: base CIE→8-bit RGB→CIE conversion loses luminance and
    gamut. Fixture retains authored CIE text plus the imported display color;
    unchanged display color writes original CIE. An explicitly changed display
@@ -335,7 +336,7 @@ integer ranges protected and explicit mutation/legacy limits below. Detailed lim
 | 30 | `Support/GDTFSpec` | 0 or 1 | p | p | p | p | p | p | p | F,X | P | P0/r |
 | 30 | `Support/GDTFMode` | 0 or 1 | p | p | p | p | p | p | p | F,X | P | P0/r |
 | 30 | `Support/CastShadow` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
-| 30 | `Support/Addresses` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
+| 30 | `Support/Addresses` | 0 or 1 | Y | Y | p | Y | Y | Y | Y | X | V | P0/r |
 | 30 | `Support/Alignments` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 30 | `Support/CustomCommands` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 30 | `Support/Overwrites` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
@@ -343,8 +344,8 @@ integer ranges protected and explicit mutation/legacy limits below. Detailed lim
 | 30 | `Support/FixtureID` | 1 | Y | Y | N | Y | Y | Y | Y | I | V | P0/j |
 | 30 | `Support/FixtureIDNumeric` | 1 | Y | Y | N | Y | Y | Y | Y | I | V | P0/j |
 | 30 | `Support/UnitNumber` | 0 or 1 | Y | Y | N | Y | Y | Y | Y | I | V | P0/j |
-| 30 | `Support/CustomIdType` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
-| 30 | `Support/CustomId` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
+| 30 | `Support/CustomIdType` | 0 or 1 | Y | Y | p | Y | Y | Y | Y | X | V | P0/r |
+| 30 | `Support/CustomId` | 0 or 1 | Y | Y | p | Y | Y | Y | Y | X | V | P0/r |
 | 30 | `Support/ChildList` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 31 | `VideoScreen/@uuid` | R | N | B | N | B | B | B | B | K | B | P0/b |
 | 31 | `VideoScreen/@name` | Empty | N | B | N | B | B | B | B | K | B | P0/b |
@@ -991,8 +992,9 @@ ID/UnitNumber allocation. Adding an explicitly present optional zero to a field
 that was absent needs a future typed presence-edit operation; nonzero edits and
 unchanged authored presence are covered. Missing required fields in incomplete
 legacy input still use documented compatibility behavior, not a complete legacy
-contract. CustomId/CustomIdType, multipatch and other unrepresented identifiers
-remain partial or blocked. Foreign-provider metadata/reference policy remains
+contract. The Support continuation below adds bounded Fixture/Support
+CustomId/CustomIdType presence. Other consumers, multipatch and unrepresented
+identifiers remain partial or blocked. Foreign-provider metadata/reference policy remains
 unfinished. Older PSTGs whose canonical scene was already renumbered do not
 automatically recover alternative values from provider metadata; explicit
 numbering edits are required if that scene does not express the intended values.
@@ -1302,8 +1304,7 @@ Core reference evidence distinguishes unavailable GDTF, missing/ambiguous wire
 names and malformed assignment values. Rebind, fixture replacement, editor
 source changes and merge definition selection validate before publication;
 import definition substitutions retain the original on conflict. Fixture-to-Support
-conversion rejects Network-bearing fixtures atomically until the target model can
-represent those assignments. Pure resource
+conversion now preserves those assignments under the Support continuation below. Pure resource
 relocation and byte-preserving derivative/consolidation paths retain the names.
 Canonical validation also checks directly edited bindings against available
 GDTFs. No automatic geometry substitution or original-resource mutation occurs.
@@ -1325,3 +1326,50 @@ checks**, all four mandatory guards, license/document checks, strict translation
 and Linux x86_64 Debug application/CLI builds passed. CLI help smoke passed.
 Hosted Linux/Windows/macOS results are recorded in the PR; no Release or external
 application interoperability claim is made.
+
+## Support Addresses and safe Fixture conversion
+
+Base: latest main including #2495. Official 1.6 Tables 29–30 and 49–52, plus the
+unchanged pinned XSD, admit optional Support Addresses after GDTFMode and before
+identifiers. Geometries and ChainLength remain required. The existing ordered
+Address/Network representation, parser, validators and XML writer are shared;
+Support owns its optional collection without a legacy patch string. Absent and
+empty containers, break spelling/value/order, case-sensitive wire names and all
+supported optional Network attributes survive. The Fixture Network specification
+conflicts and attribute-control limitation above apply unchanged to Support.
+
+Before production changes, a baseline reproduction converted both one-break and
+three-break Fixtures successfully while losing their entire patch, Classing,
+FixtureID, numeric identifier, UnitNumber presence and numeric Matrix provenance.
+Conversion now copies standard Support equivalents, including CustomId/CustomIdType,
+retains UUID, GDTF binding, position, layer/hierarchy and world/local placement,
+and uses the shared identifier/primary-patch policy. Source conflicts, Focus,
+Fixture Color, true Pan/Tilt inversion, explicit project color/symbol/power and
+unresolved manual/legacy physical overrides produce structured field-specific refusals before any mutation or
+Undo publication. This source-conflict gate is scene-wide because issue UUIDs
+retain their source identity after merge and opaque references cannot be
+reassigned safely. No unsupported field is hidden in an extension. Existing
+hoist load/function defaults are intentional application semantics, not new
+standard equivalents for Fixture-only fields.
+
+Support wire validation distinguishes malformed/missing geometry, unknown and
+ambiguous names, absent binding and unavailable GDTF evidence. Names never enter
+UUID remapping. Unavailable resources retain metadata but block publication with
+ResourceMissing rather than substituting a definition. Authored Support GDTF
+bindings require an available resource and explicit mode even without Network;
+a dangling mode is protected against omission or Default substitution. Explicit Core rebinding
+validates before publishing; normal table edits retain the collection by value.
+Malformed/unknown assignments, other node consumers, multipatch, Symbol-based
+Support geometry, Alignments, Connections and unrelated guards remain protected.
+Custom identifiers preserve optional scalar presence, including explicit zero on
+Fixture, Support and conversion; malformed,
+duplicate, attributed or out-of-range source scalars remain blockers.
+
+Independent Python ZIP/XML comparisons cover source assignments, ordered children,
+standard identifiers, binary64 matrix values, GDTF/direct-model bytes, three PSTG
+cycles and same-state standalone/PSTG payload order. Further cases exercise merge
+collisions, clipboard, hierarchy/layer edits, Undo/Redo, conversion and atomic
+serialization failure retaining the previous PSTG. Existing Fixture regressions
+remain active. Platform/check results are recorded in the PR; no external
+application interoperability is claimed. Next: the remaining address consumers,
+then Protocol associations with their own bounded ownership/reference audit.

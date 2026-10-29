@@ -40,6 +40,12 @@ bool ParseInteger(const std::string &text, int &value) {
   return result.ec == std::errc{} && result.ptr == input.data() + input.size();
 }
 
+std::optional<int> ReadOptionalInteger(const tinyxml2::XMLElement &node, const char *name) {
+  const auto *element = node.FirstChildElement(name);
+  int value = 0;
+  return element && ParseInteger(Text(element), value) ? std::optional<int>(value) : std::nullopt;
+}
+
 void Read(const tinyxml2::XMLElement &node, std::string &text, int &numeric,
           int &unit, std::optional<MvrIdentifierSource> &source) {
   text = Text(node.FirstChildElement("FixtureID"));
@@ -49,7 +55,8 @@ void Read(const tinyxml2::XMLElement &node, std::string &text, int &numeric,
     ParseInteger(text, numeric); // Explicit compatibility for older incomplete sources.
   const auto *unitNode = node.FirstChildElement("UnitNumber");
   if (unitNode) ParseInteger(Text(unitNode), unit);
-  source = MvrIdentifierSource{numeric, unitNode != nullptr};
+  source = MvrIdentifierSource{numeric, unitNode != nullptr,
+      node.FirstChildElement("CustomId") != nullptr, node.FirstChildElement("CustomIdType") != nullptr};
 }
 
 std::optional<int> OptionalUnit(const std::optional<MvrIdentifierSource> &source,
@@ -62,7 +69,10 @@ std::optional<int> OptionalUnit(const std::optional<MvrIdentifierSource> &source
 void ScanSource(const tinyxml2::XMLElement &node, MvrScene &scene,
                 const std::string &location) {
   if (!IsConsumer(node.Name())) return;
-  for (const auto *name : {"FixtureID", "FixtureIDNumeric", "UnitNumber"}) {
+  const auto names = (std::string_view(node.Name()) == "Support" || std::string_view(node.Name()) == "Fixture")
+      ? std::vector<const char *>{"FixtureID", "FixtureIDNumeric", "UnitNumber", "CustomId", "CustomIdType"}
+      : std::vector<const char *>{"FixtureID", "FixtureIDNumeric", "UnitNumber"};
+  for (const auto *name : names) {
     const auto *element = node.FirstChildElement(name);
     if (!element) continue;
     int value = 0;
@@ -119,6 +129,16 @@ std::vector<MvrExportDiagnostic> CheckProjection(
       if (kind == "Truss") unitOf(scene.trusses);
       if (kind == "Support") unitOf(scene.supports);
       if (kind == "SceneObject") unitOf(scene.sceneObjects);
+      if (kind == "Support" && owns) {
+        const auto &support = scene.supports.at(uuid);
+        for (const auto &[name, expected] : {std::pair{"CustomIdType", support.customIdType},
+                                           std::pair{"CustomId", support.customId}}) {
+          const auto *element = node.FirstChildElement(name);
+          if ((element != nullptr) != expected.has_value() ||
+              (element && (!ParseInteger(Text(element), unitValue) || unitValue != *expected)))
+            result.push_back(Block(uuid, "Serialized Support custom identifier changed."));
+        }
+      }
       if (!owns || !seen.insert(uuid).second || found == ids.end() ||
           !ValidateElement(node, kind == "Fixture") ||
           Text(node.FirstChildElement("FixtureID")) != found->second.first ||

@@ -52,6 +52,7 @@ struct FixtureValues {
   bool dmxInvertTilt = false;
   int customId = 0;
   int customIdType = 0;
+  bool customIdPresent = false, customIdTypePresent = false;
 };
 
 struct ObjectValues {
@@ -105,6 +106,8 @@ struct SupportValues {
   std::string fixtureId;
   int fixtureIdNumeric = 0;
   std::optional<int> unitNumber;
+  std::optional<FixtureDmxAddresses> dmxAddresses;
+  std::optional<int> customId, customIdType;
 };
 
 struct SceneObjectValues {

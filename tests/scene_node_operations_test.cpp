@@ -1,6 +1,7 @@
 #include "scene_node_operations.h"
 
 #include "matrixutils.h"
+#include "fixture_patch_service.h"
 
 #include <cassert>
 #include <cmath>
@@ -105,6 +106,36 @@ int main() {
   assert(MatrixEqual(scene.supports["fixture"].localTransform, fixtureLocal));
   assert(scene.groupObjects["group"].children.front().type ==
          MvrNodeType::Support);
+
+  for (const int count : {0, 1, 3}) {
+    auto converted = GroupedScene();
+    auto &fixture = converted.fixtures.at("fixture");
+    fixture.classing = "authored-class";
+    fixture.fixtureIdText = "Motor.07"; fixture.fixtureIdNumeric = 17; fixture.fixtureId = 17;
+    fixture.identifierSource = MvrIdentifierSource{17, true}; fixture.unitNumber = 0;
+    fixture.customId = 3; fixture.customIdType = 2;
+    fixture.dmxAddresses.emplace();
+    for (int index = 0; index < count; ++index)
+      fixture.dmxAddresses->entries.push_back({std::to_string(index), std::to_string(17 + index * 512)});
+    fixture.dmxAddresses->networks.push_back({.geometry = "ethernet_1", .dhcp = "false"});
+    fixture.gdtfSpec = "original.gdtf"; fixture.gdtfMode = "Mode";
+    MvrMatrixSource numericSource{}; numericSource.values[9] = 1234.567890123;
+    numericSource.projection = fixture.localTransform; fixture.matrixSource = numericSource;
+    fixture.address = perastage::patch::InspectFixtureAddresses(fixture).primary;
+    const auto before = fixture;
+    const auto result = scene_node_operations::ConvertFixtureToSupport(converted, fixture.uuid);
+    assert(result.changed);
+    const auto &support = converted.supports.at("fixture");
+    assert(support.dmxAddresses == before.dmxAddresses && support.classing == before.classing);
+    assert(support.gdtfSpec == before.gdtfSpec && support.fixtureIdText == before.fixtureIdText);
+    assert(support.fixtureIdNumeric == 17 && support.identifierSource->unitNumberPresent);
+    assert(support.customId == 3 && support.customIdType == 2);
+    assert(support.matrixSource->values == before.matrixSource->values);
+    assert(MatrixEqual(support.transform, before.transform) && MatrixEqual(support.localTransform, before.localTransform));
+  }
+  auto legacy = GroupedScene(); legacy.fixtures.at("fixture").address = "2.17";
+  assert(scene_node_operations::ConvertFixtureToSupport(legacy, "fixture").changed);
+  assert(legacy.supports.at("fixture").dmxAddresses->entries.front().value == "529");
 
   MvrScene collisionScene;
   Fixture collisionFixture;

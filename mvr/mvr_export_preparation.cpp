@@ -1,3 +1,4 @@
+#include "fixture_identifier_values.h"
 /*
  * This file is part of Perastage.
  * Copyright (C) 2026 Luisma Peramato
@@ -51,15 +52,8 @@ std::string TrimAscii(std::string value) {
 
 // Imported standard fields remain independent of the application's selection alias.
 FixtureExportId ResolveFixtureExportId(const Fixture &fixture) {
-  if (fixture.identifierSource) {
-    if (fixture.fixtureId != fixture.identifierSource->selectionIdAtImport)
-      return {std::to_string(fixture.fixtureId), fixture.fixtureId};
-    return {fixture.fixtureIdText, fixture.fixtureIdNumeric};
-  }
-  const int numeric = fixture.fixtureId != 0 ? fixture.fixtureId : fixture.fixtureIdNumeric;
-  const bool aliasEdited = fixture.fixtureId != 0 && fixture.fixtureId != fixture.fixtureIdNumeric;
-  const auto text = aliasEdited ? std::to_string(numeric) : fixture.fixtureIdText;
-  return {text.empty() && numeric != 0 ? std::to_string(numeric) : text, numeric};
+  const auto values = fixture_identity::Resolve(fixture);
+  return {values.text, values.numeric};
 }
 
 // Builds the normalized fixture type key used for UnitNumber grouping.

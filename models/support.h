@@ -84,6 +84,9 @@ struct Support {
     std::optional<MvrMatrixSource> matrixSource;
     bool hasLocalTransform = false;
     std::string parentGroupUuid;
+    std::optional<FixtureDmxAddresses> dmxAddresses; // Shared standard Addresses ownership.
+    std::optional<int> customId;
+    std::optional<int> customIdType;
 };
 
 inline const std::array<std::string, 5> &GetHoistFunctionOptions() {

@@ -31,6 +31,8 @@ Only include completed and verified features.
 
 ## MVR / GDTF
 
+- Support nodes now retain DMX and network assignments through project saves and MVR export; Fixture-to-Support conversion preserves compatible data and refuses conversions that would discard authored information.
+
 - Fixture network interface assignments now survive MVR import, project save/reopen and export, including alongside multiple DMX breaks and through patch edits.
 
 - MVR fixtures now retain all DMX-break assignments through project saves and exports; editing the primary patch leaves other breaks unchanged.

@@ -1806,6 +1806,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     values.function = f.function;
     values.dmxInvertPan = f.dmxInvertPan;
     values.dmxInvertTilt = f.dmxInvertTilt;
+    values.customIdPresent = f.identifierSource && f.identifierSource->customIdPresent;
+    values.customIdTypePresent = f.identifierSource && f.identifierSource->customIdTypePresent;
     values.customId = f.customId;
     values.customIdType = f.customIdType;
     values.fixtureId = fixtureExportId.first;
@@ -2027,6 +2029,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
 
   auto exportSupport = [&](tinyxml2::XMLElement *parent, const Support &s) {
     mvr_xml_serialization::SupportValues values;
+    values.dmxAddresses = s.dmxAddresses;
+    values.customId = s.customId; values.customIdType = s.customIdType;
     values.object = {s.uuid, s.name, s.classing};
     values.matrix = s.localTransform;
     values.position = resolveObjectPosition(s.uuid);
