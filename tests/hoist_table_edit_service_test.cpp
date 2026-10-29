@@ -92,6 +92,9 @@ Support MakeSupport(const std::string &uuid) {
   support.dummyPreset = "Preset";
   support.loadKg = 100.0f;
   support.chainLength = 5.0f;
+  support.gdtfSpec = "authored.gdtf"; support.gdtfMode = "Mode";
+  support.dmxAddresses = FixtureDmxAddresses{{{std::nullopt, "17"}, {std::string("+007"), "2049"}},
+      {{.geometry = "Ethernet_A", .dhcp = std::string("false"), .hostname = std::string()}}};
   return support;
 }
 
@@ -172,6 +175,8 @@ void RunCases(wxWindow *parent) {
   const Support &edited = adapter.scene.supports.at("a");
   assert(result.anyChanged && adapter.undoCount == 1);
   assert(edited.name == "Renamed" && edited.function == "Motor");
+  assert(edited.dmxAddresses == MakeSupport("a").dmxAddresses);
+  assert(edited.gdtfSpec == "authored.gdtf" && edited.gdtfMode == "Mode");
   assert(edited.layer == "New layer" && edited.positionName == "LX2");
   assert(edited.motorNameSource == "Manual" && edited.capacitySource == "Manual");
   assert(edited.weightSource == "Manual" && edited.hoistFunctionSource == "Manual");
@@ -216,6 +221,8 @@ void RunCases(wxWindow *parent) {
   result = HoistTableEditService::UpdateSceneData(
       adapter, {table.get(), {"a", "b"}, pending});
   assert(result.anyChanged && adapter.undoCount == undoBefore + 1);
+  for (const auto &[uuid, support] : adapter.scene.supports)
+    assert(support.dmxAddresses == MakeSupport(uuid).dmxAddresses);
 }
 
 } // namespace
