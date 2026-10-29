@@ -256,8 +256,8 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
         if (projectIdentifiersIt != projectFixtureIdentifiersByUuid.end())
           fixture.fixtureId = projectIdentifiersIt->second.fixtureId;
         fixture.identifierSource->selectionIdAtImport = fixture.fixtureId;
-        intOf(node, "CustomId", fixture.customId);
-        intOf(node, "CustomIdType", fixture.customIdType);
+        fixture.customId = mvr_identifiers::ReadOptionalInteger(*node, "CustomId").value_or(0);
+        fixture.customIdType = mvr_identifiers::ReadOptionalInteger(*node, "CustomIdType").value_or(0);
 
         fixture.gdtfSpec = textOf(node, "GDTFSpec");
         const std::string rawGdtfSpec = fixture.gdtfSpec;
@@ -773,12 +773,8 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
                          const std::string &parentGroupUuid) {
         Support support;
         mvr_identifiers::Read(*node, support);
-        if (auto *id = node->FirstChildElement("CustomId")) {
-          int value = 0; id->QueryIntText(&value); support.customId = value;
-        }
-        if (auto *id = node->FirstChildElement("CustomIdType")) {
-          int value = 0; id->QueryIntText(&value); support.customIdType = value;
-        }
+        support.customId = mvr_identifiers::ReadOptionalInteger(*node, "CustomId");
+        support.customIdType = mvr_identifiers::ReadOptionalInteger(*node, "CustomIdType");
         support.uuid =
             resolveStableUuid("Support", node, layerName, nodeTransform);
         ReadSupportAddresses(*node, support, scene);

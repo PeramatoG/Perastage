@@ -13,6 +13,7 @@ namespace tinyxml2 { class XMLElement; }
 
 namespace mvr_identifiers {
 bool ParseInteger(const std::string &text, int &value);
+std::optional<int> ReadOptionalInteger(const tinyxml2::XMLElement &node, const char *name);
 void Read(const tinyxml2::XMLElement &node, std::string &text, int &numeric,
           int &unit, std::optional<MvrIdentifierSource> &source);
 template <typename Object>

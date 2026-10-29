@@ -40,6 +40,12 @@ bool ParseInteger(const std::string &text, int &value) {
   return result.ec == std::errc{} && result.ptr == input.data() + input.size();
 }
 
+std::optional<int> ReadOptionalInteger(const tinyxml2::XMLElement &node, const char *name) {
+  const auto *element = node.FirstChildElement(name);
+  int value = 0;
+  return element && ParseInteger(Text(element), value) ? std::optional<int>(value) : std::nullopt;
+}
+
 void Read(const tinyxml2::XMLElement &node, std::string &text, int &numeric,
           int &unit, std::optional<MvrIdentifierSource> &source) {
   text = Text(node.FirstChildElement("FixtureID"));

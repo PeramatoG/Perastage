@@ -68,18 +68,26 @@ void RunSupportAddressCases(const fs::path &dir, const FixtureNetworkTestService
       "<Network geometry='wireless_1' dhcp='false' hostname=''/><Network geometry='" +
       std::string("51000000-0000-4000-8000-000000000001") + "' dhcp='on' hostname='Rig.Left'/></Addresses>";
   for (const auto &[name, content] : std::vector<std::pair<std::string, std::string>>{
-      {"none", ""}, {"empty", "<Addresses/>"}, {"zero", "<Addresses/>"},
+      {"none", ""}, {"empty", "<Addresses/>"}, {"zero", "<Addresses/>"}, {"split", "<Addresses/>"},
       {"single", "<Addresses><Address>17</Address></Addresses>"},
       {"multi", "<Addresses><Address break='0'>17</Address><Address break='19'>4097</Address></Addresses>"},
       {"only", "<Addresses><Network geometry='ethernet_1'/></Addresses>"},
       {"ipv6", "<Addresses><Network geometry='wireless_1' ipv6='2001:DB8::A'/></Addresses>"}, {"mixed", mixed}}) {
     const auto stem = "support-" + name;
-    const auto source = name == "zero" ? Source(content, 0, 0) : Source(content); Schema(source);
+    auto source = name == "zero" ? Source(content, 0, 0) : Source(content);
+    if (name == "split") {
+      source.replace(source.find("<CustomId>3</CustomId>"), std::string("<CustomId>3</CustomId>").size(),
+          "<CustomId>1<!-- split -->7</CustomId>");
+      source.replace(source.find("<CustomIdType>2</CustomIdType>"), std::string("<CustomIdType>2</CustomIdType>").size(),
+          "<CustomIdType><![CDATA[2]]>3</CustomIdType>");
+    }
+    Schema(source);
     Archive(dir / (stem + "-source.mvr"), source, services);
     const auto scene = services.import(dir / (stem + "-source.mvr"));
     assert(scene.preservationIssues.empty());
     const auto &support = scene.supports.at(uuid);
-    assert(support.fixtureIdText == "Motor.07" && support.customId == (name == "zero" ? 0 : 3) && support.customIdType == (name == "zero" ? 0 : 2));
+    assert(support.fixtureIdText == "Motor.07" && support.customId == (name == "zero" ? 0 : name == "split" ? 17 : 3) &&
+        support.customIdType == (name == "zero" ? 0 : name == "split" ? 23 : 2));
     assert(support.matrixSource);
     Export(scene, dir / (stem + ".mvr"));
     std::string xml;

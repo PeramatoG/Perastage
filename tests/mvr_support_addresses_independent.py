@@ -42,7 +42,7 @@ def matrix(node):
 
 
 def verify_support_cases(directory, root, package):
-    for name in ('none', 'empty', 'zero', 'single', 'multi', 'only', 'ipv6', 'mixed'):
+    for name in ('none', 'empty', 'zero', 'split', 'single', 'multi', 'only', 'ipv6', 'mixed'):
         stem = f'support-{name}'
         source = root(directory / f'{stem}-source.mvr')
         expected = values(source)
