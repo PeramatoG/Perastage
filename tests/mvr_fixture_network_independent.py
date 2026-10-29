@@ -46,7 +46,7 @@ def verify_network_cases(directory, root, package, assignments):
     assert dict(source[MULTI][1]) == {'geometry': 'wireless_1', 'dhcp': 'on', 'hostname': 'Rig.Left'}
     for name in ('unchanged', 'undo', 'redo', 'edited', 'edited-reopened', 'cleared',
                  'cleared-reopened', 'legacy-edited', 'auto-patched', 'auto-gui', 'hierarchy',
-                 'cycle1', 'cycle2', 'cycle3', 'nested-groups', 'network-rebound', 'network-original-reference'):
+                 'cycle1', 'cycle2', 'cycle3', 'nested-groups', 'network-rebound', 'network-original-reference', 'network-conversion-blocked'):
         assert networks(root(directory / f'{name}.mvr')) == source, name
         resources = dict(package(directory / f'{name}.mvr'))
         for fixture in root(directory / f'{name}.mvr').iter('Fixture'):

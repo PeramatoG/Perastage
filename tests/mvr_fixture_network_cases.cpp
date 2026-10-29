@@ -3,6 +3,7 @@
 #include "fixture_network_reference.h"
 #include "fixture_patch_service.h"
 #include "autopatcher.h"
+#include "scene_node_operations.h"
 #include "configmanager.h"
 #include "mvrexporter.h"
 #include "mvr_standard_preservation.h"
@@ -39,6 +40,12 @@ std::string Bytes(const fs::path &path) {
 void RunFixtureNetworkCases(const fs::path &dir, const MvrScene &scene,
                            const FixtureNetworkTestServices &services) {
   auto &config = ConfigManager::Get();
+  auto conversionScene = scene;
+  const auto conversion = scene_node_operations::ConvertFixtureToSupport(conversionScene, multi);
+  assert(!conversion.changed && conversion.uuid == multi && !conversion.error.empty());
+  assert(conversionScene.supports.empty());
+  assert(conversionScene.fixtures.at(multi).dmxAddresses == scene.fixtures.at(multi).dmxAddresses);
+  services.exportScene(conversionScene, dir / "network-conversion-blocked.mvr");
   for (const auto &[name, content] : std::vector<std::pair<std::string, std::string>>{
       {"none", ""}, {"empty", "<Addresses/>"},
       {"only", "<Addresses><Network geometry='ethernet_1'/></Addresses>"},

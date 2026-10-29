@@ -1301,7 +1301,9 @@ meaning of their wire references; explicit verified rebinding can resolve it.
 Core reference evidence distinguishes unavailable GDTF, missing/ambiguous wire
 names and malformed assignment values. Rebind, fixture replacement, editor
 source changes and merge definition selection validate before publication;
-import definition substitutions retain the original on conflict. Pure resource
+import definition substitutions retain the original on conflict. Fixture-to-Support
+conversion rejects Network-bearing fixtures atomically until the target model can
+represent those assignments. Pure resource
 relocation and byte-preserving derivative/consolidation paths retain the names.
 Canonical validation also checks directly edited bindings against available
 GDTFs. No automatic geometry substitution or original-resource mutation occurs.

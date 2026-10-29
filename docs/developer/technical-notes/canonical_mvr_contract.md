@@ -97,7 +97,8 @@ publication, preventing a dummy GDTF from invalidating wire references. Core reb
 publishing. Malformed/unknown data, other address consumers and unsupported
 extensions remain guarded. Network geometry/hostname control whitespace also
 fails closed because the XML writer cannot retain its character-reference form.
-No network settings are applied.
+Fixture-to-Support conversion rejects Network-bearing fixtures before mutation;
+the target consumer remains unsupported. No network settings are applied.
 Published Universe.Address strings and signed break IDs are preserved even where
 the unchanged pinned XSD's integer/nonnegative restrictions disagree.
 
