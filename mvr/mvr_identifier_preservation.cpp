@@ -49,7 +49,8 @@ void Read(const tinyxml2::XMLElement &node, std::string &text, int &numeric,
     ParseInteger(text, numeric); // Explicit compatibility for older incomplete sources.
   const auto *unitNode = node.FirstChildElement("UnitNumber");
   if (unitNode) ParseInteger(Text(unitNode), unit);
-  source = MvrIdentifierSource{numeric, unitNode != nullptr};
+  source = MvrIdentifierSource{numeric, unitNode != nullptr,
+      node.FirstChildElement("CustomId") != nullptr, node.FirstChildElement("CustomIdType") != nullptr};
 }
 
 std::optional<int> OptionalUnit(const std::optional<MvrIdentifierSource> &source,
@@ -62,7 +63,7 @@ std::optional<int> OptionalUnit(const std::optional<MvrIdentifierSource> &source
 void ScanSource(const tinyxml2::XMLElement &node, MvrScene &scene,
                 const std::string &location) {
   if (!IsConsumer(node.Name())) return;
-  const auto names = std::string_view(node.Name()) == "Support"
+  const auto names = (std::string_view(node.Name()) == "Support" || std::string_view(node.Name()) == "Fixture")
       ? std::vector<const char *>{"FixtureID", "FixtureIDNumeric", "UnitNumber", "CustomId", "CustomIdType"}
       : std::vector<const char *>{"FixtureID", "FixtureIDNumeric", "UnitNumber"};
   for (const auto *name : names) {
@@ -127,8 +128,8 @@ std::vector<MvrExportDiagnostic> CheckProjection(
         for (const auto &[name, expected] : {std::pair{"CustomIdType", support.customIdType},
                                            std::pair{"CustomId", support.customId}}) {
           const auto *element = node.FirstChildElement(name);
-          if ((element != nullptr) != (expected != 0) ||
-              (element && (!ParseInteger(Text(element), unitValue) || unitValue != expected)))
+          if ((element != nullptr) != expected.has_value() ||
+              (element && (!ParseInteger(Text(element), unitValue) || unitValue != *expected)))
             result.push_back(Block(uuid, "Serialized Support custom identifier changed."));
         }
       }

@@ -97,8 +97,9 @@ cannot establish it.
    verifies target UUIDs, required Geometries and prohibited Focus child lists.
 3. **Fixture scalar omissions**: Function, DMXInvertPan/DMXInvertTilt and
    CustomId/CustomIdType were parsed in the base reader but not written. They
-   are now written in schema order. Optional false/zero values may be omitted
-   where semantically default; source lexical spelling/presence is not retained.
+   are now written in schema order. Optional false inversion flags may be omitted where semantically default.
+   The Support continuation now retains CustomId/CustomIdType presence, including
+   explicit zero, on Fixture and Support; integer spelling remains canonical.
 4. **CIE color drift**: base CIE→8-bit RGB→CIE conversion loses luminance and
    gamut. Fixture retains authored CIE text plus the imported display color;
    unchanged display color writes original CIE. An explicitly changed display
@@ -991,8 +992,9 @@ ID/UnitNumber allocation. Adding an explicitly present optional zero to a field
 that was absent needs a future typed presence-edit operation; nonzero edits and
 unchanged authored presence are covered. Missing required fields in incomplete
 legacy input still use documented compatibility behavior, not a complete legacy
-contract. CustomId/CustomIdType, multipatch and other unrepresented identifiers
-remain partial or blocked. Foreign-provider metadata/reference policy remains
+contract. The Support continuation below adds bounded Fixture/Support
+CustomId/CustomIdType presence. Other consumers, multipatch and unrepresented
+identifiers remain partial or blocked. Foreign-provider metadata/reference policy remains
 unfinished. Older PSTGs whose canonical scene was already renumbered do not
 automatically recover alternative values from provider metadata; explicit
 numbering edits are required if that scene does not express the intended values.
@@ -1351,11 +1353,14 @@ standard equivalents for Fixture-only fields.
 Support wire validation distinguishes malformed/missing geometry, unknown and
 ambiguous names, absent binding and unavailable GDTF evidence. Names never enter
 UUID remapping. Unavailable resources retain metadata but block publication with
-ResourceMissing rather than substituting a definition. Explicit Core rebinding
+ResourceMissing rather than substituting a definition. Authored Support GDTF
+bindings require an available resource and explicit mode even without Network;
+a dangling mode is protected against omission or Default substitution. Explicit Core rebinding
 validates before publishing; normal table edits retain the collection by value.
 Malformed/unknown assignments, other node consumers, multipatch, Symbol-based
 Support geometry, Alignments, Connections and unrelated guards remain protected.
-Custom identifier scalars use the existing integer/default policy; malformed,
+Custom identifiers preserve optional scalar presence, including explicit zero on
+Fixture, Support and conversion; malformed,
 duplicate, attributed or out-of-range source scalars remain blockers.
 
 Independent Python ZIP/XML comparisons cover source assignments, ordered children,

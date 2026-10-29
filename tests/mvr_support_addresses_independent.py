@@ -42,7 +42,7 @@ def matrix(node):
 
 
 def verify_support_cases(directory, root, package):
-    for name in ('none', 'empty', 'single', 'multi', 'only', 'ipv6', 'mixed'):
+    for name in ('none', 'empty', 'zero', 'single', 'multi', 'only', 'ipv6', 'mixed'):
         stem = f'support-{name}'
         source = root(directory / f'{stem}-source.mvr')
         expected = values(source)
@@ -91,3 +91,11 @@ def verify_support_cases(directory, root, package):
     with zipfile.ZipFile(directory / 'support-converted.pstg') as project:
         assert package(io.BytesIO(project.read('scene.mvr'))) == package(directory / 'support-converted.mvr')
     assert owners(root(directory / 'support-conversion-undo.mvr'), 'Support') == {}
+
+    for output, kind in (("support-zero-fixtures", "Fixture"), ("support-zero-converted", "Support")):
+        original = owners(root(directory / 'support-zero-conversion-source.mvr'), 'Fixture')
+        actual = owners(root(directory / f'{output}.mvr'), kind)
+        assert set(actual) == set(original)
+        for key, node in actual.items():
+            assert entries(node) == entries(original[key])
+            assert scalar(node, 'CustomId') == scalar(node, 'CustomIdType') == '0'

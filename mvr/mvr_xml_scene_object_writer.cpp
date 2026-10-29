@@ -72,8 +72,8 @@ void AppendFixture(tinyxml2::XMLDocument &document,
   fixture->SetAttribute("uuid", values.uuid.c_str());
   fixture->SetAttribute("name", values.name.c_str());
 
-  auto addInt = [&](const char *name, int value) {
-    if (value != 0) {
+  auto addInt = [&](const char *name, int value, bool present = false) {
+    if (value != 0 || present) {
       tinyxml2::XMLElement *element = document.NewElement(name);
       element->SetText(std::to_string(value).c_str());
       fixture->InsertEndChild(element);
@@ -111,8 +111,8 @@ void AppendFixture(tinyxml2::XMLDocument &document,
     fixture->InsertEndChild(addresses);
   }
   addString("Color", values.color);
-  addInt("CustomIdType", values.customIdType);
-  addInt("CustomId", values.customId);
+  addInt("CustomIdType", values.customIdType, values.customIdTypePresent);
+  addInt("CustomId", values.customId, values.customIdPresent);
   parent->InsertEndChild(fixture);
 }
 
@@ -238,7 +238,7 @@ void AppendSupport(tinyxml2::XMLDocument &document,
   AppendIdentifiers(document, support, values.fixtureId, values.fixtureIdNumeric, values.unitNumber);
   for (const auto &[name, value] : {std::pair{"CustomIdType", values.customIdType},
                                     std::pair{"CustomId", values.customId}})
-    if (value != 0) AppendText(document, support, name, std::to_string(value));
+    if (value) AppendText(document, support, name, std::to_string(*value));
   parent->InsertEndChild(support);
 }
 

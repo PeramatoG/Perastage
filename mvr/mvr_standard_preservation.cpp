@@ -230,13 +230,33 @@ std::vector<MvrExportDiagnostic> CheckStandardPreservation(const MvrScene &scene
   for (const auto &[uuid, support] : scene.supports) {
     if (const auto addresses = perastage::patch::InspectFixtureAddresses(support); !addresses)
       result.push_back(Block("Support", uuid, "Support/Addresses", addresses.detail));
+    auto path = PathUtils::PathFromUtf8(support.gdtfSpec);
+    if (!path.is_absolute()) path = PathUtils::PathFromUtf8(scene.basePath) / path;
+    if (!support.gdtfSpec.empty()) {
+      if (support.gdtfMode.empty()) {
+        result.push_back(Block("Support", uuid, "Support/GDTFMode",
+            "A linked GDTF requires an explicit mode; no replacement is guessed."));
+        continue;
+      }
+      std::error_code error;
+      if (!std::filesystem::is_regular_file(path, error)) {
+        auto diagnostic = Block("Support", uuid, "Support/GDTFSpec",
+            "The authored GDTF resource is unavailable; no fallback is substituted.");
+        diagnostic.code = MvrExportDiagnosticCode::ResourceMissing;
+        diagnostic.resourceName = support.gdtfSpec;
+        result.push_back(std::move(diagnostic));
+        continue;
+      }
+    } else if (!support.gdtfMode.empty()) {
+      result.push_back(Block("Support", uuid, "Support/GDTFSpec",
+          "The authored GDTF mode has no linked definition and cannot be omitted."));
+      continue;
+    }
     if (!support.dmxAddresses || support.dmxAddresses->networks.empty()) continue;
     if (const auto binding = fixture_network::CheckBindingReference(support, support.gdtfSpec); !binding) {
       result.push_back(Block("Support", uuid, "Support/GDTFSpec", binding.detail));
       continue;
     }
-    auto path = PathUtils::PathFromUtf8(support.gdtfSpec);
-    if (!path.is_absolute()) path = PathUtils::PathFromUtf8(scene.basePath) / path;
     auto [evidence, inserted] = networkEvidence.try_emplace(PathUtils::PathToUtf8(path));
     if (inserted) evidence->second = fixture_network::ReadWireNames(path);
     const auto network = fixture_network::CheckReferences(support, evidence->second);

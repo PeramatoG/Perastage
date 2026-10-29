@@ -268,7 +268,7 @@ int main() {
          std::vector<std::string>{convertible.uuid});
   assert(fixtureConversion.mutation.selectionChanged);
 
-  for (const auto *field : {"Focus", "Color", "DMXInvertPan", "DMXInvertTilt", "ProjectColor"}) {
+  for (const auto *field : {"Focus", "Color", "DMXInvertPan", "DMXInvertTilt", "ProjectColor", "GDTFSpec", "GDTFMode"}) {
     auto blocked = BuildFixtureConversionScene();
     auto &fixture = blocked.fixtures.at("fixture-a");
     if (std::string(field) == "Focus") fixture.focus = "focus-ref";
@@ -276,9 +276,12 @@ int main() {
     if (std::string(field) == "DMXInvertPan") fixture.dmxInvertPan = true;
     if (std::string(field) == "DMXInvertTilt") fixture.dmxInvertTilt = true;
     if (std::string(field) == "ProjectColor") fixture.visualColorHex = "#123456";
+    if (std::string(field) == "GDTFSpec") fixture.gdtfMode = "AuthoredMode";
+    if (std::string(field) == "GDTFMode") fixture.gdtfSpec = "authored.gdtf";
     auto second = fixture; second.uuid = "second"; second.focus.clear();
     second.mvrFixtureColorCie.clear(); second.dmxInvertPan = second.dmxInvertTilt = false;
-    second.visualColorHex.clear(); blocked.fixtures[second.uuid] = second;
+    second.visualColorHex.clear(); second.gdtfSpec.clear(); second.gdtfMode.clear();
+    blocked.fixtures[second.uuid] = second;
     scene_grouping::ObjectSelection selection; selection.fixtures = {second.uuid, fixture.uuid};
     const auto selectionBefore = selection;
     RecordingHost host;

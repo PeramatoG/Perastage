@@ -19,7 +19,7 @@ namespace fs = std::filesystem;
 namespace {
 // The wire name also equals this Support UUID, exercising accidental UUID remapping.
 constexpr auto uuid = "51000000-0000-4000-8000-000000000001";
-std::string Source(const std::string &addresses) {
+std::string Source(const std::string &addresses, int custom = 3, int customType = 2) {
   return "<GeneralSceneDescription verMajor='1' verMinor='6' provider='SupportTest' providerVersion='1'>"
       "<Scene><Layers><Layer uuid='11000000-0000-4000-8000-000000000001' name='Rig'>"
       "<ChildList><Support uuid='" + std::string(uuid) + "' name='Motor'>"
@@ -27,7 +27,7 @@ std::string Source(const std::string &addresses) {
       "<Function>Lighting</Function><ChainLength>0</ChainLength><GDTFSpec>fixture.gdtf</GDTFSpec>"
       "<GDTFMode>Mode</GDTFMode>" + addresses + "<FixtureID>Motor.07</FixtureID>"
       "<FixtureIDNumeric>17</FixtureIDNumeric><UnitNumber>0</UnitNumber>"
-      "<CustomIdType>2</CustomIdType><CustomId>3</CustomId></Support>"
+      "<CustomIdType>" + std::to_string(customType) + "</CustomIdType><CustomId>" + std::to_string(custom) + "</CustomId></Support>"
       "</ChildList></Layer></Layers></Scene></GeneralSceneDescription>";
 }
 void Archive(const fs::path &path, const std::string &xml, const FixtureNetworkTestServices &services) {
@@ -68,18 +68,18 @@ void RunSupportAddressCases(const fs::path &dir, const FixtureNetworkTestService
       "<Network geometry='wireless_1' dhcp='false' hostname=''/><Network geometry='" +
       std::string("51000000-0000-4000-8000-000000000001") + "' dhcp='on' hostname='Rig.Left'/></Addresses>";
   for (const auto &[name, content] : std::vector<std::pair<std::string, std::string>>{
-      {"none", ""}, {"empty", "<Addresses/>"},
+      {"none", ""}, {"empty", "<Addresses/>"}, {"zero", "<Addresses/>"},
       {"single", "<Addresses><Address>17</Address></Addresses>"},
       {"multi", "<Addresses><Address break='0'>17</Address><Address break='19'>4097</Address></Addresses>"},
       {"only", "<Addresses><Network geometry='ethernet_1'/></Addresses>"},
       {"ipv6", "<Addresses><Network geometry='wireless_1' ipv6='2001:DB8::A'/></Addresses>"}, {"mixed", mixed}}) {
     const auto stem = "support-" + name;
-    const auto source = Source(content); Schema(source);
+    const auto source = name == "zero" ? Source(content, 0, 0) : Source(content); Schema(source);
     Archive(dir / (stem + "-source.mvr"), source, services);
     const auto scene = services.import(dir / (stem + "-source.mvr"));
     assert(scene.preservationIssues.empty());
     const auto &support = scene.supports.at(uuid);
-    assert(support.fixtureIdText == "Motor.07" && support.customId == 3 && support.customIdType == 2);
+    assert(support.fixtureIdText == "Motor.07" && support.customId == (name == "zero" ? 0 : 3) && support.customIdType == (name == "zero" ? 0 : 2));
     assert(support.matrixSource);
     Export(scene, dir / (stem + ".mvr"));
     std::string xml;
@@ -167,6 +167,21 @@ void RunSupportAddressCases(const fs::path &dir, const FixtureNetworkTestService
   assert(std::any_of(missingDiagnostics.begin(), missingDiagnostics.end(), [](const auto &diagnostic) {
     return diagnostic.code == MvrExportDiagnosticCode::ResourceMissing;
   }));
+  // Missing definitions and modes cannot be replaced or dropped even without Network.
+  auto bindingScene = services.import(dir / "support-single-source.mvr");
+  config.Reset(); config.GetScene() = bindingScene;
+  const auto bindingProject = dir / "support-binding-retained.pstg";
+  assert(config.SaveProject(bindingProject.string())); const auto bindingBytes = Bytes(bindingProject);
+  for (int kind = 0; kind < 3; ++kind) {
+    config.GetScene() = bindingScene;
+    auto &support = config.GetScene().supports.at(uuid);
+    if (kind == 0) support.gdtfSpec = "missing.gdtf";
+    if (kind == 1) support.gdtfMode.clear();
+    if (kind == 2) support.gdtfSpec.clear();
+    assert(!config.SaveProject(bindingProject.string()));
+    assert(Bytes(bindingProject) == bindingBytes);
+    assert(support.dmxAddresses == bindingScene.supports.at(uuid).dmxAddresses);
+  }
   // Conversion keeps the same standard identity, definition and numeric matrix source.
   auto conversionSource = services.source(mixed);
   size_t at = 0;
@@ -205,5 +220,21 @@ void RunSupportAddressCases(const fs::path &dir, const FixtureNetworkTestService
   config.Redo(); Export(config.GetScene(), dir / "support-conversion-redo.mvr");
   config.Reset(); assert(config.LoadProject((dir / "support-converted.pstg").string()));
   Export(config.GetScene(), dir / "support-converted-reopened.mvr");
+  auto zeroSource = services.source(mixed);
+  at = 0;
+  const std::string zeroIds = "<CustomIdType>0</CustomIdType><CustomId>0</CustomId>";
+  while ((at = zeroSource.find("</Fixture>", at)) != std::string::npos) {
+    zeroSource.insert(at, zeroIds); at += zeroIds.size() + 1;
+  }
+  services.archive(dir / "support-zero-conversion-source.mvr", zeroSource);
+  auto zeroScene = services.import(dir / "support-zero-conversion-source.mvr");
+  Export(zeroScene, dir / "support-zero-fixtures.mvr");
+  std::vector<std::string> zeroUuids;
+  for (const auto &[id, fixture] : zeroScene.fixtures) zeroUuids.push_back(id);
+  for (const auto &id : zeroUuids) {
+    assert(scene_node_operations::ConvertFixtureToSupport(zeroScene, id).changed);
+    assert(zeroScene.supports.at(id).customId == 0 && zeroScene.supports.at(id).customIdType == 0);
+  }
+  Export(zeroScene, dir / "support-zero-converted.mvr");
   config.Reset();
 }

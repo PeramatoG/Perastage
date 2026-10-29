@@ -127,12 +127,15 @@ Known-invalid or ambiguous GDTF references block publication; unavailable local
 GDTF evidence retains metadata without guessing and reports ResourceMissing at
 publication, preventing a dummy GDTF from invalidating wire references. Core rebind validation rejects unsafe definition changes before
 publishing. Support uses the same reference policy and XML assignment writer;
-its Addresses follow GDTFMode and precede FixtureID. Malformed/unknown data,
+its Addresses follow GDTFMode and precede FixtureID. Authored Support GDTF
+bindings also require an available resource and explicit mode, even without
+Network; a dangling mode cannot be omitted or replaced by Default. Malformed/unknown data,
 other address consumers and unsupported
 extensions remain guarded. Network geometry/hostname control whitespace also
 fails closed because the XML writer cannot retain its character-reference form.
 Fixture-to-Support conversion preserves the complete collection, Classing,
-standard identifiers (including CustomId/CustomIdType), GDTF binding, position,
+standard identifiers (including CustomId/CustomIdType presence and explicit
+zero), GDTF binding, position,
 layer/group ownership and numeric matrix source. Legacy primary patch strings
 are materialized through the existing patch policy. Focus, Fixture Color,
 Pan/Tilt inversion, explicit project color/symbol/power overrides and retained

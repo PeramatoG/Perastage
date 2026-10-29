@@ -23,9 +23,9 @@ inline ConversionResult InspectFixtureToSupport(const MvrScene &scene,
   };
   if ((!fixture.gdtfSpec.empty() || !fixture.originalMvrGdtfSpec.empty()) && fixture.gdtfMode.empty())
     return refuse("GDTFMode", "a linked GDTF requires an explicit mode; no replacement is guessed");
-  if (fixture.dmxAddresses && !fixture.dmxAddresses->networks.empty() &&
+  if ((!fixture.gdtfMode.empty() || (fixture.dmxAddresses && !fixture.dmxAddresses->networks.empty())) &&
       fixture.gdtfSpec.empty() && fixture.originalMvrGdtfSpec.empty())
-    return refuse("GDTFSpec", "Network assignments require a linked GDTF reference");
+    return refuse("GDTFSpec", "authored modes and Network assignments require a linked GDTF reference");
   for (const auto &issue : scene.preservationIssues)
     if (issue.objectUuid == fixture.uuid)
       return refuse(issue.sourceLocation, "resolve the source preservation conflict before conversion: " + issue.reason);

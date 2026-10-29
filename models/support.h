@@ -85,8 +85,8 @@ struct Support {
     bool hasLocalTransform = false;
     std::string parentGroupUuid;
     std::optional<FixtureDmxAddresses> dmxAddresses; // Shared standard Addresses ownership.
-    int customId = 0;
-    int customIdType = 0;
+    std::optional<int> customId;
+    std::optional<int> customIdType;
 };
 
 inline const std::array<std::string, 5> &GetHoistFunctionOptions() {

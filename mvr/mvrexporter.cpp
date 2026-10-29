@@ -1806,6 +1806,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     values.function = f.function;
     values.dmxInvertPan = f.dmxInvertPan;
     values.dmxInvertTilt = f.dmxInvertTilt;
+    values.customIdPresent = f.identifierSource && f.identifierSource->customIdPresent;
+    values.customIdTypePresent = f.identifierSource && f.identifierSource->customIdTypePresent;
     values.customId = f.customId;
     values.customIdType = f.customIdType;
     values.fixtureId = fixtureExportId.first;

@@ -135,7 +135,10 @@ ConversionResult ConvertFixtureToSupport(MvrScene &scene,
   support.fixtureIdText = identity.text;
   support.fixtureIdNumeric = identity.numeric;
   support.unitNumber = fixture.unitNumber;
-  support.customId = fixture.customId; support.customIdType = fixture.customIdType;
+  if (fixture.customId != 0 || (fixture.identifierSource && fixture.identifierSource->customIdPresent))
+    support.customId = fixture.customId;
+  if (fixture.customIdType != 0 || (fixture.identifierSource && fixture.identifierSource->customIdTypePresent))
+    support.customIdType = fixture.customIdType;
   support.matrixSource = fixture.matrixSource;
   support.dmxAddresses = ConversionAddresses(fixture).addresses;
   support.gdtfSpec = fixture.gdtfSpec.empty() ? fixture.originalMvrGdtfSpec : fixture.gdtfSpec;
