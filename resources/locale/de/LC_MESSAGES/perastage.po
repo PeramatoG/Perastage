@@ -3184,6 +3184,11 @@ msgstr "In Kettenzug konvertieren"
 msgid "The selected fixtures cannot be converted."
 msgstr "Ausgewählte Scheinwerfer können nicht konvertiert werden."
 
+#: gui/mainwindow_conversion.cpp:66
+#, c-format
+msgid "The selected fixtures cannot be converted: %s"
+msgstr "Ausgewählte Scheinwerfer können nicht konvertiert werden: %s"
+
 #: gui/mainwindow_conversion.cpp:80
 #, c-format
 msgid "Converted %zu fixture(s) to hoists."

@@ -1,6 +1,7 @@
 #include "command/command_scene_tools.h"
 
 #include "fixture.h"
+#include "fixture_visual_color.h"
 #include "groupobject.h"
 #include "matrixutils.h"
 #include "scene_object_truss_converter.h"
@@ -268,7 +269,26 @@ int main() {
          std::vector<std::string>{convertible.uuid});
   assert(fixtureConversion.mutation.selectionChanged);
 
-  for (const auto *field : {"Focus", "Color", "DMXInvertPan", "DMXInvertTilt", "ProjectColor", "GDTFSpec", "GDTFMode", "PhysicalProperties", "ManualPhysicalProperties", "LegacyPhysicalProperties", "PreservationConflict"}) {
+  // Normal insertion owns its default as a fixture-type fallback, not a project edit.
+  auto inserted = BuildFixtureConversionScene();
+  auto &insertedFixture = inserted.fixtures.at("fixture-a");
+  insertedFixture.gdtfSpec = "ordinary.gdtf";
+  insertedFixture.gdtfMode = "Mode";
+  insertedFixture.weightKg = 12.0f;
+  insertedFixture.SetSourcePlanningPower(380.0f);
+  insertedFixture.physicalPropertiesSource = FixturePhysicalPropertiesSource::Gdtf;
+  insertedFixture.automaticVisualColorHex = "#ABCDEF";
+  PersistAutomaticFixtureVisualColor(insertedFixture, "#123456");
+  assert(insertedFixture.visualColorHex.empty());
+  assert(insertedFixture.automaticVisualColorHex == "#ABCDEF");
+  scene_grouping::ObjectSelection insertedSelection;
+  insertedSelection.fixtures = {insertedFixture.uuid};
+  RecordingHost insertedHost;
+  ExecutionContext insertedContext{inserted, insertedSelection, insertedHost};
+  assert(scene_tools::ExecuteFixtureToSupport({{"fixture-a"}}, insertedContext).Success());
+  assert(insertedHost.commits == 1 && inserted.supports.contains("fixture-a"));
+
+  for (const auto *field : {"Focus", "Color", "DMXInvertPan", "DMXInvertTilt", "ProjectColor", "ExplicitProjectColor", "ExplicitEmpty", "GDTFSpec", "GDTFMode", "PhysicalProperties", "ManualPhysicalProperties", "LegacyPhysicalProperties", "PreservationConflict"}) {
     auto blocked = BuildFixtureConversionScene();
     auto &fixture = blocked.fixtures.at("fixture-a");
     if (std::string(field) == "Focus") fixture.focus = "focus-ref";
@@ -276,6 +296,12 @@ int main() {
     if (std::string(field) == "DMXInvertPan") fixture.dmxInvertPan = true;
     if (std::string(field) == "DMXInvertTilt") fixture.dmxInvertTilt = true;
     if (std::string(field) == "ProjectColor") fixture.visualColorHex = "#123456";
+    if (std::string(field) == "ExplicitProjectColor") {
+      fixture.visualColorHex = "#ABCDEF";
+      fixture.automaticVisualColorHex = "#ABCDEF";
+      fixture.visualColorState = FixtureProjectColorState::Present;
+    }
+    if (std::string(field) == "ExplicitEmpty") fixture.visualColorState = FixtureProjectColorState::ExplicitEmpty;
     if (std::string(field) == "GDTFSpec") fixture.gdtfMode = "AuthoredMode";
     if (std::string(field) == "GDTFMode") fixture.gdtfSpec = "authored.gdtf";
     if (std::string(field) == "PhysicalProperties") fixture.physicalPropertiesDirty = true;
@@ -286,7 +312,8 @@ int main() {
           "Fixture/Connections", "<Connections/>", "unrepresented standard references", "resolve source data"});
     auto second = fixture; second.uuid = "second"; second.focus.clear();
     second.mvrFixtureColorCie.clear(); second.dmxInvertPan = second.dmxInvertTilt = false;
-    second.visualColorHex.clear(); second.gdtfSpec.clear(); second.gdtfMode.clear();
+    second.visualColorHex.clear(); second.visualColorState = FixtureProjectColorState::Missing;
+    second.gdtfSpec.clear(); second.gdtfMode.clear();
     second.physicalPropertiesDirty = false; second.physicalPropertiesSource = FixturePhysicalPropertiesSource::Unknown;
     blocked.fixtures[second.uuid] = second;
     scene_grouping::ObjectSelection selection; selection.fixtures = {second.uuid, fixture.uuid};

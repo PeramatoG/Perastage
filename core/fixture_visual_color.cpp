@@ -87,16 +87,15 @@ FixtureVisualColorResult ResolveFixturePresentationColor(const Fixture &fixture)
                                     fixture.automaticVisualColorHex, state, false});
 }
 
-// Persists an automatic fallback only when project metadata is genuinely missing.
+// Keeps automatic fallback ownership separate from project-instance metadata.
 void PersistAutomaticFixtureVisualColor(Fixture &fixture, std::string_view colorHex) {
   if (fixture.visualColorState != FixtureProjectColorState::Missing ||
-      !fixture.visualColorHex.empty())
+      !fixture.visualColorHex.empty() || !fixture.automaticVisualColorHex.empty())
     return;
   const auto normalized = NormalizeFixtureVisualColor(colorHex);
   if (!normalized)
     return;
-  fixture.visualColorHex = *normalized;
-  fixture.visualColorState = FixtureProjectColorState::Present;
+  fixture.automaticVisualColorHex = *normalized;
 }
 
 // Aggregates resolved colors without depending on fixture iteration order.

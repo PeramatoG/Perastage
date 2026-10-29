@@ -181,7 +181,7 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
     f.SetSourcePlanningPower(preparation.powerConsumptionW);
     f.physicalPropertiesSource = FixturePhysicalPropertiesSource::Gdtf;
     f.physicalPropertiesDirty = false;
-    f.visualColorHex = defaultColor;
+    f.automaticVisualColorHex = defaultColor;
     sceneRef.fixtures[f.uuid] = f;
   }
 

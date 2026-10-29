@@ -48,7 +48,7 @@ ResolveFixtureVisualColor(const FixtureVisualColorInput &input);
 // Resolves presentation color from the durable state stored by one fixture.
 FixtureVisualColorResult ResolveFixturePresentationColor(const Fixture &fixture);
 
-// Persists an automatic fallback only when project metadata is genuinely missing.
+// Persists a missing automatic fallback without claiming project-instance ownership.
 void PersistAutomaticFixtureVisualColor(Fixture &fixture, std::string_view colorHex);
 
 // Aggregates resolved colors without depending on fixture iteration order.

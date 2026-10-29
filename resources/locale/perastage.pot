@@ -2985,6 +2985,11 @@ msgstr ""
 msgid "The selected fixtures cannot be converted."
 msgstr ""
 
+#: gui/mainwindow_conversion.cpp:66
+#, c-format
+msgid "The selected fixtures cannot be converted: %s"
+msgstr ""
+
 #: gui/mainwindow_conversion.cpp:80
 #, c-format
 msgid "Converted %zu fixture(s) to hoists."

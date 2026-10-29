@@ -68,6 +68,7 @@ void RunSupportAddressCases(const fs::path &dir, const FixtureNetworkTestService
       "<Network geometry='wireless_1' dhcp='false' hostname=''/><Network geometry='" +
       std::string("51000000-0000-4000-8000-000000000001") + "' dhcp='on' hostname='Rig.Left'/></Addresses>";
   for (const auto &[name, content] : std::vector<std::pair<std::string, std::string>>{
+      {"unbound", ""}, {"unbound-empty", "<Addresses/>"}, {"unbound-dmx", "<Addresses><Address>17</Address></Addresses>"},
       {"none", ""}, {"empty", "<Addresses/>"}, {"zero", "<Addresses/>"}, {"split", "<Addresses/>"},
       {"single", "<Addresses><Address>17</Address></Addresses>"},
       {"multi", "<Addresses><Address break='0'>17</Address><Address break='19'>4097</Address></Addresses>"},
@@ -75,6 +76,10 @@ void RunSupportAddressCases(const fs::path &dir, const FixtureNetworkTestService
       {"ipv6", "<Addresses><Network geometry='wireless_1' ipv6='2001:DB8::A'/></Addresses>"}, {"mixed", mixed}}) {
     const auto stem = "support-" + name;
     auto source = name == "zero" ? Source(content, 0, 0) : Source(content);
+    if (name.starts_with("unbound")) {
+      const std::string binding = "<GDTFSpec>fixture.gdtf</GDTFSpec><GDTFMode>Mode</GDTFMode>";
+      source.erase(source.find(binding), binding.size());
+    }
     if (name == "split") {
       source.replace(source.find("<CustomId>3</CustomId>"), std::string("<CustomId>3</CustomId>").size(),
           "<CustomId>1<!-- split -->7</CustomId>");
@@ -175,6 +180,13 @@ void RunSupportAddressCases(const fs::path &dir, const FixtureNetworkTestService
   assert(std::any_of(missingDiagnostics.begin(), missingDiagnostics.end(), [](const auto &diagnostic) {
     return diagnostic.code == MvrExportDiagnosticCode::ResourceMissing;
   }));
+  // Table 30 requires GDTFMode with GDTFSpec even when Addresses is absent.
+  auto noAddresses = services.import(dir / "support-none-source.mvr");
+  noAddresses.supports.at(uuid).gdtfMode.clear();
+  const auto modeDiagnostics = mvr::CheckStandardPreservation(noAddresses);
+  assert(std::any_of(modeDiagnostics.begin(), modeDiagnostics.end(), [](const auto &diagnostic) {
+    return diagnostic.technicalDetail.find("explicit mode") != std::string::npos;
+  }));
   // Missing definitions and modes cannot be replaced or dropped even without Network.
   auto bindingScene = services.import(dir / "support-single-source.mvr");
   config.Reset(); config.GetScene() = bindingScene;
@@ -205,12 +217,21 @@ void RunSupportAddressCases(const fs::path &dir, const FixtureNetworkTestService
     fixture.classing = classUuid; fixture.instanceName = "Motor " + id;
     fixture.fixtureIdText = "Motor." + std::to_string(fixture.fixtureId);
     fixture.customIdType = 2; fixture.customId = 3;
+    fixture.automaticVisualColorHex = "#ABCDEF";
   }
   scene_grouping::ObjectSelection conversionSelection;
   for (const auto &[id, fixture] : converted.fixtures) conversionSelection.fixtures.push_back(id);
   assert(scene_grouping::GroupSelection(converted, conversionSelection).changed);
   Export(converted, dir / "support-conversion-before.mvr");
   config.Reset(); config.GetScene() = converted;
+  const auto automaticProject = dir / "support-automatic-before.pstg";
+  assert(config.SaveProject(automaticProject.string()));
+  config.Reset(); assert(config.LoadProject(automaticProject.string()));
+  for (const auto &[id, fixture] : config.GetScene().fixtures) {
+    assert(fixture.automaticVisualColorHex == "#ABCDEF");
+    assert(fixture.visualColorHex.empty() && fixture.visualColorState == FixtureProjectColorState::Missing);
+  }
+  converted = config.GetScene();
   config.PushUndoState("convert addressed Fixture to Support");
   for (const auto &id : conversionSelection.fixtures) {
     const auto before = converted.fixtures.at(id);

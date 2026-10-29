@@ -42,7 +42,7 @@ def matrix(node):
 
 
 def verify_support_cases(directory, root, package):
-    for name in ('none', 'empty', 'zero', 'split', 'single', 'multi', 'only', 'ipv6', 'mixed'):
+    for name in ('unbound', 'unbound-empty', 'unbound-dmx', 'none', 'empty', 'zero', 'split', 'single', 'multi', 'only', 'ipv6', 'mixed'):
         stem = f'support-{name}'
         source = root(directory / f'{stem}-source.mvr')
         expected = values(source)
@@ -55,12 +55,17 @@ def verify_support_cases(directory, root, package):
                 names = [child.tag for child in node]
                 assert names.index('Geometries') < names.index('ChainLength') < names.index('FixtureID')
                 if 'Addresses' in names:
-                    assert names.index('GDTFMode') < names.index('Addresses') < names.index('FixtureID')
+                    assert names.index('ChainLength') < names.index('Addresses') < names.index('FixtureID')
+                    if 'GDTFMode' in names:
+                        assert names.index('GDTFMode') < names.index('Addresses')
                 for field in ('FixtureID', 'FixtureIDNumeric', 'UnitNumber', 'CustomIdType', 'CustomId'):
                     assert scalar(node, field) == scalar(source_node, field)
                 assert matrix(node) == matrix(source_node)
                 exported = dict(package(directory / output))
-                assert exported[node.findtext('GDTFSpec')] == resources['fixture.gdtf']
+                if name.startswith('unbound'):
+                    assert node.find('GDTFSpec') is None and node.find('GDTFMode') is None
+                else:
+                    assert exported[node.findtext('GDTFSpec')] == resources['fixture.gdtf']
                 for geometry in node.findall('Geometries/Geometry3D'):
                     assert exported[geometry.get('fileName')] == resources['support.glb']
         for cycle in (1, 2, 3):
