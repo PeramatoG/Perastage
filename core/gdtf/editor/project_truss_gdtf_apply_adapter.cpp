@@ -222,6 +222,13 @@ ProjectTrussGdtfApplyResult ProjectTrussGdtfApplyAdapter::Apply(
   if (!HasGenerationFieldChange(request))
     return result;
 
+  // Generic generation cannot preserve an authored standard definition or its wire names.
+  for (const auto &[uuid, candidate] : *input.trusses) {
+    if (uuid != request.stableHostId && !MatchesSourceOnlyTrussGeometry(candidate, originalSymbolKey)) continue;
+    if (candidate.dmxAddresses && (!candidate.gdtfSpec.empty() || !candidate.gdtfMode.empty() || !candidate.dmxAddresses->networks.empty()))
+      return Fail("Truss Addresses/GDTFSpec: controlled generic generation cannot replace an authored binding or Network interfaces; retain the source definition.");
+  }
+
   if (!services_.canonicalFileName || !services_.generateGdtf)
     return Fail("Truss generation services are not available.");
   std::error_code ec;

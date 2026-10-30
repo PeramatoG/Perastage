@@ -21,4 +21,7 @@ rg -q 'inspectNetworks' core/gdtf/editor/project_fixture_gdtf_apply_adapter.cpp
 rg -q 'ReadSupportAddresses' mvr/mvr_scene_node_reader.cpp
 rg -q 'InspectFixtureToSupport' core/command/command_scene_tools.cpp
 rg -q 'ConversionAddresses' core/scene_node_operations.cpp
+rg -q 'ReadTrussAddresses' mvr/mvr_scene_node_reader.cpp
+rg -q 'CheckTrussAddressBindings' mvr/mvr_standard_preservation.cpp
+rg -q 'CheckSerializedTrussAddressBindings' mvr/mvrexporter.cpp
 echo "Fixture patch preservation boundary check passed."

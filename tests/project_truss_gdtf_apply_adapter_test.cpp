@@ -129,6 +129,22 @@ int main() {
   assert(!result.common.success);
   assert(trusses["target"].weightKg == 12.0f);
 
+  for (int guarded = 0; guarded < 3; ++guarded) {
+    auto candidates = trusses;
+    auto &candidate = candidates.at(guarded == 2 ? "shared" : "target");
+    candidate.dmxAddresses.emplace();
+    candidate.dmxAddresses->entries = {{std::nullopt, "17"}};
+    if (guarded == 0) candidate.gdtfSpec = "authored.gdtf";
+    else candidate.dmxAddresses->networks = {{"ethernet_1"}};
+    const int previousCalls = calls;
+    const auto output = root / ("guarded-" + std::to_string(guarded));
+    result = adapter.Apply({request, &candidates, root, output});
+    assert(!result.common.success && !result.common.validationErrors.empty());
+    assert(!result.generationOccurred && !result.externalFileCreatedOrModified);
+    assert(calls == previousCalls && !std::filesystem::exists(output));
+    assert(candidate.dmxAddresses && candidate.dmxAddresses->entries.front().value == "17");
+  }
+
   request.contextKind = gdtf::GdtfEditorContextKind::ProjectFixture;
   result = adapter.Apply({request, &trusses, root, root});
   assert(!result.common.success);

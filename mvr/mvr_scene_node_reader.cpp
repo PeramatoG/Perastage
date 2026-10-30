@@ -533,6 +533,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
                        const std::string &parentGroupUuid) {
         Truss truss;
         truss.uuid = resolveStableUuid("Truss", node, layerName, nodeTransform);
+        ReadTrussAddresses(*node, truss, scene);
         truss.layer = layerName;
         truss.transform = nodeTransform;
         truss.localTransform = localTransform;
@@ -544,8 +545,8 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
           truss.name = nameAttr;
 
         mvr_identifiers::Read(*node, truss);
-        intOf(node, "CustomId", truss.customId);
-        intOf(node, "CustomIdType", truss.customIdType);
+        truss.customId = mvr_identifiers::ReadOptionalInteger(*node, "CustomId").value_or(0);
+        truss.customIdType = mvr_identifiers::ReadOptionalInteger(*node, "CustomIdType").value_or(0);
 
         truss.gdtfSpec = textOf(node, "GDTFSpec");
         truss.gdtfMode = textOf(node, "GDTFMode");
@@ -587,9 +588,6 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
             truss.dimensionSource = gdtfTruss.dimensionSource;
             if (gdtfTruss.weightKg > 0.0f)
               truss.weightKg = gdtfTruss.weightKg;
-            if (truss.gdtfMode.empty())
-              truss.gdtfMode =
-                  gdtfTruss.gdtfMode.empty() ? "Default" : gdtfTruss.gdtfMode;
           } else {
             gdtfLoadFailed = true;
           }
@@ -757,6 +755,8 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
           services.logWarning(msg.str());
         }
 
+        if (!gdtfLoadFailed && !truss.gdtfSpec.empty())
+          truss.boundGdtfDimensions = std::array<float, 3>{truss.lengthMm, truss.widthMm, truss.heightMm};
         scene.trusses[truss.uuid] = truss;
         return truss.uuid;
       };

@@ -1,6 +1,7 @@
 #include "mvr_identifier_preservation.h"
 #include "mvr_standard_preservation.h"
 #include "mvr_fixture_addresses.h"
+#include "mvr_truss_address_preservation.h"
 #include "fixture_patch_service.h"
 #include "fixture_network_reference.h"
 #include "mvr_class_preservation.h"
@@ -32,7 +33,7 @@ const std::unordered_map<std::string, Names> unsupportedChildren = {
     {"SceneObject", {"GDTFSpec", "GDTFMode", "CastShadow",
                      "Addresses", "Alignments", "CustomCommands", "Overwrites",
                      "Connections", "CustomId", "CustomIdType"}},
-    {"Truss", {"CastShadow", "Addresses", "Alignments",
+    {"Truss", {"CastShadow", "Alignments",
                "CustomCommands", "Overwrites", "Connections", "ChildPosition"}},
     {"Support", {"CastShadow", "Alignments",
                  "CustomCommands", "Overwrites", "Connections"}}};
@@ -66,7 +67,10 @@ void Scan(tinyxml2::XMLElement &element, MvrScene &scene,
   const std::string name = element.Name();
   mvr_identifiers::ScanSource(element, scene, location);
   if (const char *uuid = element.Attribute("uuid")) owner = uuid;
-  if (name == "Fixture" || name == "Support") ScanFixtureAddresses(element, scene);
+  if (name == "Fixture" || name == "Support" || name == "Truss") ScanFixtureAddresses(element, scene);
+  if (name == "Truss" && element.FirstChildElement("GDTFSpec") &&
+      (!element.FirstChildElement("GDTFMode") || !element.FirstChildElement("GDTFMode")->GetText()))
+    Record(scene, element, owner, location + "/GDTFMode", "MVR 1.6 Table 28 requires an authored mode with GDTFSpec.");
   if (name == "Layer") {
     const auto source = ReadMatrixSource(element, scene);
     if (source && !CanonicalLayerMatrixIsElevation(source->projection, source))
@@ -114,7 +118,8 @@ void Scan(tinyxml2::XMLElement &element, MvrScene &scene,
   }
   if (name == "Addresses" && (!element.Parent()->ToElement() ||
       (std::string_view(element.Parent()->ToElement()->Name()) != "Fixture" &&
-       std::string_view(element.Parent()->ToElement()->Name()) != "Support"))) {
+       std::string_view(element.Parent()->ToElement()->Name()) != "Support" &&
+       std::string_view(element.Parent()->ToElement()->Name()) != "Truss"))) {
     auto *address = element.FirstChildElement("Address");
     if (element.FirstChildElement("Network") ||
         (address && (address->NextSiblingElement("Address") ||
@@ -130,7 +135,8 @@ void Scan(tinyxml2::XMLElement &element, MvrScene &scene,
     if (rule != unsupportedChildren.end() && rule->second.contains(childName)) {
       static const Names emptyContainers = {"Alignments", "Protocols", "CustomCommands",
           "Overwrites", "Connections", "Mappings", "Addresses"};
-      if (emptyContainers.contains(childName) && IsEmptyAssignment(*child))
+      if (emptyContainers.contains(childName) && IsEmptyAssignment(*child) &&
+          !(name == "SceneObject" && childName == "Addresses"))
         continue;
       Record(scene, *child, owner, childLocation,
              "The current serializer omits or changes this standard field.");
@@ -269,6 +275,8 @@ std::vector<MvrExportDiagnostic> CheckStandardPreservation(const MvrScene &scene
       result.push_back(std::move(diagnostic));
     }
   }
+  const auto trussAddresses = CheckTrussAddressBindings(scene);
+  result.insert(result.end(), trussAddresses.begin(), trussAddresses.end());
   return result;
 }
 } // namespace mvr

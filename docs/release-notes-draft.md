@@ -31,6 +31,8 @@ Only include completed and verified features.
 
 ## MVR / GDTF
 
+- Truss nodes now preserve supported DMX and network assignments through project save/reopen and MVR export, retaining their original GDTF interfaces.
+
 - Support nodes now retain DMX and network assignments through project saves and MVR export; Fixture-to-Support conversion preserves compatible data and refuses conversions that would discard authored information.
 
 - Fixture network interface assignments now survive MVR import, project save/reopen and export, including alongside multiple DMX breaks and through patch edits.

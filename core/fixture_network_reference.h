@@ -2,8 +2,11 @@
 #pragma once
 #include "fixture_network_service.h"
 #include <filesystem>
+struct Truss;
 namespace fixture_network {
 std::optional<WireNames> ReadWireNames(const std::filesystem::path &gdtfPath);
+Result InspectTrussReferences(const Truss &truss, const std::filesystem::path &gdtfPath);
+Result RebindNode(Truss &truss, const std::string &reference, const std::filesystem::path &path);
 // Read-only evidence; never changes source GDTF archives or authored assignments.
 Result InspectReferences(const Fixture &fixture, const std::filesystem::path &gdtfPath);
 template <class Node>

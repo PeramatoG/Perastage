@@ -128,6 +128,10 @@ Truss MakeTruss(const std::string &uuid, const std::string &name = "Type") {
 void RunCases(wxWindow *parent) {
   Adapter adapter;
   adapter.scene.trusses["a"] = MakeTruss("a");
+  FixtureDmxAddresses preserved;
+  preserved.entries = {{std::nullopt, "17"}, {"7", "2049"}};
+  preserved.networks = {{"ethernet_1", "192.168.1.2", std::nullopt, std::nullopt, "on", "Rig.Left"}};
+  adapter.scene.trusses.at("a").dmxAddresses = preserved;
   auto table = MakeTable(parent);
   table->AppendItem(MakeRow(adapter.scene.trusses.at("a")));
 
@@ -206,6 +210,7 @@ void RunCases(wxWindow *parent) {
                   TableColumnIndices::ToIndex(Column::Length));
   assert(synchronizedLength.GetString() == "2.00");
 
+  assert(adapter.scene.trusses.at("a").dmxAddresses == preserved);
   std::filesystem::remove_all(temp);
 }
 

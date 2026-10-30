@@ -140,17 +140,6 @@ void AppendText(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *parent,
   parent->InsertEndChild(element);
 }
 
-// Appends a standard integer child when the resolved value is nonzero.
-void AppendInteger(tinyxml2::XMLDocument &document,
-                   tinyxml2::XMLElement *parent, const char *nodeName,
-                   int value) {
-  if (value == 0)
-    return;
-  tinyxml2::XMLElement *element = document.NewElement(nodeName);
-  element->SetText(std::to_string(value).c_str());
-  parent->InsertEndChild(element);
-}
-
 // Appends a resolved standard Geometry3D node and matrix.
 void AppendGeometry(tinyxml2::XMLDocument &document,
                     tinyxml2::XMLElement *geometries,
@@ -209,9 +198,12 @@ void AppendTruss(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *parent,
   AppendText(document, truss, "Function", values.function);
   AppendText(document, truss, "GDTFSpec", values.gdtfSpec);
   AppendText(document, truss, "GDTFMode", values.gdtfMode);
+  AppendAddresses(document, truss, values.dmxAddresses);
   AppendIdentifiers(document, truss, values.fixtureId, values.fixtureIdNumeric, values.unitNumber);
-  AppendInteger(document, truss, "CustomIdType", values.customIdType);
-  AppendInteger(document, truss, "CustomId", values.customId);
+  if (values.customIdTypePresent || values.customIdType != 0)
+    AppendText(document, truss, "CustomIdType", std::to_string(values.customIdType));
+  if (values.customIdPresent || values.customId != 0)
+    AppendText(document, truss, "CustomId", std::to_string(values.customId));
   parent->InsertEndChild(truss);
 }
 

@@ -18,11 +18,13 @@
 #pragma once
 
 #include "mvr_identifier_source.h"
+#include "fixture_dmx_addresses.h"
 #include <string>
 #include "types.h"
 #include "mvr_matrix_source.h"
 #include "geometry_bounds.h"
 #include <optional>
+#include <array>
 
 // Represents a truss object parsed from MVR
 struct Truss {
@@ -98,4 +100,7 @@ struct Truss {
     std::string parentGroupUuid;
     std::string perastageTypeKey;
     std::string perastageAuxGdtfArchivePath;
+    std::optional<FixtureDmxAddresses> dmxAddresses; // Standard ordered Address/Network owner.
+    // Import evidence for edits that would require a lossless GDTF derivative.
+    std::optional<std::array<float, 3>> boundGdtfDimensions;
 };

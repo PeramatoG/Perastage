@@ -308,6 +308,12 @@ Result ExecuteSceneObjectsToTrusses(const SceneObjectsToTrussesCommand &command,
          "source_scene_object_uuid"});
     return result;
   }
+  if (!scope.error.empty()) {
+    result.outcome = Outcome::ValidationError;
+    result.diagnostics.push_back({DiagnosticSeverity::Error, DiagnosticPhase::Validation,
+        "scene.convert.unsupported_scene_object_field", scope.error, "source_scene_object_uuid"});
+    return result;
+  }
   std::vector<std::string> collisions;
   for (const std::string &uuid : scope.sceneObjectUuids) {
     if (context.scene.trusses.contains(uuid))

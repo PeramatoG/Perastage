@@ -1,6 +1,7 @@
 #include "mvr_identifier_preservation.h"
 #include "mvrscene.h"
 #include <tinyxml2.h>
+#include <tuple>
 #include <charconv>
 #include <string_view>
 #include <unordered_set>
@@ -69,7 +70,7 @@ std::optional<int> OptionalUnit(const std::optional<MvrIdentifierSource> &source
 void ScanSource(const tinyxml2::XMLElement &node, MvrScene &scene,
                 const std::string &location) {
   if (!IsConsumer(node.Name())) return;
-  const auto names = (std::string_view(node.Name()) == "Support" || std::string_view(node.Name()) == "Fixture")
+  const auto names = (std::string_view(node.Name()) == "Support" || std::string_view(node.Name()) == "Fixture" || std::string_view(node.Name()) == "Truss")
       ? std::vector<const char *>{"FixtureID", "FixtureIDNumeric", "UnitNumber", "CustomId", "CustomIdType"}
       : std::vector<const char *>{"FixtureID", "FixtureIDNumeric", "UnitNumber"};
   for (const auto *name : names) {
@@ -129,6 +130,16 @@ std::vector<MvrExportDiagnostic> CheckProjection(
       if (kind == "Truss") unitOf(scene.trusses);
       if (kind == "Support") unitOf(scene.supports);
       if (kind == "SceneObject") unitOf(scene.sceneObjects);
+      if (kind == "Truss" && owns) {
+        const auto &truss = scene.trusses.at(uuid);
+        for (const auto &[name, value, present] : {
+            std::tuple{"CustomId", truss.customId, truss.identifierSource && truss.identifierSource->customIdPresent},
+            std::tuple{"CustomIdType", truss.customIdType, truss.identifierSource && truss.identifierSource->customIdTypePresent}}) {
+          const auto actual = ReadOptionalInteger(node, name);
+          if (actual.has_value() != (present || value != 0) || (actual && *actual != value))
+            result.push_back(Block(uuid, "Serialized Truss custom identifier changed."));
+        }
+      }
       if (kind == "Support" && owns) {
         const auto &support = scene.supports.at(uuid);
         for (const auto &[name, expected] : {std::pair{"CustomIdType", support.customIdType},
