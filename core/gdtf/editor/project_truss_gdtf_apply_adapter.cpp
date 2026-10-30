@@ -262,7 +262,7 @@ ProjectTrussGdtfApplyResult ProjectTrussGdtfApplyAdapter::Apply(
       prepared.name);
   if (canonical.empty())
     return Fail("Truss canonical GDTF filename could not be built.");
-  const std::filesystem::path outputPath = input.outputRoot / canonical;
+  const std::filesystem::path outputPath = input.outputRoot / PathUtils::PathFromUtf8(canonical);
   const auto outputIdentity = PathUtils::BuildFilesystemIdentityKey(outputPath);
   for (const auto &[uuid, candidate] : *input.trusses)
     if (!candidate.gdtfSpec.empty() && truss_gdtf::PreserveStandardBinding(candidate) &&
