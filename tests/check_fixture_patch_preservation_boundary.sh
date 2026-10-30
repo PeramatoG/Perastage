@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 if rg -n 'ConfigManager|wx/|wx[A-Z]|gui/|mvrimporter|mvrexporter|filesystem' \
-    core/fixture_patch_service.h core/fixture_network_service.h models/fixture_dmx_addresses.h models/fixture_network_assignment.h core/fixture_support_conversion.h core/fixture_identifier_values.h; then
+    core/fixture_patch_service.h core/fixture_network_service.h models/fixture_dmx_addresses.h models/fixture_network_assignment.h core/fixture_support_conversion.h core/fixture_identifier_values.h core/truss_gdtf_binding.h; then
   echo "Fixture DMX patch policy must remain GUI-independent and free of I/O." >&2
   exit 1
 fi

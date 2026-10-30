@@ -2,6 +2,7 @@
 
 #include "gdtf_editor_context.h"
 #include "truss.h"
+#include "fixture_network_service.h"
 
 #include <filesystem>
 #include <functional>
@@ -16,6 +17,7 @@ namespace gdtf {
 struct ProjectTrussGdtfApplyServices {
   std::function<std::string(const std::string &, const std::string &, const std::string &)> canonicalFileName;
   std::function<bool(const Truss &, const std::filesystem::path &, const std::string &, std::string &)> generateGdtf;
+  std::function<std::optional<fixture_network::WireNames>(const std::filesystem::path &)> readWireNames;
 };
 
 struct ProjectTrussGdtfApplyInput {

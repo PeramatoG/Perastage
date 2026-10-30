@@ -96,6 +96,8 @@ int main() {
   truss.uuid = "truss-override-1";
   truss.name = "Main Truss";
   truss.gdtfSpec = sourceGdtf;
+  // This case exercises a Perastage-owned auxiliary definition, not an authored binding.
+  truss.perastageAuxGdtfArchivePath = sourceGdtf;
   truss.gdtfMode = "Default";
   truss.lengthMm = 3200.0f;
   truss.widthMm = 420.0f;

@@ -1381,11 +1381,12 @@ Tables 27–28 and 49–52 now use the shared optional Address/Network owner on 
 including empty presence, nonzero-only breaks, exact wire names and optional
 attribute values. Standard bindings are isolated from auxiliary generation and
 shared rewrite requests; final resource-plan validation checks original bytes,
-mode ownership and actual WiringObjects. Imported public bindings without native
-or auxiliary ownership also remain byte-preserved. Missing evidence or invalid
+mode ownership and actual WiringObjects. Standard bindings without an explicitly matching auxiliary ownership
+reference also remain byte-preserved. Missing evidence or invalid
 assignments block publication. GDTF-authoritative type edits and generic
 regeneration of addressed definitions require a lossless derivative and are
-refused until supported. Native generation and existing geometry/Symdef transform
+refused until supported. Controlled native generation without Addresses remains available for verified
+owned Default-mode resources without WiringObjects; geometry/Symdef transform
 guards remain unchanged. SceneObject conversion retains compatible Classing,
 identifiers and matrix source, and refuses opaque source evidence or unsupported
 geometry before mutation/Undo; even empty SceneObject Addresses remain protected.

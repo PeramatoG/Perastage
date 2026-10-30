@@ -103,11 +103,13 @@ extensions remain guarded. Network geometry/hostname control whitespace also
 fails closed because the XML writer cannot retain its character-reference form.
 Truss uses that same collection, reference policy and child order. Standard
 bindings on address-bearing Truss nodes are isolated from auxiliary generation
-and resource reuse/rewrite requests. Imported public definitions without native
-or auxiliary ownership also remain byte-preserved. An auxiliary GDTF cannot
+and resource reuse/rewrite requests. Standard definitions without an explicitly matching auxiliary ownership
+reference also remain byte-preserved. An auxiliary GDTF cannot
 supply a missing standard binding. Modes must match the linked definition; final
 resource-plan checks verify the exact serialized GDTF bytes and WiringObjects.
-Legacy native generation without Addresses retains its existing policy. Changes
+Controlled native generation without Addresses remains available for an owned
+Default-mode definition with verified absence of WiringObjects. Authored or
+network-capable definitions are never replaced by generic generation. Changes
 to GDTF-authoritative type metadata or controlled generation that would replace an
 authored addressed definition require a verified lossless derivative and are
 refused until that operation is supported. Existing geometry/Symdef authority

@@ -1,6 +1,7 @@
 /* This file is part of Perastage. */
 #include "mvr_truss_address_preservation.h"
 #include "fixture_patch_service.h"
+#include "truss_gdtf_binding.h"
 #include "fixture_network_reference.h"
 #include "filesystem_path_utils.h"
 #include <tinyxml2.h>
@@ -9,6 +10,7 @@
 #include <iterator>
 #include <string_view>
 namespace mvr {
+bool PreserveTrussAddressBinding(const Truss &truss) { return truss_gdtf::PreserveStandardBinding(truss); }
 namespace {
 MvrExportDiagnostic Block(const Truss &truss, const std::string &field,
                           const std::string &detail, bool unavailable = false) {

@@ -46,6 +46,9 @@ gdtf::ProjectTrussGdtfApplyServices MakeServices(bool failGeneration = false,
     std::ofstream(out).put('g');
     return true;
   };
+  services.readWireNames = [](const std::filesystem::path &) {
+    return std::optional<fixture_network::WireNames>{fixture_network::WireNames{{"ethernet_1", 1u}}};
+  };
   return services;
 }
 
@@ -129,21 +132,43 @@ int main() {
   assert(!result.common.success);
   assert(trusses["target"].weightKg == 12.0f);
 
-  for (int guarded = 0; guarded < 3; ++guarded) {
+  for (int guarded = 0; guarded < 5; ++guarded) {
     auto candidates = trusses;
     auto &candidate = candidates.at(guarded == 2 ? "shared" : "target");
     candidate.dmxAddresses.emplace();
     candidate.dmxAddresses->entries = {{std::nullopt, "17"}};
     if (guarded == 0) candidate.gdtfSpec = "authored.gdtf";
     else candidate.dmxAddresses->networks = {{"ethernet_1"}};
+    if (guarded >= 3) { candidate.dmxAddresses.reset(); candidate.gdtfSpec = "authored.gdtf"; }
+    if (guarded == 4) candidate.perastageAuxGdtfArchivePath = "authored.gdtf";
+    const auto originalAssignments = candidate.dmxAddresses;
+    const auto originalReference = candidate.gdtfSpec;
     const int previousCalls = calls;
     const auto output = root / ("guarded-" + std::to_string(guarded));
     result = adapter.Apply({request, &candidates, root, output});
     assert(!result.common.success && !result.common.validationErrors.empty());
     assert(!result.generationOccurred && !result.externalFileCreatedOrModified);
     assert(calls == previousCalls && !std::filesystem::exists(output));
-    assert(candidate.dmxAddresses && candidate.dmxAddresses->entries.front().value == "17");
+    assert(candidate.dmxAddresses == originalAssignments && candidate.gdtfSpec == originalReference);
   }
+
+  auto native = trusses;
+  native.at("target").gdtfSpec = "native.gdtf";
+  native.at("target").perastageAuxGdtfArchivePath = "native.gdtf";
+  auto nativeServices = MakeServices(false, &calls);
+  nativeServices.readWireNames = [](const std::filesystem::path &) {
+    return std::optional<fixture_network::WireNames>{fixture_network::WireNames{}};
+  };
+  assert(gdtf::ProjectTrussGdtfApplyAdapter(nativeServices).Apply({request, &native, root, root}).common.success);
+
+  Truss protectedPeer = MakeTruss("protected");
+  protectedPeer.gdtfSpec = (root / "ModelB@Perastage.gdtf").string();
+  protectedPeer.dmxAddresses.emplace(); protectedPeer.dmxAddresses->entries = {{std::nullopt, "17"}};
+  native[protectedPeer.uuid] = protectedPeer;
+  const auto previousCalls = calls;
+  const auto protectedResult = gdtf::ProjectTrussGdtfApplyAdapter(nativeServices).Apply({request, &native, root, root});
+  assert(!protectedResult.common.success && !protectedResult.externalFileCreatedOrModified);
+  assert(calls == previousCalls && native.at("protected").dmxAddresses == protectedPeer.dmxAddresses);
 
   request.contextKind = gdtf::GdtfEditorContextKind::ProjectFixture;
   result = adapter.Apply({request, &trusses, root, root});
