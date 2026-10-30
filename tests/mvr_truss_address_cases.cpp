@@ -156,7 +156,7 @@ void RunTrussAddressCases(const fs::path &dir, const FixtureNetworkTestServices 
     assert(candidate.gdtfSpec == original.gdtfSpec && candidate.dmxAddresses == original.dmxAddresses);
     config.GetScene() = scene; const auto retained = dir / "truss-retained.pstg";
     assert(config.SaveProject(retained.string())); const auto previous = Bytes(retained);
-    for (int failure = 0; failure < 10; ++failure) {
+    for (int failure = 0; failure < 11; ++failure) {
       auto invalid = scene; auto &truss = invalid.trusses.at(id);
       if (failure == 0) truss.gdtfSpec = "missing.gdtf";
       if (failure == 1) truss.gdtfMode.clear();
@@ -167,6 +167,14 @@ void RunTrussAddressCases(const fs::path &dir, const FixtureNetworkTestServices 
       if (failure == 7) truss.gdtfMode = "MissingMode";
       if (failure == 5) truss.perastageAuxGdtfArchivePath = "missing-auxiliary.gdtf";
       if (failure == 6) truss.lengthMm += 1000.0f;
+      if (failure == 10) {
+        auto duplicateMode = tests::gdtf::BuildMinimalValidFixture().WithDmxMode("Mode", "Root").BuildDescriptionXml();
+        duplicateMode.insert(duplicateMode.find("</DMXModes>"), "<DMXMode Name='Mode' Geometry='Root'><DMXChannels/></DMXMode>");
+        const auto path = dir / "truss-ambiguous-mode.gdtf"; std::string error;
+        assert(tests::archive::WriteStoredZipWithRawNames(path, {{"description.xml", duplicateMode}}, error));
+        truss.gdtfSpec = path.string();
+        assert(fixture_network::InspectTrussReferences(truss, path).conflict == fixture_network::Conflict::InvalidBinding);
+      }
       if (failure == 4) {
         const auto duplicate = dir / "truss-ambiguous.gdtf"; std::string error;
         auto ambiguous = tests::gdtf::BuildMinimalValidFixture().WithDmxMode("Mode", "Root").BuildDescriptionXml();

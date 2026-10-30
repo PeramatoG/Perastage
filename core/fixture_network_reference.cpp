@@ -40,9 +40,8 @@ Result InspectTrussReferences(const Truss &truss, const std::filesystem::path &p
   if (!archive.Success())
     return Failure(truss, Conflict::UnavailableGdtf, "GDTFSpec", "the selected GDTF definition cannot be read");
   const auto description = gdtf::ReadGdtfDescription(archive.descriptionXml);
-  if (!description.Success() || std::find(description.dmxModeNames.begin(), description.dmxModeNames.end(),
-      truss.gdtfMode) == description.dmxModeNames.end())
-    return Failure(truss, Conflict::InvalidBinding, "GDTFMode", "the authored mode does not identify a DMXMode in the selected GDTF");
+  if (!description.Success() || std::count(description.dmxModeNames.begin(), description.dmxModeNames.end(), truss.gdtfMode) != 1)
+    return Failure(truss, Conflict::InvalidBinding, "GDTFMode", "the authored mode must identify exactly one DMXMode in the selected GDTF");
   return InspectNodeReferences(truss, path);
 }
 Result RebindNode(Truss &truss, const std::string &reference, const std::filesystem::path &path) {
