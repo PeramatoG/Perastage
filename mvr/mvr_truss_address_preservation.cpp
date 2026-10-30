@@ -30,9 +30,8 @@ std::vector<MvrExportDiagnostic> CheckTrussAddressBindings(const MvrScene &scene
   std::vector<MvrExportDiagnostic> result;
   for (const auto &[uuid, truss] : scene.trusses) {
     if (!PreserveTrussAddressBinding(truss)) continue;
-    if (truss.boundGdtfDimensions && *truss.boundGdtfDimensions !=
-        std::array<float, 3>{truss.lengthMm, truss.widthMm, truss.heightMm})
-      result.push_back(Block(truss, "GDTFSpec/Dimensions", "Edited GDTF-authoritative dimensions require a verified lossless derivative; the authored definition cannot be replaced by generic generation."));
+    if (truss.boundGdtfMetadata && *truss.boundGdtfMetadata != truss.CaptureGdtfSourceMetadata())
+      result.push_back(Block(truss, "GDTFSpec/TypeMetadata", "Edited GDTF type metadata requires a verified lossless derivative; the authored definition cannot be replaced by generic generation."));
     if (!truss.perastageAuxGdtfArchivePath.empty()) {
       auto auxiliary = truss; auxiliary.gdtfSpec = truss.perastageAuxGdtfArchivePath;
       std::error_code error;

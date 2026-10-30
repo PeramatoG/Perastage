@@ -101,6 +101,15 @@ struct Truss {
     std::string perastageTypeKey;
     std::string perastageAuxGdtfArchivePath;
     std::optional<FixtureDmxAddresses> dmxAddresses; // Standard ordered Address/Network owner.
-    // Import evidence for edits that would require a lossless GDTF derivative.
-    std::optional<std::array<float, 3>> boundGdtfDimensions;
+    struct GdtfSourceMetadata {
+        std::string manufacturer, model, description, crossSectionType, crossSection;
+        std::array<float, 4> physical;
+        bool operator==(const GdtfSourceMetadata &) const = default;
+    };
+    GdtfSourceMetadata CaptureGdtfSourceMetadata() const {
+        return {manufacturer, model, gdtfDescription, crossSectionType, crossSection,
+                {lengthMm, widthMm, heightMm, weightKg}};
+    }
+    // Read-only import evidence; never serialized as a proprietary ownership field.
+    std::optional<GdtfSourceMetadata> boundGdtfMetadata;
 };

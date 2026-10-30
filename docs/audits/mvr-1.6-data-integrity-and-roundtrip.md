@@ -1383,7 +1383,7 @@ attribute values. Standard bindings are isolated from auxiliary generation and
 shared rewrite requests; final resource-plan validation checks original bytes,
 mode ownership and actual WiringObjects. Imported public bindings without native
 or auxiliary ownership also remain byte-preserved. Missing evidence or invalid
-assignments block publication. GDTF-authoritative dimension edits and generic
+assignments block publication. GDTF-authoritative type edits and generic
 regeneration of addressed definitions require a lossless derivative and are
 refused until supported. Native generation and existing geometry/Symdef transform
 guards remain unchanged. SceneObject conversion retains compatible Classing,

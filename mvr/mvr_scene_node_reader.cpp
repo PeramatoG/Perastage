@@ -755,8 +755,8 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
           services.logWarning(msg.str());
         }
 
-        if (!gdtfLoadFailed && !truss.gdtfSpec.empty())
-          truss.boundGdtfDimensions = std::array<float, 3>{truss.lengthMm, truss.widthMm, truss.heightMm};
+        if (!truss.gdtfSpec.empty())
+          truss.boundGdtfMetadata = truss.CaptureGdtfSourceMetadata();
         scene.trusses[truss.uuid] = truss;
         return truss.uuid;
       };

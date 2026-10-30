@@ -351,6 +351,7 @@ bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
   if (outTruss.gdtfMode.empty())
     outTruss.gdtfMode = "Default";
 
+  outTruss.boundGdtfMetadata = outTruss.CaptureGdtfSourceMetadata();
   return true;
 }
 

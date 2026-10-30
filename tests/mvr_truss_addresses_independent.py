@@ -53,7 +53,7 @@ def verify_truss_cases(directory, root, package):
                 assert package(io.BytesIO(archive.read('scene.mvr'))) == package(directory / f'{file}-standalone.mvr')
     original = entries(next(iter(owners(root(directory / 'truss-mixed-source.mvr')).values())))
     original_gdtf = dict(package(directory / 'truss-mixed-source.mvr'))['fixture.gdtf']
-    for output in ('edited', 'undo', 'redo', 'grouped', 'layer', 'merged', 'copied', 'auxiliary'):
+    for output in ('edited', 'edit-reopened', 'undo', 'redo', 'grouped', 'layer', 'merged', 'copied', 'auxiliary'):
         path = directory / f'truss-{output}.mvr'
         nodes = owners(root(path))
         assert len(nodes) == (2 if output in ('merged', 'copied') else 1)

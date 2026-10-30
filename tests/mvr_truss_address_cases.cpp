@@ -105,7 +105,7 @@ void RunTrussAddressCases(const fs::path &dir, const FixtureNetworkTestServices 
     config.GetScene() = scene; config.PushUndoState("edit Truss metadata");
     auto &edited = config.GetScene().trusses.at(id);
     edited.name = "Edited";
-    edited.weightKg = 99.0f; edited.hasManualLoadOverride = true; edited.manualLoadKg = 100.0f;
+    edited.function = "Video"; edited.hasManualLoadOverride = true; edited.manualLoadKg = 100.0f;
     auto dimensionEdit = scene;
     dimensionEdit.trusses.at(id).lengthMm += 1000.0f;
     MvrExporter refusedDimensions; std::vector<unsigned char> refusedBytes;
@@ -114,6 +114,14 @@ void RunTrussAddressCases(const fs::path &dir, const FixtureNetworkTestServices 
     Export(config.GetScene(), dir / "truss-edited.mvr");
     config.Undo(); Export(config.GetScene(), dir / "truss-undo.mvr");
     config.Redo(); Export(config.GetScene(), dir / "truss-redo.mvr");
+    const auto editedProject = dir / "truss-edited.pstg";
+    assert(config.SaveProject(editedProject.string()));
+    config.Reset(); assert(config.LoadProject(editedProject.string()));
+    const auto &restoredEdit = config.GetScene().trusses.at(id);
+    assert(restoredEdit.name == "Edited" && restoredEdit.function == "Video");
+    assert(restoredEdit.hasManualLoadOverride && restoredEdit.manualLoadKg == 100.0f);
+    assert(restoredEdit.dmxAddresses == original.dmxAddresses);
+    Export(config.GetScene(), dir / "truss-edit-reopened.mvr");
     auto merged = scene;
     const auto plan = mvr::AnalyzeImportedSceneMerge(merged, scene);
     mvr::ApplyImportedSceneMergeAtomically(merged, scene, plan);
@@ -148,12 +156,14 @@ void RunTrussAddressCases(const fs::path &dir, const FixtureNetworkTestServices 
     assert(candidate.gdtfSpec == original.gdtfSpec && candidate.dmxAddresses == original.dmxAddresses);
     config.GetScene() = scene; const auto retained = dir / "truss-retained.pstg";
     assert(config.SaveProject(retained.string())); const auto previous = Bytes(retained);
-    for (int failure = 0; failure < 8; ++failure) {
+    for (int failure = 0; failure < 10; ++failure) {
       auto invalid = scene; auto &truss = invalid.trusses.at(id);
       if (failure == 0) truss.gdtfSpec = "missing.gdtf";
       if (failure == 1) truss.gdtfMode.clear();
       if (failure == 2) { truss.perastageAuxGdtfArchivePath = truss.gdtfSpec; truss.gdtfSpec.clear(); }
       if (failure == 3) truss.dmxAddresses->networks.front().geometry = "Mismatched";
+      if (failure == 8) truss.weightKg += 1.0f;
+      if (failure == 9) truss.manufacturer = "Edited type manufacturer";
       if (failure == 7) truss.gdtfMode = "MissingMode";
       if (failure == 5) truss.perastageAuxGdtfArchivePath = "missing-auxiliary.gdtf";
       if (failure == 6) truss.lengthMm += 1000.0f;
