@@ -12,6 +12,7 @@
 #include "mvr_fixture_addresses.h"
 #include "mvr_fixture_network_cases.h"
 #include "mvr_support_address_cases.h"
+#include "mvr_truss_address_cases.h"
 #include "scene_grouping.h"
 #include "support/archive_entry_test_utils.h"
 #include "support/gdtf_test_fixture_builder.h"
@@ -272,5 +273,6 @@ int main(int argc, char **argv) {
   }
   RunFixtureNetworkCases(dir, scene, {Source, Archive, Import, Export});
   RunSupportAddressCases(dir, {Source, Archive, Import, Export});
+  RunTrussAddressCases(dir, {Source, Archive, Import, Export});
   config.Reset();
 }

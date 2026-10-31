@@ -312,7 +312,7 @@ integer ranges protected and explicit mutation/legacy limits below. Detailed lim
 | 28 | `Truss/GDTFSpec` | 0 or 1 | p | p | p | p | p | p | p | F,X | P | P0/r |
 | 28 | `Truss/GDTFMode` | 0 or 1 | p | p | p | p | p | p | p | F,X | P | P0/r |
 | 28 | `Truss/CastShadow` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
-| 28 | `Truss/Addresses` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
+| 28 | `Truss/Addresses` | 0 or 1 | Y | Y | p | Y | Y | Y | Y | X | V | P0/r |
 | 28 | `Truss/Alignments` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 28 | `Truss/CustomCommands` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
 | 28 | `Truss/Overwrites` | 0 or 1 | N | B | N | B | B | B | B | K | B | P0/b |
@@ -1373,3 +1373,29 @@ serialization failure retaining the previous PSTG. Existing Fixture regressions
 remain active. Platform/check results are recorded in the PR; no external
 application interoperability is claimed. Next: the remaining address consumers,
 then Protocol associations with their own bounded ownership/reference audit.
+
+
+### Truss Addresses continuation
+
+Tables 27–28 and 49–52 now use the shared optional Address/Network owner on Truss,
+including empty presence, nonzero-only breaks, exact wire names and optional
+attribute values. Standard bindings are isolated from auxiliary generation and
+shared rewrite requests; final resource-plan validation checks original bytes,
+mode ownership and actual WiringObjects. Standard bindings without an explicitly matching auxiliary ownership
+reference also remain byte-preserved. Missing evidence or invalid
+assignments block publication. GDTF-authoritative type edits and generic
+regeneration of addressed definitions require a lossless derivative and are
+refused until supported. Controlled native generation without Addresses remains available for verified
+owned Default-mode resources without WiringObjects; geometry/Symdef transform
+guards remain unchanged. SceneObject conversion retains compatible Classing,
+identifiers and matrix source, and refuses opaque source evidence or unsupported
+geometry before mutation/Undo; even empty SceneObject Addresses remain protected.
+
+Independent ZIP/XML checks cover standard attributes/order, identifiers, matrices,
+Geometry3D/Symdef identity, GDTF/model bytes, three PSTG cycles and same-state
+standalone/internal payload order. Native checks cover editing, scene operations,
+rebinding and failed-save retention. Well-formedness, standard-scene XSD and
+full-document XSD are separate assertions: the UserData discrepancy remains, and
+the pinned IPv6 regex also rejects the tested expanded lowercase form. Neither
+stripped validation nor round trips establish full conformance or external
+interoperability. The official XSD is unchanged. Next address consumer: SceneObject.

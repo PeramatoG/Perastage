@@ -18,6 +18,7 @@
 #include "mvr_identifier_preservation.h"
 #include "mvrexporter.h"
 #include "mvr_fixture_addresses.h"
+#include "mvr_truss_address_preservation.h"
 #include "app_version.h"
 #include "build_info.h"
 #include "filesystem_path_utils.h"
@@ -1112,8 +1113,8 @@ CollectReferencedArchivePaths(const tinyxml2::XMLDocument &doc) {
         referencedPaths.insert(normalized);
     }
 
-    // Captures <GDTFSpec>archive/path.gdtf</GDTFSpec> element text references.
-    if (std::string(current->Name()) == "GDTFSpec") {
+    // Captures standard bindings and the separately owned Truss auxiliary resource.
+    if (std::string(current->Name()) == "GDTFSpec" || std::string(current->Name()) == "AuxGdtf") {
       const char *gdtfSpecText = current->GetText();
       if (gdtfSpecText) {
         const std::string normalized =
@@ -1825,7 +1826,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
 
   bool fatalTrussGdtfGenerationFailure = false;
   auto exportTruss = [&](tinyxml2::XMLElement *parent, const Truss &t) {
-    const Truss effectiveTruss =
+    const bool preserveAddressBinding = mvr::PreserveTrussAddressBinding(t);
+    const Truss effectiveTruss = preserveAddressBinding ? t :
         BuildEffectiveTrussTypeMetadata(t, trussTypeMetadataBySourceKey);
     mvr_xml_serialization::TrussValues values;
     const auto exportUuidIt = trussExportUuids.find(t.uuid);
@@ -1838,9 +1840,14 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     const auto &trussIdentifiers = assignedIds.at(t.uuid);
 
     std::string trussTypeKey = BuildTrussTypeKey(effectiveTruss);
-    std::string trussGdtfArchivePath;
+    std::string trussGdtfArchivePath, preservedAuxiliaryPath;
     auto trussArchiveIt = trussArchiveByTypeKey.find(trussTypeKey);
-    if (trussArchiveIt != trussArchiveByTypeKey.end()) {
+    if (preserveAddressBinding) {
+      // Isolate the standard resource from shared auxiliary rewrite requests.
+      trussGdtfArchivePath = registerGdtfResource(exportedTrussUuid, t.gdtfSpec, "", false, false, false);
+      if (!t.perastageAuxGdtfArchivePath.empty())
+        preservedAuxiliaryPath = registerGdtfResource("", t.perastageAuxGdtfArchivePath, "", false, false, false);
+    } else if (trussArchiveIt != trussArchiveByTypeKey.end()) {
       trussGdtfArchivePath = trussArchiveIt->second;
       if (!exportedTrussUuid.empty())
         resourceCollection.AssociateGdtfArchive(exportedTrussUuid, trussGdtfArchivePath);
@@ -1902,7 +1909,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     }
     const std::string exportTrussTypeKey =
         BuildExportTrussTypeKey(effectiveTruss, trussGdtfArchivePath);
-    if (!trussGdtfArchivePath.empty()) {
+    if (!preserveAddressBinding && !trussGdtfArchivePath.empty()) {
       auto &ov = gdtfRewriteRequests[trussGdtfArchivePath];
       ov.hasLengthMm = true;
       ov.lengthMm = effectiveTruss.lengthMm;
@@ -2014,15 +2021,18 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     values.function = t.function;
     values.gdtfSpec = trussGdtfArchivePath;
     if (!trussGdtfArchivePath.empty())
-      values.gdtfMode = t.gdtfMode.empty() ? "Default" : t.gdtfMode;
+      values.gdtfMode = preserveAddressBinding ? t.gdtfMode : (t.gdtfMode.empty() ? "Default" : t.gdtfMode);
     values.fixtureId = trussIdentifiers.first;
     values.fixtureIdNumeric = trussIdentifiers.second;
     values.unitNumber = mvr_identifiers::OptionalUnit(t.identifierSource, t.unitNumber);
     values.customIdType = t.customIdType;
     values.customId = t.customId;
+    values.customIdPresent = t.identifierSource && t.identifierSource->customIdPresent;
+    values.customIdTypePresent = t.identifierSource && t.identifierSource->customIdTypePresent;
+    values.dmxAddresses = t.dmxAddresses;
 
     AppendTrussInfoMetadata(doc, trussInfoMap, effectiveTruss, exportedTrussUuid,
-                            exportTrussTypeKey, trussGdtfArchivePath);
+                            exportTrussTypeKey, preserveAddressBinding ? preservedAuxiliaryPath : trussGdtfArchivePath);
 
     mvr_xml_serialization::AppendTruss(doc, parent, values);
   };
@@ -2435,6 +2445,13 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   mvr_export_resources::ResourcePlan resourcePlan =
       std::move(gdtfPreparation.plan);
   auto &resourceEntries = resourcePlan.entries;
+  const auto trussBindingDiagnostics = mvr::CheckSerializedTrussAddressBindings(*doc.RootElement(), scene,
+      [&](const std::string &name) {
+        for (const auto &entry : resourceEntries) if (entry.archivePath == name) return entry.sourcePath;
+        return fs::path{};
+      });
+  for (const auto &diagnostic : trussBindingDiagnostics) AddDiagnostic(diagnostic);
+  if (!trussBindingDiagnostics.empty()) return false;
   mvr::WriteCanonicalMatrices(*sceneNode, scene);
   const auto addressProjection = mvr::CheckFixtureAddressProjection(*doc.RootElement(), scene);
   for (const auto &diagnostic : addressProjection) AddDiagnostic(diagnostic);

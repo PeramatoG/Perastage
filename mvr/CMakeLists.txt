@@ -19,6 +19,7 @@ add_library(perastage_mvr_read STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_identifier_preservation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_class_preservation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_standard_preservation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_truss_address_preservation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_focus_validation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_node_reader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_node_reader_neutral.cpp

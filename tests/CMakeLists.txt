@@ -1787,6 +1787,7 @@ endif()
 add_executable(mvr_fixture_addresses_test mvr_fixture_addresses_test.cpp
                mvr_fixture_network_cases.cpp
                mvr_support_address_cases.cpp
+               mvr_truss_address_cases.cpp
                ../core/gdtf/editor/project_fixture_gdtf_apply_adapter.cpp
                ../gui/fixture_patch_workflow.cpp
                ../core/scene_clipboard.cpp

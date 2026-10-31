@@ -380,6 +380,9 @@ int main() {
   SceneObject first;
   first.uuid = "object-a";
   first.modelFile = "truss.glb";
+  first.classing = "class-ref"; first.fixtureIdText = "Object.7"; first.fixtureIdNumeric = 7;
+  first.identifierSource = MvrIdentifierSource{0, true};
+  first.matrixSource = MvrMatrixSource{{1,0,0,0,1,0,0,0,1,1234.567890123,0,0}, first.transform};
   SceneObject second = first;
   second.uuid = "object-b";
   conversionScene.sceneObjects[first.uuid] = first;
@@ -393,9 +396,35 @@ int main() {
   assert(conversionSelection.trusses ==
          (std::vector<std::string>{"object-a", "object-b"}));
   assert(trussConversion.outputs.size() == 2);
+  assert(conversionScene.trusses.at(first.uuid).classing == first.classing);
+  assert(conversionScene.trusses.at(first.uuid).fixtureIdText == first.fixtureIdText);
+  assert(conversionScene.trusses.at(first.uuid).fixtureIdNumeric == first.fixtureIdNumeric);
+  assert(conversionScene.trusses.at(first.uuid).identifierSource->unitNumberPresent);
+  assert(conversionScene.trusses.at(first.uuid).matrixSource->values == first.matrixSource->values);
   assert(
       scene_tools::ExecuteSceneObjectsToTrusses({"missing"}, conversionContext)
           .outcome == Outcome::ValidationError);
+
+  for (int invalid = 0; invalid < 5; ++invalid) {
+    MvrScene guarded;
+    guarded.sceneObjects[first.uuid] = first;
+    guarded.sceneObjects[second.uuid] = second;
+    auto &object = guarded.sceneObjects.at(second.uuid);
+    if (invalid == 0) guarded.preservationIssues.push_back({"Addresses", "old-source-uuid", "SceneObject/Addresses", "", "unsupported standard source", "resolve source"});
+    if (invalid == 1) object.kind = SceneObjectKind::FocusPoint;
+    if (invalid == 2) object.geometries = {{"truss.glb", MatrixUtils::Identity()}, {"second.glb", MatrixUtils::Identity()}};
+    if (invalid == 3) { object.geometries = {{"truss.glb", MatrixUtils::Identity()}}; object.geometries.front().sourceSymdefUuid = "definition"; }
+    if (invalid == 4) { object.geometries = {{"truss.glb", MatrixUtils::Identity()}}; object.geometries.front().localTransform.o[0] = 1.0f; }
+    scene_grouping::ObjectSelection selected; selected.sceneObjects = {first.uuid, second.uuid};
+    const auto before = selected;
+    RecordingHost host; ExecutionContext execution{guarded, selected, host};
+    const auto refusal = scene_tools::ExecuteSceneObjectsToTrusses({first.uuid}, execution);
+    assert(refusal.outcome == Outcome::ValidationError && host.commits == 0);
+    assert(!refusal.mutation.HasSemanticChanges() && !refusal.mutation.undoEntryRecorded);
+    assert(refusal.diagnostics.front().code == "scene.convert.unsupported_scene_object_field");
+    assert(guarded.trusses.empty() && guarded.sceneObjects.size() == 2 && EqualSelection(selected, before));
+    assert(ConvertSceneObjectsWithSameModelToTrusses(guarded, first.uuid).convertedUuids.empty());
+  }
 
   MvrScene unchangedTrussSelectionScene;
   unchangedTrussSelectionScene.sceneObjects[first.uuid] = first;

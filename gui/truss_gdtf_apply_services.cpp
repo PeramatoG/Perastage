@@ -1,6 +1,7 @@
 #include "truss_gdtf_apply_services.h"
 
 #include "gdtfdictionary.h"
+#include "fixture_network_reference.h"
 #include "truss_gdtf_builder.h"
 
 namespace gui {
@@ -21,6 +22,7 @@ gdtf::ProjectTrussGdtfApplyServices MakeTrussGdtfApplyServices() {
     return BuildTrussGdtfFromInstance(truss, outputPath, &diagnostic,
                                       revisionText);
   };
+  services.readWireNames = fixture_network::ReadWireNames;
   return services;
 }
 

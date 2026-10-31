@@ -10,6 +10,7 @@
 #include "scene_object_truss_converter.h"
 
 #include "groupobject.h"
+#include "matrixutils.h"
 #include "mvrscene.h"
 #include "sceneobject.h"
 #include "truss.h"
@@ -29,6 +30,12 @@ Truss BuildTrussFromSceneObject(const SceneObject &object,
   Truss truss;
   truss.uuid = object.uuid;
   truss.name = object.name;
+  truss.classing = object.classing;
+  truss.identifierSource = object.identifierSource;
+  truss.fixtureIdText = object.fixtureIdText;
+  truss.fixtureIdNumeric = object.fixtureIdNumeric;
+  truss.unitNumber = object.unitNumber;
+  truss.matrixSource = object.matrixSource;
   truss.symbolFile = modelFile;
   truss.modelFile = modelFile;
   truss.layer = object.layer;
@@ -79,6 +86,20 @@ SceneObjectToTrussConversionScope ResolveSceneObjectsWithSameModelToTrusses(
       scope.sceneObjectUuids.push_back(uuid);
   }
   std::sort(scope.sceneObjectUuids.begin(), scope.sceneObjectUuids.end());
+  // Opaque evidence keeps source UUIDs after merges; it cannot be reassigned safely.
+  if (!scene.preservationIssues.empty())
+    scope.error = "Resolve retained scene source conflicts before conversion: " + scene.preservationIssues.front().sourceLocation;
+  const auto identity = MatrixUtils::Identity();
+  for (const auto &uuid : scope.sceneObjectUuids) {
+    const auto &object = scene.sceneObjects.at(uuid);
+    const auto geometry = object.geometries.empty() ? identity : object.geometries.front().localTransform;
+    const bool identityGeometry = geometry.u == identity.u && geometry.v == identity.v &&
+        geometry.w == identity.w && geometry.o == identity.o;
+    if (!identityGeometry || object.kind != SceneObjectKind::SceneObject || object.geometries.size() > 1 ||
+        (!object.geometries.empty() && (!object.geometries.front().sourceSymdefUuid.empty() ||
+                                       !object.geometries.front().sourceSymbolUuid.empty())))
+      scope.error = "SceneObject " + uuid + ": conversion requires one direct model and cannot discard FocusPoint, Symbol/Symdef or nonidentity geometry ownership.";
+  }
   return scope;
 }
 
@@ -89,6 +110,8 @@ SceneObjectToTrussConversionResult ConvertSceneObjectsWithSameModelToTrusses(
   const SceneObjectToTrussConversionScope scope =
       ResolveSceneObjectsWithSameModelToTrusses(scene, sourceSceneObjectUuid);
   result.modelFile = scope.modelFile;
+  result.error = scope.error;
+  if (!scope.error.empty()) return result;
   if (scope.sceneObjectUuids.empty())
     return result;
   if (std::any_of(scope.sceneObjectUuids.begin(), scope.sceneObjectUuids.end(),

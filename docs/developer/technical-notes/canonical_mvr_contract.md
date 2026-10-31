@@ -75,7 +75,7 @@ a private snapshot after world-space edits, and may omit an identity Layer Matri
 Layer merge equality includes the authored matrix values. Non-elevation,
 malformed or ambiguous layer matrices remain fail-closed.
 
-Fixture and Support each own one optional standard Addresses collection with ordered DMX Address
+Fixture, Support and Truss each own one optional standard Addresses collection with ordered DMX Address
 and Network lists (Address children precede Network), retaining container
 presence, optional break attributes and authored values. Missing break means 0;
 break IDs identify assignments and never universes. Fixture.address is the
@@ -101,6 +101,23 @@ Network; a dangling mode cannot be omitted or replaced by Default. Malformed/unk
 other address consumers and unsupported
 extensions remain guarded. Network geometry/hostname control whitespace also
 fails closed because the XML writer cannot retain its character-reference form.
+Truss uses that same collection, reference policy and child order. Standard
+bindings on address-bearing Truss nodes are isolated from auxiliary generation
+and resource reuse/rewrite requests. Standard definitions without an explicitly matching auxiliary ownership
+reference also remain byte-preserved. An auxiliary GDTF cannot
+supply a missing standard binding. Modes must match the linked definition; final
+resource-plan checks verify the exact serialized GDTF bytes and WiringObjects.
+Controlled native generation without Addresses remains available for an owned
+Default-mode definition with verified absence of WiringObjects. Authored or
+network-capable definitions are never replaced by generic generation. Changes
+to GDTF-authoritative type metadata or controlled generation that would replace an
+authored addressed definition require a verified lossless derivative and are
+refused until that operation is supported. Existing geometry/Symdef authority
+and transform limitations remain guarded. SceneObject-to-Truss conversion copies
+compatible identifiers, Classing and matrix provenance; retained source issues,
+FocusPoint, multiple models, Symbol ownership and nonidentity geometry cause
+atomic structured refusal. SceneObject Addresses, including empty presence,
+remain unsupported and protected.
 Fixture-to-Support conversion preserves the complete collection, Classing,
 standard identifiers (including CustomId/CustomIdType presence and explicit
 zero), GDTF binding, position,

@@ -1,6 +1,7 @@
 #include "project_truss_gdtf_apply_adapter.h"
 
 #include "filesystem_path_utils.h"
+#include "truss_gdtf_binding.h"
 
 #include <algorithm>
 #include <cctype>
@@ -222,6 +223,21 @@ ProjectTrussGdtfApplyResult ProjectTrussGdtfApplyAdapter::Apply(
   if (!HasGenerationFieldChange(request))
     return result;
 
+  // Generic generation cannot preserve an authored standard definition or its wire names.
+  for (const auto &[uuid, candidate] : *input.trusses) {
+    if (uuid != request.stableHostId && !MatchesSourceOnlyTrussGeometry(candidate, originalSymbolKey)) continue;
+    if (candidate.dmxAddresses && (!candidate.gdtfSpec.empty() || !candidate.gdtfMode.empty() || !candidate.dmxAddresses->networks.empty()))
+      return Fail("Truss Addresses/GDTFSpec: controlled generic generation cannot replace an authored binding or Network interfaces; retain the source definition.");
+    if (!candidate.gdtfSpec.empty()) {
+      if (!truss_gdtf::HasOwnedAuxiliaryBinding(candidate) || candidate.gdtfMode != "Default")
+        return Fail("Truss GDTFSpec: an authored standard definition requires a lossless derivative, not generic generation.");
+      const auto wires = services_.readWireNames ? services_.readWireNames(
+          ResolveProjectPath(input.projectResourceBasePath, candidate.gdtfSpec)) : std::nullopt;
+      if (!wires || !wires->empty())
+        return Fail("Truss GDTFSpec: unavailable wire evidence or existing WiringObjects cannot be replaced by generic generation.");
+    }
+  }
+
   if (!services_.canonicalFileName || !services_.generateGdtf)
     return Fail("Truss generation services are not available.");
   std::error_code ec;
@@ -246,7 +262,12 @@ ProjectTrussGdtfApplyResult ProjectTrussGdtfApplyAdapter::Apply(
       prepared.name);
   if (canonical.empty())
     return Fail("Truss canonical GDTF filename could not be built.");
-  const std::filesystem::path outputPath = input.outputRoot / canonical;
+  const std::filesystem::path outputPath = input.outputRoot / PathUtils::PathFromUtf8(canonical);
+  const auto outputIdentity = PathUtils::BuildFilesystemIdentityKey(outputPath);
+  for (const auto &[uuid, candidate] : *input.trusses)
+    if (!candidate.gdtfSpec.empty() && truss_gdtf::PreserveStandardBinding(candidate) &&
+        PathUtils::BuildFilesystemIdentityKey(ResolveProjectPath(input.projectResourceBasePath, candidate.gdtfSpec)) == outputIdentity)
+      return Fail("Generated GDTF would overwrite the definition retained by Truss " + uuid + "; use a lossless derivative.");
   const bool existedBefore = std::filesystem::exists(outputPath, ec) && !ec;
   std::string diagnostic;
   const std::string revisionText = BuildTrussRevisionText(request);

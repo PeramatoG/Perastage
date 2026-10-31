@@ -18,11 +18,13 @@ class MvrScene;
 struct SceneObjectToTrussConversionResult {
   std::string modelFile;
   std::vector<std::string> convertedUuids;
+  std::string error;
 };
 
 struct SceneObjectToTrussConversionScope {
   std::string modelFile;
   std::vector<std::string> sceneObjectUuids;
+  std::string error;
 };
 
 // Resolves the deterministic same-model conversion scope for one scene object.

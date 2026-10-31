@@ -91,6 +91,8 @@ struct TrussValues {
   std::optional<int> unitNumber;
   int customIdType = 0;
   int customId = 0;
+  bool customIdPresent = false, customIdTypePresent = false;
+  std::optional<FixtureDmxAddresses> dmxAddresses;
 };
 
 struct SupportValues {
