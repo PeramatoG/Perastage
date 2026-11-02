@@ -2842,6 +2842,16 @@ target_link_libraries(fixture_symbol_source_test PRIVATE
 add_test(NAME FixtureSymbolSource COMMAND fixture_symbol_source_test)
 set_library_env(FixtureSymbolSource)
 
+add_executable(loader3ds_input_validation_test loader3ds_input_validation_test.cpp
+               ../core/filesystem_path_utils.cpp
+               ../viewer3d/loader3ds.cpp ../viewer3d/loaderglb.cpp
+               ../viewer3d/loader_obj.cpp)
+target_include_directories(loader3ds_input_validation_test PRIVATE
+                           . ../core ../viewer3d ../models ../third_party)
+target_link_libraries(loader3ds_input_validation_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME Loader3dsInputValidation COMMAND loader3ds_input_validation_test)
+set_tests_properties(Loader3dsInputValidation PROPERTIES TIMEOUT 20)
+
 add_executable(loader3ds_native_dimensions_test loader3ds_native_dimensions_test.cpp
                ../core/geometry_bounds_resolver.cpp
                ../core/filesystem_path_utils.cpp

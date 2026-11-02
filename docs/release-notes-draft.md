@@ -89,6 +89,8 @@ Clearly identify experimental functionality; do not repeat 1.7.0 features.
 
 ## Compatibility and Stability
 
+- Malformed 3DS models now fail cleanly when chunk data is truncated or face indices are invalid, improving stability during model loading and previews.
+
 - Improved macOS 15 build compatibility for decimal-number parsing used by GDTF electrical information and SVG geometry.
 
 - Unsupported or ambiguous MVR changes are rejected more safely, helping prevent accidental data loss during affected conversions, imports, project saves, and exports.

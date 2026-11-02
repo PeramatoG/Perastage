@@ -6,6 +6,8 @@ namespace viewer3d::resources {
 Mesh BuildRuntimeRepresentation(const Mesh &source,
                                 model_detail::SimplificationPolicy policy) {
   performance::Scope metric(performance::Work::Representation);
+  if (!HasValidTriangleIndices(source))
+    return {};
   Mesh proxy;
   proxy.vertices = source.vertices;
   proxy.indices = source.indices;

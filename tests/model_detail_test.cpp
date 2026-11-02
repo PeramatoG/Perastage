@@ -22,6 +22,10 @@ Mesh Grid(size_t side) {
 }
 
 int main() {
+  Mesh invalid = Grid(2);
+  invalid.indices[0] = 60000;
+  const auto invalidPolicy = model_detail::ResolvePolicy(8, Level::Low, false);
+  assert(viewer3d::resources::BuildRuntimeRepresentation(invalid, invalidPolicy).indices.empty());
   assert(model_detail::ParseLevel(std::nullopt) == Level::Standard);
   for (const auto value : {"", "garbage", "LOW", "medium"})
     assert(model_detail::ParseLevel(std::string(value)) == Level::Standard);

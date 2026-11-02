@@ -105,6 +105,8 @@ bool ReadMesh(std::ifstream &in, Mesh &mesh) {
     return false;
   }
 
+  if (!HasValidTriangleIndices(loaded))
+    return false;
   mesh = std::move(loaded);
   return true;
 }
@@ -123,7 +125,8 @@ bool ValidateHeader(const CacheHeader &header, uint32_t expectedMagic,
 }
 
 void OptimizeIndices(Mesh &mesh) {
-  if (mesh.vertices.size() < 9 || mesh.indices.size() < 3)
+  if (mesh.vertices.size() < 9 || mesh.indices.size() < 3 ||
+      !HasValidTriangleIndices(mesh))
     return;
 
   const size_t vertexCount = mesh.vertices.size() / 3;

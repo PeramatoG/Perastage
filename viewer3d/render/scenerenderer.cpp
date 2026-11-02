@@ -236,9 +236,10 @@ void SceneRenderer::DrawMeshWithOutline(
       CanvasFill fill;
       fill.color = {r, g, b, 1.0f};
       for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-        uint32_t i0 = mesh.indices[i];
-        uint32_t i1 = mesh.indices[i + 1];
-        uint32_t i2 = mesh.indices[i + 2];
+        if (!IsMeshTriangleIndexRangeValid(mesh, i)) continue;
+        size_t i0 = mesh.indices[i];
+        size_t i1 = mesh.indices[i + 1];
+        size_t i2 = mesh.indices[i + 2];
         std::vector<std::array<float, 3>> pts = {
             {mesh.vertices[i0 * 3] * scale, mesh.vertices[i0 * 3 + 1] * scale,
              mesh.vertices[i0 * 3 + 2] * scale},
@@ -445,9 +446,10 @@ void SceneRenderer::DrawMeshWithOutline(
     CanvasFill fill;
     fill.color = {r, g, b, 1.0f};
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-      uint32_t i0 = mesh.indices[i];
-      uint32_t i1 = mesh.indices[i + 1];
-      uint32_t i2 = mesh.indices[i + 2];
+      if (!IsMeshTriangleIndexRangeValid(mesh, i)) continue;
+      size_t i0 = mesh.indices[i];
+      size_t i1 = mesh.indices[i + 1];
+      size_t i2 = mesh.indices[i + 2];
       std::vector<std::array<float, 3>> pts = {
           {mesh.vertices[i0 * 3] * scale, mesh.vertices[i0 * 3 + 1] * scale,
            mesh.vertices[i0 * 3 + 2] * scale},
@@ -502,9 +504,10 @@ void SceneRenderer::DrawMeshWireframe(
   } else if (!m_controller.IsCaptureOnly()) {
     glBegin(GL_LINES);
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += triangleAdvance) {
-      const uint32_t i0 = mesh.indices[i];
-      const uint32_t i1 = mesh.indices[i + 1];
-      const uint32_t i2 = mesh.indices[i + 2];
+      if (!IsMeshTriangleIndexRangeValid(mesh, i)) continue;
+      const size_t i0 = mesh.indices[i];
+      const size_t i1 = mesh.indices[i + 1];
+      const size_t i2 = mesh.indices[i + 2];
 
       glVertex3f(mesh.vertices[i0 * 3] * scale,
                  mesh.vertices[i0 * 3 + 1] * scale,
@@ -536,9 +539,10 @@ void SceneRenderer::DrawMeshWireframe(
       stroke.width = 1.0f;
     }
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += triangleAdvance) {
-      uint32_t i0 = mesh.indices[i];
-      uint32_t i1 = mesh.indices[i + 1];
-      uint32_t i2 = mesh.indices[i + 2];
+      if (!IsMeshTriangleIndexRangeValid(mesh, i)) continue;
+      size_t i0 = mesh.indices[i];
+      size_t i1 = mesh.indices[i + 1];
+      size_t i2 = mesh.indices[i + 2];
 
       std::array<float, 3> p0 = {mesh.vertices[i0 * 3] * scale,
                                  mesh.vertices[i0 * 3 + 1] * scale,
@@ -662,9 +666,10 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale,
     }
     glBegin(GL_TRIANGLES);
     for (size_t i = 0; i + 2 < triangleIndices->size(); i += 3) {
-      const uint32_t i0 = (*triangleIndices)[i];
-      const uint32_t i1 = (*triangleIndices)[i + 1];
-      const uint32_t i2 = (*triangleIndices)[i + 2];
+      if (!IsMeshTriangleIndexRangeValid(mesh, i)) continue;
+      const size_t i0 = (*triangleIndices)[i];
+      const size_t i1 = (*triangleIndices)[i + 1];
+      const size_t i2 = (*triangleIndices)[i + 2];
 
       const float v0x = mesh.vertices[i0 * 3] * scale;
       const float v0y = mesh.vertices[i0 * 3 + 1] * scale;

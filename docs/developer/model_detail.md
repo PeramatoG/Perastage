@@ -144,3 +144,13 @@ Spanish and Simplified Chinese catalogs are synchronized and translated,
 including the category navigation and detail/proxy controls. Strict catalog
 validation must pass before the Linux CI job runs CTest. Future French/German
 additions remain outside this block; no new languages are introduced.
+
+## Mesh index validation
+
+`viewer3d/mesh.h` owns `HasValidTriangleIndices`: XYZ positions and indices
+must form complete triples, and every index must address a mesh vertex. Source
+loaders validate indices against their own object or primitive before adding
+concatenation offsets. Disk-cache reads, runtime processing and GPU upload also
+validate this contract. Direct CPU normal/winding/flat-shading calls reject
+invalid topology; CPU rendering fallbacks check individual triangles without
+adding a full mesh scan to the GPU rendering path.
