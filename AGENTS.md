@@ -54,6 +54,15 @@ and `docs/developer/repository_layout.md` for repository paths and build ownersh
   - Keep documentation links in README aligned with the current docs entry points whenever those entry points change.
    - This is required for meaningful feature changes, and not required for minor internal refactors, small bug fixes, formatting-only changes, build-system maintenance, or invisible technical changes that do not affect user experience.
 
+10. **Release notes draft maintenance policy**
+    - For every pull request with meaningful user-facing changes, update `docs/release-notes-draft.md` in the same pull request, before merging.
+    - Include new features, visible bug fixes, usability improvements, performance or stability improvements, compatibility changes, and relevant packaging or documentation changes.
+    - Describe only implemented and verified behavior. Use concise, user-oriented English and group related changes without duplicating existing entries.
+    - Do not include planned features, unfinished work, internal implementation details, or private test-file names.
+    - Internal-only refactors, tests, CI maintenance, formatting changes, and other changes without meaningful user-facing impact do not require a release notes update.
+    - When no update is needed, briefly explain the reason in the pull request description using the existing release notes checklist.
+    - Keep the draft focused on the next public release. Do not create separate changelog files or modify previously published release notes.
+
 ## Current hotspots (watch for growth)
 
 Do not maintain a parallel hotspot list in this file. The versioned
