@@ -5,31 +5,44 @@ RELEASE NOTES — WORK IN PROGRESS
 
 This is the living draft for the next Perastage release.
 
-Maintenance rules for Codex:
-- Update these notes as relevant pull requests are merged into main.
-- Document only implemented and verified changes.
-- Do not include planned features, unfinished work or unmerged PRs.
-- Focus on improvements that matter to end users.
-- Use clear, concise English.
-- Group related changes and avoid duplicate entries.
-- Keep technical implementation details out unless they explain a meaningful improvement.
-- Do not carry over features already announced in Perastage 1.7.0.
-- Add new sections when necessary.
-- Preserve the overall structure.
-- Before publication, review accuracy, remove empty sections and replace all remaining placeholders.
+Maintenance rules for Codex and contributors:
+- Update this file in the same pull request as each meaningful user-facing change, before merge.
+- Describe only implemented and adequately verified behavior; do not announce plans or unsupported capabilities.
+- A pull request may include its own new entry while under review; main contains only merged entries.
+- For internal-only changes or justified exceptions, explain why no entry is necessary in the PR description.
+- Focus on benefits and observable behavior, using clear, concise English.
+- Group related changes and avoid duplicate entries or detailed implementation histories.
+- Do not repeat features already announced in Perastage 1.7.0.
+- Preserve the overall structure and existing verified entries.
+- Before publication, validate all claims, remove empty sections and placeholders, and check release assets.
 -->
 
-<!-- Add a short release overview once the main features are established. -->
+<!-- Replace this placeholder with a short release overview after the feature set is finalized. -->
 
 ## Highlights
 
-<!--
-Add the most important user-facing improvements here.
-Prefer 4–8 highlights, depending on the release scope.
-Only include completed and verified features.
--->
+- More reliable MVR import and export, with improved preservation of standard scene data, assignments, references, and transforms.
+- Smarter GDTF matching and DMX mode selection during MVR import, with clearer manual choices.
+- New Fixture Label Editor with a shared label presentation across the 2D viewer, Layout captures, and vector PDF output.
+- More reliable Layout Undo/Redo, including page operations, element editing, and cancelled interactions.
+- Canonical MVR export by default, with compatibility output available through an explicit choice.
+- Easier platform downloads and installation guidance on the Perastage website.
 
 ## MVR / GDTF
+
+- The GDTF download window now stays open after a completed MVR import queue until acknowledged. A preference can restore automatic closing.
+
+- Automatic GDTF matching better distinguishes suitable fixture models from ambiguous candidates. Matching DMX modes can be inferred from the imported mode name or unambiguous channel-count evidence, including after manual GDTF selection; uncertain matches retain the original profile for review.
+
+- Direct-geometry MVR FocusPoints and their Fixture references now survive supported import, project save/reopen, and export workflows. Additional Fixture properties, including Function, inversion, custom identifiers, and unchanged authored CIE color, are preserved.
+
+- Standard MVR Classes and Classing references are retained for supported scene objects, including definitions and assignments that do not belong to the same layer.
+
+- Direct MVR Symdefs, their original resources, and Symbol instance identities are better preserved through supported imports, merges, and exports. Missing resources produce explicit errors rather than silently substituting another file.
+
+- Authored MVR fixture identifiers and UnitNumber presence are preserved without automatically renumbering valid imported values. High-precision matrices are retained through supported canonical saves and edits.
+
+- Normal MVR export now uses the same canonical representation as project saving. An explicit option is required to use a preferred compatibility representation for an individual export.
 
 - Truss nodes now preserve supported DMX and network assignments through project save/reopen and MVR export, retaining their original GDTF interfaces.
 
@@ -42,84 +55,66 @@ Only include completed and verified features.
 - MVR layer elevations now survive import, project save/reopen and MVR export, keeping child objects correctly placed through grouping, merging and Undo/Redo.
 
 <!--
-Document improvements to:
-- MVR import and export.
-- GDTF identification, resolution and resources.
-- Scene hierarchy, layers and fixture references.
-- Inspector and validation.
-- Standards compliance and interoperability.
-
-Include only changes actually delivered.
+Document further completed MVR/GDTF improvements here. Preservation applies only
+within the supported and validated scope; do not claim universal losslessness,
+full MVR/GDTF conformance, or interoperability with every third-party application.
 -->
 
 ## Layout, Symbols and Plotting
 
+- A new **Fixture Label Editor** lets users adjust Name, ID, and DMX Address labels, including visibility, font weight, size, colors, outlines, alignment, anchors, and position. It supports project defaults, per-fixture overrides, and preview dragging.
+
+- Edited fixture labels share their positioned presentation between the interactive 2D viewer, Layout view captures, and vector PDF. Legacy name wrapping and small-text zoom appearance are retained more consistently.
+
+- Layout page operations and element edits now participate reliably in project Undo/Redo. Selection-only actions, unchanged edits, and cancelled moves or resizes no longer create unwanted history entries; image resources are retained across undo and redo.
+
 <!--
-Document improvements to:
-- Layout editing and document generation.
-- Fixture symbols and graphical representations.
-- Labels, dimensions and annotations.
-- Vector rendering and PDF output.
-- Plotting workflows and usability.
+Further work may include physical drawing scales, annotations, dimensions,
+reusable label styles, and shared typography for free text, legends and tables.
+Do not list these as delivered until implemented and verified.
 -->
 
 ## CLI and External Integrations
 
 <!--
-Document improvements to:
-- perastage-cli.
-- Local OSC integration.
-- MCP and external application connectivity.
-- Scene commands and automation.
-- Supported workflows and limitations.
-
-Clearly identify experimental functionality.
+Add completed, user-facing CLI, OSC or external-integration changes here.
+Clearly identify experimental functionality; do not repeat 1.7.0 features.
 -->
 
 ## Performance and Usability
 
-<!--
-Document measurable or user-visible improvements to:
-- Application responsiveness.
-- Large project handling.
-- Rendering and navigation.
-- User interface behavior.
-- Editing workflows.
-- Preferences and usability.
--->
+- Project saving now reports more actionable errors when MVR data or resources cannot be preserved. The saving overlay closes before displaying the error, so the application does not remain blocked behind the dialog.
+
+<!-- Add further verified user-visible performance or usability changes here. -->
 
 ## Compatibility and Stability
 
-<!--
-Document relevant fixes involving:
-- Windows, macOS and Linux.
-- MVR/GDTF compatibility.
-- Import and export reliability.
-- Undo/Redo and scene consistency.
-- Crashes, regressions and data integrity.
+- Improved macOS 15 build compatibility for decimal-number parsing used by GDTF electrical information and SVG geometry.
 
-Group minor fixes where appropriate.
--->
+- Unsupported or ambiguous MVR changes are rejected more safely, helping prevent accidental data loss during affected conversions, imports, project saves, and exports.
+
+<!-- Add other verified cross-platform and stability fixes here without duplicating detailed MVR entries. -->
 
 ## Documentation and Help
 
-<!--
-Document new or improved documentation, tutorials,
-translations and built-in Help features.
-Do not repeat existing language support unless changed.
--->
+- Updated user guidance for the GDTF import queue, fixture labels, and Layout editing.
+
+- Platform-specific installation guidance and direct-download information are available on the Perastage website.
+
+<!-- Add further verified documentation and Help changes here. -->
 
 ## Downloads
 
-Choose the appropriate package from the assets attached to this GitHub release.
+The Perastage website offers direct links to supported release packages, with installation guidance and a fallback to GitHub Releases. The Windows download area also offers a Microsoft Store option alongside the standalone installer.
+
+Choose the appropriate official package from the release page or the assets attached to this GitHub release.
 
 <!--
 Before publication:
-- Verify all release artifacts.
-- Confirm supported operating systems and architectures.
-- Include the macOS 15 compatibility build if provided.
-- Include installation notes or direct download links where useful.
-- Confirm whether the experimental CLI is bundled.
+- Verify the available release artifacts and platform/architecture support.
+- Confirm the macOS 15 compatibility build if provided.
+- Confirm the Microsoft Store listing and all download links.
+- Verify installation instructions and whether the experimental CLI is bundled.
 -->
 
 Documentation and installation instructions:
