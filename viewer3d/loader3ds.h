@@ -21,6 +21,8 @@
 #include "mesh_geometry_conventions.h"
 
 // Loads 3DS geometry with optional object transforms and texture decoding.
+// Success replaces outMesh; failure leaves it unchanged and reports an error.
+// Callers own any existing GPU resources and must release them before replacement.
 bool Load3DS(const std::string& path, Mesh& outMesh,
              bool applyObjectLocalTransform = viewer3d::kApplyThreeDsObjectTransforms,
              std::string* error = nullptr, bool loadTextures = true);

@@ -34,8 +34,18 @@ int main() {
   const auto source = testRoot / "external" / "asset.glb";
   const auto gdtf = testRoot / "external" / "asset.gdtf";
   Write(source, "model"); Write(gdtf, "fixture");
-  Mesh mesh; mesh.vertices = {1, 2, 3}; mesh.indices = {0};
+  Mesh mesh; mesh.vertices = {1, 2, 3}; mesh.indices = {0, 0, 0};
   Mesh loaded;
+  // Cached geometry must satisfy the same index contract as source loaders.
+  Mesh invalid = mesh;
+  invalid.indices = {0, 1, 60000};
+  assert(TrySaveMeshCache(PathUtils::PathToUtf8(source), invalid));
+  Mesh unchanged;
+  unchanged.vertices = {1, 2, 3};
+  assert(!TryLoadMeshCache(PathUtils::PathToUtf8(source), unchanged));
+  assert(unchanged.vertices == std::vector<float>({1, 2, 3}) && unchanged.indices.empty());
+  OptimizeMeshForRuntime(invalid); // must not pass invalid indices to meshoptimizer
+  assert(invalid.indices == std::vector<uint32_t>({0, 1, 60000}));
   assert(TrySaveMeshCache(PathUtils::PathToUtf8(source), mesh));
   assert(!fs::exists(source.string() + ".cache"));
   assert(TryLoadMeshCache(PathUtils::PathToUtf8(source), loaded));

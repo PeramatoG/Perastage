@@ -16,6 +16,8 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "loader3ds.h"
+#include "loader3ds_reader.h"
+#include <limits>
 #include "filesystem_path_utils.h"
 #include <fstream>
 #include <cstdint>
@@ -30,10 +32,7 @@
 
 namespace fs = std::filesystem;
 
-struct Chunk {
-    uint16_t id;
-    uint32_t length;
-};
+using loader3ds::Reader;
 
 struct FaceColorAccum {
     double r = 0.0;
@@ -203,173 +202,108 @@ static bool LoadTextureImage(const fs::path& modelDir, const std::string& filena
     return true;
 }
 
-static bool readChunk(std::ifstream& file, Chunk& c)
+static std::array<float, 3> readColorChunk(Reader& reader, std::streamoff end)
 {
-    if(!file.read(reinterpret_cast<char*>(&c.id), 2)) return false;
-    if(!file.read(reinterpret_cast<char*>(&c.length), 4)) return false;
-    return true;
-}
-
-// Parses a single TRIANGULAR MESH (0x4100) chunk.
-// vertexBase is the current number of vertices already stored in the mesh
-// so we can offset face indices when concatenating multiple objects.
-static std::string readCString(std::ifstream& file, long endPos)
-{
-    std::string out;
-    char ch = 0;
-    while (file.tellg() < endPos && file.read(&ch, 1)) {
-        if (ch == '\0')
-            break;
-        out.push_back(ch);
-    }
-    return out;
-}
-
-static std::array<float, 3> readColorChunk(std::ifstream& file, long endPos, bool& ok)
-{
-    std::array<float, 3> c{1.0f, 1.0f, 1.0f};
-    ok = false;
-    while (file.tellg() < endPos) {
-        Chunk ch;
-        if (!readChunk(file, ch))
-            return c;
-        const long dataStart = file.tellg();
-        const long next = dataStart + ch.length - 6;
-        if (ch.id == 0x0010 || ch.id == 0x0013) { // float color
-            file.read(reinterpret_cast<char*>(&c[0]), sizeof(float));
-            file.read(reinterpret_cast<char*>(&c[1]), sizeof(float));
-            file.read(reinterpret_cast<char*>(&c[2]), sizeof(float));
-            ok = true;
-            file.seekg(next);
-            return c;
+    std::array<float, 3> color{1.0f, 1.0f, 1.0f};
+    bool found = false;
+    reader.children(end, [&](Reader::Chunk ch) {
+        if (ch.id == 0x0010 || ch.id == 0x0013) {
+            std::array<float, 3> candidate;
+            reader.read(candidate.data(), sizeof(float) * 3, ch.end);
+            if (!found) color = candidate;
+            found = true;
+        } else if (ch.id == 0x0011 || ch.id == 0x0012) {
+            unsigned char rgb[3];
+            reader.read(rgb, 3, ch.end);
+            if (!found) color = {rgb[0] / 255.0f, rgb[1] / 255.0f, rgb[2] / 255.0f};
+            found = true;
         }
-        if (ch.id == 0x0011 || ch.id == 0x0012) { // byte color
-            unsigned char rgb[3] = {255, 255, 255};
-            file.read(reinterpret_cast<char*>(rgb), 3);
-            c = {rgb[0] / 255.0f, rgb[1] / 255.0f, rgb[2] / 255.0f};
-            ok = true;
-            file.seekg(next);
-            return c;
-        }
-        file.seekg(next);
-    }
-    return c;
+    });
+    return color;
 }
 
-// Parses one TRIANGULAR MESH chunk and appends its geometry into the output mesh.
-static void parseMesh(std::ifstream& file, long endPos, Mesh& mesh, size_t vertexBase,
+// Keep indices local until the complete mesh has been read. Faces may precede
+// vertices, and must never resolve against vertices from another object.
+static void parseMesh(Reader& reader, std::streamoff end, Mesh& output,
                       const std::unordered_map<std::string, std::array<float, 3>>& materials,
                       FaceColorAccum& colorAccum, bool applyObjectLocalTransform)
 {
-    size_t objectVertexStart = vertexBase;
-    size_t objectVertexCount = 0;
+    Mesh mesh;
+    bool hasVertices = false;
+    bool hasFaces = false;
     MeshTransform3ds localTransform;
     bool hasLocalTransform = false;
     std::array<float, 3> pivot = {0.0f, 0.0f, 0.0f};
     bool hasPivot = false;
-    while(file.tellg() < endPos) {
-        Chunk ch; if(!readChunk(file, ch)) return;
-        long dataStart = file.tellg();
-        long next = dataStart + ch.length - 6;
-        switch(ch.id) {
+    reader.children(end, [&](Reader::Chunk ch) {
+        switch (ch.id) {
             case 0x4110: {
-                uint16_t count;
-                file.read(reinterpret_cast<char*>(&count), 2);
-
-                size_t start = mesh.vertices.size();
-                mesh.vertices.resize(start + static_cast<size_t>(count) * 3);
-                file.read(reinterpret_cast<char*>(mesh.vertices.data() + start),
-                          static_cast<size_t>(count) * 3 * sizeof(float));
-                objectVertexStart = start / 3;
-                objectVertexCount = static_cast<size_t>(count);
-
+                if (hasVertices) throw std::runtime_error("duplicate 3DS vertex list");
+                hasVertices = true;
+                const auto count = reader.value<uint16_t>(ch.end);
+                reader.require(static_cast<std::streamoff>(count) * 12, ch.end);
+                mesh.vertices.resize(static_cast<size_t>(count) * 3);
+                reader.read(mesh.vertices.data(), static_cast<std::streamsize>(count) * 12, ch.end);
                 break;
             }
             case 0x4120: {
-                uint16_t count;
-                file.read(reinterpret_cast<char*>(&count), 2);
-
-                size_t start = mesh.indices.size();
-                mesh.indices.resize(start + static_cast<size_t>(count) * 3);
-
-                for (int i = 0; i < count; i++) {
-                    uint16_t a, b, c, flag;
-                    file.read(reinterpret_cast<char*>(&a), 2);
-                    file.read(reinterpret_cast<char*>(&b), 2);
-                    file.read(reinterpret_cast<char*>(&c), 2);
-                    file.read(reinterpret_cast<char*>(&flag), 2);
-
-                    mesh.indices[start + i * 3] = static_cast<uint32_t>(a + vertexBase);
-                    mesh.indices[start + i * 3 + 1] = static_cast<uint32_t>(b + vertexBase);
-                    mesh.indices[start + i * 3 + 2] = static_cast<uint32_t>(c + vertexBase);
+                if (hasFaces) throw std::runtime_error("duplicate 3DS face list");
+                hasFaces = true;
+                const auto count = reader.value<uint16_t>(ch.end);
+                reader.require(static_cast<std::streamoff>(count) * 8, ch.end);
+                mesh.indices.reserve(static_cast<size_t>(count) * 3);
+                for (size_t i = 0; i < count; ++i) {
+                    for (int corner = 0; corner < 3; ++corner)
+                        mesh.indices.push_back(reader.value<uint16_t>(ch.end));
+                    reader.value<uint16_t>(ch.end); // face flags
                 }
-                while (file.tellg() < next) {
-                    Chunk sub;
-                    if (!readChunk(file, sub))
-                        break;
-                    const long subDataStart = file.tellg();
-                    const long subNext = subDataStart + sub.length - 6;
-                    if (sub.id == 0x4130) { // face material group
-                        std::string materialName = readCString(file, subNext);
-                        uint16_t faceCount = 0;
-                        file.read(reinterpret_cast<char*>(&faceCount), 2);
-                        const auto mit = materials.find(materialName);
-                        if (mit != materials.end()) {
-                            const auto& c = mit->second;
-                            colorAccum.r += static_cast<double>(c[0]) * faceCount;
-                            colorAccum.g += static_cast<double>(c[1]) * faceCount;
-                            colorAccum.b += static_cast<double>(c[2]) * faceCount;
-                            colorAccum.weight += faceCount;
-                        }
+                reader.children(ch.end, [&](Reader::Chunk sub) {
+                    if (sub.id != 0x4130) return;
+                    const auto materialName = reader.string(sub.end);
+                    const auto faceCount = reader.value<uint16_t>(sub.end);
+                    reader.require(static_cast<std::streamoff>(faceCount) * 2, sub.end);
+                    for (size_t i = 0; i < faceCount; ++i) {
+                        if (reader.value<uint16_t>(sub.end) >= count)
+                            throw std::runtime_error("3DS material group face index is out of range");
                     }
-                    file.seekg(subNext);
-                }
+                    const auto mit = materials.find(materialName);
+                    if (mit != materials.end()) {
+                        const auto& c = mit->second;
+                        colorAccum.r += static_cast<double>(c[0]) * faceCount;
+                        colorAccum.g += static_cast<double>(c[1]) * faceCount;
+                        colorAccum.b += static_cast<double>(c[2]) * faceCount;
+                        colorAccum.weight += faceCount;
+                    }
+                });
                 break;
             }
             case 0x4140: {
-                uint16_t count = 0;
-                file.read(reinterpret_cast<char*>(&count), 2);
-                const size_t uvCount = static_cast<size_t>(count);
-                if (objectVertexCount > 0 && uvCount == objectVertexCount) {
-                    const size_t requiredSize = (objectVertexStart + objectVertexCount) * 2;
-                    if (mesh.texcoords.size() < requiredSize)
-                        mesh.texcoords.resize(requiredSize, 0.0f);
-                    for (size_t i = 0; i < uvCount; ++i) {
-                        float u = 0.0f;
-                        float v = 0.0f;
-                        file.read(reinterpret_cast<char*>(&u), sizeof(float));
-                        file.read(reinterpret_cast<char*>(&v), sizeof(float));
-                        const float flippedV = 1.0f - v;
-                        mesh.texcoords[(objectVertexStart + i) * 2] = u;
-                        mesh.texcoords[(objectVertexStart + i) * 2 + 1] = flippedV;
-                    }
-                } else {
-                    file.seekg(next);
-                }
+                const auto count = reader.value<uint16_t>(ch.end);
+                reader.require(static_cast<std::streamoff>(count) * 8, ch.end);
+                mesh.texcoords.resize(static_cast<size_t>(count) * 2);
+                reader.read(mesh.texcoords.data(), static_cast<std::streamsize>(count) * 8, ch.end);
+                for (size_t i = 1; i < mesh.texcoords.size(); i += 2)
+                    mesh.texcoords[i] = 1.0f - mesh.texcoords[i];
                 break;
             }
-            case 0x4160: {
-                // Local coordinates system (3DS 0x4160): x/y/z axes and origin.
-                // We apply it after optional pivot compensation so object parts
-                // are positioned/oriented correctly in world/object space.
-                file.read(reinterpret_cast<char*>(localTransform.xAxis.data()), sizeof(float) * 3);
-                file.read(reinterpret_cast<char*>(localTransform.yAxis.data()), sizeof(float) * 3);
-                file.read(reinterpret_cast<char*>(localTransform.zAxis.data()), sizeof(float) * 3);
-                file.read(reinterpret_cast<char*>(localTransform.origin.data()), sizeof(float) * 3);
+            case 0x4160:
+                reader.require(sizeof(float) * 12, ch.end);
+                reader.read(localTransform.xAxis.data(), sizeof(float) * 3, ch.end);
+                reader.read(localTransform.yAxis.data(), sizeof(float) * 3, ch.end);
+                reader.read(localTransform.zAxis.data(), sizeof(float) * 3, ch.end);
+                reader.read(localTransform.origin.data(), sizeof(float) * 3, ch.end);
                 hasLocalTransform = true;
                 break;
-            }
-            case 0x4165: {
-                // Pivot point (3DS 0x4165): subtract before local transform.
-                file.read(reinterpret_cast<char*>(pivot.data()), sizeof(float) * 3);
+            case 0x4165:
+                reader.read(pivot.data(), sizeof(float) * 3, ch.end);
                 hasPivot = true;
                 break;
-            }
-            default:
-                file.seekg(next);
         }
-    }
-
+    });
+    if (!HasValidTriangleIndices(mesh))
+        throw std::runtime_error("3DS face index is outside its mesh vertex list");
+    const size_t objectVertexStart = 0;
+    const size_t objectVertexCount = mesh.vertices.size() / 3;
     const bool shouldApplyLocalBasis = applyObjectLocalTransform &&
                                        hasLocalTransform &&
                                        !IsIdentityBasis(localTransform);
@@ -409,121 +343,87 @@ static void parseMesh(std::ifstream& file, long endPos, Mesh& mesh, size_t verte
             }
         }
     }
+    const size_t base = output.vertices.size() / 3;
+    if (base > std::numeric_limits<uint32_t>::max() - objectVertexCount)
+        throw std::runtime_error("too many vertices in 3DS model");
+    output.vertices.insert(output.vertices.end(), mesh.vertices.begin(), mesh.vertices.end());
+    for (uint32_t index : mesh.indices)
+        output.indices.push_back(static_cast<uint32_t>(base + index));
+    if (mesh.texcoords.size() == objectVertexCount * 2 && !mesh.texcoords.empty()) {
+        output.texcoords.resize((base + objectVertexCount) * 2, 0.0f);
+        std::copy(mesh.texcoords.begin(), mesh.texcoords.end(), output.texcoords.begin() + base * 2);
+    }
+
 }
 
-// Loads mesh/object data from a 3DS file, with optional local transform application.
-// Loads a 3DS file into a mesh and reports failure details when geometry cannot be produced.
+// Parse into a private mesh: failure leaves the caller's mesh untouched.
 bool Load3DS(const std::string& path, Mesh& outMesh, bool applyObjectLocalTransform,
              std::string* error, bool loadTextures)
 {
-    std::ifstream file(path, std::ios::binary);
-    if(!file.is_open()) {
-        if (error) *error = "cannot open file";
+    try {
+        std::ifstream file(path, std::ios::binary);
+        if (!file.is_open()) throw std::runtime_error("cannot open file");
+        Reader reader(file);
+        const auto root = reader.chunk(reader.size);
+        if (root.id != 0x4D4D) throw std::runtime_error("unexpected 3DS root chunk id");
+        if (root.end != reader.size) throw std::runtime_error("3DS root length does not match file size");
+
+        Mesh mesh;
+        std::unordered_map<std::string, std::array<float, 3>> materials;
+        FaceColorAccum colorAccum;
+        std::string textureFilename;
+        reader.children(root.end, [&](Reader::Chunk editor) {
+            if (editor.id != 0x3D3D) return;
+            reader.children(editor.end, [&](Reader::Chunk sub) {
+                if (sub.id == 0x4000) {
+                    reader.string(sub.end); // object name
+                    reader.children(sub.end, [&](Reader::Chunk child) {
+                        if (child.id == 0x4100)
+                            parseMesh(reader, child.end, mesh, materials, colorAccum,
+                                      applyObjectLocalTransform);
+                    });
+                } else if (sub.id == 0xAFFF) {
+                    std::string materialName;
+                    std::array<float, 3> color{1.0f, 1.0f, 1.0f};
+                    reader.children(sub.end, [&](Reader::Chunk child) {
+                        if (child.id == 0xA000) materialName = reader.string(child.end);
+                        else if (child.id == 0xA020) color = readColorChunk(reader, child.end);
+                        else if (child.id == 0xA200) {
+                            reader.children(child.end, [&](Reader::Chunk texture) {
+                                if (texture.id == 0xA300) {
+                                    const auto candidate = reader.string(texture.end);
+                                    if (!candidate.empty()) textureFilename = candidate;
+                                }
+                            });
+                        }
+                    });
+                    if (!materialName.empty()) materials[materialName] = color;
+                }
+            });
+        });
+        if (mesh.vertices.empty() || mesh.indices.empty())
+            throw std::runtime_error("no vertices or faces found");
+        if (colorAccum.weight > 0.0) {
+            mesh.materialBaseColor = {
+                static_cast<float>(colorAccum.r / colorAccum.weight),
+                static_cast<float>(colorAccum.g / colorAccum.weight),
+                static_cast<float>(colorAccum.b / colorAccum.weight)};
+            mesh.hasMaterialBaseColor = true;
+        }
+        if (!mesh.texcoords.empty()) mesh.texcoords.resize(mesh.vertices.size() / 3 * 2, 0.0f);
+        if (loadTextures && !textureFilename.empty()) {
+            // Missing or inaccessible textures must not discard valid geometry.
+            try {
+                const auto modelPath = PathUtils::PathFromUtf8(path);
+                LoadTextureImage(modelPath.parent_path(), textureFilename, mesh);
+            } catch (const fs::filesystem_error&) {}
+        }
+        ComputeNormals(mesh);
+        outMesh = std::move(mesh);
+        if (error) error->clear();
+        return true;
+    } catch (const std::exception& ex) {
+        if (error) *error = ex.what();
         return false;
     }
-
-    Chunk root; if(!readChunk(file, root)) { if (error) *error = "invalid 3DS root chunk"; return false; }
-    if(root.id != 0x4D4D) { if (error) *error = "unexpected 3DS root chunk id"; return false; }
-    long rootEnd = root.length;
-
-    std::unordered_map<std::string, std::array<float, 3>> materials;
-    FaceColorAccum colorAccum;
-    std::string textureFilename;
-    const fs::path modelPath = PathUtils::PathFromUtf8(path);
-    const fs::path modelDir = modelPath.has_parent_path() ? modelPath.parent_path() : fs::path();
-
-    while(file.tellg() < rootEnd) {
-        Chunk c; if(!readChunk(file,c)) break;
-        long dataStart = file.tellg();
-        long next = dataStart + c.length - 6;
-        if(c.id == 0x3D3D) {
-            while(file.tellg() < next) {
-                Chunk sub; if(!readChunk(file,sub)) break;
-                long sd = file.tellg();
-                long se = sd + sub.length - 6;
-                if(sub.id == 0x4000) {
-                    // skip object name
-                    char ch;
-                    do { file.read(&ch,1); } while(ch!=0 && file.tellg() < se);
-                    while(file.tellg() < se) {
-                        Chunk mc; if(!readChunk(file,mc)) break;
-                        long md = file.tellg();
-                        long me = md + mc.length - 6;
-                        if(mc.id == 0x4100) {
-                            size_t base = outMesh.vertices.size() / 3;
-                            parseMesh(file, me, outMesh, base, materials, colorAccum,
-                                      applyObjectLocalTransform);
-                        } else {
-                            file.seekg(me);
-                        }
-                    }
-                } else if (sub.id == 0xAFFF) { // material block
-                    std::string materialName;
-                    std::array<float, 3> materialColor{1.0f, 1.0f, 1.0f};
-                    while (file.tellg() < se) {
-                        Chunk mc;
-                        if (!readChunk(file, mc))
-                            break;
-                        const long md = file.tellg();
-                        const long me = md + mc.length - 6;
-                        if (mc.id == 0xA000) {
-                            materialName = readCString(file, me);
-                        } else if (mc.id == 0xA020) {
-                            bool colorOk = false;
-                            materialColor = readColorChunk(file, me, colorOk);
-                        } else if (mc.id == 0xA200) {
-                            while (file.tellg() < me) {
-                                Chunk texChunk;
-                                if (!readChunk(file, texChunk))
-                                    break;
-                                const long texDataStart = file.tellg();
-                                const long texNext = texDataStart + texChunk.length - 6;
-                                if (texChunk.id == 0xA300) {
-                                    std::string candidate = readCString(file, texNext);
-                                    if (!candidate.empty())
-                                        textureFilename = candidate;
-                                } else if (textureFilename.empty()) {
-                                    std::string candidate = readCString(file, texNext);
-                                    if (!candidate.empty())
-                                        textureFilename = candidate;
-                                }
-                                file.seekg(texNext);
-                            }
-                        }
-                        file.seekg(me);
-                    }
-                    if (!materialName.empty())
-                        materials[materialName] = materialColor;
-                } else {
-                    file.seekg(se);
-                }
-            }
-        } else {
-            file.seekg(next);
-        }
-    }
-
-    bool ok = !outMesh.vertices.empty() && !outMesh.indices.empty();
-    if (!ok && error)
-        *error = "no vertices or faces found";
-    if (ok && colorAccum.weight > 0.0) {
-        outMesh.materialBaseColor = {
-            static_cast<float>(colorAccum.r / colorAccum.weight),
-            static_cast<float>(colorAccum.g / colorAccum.weight),
-            static_cast<float>(colorAccum.b / colorAccum.weight)};
-        outMesh.hasMaterialBaseColor = true;
-    }
-    const size_t vertexCount = outMesh.vertices.size() / 3;
-    if (!outMesh.texcoords.empty()) {
-        const size_t expectedSize = vertexCount * 2;
-        if (outMesh.texcoords.size() < expectedSize)
-            outMesh.texcoords.resize(expectedSize, 0.0f);
-        else if (outMesh.texcoords.size() > expectedSize)
-            outMesh.texcoords.resize(expectedSize);
-    }
-    if (ok && loadTextures && !textureFilename.empty())
-        LoadTextureImage(modelDir, textureFilename, outMesh);
-    if (ok)
-        ComputeNormals(outMesh);
-    return ok;
 }

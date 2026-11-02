@@ -20,6 +20,7 @@
 #include "json.hpp"
 #include "matrixutils.h"
 #include <fstream>
+#include <limits>
 #include <vector>
 #include <algorithm>
 #include <cstdint>
@@ -500,6 +501,7 @@ bool LoadGLB(const std::string& path, Mesh& outMesh, std::string* error,
         return std::max(0, texCoordSet);
     };
 
+    bool invalidIndices = false;
     auto readPrimitive = [&](const json& prim, const Matrix& transform) -> bool {
         if(!prim.contains("attributes") || !prim.contains("indices"))
             return false;
@@ -586,6 +588,10 @@ bool LoadGLB(const std::string& path, Mesh& outMesh, std::string* error,
             } else {
                 return false;
             }
+            if (v >= posCount || base > std::numeric_limits<uint32_t>::max() - v) {
+                invalidIndices = true;
+                return false;
+            }
             outMesh.indices[outMesh.indices.size()-idxCount+i] = static_cast<uint32_t>(v + base);
         }
         applyPrimitiveBaseColorTexture(prim);
@@ -666,6 +672,11 @@ bool LoadGLB(const std::string& path, Mesh& outMesh, std::string* error,
         }
     }
 
+    if (invalidIndices || !HasValidTriangleIndices(outMesh)) {
+        outMesh = Mesh{};
+        if (error) *error = "glTF triangle indices are outside their primitive vertex list";
+        return false;
+    }
     if (ok)
         ComputeNormals(outMesh);
     if (!ok && error)

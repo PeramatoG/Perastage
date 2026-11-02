@@ -62,12 +62,31 @@ struct Mesh {
     mutable std::vector<float> flippedFlatNormals;
 };
 
+// Mesh ingestion and CPU processing share this triangle-list contract.
+inline bool IsMeshTriangleIndexRangeValid(const Mesh& mesh, size_t first)
+{
+    if (first > mesh.indices.size() || mesh.indices.size() - first < 3)
+        return false;
+    const size_t count = mesh.vertices.size() / 3;
+    return mesh.indices[first] < count && mesh.indices[first + 1] < count &&
+           mesh.indices[first + 2] < count;
+}
+
+inline bool HasValidTriangleIndices(const Mesh& mesh)
+{
+    if (mesh.vertices.size() % 3 || mesh.indices.size() % 3)
+        return false;
+    const size_t count = mesh.vertices.size() / 3;
+    return std::all_of(mesh.indices.begin(), mesh.indices.end(),
+                       [count](uint32_t index) { return index < count; });
+}
+
 // Attempts to detect meshes whose triangle winding is globally inverted and
 // flips their index order when needed. This runs once per mesh at upload time,
 // so it has no per-frame rendering overhead.
 inline void EnsureOutwardWinding(Mesh& mesh)
 {
-    if (mesh.windingChecked)
+    if (mesh.windingChecked || !HasValidTriangleIndices(mesh))
         return;
 
     mesh.windingChecked = true;
@@ -93,9 +112,9 @@ inline void EnsureOutwardWinding(Mesh& mesh)
     double totalArea = 0.0;
 
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-        const uint32_t i0 = mesh.indices[i];
-        const uint32_t i1 = mesh.indices[i + 1];
-        const uint32_t i2 = mesh.indices[i + 2];
+        const size_t i0 = mesh.indices[i];
+        const size_t i1 = mesh.indices[i + 1];
+        const size_t i2 = mesh.indices[i + 2];
 
         const float v0x = mesh.vertices[i0 * 3];
         const float v0y = mesh.vertices[i0 * 3 + 1];
@@ -161,13 +180,17 @@ inline void EnsureOutwardWinding(Mesh& mesh)
 // mesh and will be stored in Mesh::normals.
 inline void ComputeNormals(Mesh& mesh)
 {
+    if (!HasValidTriangleIndices(mesh)) {
+        mesh.normals.clear();
+        return;
+    }
     size_t vcount = mesh.vertices.size() / 3;
     mesh.normals.assign(vcount * 3, 0.0f);
 
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-        uint32_t i0 = mesh.indices[i];
-        uint32_t i1 = mesh.indices[i + 1];
-        uint32_t i2 = mesh.indices[i + 2];
+        size_t i0 = mesh.indices[i];
+        size_t i1 = mesh.indices[i + 1];
+        size_t i2 = mesh.indices[i + 2];
 
         float v0x = mesh.vertices[i0 * 3];
         float v0y = mesh.vertices[i0 * 3 + 1];
@@ -226,16 +249,16 @@ inline void BuildFlatShadingBuffers(Mesh& mesh)
     mesh.flippedFlatVertices.clear();
     mesh.flippedFlatNormals.clear();
 
-    if (mesh.vertices.empty() || mesh.indices.empty())
+    if (mesh.vertices.empty() || mesh.indices.empty() || !HasValidTriangleIndices(mesh))
         return;
 
     mesh.flatVertices.reserve(mesh.indices.size() * 3);
     mesh.flatNormals.reserve(mesh.indices.size() * 3);
 
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-        const uint32_t i0 = mesh.indices[i];
-        const uint32_t i1 = mesh.indices[i + 1];
-        const uint32_t i2 = mesh.indices[i + 2];
+        const size_t i0 = mesh.indices[i];
+        const size_t i1 = mesh.indices[i + 1];
+        const size_t i2 = mesh.indices[i + 2];
 
         const float v0x = mesh.vertices[i0 * 3];
         const float v0y = mesh.vertices[i0 * 3 + 1];

@@ -17,7 +17,7 @@ bool IsPickTriangleIndexRangeValid(const Mesh &mesh, size_t firstIndex,
     stats->vertexCount = vertexCount;
     stats->indexCount = mesh.indices.size();
   }
-  if (firstIndex + 2 >= mesh.indices.size())
+  if (firstIndex > mesh.indices.size() || mesh.indices.size() - firstIndex < 3)
     return false;
 
   bool valid = true;

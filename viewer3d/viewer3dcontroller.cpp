@@ -1683,7 +1683,7 @@ void Viewer3DController::DrawCubeWithOutline(
 
 // Configures mesh Buffers.
 void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
-  if (mesh.vertices.empty() || mesh.indices.empty())
+  if (mesh.vertices.empty() || mesh.indices.empty() || !HasValidTriangleIndices(mesh))
     return;
 
   performance::Scope metric(performance::Work::GpuUpload);

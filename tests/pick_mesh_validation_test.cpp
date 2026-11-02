@@ -1,6 +1,7 @@
 #include "pick_mesh_validation.h"
 
 #include <cassert>
+#include <limits>
 
 // Verifies that valid picking triangles pass CPU-side bounds validation.
 void ValidTrianglePasses() {
@@ -12,6 +13,7 @@ void ValidTrianglePasses() {
   assert(IsPickTriangleIndexRangeValid(mesh, 0, &stats));
   assert(stats.invalidTriangleCount == 0);
   assert(stats.invalidIndexCount == 0);
+  assert(!IsPickTriangleIndexRangeValid(mesh, std::numeric_limits<size_t>::max()));
 }
 
 // Verifies that invalid picking triangles are detected before vertex reads.
