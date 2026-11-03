@@ -22,9 +22,29 @@ def parse_install_activity(path: Path | None) -> tuple[str, str, str]:
     restored_matches = re.findall(r"Restored\s+(\d+)\s+package\(s\)", text, re.IGNORECASE)
     built = len(set(re.findall(r"^Building\s+([^\s]+)", text, re.IGNORECASE | re.MULTILINE)))
     reused = "yes" if "All requested installations are currently installed" in text else "no" if built else "unknown"
-    restored = restored_matches[-1] if restored_matches else "unknown"
-    built_value = str(built) if built else "0" if reused == "yes" else "unknown"
+    restored = str(sum(map(int, restored_matches))) if restored_matches else "unknown"
+    completed = "All requested installations completed successfully" in text
+    built_value = str(built) if built else "0" if reused == "yes" or completed else "unknown"
     return reused, restored, built_value
+
+
+def remote_activity(path: Path | None) -> list[str]:
+    """Report provider timing and publication evidence without copying raw NuGet output."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace") if path else ""
+    except OSError:
+        text = ""
+    restores = re.findall(r"Restored\s+(\d+)\s+package\(s\) from NuGet in ([\d.]+\s*(?:ms|us|s|min))", text)
+    publications = re.findall(r"Uploaded binaries to (\d+) NuGet feed", text)
+    missing = len(re.findall(r"NotFound https://nuget\.pkg\.github\.com/", text))
+    denied = bool(re.search(r"\b(?:401|403|Unauthorized|Forbidden)\b", text, re.I))
+    return [
+        f"- NuGet restore reports (packages, duration): {restores or 'not reported'}",
+        f"- NuGet package URL misses: {missing}",
+        f"- Remote authorization errors observed: {'yes' if denied else 'no (does not prove access)'}",
+        f"- NuGet publication reports: {len(publications)} successful upload reports; "
+        "independent read-back still required",
+    ]
 
 
 def publication_status(install_outcome: str, save_outcome: str, exact_hit: bool, source_built: str,
@@ -63,6 +83,8 @@ def main() -> int:
     parser.add_argument("--install-outcome", default="not reported")
     parser.add_argument("--install-elapsed-seconds", default="not reported")
     parser.add_argument("--publication-verification", default="not applicable")
+    parser.add_argument("--save-key", default="")
+    parser.add_argument("--environment", default=os.environ.get("VCPKG_CACHE_ENVIRONMENT", "not reported"))
     args = parser.parse_args()
 
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
@@ -73,19 +95,23 @@ def main() -> int:
     exact_hit = args.compiled_hit.lower() == "true"
     cache_restore = "exact hit" if exact_hit else "partial/fallback hit" if args.matched_key else "miss"
     save_outcome = normalized(args.compiled_save_outcome)
-    save_attempted = "no, exact compiled cache was restored" if exact_hit else "yes, after vcpkg install succeeded"
-    saved_status = "skipped because an exact cache already existed" if exact_hit else save_outcome
+    save_attempted = "yes" if save_outcome in {"success", "failure", "cancelled"} else "no"
+    saved_status = save_outcome
     installed_reused, binary_restored, source_built = parse_install_activity(args.install_log)
     effective_reuse = "no" if args.sdk_guard_result == "invalidated" or source_built not in {"0", "unknown"} else installed_reused
     repaired_publication = publication_status(
-        args.install_outcome, save_outcome, exact_hit, source_built, args.primary_key
+        args.install_outcome, save_outcome, exact_hit, source_built, args.save_key or args.primary_key
     )
+    if args.schema == "v5":
+        saved_status = save_outcome + " (see cache action log for upload confirmation or an immutable-key race)"
+        repaired_publication = "save action result: " + save_outcome
 
     lines = [
         "## vcpkg cache summary",
         "",
         f"- Platform: {args.platform}",
         f"- Runner architecture: {os.environ.get('RUNNER_ARCH', 'not reported')}",
+        f"- Environment identity: `{args.environment}`",
         f"- vcpkg target triplet: {args.triplet}",
         f"- vcpkg baseline: {args.baseline}",
         f"- Cache schema version: {args.schema}",
@@ -103,6 +129,7 @@ def main() -> int:
         f"- Effective compiled cache primary key: `{args.primary_key}`",
         f"- Explicit compiled cache save attempted: {save_attempted}",
         f"- Explicit compiled cache save result: {saved_status}",
+        f"- Completed snapshot key: `{normalized(args.save_key)}`",
         f"- Repaired snapshot publication: {repaired_publication}",
         f"- Remote cache requested mode: {args.remote_mode}",
         f"- Remote cache enabled: {args.remote_enabled}",
@@ -113,6 +140,7 @@ def main() -> int:
         f"- vcpkg install outcome: {args.install_outcome}",
         f"- vcpkg install elapsed time: {normalized(args.install_elapsed_seconds)} seconds",
         f"- Remote publication verification: {args.publication_verification}",
+        *remote_activity(args.install_log),
         "",
     ]
     Path(summary_path).open("a", encoding="utf-8").write("\n".join(lines))

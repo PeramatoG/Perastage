@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
+from types import SimpleNamespace
 
 REPRESENTATIVE_PORTS = ("zlib", "vcpkg-cmake-config")
 
@@ -46,9 +48,27 @@ def capture(args: argparse.Namespace) -> dict[str, object]:
         "vcpkg_version": args.vcpkg_version,
         "installed_representatives": _installed_status(args.installed_root),
         "abi_representatives": _read_abi_files(args.packages_root),
+        "installed_abi_representatives": _read_abi_files(args.installed_root),
         "binary_archive_count": len(archives),
         "binary_archive_identifiers": archives[:20],
     }
+
+
+def write_install_diagnostics(args: argparse.Namespace, elapsed: str) -> None:
+    """Reuse the install log's artifact location for duration and ABI evidence."""
+    if not args.log.parent.exists():
+        return
+    with args.log.open("a", encoding="utf-8") as log:
+        log.write(f"vcpkg install duration: {elapsed} seconds\n")
+    baseline = os.environ.get("VCPKG_BASELINE", "unknown")
+    payload = capture(SimpleNamespace(
+        label="after-install", installed_root=args.install_root, packages_root=args.packages_root,
+        binary_root=Path(os.environ.get("VCPKG_BINARY_CACHE", args.manifest_root / ".vcpkg-cache/binary")),
+        triplet=args.triplet, baseline=baseline,
+        compiler=os.environ.get("VCPKG_CACHE_ENVIRONMENT", "unknown"),
+        sdk=os.environ.get("MACOS_SDK_REALPATH", "unknown"), vcpkg_version="baseline: " + baseline,
+    ))
+    args.log.with_suffix(".abi.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
 def main() -> int:

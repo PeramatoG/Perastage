@@ -145,17 +145,21 @@ jobs:
         if: ${{ always() }}
         shell: bash
         run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" checkpoint --phase "Restore vcpkg downloads cache" --status "${{ steps.vcpkg-downloads-cache.outcome || 'success' }}"
-      - name: Restore vcpkg installed packages and binary archives
+      - name: Resolve vcpkg binary cache contract
+        id: vcpkg-contract
+        shell: bash
+        run: |
+          python3 .github/scripts/vcpkg_cache_contract.py identity --triplet "x64-linux" --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --manifest "${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}"
+      - name: Restore vcpkg binary archives
         id: vcpkg-cache
         uses: actions/cache/restore@v5
         with:
-          path: |
-            .vcpkg-cache/installed
-            .vcpkg-cache/packages
-            .vcpkg-cache/binary
-          key: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          path: .vcpkg-cache/binary
+          key: ${{ steps.vcpkg-contract.outputs.prefix }}snapshot
           restore-keys: |
-            vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-${{ steps.vcpkg-baseline.outputs.baseline }}-
+            ${{ steps.vcpkg-contract.outputs.prefix }}
+            ${{ steps.vcpkg-contract.outputs.fallback }}
+            ${{ steps.vcpkg-contract.outputs.runtime-fallback }}
       - name: Record telemetry — Restore vcpkg compiled cache
         continue-on-error: true
         if: ${{ always() }}
@@ -198,6 +202,7 @@ jobs:
         shell: bash
         run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" checkpoint --phase "Configure remote binary cache" --status "${{ steps.vcpkg-remote-cache.outcome || 'success' }}"
       - name: Install vcpkg packages
+        id: vcpkg-install
         run: |
           python3 .github/scripts/vcpkg_install_retry.py --vcpkg "$VCPKG_ROOT/vcpkg" --triplet x64-linux --manifest-root "$GITHUB_WORKSPACE" \
             --install-root "$VCPKG_INSTALLED" \
@@ -217,21 +222,24 @@ jobs:
         run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" snapshot --label "after vcpkg install" --workspace "$GITHUB_WORKSPACE" --directory "$VCPKG_DOWNLOADS" --directory "$VCPKG_INSTALLED" --directory "$VCPKG_PACKAGES" --directory "$VCPKG_BINARY_CACHE" --directory "build/linux-debug"
       - name: Save vcpkg downloads cache
         id: vcpkg-downloads-cache-save
-        if: ${{ steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
+        if: ${{ needs.resolve-source.outputs.sccache_gha_enabled == 'on' && steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v5
         with:
           path: .vcpkg-cache/downloads
           key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
-      - name: Save vcpkg installed packages and binary archives
+      - name: Address completed vcpkg binary snapshot
+        id: vcpkg-snapshot
+        if: ${{ needs.resolve-source.outputs.sccache_gha_enabled == 'on' }}
+        shell: bash
+        run: |
+          python3 .github/scripts/vcpkg_cache_contract.py snapshot --prefix "${{ steps.vcpkg-contract.outputs.prefix }}" --matched-key "${{ steps.vcpkg-cache.outputs.cache-matched-key }}"
+      - name: Save vcpkg binary archives
         id: vcpkg-cache-save
-        if: ${{ steps.vcpkg-cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.vcpkg-snapshot.outputs.count != '' && steps.vcpkg-snapshot.outputs.count != '0' && steps.vcpkg-snapshot.outputs.key != steps.vcpkg-cache.outputs.cache-matched-key }}
         uses: actions/cache/save@v5
         with:
-          path: |
-            .vcpkg-cache/installed
-            .vcpkg-cache/packages
-            .vcpkg-cache/binary
-          key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
+          path: .vcpkg-cache/binary
+          key: ${{ steps.vcpkg-snapshot.outputs.key }}
 
       - name: Record telemetry — vcpkg cache save operations
         continue-on-error: true
@@ -241,7 +249,7 @@ jobs:
       - name: Summarize vcpkg cache behavior
         if: ${{ always() }}
         run: |
-          python3 .github/scripts/write_vcpkg_cache_summary.py --platform linux-debug --triplet x64-linux --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable
+          python3 .github/scripts/write_vcpkg_cache_summary.py --platform linux-debug --triplet x64-linux --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v5 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --matched-key "${{ steps.vcpkg-cache.outputs.cache-matched-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable --install-outcome "${{ steps.vcpkg-install.outcome }}" --install-log "$CI_LOG_DIR/vcpkg-install-linux-debug.log" --install-elapsed-seconds "${{ steps.vcpkg-install.outputs.elapsed-seconds }}" --save-key "${{ steps.vcpkg-snapshot.outputs.key }}"
 
       - name: Validate Linux test tools and locale
         run: |
@@ -343,6 +351,7 @@ jobs:
           python3 tests/check_source_file_size_test.py
           python3 tests/check_repository_hygiene.py
           python3 tests/check_repository_hygiene_test.py
+          python3 -m unittest discover -s tests/ci -p test_vcpkg_cache_contract.py
           bash tests/check_perastage_tree_modules.sh
           bash tests/check_no_configmanager_get_in_gui.sh
           bash tests/check_ci_cmake_language_policy.sh
@@ -383,6 +392,7 @@ jobs:
           path: |
             out/ci-logs/ci-telemetry-linux-debug.json
             out/ci-logs/ci-telemetry-linux-debug.state.json
+            out/ci-logs/vcpkg-install-linux-debug.*
       - name: Upload Linux test results
         if: ${{ always() && needs.resolve-source.outputs.cache_warming != 'true' }}
         uses: actions/upload-artifact@v7
@@ -590,20 +600,21 @@ jobs:
         shell: pwsh
         run: |
           & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Restore vcpkg downloads cache" --status "${{ steps.vcpkg-downloads-cache.outcome || 'success' }}"
-      # Binary archives are ABI-addressed by vcpkg. Keep them independent from the
-      # mutable installed and packages trees so compatible archives remain reusable.
-      # Retired step label: Restore vcpkg installed packages and binary archives.
-      # Retired mixed-tree namespace: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-
-      # steps.windows-toolchain.outputs.cache-identity is deliberately excluded because vcpkg enforces ABI compatibility.
+      - name: Resolve vcpkg binary cache contract
+        id: vcpkg-contract
+        shell: pwsh
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/vcpkg_cache_contract.py identity --triplet "x64-windows" --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --manifest "${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}"
       - name: Restore vcpkg binary archives
         id: vcpkg-cache
         uses: actions/cache/restore@v5
         with:
-          path: .vcpkg-cache\binary
-          key: vcpkg-binary-v4-${{ runner.os }}-${{ runner.arch }}-x64-windows-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          path: .vcpkg-cache/binary
+          key: ${{ steps.vcpkg-contract.outputs.prefix }}snapshot
           restore-keys: |
-            vcpkg-binary-v4-${{ runner.os }}-${{ runner.arch }}-x64-windows-${{ steps.vcpkg-baseline.outputs.baseline }}-
-            vcpkg-binary-v4-${{ runner.os }}-${{ runner.arch }}-x64-windows-
+            ${{ steps.vcpkg-contract.outputs.prefix }}
+            ${{ steps.vcpkg-contract.outputs.fallback }}
+            ${{ steps.vcpkg-contract.outputs.runtime-fallback }}
       - name: Report GitHub Actions vcpkg binary cache restoration
         if: ${{ always() }}
         shell: pwsh
@@ -702,19 +713,24 @@ jobs:
           & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" snapshot --label "after vcpkg install" --workspace "$env:GITHUB_WORKSPACE" --directory "$env:VCPKG_DOWNLOADS" --directory "$env:VCPKG_INSTALLED" --directory "$env:VCPKG_PACKAGES" --directory "$env:VCPKG_BINARY_CACHE" --directory "build-windows-debug"
       - name: Save vcpkg downloads cache
         id: vcpkg-downloads-cache-save
-        if: ${{ steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
+        if: ${{ needs.resolve-source.outputs.sccache_gha_enabled == 'on' && steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v5
         with:
           path: .vcpkg-cache/downloads
           key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
+      - name: Address completed vcpkg binary snapshot
+        id: vcpkg-snapshot
+        if: ${{ needs.resolve-source.outputs.sccache_gha_enabled == 'on' }}
+        shell: pwsh
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/vcpkg_cache_contract.py snapshot --prefix "${{ steps.vcpkg-contract.outputs.prefix }}" --matched-key "${{ steps.vcpkg-cache.outputs.cache-matched-key }}"
       - name: Save vcpkg binary archives
-        # Retired step label: Save vcpkg installed packages and binary archives.
         id: vcpkg-cache-save
-        if: ${{ steps.vcpkg-cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.vcpkg-snapshot.outputs.count != '' && steps.vcpkg-snapshot.outputs.count != '0' && steps.vcpkg-snapshot.outputs.key != steps.vcpkg-cache.outputs.cache-matched-key }}
         uses: actions/cache/save@v5
         with:
-          path: .vcpkg-cache\binary
-          key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
+          path: .vcpkg-cache/binary
+          key: ${{ steps.vcpkg-snapshot.outputs.key }}
 
       - name: Record telemetry — vcpkg cache save operations
         continue-on-error: true
@@ -726,7 +742,7 @@ jobs:
         if: ${{ always() }}
         shell: pwsh
         run: |
-          & "$env:PERASTAGE_PYTHON" .github/scripts/write_vcpkg_cache_summary.py --platform windows --triplet x64-windows --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v4 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --matched-key "${{ steps.vcpkg-cache.outputs.cache-matched-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --install-outcome "${{ steps.vcpkg-install.outcome }}" --install-log "$env:CI_LOG_DIR\vcpkg-install-windows-debug.log" --install-elapsed-seconds "${{ steps.vcpkg-install.outputs.elapsed-seconds }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable
+          & "$env:PERASTAGE_PYTHON" .github/scripts/write_vcpkg_cache_summary.py --platform windows --triplet x64-windows --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v5 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --matched-key "${{ steps.vcpkg-cache.outputs.cache-matched-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --install-outcome "${{ steps.vcpkg-install.outcome }}" --install-log "$env:CI_LOG_DIR\vcpkg-install-windows-debug.log" --install-elapsed-seconds "${{ steps.vcpkg-install.outputs.elapsed-seconds }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable --save-key "${{ steps.vcpkg-snapshot.outputs.key }}"
 
       - name: Define Windows sccache compatibility boundary
         shell: pwsh
@@ -887,6 +903,7 @@ jobs:
           path: |
             out/ci-logs/ci-telemetry-windows-debug.json
             out/ci-logs/ci-telemetry-windows-debug.state.json
+            out/ci-logs/vcpkg-install-windows-debug.*
       - name: Upload Windows test results
         if: ${{ always() && needs.resolve-source.outputs.cache_warming != 'true' }}
         uses: actions/upload-artifact@v7
@@ -994,17 +1011,21 @@ jobs:
         if: ${{ always() }}
         shell: bash
         run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" checkpoint --phase "Restore vcpkg downloads cache" --status "${{ steps.vcpkg-downloads-cache.outcome || 'success' }}"
-      - name: Restore vcpkg installed packages and binary archives
+      - name: Resolve vcpkg binary cache contract
+        id: vcpkg-contract
+        shell: bash
+        run: |
+          python3 .github/scripts/vcpkg_cache_contract.py identity --triplet "arm64-osx" --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --manifest "${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}" --sdk "${{ steps.macos-sdk.outputs.identity }}"
+      - name: Restore vcpkg binary archives
         id: vcpkg-cache
         uses: actions/cache/restore@v5
         with:
-          path: |
-            .vcpkg-cache/installed
-            .vcpkg-cache/packages
-            .vcpkg-cache/binary
-          key: vcpkg-compiled-v4-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-${{ steps.macos-sdk.outputs.identity }}-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          path: .vcpkg-cache/binary
+          key: ${{ steps.vcpkg-contract.outputs.prefix }}snapshot
           restore-keys: |
-            vcpkg-compiled-v4-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-${{ steps.macos-sdk.outputs.identity }}-${{ steps.vcpkg-baseline.outputs.baseline }}-
+            ${{ steps.vcpkg-contract.outputs.prefix }}
+            ${{ steps.vcpkg-contract.outputs.fallback }}
+            ${{ steps.vcpkg-contract.outputs.runtime-fallback }}
       - name: Record telemetry — Restore vcpkg compiled cache
         continue-on-error: true
         if: ${{ always() }}
@@ -1081,7 +1102,7 @@ jobs:
           name: vcpkg-cache-diagnostics-macos-debug
           path: |
             out/ci-logs/vcpkg-cache-macos-debug.json
-            out/ci-logs/vcpkg-install-macos-debug.log
+            out/ci-logs/vcpkg-install-macos-debug.*
           if-no-files-found: warn
       - name: Record telemetry — Install/materialize vcpkg packages
         continue-on-error: true
@@ -1095,21 +1116,24 @@ jobs:
         run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" snapshot --label "after vcpkg install" --workspace "$GITHUB_WORKSPACE" --directory "$VCPKG_DOWNLOADS" --directory "$VCPKG_INSTALLED" --directory "$VCPKG_PACKAGES" --directory "$VCPKG_BINARY_CACHE" --directory "build/macos-debug"
       - name: Save vcpkg downloads cache
         id: vcpkg-downloads-cache-save
-        if: ${{ steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
+        if: ${{ needs.resolve-source.outputs.sccache_gha_enabled == 'on' && steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v5
         with:
           path: .vcpkg-cache/downloads
           key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
-      - name: Save vcpkg installed packages and binary archives
+      - name: Address completed vcpkg binary snapshot
+        id: vcpkg-snapshot
+        if: ${{ needs.resolve-source.outputs.sccache_gha_enabled == 'on' }}
+        shell: bash
+        run: |
+          python3 .github/scripts/vcpkg_cache_contract.py snapshot --prefix "${{ steps.vcpkg-contract.outputs.prefix }}" --matched-key "${{ steps.vcpkg-cache.outputs.cache-matched-key }}"
+      - name: Save vcpkg binary archives
         id: vcpkg-cache-save
-        if: ${{ steps.vcpkg-cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.vcpkg-snapshot.outputs.count != '' && steps.vcpkg-snapshot.outputs.count != '0' && steps.vcpkg-snapshot.outputs.key != steps.vcpkg-cache.outputs.cache-matched-key }}
         uses: actions/cache/save@v5
         with:
-          path: |
-            .vcpkg-cache/installed
-            .vcpkg-cache/packages
-            .vcpkg-cache/binary
-          key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
+          path: .vcpkg-cache/binary
+          key: ${{ steps.vcpkg-snapshot.outputs.key }}
 
       - name: Record telemetry — vcpkg cache save operations
         continue-on-error: true
@@ -1119,7 +1143,7 @@ jobs:
       - name: Summarize vcpkg cache behavior
         if: ${{ always() }}
         run: |
-          python3 .github/scripts/write_vcpkg_cache_summary.py --platform macos-debug --triplet arm64-osx --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v4 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --install-outcome "${{ steps.vcpkg-install.outcome }}" --install-log "$CI_LOG_DIR/vcpkg-install-macos-debug.log" --sdk-guard-result "${{ steps.macos-sdk-cache-guard.outputs.guard-result }}" --sdk-guard-reason "${{ steps.macos-sdk-cache-guard.outputs.guard-reason }}" --sdk-invalidation-source "${{ steps.macos-sdk-cache-guard.outputs.invalidation-source }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable
+          python3 .github/scripts/write_vcpkg_cache_summary.py --platform macos-debug --triplet arm64-osx --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v5 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --matched-key "${{ steps.vcpkg-cache.outputs.cache-matched-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --install-outcome "${{ steps.vcpkg-install.outcome }}" --install-log "$CI_LOG_DIR/vcpkg-install-macos-debug.log" --sdk-guard-result "${{ steps.macos-sdk-cache-guard.outputs.guard-result }}" --sdk-guard-reason "${{ steps.macos-sdk-cache-guard.outputs.guard-reason }}" --sdk-invalidation-source "${{ steps.macos-sdk-cache-guard.outputs.invalidation-source }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable --install-elapsed-seconds "${{ steps.vcpkg-install.outputs.elapsed-seconds }}" --save-key "${{ steps.vcpkg-snapshot.outputs.key }}"
 
       - name: Define macOS sccache compatibility boundary
         run: |

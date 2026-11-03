@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
@@ -90,8 +91,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
+def install(args: argparse.Namespace) -> int:
     if args.attempts < 1:
         print("error: --attempts must be at least 1", file=sys.stderr)
         return 2
@@ -115,6 +115,23 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Transient vcpkg failure detected ({classification.reason}); retrying in {delay:g} seconds...")
         time.sleep(delay)
     return last_code
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    started = time.monotonic()
+    try:
+        return install(args)
+    finally:
+        elapsed = f"{time.monotonic() - started:.1f}"
+        try:
+            if os.environ.get("GITHUB_OUTPUT"):
+                with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+                    output.write(f"elapsed-seconds={elapsed}\n")
+            from vcpkg_cache_diagnostics import write_install_diagnostics
+            write_install_diagnostics(args, elapsed)
+        except OSError as error:
+            print(f"::warning::Could not record vcpkg diagnostics: {error}")
 
 
 if __name__ == "__main__":
