@@ -19,6 +19,8 @@ add_library(perastage_mvr_read STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_identifier_preservation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_class_preservation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_standard_preservation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_standard_field_projection.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_standard_field_projection.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_truss_address_preservation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_focus_validation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_node_reader.cpp
@@ -37,7 +39,7 @@ target_link_libraries(perastage_mvr_read
            perastage_gdtf_matching
     PRIVATE perastage_mvr_core_support perastage_mvr_scene_model perastage_gdtf_read
             perastage_fixture_network
-            tinyxml2::tinyxml2 ${_wx_base_libs}
+            perastage_inspection_validation tinyxml2::tinyxml2 ${_wx_base_libs}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE perastage_mvr_read)

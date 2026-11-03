@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvr_merge_resource_rewriter.h"
+#include "mvr_standard_field_projection.h"
 
 #include "file_import_utils.h"
 
@@ -169,6 +170,10 @@ bool RewriteResourceReference(
 void RewriteImportedSceneResourceReferences(const MvrScene &target,
                                             MvrScene &imported) {
   std::unordered_map<std::string, std::string> rewrittenByOriginal;
+  ReconcileStandardSourceFields(imported, {}, [&](const std::string &source) {
+    std::string path = source;
+    return RewriteResourceReference(target, imported, path, rewrittenByOriginal) ? path : std::string();
+  });
 
   for (auto &[uuid, fixture] : imported.fixtures)
     RewriteResourceReference(target, imported, fixture.gdtfSpec,

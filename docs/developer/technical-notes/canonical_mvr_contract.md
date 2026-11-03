@@ -116,8 +116,8 @@ refused until that operation is supported. Existing geometry/Symdef authority
 and transform limitations remain guarded. SceneObject-to-Truss conversion copies
 compatible identifiers, Classing and matrix provenance; retained source issues,
 FocusPoint, multiple models, Symbol ownership and nonidentity geometry cause
-atomic structured refusal. SceneObject Addresses, including empty presence,
-remain unsupported and protected.
+atomic structured refusal. SceneObject Addresses, including empty presence, are retained by the validated
+source-field projection when their standard structure is valid.
 Fixture-to-Support conversion preserves the complete collection, Classing,
 standard identifiers (including CustomId/CustomIdType presence and explicit
 zero), GDTF binding, position,
@@ -205,6 +205,28 @@ recovery utility still exposes its historical recovery result and is not itself
 a general validation API. Generic source UUID/reference coverage, Position
 recovery and opaque provider references remain P0; this gate is not proof of
 complete reference preservation.
+
+Valid source-only fields of Fixture, Truss, Support and SceneObject have a
+focused export projection: the retained XML is validated against its existing
+MVR 1.6 type, attached to the matching generated UUID owner and written in
+standard child order. This includes CastShadow, protocols, commands, alignments,
+connections, mappings and other fields listed in `mvr_standard_field_projection.cpp`.
+MappingDefinition is retained under AUXData. Source references must resolve;
+source resources use the normal resource collection. Merge remaps retained owner
+UUIDs and standard references, including equivalent uppercase/lowercase UUID
+spellings, along with resource paths. No source fragments are
+executed or injected into the editable scene, and no schema extensions are added.
+Deletion of a modeled owner deletes its retained fields. An editable/source
+field conflict is diagnosed rather than choosing a value silently. Reopening
+reconstructs the evidence from the canonical scene.mvr, so later saves and
+standalone canonical exports follow exactly the same policy.
+
+Save preparation rolls back scene, layouts, resources, preferences and dirty
+state on failure. Archive publication closes the temporary file then replaces
+the target atomically on the same filesystem; there is no overwrite-by-copy
+fallback. Save As commits its session path only on confirmed success. A failed
+save exposes all export findings in the dialog's expandable details after the
+busy overlay has closed.
 
 Safe representable content should save without a consent loop. Genuine unsupported
 standard content still blocks both serializers until an actual preservation

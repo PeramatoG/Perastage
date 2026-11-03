@@ -17,6 +17,7 @@
  */
 #include "layer_identity.h"
 #include "mvr_merge_applier.h"
+#include "mvr_standard_field_projection.h"
 #include "fixture_network_reference.h"
 #include "filesystem_path_utils.h"
 
@@ -253,13 +254,17 @@ MvrSceneMergeResult ApplyImportedSceneMerge(MvrScene &target,
   MvrScene importedCopy = imported;
   layerdomain::MigrateLayerMembership(importedCopy);
   RewriteImportedSceneResourceReferences(target, importedCopy);
+
+
+  ApplyFixtureTypeDecisions(importedCopy, analysis);
+  RemapImportedReferences(importedCopy, analysis);
+  ReconcileStandardSourceFields(importedCopy, [&](const std::string &uuid) {
+    return RemapImportedUuidReference(uuid, analysis);
+  }, {});
   for (const auto &issue : importedCopy.preservationIssues)
     if (std::find(target.preservationIssues.begin(), target.preservationIssues.end(),
                   issue) == target.preservationIssues.end())
       target.preservationIssues.push_back(issue);
-
-  ApplyFixtureTypeDecisions(importedCopy, analysis);
-  RemapImportedReferences(importedCopy, analysis);
 
   for (const MvrOpaqueUserDataBlock &block : importedCopy.opaqueUserDataBlocks) {
     if (std::find(target.opaqueUserDataBlocks.begin(),

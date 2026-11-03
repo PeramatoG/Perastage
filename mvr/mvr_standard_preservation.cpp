@@ -1,5 +1,6 @@
 #include "mvr_identifier_preservation.h"
 #include "mvr_standard_preservation.h"
+#include "mvr_standard_field_projection.h"
 #include "mvr_fixture_addresses.h"
 #include "mvr_truss_address_preservation.h"
 #include "fixture_patch_service.h"
@@ -178,6 +179,7 @@ std::vector<MvrExportDiagnostic> CheckStandardPreservation(const MvrScene &scene
     result.push_back(Block("GeneralSceneDescription", {}, "/@verMajor,verMinor",
                            "Unsupported MVR version cannot be downgraded safely."));
   for (const auto &issue : scene.preservationIssues) {
+    if (CanProjectStandardSourceField(issue)) continue;
     auto diagnostic = Block(issue.node, issue.objectUuid, issue.sourceLocation,
                             issue.reason + " " + issue.recommendedAction);
     if (issue.kind == MvrPreservationIssueKind::ResourceFailure) {
@@ -212,6 +214,21 @@ std::vector<MvrExportDiagnostic> CheckStandardPreservation(const MvrScene &scene
   for (const auto &[uuid, fixture] : scene.fixtures) {
     if (const auto patch = perastage::patch::ResolveFixturePatch(fixture); !patch)
       result.push_back(Block("Fixture", uuid, "Fixture/Addresses", patch.detail));
+    // An imported definition is authored information, even without Network.
+    // A dummy profile cannot repair missing source bytes without data loss.
+    if (!fixture.originalMvrGdtfSpec.empty()) {
+      const auto &spec = fixture.gdtfSpec.empty() ? fixture.originalMvrGdtfSpec : fixture.gdtfSpec;
+      auto path = PathUtils::PathFromUtf8(spec);
+      if (!path.is_absolute()) path = PathUtils::PathFromUtf8(scene.basePath) / path;
+      std::error_code error;
+      if (!std::filesystem::is_regular_file(path, error)) {
+        auto diagnostic = Block("Fixture", uuid, "Fixture/GDTFSpec",
+            "The authored GDTF resource is unavailable; no fallback is substituted.");
+        diagnostic.code = MvrExportDiagnosticCode::ResourceMissing;
+        diagnostic.resourceName = spec;
+        result.push_back(std::move(diagnostic));
+      }
+    }
     if (fixture.dmxAddresses && !fixture.dmxAddresses->networks.empty()) {
       const auto &networkSpec = fixture.gdtfSpec.empty() ? fixture.originalMvrGdtfSpec : fixture.gdtfSpec;
       auto gdtfPath = PathUtils::PathFromUtf8(networkSpec);

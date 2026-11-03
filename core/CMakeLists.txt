@@ -3,6 +3,12 @@ target_include_directories(perastage_typography PUBLIC ${CMAKE_CURRENT_SOURCE_DI
 target_compile_features(perastage_typography PUBLIC cxx_std_20)
 target_link_libraries(${PROJECT_NAME} PRIVATE perastage_typography)
 
+add_library(perastage_project_archive_publication STATIC
+    project_archive_publication.h project_archive_publication.cpp)
+target_include_directories(perastage_project_archive_publication PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_features(perastage_project_archive_publication PUBLIC cxx_std_20)
+target_link_libraries(${PROJECT_NAME} PRIVATE perastage_project_archive_publication)
+
 add_library(perastage_legend_composition STATIC
     layouts/DocumentComposition.h layouts/LegendComposition.h
     layouts/LegendComposition.cpp layouts/LegendContent.h layouts/LegendContent.cpp)

@@ -1,5 +1,6 @@
 /* This file is part of Perastage. */
 #include "mvr_standard_preservation.h"
+#include "mvr_standard_field_projection.h"
 #include <tinyxml2.h>
 #include <cassert>
 
@@ -73,6 +74,33 @@ int main() {
     assert(!nonempty.preservationIssues.empty());
   }
   assert(!Scan("<Fixture><Protocols unknown='value'> </Protocols></Fixture>").preservationIssues.empty());
+  // Valid retained fields are serialized rather than treated as loss blockers.
+  auto retained = Scan("<GeneralSceneDescription><Scene><Layers><Layer><ChildList>"
+      "<Fixture uuid='50000000-0000-4000-8000-000000000001'><CastShadow>true</CastShadow>"
+      "<Protocols><Protocol type='sACN'/></Protocols><CustomCommands><CustomCommand>Pan,f 50</CustomCommand></CustomCommands>"
+      "<Connections><Connection own='A' other='B' toObject='50000000-0000-4000-8000-000000000001'/></Connections>"
+      "</Fixture></ChildList></Layer></Layers></Scene></GeneralSceneDescription>");
+  assert(retained.preservationIssues.size() == 4);
+  assert(mvr::CheckStandardPreservation(retained).empty());
+  mvr::ReconcileStandardSourceFields(retained, [](const std::string &uuid) {
+    return uuid == "50000000-0000-4000-8000-000000000001" ? "50000000-0000-4000-8000-000000000002" : uuid;
+  }, {});
+  assert(retained.preservationIssues[0].objectUuid == "50000000-0000-4000-8000-000000000002");
+  assert(retained.preservationIssues[3].originalInformation.find("50000000-0000-4000-8000-000000000002") != std::string::npos);
+  tinyxml2::XMLDocument output;
+  output.Parse("<GeneralSceneDescription><Scene><Layers><Layer><ChildList><Fixture uuid='50000000-0000-4000-8000-000000000002'/></ChildList></Layer></Layers></Scene></GeneralSceneDescription>");
+  assert(mvr::ProjectStandardSourceFields(output, retained, {}).diagnostics.empty());
+  auto *fixture = output.RootElement()->FirstChildElement("Scene")->FirstChildElement("Layers")->FirstChildElement("Layer")->FirstChildElement("ChildList")->FirstChildElement("Fixture");
+  assert(fixture->FirstChildElement("CastShadow") && fixture->FirstChildElement("Connections"));
+  auto aliases = Scan("<GeneralSceneDescription><Fixture uuid='5AAAAAAA-0000-4000-8000-000000000001'>"
+      "<Connections><Connection own='A' other='B' toObject='5AAAAAAA-0000-4000-8000-000000000001'/></Connections>"
+      "</Fixture></GeneralSceneDescription>");
+  mvr::ReconcileStandardSourceFields(aliases, [](const std::string &uuid) {
+    return uuid == "5aaaaaaa-0000-4000-8000-000000000001" ? "5aaaaaaa-0000-4000-8000-000000000002" : uuid;
+  }, {});
+  assert(aliases.preservationIssues[0].objectUuid == "5aaaaaaa-0000-4000-8000-000000000002");
+  assert(aliases.preservationIssues[0].originalInformation.find("5aaaaaaa-0000-4000-8000-000000000002") != std::string::npos);
+  assert(aliases.preservationIssues[0].originalInformation.find("5AAAAAAA") == std::string::npos);
   safe.versionMinor = 7;
   assert(!mvr::CheckStandardPreservation(safe).empty());
   safe.Clear();

@@ -14,4 +14,6 @@ struct Result {
 // The busy window and disabler are destroyed before this function returns.
 Result Run(wxWindow &owner, const std::function<bool()> &save);
 wxString FailureMessage(ProjectSaveFailureKind kind);
+void ShowFailure(wxWindow &owner, const wxString &message,
+                  const std::string &details);
 } // namespace project_save_ui

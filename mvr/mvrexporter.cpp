@@ -17,6 +17,7 @@
  */
 #include "mvr_identifier_preservation.h"
 #include "mvrexporter.h"
+#include "mvr_standard_field_projection.h"
 #include "mvr_fixture_addresses.h"
 #include "mvr_truss_address_preservation.h"
 #include "app_version.h"
@@ -2397,6 +2398,14 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   }
 
   sceneNode->InsertEndChild(layersNode);
+  const auto sourceProjection = mvr::ProjectStandardSourceFields(doc, scene,
+      [&](const std::string &owner, const std::string &source, bool gdtf) {
+        return gdtf ? registerGdtfResource(owner, source, source, true, false, false)
+                    : resourceCollection.RegisterResource(source, source,
+                        mvr_export_resources::ResourceKind::ModelDependency);
+      });
+  for (const auto &diagnostic : sourceProjection.diagnostics) AddDiagnostic(diagnostic);
+  if (!sourceProjection.diagnostics.empty()) return false;
   auto focusDiagnostics = mvr::CheckSerializedFocus(*sceneNode);
   auto classDiagnostics = mvr::CheckSerializedClasses(*sceneNode, scene);
   focusDiagnostics.insert(focusDiagnostics.end(), classDiagnostics.begin(), classDiagnostics.end());
@@ -2409,6 +2418,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   // payload files.
   std::unordered_set<std::string> referencedArchivePaths =
       CollectReferencedArchivePaths(doc);
+  referencedArchivePaths.insert(sourceProjection.resources.begin(), sourceProjection.resources.end());
   std::ostringstream fixtureGdtfExportDiagnostics;
   fixtureGdtfExportDiagnostics
       << "MVR export fixture GDTF diagnostics: real="

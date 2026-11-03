@@ -115,6 +115,7 @@ include(${CMAKE_SOURCE_DIR}/cmake/PerastageGitBashResolver.cmake)
 
 add_library(perastage_test_no_dialog OBJECT windows_no_dialog_runtime.cpp)
 link_libraries($<TARGET_OBJECTS:perastage_test_no_dialog>)
+link_libraries(perastage_project_archive_publication)
 
 function(set_perastage_test_labels test_name)
     set(options)
@@ -2101,6 +2102,22 @@ target_link_libraries(project_support_userdata_roundtrip_test PRIVATE
 add_test(NAME ProjectSupportUserDataRoundtrip COMMAND project_support_userdata_roundtrip_test)
 set_library_env(ProjectSupportUserDataRoundtrip)
 
+add_executable(project_preserved_fields_roundtrip_test project_preserved_fields_roundtrip_test.cpp
+    support/gdtf_test_fixture_builder.cpp build_info_stub.cpp
+    ../core/configservices.cpp ../core/library/library_bootstrap.cpp
+    ../core/gdtfdictionary.cpp ../core/trussdictionary.cpp ../core/trussloader.cpp
+    ../core/truss_gdtf_builder.cpp ../core/gdtf_canonicalizer.cpp
+    ../core/gdtf_mutation_audit.cpp ../core/logger.cpp
+    gdtfloader_stub.cpp consolepanel_stub.cpp ${PERASTAGE_TEST_MVR_ROUNDTRIP_OBJECTS})
+target_include_directories(project_preserved_fields_roundtrip_test PRIVATE
+    . ../core ../models ../mvr ../gui ../third_party)
+target_link_libraries(project_preserved_fields_roundtrip_test PRIVATE
+    ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_mvr_read
+    perastage_mvr_import_application_read perastage_inspection_validation
+    perastage_layer_validation)
+add_test(NAME ProjectPreservedFieldsRoundtrip COMMAND project_preserved_fields_roundtrip_test)
+set_library_env(ProjectPreservedFieldsRoundtrip)
+
 add_executable(truss_path_encoding_regression_test
                truss_path_encoding_regression_test.cpp
                build_info_stub.cpp
@@ -3407,6 +3424,7 @@ target_link_libraries(fixture_symbol_svg_cache_test PRIVATE ${wxWidgets_LIBRARIE
 add_test(NAME FixtureSymbolSvgCache COMMAND fixture_symbol_svg_cache_test)
 
 set(PERASTAGE_CONFIGMANAGER_TEST_TARGETS
+    project_preserved_fields_roundtrip_test
     fixture_label_overrides_reconcile_test
     gdtf_dictionary_color_roundtrip_test
     gdtf_dictionary_color_mode_propagation_test
@@ -4222,6 +4240,7 @@ endforeach()
 
 # Supplies the new publication dependency only to standalone dictionary consumers.
 set(PERASTAGE_GDTF_DICTIONARY_PUBLICATION_TEST_TARGETS
+    project_preserved_fields_roundtrip_test
     gdtf_dictionary_color_roundtrip_test
     gdtf_dictionary_color_mode_propagation_test
     dictionary_seed_merge_backup_test

@@ -545,6 +545,25 @@ void ConfigManager::SetProjectArchiveResourceProvider(
 
 // Saves the current project state as a packaged archive with config, scene content, and used resources.
 bool ConfigManager::SaveProject(const std::string &path) {
+  const auto beforePreferences = preferencesStore;
+  const auto beforeScene = GetScene();
+  const auto beforeSymbols = GetProjectFixtureSymbols();
+  const auto beforeResources = layouts::LayoutImageResourceRegistry::Get();
+  const auto beforeLayouts = layouts::LayoutManager::Get();
+  const auto beforeDirty = CaptureDirtyState();
+  struct Rollback {
+    std::function<void()> restore;
+    bool committed = false;
+    ~Rollback() { if (!committed) restore(); }
+  } rollback{[&] {
+    preferencesStore = beforePreferences;
+    GetScene() = beforeScene;
+    GetProjectFixtureSymbols() = beforeSymbols;
+    layouts::LayoutManager::Get() = beforeLayouts;
+    layouts::LayoutImageResourceRegistry::Get() = beforeResources;
+    RestoreDirtyState(beforeDirty);
+  }};
+  RevisionGuard preparationGuard(*this);
   lastProjectSaveError.clear();
   lastProjectSaveFailure = {};
   if (!symbols::MaterializeLegacyFixtureSymbols(GetScene(),
@@ -604,6 +623,8 @@ bool ConfigManager::SaveProject(const std::string &path) {
                                  "Project save scene MVR serialization failed.");
           lastProjectSaveFailure = {ProjectSaveFailureKind::Serialization, "SerializeScene",
                                     "Canonical MVR scene serialization failed.", {}};
+          std::string findings;
+          auto failureKind = ProjectSaveFailureKind::MvrPreservation;
           for (const auto &diagnostic : exporter.GetExportDiagnostics()) {
             if (diagnostic.severity != MvrExportDiagnosticSeverity::Error) continue;
             auto kind = ProjectSaveFailureKind::Serialization;
@@ -615,10 +636,11 @@ bool ConfigManager::SaveProject(const std::string &path) {
               kind = ProjectSaveFailureKind::Resource;
             else if (diagnostic.code == MvrExportDiagnosticCode::ArchiveIoFailed)
               kind = ProjectSaveFailureKind::ArchiveIo;
-            lastProjectSaveFailure = {kind, "SerializeScene", diagnostic.technicalDetail,
-                                      diagnostic.resourceName};
-            break;
+            if (kind != ProjectSaveFailureKind::MvrPreservation) failureKind = kind;
+            findings += "Type: " + diagnostic.objectType + "\nUUID: " + diagnostic.objectIdentity +
+                "\nField/resource: " + diagnostic.resourceName + "\n" + diagnostic.technicalDetail + "\n\n";
           }
+          if (!findings.empty()) lastProjectSaveFailure = {failureKind, "SerializeScene", findings, {}};
         }
         return exported;
       },
@@ -671,6 +693,7 @@ bool ConfigManager::SaveProject(const std::string &path) {
   if (ok) {
     projectSession.GetFixtureSymbols().PruneUnreferenced(GetScene());
     projectSession.MarkSaved();
+    rollback.committed = true;
   } else {
     if (lastProjectSaveFailure.kind == ProjectSaveFailureKind::None)
       lastProjectSaveFailure = projectSession.GetLastSaveFailure();
