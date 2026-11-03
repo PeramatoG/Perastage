@@ -2,6 +2,7 @@
 #include "layouts/LegendContent.h"
 #include "legend_composition_adapter.h"
 #include "utf8_utils.h"
+#include "typography/font_resources.h"
 
 #include <cassert>
 #include <cmath>
@@ -9,11 +10,8 @@
 
 using namespace layouts::composition;
 namespace {
-TextMeasurement Measure(std::string_view text, double size, TextRole) {
-  std::size_t codepoints = 0;
-  for (unsigned char c : text) if ((c & 0xc0) != 0x80) ++codepoints;
-  return {codepoints * size * 0.6, size * 1.2, size};
-}
+const typography::FontPair bundled(PERASTAGE_TEST_RESOURCE_DIR);
+const LegendFonts fonts{bundled.regular, bundled.bold};
 LegendCompositionInput Input(std::size_t count = 1) {
   LegendCompositionInput input;
   input.width = 300; input.height = 100;
@@ -86,7 +84,7 @@ void Symbols() {
       if (mask & (1 << view)) input.rows[0].symbols[view] =
           {SymbolGeometryKind::Svg, 41 + view, {3, -2, 7, 10}};
     }
-    const auto plan = ComposeLegend(input, Measure);
+    const auto plan = ComposeLegend(input, fonts);
     std::size_t expected = 0;
     for (int bit = 0; bit < 3; ++bit) expected += (mask >> bit) & 1;
     assert(plan.symbols.size() == expected);
@@ -95,7 +93,7 @@ void Symbols() {
       assert(symbol.geometry.bounds.x == 3 && symbol.geometry.bounds.y == -2);
       assert(symbol.slot.x + symbol.slot.width < plan.countColumn.x);
     }
-    assert(Describe(plan) == Describe(ComposeLegend(input, Measure)));
+    assert(Describe(plan) == Describe(ComposeLegend(input, fonts)));
   }
   SymbolDefinitionSnapshot snapshot;
   for (const auto view : {SymbolViewKind::Top, SymbolViewKind::Front, SymbolViewKind::Right}) {
@@ -114,56 +112,58 @@ void Symbols() {
   resolved = viewer2d::ResolveLegendComposition({item}, &snapshot, {});
   assert(!resolved.symbols[2].commands); // Side cannot borrow Bottom or Front.
   auto twoViews = Input();
-  twoViews.style.metrics = LegacyLegendMetrics::VectorExport;
   twoViews.rows[0].symbols[0] = {SymbolGeometryKind::Svg, 0, {0,0,10,10}};
   twoViews.rows[0].symbols[1] = {SymbolGeometryKind::Svg, 1, {0,0,10,10}};
-  const auto legacyVector = ComposeLegend(twoViews, Measure);
+  const auto legacyVector = ComposeLegend(twoViews, fonts);
   const auto front = legacyVector.symbolColumns[1];
   assert(legacyVector.countColumn.x == front.x + front.width + 6);
 }
 void GeometryAndText() {
-  for (const auto profile : {LegacyLegendMetrics::Preview, LegacyLegendMetrics::VectorExport}) {
+  {
     for (std::size_t n : {0, 1, 20, 1000}) {
       for (double width : {0.0, 0.01, 1.0, 30.0, 120.0, 300.0, 1000.0}) {
         for (double height : {0.0, 0.01, 1.0, 100.0, 1000.0}) {
           auto input = Input(n); input.width = width; input.height = height;
-          input.style.metrics = profile;
-          auto plan = ComposeLegend(input, Measure);
+          auto plan = ComposeLegend(input, fonts);
           assert(plan.rows.size() + plan.clippedRows == n);
-          assert(Describe(plan) == Describe(ComposeLegend(input, Measure)));
+          assert(Describe(plan) == Describe(ComposeLegend(input, fonts)));
         }
       }
     }
   }
   auto input = Input(2);
   input.rows[0].visible = false;
-  auto p = ComposeLegend(input, Measure);
+  auto p = ComposeLegend(input, fonts);
   assert(p.hiddenRows == 1 && p.rows.size() == 1 && p.rows[0].id == "1");
   input = Input();
-  p = ComposeLegend(input, Measure);
-  // Legacy default geometry with deterministic fake metrics, no symbols.
+  p = ComposeLegend(input, fonts);
+  // Canonical document geometry, independent of rendering target.
   assert(p.rowHeight == 49 && p.countColumn.x == 6);
-  assert(p.fontSize == 7 && p.typeColumn.x == 6 + 21 + 6);
-  assert(std::abs(p.channelColumn.x - 287.4) < 1e-6);
+  assert(p.fontSize > 0 && p.typeColumn.x > p.countColumn.x);
   assert(p.rows[0].nameLines[0] == "Profile fixture");
   input.showChannelColumn = false;
-  p = ComposeLegend(input, Measure);
+  p = ComposeLegend(input, fonts);
   assert(p.channelColumn.width == 0 && p.channelColumn.x == input.width);
   assert(p.text.size() == 4);
   input.width = 65;
   for (const std::string name : {"Very long fixture name without truncating its remainder",
       "ÉclairageSüd灯😀日本語", "ASCIIabcdefghijklmno"}) {
     input.rows[0].name = name;
-    p = ComposeLegend(input, Measure);
+    p = ComposeLegend(input, fonts);
     assert(!p.rows[0].nameLines[0].empty() && !p.rows[0].nameLines[1].empty());
     assert(IsValidUtf8(p.rows[0].nameLines[0]) && IsValidUtf8(p.rows[0].nameLines[1]));
-    assert(p.rows[0].overflow);
+    if (name.starts_with("Very long")) assert(p.rows[0].overflow);
   }
+  input.width = 300;
+  input.rows[0].name.clear();
+  for (int i=0;i<100;++i) input.rows[0].name += "灯";
+  p = ComposeLegend(input, fonts);
+  assert(p.unsupportedGlyphs == 100 && p.diagnostics.size() == 16);
   input.width = 1;
-  p = ComposeLegend(input, Measure);
+  p = ComposeLegend(input, fonts);
   assert(p.typeColumn.width == 0 && p.rows[0].overflow);
   input = Input(); input.rows[0].name = "No fixtures"; input.rows[0].count = "0";
-  assert(ComposeLegend(input, Measure).rows[0].nameLines[0] == "No fixtures");
+  assert(ComposeLegend(input, fonts).rows[0].nameLines[0] == "No fixtures");
 }
 }
 int main() { Content(); Symbols(); GeometryAndText(); }

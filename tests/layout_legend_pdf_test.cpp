@@ -101,6 +101,11 @@ int main(int argc, char **argv) {
   item.channelCount = 42;
   item.symbolKey = "legend-test.gdtf";
   legend.items.push_back(item);
+  Viewer2DExportResult structureResult;
+  const auto document=ExportPage({}, {legend}, {}, {}, {}, structureResult);
+  assert(document.find("/FontFile2") != std::string::npos);
+  assert(document.find("/F3 ") != std::string::npos && document.find("/F4 ") != std::string::npos);
+  assert(document.find("/BaseFont /NotoSans") != std::string::npos);
   const auto baseline = Export(legend);
   assert(baseline.find("(Count) Tj") != std::string::npos);
   assert(baseline.find("(Profile fixture) Tj") != std::string::npos);
@@ -132,7 +137,9 @@ int main(int argc, char **argv) {
   Viewer2DExportResult result;
   const auto unicode = Export(legend, &result);
   assert(result.legendTextSubstitutions == 2);
-  assert(unicode.find("(\\311?" "?) Tj") != std::string::npos);
+  assert(unicode.find("(\\311) Tj") != std::string::npos);
+  assert(result.legendTextDiagnostics.size() == 2);
+  assert(result.legendTextDiagnostics[0].find("byte") != std::string::npos);
   assert(row.displayName == "É灯😀");
   row.displayName = "Profile fixture";
   row.symbolKey = "pstg-symbol:test:content";
@@ -162,6 +169,19 @@ int main(int argc, char **argv) {
   if (argc > 1) {
     Viewer2DPrintOptions options;
     options.compressStreams = false;
+    std::vector<std::string> names={"Exterior Linear-1200 Graze","MAC Ultra Performance","Martin Atomic 3000 LED"};
+    auto sample=legend; sample.items.resize(3,legend.items[0]); sample.frame={0,0,300,100};
+    for (std::size_t i=0;i<names.size();++i) sample.items[i].typeName=sample.items[i].displayName=names[i];
+    for (int width : {120,180,300,600}) {
+      sample.frame.width=width;
+      for (double scale : {0.5,1.0,2.0}) {
+        options.layoutScaleX=options.layoutScaleY=scale;
+        options.pageWidthPt=width*scale; options.pageHeightPt=100*scale;
+        assert(ExportLayoutToPdf({}, {sample}, {}, {}, {}, options,
+            std::filesystem::path(argv[1]) / ("parity-"+std::to_string(width)+"-"+std::to_string(scale)+".pdf")).success);
+      }
+    }
+    options=Viewer2DPrintOptions{}; options.compressStreams=false;
     assert(ExportLayoutToPdf({}, {legend}, {}, {}, {}, options,
         std::filesystem::path(argv[1]) / "legend-three-views.pdf").success);
   }

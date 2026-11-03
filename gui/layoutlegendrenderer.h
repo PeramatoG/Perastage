@@ -7,12 +7,9 @@
 #include <wx/image.h>
 
 namespace gui {
-layouts::composition::TextMeasurement MeasureLegendPreviewText(
-    wxDC &dc, std::string_view text, double size,
-    layouts::composition::TextRole role);
-
 wxImage RenderLegendImage(const wxSize &size, const wxSize &logicalSize,
     double renderZoom, const std::vector<layouts::LegendResolvedItem> &items,
     const layouts::LayoutLegendDefinition &legend,
-    const SymbolDefinitionSnapshot *symbols);
+    const SymbolDefinitionSnapshot *symbols,
+    layouts::composition::LegendCompositionPlan *composedPlan = nullptr);
 } // namespace gui

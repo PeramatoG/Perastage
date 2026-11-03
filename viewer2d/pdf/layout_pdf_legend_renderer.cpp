@@ -8,7 +8,8 @@ namespace layout_pdf_internal {
 namespace {
 using namespace layouts::composition;
 std::array<double, 3> FillRgb(const std::optional<std::string> &hex) {
-  constexpr std::array<double, 3> gray = {0.878, 0.878, 0.878};
+  constexpr double component = 224.0 / 255.0;
+  constexpr std::array<double, 3> gray = {component, component, component};
   if (!hex) return gray;
   std::string value = *hex;
   value.erase(std::remove_if(value.begin(), value.end(), [](unsigned char c) {
@@ -22,36 +23,13 @@ std::array<double, 3> FillRgb(const std::optional<std::string> &hex) {
           std::stoi(value.substr(2, 2), nullptr, 16) / 255.0,
           std::stoi(value.substr(4, 2), nullptr, 16) / 255.0};
 }
-std::string EncodeLegendText(const std::string &utf8, std::size_t &substitutions) {
-  for (std::size_t start = 0; start < utf8.size();) {
-    std::size_t end = start + 1;
-    while (end < utf8.size() && (static_cast<unsigned char>(utf8[end]) & 0xc0) == 0x80) ++end;
-    const auto codepoint = utf8.substr(start, end - start);
-    if (codepoint != "?" && EncodeWinAnsi(codepoint) == "?") ++substitutions;
-    start = end;
-  }
-  return EscapePdfLiteralBytes(EncodeWinAnsi(utf8));
-}
 } // namespace
-
-TextMeasurement MeasureLegendPdfText(std::string_view text, double size,
-                                    TextRole role, const PdfFontCatalog &fonts) {
-  const auto *font = role == TextRole::Bold ? fonts.bold : fonts.regular;
-  double height = size * 1.2;
-  if (font && font->embedded && font->metrics.unitsPerEm > 0) {
-    const double units = std::max(0, font->metrics.ascent) + std::abs(std::min(0, font->metrics.descent));
-    if (units > 0) height = units / font->metrics.unitsPerEm * size;
-  }
-  // Preserve the legacy PDF baseline and WinAnsi width source; neither implies
-  // shaping or full Unicode support. Encoding happens only at this boundary.
-  return {MeasureTextWidth(EncodeWinAnsi(std::string(text)), size, font), height, size};
-}
 
 LegendPdfRenderResult RenderLegendPdf(std::ostringstream &out,
     const LayoutLegendExportData &legend, const SymbolDefinitionSnapshot *snapshot,
-    double pageHeight, double typographyScale, const PdfFontCatalog &fonts,
+    double pageHeight, double outputScaleX, double outputScaleY, const PdfFontCatalog &fonts,
     const FloatFormatter &formatter, const viewer2d::LegendSvgResolver &resolveSvg,
-    const LegendCommandStreamRenderer &renderCommands) {
+    const LegendCommandStreamRenderer &renderCommands, LegendCompositionPlan *composedPlan) {
   LegendPdfRenderResult result;
   if (legend.frame.width <= 0 || legend.frame.height <= 0) return result;
   auto resources = viewer2d::ResolveLegendComposition(legend.items, snapshot, resolveSvg);
@@ -59,11 +37,16 @@ LegendPdfRenderResult RenderLegendPdf(std::ostringstream &out,
   input.width = legend.frame.width;
   input.height = legend.frame.height;
   input.showChannelColumn = legend.showChannelColumn;
-  input.style.metrics = LegacyLegendMetrics::VectorExport;
-  input.style.typographyScale = typographyScale;
-  const auto plan = ComposeLegend(input, [&](std::string_view text, double size, TextRole role) {
-    return MeasureLegendPdfText(text, size, role, fonts);
-  });
+  const auto plan = ComposeLegend(input, {fonts.labelRegular->metrics, fonts.labelBold->metrics});
+  if (composedPlan) *composedPlan = plan;
+  result.textSubstitutions = plan.unsupportedGlyphs;
+  result.diagnostics = plan.diagnostics;
+  // Compose in document space, then apply the existing page policy once.
+  // A uniform fit preserves glyph/symbol aspect ratio even for unlike papers.
+  const double outputScale = std::min(outputScaleX, outputScaleY);
+  out << "q\n" << formatter.Format(outputScale) << " 0 0 "
+      << formatter.Format(outputScale) << " 0 "
+      << formatter.Format(pageHeight * (1 - outputScale)) << " cm\n";
   const double frameX = legend.frame.x;
   const double frameTop = pageHeight - legend.frame.y;
   const auto x = [&](double local) { return formatter.Format(frameX + local); };
@@ -103,7 +86,7 @@ LegendPdfRenderResult RenderLegendPdf(std::ostringstream &out,
         for (const auto &hole : polygon.holes) polygonPath(hole);
         out << (polygon.holes.empty() ? "f\n" : "f*\n");
       }
-      out << "0 0 0 RG 0.75 w\n";
+      out << "0 0 0 RG 1 w\n";
       for (const auto &line : svg.strokes) {
         if (line.points.size() < 2) continue;
         point(line.points[0]); out << " m\n";
@@ -120,19 +103,26 @@ LegendPdfRenderResult RenderLegendPdf(std::ostringstream &out,
       mapping.offsetY = frameTop - placement.draw.y - placement.draw.height;
       mapping.drawHeight = placement.draw.height;
       mapping.flipY = false;
-      out << renderCommands(resolved.commands->localCommands, mapping);
+      out << renderCommands(resolved.commands->localCommands, mapping, placement.geometry.strokeScale);
       ++result.symbols.fallbackSymbolInstances;
     }
     out << "Q\n";
   }
   for (const auto &line : plan.text) {
-    out << "BT\n/" << (line.role == TextRole::Bold ? "F2" : "F1") << ' '
-        << formatter.Format(plan.fontSize) << " Tf\n0.08 0.08 0.08 rg\n"
-        << x(line.baseline.x) << ' ' << y(line.baseline.y) << " Td\n("
-        << EncodeLegendText(line.text, result.textSubstitutions) << ") Tj\nET\n";
+    out << "q\n"; rect(line.clip); out << "W n\n";
+    for (const auto &runLine : line.glyphRun.lines) {
+      std::string supported;
+      for (auto index = runLine.first; index < runLine.first + runLine.count; ++index)
+        supported += line.glyphRun.glyphs[index].text;
+      out << "BT\n/" << (line.role == TextRole::Bold ? "F4" : "F3") << ' '
+          << formatter.Format(plan.fontSize) << " Tf\n0.078431 0.078431 0.078431 rg\n"
+          << x(line.baseline.x) << ' ' << y(line.baseline.y-runLine.baseline) << " Td\n("
+          << EscapePdfLiteralBytes(EncodeWinAnsi(supported)) << ") Tj\nET\n";
+    }
+    out << "Q\n";
   }
   out << "Q\nq\n0 0 0 RG " << formatter.Format(plan.borderWidth) << " w ";
-  rect(plan.clip); out << "S\nQ\n";
+  rect(plan.clip); out << "S\nQ\nQ\n";
   return result;
 }
 } // namespace layout_pdf_internal

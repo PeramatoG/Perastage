@@ -56,11 +56,9 @@ using namespace layout_pdf_internal;
 constexpr double kLegendContentScale = 0.7;
 constexpr double kPdfPointsPerPixel = 72.0 / 96.0;
 constexpr double kPdfStrokeWidthScreenMatchFactor = 0.75;
-constexpr double kLegendSymbolSize =
-    96.0 * 2.0 / 3.0 * kLegendContentScale;
 constexpr double kLegendFontScale =
     (2.0 / 3.0) * kLegendContentScale;
-// Typography rendered directly in the PDF stream (legend/event table/text
+// Typography rendered directly in the PDF stream (event table/text
 // helpers) needs an extra point-size compensation so it visually matches the
 // on-screen layout preview.
 constexpr double kPdfLayoutTypographyCompensationScale = 1.45;
@@ -936,7 +934,6 @@ Viewer2DExportResult ExportLayoutToPdf(
 
   FloatFormatter formatter(options.floatPrecision);
   std::unordered_map<std::string, size_t> xObjectNameIds;
-  std::unordered_map<uint32_t, std::string> legendSymbolNames;
   struct LegendSvgCacheKey {
     std::string gdtfPath;
     SymbolViewKind viewKind = SymbolViewKind::Top;
@@ -974,37 +971,6 @@ Viewer2DExportResult ExportLayoutToPdf(
     }
     return it->second ? &it->second.value() : nullptr;
   };
-  // Legend symbols rendered from local command buffers use meter-based
-  // coordinates. Apply the same screen-match reduction used for layout/view
-  // command buffers so visual stroke weight stays consistent.
-  const double legendStrokeScale =
-      kPdfStrokeWidthScreenMatchFactor / viewer2d::kViewer2DPixelsPerMeter;
-  auto makeLegendIdName = [](uint32_t symbolId) {
-    return "L" + std::to_string(symbolId);
-  };
-  auto addLegendSymbol = [&](const SymbolDefinition *symbol) {
-    if (!symbol)
-      return;
-    legendSymbolNames.emplace(symbol->symbolId,
-                              makeLegendIdName(symbol->symbolId));
-  };
-  for (const auto &legend : legends) {
-    const SymbolDefinitionSnapshot *legendSymbols =
-        legend.symbolSnapshot ? legend.symbolSnapshot.get() : symbolSnapshot.get();
-    for (const auto &item : legend.items) {
-      if (item.symbolKey.empty() || !legendSymbols)
-        continue;
-      const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
-          legendSymbols, item.symbolKey, SymbolViewKind::Bottom);
-      const SymbolDefinition *frontSymbol = FindSymbolDefinitionExact(
-          legendSymbols, item.symbolKey, SymbolViewKind::Front);
-      if (item.showBottomSymbol) addLegendSymbol(topSymbol);
-      if (item.showFrontSymbol) addLegendSymbol(frontSymbol);
-      if (item.showSideSymbol) addLegendSymbol(FindSymbolDefinitionExact(
-          legendSymbols, item.symbolKey, SymbolViewKind::Right));
-    }
-  }
-
   std::ostringstream contentStream;
   auto encodeText = [&](const std::string &text) {
     return EncodeWinAnsi(text);
@@ -1069,7 +1035,7 @@ Viewer2DExportResult ExportLayoutToPdf(
 
   PdfFontCatalog fontCatalog{&regularFont, &boldFont};
   LabelFonts labelFonts;
-  if (!labelFonts.Prepare(objects, fontCatalog, std::any_of(views.begin(), views.end(), [](const auto &v) { return HasComposedLabels(v.buffer); }))) {
+  if (!labelFonts.Prepare(objects, fontCatalog, !legends.empty() || std::any_of(views.begin(), views.end(), [](const auto &v) { return HasComposedLabels(v.buffer); }))) {
     result.message = "Bundled label fonts are unavailable; PDF export stopped.";
     return result;
   }
@@ -1283,50 +1249,6 @@ Viewer2DExportResult ExportLayoutToPdf(
     }
   }
 
-  if (symbolSnapshot) {
-    for (const auto &entry : legendSymbolNames) {
-      if (xObjectNameIds.count(entry.second) != 0)
-        continue;
-      auto defIt = symbolSnapshot->find(entry.first);
-      if (defIt == symbolSnapshot->end())
-        continue;
-      const double symbolW =
-          defIt->second.bounds.max.x - defIt->second.bounds.min.x;
-      const double symbolH =
-          defIt->second.bounds.max.y - defIt->second.bounds.min.y;
-      double symbolScale = 1.0;
-      if (symbolW > 0.0 && symbolH > 0.0) {
-        symbolScale =
-            std::min(kLegendSymbolSize / symbolW, kLegendSymbolSize / symbolH);
-      }
-      bool usedSvg = false;
-      if (!defIt->second.key.modelKey.empty()) {
-        if (const PerastageSvgSymbolData *svg =
-                findLegendSvg(defIt->second.key.modelKey,
-                              defIt->second.key.modelKey,
-                              defIt->second.key.viewKind)) {
-          constexpr std::array<double, 3> kDefaultSvgFillRgb = {
-              224.0 / 255.0, 224.0 / 255.0, 224.0 / 255.0};
-          xObjectNameIds[entry.second] =
-              appendPerastageSvgSymbolObject(*svg, symbolScale,
-                                             legendStrokeScale,
-                                             kDefaultSvgFillRgb);
-          usedSvg = true;
-        }
-      }
-      if (!usedSvg) {
-        xObjectNameIds[entry.second] =
-            appendSymbolObject(entry.second,
-                               defIt->second.localCommands.commands,
-                               defIt->second.localCommands.metadata,
-                               defIt->second.localCommands.sources,
-                               symbolScale, legendStrokeScale,
-                               defIt->second.bounds);
-      }
-    }
-  }
-
-
   std::vector<std::string> imageXObjectNames(images.size());
   for (size_t idx = 0; idx < images.size(); ++idx) {
     const auto &image = images[idx];
@@ -1426,17 +1348,19 @@ Viewer2DExportResult ExportLayoutToPdf(
     const auto &legend = legends[idx];
     const auto rendered = RenderLegendPdf(contentStream, legend,
         legend.symbolSnapshot ? legend.symbolSnapshot.get() : symbolSnapshot.get(),
-        pageH, kPdfLayoutTypographyCompensationScale * layoutScale, fontCatalog,
-        formatter, findLegendSvg, [&](const CommandBuffer &commands, const Mapping &mapping) {
+        pageH, options.layoutScaleX, options.layoutScaleY, fontCatalog,
+        formatter, findLegendSvg, [&](const CommandBuffer &commands, const Mapping &mapping, double strokeScale) {
           RenderOptions options;
           options.includeText = false;
-          options.strokeScale = legendStrokeScale;
+          options.strokeScale = strokeScale;
           return RenderCommandsToStream(commands.commands, commands.metadata,
               commands.sources, mapping, formatter, options);
         });
     result.perastageSymbolInstances += rendered.symbols.perastageSymbolInstances;
     result.fallbackSymbolInstances += rendered.symbols.fallbackSymbolInstances;
     result.legendTextSubstitutions += rendered.textSubstitutions;
+    for (const auto &diagnostic : rendered.diagnostics)
+      if (result.legendTextDiagnostics.size() < 16) result.legendTextDiagnostics.push_back(diagnostic);
   };
 
   auto renderEventTable = [&](size_t idx) {

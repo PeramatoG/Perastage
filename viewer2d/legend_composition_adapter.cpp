@@ -1,4 +1,5 @@
 #include "legend_composition_adapter.h"
+#include "viewer2dcommandrenderer.h"
 
 #include <algorithm>
 #include <limits>
@@ -75,6 +76,7 @@ LegendCompositionResources ResolveLegendComposition(
         geometry.bounds = SvgBounds(*symbol.svg);
       } else if (symbol.commands) {
         geometry.kind = SymbolGeometryKind::Commands;
+        geometry.strokeScale = 1 / kViewer2DPixelsPerMeter;
         const auto &b = symbol.commands->bounds;
         geometry.bounds = {b.min.x, b.min.y, b.max.x - b.min.x, b.max.y - b.min.y};
       }

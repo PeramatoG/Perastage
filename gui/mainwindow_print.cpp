@@ -1,3 +1,4 @@
+#include <wx/richmsgdlg.h>
 /*
  * This file is part of Perastage.
  * Copyright (C) 2025 Luisma Peramato
@@ -389,12 +390,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
     legendData.items = BuildLayoutLegendItems(&legend);
     legendData.zIndex = legend.zIndex;
     legendData.showChannelColumn = legend.showChannelColumn;
-    layouts::Layout2DViewFrame frame = legend.frame;
-    frame.x = static_cast<int>(std::lround(frame.x * scaleX));
-    frame.y = static_cast<int>(std::lround(frame.y * scaleY));
-    frame.width = static_cast<int>(std::lround(frame.width * scaleX));
-    frame.height = static_cast<int>(std::lround(frame.height * scaleY));
-    legendData.frame = frame;
+    legendData.frame = legend.frame;
     layoutLegends.push_back(std::move(legendData));
   }
   for (const auto &table : layout->eventTables) {
@@ -497,8 +493,15 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
                     _("\n\nSymbol summary:\nPerastage symbols: %zu\nRendered fallbacks: %zu"),
                     res.perastageSymbolInstances,
                     res.fallbackSymbolInstances);
-                wxMessageBox(successMessage, _("Print Layout"),
-                             wxOK | wxICON_INFORMATION, this);
+                wxRichMessageDialog dialog(this, successMessage, _("Print Layout"),
+                    wxOK | (res.legendTextDiagnostics.empty() ? wxICON_INFORMATION : wxICON_WARNING));
+                if (!res.legendTextDiagnostics.empty()) {
+                  wxString details;
+                  for (const auto &finding : res.legendTextDiagnostics) details += wxString::FromUTF8(finding) + "\n";
+                  dialog.SetMessage(successMessage + "\n\n" + wxString::FromUTF8(res.legendTextDiagnostics.front()));
+                  dialog.ShowDetailedText(details);
+                }
+                dialog.ShowModal();
               }
             });
           }).detach();

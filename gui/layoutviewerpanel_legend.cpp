@@ -309,7 +309,7 @@ size_t LayoutViewerPanel::HashLegendItems(
     appendString(std::to_string(value));
   };
   // Old persistent rasters predate logical composition and symbol-slot clips.
-  appendString("legend-composition-v1");
+  appendString("legend-composition-v2-perastage-sans");
   appendInt(static_cast<int>(items.size()));
   for (const auto &item : items) {
     appendString(item.typeName);

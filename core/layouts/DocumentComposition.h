@@ -16,7 +16,7 @@ struct TextMeasurement {
   double baseline = 0; // Distance below the text cell's top.
 };
 
-// UTF-8 input, nominal legacy font size, explicit weight. No toolkit state,
+// UTF-8 input, font size in document points, explicit weight. No toolkit state,
 // encoding conversion, resources or global services belong in the composer.
 using TextMetrics = std::function<TextMeasurement(std::string_view, double, TextRole)>;
 

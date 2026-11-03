@@ -1,5 +1,8 @@
 #include "layoutlegendrenderer.h"
-#include "layoutviewerpanel_shared.h"
+#include "projectutils.h"
+#include "logger.h"
+#include "typography/font_resources.h"
+#include "document_text_renderer.h"
 #include "legend_composition_adapter.h"
 #include "symbols/fixture_symbol_availability.h"
 #include "viewer2dcommandrenderer.h"
@@ -110,6 +113,13 @@ public:
     return wxPen(ToWxColor(stroke.color), strokeWidth);
   }
 
+  wxGraphicsPen GraphicsStroke(const CanvasStroke &stroke, double width) const {
+    if (!drawStrokes_ || width * strokeScale_ <= 0)
+      return gc_->CreatePen(*wxTRANSPARENT_PEN);
+    return gc_->CreatePen(wxGraphicsPenInfo(ToWxColor(stroke.color))
+        .Width(width * strokeScale_).Cap(wxCAP_BUTT).Join(wxJOIN_MITER));
+  }
+
   wxBrush MakeFillBrush(const CanvasFill *fill) const {
     if (!fill)
       return *wxTRANSPARENT_BRUSH;
@@ -125,7 +135,7 @@ public:
     if (pen.GetStyle() == wxPENSTYLE_TRANSPARENT)
       return;
     if (gc_) {
-      gc_->SetPen(pen);
+      gc_->SetPen(GraphicsStroke(stroke, strokeWidthPx));
       gc_->StrokeLine(p0.x, p0.y, p1.x, p1.y);
       return;
     }
@@ -149,7 +159,7 @@ public:
       path.MoveToPoint(points.front().x, points.front().y);
       for (size_t i = 1; i < points.size(); ++i)
         path.AddLineToPoint(points[i].x, points[i].y);
-      gc_->SetPen(pen);
+      gc_->SetPen(GraphicsStroke(stroke, strokeWidthPx));
       gc_->StrokePath(path);
       return;
     }
@@ -179,7 +189,7 @@ public:
         path.AddLineToPoint(points[i].x, points[i].y);
       path.CloseSubpath();
       gc_->SetBrush(brush);
-      gc_->SetPen(pen);
+      gc_->SetPen(GraphicsStroke(stroke, strokeWidthPx));
       if (shouldFill && brush.GetStyle() != wxBRUSHSTYLE_TRANSPARENT)
         gc_->FillPath(path);
       if (shouldStroke && pen.GetStyle() != wxPENSTYLE_TRANSPARENT)
@@ -208,7 +218,7 @@ public:
     if (gc_) {
       if (shouldFill || shouldStroke) {
         gc_->SetBrush(brush);
-        gc_->SetPen(pen);
+        gc_->SetPen(GraphicsStroke(stroke, strokeWidthPx));
         gc_->DrawEllipse(center.x - radiusPx, center.y - radiusPx,
                          radiusPx * 2.0, radiusPx * 2.0);
       }
@@ -427,21 +437,10 @@ void RenderLegendCommandBuffer(const CommandBuffer &buffer,
 
 namespace gui {
 using namespace layouts::composition;
-TextMeasurement MeasureLegendPreviewText(wxDC &dc, std::string_view text,
-                                        double size, TextRole role) {
-  dc.SetFont(layoutviewerpanel::detail::MakeSharedFont(
-      std::max(1, static_cast<int>(std::lround(size))),
-      role == TextRole::Bold ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL));
-  int width = 0, height = 0, descent = 0;
-  dc.GetTextExtent(wxString::FromUTF8(text.data(), text.size()), &width, &height, &descent);
-  return {static_cast<double>(width), static_cast<double>(height),
-          static_cast<double>(height - descent)};
-}
-
 wxImage RenderLegendImage(const wxSize &size, const wxSize &logicalSize,
     double renderZoom, const std::vector<layouts::LegendResolvedItem> &items,
     const layouts::LayoutLegendDefinition &legend,
-    const SymbolDefinitionSnapshot *symbols) {
+    const SymbolDefinitionSnapshot *symbols, LegendCompositionPlan *composedPlan) {
   if (size.GetWidth() <= 0 || size.GetHeight() <= 0 || renderZoom <= 0)
     return {};
   wxBitmap bitmap(size.GetWidth(), size.GetHeight(), 32);
@@ -457,21 +456,19 @@ wxImage RenderLegendImage(const wxSize &size, const wxSize &logicalSize,
   input.width = logicalSize.GetWidth() > 0 ? logicalSize.GetWidth() : size.GetWidth() / renderZoom;
   input.height = logicalSize.GetHeight() > 0 ? logicalSize.GetHeight() : size.GetHeight() / renderZoom;
   input.showChannelColumn = legend.showChannelColumn;
-  // Measure at logical zoom once. Zoom only maps the resulting plan to pixels;
-  // it cannot change a line break or column decision.
-  std::map<std::tuple<std::string, double, TextRole>, TextMeasurement> cache;
-  const auto plan = ComposeLegend(input, [&](std::string_view text, double fontSize, TextRole role) {
-    const auto key = std::make_tuple(std::string(text), fontSize, role);
-    if (const auto it = cache.find(key); it != cache.end()) return it->second;
-    return cache.emplace(key, MeasureLegendPreviewText(dc, text, fontSize, role)).first->second;
-  });
+  static const typography::FontPair fonts(ProjectUtils::GetResourceRoot());
+  const auto plan = ComposeLegend(input, {fonts.regular, fonts.bold});
+  if (composedPlan) *composedPlan = plan;
+  for (const auto &diagnostic : plan.diagnostics) Logger::Instance().Log(diagnostic);
   dc.SetBackground(wxBrush(*wxWHITE));
   dc.Clear();
   dc.SetTextForeground(wxColour(20, 20, 20));
-  const auto px = [&](double value) { return static_cast<int>(std::lround(value * renderZoom)); };
-  dc.SetPen(wxPen(wxColour(200, 200, 200)));
-  dc.DrawLine(px(plan.separatorStart.x), px(plan.separatorStart.y),
-              px(plan.separatorEnd.x), px(plan.separatorEnd.y));
+  if (auto *gc = dc.GetGraphicsContext()) {
+    gc->PushState(); gc->Scale(renderZoom, renderZoom);
+    gc->SetPen(gc->CreatePen(wxGraphicsPenInfo(wxColour(200,200,200)).Width(1).Cap(wxCAP_BUTT).Join(wxJOIN_MITER)));
+    gc->StrokeLine(plan.separatorStart.x, plan.separatorStart.y, plan.separatorEnd.x, plan.separatorEnd.y);
+    gc->PopState();
+  }
   LegendSymbolBackend backend(dc);
   for (const auto &placement : plan.symbols) {
     const auto &resolved = resources.symbols[placement.geometry.reference];
@@ -503,7 +500,7 @@ wxImage RenderLegendImage(const wxSize &size, const wxSize &logicalSize,
         gc->FillPath(path, wxODDEVEN_RULE);
       }
       gc->SetBrush(*wxTRANSPARENT_BRUSH);
-      gc->SetPen(wxPen(*wxBLACK, 1));
+      gc->SetPen(gc->CreatePen(wxGraphicsPenInfo(*wxBLACK).Width(1 / placement.scale).Cap(wxCAP_BUTT).Join(wxJOIN_MITER)));
       for (const auto &line : svg.strokes) {
         if (line.points.size() < 2) continue;
         auto path = gc->CreatePath();
@@ -519,16 +516,31 @@ wxImage RenderLegendImage(const wxSize &size, const wxSize &logicalSize,
       mapping.offsetX = placement.commandOriginX * renderZoom + bounds.x * scale;
       mapping.offsetY = placement.draw.y * renderZoom;
       mapping.drawHeight = placement.draw.height * renderZoom;
-      backend.SetStrokeScale(scale > 0 ? 1 / scale : 1);
+      backend.SetStrokeScale(placement.geometry.strokeScale);
       RenderLegendCommandBuffer(resolved.commands->localCommands,
           Transform2D::Identity(), symbols, backend, mapping);
     }
     gc->PopState();
   }
-  for (const auto &line : plan.text) {
-    dc.SetFont(layoutviewerpanel::detail::MakeSharedFont(
-        std::max(1, px(plan.fontSize)), line.role == TextRole::Bold ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL));
-    dc.DrawText(wxString::FromUTF8(line.text), px(line.top.x), px(line.top.y));
+  if (auto *gc = dc.GetGraphicsContext()) {
+    gc->PushState();
+    gc->Clip(0, 0, plan.clip.width * renderZoom, plan.clip.height * renderZoom);
+    gc->SetBrush(wxBrush(wxColour(20,20,20)));
+    gc->SetPen(*wxTRANSPARENT_PEN);
+    for (const auto &line : plan.text) {
+      gc->PushState();
+      gc->Clip(line.clip.x*renderZoom,line.clip.y*renderZoom,line.clip.width*renderZoom,line.clip.height*renderZoom);
+      gui::DrawComposedDocumentText(*gc, line.glyphRun,
+          line.role == TextRole::Bold ? fonts.bold : fonts.regular,
+          line.baseline.x, line.baseline.y, renderZoom);
+      gc->PopState();
+    }
+    gc->PopState();
+    gc->PushState(); gc->Scale(renderZoom,renderZoom);
+    gc->SetBrush(*wxTRANSPARENT_BRUSH);
+    gc->SetPen(gc->CreatePen(wxGraphicsPenInfo(*wxBLACK).Width(plan.borderWidth)));
+    gc->DrawRectangle(0,0,plan.clip.width,plan.clip.height);
+    gc->PopState();
   }
   memoryDc.SelectObject(wxNullBitmap);
   return bitmap.ConvertToImage();

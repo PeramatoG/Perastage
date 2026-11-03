@@ -13,9 +13,13 @@ for adapter in (preview, pdf):
     assert 'ComposeLegend(input,' in adapter
     for duplicate in ('wrapTextToTwoLines', 'typeWidthLogical', 'maxCountWidth', 'rowHeightCandidate'):
         assert duplicate not in adapter, duplicate
+assert 'LegacyLegendMetrics' not in core + contract
+assert 'GetTextExtent' not in preview
+assert 'kPdfLayoutTypographyCompensationScale' not in pdf
+assert 'frame.width * scaleX' not in Path('gui/mainwindow_print.cpp').read_text().split('for (const auto &legend : layout->legendViews)')[1].split('for (const auto &table')[0]
 refresh = Path('gui/layoutviewerpanel_legend.cpp').read_text()
 assert refresh.index('InvalidateChangedLegendRasters(') < refresh.index('newHash == legendDataHash')
 assert 'entry.second.renderDirty = true' not in refresh
-assert 'legend-composition-v1' in refresh
+assert 'legend-composition-v2-perastage-sans' in refresh
 print('Legend composition boundary passed.')
 PY

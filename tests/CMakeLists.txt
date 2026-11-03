@@ -1172,6 +1172,8 @@ add_executable(legend_composition_test legend_composition_test.cpp
     ../viewer2d/legend_composition_adapter.cpp ../core/utf8_utils.cpp)
 target_include_directories(legend_composition_test PRIVATE ../core ../viewer2d)
 target_link_libraries(legend_composition_test PRIVATE perastage_legend_composition)
+target_compile_definitions(legend_composition_test PRIVATE
+    PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
 add_test(NAME LegendComposition COMMAND legend_composition_test)
 add_executable(layout_legend_cache_test layout_legend_cache_test.cpp
     ../core/layouts/LayoutTemplateSerializer.cpp)
@@ -1192,7 +1194,7 @@ target_link_libraries(layout_legend_history_test PRIVATE ${wxWidgets_LIBRARIES} 
 add_test(NAME LayoutLegendHistory COMMAND layout_legend_history_test)
 
 add_executable(layout_legend_preview_test layout_legend_preview_test.cpp
-    layout_legend_pdf_resources_stub.cpp ../gui/layoutlegendrenderer.cpp
+    layout_legend_pdf_resources_stub.cpp ../gui/layoutlegendrenderer.cpp ../gui/document_text_renderer.cpp
     ../viewer2d/legend_composition_adapter.cpp
     ../viewer2d/pdf/layout_pdf_legend_renderer.cpp ../viewer2d/pdf/pdf_font_metrics.cpp
     ../viewer2d/pdf/pdf_label_fonts.cpp ../viewer2d/pdf/pdf_objects.cpp
@@ -4696,6 +4698,16 @@ else()
     add_test(NAME LayoutLegendPreview COMMAND layout_legend_preview_test)
 endif()
 set_library_env(LayoutLegendPreview)
+find_program(PERASTAGE_PDFTOPPM NAMES pdftoppm)
+if(UNIX AND NOT APPLE AND PERASTAGE_XVFB_RUN AND PERASTAGE_PDFTOPPM)
+    add_test(NAME LayoutLegendRasterParity COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/check_legend_raster_parity.py"
+        --preview "$<TARGET_FILE:layout_legend_preview_test>"
+        --pdf "$<TARGET_FILE:layout_legend_pdf_test>"
+        --xvfb "${PERASTAGE_XVFB_RUN}" --pdftoppm "${PERASTAGE_PDFTOPPM}")
+    set_library_env(LayoutLegendRasterParity)
+    set_tests_properties(LayoutLegendRasterParity PROPERTIES LABELS "layout;pdf;gui" TIMEOUT 120)
+endif()
 set_perastage_test_labels(ProjectSaveUi LAYER unit DOMAINS project gui)
 add_bash_policy_test(ProjectSaveUiBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_project_save_ui_boundary.sh LABELS "project;gui;architecture")
 

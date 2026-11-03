@@ -589,12 +589,21 @@ the resulting plan without a second layout algorithm. No persistent schema or
 transaction boundary changes. Oversized legacy symbols retain their size and
 origin alignment but are clipped to their planned slots.
 
-The compatibility presets explicitly retain wx logical font measurement versus
-PDF TTF/Type1 WinAnsi metrics and the 1.45 typography compensation. Preview
-rounding, one-line font fitting and SVG minimum slot widths differ from vector
-export's fractional rows and two-line font fitting. They are tested exceptions,
-not a claim of pixel or line-break parity across platforms. Zoom maps the preview
-plan to pixels without changing wrapping. Event Tables remain unchanged.
+Legend plans use the existing bundled PerastageSans regular/bold metrics and
+`typography::Compose` for positioned glyphs. Both adapters compose with the same
+logical frame and font identities. The GUI draws the bundled glyph contours;
+PDF embeds those same fonts and writes selectable vector text. No platform font
+measurement, target-specific geometry profile or Legend typography compensation
+remains. The existing Event Table/free-text compensation is unchanged. Output
+paper scaling uniformly fits the original Legend plan after composition, so
+zoom, DPI and paper changes cannot change wrapping or distort symbols.
+
+Text cells and symbol slots have shared clipping rectangles. Source UTF-8 stays
+in the plan and persistent data. The supported repertoire is WinAnsi Latin;
+unsupported glyphs are omitted consistently on both targets and reported with
+bounded line/byte/UTF-8 diagnostics, including PDF dialog details. This does not
+claim full Unicode shaping. The per-Legend content hash includes the v2 font/
+composition identity; unrelated rasters remain reusable.
 
 ## Fixture label typography
 

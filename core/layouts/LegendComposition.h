@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DocumentComposition.h"
+#include "typography/composition.h"
 
 #include <array>
 #include <cstddef>
@@ -15,6 +16,7 @@ struct LegendSymbolGeometry {
   SymbolGeometryKind kind = SymbolGeometryKind::Missing;
   std::size_t reference = 0; // Caller-owned immutable resolved view, not SVG bytes.
   Rect bounds;
+  double strokeScale = 1; // Source stroke units to resource units.
 };
 struct LegendCompositionRow {
   std::string id;
@@ -25,22 +27,21 @@ struct LegendCompositionRow {
   std::array<LegendSymbolGeometry, 3> symbols;
 };
 
-// Bounded compatibility presets, not persistent style settings. Both use the
-// same composition algorithm. Font sources remain wx platform fonts and PDF's
-// legacy TTF/Type1 fonts, respectively; family names do not establish parity.
-enum class LegacyLegendMetrics { Preview, VectorExport };
-struct LegacyLegendStyle {
-  LegacyLegendMetrics metrics = LegacyLegendMetrics::Preview;
-  double typographyScale = 1;
+// Canonical point-space geometry; rendering targets never select a profile.
+struct LegendStyle {
   double columnGap = 6;
   double separatorGap = 2;
+};
+struct LegendFonts {
+  const typography::TtfFontMetrics &regular;
+  const typography::TtfFontMetrics &bold;
 };
 struct LegendCompositionInput {
   double width = 0;
   double height = 0;
   bool showChannelColumn = true;
   std::vector<LegendCompositionRow> rows;
-  LegacyLegendStyle style;
+  LegendStyle style;
 };
 struct LegendColumn {
   double x = 0;
@@ -53,6 +54,8 @@ struct LegendTextLine {
   Point baseline;
   double width = 0;
   bool overflow = false;
+  typography::Composition glyphRun;
+  Rect clip;
 };
 struct LegendSymbolPlacement {
   std::size_t row = 0;
@@ -72,6 +75,9 @@ struct LegendRowPlan {
   bool overflow = false;
 };
 struct LegendCompositionPlan {
+  std::string fontIdentity = "PerastageSans-v2";
+  std::size_t unsupportedGlyphs = 0;
+  std::vector<std::string> diagnostics; // Bounded, with source line and byte offsets.
   Rect clip;
   bool whiteBackground = true;
   double borderWidth = 0.5;
@@ -89,6 +95,6 @@ struct LegendCompositionPlan {
 };
 
 LegendCompositionPlan ComposeLegend(const LegendCompositionInput &input,
-                                    const TextMetrics &metrics);
+                                    const LegendFonts &fonts);
 
 } // namespace layouts::composition
