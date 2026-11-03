@@ -62,6 +62,8 @@ full MVR/GDTF conformance, or interoperability with every third-party applicatio
 
 ## Layout, Symbols and Plotting
 
+- Layout Legends now include enabled Side symbols in vector PDF output, keep symbols within their columns, and refresh independent settings reliably.
+
 - A new **Fixture Label Editor** lets users adjust Name, ID, and DMX Address labels, including visibility, font weight, size, colors, outlines, alignment, anchors, and position. It supports project defaults, per-fixture overrides, and preview dragging.
 
 - Edited fixture labels share their positioned presentation between the interactive 2D viewer, Layout view captures, and vector PDF. Legacy name wrapping and small-text zoom appearance are retained more consistently.

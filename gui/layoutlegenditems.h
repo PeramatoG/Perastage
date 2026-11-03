@@ -17,18 +17,8 @@
  */
 #pragma once
 
-#include <optional>
-#include <string>
-#include <vector>
+#include "layouts/LegendContent.h"
 
-struct SharedLayoutLegendItem {
-  std::string typeName;
-  int count = 0;
-  std::optional<int> channelCount;
-  std::string symbolKey;
-  std::string persistentSymbolIdentity;
-  std::string gdtfPath;
-  std::optional<std::string> symbolFillHex;
-};
+using SharedLayoutLegendItem = layouts::LegendSourceItem;
 
 std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems();

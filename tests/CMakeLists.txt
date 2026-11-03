@@ -1143,6 +1143,72 @@ target_include_directories(layout_pdf_symbol_usage_test PRIVATE
                            ../viewer2d ../viewer2d/pdf)
 add_test(NAME LayoutPdfSymbolUsage COMMAND layout_pdf_symbol_usage_test)
 
+add_executable(layout_legend_pdf_test
+    layout_legend_pdf_test.cpp layout_legend_pdf_resources_stub.cpp
+    ../viewer2d/pdf/layout_pdf_exporter.cpp
+    ../viewer2d/pdf/layout_pdf_legend_renderer.cpp
+    ../viewer2d/legend_composition_adapter.cpp
+    ../viewer2d/pdf/layout_pdf_symbol_usage.cpp
+    ../viewer2d/pdf/pdf_draw_commands.cpp
+    ../viewer2d/pdf/pdf_font_metrics.cpp
+    ../viewer2d/pdf/pdf_objects.cpp
+    ../viewer2d/pdf/pdf_label_fonts.cpp
+    ../viewer2d/pdf/pdf_writer.cpp
+    ../viewer2d/viewer2dcommandrenderer.cpp)
+target_include_directories(layout_legend_pdf_test PRIVATE
+    ../viewer2d ../viewer2d/pdf ../core ../core/layouts ../core/printing
+    ../models ../gui ../viewer_common ../viewer3d ../third_party)
+target_compile_definitions(layout_legend_pdf_test PRIVATE
+    PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
+target_link_libraries(layout_legend_pdf_test PRIVATE
+    perastage_typography perastage_legend_composition ${wxWidgets_LIBRARIES})
+if(TARGET ZLIB::ZLIB)
+    target_link_libraries(layout_legend_pdf_test PRIVATE ZLIB::ZLIB)
+endif()
+add_test(NAME LayoutLegendPdf COMMAND layout_legend_pdf_test)
+
+add_executable(legend_composition_test legend_composition_test.cpp
+    ../viewer2d/legend_composition_adapter.cpp ../core/utf8_utils.cpp)
+target_include_directories(legend_composition_test PRIVATE ../core ../viewer2d)
+target_link_libraries(legend_composition_test PRIVATE perastage_legend_composition)
+add_test(NAME LegendComposition COMMAND legend_composition_test)
+add_executable(layout_legend_cache_test layout_legend_cache_test.cpp
+    ../core/layouts/LayoutTemplateSerializer.cpp)
+target_include_directories(layout_legend_cache_test PRIVATE ../core ../gui ../third_party)
+target_link_libraries(layout_legend_cache_test PRIVATE perastage_legend_composition)
+add_test(NAME LayoutLegendCache COMMAND layout_legend_cache_test)
+
+add_executable(layout_legend_history_test layout_legend_history_test.cpp
+    layout_legend_source_stubs.cpp ../gui/layoutlegenditems.cpp ../gui/legendutils.cpp
+    ../core/configmanager.cpp ../core/configservices.cpp
+    ../core/layouts/LayoutManager.cpp ../core/layouts/LayoutImageResourceRegistry.cpp
+    ../core/layouts/LayoutDefaultsLoader.cpp ../core/layouts/LayoutCollection.cpp
+    ../core/layouts/LayoutTemplatePackageService.cpp ../core/layouts/LayoutTemplateSerializer.cpp
+    ../core/projectutils.cpp ../core/runtime_storage.cpp ../core/library/library_bootstrap.cpp
+    ../core/logger.cpp ../models/mvrscene.cpp mvr_io_stubs.cpp)
+target_include_directories(layout_legend_history_test PRIVATE . ../core ../gui ../third_party)
+target_link_libraries(layout_legend_history_test PRIVATE ${wxWidgets_LIBRARIES} perastage_mvr_core_support)
+add_test(NAME LayoutLegendHistory COMMAND layout_legend_history_test)
+
+add_executable(layout_legend_preview_test layout_legend_preview_test.cpp
+    layout_legend_pdf_resources_stub.cpp ../gui/layoutlegendrenderer.cpp
+    ../viewer2d/legend_composition_adapter.cpp
+    ../viewer2d/pdf/layout_pdf_legend_renderer.cpp ../viewer2d/pdf/pdf_font_metrics.cpp
+    ../viewer2d/pdf/pdf_label_fonts.cpp ../viewer2d/pdf/pdf_objects.cpp
+    ../viewer2d/pdf/pdf_draw_commands.cpp)
+target_include_directories(layout_legend_preview_test PRIVATE ../gui ../viewer2d ../viewer2d/pdf
+    ../core/layouts ../core/print ../models ../viewer_common ../viewer3d ../third_party)
+target_compile_definitions(layout_legend_preview_test PRIVATE
+    PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
+target_link_libraries(layout_legend_preview_test PRIVATE perastage_legend_composition
+    perastage_typography ${wxWidgets_LIBRARIES})
+if(TARGET ZLIB::ZLIB)
+    target_link_libraries(layout_legend_preview_test PRIVATE ZLIB::ZLIB)
+endif()
+add_bash_policy_test(LegendCompositionBoundary
+    ${CMAKE_CURRENT_SOURCE_DIR}/check_legend_composition_boundary.sh
+    LABELS "architecture;layout;pdf")
+
 add_executable(fixture_label_overrides_reconcile_test
                fixture_label_overrides_reconcile_test.cpp
                ../viewer2d/fixture_label_style.cpp
@@ -4605,6 +4671,12 @@ else()
     add_test(NAME ProjectSaveUi COMMAND project_save_ui_test)
 endif()
 set_library_env(ProjectSaveUi)
+if(UNIX AND NOT APPLE AND PERASTAGE_XVFB_RUN)
+    add_test(NAME LayoutLegendPreview COMMAND "${PERASTAGE_XVFB_RUN}" -a "$<TARGET_FILE:layout_legend_preview_test>")
+else()
+    add_test(NAME LayoutLegendPreview COMMAND layout_legend_preview_test)
+endif()
+set_library_env(LayoutLegendPreview)
 set_perastage_test_labels(ProjectSaveUi LAYER unit DOMAINS project gui)
 add_bash_policy_test(ProjectSaveUiBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_project_save_ui_boundary.sh LABELS "project;gui;architecture")
 

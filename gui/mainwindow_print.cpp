@@ -61,66 +61,7 @@ void SetPrintStatus(MainWindow *window, const wxString &message) {
 
 std::vector<LayoutLegendItem> BuildLayoutLegendItems(
     const layouts::LayoutLegendDefinition *legend) {
-  std::vector<SharedLayoutLegendItem> sharedItems =
-      BuildSharedLayoutLegendItems();
-  std::unordered_map<std::string, layouts::LayoutLegendDefinition::ItemSettings>
-      settingsByType;
-  if (legend) {
-    settingsByType.reserve(legend->itemSettings.size());
-    for (const auto &settings : legend->itemSettings)
-      settingsByType[settings.typeName] = settings;
-  }
-
-  std::unordered_map<std::string, SharedLayoutLegendItem> availableByType;
-  availableByType.reserve(sharedItems.size());
-  for (const auto &shared : sharedItems)
-    availableByType.emplace(shared.typeName, shared);
-
-  std::vector<LayoutLegendItem> items;
-  items.reserve(sharedItems.size());
-  auto appendItem = [&](const SharedLayoutLegendItem &shared) {
-    LayoutLegendItem item;
-    item.typeName = shared.typeName;
-    item.displayName = shared.typeName;
-    item.count = shared.count;
-    item.channelCount = shared.channelCount;
-    item.symbolKey = shared.symbolKey;
-    item.gdtfPath = shared.gdtfPath;
-    item.symbolFillHex = shared.symbolFillHex;
-    if (const auto it = settingsByType.find(shared.typeName);
-        it != settingsByType.end()) {
-      item.showBottomSymbol = it->second.showBottomSymbol;
-      item.showFrontSymbol = it->second.showFrontSymbol;
-      item.showSideSymbol = it->second.showSideSymbol;
-      if (!it->second.customName.empty())
-        item.displayName = it->second.customName;
-      if (!it->second.visible)
-        return;
-    }
-    items.push_back(std::move(item));
-  };
-
-  if (legend) {
-    std::unordered_set<std::string> usedTypes;
-    usedTypes.reserve(legend->itemSettings.size());
-    for (const auto &settings : legend->itemSettings) {
-      const auto it = availableByType.find(settings.typeName);
-      if (it == availableByType.end())
-        continue;
-      appendItem(it->second);
-      usedTypes.insert(settings.typeName);
-    }
-    for (const auto &shared : sharedItems) {
-      if (usedTypes.find(shared.typeName) != usedTypes.end())
-        continue;
-      appendItem(shared);
-    }
-  } else {
-    for (const auto &shared : sharedItems)
-      appendItem(shared);
-  }
-
-  return items;
+  return layouts::ResolveLegendItems(BuildSharedLayoutLegendItems(), legend);
 }
 
 std::optional<LayoutImageExportData> BuildLayoutImageExportData(

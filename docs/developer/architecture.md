@@ -577,6 +577,25 @@ with scene, selection, layer state, label overrides and fixture symbols. History
 restoration bypasses startup default loading and resource re-reading, preserving
 absent metadata and explicitly empty collections without rewriting configuration.
 
+## Layout Legend composition
+
+`core/layouts/LegendContent` resolves ordered per-type settings from explicit
+scene-wide aggregates. `DocumentComposition` supplies local point rectangles,
+text roles and a measurement callback; `LegendComposition` alone decides Legend
+columns, two-line wrapping, rows, clipping diagnostics and symbol placements.
+`viewer2d/legend_composition_adapter` resolves existing SVG/command references
+and bounds before composition. The focused GUI and PDF Legend renderers draw
+the resulting plan without a second layout algorithm. No persistent schema or
+transaction boundary changes. Oversized legacy symbols retain their size and
+origin alignment but are clipped to their planned slots.
+
+The compatibility presets explicitly retain wx logical font measurement versus
+PDF TTF/Type1 WinAnsi metrics and the 1.45 typography compensation. Preview
+rounding, one-line font fitting and SVG minimum slot widths differ from vector
+export's fractional rows and two-line font fitting. They are tested exceptions,
+not a claim of pixel or line-break parity across platforms. Zoom maps the preview
+plan to pixels without changing wrapping. Event Tables remain unchanged.
+
 ## Fixture label typography
 
 Core's GUI-independent `typography/` boundary owns the existing TrueType metrics
@@ -592,7 +611,7 @@ Version-2 `presentation` fields extend existing PSTG label overrides with an ind
 `__project_defaults__` entry participates in the same project history and is
 excluded from UUID normalization/pruning. Legacy keys remain a read-only adapter
 until a field is edited; existing line-spacing and Layout compensation constants
-remain intact. Layout free text, legends, tables, 3D labels and the old global PDF
+remain intact. Layout free text, tables, 3D labels and the old global PDF
 metrics compatibility API remain legacy consumers. The next integration is shared
 composition for Layout free text, with explicit migration and wrapping tests;
 this change does not claim preview/PDF parity for those paths.
