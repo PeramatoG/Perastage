@@ -23,7 +23,8 @@ def test_directory_info_handles_present_and_missing_directories(tmp_path):
 
 def test_vcpkg_parser_is_conservative(tmp_path):
     log = tmp_path / "vcpkg.log"
-    log.write_text("Restored 12 package(s) from cache\nInstalling example:x64-linux\n", encoding="utf-8")
+    log.write_text("Restored 12 package(s) from cache\nRestored 0 package(s) from NuGet\n"
+                   "Installing example:x64-linux\n", encoding="utf-8")
     metrics = MODULE.parse_vcpkg_log(log)
     assert metrics["restored"] == 12
     assert metrics["built"] is None

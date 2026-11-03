@@ -111,7 +111,7 @@ def parse_vcpkg_log(path: Path) -> dict[str, int | None]:
     for key, pattern in patterns.items():
         matches = re.findall(pattern, text, flags=re.IGNORECASE)
         if matches:
-            metrics[key] = int(matches[-1])
+            metrics[key] = sum(map(int, matches)) if key == "restored" else int(matches[-1])
     retry_matches = re.findall(r"retry(?:ing)?|attempt\s+[2-9]\d*", text, flags=re.IGNORECASE)
     metrics["retries"] = len(retry_matches) if retry_matches else 0
     return metrics

@@ -70,7 +70,7 @@ for name, workflow_text in all_workflows.items():
 for name, workflow_text in all_workflows.items():
     lines = workflow_text.splitlines()
     for index, line in enumerate(lines):
-        if 'vcpkg_install_retry.py' not in line or not re.search(r'\bpython(?:3)?\b', line):
+        if '.github/scripts/vcpkg_install_retry.py' not in line or not re.search(r'\bpython(?:3)?\b', line):
             continue
         command_lines = [line]
         while command_lines[-1].rstrip().endswith(('\\', '`')) and index + len(command_lines) < len(lines):
@@ -99,8 +99,8 @@ for needle in ['Resolve macOS SDK cache identity', 'identity=${sdk_identity}',
                '--current-sdk "$MACOS_SDK_PATH"']:
     assert needle in remote, f'warming workflow is missing macOS cache boundary: {needle}'
 assert remote.index('Guard restored macOS SDK metadata') < remote.index('Install and publish vcpkg packages')
-assert 'VCPKG_CACHE_SCOPE: default' in remote, 'Windows and Ubuntu warming keys must retain the default scope'
-assert '${{ matrix.triplet }}-${{ env.VCPKG_CACHE_SCOPE }}-' in remote
+assert 'vcpkg_cache_contract.py identity' in remote
+assert '--triplet "${{ matrix.triplet }}"' in remote
 assert 'job.status' not in remote, 'job success must not be reported as independent publication verification'
 assert '--install-outcome "${{ steps.vcpkg-install.outcome }}"' in remote
 assert 'not independently verified' in remote
@@ -158,19 +158,19 @@ for name in VCPKG_WORKFLOWS:
     assert 'actions/cache/restore@v5' in text and 'actions/cache/save@v5' in text, f'{name} must use explicit cache restore/save actions'
     assert "hashFiles('vcpkg.json', 'vcpkg-configuration.json')" in text, f'{name} must key vcpkg caches from dependency inputs only'
     assert not re.search(r"hashFiles\([^)]*\.github/workflows/[^)]*\)", text), f'{name} must not hash workflow files into vcpkg keys'
-    assert 'vcpkg-downloads-v3-' in text and 'vcpkg-compiled-' in text, f'{name} must use a documented vcpkg cache schema'
+    assert 'vcpkg-downloads-v3-' in text and ('vcpkg-compiled-' in text or 'vcpkg_cache_contract.py identity' in text), f'{name} must use a documented vcpkg cache schema'
     assert '.vcpkg-cache/downloads' in text, f'{name} must keep downloads in a separate cache'
-    assert '.vcpkg-cache/installed' in text or '.vcpkg-cache\\installed' in text, f'{name} must cache the installed vcpkg tree'
-    assert '.vcpkg-cache/packages' in text or '.vcpkg-cache\\packages' in text, f'{name} must cache the packages tree'
+    assert '.vcpkg-cache/installed' in text or '.vcpkg-cache\\installed' in text, f'{name} must retain the installed vcpkg path'
+    assert '.vcpkg-cache/packages' in text or '.vcpkg-cache\\packages' in text, f'{name} must retain the packages path'
     assert '.vcpkg-cache/binary' in text or '.vcpkg-cache\\binary' in text, f'{name} must cache the file-based binary cache'
     assert 'VCPKG_BINARY_SOURCES: clear;files,' in text and ',readwrite' in text, f'{name} must preserve the local vcpkg binary cache'
-    assert 'steps.vcpkg-cache.outputs.cache-primary-key' in text, f'{name} must save the compiled cache with the restore primary key'
+    assert 'steps.vcpkg-cache.outputs.cache-primary-key' in text, f'{name} must report the restore primary key'
     assert 'write_vcpkg_cache_summary.py' in text, f'{name} must summarize vcpkg cache behavior'
     assert not re.search(r'vcpkg-(?:downloads|compiled)-v3[^\n]*(?:debug|release)', text, re.IGNORECASE), f'{name} must not split ABI-compatible vcpkg caches by Debug/Release labels'
     for cache_block in re.findall(r'uses: actions/cache/(?:restore|save)@v5[\s\S]{0,360}', text):
         assert not re.search(r'(?:^|\n)\s*(?:build|out|CTest|Testing/Temporary)(?:/|\\|$)', cache_block), f'{name} must not add build or test outputs to vcpkg cache paths'
     install_pos = text.index('vcpkg_install_retry.py')
-    save_pos = text.index('Save vcpkg installed packages and binary archives', install_pos)
+    save_pos = text.index('Save vcpkg binary archives' if name == 'ci-tests.yml' else 'Save vcpkg installed packages and binary archives', install_pos)
     later_needles = ['Configure CMake', 'Configure Debug tests', 'Configure Windows Debug tests', 'Configure macOS Debug tests', 'Build Arch package', 'Build project', 'Run complete CTest suite']
     later_positions = [text.find(needle, save_pos) for needle in later_needles if text.find(needle, save_pos) != -1]
     assert later_positions and save_pos < min(later_positions), f'{name} must save compiled vcpkg cache before configure/build/test/package steps'
@@ -178,20 +178,17 @@ for name in VCPKG_WORKFLOWS:
 ci_text = (WORKFLOWS / 'ci-tests.yml').read_text()
 win_installer = (WORKFLOWS / 'windows-installer.yml').read_text()
 linux_installer = (WORKFLOWS / 'linux-installer.yml').read_text()
-assert 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-' in ci_text and 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-' in win_installer
-assert 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-' in ci_text
+assert 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-' in win_installer
 assert 'vcpkg-compiled-v4-${{ runner.os }}-${{ runner.arch }}-x64-linux-appimage-jammy-gcc11-' in linux_installer
 assert 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-' not in linux_installer, 'AppImage compiled caches must not fall back to generic Linux trees'
-assert 'arm64-osx-sdk-${{ steps.macos-sdk.outputs.identity }}' in ci_text, 'macOS Debug CI must include the resolved SDK/Xcode identity'
-assert 'vcpkg-compiled-v4-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-' in ci_text
-assert 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-' not in ci_text
-assert 'compiled-schema: v4' in remote and remote.count('compiled-schema: v3') == 2
-assert 'vcpkg-compiled-${{ matrix.compiled-schema }}-' in remote
+assert '--sdk "${{ steps.macos-sdk.outputs.identity }}"' in ci_text
+assert 'vcpkg_cache_contract.py identity' in remote
+assert 'vcpkg_cache_contract.py snapshot' in remote
 macos_job = ci_text[ci_text.index('  macos-debug:'):]
-macos_cache_section = macos_job[macos_job.index('Restore vcpkg installed packages'):macos_job.index('Define macOS sccache')]
-assert "steps.vcpkg-cache.outputs.cache-hit != 'true'" in macos_cache_section
-assert 'key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}' in macos_cache_section
-assert '.vcpkg-cache/installed' in macos_cache_section and '.vcpkg-cache/binary' in macos_cache_section
+macos_cache_section = macos_job[macos_job.index('Restore vcpkg binary archives'):macos_job.index('Define macOS sccache')]
+assert 'steps.vcpkg-snapshot.outputs.key != steps.vcpkg-cache.outputs.cache-matched-key' in macos_cache_section
+assert 'key: ${{ steps.vcpkg-snapshot.outputs.key }}' in macos_cache_section
+assert 'path: .vcpkg-cache/binary' in macos_cache_section
 assert 'vcpkg_cache_diagnostics.py --label before-install' in macos_cache_section
 assert 'vcpkg_cache_diagnostics.py --label after-install' in macos_cache_section
 assert '--install-log "$CI_LOG_DIR/vcpkg-install-macos-debug.log"' in macos_cache_section
@@ -302,12 +299,11 @@ assert ci.count("if: ${{ always() && needs.resolve-source.outputs.cache_warming 
 scope_resolver = (Path('.github/scripts/resolve_sccache_scope.py')).read_text()
 assert 'Cache-warming run: configure and build all Debug targets; skip CTest execution and test-result uploads.' in scope_resolver
 for platform, text in sections.items():
-    for needle in ['Read vcpkg baseline', 'get_vcpkg_baseline.py vcpkg.json', 'Restore vcpkg downloads', 'Restore vcpkg installed packages and binary archives', 'Bootstrap vcpkg', 'vcpkg_install_retry.py', '-DVCPKG_MANIFEST_MODE=OFF', '-DBUILD_TESTING=ON', 'PERASTAGE_ENABLE_COMPILER_CACHE=ON', 'write_cmake_compiler_cache_init.py']:
+    for needle in ['Read vcpkg baseline', 'get_vcpkg_baseline.py vcpkg.json', 'Restore vcpkg downloads', 'Restore vcpkg binary archives', 'Bootstrap vcpkg', 'vcpkg_install_retry.py', '-DVCPKG_MANIFEST_MODE=OFF', '-DBUILD_TESTING=ON', 'PERASTAGE_ENABLE_COMPILER_CACHE=ON', 'write_cmake_compiler_cache_init.py']:
         assert needle in text, f'{platform} Debug is missing {needle}'
     assert text.index('Prepare vcpkg and diagnostics directories') < text.index('Bootstrap vcpkg'), f'{platform} must create vcpkg directories before bootstrap'
     assert 'VCPKG_DOWNLOADS' in text and 'VCPKG_INSTALLED' in text and 'VCPKG_PACKAGES' in text and 'VCPKG_BINARY_CACHE' in text, f'{platform} must prepare all vcpkg directories'
-    expected_schema = 'v4' if platform == 'macos' else 'v3'
-    assert f'vcpkg-compiled-{expected_schema}-' in text, f'{platform} installed cache key uses the wrong compiled schema'
+    assert 'vcpkg_cache_contract.py identity' in text, f'{platform} must use the shared binary contract'
     assert ('run_and_log.py --log' in text or '--output-log' in text) and 'ctest-' in text, f'{platform} build and test logs must be captured'
     assert '--target all --verbose' in text, f'{platform} Debug must build the complete target set'
 
@@ -332,8 +328,8 @@ assert 'python .github/scripts/ci_telemetry.py' not in windows
 for needle in ['$env:GITHUB_ENV', '$env:GITHUB_PATH', 'PERASTAGE_PYTHON', 'Get-Command python', 'INCLUDE', 'LIBPATH', 'VSCMD_ARG_HOST_ARCH', 'VSCMD_ARG_TGT_ARCH', 'validate_cmake_toolchain.py', '--expected-c-id MSVC', '--expected-cxx-id MSVC', '--interactive-debug-mode 0', '--timeout 120', '--output-junit', 'timeout-minutes: 180', 'ctest-inventory-windows-debug.txt', 'ctest-windows-debug-results.json', 'ci-windows-debug-test-results']:
     assert needle in windows, f'Windows Debug environment persistence is missing {needle}'
 assert windows.index('Persist Visual Studio Hostx64 x64 environment') < windows.index('Configure Windows Debug tests') < windows.index('Build Windows Debug tests')
-assert windows.index('Persist Visual Studio Hostx64 x64 environment') < windows.index('Restore vcpkg installed packages and binary archives')
-assert 'steps.windows-toolchain.outputs.cache-identity' in windows
+assert windows.index('Persist Visual Studio Hostx64 x64 environment') < windows.index('Restore vcpkg binary archives')
+assert 'cache-identity=$cacheIdentity' in windows
 assert 'msvc-$toolset-sdk-$sdk-hostx64-x64' in windows
 assert windows.count('id: ctest-execution') == 1
 assert 'checkpoint --phase "CTest execution" --status "${{ steps.ctest-execution.outcome' in windows

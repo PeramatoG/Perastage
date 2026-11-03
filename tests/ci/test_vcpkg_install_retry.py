@@ -97,6 +97,25 @@ sys.exit(42)
     assert "failed permanently" in result.stdout
 
 
+def test_duration_and_abi_evidence_survive_failed_install(tmp_path, monkeypatch):
+    import json
+
+    output = tmp_path / "outputs"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+    monkeypatch.setenv("VCPKG_BASELINE", "test-baseline")
+    monkeypatch.setenv("VCPKG_CACHE_ENVIRONMENT", '{"runtime": "ubuntu-26.04"}')
+    monkeypatch.setenv("GITHUB_TOKEN", "must-not-appear-in-diagnostics")
+    exe = fake_vcpkg(tmp_path, "#!/usr/bin/env python3\nraise SystemExit(42)\n")
+    result = run_wrapper(tmp_path, exe)
+    assert result.returncode == 42
+    assert "elapsed-seconds=" in output.read_text()
+    log = tmp_path / "logs" / "vcpkg install.log"
+    assert "vcpkg install duration:" in log.read_text()
+    abi_text = log.with_suffix(".abi.json").read_text()
+    assert json.loads(abi_text)["baseline"] == "test-baseline"
+    assert "must-not-appear-in-diagnostics" not in abi_text
+
+
 def test_final_transient_failure_preserves_exit_code(tmp_path):
     exe = fake_vcpkg(tmp_path, """#!/usr/bin/env python3
 import sys
