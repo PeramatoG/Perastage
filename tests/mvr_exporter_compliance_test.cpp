@@ -30,6 +30,7 @@
 #include "mvr_layer_uuid_identity_test_support.h"
 #include "mvr_exporter_geometry_test_support.h"
 #include "mvr_export_file_buffer_parity_test_support.h"
+#include "support/zip_test_utils.h"
 #include "mvrimporter.h"
 #include "sceneobject.h"
 #include "support.h"
@@ -55,17 +56,10 @@ static std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
 
 static std::unordered_map<std::string, std::string>
 ReadArchiveTextEntries(const fs::path &archivePath) {
-  wxFileInputStream input(archivePath.generic_string());
-  assert(input.IsOk());
-  wxZipInputStream zip(input);
-
+  // ZIP keys must use logical Unix paths, including on Windows hosts.
   std::unordered_map<std::string, std::string> entries;
-  std::unique_ptr<wxZipEntry> entry;
-  while ((entry.reset(zip.GetNextEntry())), entry) {
-    const std::string name = entry->GetName().ToStdString();
-    assert(entries.find(name) == entries.end());
-    entries[name] = ReadCurrentZipEntry(zip);
-  }
+  for (const auto &entry : tests::zip::ReadEntries(archivePath))
+    assert(entries.emplace(entry.name, entry.payload).second);
   return entries;
 }
 
