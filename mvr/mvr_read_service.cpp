@@ -17,6 +17,7 @@
 #include "matrixutils.h"
 #include "mvr_import_reference_resolver.h"
 #include "mvr_scene_node_reader.h"
+#include "mvr_source_structure_service.h"
 #include "mvr_standard_preservation.h"
 #include "mvr_symdef_preservation.h"
 #include "primitive_model_resources.h"
@@ -872,7 +873,7 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
 
     const auto definition = scene.symdefs.find(CanonicalizeUuid(symdef));
     if (definition != scene.symdefs.end()) {
-      outGeometries = definition->second.geometries;
+      outGeometries = ExpandSymdefGeometry(scene, CanonicalizeUuid(symdef));
       for (auto &geometry : outGeometries)
         geometry.file = normalizeGeometryFileName(geometry.file);
     }
@@ -1021,6 +1022,9 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
   mvr::ReadMvrSceneNodes(sceneNode, scene, importResult, options,
                          sceneReadServices, sceneReadMetadata, sceneReadState,
                          sceneReadMetrics);
+  CaptureSourceStructure(*sceneNode, scene, [&](const std::string &path) {
+    return RemapPackagePath(package, path);
+  });
 
   if (matrixScaleAggregation.acceptedTinyUniformScaleCount > 0) {
     logMessage(MvrReadLogLevel::Info,

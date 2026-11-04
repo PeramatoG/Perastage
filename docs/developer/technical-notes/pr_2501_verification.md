@@ -27,15 +27,44 @@ Connection references, rather than losing a field or retargeting a relation.
 | Missing authored GDTF or retained source resource | Resource error; preserve target and dirty state; never replace an imported definition with a dummy. |
 | Malformed retained XML, ambiguous reference or invalid identity | Specific error; preserve target and dirty state. |
 | Invalid destination, close or atomic replacement failure | Archive IO error; preserve target; clean temporary file. |
-| Other unsupported authored structure | Still unresolved; no silent loss or success claim. |
+| VideoScreen/Projector, media, parametric children, multipatch and standard Symbol topology | Retain validated structure/resources around edited typed nodes; normal canonical save/export. |
+| Nested Symdef graphs and edited instance geometry | Typed nested instances, cycle/reference checks, isolated definition for an edited instance; retain original/unused definitions. |
+| Model with available external textures/buffers | Preserve original model bytes and relative resource tree in a stable package namespace. |
 
-The latter row includes whole VideoScreen/Projector nodes, parametric ChildList
-ownership and symbolic FocusPoint geometry. A general recovery-copy workflow
-has **not** been implemented. Therefore this commit does not satisfy an
-unconditional-save requirement for every valid imported standard structure.
-The PR must remain unmergeable until these remaining source representations
-have a tested preservation/recovery owner. Disabling the preservation gate is
-not a resolution.
+The follow-up replaces the missing structural preservation owners with
+`mvr_source_structure_capture/projection/edits/merge.cpp`. The former importer
+flattened geometry for display and retained only neutral descriptors for media
+nodes. The ordinary writer consequently lacked their topology and payloads;
+preflight correctly refused loss. The new source evidence is immutable,
+scene-owned and reconstructed from canonical XML on reopen. Ordinary typed
+writers still own editable fields. This removes the listed representation
+blockers instead of suppressing diagnostics or maintaining an alternate PSTG
+scene. A recovery-copy consent path is unnecessary for these covered cases.
+For editable owners, structural validation covers the restored geometry and
+hierarchy; existing identifier/DMX/network validators remain authoritative,
+including published-standard cases that disagree with the pinned XSD (signed
+identifiers and IPv6). Source-only media payloads use their pinned standard
+type. Native editor range limits retain the existing bounded policy.
+
+`ProjectStructured*Roundtrip` independently validates synthetic standard input,
+then imports it, edits existing Fixture name/transform, a nested Fixture,
+Truss placement and real Layout text. Six variants exercise basic structure,
+edited instance geometry, external textures, their combination and collision
+merge with/without textures. They inspect actual output node types, ownership,
+Symbol UUIDs/references, source-only Classing and a numeric identifier beyond the
+editor's int32 range, media and texture bytes. Both the standard Scene and its
+editable fields survive actual PSTG reopen and three saves. They compare all
+ordered embedded/standalone canonical ZIP entry payloads and unchanged source
+archive bytes. Explicit Direct Geometry3D compatibility remains a distinct
+output. Mixed direct geometry and multiple Symbols share one owner; editing
+one Symbol's geometry retains the other instance and original definitions.
+
+Missing media/texture/GDTF (including an unrelated same-name file elsewhere),
+invalid source identities, cyclic references, malformed retained fields and
+invalid/write-failing targets retain separate failures, original target bytes,
+dirty state and no temporary-file leaks. These are bounded preservation and
+transaction checks, not certification of every provider extension or physical
+disk-exhaustion behavior.
 
 Save As now changes current path/display name only after success; recent-file
 updates remain on that same success branch. Save preparation rolls back its
@@ -45,19 +74,27 @@ available from the dialog's details control after the busy overlay closes.
 The UI boundary test checks ordering; the native UI test checks overlay lifetime
 on both failure and exception.
 
-Verified in the Linux Debug toolchain:
+Focused Linux Debug commands:
 
 ```
-cmake --build build/wsl-x64-debug --target project_preserved_fields_roundtrip_test mvr_standard_preservation_test mvr_export_preparation_test project_session_io_test project_save_ui_test -j4
-ctest --test-dir build/wsl-x64-debug -R '^(ProjectPreservedFieldsRoundtrip|ProjectSessionIO|MvrStandardPreservation|MvrExportPreparation|ProjectSaveUiBoundary)$' --output-on-failure
-xvfb-run -a ctest --test-dir build/wsl-x64-debug -R '^ProjectSaveUi$' --output-on-failure
+cmake --build build/wsl-x64-debug --target project_preserved_fields_roundtrip_test mvr_symdef_preservation_test mvr_merge_analyzer_applier_test -j4
+ctest --test-dir build/wsl-x64-debug -R '^(Project(PreservedFields|Structured.*)Roundtrip|MvrSymdefPreservation|MvrMergeAnalyzerApplier|MvrSourceStructureBoundary)$' --output-on-failure -j2
 cmake --build build/wsl-x64-debug --target perastage_check_translations
 ```
 
-Five Core/boundary tests and one native GUI test pass. Existing archive/resource
-validation tests remain enabled. Physical disk exhaustion and the Windows
-atomic replacement API have not been exercised here; Windows/macOS manual
-validation remains pending.
+The focused structural/resource suite passes **20/20** tests, including the
+independent Python Symdef/Focus/Class readers. The existing precision corpus
+checks 19 Trusses under nested groups, unedited numeric provenance, one-ULP
+translation, group movement, rotation/scale and repeated actual save/reload.
+Source projection leaves the ordinary writer's prepared local matrix untouched
+when its native owner and placement already match; it does not recompute and
+narrow unrelated authored values during a parent edit. The first affected
+resource remains available in the save-failure API alongside all detailed
+findings.
+
+The native save UI lifetime check runs under Xvfb. Physical disk exhaustion and
+the Windows atomic replacement API have not been exercised here; Windows/macOS
+manual validation remains pending.
 
 ## Root cause locations
 
@@ -146,7 +183,7 @@ and interactive Windows PDF-viewer zoom review remain pending.
 ## Combined verification and merge gate
 
 The Debug application builds and starts under Xvfb; the live CLI returns a
-successful `scene.summary`. All **51 selected CTest checks pass**, including
+successful `scene.summary`. All **79 selected CTest checks pass**, including
 real MVR/PSTG round trips, source matrix precision, fixture-label override
 reconciliation, Layout image/resource and history regressions, MVR-xchange
 protocol, native save UI lifetime, production Legend adapters and raster parity.
@@ -155,7 +192,8 @@ This is a focused suite, not a full repository/hosted-CI pass.
 After building the corresponding test targets, the exact selected suite is:
 
 ```
-ctest --test-dir build/wsl-x64-debug --output-on-failure -j2 -R 'Layout|Legend|Pdf|HistoryManager|FixtureSymbolSvgCache|FixtureSymbolResolution$|ProjectFixtureSymbol(Runtime|ReadContext|s)$|ProjectSession|FixtureSymbolProjection|ProjectPreserved|MvrStandardPreservation|MvrExportPreparation$|MvrMatrixPrecision|MvrXchangeProtocol|FixtureLabelOverridesReconcile|ProjectSupportUserDataRoundtrip|ProjectSaveUi'
+verification_suite='Layout|Legend|Pdf|HistoryManager|FixtureSymbolSvgCache|FixtureSymbolResolution$|ProjectFixtureSymbol(Runtime|ReadContext|s)$|ProjectSession|FixtureSymbolProjection|ProjectPreserved|ProjectStructured|MvrStandardPreservation|MvrExportPreparation$|MvrMatrixPrecision|MvrXchangeProtocol|FixtureLabelOverridesReconcile|ProjectSupportUserDataRoundtrip|ProjectSaveUi|Mvr(Symdef(Integrity|Independent|Preservation|Ownership)|Focus(Integrity|Independent)|Class(Integrity|Independent|Preservation)|Identifier(Integrity|Independent)|MergeAnalyzerApplier|SourceStructureBoundary|TrussRoundtripStructure|ExportResource(Collection|Boundary)$|ExportArchive(Writer|Boundary)$|FixtureAddresses|LayerMatrix)'
+xvfb-run -a ctest --test-dir build/wsl-x64-debug --output-on-failure -j2 -R "$verification_suite"
 ```
 
 The required module-tree, GUI ConfigManager, source-size and repository-hygiene
@@ -163,8 +201,9 @@ guards, `git diff --check` and `perastage_check_translations` pass. No official
 schema or persisted Layout/PSLAYOUT schema changed, and no new application
 assets/dependencies or source-size exceptions were added.
 
-Review the project-save commit independently before the Legend commit. B1's
-Linux automated parity gate passes. P0's general unsupported-source save/export
-and recovery gate remains **open**, as detailed above. Keep PR 2501 open as a
-draft; **do not merge** until those preservation cases have an honest tested
-save/reopen/export route and required platform checks pass.
+Review the project-save corrections independently from Legend composition.
+The covered P0 structures have a normal canonical save/reopen/export route;
+B1 retains its Linux automated parity gate. Keep PR 2501 open as a draft while
+platform validation/review is pending; do not merge automatically. Neither
+these tests nor the source-preservation service certify arbitrary future MVR
+versions, provider extensions or unavailable external resources.

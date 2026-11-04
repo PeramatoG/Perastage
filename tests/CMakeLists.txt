@@ -2110,7 +2110,10 @@ add_executable(project_preserved_fields_roundtrip_test project_preserved_fields_
     ../core/gdtfdictionary.cpp ../core/trussdictionary.cpp ../core/trussloader.cpp
     ../core/truss_gdtf_builder.cpp ../core/gdtf_canonicalizer.cpp
     ../core/gdtf_mutation_audit.cpp ../core/logger.cpp
-    gdtfloader_stub.cpp consolepanel_stub.cpp ${PERASTAGE_TEST_MVR_ROUNDTRIP_OBJECTS})
+    gdtfloader_stub.cpp consolepanel_stub.cpp
+    support/mvr_structure_fixture.h
+    ../mvr/mvr_merge_analyzer.cpp ../mvr/mvr_merge_applier.cpp ../mvr/mvr_merge_resource_rewriter.cpp
+    ${PERASTAGE_TEST_MVR_ROUNDTRIP_OBJECTS})
 target_include_directories(project_preserved_fields_roundtrip_test PRIVATE
     . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(project_preserved_fields_roundtrip_test PRIVATE
@@ -2118,6 +2121,17 @@ target_link_libraries(project_preserved_fields_roundtrip_test PRIVATE
     perastage_mvr_import_application_read perastage_inspection_validation
     perastage_layer_validation)
 add_test(NAME ProjectPreservedFieldsRoundtrip COMMAND project_preserved_fields_roundtrip_test)
+add_test(NAME ProjectStructuredMvrRoundtrip COMMAND project_preserved_fields_roundtrip_test --structure)
+add_bash_policy_test(MvrSourceStructureBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_source_structure_boundary.sh LABELS "mvr;architecture")
+set_library_env(ProjectStructuredMvrRoundtrip)
+add_test(NAME ProjectStructuredGeometryRoundtrip COMMAND project_preserved_fields_roundtrip_test --structure-geometry)
+add_test(NAME ProjectStructuredDependenciesRoundtrip COMMAND project_preserved_fields_roundtrip_test --structure-dependencies)
+add_test(NAME ProjectStructuredGeometryDependenciesRoundtrip COMMAND project_preserved_fields_roundtrip_test --structure-geometry-dependencies)
+add_test(NAME ProjectStructuredMergeRoundtrip COMMAND project_preserved_fields_roundtrip_test --structure-merge)
+add_test(NAME ProjectStructuredMergeDependenciesRoundtrip COMMAND project_preserved_fields_roundtrip_test --structure-merge-dependencies)
+foreach(test_name IN ITEMS ProjectStructuredGeometryRoundtrip ProjectStructuredDependenciesRoundtrip ProjectStructuredGeometryDependenciesRoundtrip ProjectStructuredMergeRoundtrip ProjectStructuredMergeDependenciesRoundtrip)
+    set_library_env(${test_name})
+endforeach()
 set_library_env(ProjectPreservedFieldsRoundtrip)
 
 add_executable(truss_path_encoding_regression_test

@@ -142,8 +142,8 @@ representation rules preserve standards-valid identity round-trips.
 FocusPoint uses the existing geometric SceneObject value with a distinct
 `SceneObjectKind::FocusPoint` and is serialized with its standard element name.
 Direct geometry, ownership, transforms and Fixture Focus links share the existing
-identity/resource/mutation services. Symbol-based focus geometry still requires
-preservation support and blocks writes. A required Geometries
+identity/resource/mutation services. Symbol-based focus geometry retains standard Symbol UUIDs and references through
+the source-structure projection described below. A required Geometries
 container may be empty; no replacement mesh is invented for an empty focus.
 
 Export preparation rejects durable known-loss evidence before identity/transform
@@ -228,9 +228,35 @@ fallback. Save As commits its session path only on confirmed success. A failed
 save exposes all export findings in the dialog's expandable details after the
 busy overlay has closed.
 
-Safe representable content should save without a consent loop. Genuine unsupported
-standard content still blocks both serializers until an actual preservation
-owner exists. This is an unresolved workflow constraint, not the final product
-policy. No validation bypass, alternate project scene or lossy-save override is
-provided. The audit records the smallest proposed recovery design and acceptance
-conditions separately from implemented behavior.
+## Retained standard scene structure
+
+`mvr_source_structure_*` owns a versioned, immutable scene-local provenance value.
+It retains shallow standard node payloads, authored local/world matrices and
+editable display baselines. VideoScreen/Projector payloads, media, multipatch,
+parametric ChildList ownership and Symbol geometry are validated against the
+existing standard types. They are restored around the ordinary typed writers'
+edited nodes. This is neither a second Fixture serializer nor a new PSTG schema;
+reopening reconstructs provenance from the canonical scene.mvr. Scene history
+copies share the immutable evidence. No imported MVR is modified.
+
+Nested Symdef instances have one typed definition/instance registry. Display
+expansion does not replace canonical references. Canonical export preserves
+unused definitions, instance UUIDs, class links and placement. Model/geometry
+edits use an isolated standard definition for the changed instance, retaining
+original definitions. The export snapshot owns these changes; the live scene
+is unchanged. Explicit standalone direct-geometry compatibility is applied
+without subsequently restoring the Truss Symbol representation.
+
+Models with external dependencies retain their original bytes and relative
+resource tree under a stable package namespace. The resource collector owns
+packaging, collisions, transitive closure and missing-resource diagnostics;
+merge uses the same closure. Acquired package resources cannot escape their
+package root. No resource bytes are executed and no official schema is changed.
+
+Normal PSTG save, standalone canonical export and MVR-xchange all use these
+same owners. Valid retained structures no longer require a warning/consent
+loop merely because they have no editor. Missing essential bytes, invalid
+identities/references, malformed structures and archive IO failures remain
+specific failures, never a successful truncated archive. Coverage remains
+bounded by the pinned standard and the regression fixtures; arbitrary provider
+extensions and every possible third-party package are not certified.

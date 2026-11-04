@@ -214,16 +214,38 @@ int main(int argc, char **argv) {
   for (const auto &extra : {"<Alignments><Alignment geometry=\"Beam\" up=\"0,0,1\" direction=\"0,0,-1\"/></Alignments>",
                              "<Protocols><Protocol type=\"Art-Net\"/></Protocols>"}) {
     WriteSource(dir, Wrap(FocusXml(focusId) + FixtureXml(1, extra)));
-    MvrScene unsafe = Import(dir / "source.mvr");
-    assert(!unsafe.preservationIssues.empty());
-    assert(!unsafe.preservationIssues.front().originalInformation.empty());
-    assert(!exporter.ExportCanonicalSnapshotToBuffer(unsafe, bytes));
-    config.GetScene() = unsafe;
-    assert(!config.SaveProject((dir / "roundtrip.pstg").string()));
-    assert(config.LoadProject((dir / "roundtrip.pstg").string()));
-    assert(config.GetScene().sceneObjects.size() == 2);
-    mvr::MergeImportedSceneIntoCurrent(reimported, unsafe);
-    assert(!exporter.ExportCanonicalSnapshotToBuffer(reimported, bytes));
+    MvrScene retained = Import(dir / "source.mvr");
+    assert(!retained.preservationIssues.empty());
+    config.GetScene() = retained;
+    const auto copy = dir / "retained-fields.pstg";
+    assert(config.SaveProject(copy.string()) &&
+           config.LoadProject(copy.string()));
+    const auto output = dir / "retained-fields.mvr";
+    assert(exporter.ExportCanonicalSnapshotToFile(config.GetScene(),
+                                                  output.string()));
+    CheckExport(output, 1, 1);
+    std::string xml;
+    assert(tests::zip::ReadEntry(output, "GeneralSceneDescription.xml", &xml));
+    tinyxml2::XMLDocument actual, expected;
+    assert(actual.Parse(xml.c_str()) == tinyxml2::XML_SUCCESS);
+    assert(expected.Parse(extra) == tinyxml2::XML_SUCCESS);
+    bool found = false;
+    const auto check = [&](auto &&self, tinyxml2::XMLElement *node) -> void {
+      if (std::string(node->Name()) == expected.RootElement()->Name()) {
+        tinyxml2::XMLPrinter first(nullptr, true), second(nullptr, true);
+        node->Accept(&first);
+        expected.RootElement()->Accept(&second);
+        found |= std::string(first.CStr()) == second.CStr();
+      }
+      for (auto *child = node->FirstChildElement(); child;
+           child = child->NextSiblingElement())
+        self(self, child);
+    };
+    check(check, actual.RootElement());
+    assert(found);
+    auto merged = reimported;
+    mvr::MergeImportedSceneIntoCurrent(merged, retained);
+    assert(exporter.ExportCanonicalSnapshotToBuffer(merged, bytes));
   }
   MvrScene future;
   future.versionMinor = 7;

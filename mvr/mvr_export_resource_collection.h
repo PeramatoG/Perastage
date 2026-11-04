@@ -137,8 +137,6 @@ private:
   std::string NormalizeSourcePath(const std::string &rawPath) const;
   std::string ResolveExistingResourceSourcePath(
       const std::string &rawSource) const;
-  void RegisterModelDependencies(const std::string &resolvedModelSource,
-                                 const std::string &modelArchivePath);
 
   std::string m_sceneBasePath;
   std::filesystem::path m_fixtureFallbackGdtfPath;

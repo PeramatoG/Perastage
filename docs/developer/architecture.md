@@ -460,6 +460,14 @@ by Core and Models respectively, so the shared reader links their single
 production implementations without directly registering foreign module
 sources or creating a broad general-purpose Core library.
 
+The `mvr_source_structure_*` service retains immutable standard topology and
+source-only payloads beside editable scene values. Capture/validation, private
+geometry edit preparation, XML projection and merge reconciliation have separate
+units. They do not access the GUI, global project configuration or archive
+writers. The typed Symdef registry owns nested Symbol graphs. Model resource
+closure discovery is read-only; the existing resource collection owns packaging.
+See the [canonical MVR contract](technical-notes/canonical_mvr_contract.md#retained-standard-scene-structure).
+
 The shared read context returns neutral conflict and manually authored category
 facts, exact authored layer UUID membership for every parsed node, and each
 layer's direct authored child UUIDs. This preserves duplicate layer names and

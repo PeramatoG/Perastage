@@ -41,17 +41,18 @@ transforms and fixture Focus links through project save/reopen and MVR export.
 Standard Class definitions and Classing links on supported objects are retained
 across layers, project save/reopen, MVR export and merge, including unused classes.
 Class names are preserved; there are no class visibility controls yet.
-Direct MVR Symdef definitions retain their names, UUIDs and self-contained model
-resources, including unused definitions. Supported Truss Symbol instances keep
-shared definition references through save/reopen and merge. Nested Symbol graphs,
-other Symbol consumers and some geometry placements remain protected; see the
-coverage report for the exact supported subset.
-Some standard structures still cannot be preserved safely. When a known loss
-is detected, project save and MVR export stop; the existing destination file
-is kept. Read the export details or log for the affected object and field, and
-keep the original MVR for use in an application that preserves that information.
-There is no lossy-conversion override. An export that completes is not a
-guarantee that every possible MVR structure has been verified; see the
+MVR Symdef definitions and nested Symbol instances retain names, UUIDs, shared
+references and geometry placements, including unused definitions. VideoScreen
+and Projector data, file-based media, and children of parametric objects survive
+normal PSTG save/reopen and canonical MVR export even though they have no
+editor. Model textures and other relative dependencies travel with their model;
+the imported archive remains unchanged. Editing an instance's geometry keeps
+its original definition and gives the edited instance a separate definition.
+
+Missing essential resources, malformed data, ambiguous references and writing
+failures still produce specific errors and keep the previous destination. Read
+all affected objects/resources in the dialog's expandable details. Successful
+export does not certify every third-party extension; see the
 [data-integrity coverage report](../audits/mvr-1.6-data-integrity-and-roundtrip.md).
 
 Imported FixtureID, FixtureIDNumeric and UnitNumber values are retained on supported fixtures, trusses, supports and scene objects, including zero, duplicates and optional UnitNumber presence. Copying and merging do not implicitly renumber those labels. Values beyond the supported integer range stop project save and export; keep the source file. Explicit numbering edits remain possible.

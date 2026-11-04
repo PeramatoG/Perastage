@@ -17,6 +17,11 @@
  */
 #include "mvr_export_resource_collection.h"
 #include "mvr_model_dependencies.h"
+#include "mvr_model_resource_closure.h"
+#include "archive_entry_path.h"
+#include "file_import_utils.h"
+#include "uuidutils.h"
+#include <map>
 
 #include "filesystem_path_utils.h"
 #include "gdtf_filename_policy.h"
@@ -110,26 +115,6 @@ std::string EnsureUniqueArchivePath(const std::string &proposed,
   }
 }
 
-// Resolves a local model dependency, including the existing case-insensitive fallback.
-bool ResolveModelDependencyPath(const fs::path &modelPath,
-                                const std::string &reference, fs::path &resolved) {
-  const fs::path ref = PathUtils::PathFromUtf8(TrimAscii(reference));
-  if (ref.empty()) return false;
-  if (ref.is_absolute() && fs::exists(ref)) { resolved = ref; return true; }
-  const fs::path directory = modelPath.parent_path();
-  if (directory.empty()) return false;
-  const fs::path direct = directory / ref;
-  if (fs::exists(direct)) { resolved = direct; return true; }
-  std::error_code ec;
-  for (const auto &entry : fs::directory_iterator(directory, fs::directory_options::skip_permission_denied, ec)) {
-    if (ec) break;
-    if (entry.is_regular_file() && ToLowerAscii(entry.path().filename().string()) ==
-                                       ToLowerAscii(ref.filename().string())) {
-      resolved = entry.path(); return true;
-    }
-  }
-  return false;
-}
 
 } // namespace
 
@@ -302,57 +287,90 @@ std::string ResourceCollection::RegisterModelResource(const std::string &rawMode
                                                        const std::string &fallbackArchiveName) {
   const std::string resolved = ResolveExistingResourceSourcePath(rawModelSource);
   const std::string source = resolved.empty() ? rawModelSource : resolved;
-  const std::string archive = RegisterResource(source, SanitizeArchiveFileName(rawModelSource, fallbackArchiveName));
-  RegisterModelDependencies(resolved, archive);
-  return archive;
-}
-
-// Discovers and registers 3DS, glTF, and GLB external resource dependencies.
-void ResourceCollection::RegisterModelDependencies(const std::string &resolvedSource,
-                                                   const std::string &modelArchivePath) {
-  if (resolvedSource.empty() || modelArchivePath.empty()) return;
-  const fs::path modelPath = PathUtils::PathFromUtf8(resolvedSource);
-  const auto references = mvr::InspectModelDependencies(modelPath).references;
-  for (const std::string &reference : references) {
-    fs::path dependency;
-    if (!ResolveModelDependencyPath(modelPath, reference, dependency)) {
-      if (m_diagnosticSink) m_diagnosticSink({MvrExportDiagnosticCode::TextureMissing,
-        MvrExportDiagnosticSeverity::Warning, MvrExportDiagnosticImpact::DataOmitted,
-        true, "Model", {}, {}, fs::path(reference).filename().generic_string(),
-        "A required external model dependency could not be found: " + fs::path(reference).filename().generic_string()});
-      continue;
-    }
-    std::string normalized = TrimAscii(reference); std::replace(normalized.begin(), normalized.end(), '\\', '/');
-    const std::string archive = fs::path(normalized).filename().generic_string();
-    if (SanitizeArchiveFileName(archive, dependency.filename().generic_string()) != archive) {
-      m_dependencyRegistrationFailed = true;
-      if (m_diagnosticSink) m_diagnosticSink({MvrExportDiagnosticCode::StructuralValidationFailed,
-        MvrExportDiagnosticSeverity::Error, MvrExportDiagnosticImpact::ExportFailed,
-        true, "Model", {}, {}, archive,
-        "MVR export cannot preserve external model dependency URI '" + reference + "' as a root archive filename."});
-      continue;
-    }
-    const std::string identity = PathUtils::BuildFilesystemIdentityKey(dependency);
-    const auto collision = std::find_if(m_plan.entries.begin(), m_plan.entries.end(), [&](const ResourceEntry &entry) {
-      return ToLowerAscii(entry.archivePath) == ToLowerAscii(archive);
-    });
-    if (collision != m_plan.entries.end() &&
-        PathUtils::BuildFilesystemIdentityKey(collision->sourcePath) != identity) {
-      m_dependencyRegistrationFailed = true;
-      if (m_diagnosticSink) m_diagnosticSink({MvrExportDiagnosticCode::StructuralValidationFailed,
-        MvrExportDiagnosticSeverity::Error, MvrExportDiagnosticImpact::ExportFailed,
-        true, "Model", {}, {}, archive,
-        "MVR export found conflicting resources for required model dependency '" + archive + "'."});
-      continue;
-    }
-    if (collision == m_plan.entries.end()) {
-      m_reservedArchivePaths.insert(archive);
-      m_sourceToArchivePath.try_emplace(identity, archive);
-      m_plan.entries.push_back({dependency, archive, ResourceKind::ModelDependency,
-                                ResourceProvenance::StandardPreserved});
-    }
-    m_plan.modelDependenciesByArchivePath[modelArchivePath].insert(archive);
+  const auto inspected =
+      mvr::InspectModelDependencies(PathUtils::PathFromUtf8(source));
+  if (inspected.references.empty()) {
+    const std::string archive = RegisterResource(
+        source, SanitizeArchiveFileName(rawModelSource, fallbackArchiveName));
+    return archive;
   }
+  const auto closure = mvr::DiscoverModelResourceClosure(
+      PathUtils::PathFromUtf8(source),
+      PathUtils::PathFromUtf8(m_sceneBasePath));
+  if (!closure.error.empty()) {
+    m_dependencyRegistrationFailed = true;
+    if (m_diagnosticSink)
+      m_diagnosticSink(
+          {closure.missingResource
+               ? MvrExportDiagnosticCode::ResourceMissing
+               : MvrExportDiagnosticCode::StandardDataPreservationBlocked,
+           MvrExportDiagnosticSeverity::Error,
+           MvrExportDiagnosticImpact::ExportFailed,
+           true,
+           "Model",
+           {},
+           {},
+           rawModelSource,
+           closure.error});
+    return {};
+  }
+  const auto prefix =
+      mvr::ModelResourcePrefix(closure, [&](const std::string &candidate) {
+        for (const auto &file : closure.files) {
+          const auto name =
+              candidate + mvr::ModelResourceRelativeName(file, closure.root);
+          for (const auto &entry : m_plan.entries)
+            if (ToLowerAscii(entry.archivePath) == ToLowerAscii(name)) {
+              const auto first = FileImportUtils::ComputeFileSha256(
+                             entry.sourcePath),
+                         second = FileImportUtils::ComputeFileSha256(file);
+              if (!first || !second || first != second)
+                return false;
+            }
+        }
+        return true;
+      });
+  if (prefix.empty()) {
+    m_dependencyRegistrationFailed = true;
+    return {};
+  }
+  std::map<fs::path, std::string> archives;
+  for (const auto &file : closure.files) {
+    const auto archive =
+        prefix + mvr::ModelResourceRelativeName(file, closure.root);
+    if (perastage::archive::IsUnsafeNormalizedEntryPath(archive)) {
+      m_dependencyRegistrationFailed = true;
+      return {};
+    }
+    const auto identity = PathUtils::BuildFilesystemIdentityKey(file);
+    const auto found = std::find_if(
+        m_plan.entries.begin(), m_plan.entries.end(), [&](const auto &entry) {
+          return ToLowerAscii(entry.archivePath) == ToLowerAscii(archive);
+        });
+    if (found != m_plan.entries.end() &&
+        PathUtils::BuildFilesystemIdentityKey(found->sourcePath) != identity) {
+      const auto before = FileImportUtils::ComputeFileSha256(found->sourcePath),
+                 after = FileImportUtils::ComputeFileSha256(file);
+      if (!before || !after || before != after) {
+        m_dependencyRegistrationFailed = true;
+        return {};
+      }
+    }
+    if (found == m_plan.entries.end())
+      m_plan.entries.push_back({file, archive, ResourceKind::ModelDependency,
+                                ResourceProvenance::StandardPreserved});
+    m_reservedArchivePaths.insert(archive);
+    m_sourceToArchivePath.try_emplace(identity, archive);
+    archives[file] = archive;
+  }
+  for (const auto &[file, dependencies] : closure.dependencies)
+    for (const auto &dependency : dependencies)
+      m_plan.modelDependenciesByArchivePath[archives.at(file)].insert(
+          archives.at(dependency));
+  std::error_code error;
+  const auto primary =
+      fs::weakly_canonical(PathUtils::PathFromUtf8(source), error);
+  return error ? std::string() : archives.at(primary);
 }
 
 // Generates or reuses a deterministic primitive GLB resource.

@@ -246,8 +246,9 @@ int main() {
 
   const fs::path gltf = root / "model.gltf";
   WriteFile(root / "local.bin", "local");
-  WriteFile(gltf,
-            R"({"buffers":[{"uri":"local.bin"},{"uri":"data:abc"},{"uri":"http://example/a.bin"},{"uri":"https://example/b.bin"}]})");
+  WriteFile(
+      gltf,
+      R"({"asset":{"version":"2.0"},"buffers":[{"byteLength":5,"uri":"local.bin"},{"byteLength":1,"uri":"data:application/octet-stream;base64,AA=="}]})");
   const std::string gltfArchive =
       collection->RegisterModelResource(gltf.string(), "model.gltf");
   const fs::path glb = root / "model.glb";
@@ -261,13 +262,24 @@ int main() {
   const std::string threeDsArchive =
       collection->RegisterModelResource(model3ds.string(), "model.3ds");
   const fs::path missingGltf = root / "missing.gltf";
-  WriteFile(missingGltf, R"({"buffers":[{"uri":"missing.bin"}]})");
-  collection->RegisterModelResource(missingGltf.string(), "missing.gltf");
+  WriteFile(
+      missingGltf,
+      R"({"asset":{"version":"2.0"},"buffers":[{"byteLength":4,"uri":"missing.bin"}]})");
+  ResourceCollection failedCollection(
+      root.string(), {},
+      [&](MvrExportDiagnostic item) { diagnostics.push_back(std::move(item)); },
+      {});
+  Expect(failedCollection
+                 .RegisterModelResource(missingGltf.string(), "missing.gltf")
+                 .empty() &&
+             failedCollection.HasFatalDependencyError(),
+         "missing model dependency must be fatal", failures);
   Expect(std::any_of(diagnostics.begin(), diagnostics.end(),
                      [](const MvrExportDiagnostic &diagnostic) {
                        return diagnostic.code ==
-                                  MvrExportDiagnosticCode::TextureMissing &&
-                              diagnostic.resourceName == "missing.bin";
+                                  MvrExportDiagnosticCode::ResourceMissing &&
+                              diagnostic.technicalDetail.find("missing.bin") !=
+                                  std::string::npos;
                      }),
          "missing dependency diagnostic changed", failures);
 
@@ -285,19 +297,23 @@ int main() {
   ResourcePlan pruned = collection->Finalize(
       {first, gltfArchive, glbArchive, threeDsArchive, primitiveOne,
        gdtfArchive});
-  Expect(FindEntry(pruned, "local.bin") != nullptr,
+  Expect(FindEntry(pruned, (fs::path(gltfArchive).parent_path() / "local.bin")
+                               .generic_string()) != nullptr,
          "referenced glTF dependency was pruned", failures);
-  Expect(FindEntry(pruned, "glb.bin") != nullptr,
+  Expect(FindEntry(pruned, (fs::path(glbArchive).parent_path() / "glb.bin")
+                               .generic_string()) != nullptr,
          "referenced GLB dependency was pruned", failures);
-  Expect(FindEntry(pruned, "texture.png") != nullptr,
-         "referenced 3DS dependency was pruned", failures);
+  Expect(
+      FindEntry(pruned, (fs::path(threeDsArchive).parent_path() / "texture.png")
+                            .generic_string()) != nullptr,
+      "referenced 3DS dependency was pruned", failures);
   Expect(FindEntry(pruned, "missing.gltf") == nullptr,
          "unreferenced model was retained", failures);
   Expect(!logs.empty() &&
              logs.back() ==
                  "MVR export resource pruning summary: referenced_paths=9, "
-                 "planned_resources_before=11, planned_resources_after=9, "
-                 "pruned=2",
+                 "planned_resources_before=10, planned_resources_after=9, "
+                 "pruned=1",
          "pruning summary text or count changed", failures);
   const ResourceEntry *preservedEntry = FindEntry(pruned, first);
   const ResourceEntry *primitiveEntry = FindEntry(pruned, primitiveOne);

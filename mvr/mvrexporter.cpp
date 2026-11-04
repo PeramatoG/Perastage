@@ -18,6 +18,8 @@
 #include "mvr_identifier_preservation.h"
 #include "mvrexporter.h"
 #include "mvr_standard_field_projection.h"
+#include "mvr_source_structure_service.h"
+#include "archive_entry_path.h"
 #include "mvr_fixture_addresses.h"
 #include "mvr_truss_address_preservation.h"
 #include "app_version.h"
@@ -430,7 +432,7 @@ ToRepresentationText(Truss::GeometryRepresentation representation) {
   }
 }
 
-// Returns true when a value is a root-level MVR FileName reference.
+// Accepts portable ZIP-relative resource names, including owned model trees.
 static bool IsValidMvrFileName(const std::string &value) {
   if (value.empty())
     return false;
@@ -440,7 +442,7 @@ static bool IsValidMvrFileName(const std::string &value) {
     if (c < 32)
       return false;
   }
-  return value.find('/') == std::string::npos &&
+  return !perastage::archive::IsUnsafeNormalizedEntryPath(value) &&
          value.find('\\') == std::string::npos &&
          value.find(':') == std::string::npos &&
          value.find('*') == std::string::npos &&
@@ -643,7 +645,14 @@ static bool ValidateMvr16Export(
       }
 
       if (std::string(cur->Name()) == "Truss") {
-        if (!validateChildOrder(cur, {"Matrix", "Classing", "Position", "Geometries", "Function", "GDTFSpec", "GDTFMode", "CastShadow", "Addresses", "Alignments", "CustomCommands", "Overwrites", "Connections", "ChildPosition", "ChildList", "FixtureID", "FixtureIDNumeric", "UnitNumber", "CustomIdType", "CustomId"}))
+        if (!validateChildOrder(
+                cur, {"Matrix",      "Classing",         "Position",
+                      "Geometries",  "Function",         "GDTFSpec",
+                      "GDTFMode",    "CastShadow",       "Addresses",
+                      "Alignments",  "CustomCommands",   "Overwrites",
+                      "Connections", "ChildPosition",    "ChildList",
+                      "FixtureID",   "FixtureIDNumeric", "FixtureTypeId",
+                      "UnitNumber",  "CustomIdType",     "CustomId"}))
           return false;
         const std::string trussUuid =
             TrimAscii(cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
@@ -663,7 +672,16 @@ static bool ValidateMvr16Export(
       }
 
       if (std::string(cur->Name()) == "Fixture") {
-        if (!validateChildOrder(cur, {"Matrix", "Classing", "GDTFSpec", "GDTFMode", "Focus", "CastShadow", "DMXInvertPan", "DMXInvertTilt", "Position", "Function", "FixtureID", "FixtureIDNumeric", "UnitNumber", "ChildPosition", "Addresses", "Protocols", "Alignments", "CustomCommands", "Overwrites", "Connections", "Color", "CustomIdType", "CustomId", "Mappings", "Gobo", "ChildList"}))
+        if (!validateChildOrder(
+                cur, {"Matrix",         "Classing",      "GDTFSpec",
+                      "GDTFMode",       "Focus",         "CastShadow",
+                      "DMXInvertPan",   "DMXInvertTilt", "Position",
+                      "Function",       "FixtureID",     "FixtureIDNumeric",
+                      "FixtureTypeId",  "UnitNumber",    "ChildPosition",
+                      "Addresses",      "Protocols",     "Alignments",
+                      "CustomCommands", "Overwrites",    "Connections",
+                      "Color",          "CustomIdType",  "CustomId",
+                      "Mappings",       "Gobo",          "ChildList"}))
           return false;
         if (cur->FirstChildElement("UserData")) {
           wxLogError("MVR export validation failed: Fixture uuid '%s' contains "
@@ -693,7 +711,12 @@ static bool ValidateMvr16Export(
       }
 
       if (std::string(cur->Name()) == "SceneObject") {
-        if (!validateChildOrder(cur, {"Matrix", "Classing", "Geometries", "GDTFSpec", "GDTFMode", "CastShadow", "Addresses", "Alignments", "CustomCommands", "Overwrites", "Connections", "FixtureID", "FixtureIDNumeric", "UnitNumber", "CustomId", "CustomIdType", "ChildList"}))
+        if (!validateChildOrder(
+                cur, {"Matrix", "Classing", "Geometries", "GDTFSpec",
+                      "GDTFMode", "CastShadow", "Addresses", "Alignments",
+                      "CustomCommands", "Overwrites", "Connections",
+                      "FixtureID", "FixtureIDNumeric", "FixtureTypeId",
+                      "UnitNumber", "CustomId", "CustomIdType", "ChildList"}))
           return false;
         if (cur->FirstChildElement("UserData")) {
           wxLogError("MVR export validation failed: SceneObject uuid '%s' "
@@ -780,7 +803,9 @@ static bool ValidateMvr16Export(
     tinyxml2::XMLElement *cur = stack.back();
     stack.pop_back();
 
-    if (std::string(cur->Name()) == "GDTFSpec") {
+    if (std::string(cur->Name()) == "GDTFSpec" ||
+        (std::string(cur->Name()) == "Source" && cur->Attribute("type") &&
+         std::string(cur->Attribute("type")) == "File")) {
       const char *txt = cur->GetText();
       if (txt)
         referencedFiles.emplace_back(txt);
@@ -815,7 +840,9 @@ static bool ValidateMvr16Export(
             isMultipatchChild =
                 std::string(mp) == "true" || std::string(mp) == "1";
           if (!isMultipatchChild) {
-            if (!mvr_identifiers::ValidateElement(*cur, false)) {
+            if (std::string(cur->Name()) != "VideoScreen" &&
+                std::string(cur->Name()) != "Projector" &&
+                !mvr_identifiers::ValidateElement(*cur, false)) {
               wxLogError("MVR export validation failed: invalid %s identifiers", tagName);
               return false;
             }
@@ -854,7 +881,14 @@ static bool ValidateMvr16Export(
           }
 
           if (std::string(tagName) == "Support") {
-            if (!validateChildOrder(cur, {"Matrix", "Classing", "Position", "Geometries", "Function", "ChainLength", "GDTFSpec", "GDTFMode", "CastShadow", "Addresses", "Alignments", "CustomCommands", "Overwrites", "Connections", "FixtureID", "FixtureIDNumeric", "UnitNumber", "CustomIdType", "CustomId", "ChildList"}))
+            if (!validateChildOrder(
+                    cur, {"Matrix",           "Classing",      "Position",
+                          "Geometries",       "Function",      "ChainLength",
+                          "GDTFSpec",         "GDTFMode",      "CastShadow",
+                          "Addresses",        "Alignments",    "CustomCommands",
+                          "Overwrites",       "Connections",   "FixtureID",
+                          "FixtureIDNumeric", "FixtureTypeId", "UnitNumber",
+                          "CustomIdType",     "CustomId",      "ChildList"}))
               return false;
             if (!cur->FirstChildElement("Geometries")) {
               wxLogError("MVR export validation failed: Support uuid '%s' has "
@@ -1513,6 +1547,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     mvr_xml_serialization::SymdefValues values;
     values.uuid = uuid;
     values.name = definition.name;
+    values.symbols = definition.symbols;
     for (const auto &geometry : definition.geometries)
       values.geometries.push_back({registerModelResource(geometry.file, "symbol.3ds"), geometry.transform});
     mvr_xml_serialization::AppendSymdef(doc, aux, values);
@@ -1937,7 +1972,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
         if (flattenSymbol) {
           std::vector<SymdefGeometry> geometries;
           const auto definition = scene.symdefs.find(t.sourceSymdefUuid);
-          if (definition != scene.symdefs.end()) geometries = definition->second.geometries;
+          if (definition != scene.symdefs.end())
+            geometries = mvr::ExpandSymdefGeometry(scene, t.sourceSymdefUuid);
           for (const SymdefGeometry &geometry : geometries) {
             if (geometry.file.empty())
               continue;
@@ -2239,7 +2275,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       return false;
     }
 
-    if (values.geometries.empty() && !values.isFocusPoint) {
+    if (values.geometries.empty() && !values.isFocusPoint &&
+        !mvr::SourceOwnsGeometry(scene, obj.uuid)) {
       const auto placeholder =
           resolvePlaceholderCubeGeometry(obj.uuid, "SceneObject");
       if (!placeholder) {
@@ -2398,11 +2435,47 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   }
 
   sceneNode->InsertEndChild(layersNode);
-  const auto sourceProjection = mvr::ProjectStandardSourceFields(doc, scene,
+  mvr::WriteCanonicalMatrices(*sceneNode, scene);
+  const auto structureProjection = mvr::ProjectSourceStructure(
+      doc, scene,
+      [&](const std::string &owner, const std::string &source,
+          mvr::SourceResourceKind kind) {
+        std::error_code resourceError;
+        auto existing = PathUtils::PathFromUtf8(source);
+        if (existing.is_relative())
+          existing = PathUtils::PathFromUtf8(scene.basePath) / existing;
+        if (!fs::is_regular_file(existing, resourceError))
+          return std::string{};
+        const auto exactSource = PathUtils::PathToUtf8(existing);
+        if (kind == mvr::SourceResourceKind::Gdtf)
+          return registerGdtfResource(owner, exactSource, source, true, false,
+                                      false);
+        if (kind == mvr::SourceResourceKind::Model)
+          return registerModelResource(exactSource, source);
+        return resourceCollection.RegisterResource(
+            exactSource, source,
+            mvr_export_resources::ResourceKind::ModelDependency);
+      },
+      options);
+  for (const auto &diagnostic : structureProjection.diagnostics)
+    AddDiagnostic(diagnostic);
+  if (!structureProjection.diagnostics.empty())
+    return false;
+  const auto sourceProjection = mvr::ProjectStandardSourceFields(
+      doc, scene,
       [&](const std::string &owner, const std::string &source, bool gdtf) {
-        return gdtf ? registerGdtfResource(owner, source, source, true, false, false)
-                    : resourceCollection.RegisterResource(source, source,
-                        mvr_export_resources::ResourceKind::ModelDependency);
+        std::error_code resourceError;
+        auto existing = PathUtils::PathFromUtf8(source);
+        if (existing.is_relative())
+          existing = PathUtils::PathFromUtf8(scene.basePath) / existing;
+        if (!fs::is_regular_file(existing, resourceError))
+          return std::string{};
+        const auto exactSource = PathUtils::PathToUtf8(existing);
+        return gdtf ? registerGdtfResource(owner, exactSource, source, true,
+                                           false, false)
+                    : resourceCollection.RegisterResource(
+                          exactSource, source,
+                          mvr_export_resources::ResourceKind::ModelDependency);
       });
   for (const auto &diagnostic : sourceProjection.diagnostics) AddDiagnostic(diagnostic);
   if (!sourceProjection.diagnostics.empty()) return false;
@@ -2419,6 +2492,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   std::unordered_set<std::string> referencedArchivePaths =
       CollectReferencedArchivePaths(doc);
   referencedArchivePaths.insert(sourceProjection.resources.begin(), sourceProjection.resources.end());
+  referencedArchivePaths.insert(structureProjection.resources.begin(),
+                                structureProjection.resources.end());
   std::ostringstream fixtureGdtfExportDiagnostics;
   fixtureGdtfExportDiagnostics
       << "MVR export fixture GDTF diagnostics: real="
@@ -2462,7 +2537,6 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       });
   for (const auto &diagnostic : trussBindingDiagnostics) AddDiagnostic(diagnostic);
   if (!trussBindingDiagnostics.empty()) return false;
-  mvr::WriteCanonicalMatrices(*sceneNode, scene);
   const auto addressProjection = mvr::CheckFixtureAddressProjection(*doc.RootElement(), scene);
   for (const auto &diagnostic : addressProjection) AddDiagnostic(diagnostic);
   if (!addressProjection.empty()) return false;

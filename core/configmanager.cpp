@@ -624,9 +624,12 @@ bool ConfigManager::SaveProject(const std::string &path) {
           lastProjectSaveFailure = {ProjectSaveFailureKind::Serialization, "SerializeScene",
                                     "Canonical MVR scene serialization failed.", {}};
           std::string findings;
+          std::string firstAffectedEntry;
           auto failureKind = ProjectSaveFailureKind::MvrPreservation;
           for (const auto &diagnostic : exporter.GetExportDiagnostics()) {
             if (diagnostic.severity != MvrExportDiagnosticSeverity::Error) continue;
+            if (firstAffectedEntry.empty())
+              firstAffectedEntry = diagnostic.resourceName;
             auto kind = ProjectSaveFailureKind::Serialization;
             if (diagnostic.code == MvrExportDiagnosticCode::StandardDataPreservationBlocked)
               kind = ProjectSaveFailureKind::MvrPreservation;
@@ -640,7 +643,9 @@ bool ConfigManager::SaveProject(const std::string &path) {
             findings += "Type: " + diagnostic.objectType + "\nUUID: " + diagnostic.objectIdentity +
                 "\nField/resource: " + diagnostic.resourceName + "\n" + diagnostic.technicalDetail + "\n\n";
           }
-          if (!findings.empty()) lastProjectSaveFailure = {failureKind, "SerializeScene", findings, {}};
+          if (!findings.empty())
+            lastProjectSaveFailure = {failureKind, "SerializeScene", findings,
+                                      firstAffectedEntry};
         }
         return exported;
       },

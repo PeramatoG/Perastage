@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvr_merge_analyzer.h"
+#include "mvr_source_structure_service.h"
 
 #include "file_import_utils.h"
 #include "fixture_patch_address.h"
@@ -27,6 +28,7 @@
 #include <cctype>
 #include <filesystem>
 #include <optional>
+#include <set>
 #include <string_view>
 #include <vector>
 
@@ -137,6 +139,11 @@ std::unordered_set<std::string> CollectUsedUuids(const MvrScene &scene) {
   addKeys(scene.positions);
   addKeys(scene.classes);
   addKeys(scene.symdefs);
+  for (const auto &uuid : SourceStructureIdentities(scene))
+    used.insert(uuid);
+  for (const auto &[id, definition] : scene.symdefs)
+    for (const auto &symbol : definition.symbols)
+      used.insert(symbol.uuid);
   for (const auto &[uuid, truss] : scene.trusses)
     if (!truss.sourceSymbolUuid.empty()) used.insert(truss.sourceSymbolUuid);
   const auto addSymbols = [&](const auto &objects) {
@@ -218,7 +225,11 @@ bool SymdefDefinitionsEqual(const MvrScene &target, const MvrScene &imported,
   const auto &left = target.symdefs.at(uuid);
   const auto &right = imported.symdefs.at(uuid);
   if (left.name.value_or("") != right.name.value_or("") ||
-      left.geometries.size() != right.geometries.size()) return false;
+      left.geometries.size() != right.geometries.size() ||
+      left.symbols.size() != right.symbols.size())
+    return false;
+  if (!left.symbols.empty())
+    return false; // Sharing nested graphs requires complete graph equivalence.
   const auto hash = [&](const MvrScene &scene, const std::string &file) {
     const auto path = ResolveSymdefResource(scene, file);
     const auto key = path.lexically_normal().string();
@@ -538,6 +549,20 @@ MvrMergeAnalysis AnalyzeImportedSceneMerge(const MvrScene &target,
       (void)ResolveImportedUuid(symbol, "symbols", usedUuids, analysis, preserveInstances);
     }
   }
+  std::set<std::string> retainedInstances;
+  for (const auto &id : SourceStructureIdentities(imported))
+    if (!analysis.uuidMap.contains(id) && !imported.layers.contains(id) &&
+        !imported.classes.contains(id) && !imported.symdefs.contains(id) &&
+        !imported.positions.contains(id))
+      retainedInstances.insert(id);
+  for (const auto &[id, definition] : imported.symdefs)
+    for (const auto &symbol : definition.symbols)
+      retainedInstances.insert(symbol.uuid);
+  MvrMergeOptions preserveRetainedInstances;
+  for (const auto &id : retainedInstances)
+    if (!analysis.uuidMap.contains(id))
+      (void)ResolveImportedUuid(id, "retained scene instances", usedUuids,
+                                analysis, preserveRetainedInstances, true);
   AnalyzePatchAddressWarnings(target, imported, analysis);
 
   for (const auto &[oldUuid, newUuid] : analysis.uuidMap) {

@@ -16,9 +16,17 @@ add_library(perastage_mvr_read STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_symdef_reader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_symdef_preservation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_model_dependencies.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_model_resource_closure.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_model_resource_closure.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_identifier_preservation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_class_preservation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_standard_preservation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_structure_service.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_structure_internal.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_structure_capture.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_structure_projection.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_structure_merge.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_structure_edits.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_standard_field_projection.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_standard_field_projection.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_truss_address_preservation.cpp

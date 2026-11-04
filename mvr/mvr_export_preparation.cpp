@@ -21,6 +21,7 @@
 
 #include "mvr_identity_recovery.h"
 #include "mvr_standard_preservation.h"
+#include "mvr_source_structure_service.h"
 #include "scene_transform_integrity.h"
 #include "uuidutils.h"
 
@@ -393,7 +394,8 @@ Result Prepare(const MvrScene &sourceScene, const MvrExportOptions &options) {
   (void)options;
   Result result;
   result.scene = sourceScene;
-  result.diagnostics = mvr::CheckStandardPreservation(sourceScene);
+  mvr::PrepareSourceStructureEdits(result.scene);
+  result.diagnostics = mvr::CheckStandardPreservation(result.scene);
   if (!result.diagnostics.empty())
     return result;
   const auto recovery =

@@ -28,6 +28,7 @@
 #include "groupobject.h"
 #include "support.h"
 #include "layer.h"
+#include "mvr_source_structure.h"
 
 struct SymdefGeometry {
     std::string file;
@@ -35,10 +36,17 @@ struct SymdefGeometry {
     std::optional<MvrMatrixSource> matrixSource;
 };
 
-// Canonical direct-geometry Symdef. Nested Symbol graphs remain protected.
+struct MvrSymbolInstance {
+  std::string uuid, symdef;
+  Matrix transform;
+  std::optional<MvrMatrixSource> matrixSource;
+};
+// Standard definition geometry and nested instances retain separate identities.
 struct SymdefDefinition {
     std::optional<std::string> name;
     std::vector<SymdefGeometry> geometries;
+    std::vector<MvrSymbolInstance> symbols;
+    bool sourceComplete = true;
 };
 
 // Stores one validated foreign root UserData/Data subtree for opaque passthrough.
@@ -53,7 +61,8 @@ struct MvrOpaqueUserDataBlock {
 enum class MvrPreservationIssueKind { StandardData, ResourceFailure };
 
 // Durable evidence of source information the current serializer cannot retain.
-// Evidence is diagnostic data, never an XML fragment to insert into output.
+// Only owning validators may project known standard fields; opaque evidence is
+// never inserted without validation and reconciliation.
 struct MvrPreservationIssue {
     std::string node;
     std::string objectUuid;
@@ -83,6 +92,7 @@ public:
     std::vector<std::shared_ptr<void>> runtimeResourceLeases;
     std::vector<MvrOpaqueUserDataBlock> opaqueUserDataBlocks;
     std::vector<MvrPreservationIssue> preservationIssues;
+    std::vector<std::shared_ptr<const MvrSourceStructure>> sourceStructures;
 
     std::unordered_map<std::string, Fixture> fixtures;
     std::unordered_map<std::string, Truss> trusses;

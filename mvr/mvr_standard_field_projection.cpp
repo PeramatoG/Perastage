@@ -123,6 +123,11 @@ StandardFieldProjectionResult ProjectStandardSourceFields(
     bool resourcesValid = true;
     while (!pending.empty()) {
       auto *node = pending.back(); pending.pop_back();
+      for (const char *attribute :
+           {"uuid", "symdef", "toObject", "linkedDef", "multipatch"})
+        if (const char *value = node->Attribute(attribute))
+          if (auto id = CanonicalizeUuid(value); !id.empty())
+            node->SetAttribute(attribute, id.c_str());
       const std::string name = node->Name();
       const auto transfer = [&](const std::string &raw, bool gdtf, const char *attribute) {
         if (perastage::archive::IsUnsafeNormalizedEntryPath(raw) || raw.find('\\') != std::string::npos) {
