@@ -197,14 +197,45 @@ scene. Import repair changes state at an explicit command boundary; canonical
 export only derives a private snapshot; compatibility export is a named alternate
 operation. None may consume future repair preferences implicitly.
 
-UUID spelling/unique-alias recovery on a private export snapshot remains
-available and diagnosed. An ambiguous alias reported by identity recovery now
-returns IdentityConflict / Error / ExportFailed before transform preparation or
-serialization. No guessed or cleared reference is published. The lower-level
-recovery utility still exposes its historical recovery result and is not itself
-a general validation API. Generic source UUID/reference coverage, Position
-recovery and opaque provider references remain P0; this gate is not proof of
-complete reference preservation.
+Canonicalization operates on a private export snapshot. Recoverable import
+anomalies must be repaired or projected with precise warnings rather than
+turning semantic preservation checks into a general save veto. The implemented
+rules are deliberately narrow:
+
+| Input | Canonical action | Diagnostic |
+| --- | --- | --- |
+| Repeated modeled source UUID on import | Apply the existing occurrence-level resolver result to typed objects and retained XML before Classing/topology capture | Import log records occurrence, old/new UUID and placement |
+| Earlier-session repeated SceneObject source owners | Reconcile with actual imported identities using the existing resolver or unique retained local-matrix provenance | Warning / IdentityChanged; resources and Class targets unchanged |
+| Absent or XML-whitespace-only optional GDTF pair | Omit the empty optional pair | Equivalent normalization |
+| Incomplete substantive Truss/Support optional binding | Omit the binding and dependent Network assignments, retaining DMX Address entries, geometry and other object data | Warning / DataOmitted with values and owner/field |
+| Complete substantive optional binding | Preserve authored Spec/Mode and resource relationships | Existing resource/reference validation |
+| Archive/serialization/publication failure | Fail truthfully; retain previous destination and dirty state | Error |
+
+The official [1.5 text](https://github.com/mvrdevelopment/spec/blob/1ea072e8581f82f78a2e18ca429d893a10ea7afd/mvr-spec.md#node-definition-truss)
+lists Truss GDTFSpec as optional and GDTFMode as required; the
+[1.6 Table 28](https://github.com/mvrdevelopment/spec/blob/098d3791f77f0895bd859adf01864b4826e2006f/mvr-spec.md#table-28--truss-node-childs)
+makes both optional, with Mode mandatory when a substantive Spec is defined.
+The reader accepts older empty pairs permissively and emits the supported 1.6
+representation; the input fixtures are checked against the pinned 1.6 XSD, not
+claimed to satisfy a separate historical 1.5 schema.
+
+No GDTF mode, definition, reference target or geometry is invented by these
+rules. Newly imported topology uses the same per-XML-node identity decisions
+as the typed reader. Earlier-session recovery never allocates another editable
+identity and never rewrites model filenames based on UUID substrings. The
+imported archive remains byte-identical. Export warnings use the existing
+structured diagnostic/log and MVR result dialog; no ignore-preservation option
+or alternate PSTG scene serializer is added.
+
+**Remaining acceptance gap:** this is not yet a general best-effort projection
+for every reasonably parseable source. Unresolved/ambiguous external references,
+unrepresentable native identifiers, unavailable resources and malformed retained
+payloads still have strict gates without a complete omission/reconciliation rule.
+The higher-level exporter still refuses ambiguous identity recovery rather than
+selecting an arbitrary target. These recoverable cases need focused projection
+rules and real output tests before claiming the nonblocking product policy is
+fully implemented. Do not merge on the strength of the duplicate-ID/empty-pair
+regression alone.
 
 Valid source-only fields of Fixture, Truss, Support and SceneObject have a
 focused export projection: the retained XML is validated against its existing
@@ -255,8 +286,7 @@ package root. No resource bytes are executed and no official schema is changed.
 
 Normal PSTG save, standalone canonical export and MVR-xchange all use these
 same owners. Valid retained structures no longer require a warning/consent
-loop merely because they have no editor. Missing essential bytes, invalid
-identities/references, malformed structures and archive IO failures remain
-specific failures, never a successful truncated archive. Coverage remains
+loop merely because they have no editor. The remaining strict gates above and archive IO failures remain specific
+failures, never a successful corrupt or unwritten archive. Coverage remains
 bounded by the pinned standard and the regression fixtures; arbitrary provider
 extensions and every possible third-party package are not certified.

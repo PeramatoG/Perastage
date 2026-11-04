@@ -208,7 +208,7 @@ platform validation/review is pending; do not merge automatically. Neither
 these tests nor the source-preservation service certify arbitrary future MVR
 versions, provider extensions or unavailable external resources.
 
-## Recoverable MVR 1.5 anomaly characterization
+## Recoverable MVR 1.5 anomalies: baseline and correction
 
 At `fdd8df84`, a synthetic 1.5 package with three repeated-UUID SceneObjects,
 distinct placements, one shared GLB, a valid Class target and two empty Truss
@@ -219,7 +219,51 @@ identity; structural projection does not reconcile it. Preflight reports
 mode errors. PSTG save and standalone canonical export both fail; prior target
 and imported source bytes remain intact.
 
-`MvrImportAnomalyCharacterization` intentionally verifies this failing baseline;
-a passing characterization is **not** a passing product acceptance gate. No
-production canonicalization policy is changed by this test. The private source
-archive was unavailable and has not been tested or copied into this repository.
+The positive regression is now `MvrImportAnomalyRoundtrip`. Import caches the
+existing resolver result per XML node and applies it to the private XML working
+copy before Classing and source topology are captured. This removes the two
+inconsistent identity views. `mvr_source_recovery.cpp` also reconciles retained
+metadata from an earlier imported session on an export-only clone. Its fallback
+requires a unique actual object with matching layer/local numeric provenance;
+it never allocates a second editable identity or rewrites a model filename.
+The scanner now distinguishes substantive GDTFSpec from empty XML whitespace.
+
+The native-reader/writer regression and seven variants cover absent, empty,
+whitespace-only, valid, missing-mode and empty-mode bindings, dependent Network
+assignments and 1.6 input. They edit a Fixture, move one formerly duplicated
+object and edit Layout text; save/reopen/save succeeds. Every ordered embedded
+scene.mvr entry/payload matches standalone canonical output. Three objects and
+Class targets survive, the one GLB keeps its exact bytes and original basename
+(which deliberately contains the old UUID), output identities are unique, and
+the imported ZIP remains unchanged. The standard scene is independently
+validated against the pinned official 1.6 XSD using the same documented root
+UserData qualification as the earlier tests. The earlier-session test verifies
+exactly two owner identity warnings and no live-provenance mutation. Missing
+optional modes produce precise DataOmitted warnings; dependent Network values
+are disclosed while DMX addresses remain. Complete authored bindings survive.
+
+Reproduction commands (Linux Debug):
+
+```sh
+cmake --build build/wsl-x64-debug --target project_preserved_fields_roundtrip_test mvr_standard_preservation_test mvr_export_preparation_test -j4
+ctest --test-dir build/wsl-x64-debug -R '^(MvrImportAnomaly.*|MvrStandardPreservation|MvrExportPreparation)$' --output-on-failure -j2
+```
+
+Result: **10/10 passed**, including eight native archive round trips. The
+combined focused regression selection subsequently passed **87/87** under Xvfb,
+including Legend vector/raster parity, source/Symdef/Class/Focus, numeric and
+DMX preservation, MVR-xchange, project IO and save UI. The Debug application
+and `perastage_check_translations` build successfully; mandatory guards and
+generated-document drift checks pass. This fixes
+the synthetic reproduction of the reported duplicate-owner/empty-binding
+blockers; it does not prove the unavailable private package passes. No private
+source archive, filename or object name is present in these fixtures/docs.
+
+**Merge gate remains open:** the broader nonblocking policy still needs
+best-effort rules for unavailable resources, ambiguous external relationships,
+unrepresentable native scalars and malformed retained fields. These strict
+gates are not silently relabeled as warnings. Do not call the general product
+acceptance gate complete or merge automatically. Windows/macOS native and
+interactive visual validation remain pending. The preceding CI revision passed
+Linux, failed Windows CTest and had a cancelled macOS job; no hosted validation
+of this recovery patch is claimed.

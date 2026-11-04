@@ -21,6 +21,9 @@ add_library(perastage_mvr_read STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_identifier_preservation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_class_preservation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_standard_preservation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_binding_content.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_recovery.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_recovery.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_structure_service.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_structure_internal.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_structure_capture.cpp

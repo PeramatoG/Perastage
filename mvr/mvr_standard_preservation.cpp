@@ -1,4 +1,5 @@
 #include "mvr_identifier_preservation.h"
+#include "mvr_binding_content.h"
 #include "mvr_standard_preservation.h"
 #include "mvr_standard_field_projection.h"
 #include "mvr_source_structure_service.h"
@@ -71,7 +72,9 @@ void Scan(tinyxml2::XMLElement &element, MvrScene &scene,
   if (const char *uuid = element.Attribute("uuid")) owner = uuid;
   if (name == "Fixture" || name == "Support" || name == "Truss") ScanFixtureAddresses(element, scene);
   if (name == "Truss" && element.FirstChildElement("GDTFSpec") &&
-      (!element.FirstChildElement("GDTFMode") || !element.FirstChildElement("GDTFMode")->GetText()))
+      HasBindingContent(element.FirstChildElement("GDTFSpec")->GetText()) &&
+      (!element.FirstChildElement("GDTFMode") ||
+       !HasBindingContent(element.FirstChildElement("GDTFMode")->GetText())))
     Record(scene, element, owner, location + "/GDTFMode", "MVR 1.6 Table 28 requires an authored mode with GDTFSpec.");
   if (name == "Layer") {
     const auto source = ReadMatrixSource(element, scene);
@@ -133,6 +136,14 @@ void Scan(tinyxml2::XMLElement &element, MvrScene &scene,
     const std::string childLocation = location + "/" + childName;
     const auto rule = unsupportedChildren.find(name);
     if (rule != unsupportedChildren.end() && rule->second.contains(childName)) {
+      if ((childName == "GDTFSpec" || childName == "GDTFMode") &&
+          name != "Fixture") {
+        const auto *spec = element.FirstChildElement("GDTFSpec");
+        const auto *mode = element.FirstChildElement("GDTFMode");
+        if ((!spec || IsEmptyAssignment(*spec)) &&
+            (!mode || IsEmptyAssignment(*mode)))
+          continue;
+      }
       static const Names emptyContainers = {"Alignments", "Protocols", "CustomCommands",
           "Overwrites", "Connections", "Mappings", "Addresses"};
       if (emptyContainers.contains(childName) && IsEmptyAssignment(*child) &&

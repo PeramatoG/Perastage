@@ -260,10 +260,47 @@ void TestIdentityRepairScope() {
   assert(scene.fixtures.at(fixture.uuid).parentGroupUuid == group.uuid);
 }
 
+// Optional bindings with no usable pair are omitted only on the export copy.
+void TestIncompleteOptionalBindings() {
+  MvrScene scene;
+  Support support;
+  support.uuid = "34343434-3434-4434-8434-343434343434";
+  support.gdtfSpec = "authored.gdtf";
+  support.dmxAddresses.emplace();
+  support.dmxAddresses->entries.push_back({{}, "513"});
+  FixtureNetworkAssignment network;
+  network.geometry = "port";
+  network.ipv4 = "192.0.2.1";
+  support.dmxAddresses->networks.push_back(network);
+  scene.supports.emplace(support.uuid, support);
+  auto prepared =
+      mvr_export_preparation::Prepare(scene, CanonicalMvrExportOptions());
+  assert(prepared.success);
+  const auto &output = prepared.scene.supports.at(support.uuid);
+  assert(output.gdtfSpec.empty() && output.gdtfMode.empty());
+  assert(output.dmxAddresses->entries == support.dmxAddresses->entries);
+  assert(output.dmxAddresses->networks.empty());
+  assert(scene.supports.at(support.uuid).gdtfSpec == "authored.gdtf");
+  assert(scene.supports.at(support.uuid).dmxAddresses->networks.size() == 1);
+  int omissions = 0;
+  for (const auto &finding : prepared.diagnostics)
+    if (finding.impact == MvrExportDiagnosticImpact::DataOmitted) {
+      ++omissions;
+      assert(finding.severity == MvrExportDiagnosticSeverity::Warning);
+      assert(finding.objectType == "Support" &&
+             finding.objectIdentity == support.uuid);
+      assert(finding.technicalDetail.find(omissions == 1 ? "authored.gdtf"
+                                                         : "192.0.2.1") !=
+             std::string::npos);
+    }
+  assert(omissions == 2);
+}
+
 } // namespace
 
 // Runs focused MVR export preparation characterization.
 int main() {
+  TestIncompleteOptionalBindings();
   TestPreparedValuesAndSourceImmutability();
   TestPositionPreparation();
   TestFatalTransformPreparation();

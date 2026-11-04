@@ -30,6 +30,8 @@ Maintenance rules for Codex and contributors:
 
 ## MVR / GDTF
 
+- Repair repeated imported object identities consistently across editable objects and retained source structure, preserving placements, Class assignments and shared model bytes through project save/reopen and canonical MVR export. Empty optional GDTF fields no longer block saving; incomplete optional Truss/Support bindings are omitted with specific warnings.
+
 - Project saving and canonical MVR export now retain validated source-only fixture fields such as shadow settings and custom commands. Failed saves keep the previous file and session path, with complete diagnostic details available in the error dialog.
 
 - The GDTF download window now stays open after a completed MVR import queue until acknowledged. A preference can restore automatic closing.

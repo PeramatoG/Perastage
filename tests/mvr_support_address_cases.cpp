@@ -187,7 +187,8 @@ void RunSupportAddressCases(const fs::path &dir, const FixtureNetworkTestService
   assert(std::any_of(modeDiagnostics.begin(), modeDiagnostics.end(), [](const auto &diagnostic) {
     return diagnostic.technicalDetail.find("explicit mode") != std::string::npos;
   }));
-  // Missing definitions and modes cannot be replaced or dropped even without Network.
+  // Incomplete optional bindings are omitted on the export copy; unavailable
+  // complete bindings still require a resource recovery rule.
   auto bindingScene = services.import(dir / "support-single-source.mvr");
   config.Reset(); config.GetScene() = bindingScene;
   const auto bindingProject = dir / "support-binding-retained.pstg";
@@ -198,6 +199,22 @@ void RunSupportAddressCases(const fs::path &dir, const FixtureNetworkTestService
     if (kind == 0) support.gdtfSpec = "missing.gdtf";
     if (kind == 1) support.gdtfMode.clear();
     if (kind == 2) support.gdtfSpec.clear();
+    if (kind == 1 || kind == 2) {
+      const auto copy =
+          dir / ("support-binding-repaired-" + std::to_string(kind) + ".pstg");
+      const auto before = support;
+      assert(config.SaveProject(copy.string()));
+      assert(support.gdtfSpec == before.gdtfSpec &&
+             support.gdtfMode == before.gdtfMode);
+      assert(support.dmxAddresses == before.dmxAddresses);
+      assert(Bytes(bindingProject) == bindingBytes);
+      config.Reset();
+      assert(config.LoadProject(copy.string()));
+      const auto &reopened = config.GetScene().supports.at(uuid);
+      assert(reopened.gdtfSpec.empty() && reopened.gdtfMode.empty());
+      assert(reopened.dmxAddresses == before.dmxAddresses);
+      continue;
+    }
     assert(!config.SaveProject(bindingProject.string()));
     assert(Bytes(bindingProject) == bindingBytes);
     assert(support.dmxAddresses == bindingScene.supports.at(uuid).dmxAddresses);

@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
   wxInitializer initialize;
   assert(initialize.IsOk());
   const std::string mode = argc > 1 ? argv[1] : "";
-  const bool anomaly = mode == "--anomalies-baseline";
+  const bool anomaly = mode.starts_with("--anomalies");
   const bool structured = mode.starts_with("--structure") || anomaly;
   const bool geometryEdit = mode.find("geometry") != std::string::npos;
   const bool dependencies = mode.find("dependencies") != std::string::npos;
@@ -63,9 +63,26 @@ int main(int argc, char **argv) {
       "50</CustomCommand></CustomCommands>"
       "</Fixture></ChildList></Layer></Layers></Scene></"
       "GeneralSceneDescription>";
-  const std::string xml = anomaly      ? tests::mvr_anomaly::Source()
-                          : structured ? tests::mvr_structure::Xml(id)
-                                       : ordinaryXml;
+  std::string binding = "<GDTFSpec/><GDTFMode/>";
+  if (mode == "--anomalies-absent")
+    binding = "";
+  if (mode == "--anomalies-whitespace")
+    binding = "<GDTFSpec>&#x20;&#xA;&#x9;</GDTFSpec><GDTFMode> </GDTFMode>";
+  if (mode == "--anomalies-valid")
+    binding = "<GDTFSpec>fixture.gdtf</GDTFSpec><GDTFMode>Mode</GDTFMode>";
+  if (mode == "--anomalies-missing-mode")
+    binding = "<GDTFSpec>fixture.gdtf</GDTFSpec>";
+  if (mode == "--anomalies-empty-mode")
+    binding = "<GDTFSpec>fixture.gdtf</GDTFSpec><GDTFMode> </GDTFMode>";
+  if (mode == "--anomalies-network")
+    binding = "<GDTFSpec>fixture.gdtf</GDTFSpec><Addresses><Address "
+              "break='0'>1</Address><Network geometry='port' "
+              "ipv4='192.0.2.1'/></Addresses>";
+  const std::string xml =
+      anomaly ? tests::mvr_anomaly::Source(binding,
+                                           mode == "--anomalies-v16" ? 6 : 5)
+      : structured ? tests::mvr_structure::Xml(id)
+                   : ordinaryXml;
   const auto validation = perastage::inspection::ValidateXmlAgainstSchema(
       xml, perastage::inspection::Mvr16Schema());
   if (validation.schema.status !=
@@ -87,7 +104,7 @@ int main(int argc, char **argv) {
     assert(zip.CloseEntry());
     if (anomaly) {
       const auto bytes = tests::gdtf::BuildMinimalValidGlb();
-      assert(zip.PutNextEntry("shared.glb"));
+      assert(zip.PutNextEntry("71abcdef-0000-4000-8000-000000000001.glb"));
       zip.Write(bytes.data(), bytes.size());
       assert(zip.CloseEntry());
     }
@@ -118,10 +135,14 @@ int main(int argc, char **argv) {
   options.allowDummyFallback = false;
   assert(MvrImporter::ImportAndRegister(source.string(), options));
   if (anomaly) {
-    const auto target = dir / "baseline.pstg";
+    const auto target = dir / "recovered.pstg";
     Write(target, "previous");
-    tests::mvr_anomaly::CheckBaseline(cfg, target);
-    assert(Read(target) == "previous" && Read(source) == original);
+    tests::mvr_anomaly::CheckRecovered(
+        cfg, target, mode == "--anomalies-valid", mode == "--anomalies",
+        mode == "--anomalies-missing-mode" ||
+            mode == "--anomalies-empty-mode" || mode == "--anomalies-network",
+        mode == "--anomalies-network");
+    assert(Read(target) != "previous" && Read(source) == original);
     cfg.Reset();
     fs::remove_all(dir);
     return 0;

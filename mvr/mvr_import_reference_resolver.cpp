@@ -85,6 +85,11 @@ std::string MvrImportReferenceResolver::ResolveStableUuid(
     stableUuid = std::move(candidate);
   }
   usedStableUuids_.insert(stableUuid);
+  if (stableUuid != CanonicalizeUuid(identity.rawUuid))
+    Warn("MVR identity repair: kind=" + identity.kind +
+         " occurrence=" + std::to_string(usedStableUuids_.size()) +
+         " oldUuid=" + identity.rawUuid + " newUuid=" + stableUuid +
+         " matrix=" + identity.transform);
   return stableUuid;
 }
 

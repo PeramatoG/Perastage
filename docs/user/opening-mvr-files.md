@@ -49,7 +49,14 @@ editor. Model textures and other relative dependencies travel with their model;
 the imported archive remains unchanged. Editing an instance's geometry keeps
 its original definition and gives the edited instance a separate definition.
 
-Missing essential resources, malformed data, ambiguous references and writing
+Repeated imported object UUIDs are repaired per occurrence while retaining
+separate instances, placements and Class assignments. Empty optional GDTF
+fields are normalized away. An incomplete optional Truss/Support GDTF binding
+is omitted with a warning, including any Network assignments that depend on
+it; geometry and DMX addresses remain. Review the log and export warning details.
+The imported MVR is never overwritten by these operations.
+
+Current limits: missing essential resources, malformed data, ambiguous references and writing
 failures still produce specific errors and keep the previous destination. Read
 all affected objects/resources in the dialog's expandable details. Successful
 export does not certify every third-party extension; see the

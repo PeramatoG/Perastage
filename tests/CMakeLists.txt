@@ -4757,7 +4757,13 @@ add_bash_policy_test(FixturePatchPreservationBoundary
                     ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_patch_preservation_boundary.sh
                     LABELS standard-strict mvr core architecture)
 
-add_test(NAME MvrImportAnomalyCharacterization COMMAND project_preserved_fields_roundtrip_test --anomalies-baseline)
-set_library_env(MvrImportAnomalyCharacterization)
+add_test(NAME MvrImportAnomalyRoundtrip COMMAND project_preserved_fields_roundtrip_test --anomalies)
+set_library_env(MvrImportAnomalyRoundtrip)
 target_sources(project_preserved_fields_roundtrip_test PRIVATE support/mvr_anomaly_characterization.h)
-set_perastage_test_labels(MvrImportAnomalyCharacterization LAYER standard-strict DOMAINS mvr project)
+set_perastage_test_labels(MvrImportAnomalyRoundtrip LAYER standard-strict DOMAINS mvr project)
+
+foreach(binding_case IN ITEMS absent whitespace valid missing-mode empty-mode network v16)
+  add_test(NAME MvrImportAnomaly-${binding_case} COMMAND project_preserved_fields_roundtrip_test --anomalies-${binding_case})
+  set_library_env(MvrImportAnomaly-${binding_case})
+  set_perastage_test_labels(MvrImportAnomaly-${binding_case} LAYER standard-strict DOMAINS mvr project)
+endforeach()

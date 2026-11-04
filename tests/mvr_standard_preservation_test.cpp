@@ -47,6 +47,17 @@ int main() {
     assert(!scene.preservationIssues.front().originalInformation.empty());
     assert(!scene.preservationIssues.front().recommendedAction.empty());
   }
+  for (const auto *type : {"Truss", "Support", "SceneObject"})
+    for (const auto *binding :
+         {"", "<GDTFSpec/><GDTFMode/>",
+          "<GDTFSpec>&#x20;&#xA;&#x9;</GDTFSpec><GDTFMode> </GDTFMode>"})
+      assert(Scan(std::string("<") + type + ">" + binding + "</" + type + ">")
+                 .preservationIssues.empty());
+  assert(!Scan("<Truss><GDTFSpec>real.gdtf</GDTFSpec></Truss>")
+              .preservationIssues.empty());
+  assert(Scan("<Truss><GDTFSpec>real.gdtf</GDTFSpec><GDTFMode>Mode</GDTFMode></"
+              "Truss>")
+             .preservationIssues.empty());
   auto safe = Scan("<GeneralSceneDescription><UserData><Data provider='Vendor'><Fixture><Alignments/></Fixture></Data></UserData><Scene><Layers/></Scene></GeneralSceneDescription>");
   assert(safe.preservationIssues.empty());
   assert(mvr::CheckStandardPreservation(safe).empty());

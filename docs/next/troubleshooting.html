@@ -81,6 +81,11 @@
 <p>Save and Save As close the saving indicator and re-enable Perastage before
 showing a failure dialog. The indicator belongs to the Perastage window and
 has no system-wide always-on-top style.</p>
+<p>Duplicate imported SceneObject UUIDs and empty optional Truss GDTF fields no
+longer prevent normal project saving or canonical MVR export. Separate objects,
+Class assignments and shared model resources are retained. Incomplete optional
+Truss/Support bindings are omitted with precise warnings in the log; the MVR
+export result also exposes the warning details.</p>
 <p>Standard video/projector nodes, nested Symbols and parametric children are
 retained during normal project saving and MVR export; they do not need an
 editor to survive. A preservation error identifies malformed or unsupported

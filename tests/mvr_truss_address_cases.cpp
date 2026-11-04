@@ -189,6 +189,24 @@ void RunTrussAddressCases(const fs::path &dir, const FixtureNetworkTestServices 
         assert(fixture_network::InspectTrussReferences(truss, path).conflict ==
             (failure == 3 ? fixture_network::Conflict::UnknownGeometry : fixture_network::Conflict::AmbiguousGeometry));
       }
+      if (failure == 1 || failure == 2) {
+        const auto copy = dir / ("truss-binding-repaired-" +
+                                 std::to_string(failure) + ".pstg");
+        config.GetScene() = invalid;
+        assert(config.SaveProject(copy.string()));
+        assert(config.GetScene().trusses.at(id).dmxAddresses ==
+               truss.dmxAddresses);
+        assert(Bytes(retained) == previous);
+        config.Reset();
+        assert(config.LoadProject(copy.string()));
+        const auto &reopened = config.GetScene().trusses.at(id);
+        assert(reopened.gdtfSpec.empty() && reopened.gdtfMode.empty());
+        assert(reopened.dmxAddresses->entries == truss.dmxAddresses->entries);
+        assert(reopened.dmxAddresses->networks.empty());
+        assert(!reopened.symbolFile.empty() ||
+               !reopened.sourceSymdefUuid.empty());
+        continue;
+      }
       config.GetScene() = invalid; assert(!config.SaveProject(retained.string())); assert(Bytes(retained) == previous);
       assert(config.GetScene().trusses.at(id).dmxAddresses == truss.dmxAddresses);
     }
