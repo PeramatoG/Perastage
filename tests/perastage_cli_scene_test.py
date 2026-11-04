@@ -164,7 +164,7 @@ def main() -> int:
         unsafe = root / "unsupported-standard-data.mvr"
         unsafe_xml = SCENE_XML.replace(
             "</Fixture>",
-            '<Alignments><Alignment geometry="Beam" up="0,0,1" '
+            '<Alignments><Alignment geometry="Beam" unsupported="invalid" up="0,0,1" '
             'direction="0,0,-1"/></Alignments></Fixture>')
         with zipfile.ZipFile(unsafe, "w") as archive:
             archive.writestr("GeneralSceneDescription.xml", unsafe_xml)

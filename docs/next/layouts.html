@@ -106,6 +106,7 @@
 </tr>
 </tbody></table>
 <p>Edit each element&#39;s available settings to choose content and presentation. Check scene data in the <a href="views.html">views and tables</a> before producing documentation.</p>
+<p>Legends group fixture types across the whole scene. Edit a legend to reorder or hide types, set custom names, choose Bottom/Front/Side symbols, and show or hide the channel column. Enabled Side symbols are included in the vector PDF when a corresponding symbol is available. Oversized symbols are clipped to their column and row; very small frames can hide rows.</p>
 <h2 id="arrange-and-edit">Arrange and edit</h2>
 <p>Drag a frame to move it and a frame handle to resize it. Double-click a frame to edit the element. Right-click for editing, deletion and stacking controls. Drag empty space to pan and use the wheel to zoom. <strong>Z</strong> fits the layout; <strong>Delete</strong> removes the selected layout element.</p>
 <p>Page Add, Rename, Delete, Orientation and template Import share the project&#39;s
@@ -116,7 +117,8 @@ loss of mouse capture cancels the preview without changing the saved document.</
 <h2 id="export-pdf">Export PDF</h2>
 <p>Select a non-empty layout and choose <strong>File → Print Layout...</strong>. Choose a writable <code>.pdf</code> destination. The PDF uses the selected layout&#39;s page size and orientation and includes its supported elements. Review the exported file before printing or sharing.</p>
 <p>For missing views, incorrect output or export errors, see <a href="troubleshooting.html#layout-and-pdf-problems">Troubleshooting</a>.</p>
-<p>Fixture labels are configured in <strong>2D View settings → Edit Fixture Labels...</strong>. Project defaults and UUID-based fixture overrides also feed Layout viewports and vector PDF. Newly edited fields use the same bundled fonts and positioned composition in both targets. Legacy fields keep their earlier rendering; Layout free text, legends and tables still use their existing typography paths. See <a href="views.html#fixture-labels">Fixture labels</a> for scope, units, Apply/Cancel and supported characters.</p>
+<p>Fixture labels are configured in <strong>2D View settings → Edit Fixture Labels...</strong>. Project defaults and UUID-based fixture overrides also feed Layout viewports and vector PDF. Newly edited fields use the same bundled fonts and positioned composition in both targets. Legacy fields, Layout free text and event tables keep their earlier typography. See <a href="views.html#fixture-labels">Fixture labels</a> for scope, units, Apply/Cancel and supported characters.</p>
+<p>Legends use the bundled PerastageSans regular/bold fonts with the same wrapping, row geometry and symbol columns in the editable preview and vector PDF. Screen zoom changes rasterization only. Printing on different paper uniformly fits the composed Legend without recomputing line breaks. Text that exceeds its column is clipped; its full value remains editable. Western European WinAnsi characters are supported. Unsupported glyphs are omitted on both targets while their original text is retained; PDF completion details identify the affected UTF-8 bytes.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

@@ -148,8 +148,8 @@ refused until that operation is supported. Existing geometry/Symdef authority
 and transform limitations remain guarded. SceneObject-to-Truss conversion copies
 compatible identifiers, Classing and matrix provenance; retained source issues,
 FocusPoint, multiple models, Symbol ownership and nonidentity geometry cause
-atomic structured refusal. SceneObject Addresses, including empty presence,
-remain unsupported and protected.
+atomic structured refusal. SceneObject Addresses, including empty presence, are retained by the validated
+source-field projection when their standard structure is valid.
 Fixture-to-Support conversion preserves the complete collection, Classing,
 standard identifiers (including CustomId/CustomIdType presence and explicit
 zero), GDTF binding, position,
@@ -172,8 +172,8 @@ representation rules preserve standards-valid identity round-trips.</p>
 <p>FocusPoint uses the existing geometric SceneObject value with a distinct
 <code>SceneObjectKind::FocusPoint</code> and is serialized with its standard element name.
 Direct geometry, ownership, transforms and Fixture Focus links share the existing
-identity/resource/mutation services. Symbol-based focus geometry still requires
-preservation support and blocks writes. A required Geometries
+identity/resource/mutation services. Symbol-based focus geometry retains standard Symbol UUIDs and references through
+the source-structure projection described below. A required Geometries
 container may be empty; no replacement mesh is invented for an empty focus.</p>
 <p>Export preparation rejects durable known-loss evidence before identity/transform
 recovery or archive writing. PSTG and MVR-xchange snapshots use that same gate.
@@ -225,12 +225,54 @@ recovery utility still exposes its historical recovery result and is not itself
 a general validation API. Generic source UUID/reference coverage, Position
 recovery and opaque provider references remain P0; this gate is not proof of
 complete reference preservation.</p>
-<p>Safe representable content should save without a consent loop. Genuine unsupported
-standard content still blocks both serializers until an actual preservation
-owner exists. This is an unresolved workflow constraint, not the final product
-policy. No validation bypass, alternate project scene or lossy-save override is
-provided. The audit records the smallest proposed recovery design and acceptance
-conditions separately from implemented behavior.</p>
+<p>Valid source-only fields of Fixture, Truss, Support and SceneObject have a
+focused export projection: the retained XML is validated against its existing
+MVR 1.6 type, attached to the matching generated UUID owner and written in
+standard child order. This includes CastShadow, protocols, commands, alignments,
+connections, mappings and other fields listed in <code>mvr_standard_field_projection.cpp</code>.
+MappingDefinition is retained under AUXData. Source references must resolve;
+source resources use the normal resource collection. Merge remaps retained owner
+UUIDs and standard references, including equivalent uppercase/lowercase UUID
+spellings, along with resource paths. No source fragments are
+executed or injected into the editable scene, and no schema extensions are added.
+Deletion of a modeled owner deletes its retained fields. An editable/source
+field conflict is diagnosed rather than choosing a value silently. Reopening
+reconstructs the evidence from the canonical scene.mvr, so later saves and
+standalone canonical exports follow exactly the same policy.</p>
+<p>Save preparation rolls back scene, layouts, resources, preferences and dirty
+state on failure. Archive publication closes the temporary file then replaces
+the target atomically on the same filesystem; there is no overwrite-by-copy
+fallback. Save As commits its session path only on confirmed success. A failed
+save exposes all export findings in the dialog&#39;s expandable details after the
+busy overlay has closed.</p>
+<h2 id="retained-standard-scene-structure">Retained standard scene structure</h2>
+<p><code>mvr_source_structure_*</code> owns a versioned, immutable scene-local provenance value.
+It retains shallow standard node payloads, authored local/world matrices and
+editable display baselines. VideoScreen/Projector payloads, media, multipatch,
+parametric ChildList ownership and Symbol geometry are validated against the
+existing standard types. They are restored around the ordinary typed writers&#39;
+edited nodes. This is neither a second Fixture serializer nor a new PSTG schema;
+reopening reconstructs provenance from the canonical scene.mvr. Scene history
+copies share the immutable evidence. No imported MVR is modified.</p>
+<p>Nested Symdef instances have one typed definition/instance registry. Display
+expansion does not replace canonical references. Canonical export preserves
+unused definitions, instance UUIDs, class links and placement. Model/geometry
+edits use an isolated standard definition for the changed instance, retaining
+original definitions. The export snapshot owns these changes; the live scene
+is unchanged. Explicit standalone direct-geometry compatibility is applied
+without subsequently restoring the Truss Symbol representation.</p>
+<p>Models with external dependencies retain their original bytes and relative
+resource tree under a stable package namespace. The resource collector owns
+packaging, collisions, transitive closure and missing-resource diagnostics;
+merge uses the same closure. Acquired package resources cannot escape their
+package root. No resource bytes are executed and no official schema is changed.</p>
+<p>Normal PSTG save, standalone canonical export and MVR-xchange all use these
+same owners. Valid retained structures no longer require a warning/consent
+loop merely because they have no editor. Missing essential bytes, invalid
+identities/references, malformed structures and archive IO failures remain
+specific failures, never a successful truncated archive. Coverage remains
+bounded by the pinned standard and the regression fixtures; arbitrary provider
+extensions and every possible third-party package are not certified.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

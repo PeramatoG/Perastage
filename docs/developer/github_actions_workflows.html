@@ -54,7 +54,7 @@ ownership remain defined by <a href="repository_layout.html">Repository Layout</
 <li>Linux, Windows, and macOS Debug each build the complete registered test target set and run the complete, unfiltered CTest suite. Linux also runs repository policy tests.</li>
 <li>Windows Debug initializes Visual Studio Hostx64/x64 explicitly, uses Ninja with MSVC and the <code>x64-windows</code> vcpkg triplet, and rejects MinGW, MSYS, or Strawberry toolchain selection.</li>
 <li>macOS Debug remains on <code>macos-26</code> with arm64 AppleClang, Ninja, Debug configuration, and the <code>arm64-osx</code> vcpkg triplet. The shared Homebrew prerequisite path installs ripgrep for fail-closed policy tests. Its test-result artifact retains the complete CTest inventory, canonical CTest log, JUnit report, failure CSV, compact result summary, optional failed/disabled-test records, and sccache diagnostics.</li>
-<li>Debug jobs configure with <code>BUILD_TESTING=ON</code> and do not define <code>NDEBUG</code>, because several tests rely on <code>assert()</code>.</li>
+<li>Debug jobs configure with <code>BUILD_TESTING=ON</code> and do not define <code>NDEBUG</code>, because several tests rely on <code>assert()</code>. Linux CI uses <code>-g1</code> and compressed executable debug sections to retain line backtraces while fitting the complete test set on hosted-runner disks; its local sccache is capped at 2 GB. Local developer Debug presets retain their full debug information.</li>
 <li>The workflow uploads diagnostics only on failure. Diagnostics include command logs, CMake configure logs, <code>CMakeCache.txt</code>, CTest logs, vcpkg failure logs, and a concise environment summary.</li>
 </ul>
 <p>Each Debug platform job also writes compact performance telemetry to the GitHub
