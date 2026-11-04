@@ -10,6 +10,7 @@
 #include "support/gdtf_test_fixture_builder.h"
 #include "support/zip_test_utils.h"
 #include "support/mvr_structure_fixture.h"
+#include "support/mvr_anomaly_characterization.h"
 #include "inspection/xml_schema_validation.h"
 #include <tinyxml2.h>
 #include <cassert>
@@ -34,7 +35,8 @@ int main(int argc, char **argv) {
   wxInitializer initialize;
   assert(initialize.IsOk());
   const std::string mode = argc > 1 ? argv[1] : "";
-  const bool structured = mode.starts_with("--structure");
+  const bool anomaly = mode == "--anomalies-baseline";
+  const bool structured = mode.starts_with("--structure") || anomaly;
   const bool geometryEdit = mode.find("geometry") != std::string::npos;
   const bool dependencies = mode.find("dependencies") != std::string::npos;
   const bool merge = mode.find("merge") != std::string::npos;
@@ -61,8 +63,9 @@ int main(int argc, char **argv) {
       "50</CustomCommand></CustomCommands>"
       "</Fixture></ChildList></Layer></Layers></Scene></"
       "GeneralSceneDescription>";
-  const std::string xml =
-      structured ? tests::mvr_structure::Xml(id) : ordinaryXml;
+  const std::string xml = anomaly      ? tests::mvr_anomaly::Source()
+                          : structured ? tests::mvr_structure::Xml(id)
+                                       : ordinaryXml;
   const auto validation = perastage::inspection::ValidateXmlAgainstSchema(
       xml, perastage::inspection::Mvr16Schema());
   if (validation.schema.status !=
@@ -82,6 +85,12 @@ int main(int argc, char **argv) {
     assert(zip.PutNextEntry("fixture.gdtf"));
     zip.Write(bytes.data(), bytes.size());
     assert(zip.CloseEntry());
+    if (anomaly) {
+      const auto bytes = tests::gdtf::BuildMinimalValidGlb();
+      assert(zip.PutNextEntry("shared.glb"));
+      zip.Write(bytes.data(), bytes.size());
+      assert(zip.CloseEntry());
+    }
     if (structured) {
       const auto mesh = tests::mvr_structure::Mesh(dependencies);
       assert(zip.PutNextEntry("mesh.3ds"));
@@ -108,6 +117,15 @@ int main(int argc, char **argv) {
   options.applyDictionary = false;
   options.allowDummyFallback = false;
   assert(MvrImporter::ImportAndRegister(source.string(), options));
+  if (anomaly) {
+    const auto target = dir / "baseline.pstg";
+    Write(target, "previous");
+    tests::mvr_anomaly::CheckBaseline(cfg, target);
+    assert(Read(target) == "previous" && Read(source) == original);
+    cfg.Reset();
+    fs::remove_all(dir);
+    return 0;
+  }
   auto &fixture = cfg.GetScene().fixtures.at(id);
   fixture.instanceName = "Edited fixture";
   fixture.transform.o[0] += 1.25f;

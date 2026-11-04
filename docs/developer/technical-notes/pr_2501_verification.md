@@ -207,3 +207,19 @@ B1 retains its Linux automated parity gate. Keep PR 2501 open as a draft while
 platform validation/review is pending; do not merge automatically. Neither
 these tests nor the source-preservation service certify arbitrary future MVR
 versions, provider extensions or unavailable external resources.
+
+## Recoverable MVR 1.5 anomaly characterization
+
+At `fdd8df84`, a synthetic 1.5 package with three repeated-UUID SceneObjects,
+distinct placements, one shared GLB, a valid Class target and two empty Truss
+GDTFSpec/GDTFMode pairs reproduces the reported blockers. All three editable
+objects survive import. Retained topology still contains the repeated raw
+identity; structural projection does not reconcile it. Preflight reports
+`Duplicate source node identity`, owner-ambiguous Classing and two Table 28
+mode errors. PSTG save and standalone canonical export both fail; prior target
+and imported source bytes remain intact.
+
+`MvrImportAnomalyCharacterization` intentionally verifies this failing baseline;
+a passing characterization is **not** a passing product acceptance gate. No
+production canonicalization policy is changed by this test. The private source
+archive was unavailable and has not been tested or copied into this repository.

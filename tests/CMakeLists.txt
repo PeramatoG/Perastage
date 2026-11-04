@@ -4756,3 +4756,8 @@ set_perastage_test_labels(FixturePatchService LAYER standard-strict DOMAINS mvr 
 add_bash_policy_test(FixturePatchPreservationBoundary
                     ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_patch_preservation_boundary.sh
                     LABELS standard-strict mvr core architecture)
+
+add_test(NAME MvrImportAnomalyCharacterization COMMAND project_preserved_fields_roundtrip_test --anomalies-baseline)
+set_library_env(MvrImportAnomalyCharacterization)
+target_sources(project_preserved_fields_roundtrip_test PRIVATE support/mvr_anomaly_characterization.h)
+set_perastage_test_labels(MvrImportAnomalyCharacterization LAYER standard-strict DOMAINS mvr project)
