@@ -47,7 +47,7 @@ def ink_bounds(pixels, width, height, clip):
 
 
 def verify(args, root):
-    subprocess.run([args.pdf, str(root)], check=True)
+    subprocess.run([args.pdf, str(root)] + ([args.pdf_argument] if args.pdf_argument else []), check=True)
     subprocess.run([args.xvfb, '-a', args.preview, str(root)], check=True)
     records = []
     for width in (120, 180, 300, 600):
@@ -55,6 +55,13 @@ def verify(args, root):
         clips = json.loads((root / f'parity-{width}-clips.json').read_text())
         for scale in ('0.500000', '1.000000', '2.000000'):
             name = f'parity-{width}-{scale}'
+            if args.pdftotext:
+                text = subprocess.check_output([args.pdftotext, '-raw', str(root / f'{name}.pdf'), '-'], text=True)
+                expected = ('Venue:', 'Location:', 'Date:', 'Stage:', 'Version:', 'Design:', 'Mail:') if args.pdf_argument == 'event-table' else ('Count', 'Type')
+                positions = [text.index(label) for label in expected]
+                assert positions == sorted(positions), (name, text)
+                if args.pdf_argument == 'event-table':
+                    assert 'Málaga' in text, (name, text)
             subprocess.run([args.pdftoppm, '-scale-to-x', str(width*4), '-scale-to-y', '400',
                             '-singlefile', str(root / f'{name}.pdf'), str(root / name)], check=True)
             pw, ph, pdf = read_ppm(root / f'{name}.ppm')
@@ -82,6 +89,8 @@ if __name__ == '__main__':
     for name in ('preview','pdf','xvfb','pdftoppm'):
         parser.add_argument('--'+name, required=True)
     parser.add_argument('--output', type=Path)
+    parser.add_argument('--pdf-argument')
+    parser.add_argument('--pdftotext')
     args = parser.parse_args()
     if args.output:
         args.output.mkdir(parents=True,exist_ok=True)

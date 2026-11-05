@@ -1,4 +1,7 @@
 target_sources(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/layout_event_table_cache_policy.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/layout_event_table_renderer.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/layout_event_table_renderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/document_text_renderer.h
     ${CMAKE_CURRENT_SOURCE_DIR}/document_text_renderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutlegendrenderer.h

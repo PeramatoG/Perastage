@@ -1,4 +1,5 @@
 #include "layout_pdf_legend_renderer.h"
+#include "layout_pdf_page_mapping.h"
 
 #include <algorithm>
 #include <cctype>
@@ -41,12 +42,7 @@ LegendPdfRenderResult RenderLegendPdf(std::ostringstream &out,
   if (composedPlan) *composedPlan = plan;
   result.textSubstitutions = plan.unsupportedGlyphs;
   result.diagnostics = plan.diagnostics;
-  // Compose in document space, then apply the existing page policy once.
-  // A uniform fit preserves glyph/symbol aspect ratio even for unlike papers.
-  const double outputScale = std::min(outputScaleX, outputScaleY);
-  out << "q\n" << formatter.Format(outputScale) << " 0 0 "
-      << formatter.Format(outputScale) << " 0 "
-      << formatter.Format(pageHeight * (1 - outputScale)) << " cm\n";
+  BeginDocumentPageMapping(out, pageHeight, outputScaleX, outputScaleY, formatter);
   const double frameX = legend.frame.x;
   const double frameTop = pageHeight - legend.frame.y;
   const auto x = [&](double local) { return formatter.Format(frameX + local); };

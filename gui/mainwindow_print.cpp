@@ -397,12 +397,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
     LayoutEventTableExportData tableData;
     tableData.fields = table.fields;
     tableData.zIndex = table.zIndex;
-    layouts::Layout2DViewFrame frame = table.frame;
-    frame.x = static_cast<int>(std::lround(frame.x * scaleX));
-    frame.y = static_cast<int>(std::lround(frame.y * scaleY));
-    frame.width = static_cast<int>(std::lround(frame.width * scaleX));
-    frame.height = static_cast<int>(std::lround(frame.height * scaleY));
-    tableData.frame = frame;
+    tableData.frame = table.frame;
     layoutTables.push_back(std::move(tableData));
   }
   for (const auto &text : layout->textViews) {
@@ -493,12 +488,15 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
                     _("\n\nSymbol summary:\nPerastage symbols: %zu\nRendered fallbacks: %zu"),
                     res.perastageSymbolInstances,
                     res.fallbackSymbolInstances);
+                auto diagnostics = res.legendTextDiagnostics;
+                diagnostics.insert(diagnostics.end(), res.eventTableTextDiagnostics.begin(),
+                                   res.eventTableTextDiagnostics.end());
                 wxRichMessageDialog dialog(this, successMessage, _("Print Layout"),
-                    wxOK | (res.legendTextDiagnostics.empty() ? wxICON_INFORMATION : wxICON_WARNING));
-                if (!res.legendTextDiagnostics.empty()) {
+                    wxOK | (diagnostics.empty() ? wxICON_INFORMATION : wxICON_WARNING));
+                if (!diagnostics.empty()) {
                   wxString details;
-                  for (const auto &finding : res.legendTextDiagnostics) details += wxString::FromUTF8(finding) + "\n";
-                  dialog.SetMessage(successMessage + "\n\n" + wxString::FromUTF8(res.legendTextDiagnostics.front()));
+                  for (const auto &finding : diagnostics) details += wxString::FromUTF8(finding) + "\n";
+                  dialog.SetMessage(successMessage + "\n\n" + wxString::FromUTF8(diagnostics.front()));
                   dialog.ShowDetailedText(details);
                 }
                 dialog.ShowModal();

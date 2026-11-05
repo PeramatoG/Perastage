@@ -42,6 +42,7 @@
 #include "logger.h"
 #include "layout_pdf_symbol_usage.h"
 #include "layout_pdf_legend_renderer.h"
+#include "layout_pdf_event_table_renderer.h"
 #include "pdf_draw_commands.h"
 #include "pdf_font_metrics.h"
 #include "pdf_fixture_symbol_source.h"
@@ -53,19 +54,11 @@
 namespace {
 using namespace layout_pdf_internal;
 
-constexpr double kLegendContentScale = 0.7;
 constexpr double kPdfPointsPerPixel = 72.0 / 96.0;
 constexpr double kPdfStrokeWidthScreenMatchFactor = 0.75;
-constexpr double kLegendFontScale =
-    (2.0 / 3.0) * kLegendContentScale;
-// Typography rendered directly in the PDF stream (event table/text
-// helpers) needs an extra point-size compensation so it visually matches the
-// on-screen layout preview.
+// Legacy free text retains its existing PDF point-size compensation.
 constexpr double kPdfLayoutTypographyCompensationScale = 1.45;
 constexpr double kSymbolBBoxPaddingPt = 0.25;
-constexpr std::array<const char *, 7> kEventTableLabels = {
-    "Venue:", "Location:", "Date:", "Stage:",
-    "Version:", "Design:", "Mail:"};
 
 // Returns whether label-order tracing diagnostics are enabled through the environment.
 static bool ShouldTraceLabelOrder() {
@@ -978,25 +971,6 @@ Viewer2DExportResult ExportLayoutToPdf(
   auto escapeText = [](const std::string &text) {
     return EscapePdfLiteralBytes(text);
   };
-  auto trimTextToWidth = [&](const std::string &text, double maxWidth,
-                             double fontSize,
-                             const PdfFontDefinition *font) {
-    if (maxWidth <= 0.0)
-      return std::string();
-    if (MeasureTextWidth(text, fontSize, font) <= maxWidth)
-      return text;
-    const std::string ellipsis = "...";
-    const double ellipsisWidth = MeasureTextWidth(ellipsis, fontSize, font);
-    if (ellipsisWidth >= maxWidth)
-      return ellipsis.substr(0, 1);
-    std::string trimmed = text;
-    while (!trimmed.empty() &&
-           MeasureTextWidth(trimmed, fontSize, font) + ellipsisWidth >
-               maxWidth) {
-      trimmed.pop_back();
-    }
-    return trimmed + ellipsis;
-  };
   auto makeLayoutKeyName = [&](size_t viewIndex, const std::string &key) {
     return "K" + MakePdfName("V" + std::to_string(viewIndex) + "_" + key);
   };
@@ -1035,7 +1009,7 @@ Viewer2DExportResult ExportLayoutToPdf(
 
   PdfFontCatalog fontCatalog{&regularFont, &boldFont};
   LabelFonts labelFonts;
-  if (!labelFonts.Prepare(objects, fontCatalog, !legends.empty() || std::any_of(views.begin(), views.end(), [](const auto &v) { return HasComposedLabels(v.buffer); }))) {
+  if (!labelFonts.Prepare(objects, fontCatalog, !legends.empty() || !tables.empty() || std::any_of(views.begin(), views.end(), [](const auto &v) { return HasComposedLabels(v.buffer); }))) {
     result.message = "Bundled label fonts are unavailable; PDF export stopped.";
     return result;
   }
@@ -1364,93 +1338,12 @@ Viewer2DExportResult ExportLayoutToPdf(
   };
 
   auto renderEventTable = [&](size_t idx) {
-    const auto &table = tables[idx];
-    const double frameX = static_cast<double>(table.frame.x);
-    const double frameY =
-        pageH - table.frame.y - static_cast<double>(table.frame.height);
-    const double frameW = static_cast<double>(table.frame.width);
-    const double frameH = static_cast<double>(table.frame.height);
-    if (frameW <= 0.0 || frameH <= 0.0)
-      return;
-
-    contentStream << "q\n" << formatter.Format(frameX) << ' '
-                  << formatter.Format(frameY) << ' '
-                  << formatter.Format(frameW) << ' '
-                  << formatter.Format(frameH) << " re W n\n";
-    contentStream << "1 1 1 rg " << formatter.Format(frameX) << ' '
-                  << formatter.Format(frameY) << ' '
-                  << formatter.Format(frameW) << ' '
-                  << formatter.Format(frameH) << " re f\n";
-
-    const double paddingLeft = 6.0;
-    const double paddingRight = 6.0;
-    const double paddingTop = 6.0;
-    const double paddingBottom = 6.0;
-    const double columnGap = 10.0;
-    const size_t totalRows = kEventTableLabels.size();
-    const double availableHeight =
-        frameH - paddingTop - paddingBottom;
-    double fontSize =
-        totalRows > 0 ? (availableHeight / totalRows) - 2.0 : 10.0;
-    fontSize = std::clamp(fontSize, 6.0, 14.0);
-    fontSize = ApplyLayoutPdfTypographyScale(fontSize * kLegendFontScale,
-                                             layoutScale);
-    const double emphasizedFontSize =
-        std::max(fontSize + 1.0, fontSize * 1.1);
-
-    double maxLabelWidth = 0.0;
-    for (const auto &label : kEventTableLabels) {
-      maxLabelWidth = std::max(
-          maxLabelWidth,
-          MeasureTextWidth(label, fontSize, fontCatalog.bold));
-    }
-
-    const double rowHeight =
-        totalRows > 0 ? (availableHeight / totalRows) : 0.0;
-    const double textHeightEstimate = fontSize * 1.2;
-    const double textOffset =
-        std::max(0.0, (rowHeight - textHeightEstimate) * 0.5);
-    const double labelX = frameX + paddingLeft;
-    const double valueX = labelX + maxLabelWidth + columnGap;
-    const double maxValueWidth =
-        std::max(0.0, frameX + frameW - paddingRight - valueX);
-
-    auto appendText = [&](double x, double y, const std::string &text,
-                          const char *fontKey, double size, double r, double g,
-                          double b) {
-      contentStream << "BT\n/" << fontKey << ' ' << formatter.Format(size)
-                    << " Tf\n"
-                    << formatter.Format(r) << ' ' << formatter.Format(g) << ' '
-                    << formatter.Format(b) << " rg\n"
-                    << formatter.Format(x) << ' '
-                    << formatter.Format(y) << " Td\n("
-                    << escapeText(text) << ") Tj\nET\n";
-    };
-
-    for (size_t row = 0; row < totalRows; ++row) {
-      const double rowTop = frameY + frameH - paddingTop - row * rowHeight;
-      appendText(labelX, rowTop - textOffset - fontSize,
-                 encodeText(kEventTableLabels[row]), "F2", fontSize, 0.08,
-                 0.08, 0.08);
-
-      std::string valueText;
-      if (row < table.fields.size())
-        valueText = encodeText(table.fields[row]);
-      const double valueFontSize =
-          row == 0 ? emphasizedFontSize : fontSize;
-      const char *valueFontKey = row == 0 ? "F2" : "F1";
-      std::string trimmed =
-          trimTextToWidth(valueText, maxValueWidth, valueFontSize,
-                          row == 0 ? fontCatalog.bold : fontCatalog.regular);
-      appendText(valueX, rowTop - textOffset - valueFontSize, trimmed,
-                 valueFontKey, valueFontSize, 0.08, 0.08, 0.08);
-    }
-
-    contentStream << "Q\n";
-    contentStream << "q\n0 0 0 RG 0.5 w " << formatter.Format(frameX) << ' '
-                  << formatter.Format(frameY) << ' '
-                  << formatter.Format(frameW) << ' '
-                  << formatter.Format(frameH) << " re S\nQ\n";
+    const auto plan = RenderEventTablePdf(contentStream, tables[idx], pageH,
+        options.layoutScaleX, options.layoutScaleY, fontCatalog, formatter);
+    result.eventTableTextSubstitutions += plan.unsupportedGlyphs;
+    for (const auto &message : plan.diagnostics)
+      if (result.eventTableTextDiagnostics.size() < 16)
+        result.eventTableTextDiagnostics.push_back(message);
   };
 
   auto renderText = [&](size_t idx) {

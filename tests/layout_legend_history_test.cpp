@@ -4,6 +4,7 @@
 #include "LayoutTemplatePackageService.h"
 #include "layoutlegenditems.h"
 #include "legendutils.h"
+#include "layout_event_table_cache_policy.h"
 
 #include <cassert>
 #include <chrono>
@@ -43,8 +44,15 @@ int main() {
   page.legendViews = {a,b};
   layouts::LayoutEventTableDefinition table; table.id = 3; table.fields[0] = "Venue";
   page.eventTables.push_back(table);
+  auto tableB = table; tableB.id = 4; tableB.fields[0] = "Other venue";
+  page.eventTables.push_back(tableB);
   assert(manager.AddLayout(page));
   cfg.ClearHistory(); cfg.MarkSaved();
+  assert(manager.UpdateLayoutEventTable(page.name, table));
+  assert(manager.UpdateLayoutEventTable(page.name, tableB));
+  assert(!cfg.IsDirty() && !cfg.CanUndo());
+  auto cancelledTable = table; cancelledTable.fields[0] = "Cancelled draft";
+  assert(!cfg.IsDirty() && !cfg.CanUndo());
   const auto before = cfg.GetValue("layouts_collection");
   assert(manager.UpdateLayoutLegend(page.name, a));
   assert(!cfg.IsDirty() && !cfg.CanUndo());
@@ -58,8 +66,28 @@ int main() {
   cfg.Redo(); assert(cfg.GetValue("layouts_collection") == after);
   b.itemSettings[0].visible = true;
   assert(manager.UpdateLayoutLegend(page.name, b));
+  const auto tableAHash = gui::EventTableContentHash(table);
+  const auto tableBHash = gui::EventTableContentHash(tableB);
+  assert(manager.UpdateLayoutEventTable(page.name, table)); // No-op.
+  const auto preTable = cfg.GetValue("layouts_collection");
+  table.fields[0] = "Edited venue É";
+  assert(gui::EventTableContentHash(table) != tableAHash);
+  assert(gui::EventTableContentHash(tableB) == tableBHash);
+  assert(manager.UpdateLayoutEventTable(page.name, table));
+  const auto postA = cfg.GetValue("layouts_collection");
+  cfg.Undo(); assert(cfg.GetValue("layouts_collection") == preTable);
+  cfg.Redo(); assert(cfg.GetValue("layouts_collection") == postA);
+  tableB.fields[1] = "Other location";
+  assert(manager.UpdateLayoutEventTable(page.name, tableB));
+  const auto postB = cfg.GetValue("layouts_collection");
+  cfg.Undo(); assert(cfg.GetValue("layouts_collection") == postA);
+  cfg.Redo(); assert(cfg.GetValue("layouts_collection") == postB);
+  auto moved = table; moved.frame.x += 10; moved.zIndex += 1;
+  assert(gui::EventTableContentHash(moved) == gui::EventTableContentHash(table));
+  moved.frame.width += 1;
+  assert(gui::EventTableContentHash(moved) != gui::EventTableContentHash(table));
   const auto both = cfg.GetValue("layouts_collection");
-  cfg.Undo(); assert(cfg.GetValue("layouts_collection") == after);
+  cfg.Undo(); assert(cfg.GetValue("layouts_collection") == postA);
   cfg.Redo(); assert(cfg.GetValue("layouts_collection") == both);
 
   const auto dir = std::filesystem::temp_directory_path() /
@@ -73,7 +101,8 @@ int main() {
   assert(imported.layout.legendViews[0].itemSettings[1].customName == "Side A");
   assert(!imported.layout.legendViews[0].showChannelColumn);
   assert(imported.layout.legendViews[1].itemSettings[0].visible);
-  assert(imported.layout.eventTables[0].fields[0] == "Venue");
+  assert(imported.layout.eventTables[0].fields[0] == "Edited venue É");
+  assert(imported.layout.eventTables[1].fields[1] == "Other location");
   const auto legacy = dir / "legend.json";
   { std::ofstream out(legacy); out << layouts::ToTemplateDocument({imported.layout}); }
   layouts::LayoutTemplateImportResult legacyImported;

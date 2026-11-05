@@ -74,8 +74,8 @@ std::filesystem::path FindFontPath(bool bold) {
     const char *regularPath;
     const char *boldPath;
   };
-  // Keep this list in sync with the font face names used by the UI legend/event
-  // table rendering so PDFs and on-screen views share the same family.
+  // Platform fonts remain a legacy free-text/scene fallback. Composed document
+  // elements use the bundled LabelFonts metrics instead.
   const std::vector<FontCandidate> candidates = {
 #ifdef _WIN32
       {"C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/arialbd.ttf"},
