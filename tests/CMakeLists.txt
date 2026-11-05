@@ -1184,6 +1184,7 @@ target_link_libraries(layout_legend_cache_test PRIVATE perastage_legend_composit
 add_test(NAME LayoutLegendCache COMMAND layout_legend_cache_test)
 
 add_executable(layout_legend_history_test layout_legend_history_test.cpp
+    layout_viewer_state_panel_stubs.cpp ../viewer2d/viewer2dstate.cpp
     layout_legend_source_stubs.cpp ../gui/layoutlegenditems.cpp ../gui/legendutils.cpp
     ../core/configmanager.cpp ../core/configservices.cpp
     ../core/layouts/LayoutManager.cpp ../core/layouts/LayoutImageResourceRegistry.cpp
@@ -1191,7 +1192,8 @@ add_executable(layout_legend_history_test layout_legend_history_test.cpp
     ../core/layouts/LayoutTemplatePackageService.cpp ../core/layouts/LayoutTemplateSerializer.cpp
     ../core/projectutils.cpp ../core/runtime_storage.cpp ../core/library/library_bootstrap.cpp
     ../core/logger.cpp ../models/mvrscene.cpp mvr_io_stubs.cpp)
-target_include_directories(layout_legend_history_test PRIVATE . ../core ../gui ../third_party)
+target_include_directories(layout_legend_history_test PRIVATE . ../core ../gui ../third_party
+    ../viewer2d ../viewer3d ../viewer_common ../core/print)
 target_link_libraries(layout_legend_history_test PRIVATE ${wxWidgets_LIBRARIES} perastage_mvr_core_support)
 add_test(NAME LayoutLegendHistory COMMAND layout_legend_history_test)
 

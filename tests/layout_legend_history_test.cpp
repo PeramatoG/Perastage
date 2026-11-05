@@ -4,6 +4,7 @@
 #include "LayoutTemplatePackageService.h"
 #include "layoutlegenditems.h"
 #include "legendutils.h"
+#include "viewer2dstate.h"
 #include "LayoutImageResourceRegistry.h"
 #include "layout_event_table_cache_policy.h"
 
@@ -18,6 +19,34 @@ int main() {
   wxInitializer initializer;
   assert(initializer.IsOk());
   auto &cfg = ConfigManager::Get(); cfg.Reset();
+  const auto editorState=viewer2d::CaptureState(nullptr,cfg);
+  auto captureState=editorState;
+  captureState.renderOptions.darkMode=!editorState.renderOptions.darkMode;
+  captureState.renderOptions.showGrid=!editorState.renderOptions.showGrid;
+  captureState.camera.zoom=3;
+  cfg.ClearHistory(); cfg.MarkSaved();
+  const auto beforeCaptureRevision=cfg.CaptureDirtyState();
+  auto stateDocument=[&] {
+    layouts::LayoutDefinition snapshot; snapshot.name="State snapshot";
+    snapshot.view2dViews={viewer2d::ToLayoutDefinition(viewer2d::CaptureState(nullptr,cfg),{1,2,101,73})};
+    return layouts::ToJson(snapshot);
+  };
+  const auto beforeCaptureState=stateDocument();
+  {
+    viewer2d::ScopedViewer2DState capture(nullptr,nullptr,cfg,captureState,nullptr,nullptr,false);
+    assert(!cfg.IsDirty() && !cfg.CanUndo());
+    assert(viewer2d::CaptureState(nullptr,cfg).renderOptions.darkMode==captureState.renderOptions.darkMode);
+  }
+  assert(!cfg.IsDirty() && !cfg.CanUndo());
+  assert(stateDocument()==beforeCaptureState);
+  assert(cfg.CaptureDirtyState().revision==beforeCaptureRevision.revision);
+  assert(cfg.CaptureDirtyState().savedRevision==beforeCaptureRevision.savedRevision);
+  {
+    viewer2d::ScopedViewer2DState capture(nullptr,nullptr,cfg,captureState,nullptr,nullptr,false);
+    cfg.SetValue("unrelated-edit-during-capture","retained");
+  }
+  assert(cfg.IsDirty() && cfg.GetValue("unrelated-edit-during-capture")=="retained");
+  cfg.Reset();
   auto source = BuildSharedLayoutLegendItems();
   assert(source.size() == 1 && source[0].typeName == "No fixtures" && source[0].count == 0);
   Fixture first; first.uuid = "one"; first.typeName = "Spot";

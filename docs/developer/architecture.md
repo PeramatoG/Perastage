@@ -655,7 +655,9 @@ raster. Persisted arrays and LayoutManager mutation/history ownership are unchan
 GUI print orchestration and text/image builders retain original document-point
 frames; image raster sizing alone uses the final output scale, bounded before
 integer conversion. `layout_image_export` owns wx image loading and existing
-white alpha flattening. Printing does not persist print settings as project edits.
+white alpha flattening. Printing does not persist print settings as project edits. Temporary
+`ScopedViewer2DState` apply/restore calls preserve dirty revisions synchronously;
+no revision guard spans an asynchronous capture or suppresses unrelated edits.
 
 PDF element groups use `ScopedDocumentPageMapping` exactly once, including clips,
 borders, paths, text and nested symbol/image XObjects. PDF y reversal uses the
