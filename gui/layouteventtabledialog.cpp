@@ -17,11 +17,8 @@
  */
 #include "layouteventtabledialog.h"
 
-namespace {
-constexpr std::array<const char *, 7> kEventTableLabels = {
-    "Venue:", "Location:", "Date:", "Stage:",
-    "Version:", "Design:", "Mail:"};
-}
+#include "layouts/EventTableComposition.h"
+using layouts::composition::kEventTableFields;
 
 LayoutEventTableDialog::LayoutEventTableDialog(
     wxWindow *parent, const layouts::LayoutEventTableDefinition &table)
@@ -35,9 +32,9 @@ LayoutEventTableDialog::LayoutEventTableDialog(
   wxFlexGridSizer *grid = new wxFlexGridSizer(2, 8, 10);
   grid->AddGrowableCol(1, 1);
 
-  for (size_t idx = 0; idx < kEventTableLabels.size(); ++idx) {
+  for (size_t idx = 0; idx < kEventTableFields.size(); ++idx) {
     wxStaticText *label =
-        new wxStaticText(this, wxID_ANY, kEventTableLabels[idx]);
+        new wxStaticText(this, wxID_ANY, kEventTableFields[idx].label);
     grid->Add(label, 0, wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT, 5);
 
     wxTextCtrl *field = new wxTextCtrl(this, wxID_ANY);

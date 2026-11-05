@@ -1147,6 +1147,7 @@ add_test(NAME LayoutPdfSymbolUsage COMMAND layout_pdf_symbol_usage_test)
 add_executable(layout_legend_pdf_test
     layout_legend_pdf_test.cpp layout_legend_pdf_resources_stub.cpp
     ../viewer2d/pdf/layout_pdf_exporter.cpp
+    ../viewer2d/pdf/layout_pdf_event_table_renderer.cpp
     ../viewer2d/pdf/layout_pdf_legend_renderer.cpp
     ../viewer2d/legend_composition_adapter.cpp
     ../viewer2d/pdf/layout_pdf_symbol_usage.cpp
@@ -1196,6 +1197,7 @@ add_test(NAME LayoutLegendHistory COMMAND layout_legend_history_test)
 add_executable(layout_legend_preview_test layout_legend_preview_test.cpp
     layout_legend_pdf_resources_stub.cpp ../gui/layoutlegendrenderer.cpp ../gui/document_text_renderer.cpp
     ../viewer2d/legend_composition_adapter.cpp
+    ../viewer2d/pdf/layout_pdf_event_table_renderer.cpp
     ../viewer2d/pdf/layout_pdf_legend_renderer.cpp ../viewer2d/pdf/pdf_font_metrics.cpp
     ../viewer2d/pdf/pdf_label_fonts.cpp ../viewer2d/pdf/pdf_objects.cpp
     ../viewer2d/pdf/pdf_draw_commands.cpp)
@@ -4715,6 +4717,7 @@ else()
 endif()
 set_library_env(LayoutLegendPreview)
 find_program(PERASTAGE_PDFTOPPM NAMES pdftoppm)
+find_program(PERASTAGE_PDFTOTEXT NAMES pdftotext)
 if(UNIX AND NOT APPLE AND PERASTAGE_XVFB_RUN AND PERASTAGE_PDFTOPPM)
     add_test(NAME LayoutLegendRasterParity COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/check_legend_raster_parity.py"
@@ -4779,3 +4782,46 @@ endforeach()
 
 # The archive writer shares the same atomic publication contract as PSTG.
 target_link_libraries(mvr_export_archive_writer_test PRIVATE perastage_project_archive_publication)
+
+add_executable(event_table_composition_test event_table_composition_test.cpp)
+target_link_libraries(event_table_composition_test PRIVATE perastage_legend_composition)
+target_compile_definitions(event_table_composition_test PRIVATE
+    PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
+add_test(NAME EventTableComposition COMMAND event_table_composition_test)
+
+add_executable(layout_event_table_preview_test layout_event_table_preview_test.cpp
+    layout_legend_pdf_resources_stub.cpp ../gui/layout_event_table_renderer.cpp
+    ../gui/document_text_renderer.cpp ../viewer2d/pdf/layout_pdf_event_table_renderer.cpp
+    ../viewer2d/pdf/pdf_font_metrics.cpp ../viewer2d/pdf/pdf_label_fonts.cpp
+    ../viewer2d/pdf/pdf_objects.cpp)
+target_include_directories(layout_event_table_preview_test PRIVATE ../gui ../viewer2d ../viewer2d/pdf
+    ../core/layouts ../core/print ../models ../viewer_common ../viewer3d ../third_party)
+target_compile_definitions(layout_event_table_preview_test PRIVATE
+    PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
+target_link_libraries(layout_event_table_preview_test PRIVATE perastage_legend_composition ${wxWidgets_LIBRARIES})
+if(TARGET ZLIB::ZLIB)
+    target_link_libraries(layout_event_table_preview_test PRIVATE ZLIB::ZLIB)
+endif()
+if(UNIX AND NOT APPLE AND PERASTAGE_XVFB_RUN)
+    add_test(NAME LayoutEventTablePreview COMMAND "${PERASTAGE_XVFB_RUN}" -a "$<TARGET_FILE:layout_event_table_preview_test>")
+else()
+    add_test(NAME LayoutEventTablePreview COMMAND layout_event_table_preview_test)
+endif()
+set_library_env(LayoutEventTablePreview)
+
+set(EVENT_TABLE_PDF_TEXT_ARGS)
+if(PERASTAGE_PDFTOTEXT)
+    list(APPEND EVENT_TABLE_PDF_TEXT_ARGS --pdftotext "${PERASTAGE_PDFTOTEXT}")
+endif()
+if(UNIX AND NOT APPLE AND PERASTAGE_XVFB_RUN AND PERASTAGE_PDFTOPPM)
+    add_test(NAME LayoutEventTableRasterParity COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/check_legend_raster_parity.py"
+        --preview "$<TARGET_FILE:layout_event_table_preview_test>"
+        --pdf "$<TARGET_FILE:layout_legend_pdf_test>" --pdf-argument event-table ${EVENT_TABLE_PDF_TEXT_ARGS}
+        --xvfb "${PERASTAGE_XVFB_RUN}" --pdftoppm "${PERASTAGE_PDFTOPPM}")
+    set_library_env(LayoutEventTableRasterParity)
+    set_tests_properties(LayoutEventTableRasterParity PROPERTIES LABELS "layout;pdf;gui" TIMEOUT 120)
+endif()
+add_bash_policy_test(EventTableCompositionBoundary
+    ${CMAKE_CURRENT_SOURCE_DIR}/check_event_table_composition_boundary.sh
+    LABELS "architecture;layout;pdf")

@@ -602,7 +602,7 @@ Legend plans use the existing bundled PerastageSans regular/bold metrics and
 logical frame and font identities. The GUI draws the bundled glyph contours;
 PDF embeds those same fonts and writes selectable vector text. No platform font
 measurement, target-specific geometry profile or Legend typography compensation
-remains. The existing Event Table/free-text compensation is unchanged. Output
+remains. Layout free-text compensation remains unchanged; Event Tables use the shared composition described below. Output
 paper scaling uniformly fits the original Legend plan after composition, so
 zoom, DPI and paper changes cannot change wrapping or distort symbols.
 
@@ -632,3 +632,18 @@ remain intact. Layout free text, tables, 3D labels and the old global PDF
 metrics compatibility API remain legacy consumers. The next integration is shared
 composition for Layout free text, with explicit migration and wrapping tests;
 this change does not claim preview/PDF parity for those paths.
+
+### Event Table composition
+
+`core/layouts/EventTableComposition` owns the stable seven-field labels/IDs,
+bundled-font point-space rows, columns, baselines, cell clips and single-line
+ellipsis policy. It retains original UTF-8 and bounds overflow/unsupported-glyph
+diagnostics; invalid font metrics produce a diagnosed empty text plan. The GUI
+`layout_event_table_renderer` draws glyph outlines through `document_text_renderer`;
+`viewer2d/pdf/layout_pdf_event_table_renderer` emits selectable embedded-font text
+and vector geometry. Both consume the same measured plan, then apply zoom or the
+`PageOutputMapping` top-left uniform output fit once. Legend and Event Table
+share the PDF coordinate-space adapter `layout_pdf_page_mapping`; migrating the
+remaining element types to this page policy is a separate B3 step. Each table's cache identity includes the
+composition version, content and dimensions; position/selection do not affect its
+raster. Persisted arrays and LayoutManager mutation/history ownership are unchanged.

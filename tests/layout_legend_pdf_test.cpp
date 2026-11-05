@@ -67,12 +67,13 @@ void MixedPage(LayoutLegendExportData legend) {
   view.buffer.sources.push_back("fixture");
   LayoutEventTableExportData table; table.frame = legend.frame; table.zIndex = 2;
   table.fields[0] = "Venue test";
+  auto secondTable = table; secondTable.fields[0] = "Second venue"; secondTable.zIndex = 6;
   LayoutTextExportData text; text.frame = legend.frame; text.zIndex = 4;
   text.lines = {{{{"Overlay",12,true,false},{" rich text",12,false,true}}}};
   LayoutImageExportData image; image.frame = legend.frame; image.zIndex = 5;
   image.pixelWidth = image.pixelHeight = 1; image.pixels = {255,0,0};
   Viewer2DExportResult result;
-  auto before = ExportPage({view}, {legend,second}, {table}, {text}, {image}, result);
+  auto before = ExportPage({view}, {legend,second}, {table,secondTable}, {text}, {image}, result);
   auto groups = DrawingGroups(before);
   assert(before.find("/Subtype /Image") != std::string::npos);
   assert(before.find("(ALabel) Tj") < before.find("(Venue:) Tj"));
@@ -80,9 +81,16 @@ void MixedPage(LayoutLegendExportData legend) {
   assert(before.find("(BLabel) Tj") < before.find("(Overlay) Tj"));
   const auto imageGroup = std::find_if(groups.begin(), groups.end(), [](const auto &g) { return g.find(" Do\n") != std::string::npos; });
   assert(imageGroup != groups.end());
+  table.fields[0] = "Edited venue";
+  auto tableEdit = DrawingGroups(ExportPage({view}, {legend,second}, {table,secondTable}, {text}, {image}, result));
+  for (const auto &group : groups) {
+    if (group.find("(Venue test) Tj") != std::string::npos) continue;
+    assert(std::find(tableEdit.begin(), tableEdit.end(), group) != tableEdit.end());
+  }
+  table.fields[0] = "Venue test";
   legend.items[0].showSideSymbol = true;
   legend.items[0].displayName = "Changed A";
-  const auto after = ExportPage({view}, {legend,second}, {table}, {text}, {image}, result);
+  const auto after = ExportPage({view}, {legend,second}, {table,secondTable}, {text}, {image}, result);
   const auto afterGroups = DrawingGroups(after);
   // Every other placed element's complete drawing groups are byte-identical.
   for (const auto &group : groups) {
@@ -184,6 +192,28 @@ int main(int argc, char **argv) {
     options=Viewer2DPrintOptions{}; options.compressStreams=false;
     assert(ExportLayoutToPdf({}, {legend}, {}, {}, {}, options,
         std::filesystem::path(argv[1]) / "legend-three-views.pdf").success);
+  }
+
+  if (argc > 2 && std::string(argv[2]) == "event-table") {
+    LayoutEventTableExportData table;
+    table.fields = {"Venue Éclairage", "Málaga", "2026-11-05", "Main stage", "Version 1", "Design", "mail@example.org"};
+    for (int width : {120,180,300,600}) for (double scale : {0.5,1.,2.}) {
+      table.frame = {0,0,width,100};
+      Viewer2DPrintOptions options; options.compressStreams = false;
+      options.layoutScaleX = options.layoutScaleY = scale;
+      options.pageWidthPt = width*scale; options.pageHeightPt = 100*scale;
+      assert(ExportLayoutToPdf({}, {}, {table}, {}, {}, options,
+          std::filesystem::path(argv[1]) / ("parity-"+std::to_string(width)+"-"+std::to_string(scale)+".pdf")).success);
+    }
+    Viewer2DExportResult result;
+    const auto pdf = ExportPage({}, {}, {table}, {}, {}, result);
+    assert(pdf.find("/FontFile2") != std::string::npos);
+    assert(pdf.find("/F3 ") != std::string::npos && pdf.find("/F4 ") != std::string::npos);
+    assert(pdf.find("/Subtype /Image") == std::string::npos);
+    assert(pdf.find("(Venue:) Tj") < pdf.find("(Location:) Tj"));
+    table.fields[0] = "É灯😀";
+    ExportPage({}, {}, {table}, {}, {}, result);
+    assert(result.eventTableTextSubstitutions == 2 && result.eventTableTextDiagnostics.size() == 2);
   }
   legend.items.clear();
   assert(Export(legend).find("(Count) Tj") != std::string::npos);

@@ -18,9 +18,6 @@
 #include "layoutviewerpanel.h"
 
 #include <algorithm>
-#include <array>
-#include <functional>
-#include <unordered_map>
 
 // Include GLEW or other OpenGL loader first if present
 #ifdef _WIN32
@@ -42,12 +39,8 @@
 #include "guiconfigservices.h"
 #include "layouteventtabledialog.h"
 #include "layoutviewerpanel_shared.h"
-#include <wx/dcgraph.h>
-
-namespace {
-constexpr std::array<const char *, 7> kEventTableLabels = {
-    "Venue:", "Location:", "Date:", "Stage:", "Version:", "Design:", "Mail:"};
-} // namespace
+#include "layout_event_table_renderer.h"
+#include "layout_event_table_cache_policy.h"
 
 layouts::LayoutEventTableDefinition *
 LayoutViewerPanel::GetSelectedEventTable() {
@@ -259,149 +252,12 @@ void LayoutViewerPanel::DrawEventTableElement(
 
 size_t LayoutViewerPanel::HashEventTableFields(
     const layouts::LayoutEventTableDefinition &table) const {
-  size_t hash = table.fields.size();
-  std::hash<std::string> strHasher;
-  for (const auto &field : table.fields) {
-    hash ^= strHasher(field) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
-  }
-  return hash;
+  return gui::EventTableContentHash(table);
 }
 
 wxImage LayoutViewerPanel::BuildEventTableImage(
     const wxSize &size, const wxSize &logicalSize, double renderZoom,
     const layouts::LayoutEventTableDefinition &table) const {
-  if (size.GetWidth() <= 0 || size.GetHeight() <= 0 || renderZoom <= 0.0)
-    return wxImage();
-  wxBitmap bitmap(size.GetWidth(), size.GetHeight(), 32);
-  wxMemoryDC memoryDc(bitmap);
-  wxGCDC dc(memoryDc);
-  dc.SetBackground(wxBrush(wxColour(255, 255, 255)));
-  dc.Clear();
-  dc.SetTextForeground(wxColour(20, 20, 20));
-  dc.SetPen(*wxTRANSPARENT_PEN);
-
-  const int paddingLeft = 6;
-  const int paddingRight = 6;
-  const int paddingTop = 6;
-  const int paddingBottom = 6;
-  const int columnGap = 10;
-  const int totalRows = static_cast<int>(kEventTableLabels.size());
-  const int baseHeight =
-      logicalSize.GetHeight() > 0 ? logicalSize.GetHeight() : size.GetHeight();
-  const double availableHeight =
-      static_cast<double>(baseHeight) - paddingTop - paddingBottom;
-  double fontSize = totalRows > 0 ? (availableHeight / totalRows) - 2.0 : 10.0;
-  fontSize = std::clamp(fontSize, 6.0, 14.0);
-  fontSize *= kLegendFontScale;
-  const int fontSizePx =
-      std::max(1, static_cast<int>(std::lround(fontSize * renderZoom)));
-  const int emphasizedFontSizePx =
-      std::max(fontSizePx + 1, static_cast<int>(std::lround(fontSizePx * 1.1)));
-
-  wxFont baseFont = layoutviewerpanel::detail::MakeSharedFont(
-      fontSizePx, wxFONTWEIGHT_NORMAL);
-  wxFont labelFont =
-      layoutviewerpanel::detail::MakeSharedFont(fontSizePx, wxFONTWEIGHT_BOLD);
-  wxFont emphasizedFont = layoutviewerpanel::detail::MakeSharedFont(
-      emphasizedFontSizePx, wxFONTWEIGHT_BOLD);
-
-  std::unordered_map<wxString, wxSize, wxStringHash, wxStringEqual>
-      labelTextExtentCache;
-  std::unordered_map<wxString, wxSize, wxStringHash, wxStringEqual>
-      baseTextExtentCache;
-  std::unordered_map<wxString, wxSize, wxStringHash, wxStringEqual>
-      emphasizedTextExtentCache;
-
-  auto measureTextExtent =
-      [&](const wxString &text,
-          std::unordered_map<wxString, wxSize, wxStringHash, wxStringEqual>
-              &cache) {
-        auto cacheIt = cache.find(text);
-        if (cacheIt != cache.end())
-          return cacheIt->second;
-        int width = 0;
-        int height = 0;
-        dc.GetTextExtent(text, &width, &height);
-        wxSize sizeMeasured(width, height);
-        cache.emplace(text, sizeMeasured);
-        return sizeMeasured;
-      };
-
-  dc.SetFont(labelFont);
-  int maxLabelWidth = 0;
-  for (const auto &label : kEventTableLabels) {
-    const wxSize labelSize =
-        measureTextExtent(wxString::FromUTF8(label), labelTextExtentCache);
-    maxLabelWidth = std::max(maxLabelWidth, labelSize.GetWidth());
-  }
-
-  const int paddingLeftPx =
-      std::max(0, static_cast<int>(std::lround(paddingLeft * renderZoom)));
-  const int paddingRightPx =
-      std::max(0, static_cast<int>(std::lround(paddingRight * renderZoom)));
-  const int paddingTopPx =
-      std::max(0, static_cast<int>(std::lround(paddingTop * renderZoom)));
-  const int paddingBottomPx =
-      std::max(0, static_cast<int>(std::lround(paddingBottom * renderZoom)));
-  const int columnGapPx =
-      std::max(0, static_cast<int>(std::lround(columnGap * renderZoom)));
-  const int rowHeightPx = std::max(
-      1, static_cast<int>(std::lround(
-             (availableHeight / std::max(1, totalRows)) * renderZoom)));
-  const int labelX = paddingLeftPx;
-  const int valueX = labelX + maxLabelWidth + columnGapPx;
-  const int maxValueWidth =
-      std::max(0, size.GetWidth() - paddingRightPx - valueX);
-
-  auto trimTextToWidth = [&](const wxString &text, int maxWidth,
-                             std::unordered_map<wxString, wxSize, wxStringHash,
-                                                wxStringEqual> &cache) {
-    if (maxWidth <= 0)
-      return wxString();
-    int textWidth = measureTextExtent(text, cache).GetWidth();
-    if (textWidth <= maxWidth)
-      return text;
-    wxString ellipsis = "...";
-    const int ellipsisWidth = measureTextExtent(ellipsis, cache).GetWidth();
-    if (ellipsisWidth >= maxWidth)
-      return ellipsis.Left(1);
-    wxString trimmed = text;
-    while (!trimmed.empty()) {
-      textWidth = measureTextExtent(trimmed, cache).GetWidth();
-      if (textWidth + ellipsisWidth <= maxWidth)
-        break;
-      trimmed.RemoveLast();
-    }
-    return trimmed + ellipsis;
-  };
-
-  for (size_t idx = 0; idx < kEventTableLabels.size(); ++idx) {
-    const int rowTop = paddingTopPx + static_cast<int>(idx) * rowHeightPx;
-    wxString labelText = wxString::FromUTF8(kEventTableLabels[idx]);
-    dc.SetFont(labelFont);
-    const wxSize labelSize = measureTextExtent(labelText, labelTextExtentCache);
-    const int labelHeight = labelSize.GetHeight();
-    int labelY = rowTop + (rowHeightPx - labelHeight) / 2;
-    dc.DrawText(labelText, labelX, labelY);
-
-    wxString valueText;
-    if (idx < table.fields.size()) {
-      valueText = wxString::FromUTF8(table.fields[idx]);
-    }
-    if (idx == 0) {
-      dc.SetFont(emphasizedFont);
-    } else {
-      dc.SetFont(baseFont);
-    }
-    auto &valueTextExtentCache =
-        (idx == 0) ? emphasizedTextExtentCache : baseTextExtentCache;
-    wxString trimmed =
-        trimTextToWidth(valueText, maxValueWidth, valueTextExtentCache);
-    const int valueHeight =
-        measureTextExtent(trimmed, valueTextExtentCache).GetHeight();
-    int valueY = rowTop + (rowHeightPx - valueHeight) / 2;
-    dc.DrawText(trimmed, valueX, valueY);
-  }
-
-  return bitmap.ConvertToImage();
+  (void)logicalSize;
+  return gui::RenderEventTableImage(size, renderZoom, table);
 }

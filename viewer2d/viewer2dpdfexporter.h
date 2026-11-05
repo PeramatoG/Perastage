@@ -54,6 +54,8 @@ struct Viewer2DExportResult {
   size_t perastageSymbolInstances = 0;
   size_t fallbackSymbolInstances = 0;
   // Unsupported Legend glyphs are omitted consistently on both targets; source UTF-8 is retained.
+  size_t eventTableTextSubstitutions = 0;
+  std::vector<std::string> eventTableTextDiagnostics;
   size_t legendTextSubstitutions = 0;
   std::vector<std::string> legendTextDiagnostics;
 };

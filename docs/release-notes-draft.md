@@ -70,6 +70,7 @@ full MVR/GDTF conformance, or interoperability with every third-party applicatio
 
 ## Layout, Symbols and Plotting
 
+- Layout Event Tables now share measured text, bold styles, clipping and ellipsis between preview and selectable vector PDF, independent of zoom and output scale.
 - Layout Legends now use the same bundled font, line wrapping, row geometry and symbol columns in the editable preview and vector PDF. Enabled Side symbols remain vector geometry, independent settings refresh reliably, and unsupported glyphs are identified in PDF completion details.
 
 - A new **Fixture Label Editor** lets users adjust Name, ID, and DMX Address labels, including visibility, font weight, size, colors, outlines, alignment, anchors, and position. It supports project defaults, per-fixture overrides, and preview dragging.
