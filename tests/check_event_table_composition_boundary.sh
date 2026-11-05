@@ -12,7 +12,7 @@ for path in ('gui/layout_event_table_renderer.cpp', 'viewer2d/pdf/layout_pdf_eve
     for forbidden in ('GetTextExtent', 'MeasureTextWidth', 'trimText', 'TypographyScale', 'rowHeight ='):
         assert forbidden not in adapter, (path, forbidden)
 for name in ('legend', 'event_table'):
-    assert 'BeginDocumentPageMapping(' in Path('viewer2d/pdf/layout_pdf_' + name + '_renderer.cpp').read_text()
+    assert 'ScopedDocumentPageMapping ' in Path('viewer2d/pdf/layout_pdf_' + name + '_renderer.cpp').read_text()
 source = Path('gui/mainwindow_print.cpp').read_text().split('for (const auto &table : layout->eventTables)')[1].split('for (const auto &text')[0]
 assert 'lround' not in source and 'tableData.frame = table.frame;' in source
 assert 'kEventTableCompositionVersion' in Path('gui/layout_event_table_cache_policy.h').read_text()

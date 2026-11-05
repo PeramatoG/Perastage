@@ -4,9 +4,11 @@
 #include "LayoutTemplatePackageService.h"
 #include "layoutlegenditems.h"
 #include "legendutils.h"
+#include "LayoutImageResourceRegistry.h"
 #include "layout_event_table_cache_policy.h"
 
 #include <cassert>
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -34,6 +36,10 @@ int main() {
   assert(source.size() == 2 && source[1].typeName == "Wash" && source[1].channelCount == 0);
   cfg.GetScene().fixtures.clear();
   auto &manager = layouts::LayoutManager::Get();
+  const auto dir = std::filesystem::temp_directory_path() /
+      ("legend-history-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  std::filesystem::create_directories(dir);
+  { std::ofstream image(dir / "image.png"); image << "synthetic image resource"; }
   layouts::LayoutDefinition page; page.name = "Legend history";
   layouts::LayoutLegendDefinition a, b; a.id = 1; b.id = 2;
   a.frame = b.frame = {10,20,300,100};
@@ -46,6 +52,10 @@ int main() {
   page.eventTables.push_back(table);
   auto tableB = table; tableB.id = 4; tableB.fields[0] = "Other venue";
   page.eventTables.push_back(tableB);
+  layouts::Layout2DViewDefinition view; view.id=5; view.frame={17,29,101,73};
+  layouts::LayoutTextDefinition text; text.id=6; text.frame={17,29,151,87}; text.text="Styled page";
+  layouts::LayoutImageDefinition image; image.id=7; image.frame={17,29,83,41}; image.imagePath=(dir/"image.png").string();
+  page.view2dViews.push_back(view); page.textViews.push_back(text); page.imageViews.push_back(image);
   assert(manager.AddLayout(page));
   cfg.ClearHistory(); cfg.MarkSaved();
   assert(manager.UpdateLayoutEventTable(page.name, table));
@@ -90,9 +100,6 @@ int main() {
   cfg.Undo(); assert(cfg.GetValue("layouts_collection") == postA);
   cfg.Redo(); assert(cfg.GetValue("layouts_collection") == both);
 
-  const auto dir = std::filesystem::temp_directory_path() /
-      ("legend-history-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-  std::filesystem::create_directories(dir);
   const auto package = dir / "legend.pslayout";
   std::string error;
   assert(manager.ExportLayoutTemplate(page.name, package.string(), &error));
@@ -103,6 +110,9 @@ int main() {
   assert(imported.layout.legendViews[1].itemSettings[0].visible);
   assert(imported.layout.eventTables[0].fields[0] == "Edited venue É");
   assert(imported.layout.eventTables[1].fields[1] == "Other location");
+  assert(imported.layout.view2dViews[0].frame.width==101 && imported.layout.view2dViews[0].frame.x==17);
+  assert(imported.layout.textViews[0].frame.height==87 && imported.layout.textViews[0].text=="Styled page");
+  assert(imported.layout.imageViews[0].frame.width==83 && imported.layout.imageViews[0].frame.height==41);
   const auto legacy = dir / "legend.json";
   { std::ofstream out(legacy); out << layouts::ToTemplateDocument({imported.layout}); }
   layouts::LayoutTemplateImportResult legacyImported;
@@ -113,18 +123,39 @@ int main() {
   // test callback; this does not qualify MVR scene import or a full GUI reopen.
   ProjectSession archive;
   const auto pstg = dir / "legend.pstg";
-  assert(archive.SaveProject(pstg.string(), [&](const std::string &path) {
-    return cfg.SaveToFile(path);
-  }, [](const std::string &path) {
-    std::ofstream out(path, std::ios::binary); out << "PKSCENE"; return out.good();
+  assert(archive.SaveProject(pstg.string(), [&](std::vector<std::uint8_t> &bytes) {
+    const auto configPath=dir/"config.json";
+    if (!cfg.SaveToFile(configPath.string())) return false;
+    std::ifstream in(configPath,std::ios::binary);
+    bytes.assign(std::istreambuf_iterator<char>(in),{}); return !in.bad();
+  }, [](std::vector<std::uint8_t> &bytes) {
+    const std::string scene="PKSCENE"; bytes.assign(scene.begin(),scene.end()); return true;
+  }, [] {
+    std::vector<ProjectSession::ArchiveResource> resources;
+    for(const auto &entry : layouts::LayoutImageResourceRegistry::Get().UsedResources())
+      resources.push_back({entry.archivePath,entry.bytes});
+    return resources;
   }));
   cfg.Reset();
   ProjectSession reopened;
   assert(reopened.LoadProject(pstg.string(), [&](const std::string &path) {
     return cfg.LoadFromFile(path);
   }, [](const std::string &) { return true; }));
-  assert(cfg.GetValue("layouts_collection") == both);
-  assert(layouts::ToTemplateDocument(manager.GetLayouts().Items()).dump() == *both);
+  auto expected=nlohmann::json::parse(*both);
+  auto actual=layouts::ToTemplateDocument(manager.GetLayouts().Items());
+  // Materialized image paths belong to the reopened archive workspace. All
+  // stored resource identities, frames and other document values remain exact.
+  const auto &allLayouts=manager.GetLayouts().Items();
+  const auto restored=std::find_if(allLayouts.begin(),allLayouts.end(),[&](const auto &v) {return v.name==page.name;});
+  assert(restored!=allLayouts.end() && restored->imageViews.size()==1);
+  const auto &restoredImage=restored->imageViews[0];
+  std::vector<std::uint8_t> restoredBytes;
+  assert(layouts::LayoutImageResourceRegistry::Get().GetResourceBytes(restoredImage.projectResourcePath,restoredBytes));
+  assert(std::string(restoredBytes.begin(),restoredBytes.end())=="synthetic image resource");
+  const auto layoutIndex=static_cast<std::size_t>(std::distance(allLayouts.begin(),restored));
+  expected["layouts"][layoutIndex]["imageViews"][0]["path"]=actual["layouts"][layoutIndex]["imageViews"][0]["path"];
+  assert(actual==expected);
+  assert(nlohmann::json::parse(*cfg.GetValue("layouts_collection"))==actual);
   cfg.Reset();
   std::filesystem::remove_all(dir);
 }
