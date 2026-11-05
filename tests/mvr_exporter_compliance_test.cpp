@@ -678,9 +678,14 @@ int main(int argc, char **argv) {
   tinyxml2::XMLElement *root = doc.FirstChildElement("GeneralSceneDescription");
   assert(root != nullptr);
   assert(root->FirstChildElement("UserData") != nullptr);
-  assert(root->FirstChildElement("UserData")
-             ->FirstChildElement("Data")
-             ->FirstChildElement("ProjectFixtureMetadataMap") != nullptr);
+  auto *perastageData =
+      root->FirstChildElement("UserData")->FirstChildElement("Data");
+  while (perastageData &&
+         (!perastageData->Attribute("provider") ||
+          std::string(perastageData->Attribute("provider")) != "Perastage"))
+    perastageData = perastageData->NextSiblingElement("Data");
+  assert(perastageData &&
+         perastageData->FirstChildElement("ProjectFixtureMetadataMap"));
   const std::string caseAReference = FindFixtureGdtfSpec(root, "Case A");
   const std::string caseBReference = FindFixtureGdtfSpec(root, "Case B");
   assert(!caseAReference.empty());
@@ -1293,9 +1298,7 @@ int main(int argc, char **argv) {
          supportPositionNode->GetText() != nullptr);
   assert(CanonicalizeUuid(supportPositionNode->GetText()) ==
          std::string(supportPositionNode->GetText()));
-  auto *rootHoistInfoMap =
-      rootUserData->FirstChildElement("Data")->FirstChildElement(
-          "HoistInfoMap");
+  auto *rootHoistInfoMap = perastageData->FirstChildElement("HoistInfoMap");
   assert(rootHoistInfoMap != nullptr);
   tinyxml2::XMLElement *hoistInfo = nullptr;
   for (auto *info = rootHoistInfoMap->FirstChildElement("HoistInfo"); info;

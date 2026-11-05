@@ -16,6 +16,8 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvr_export_resource_collection.h"
+#include "mvr_scene_resource_lookup.h"
+#include "mvr_publication_text.h"
 #include "mvr_model_dependencies.h"
 #include "mvr_model_resource_closure.h"
 #include "archive_entry_path.h"
@@ -146,7 +148,7 @@ ResourceCollection::~ResourceCollection() {
 // Sanitizes arbitrary input into one portable root-level archive filename.
 std::string ResourceCollection::SanitizeArchiveFileName(
     const std::string &input, const std::string &fallback) {
-  std::string candidate = TrimAscii(input);
+  std::string candidate = TrimAscii(mvr::publication::XmlText(input));
   std::replace(candidate.begin(), candidate.end(), '\\', '/');
   std::string value = fs::path(candidate).filename().generic_string();
   if (value.empty()) value = fallback;
@@ -161,6 +163,7 @@ std::string ResourceCollection::SanitizeArchiveFileName(
 
 // Normalizes archive separators and removes leading relative markers.
 std::string ResourceCollection::NormalizeArchiveEntryPath(std::string path) {
+  path = mvr::publication::XmlText(path);
   std::replace(path.begin(), path.end(), '\\', '/');
   while (path.rfind("./", 0) == 0) path.erase(0, 2);
   while (!path.empty() && path.front() == '/') path.erase(path.begin());
@@ -182,28 +185,8 @@ std::string ResourceCollection::NormalizeSourcePath(const std::string &rawPath) 
 
 // Resolves an existing source directly or by filename within scene resources.
 std::string ResourceCollection::ResolveExistingResourceSourcePath(const std::string &rawSource) const {
-  if (rawSource.empty()) return {};
-  std::string normalized = NormalizeSourcePath(rawSource);
-  std::error_code ec;
-  if (fs::exists(PathUtils::PathFromUtf8(normalized), ec) && !ec) return normalized;
-  if (m_sceneBasePath.empty()) return {};
-  const fs::path requested = PathUtils::PathFromUtf8(rawSource).filename();
-  const fs::path base = PathUtils::PathFromUtf8(m_sceneBasePath);
-  if (requested.empty() || !fs::exists(base, ec) || ec) return {};
-  for (const auto &entry : fs::directory_iterator(base, ec)) {
-    if (ec) break;
-    std::error_code regularEc;
-    if (entry.is_regular_file(regularEc) && !regularEc &&
-        ToLowerAscii(entry.path().filename().generic_string()) ==
-            ToLowerAscii(requested.generic_string())) {
-      normalized = NormalizeSourcePath(entry.path().generic_string());
-      if (m_informationalLogSink)
-        m_informationalLogSink("MVR export resolved packaged resource '" + rawSource +
-                               "' by filename in scene resources: " + normalized);
-      return normalized;
-    }
-  }
-  return {};
+  return PathUtils::PathToUtf8(mvr::ResolveExistingSceneResource(
+      rawSource, PathUtils::PathFromUtf8(m_sceneBasePath), true));
 }
 
 // Resolves an existing scene resource path for orchestration-only decisions.

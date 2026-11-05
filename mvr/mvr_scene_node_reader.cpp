@@ -450,12 +450,13 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
       }
     };
     if (tinyxml2::XMLElement *m = info->FirstChildElement("Manufacturer"))
-      if (m->GetText())
-        truss.manufacturer = Trim(m->GetText());
+      if (m->GetText() || info->BoolAttribute("typeMetadataOverrides", false))
+        truss.manufacturer = Trim(m->GetText() ? m->GetText() : "");
     if (tinyxml2::XMLElement *mo = info->FirstChildElement("Model"))
-      if (mo->GetText())
-        truss.model = Trim(mo->GetText());
-    if (!hasGdtfMetadataAuthority) {
+      if (mo->GetText() || info->BoolAttribute("typeMetadataOverrides", false))
+        truss.model = Trim(mo->GetText() ? mo->GetText() : "");
+    if (!hasGdtfMetadataAuthority ||
+        info->BoolAttribute("typeMetadataOverrides", false)) {
       readNumeric("Length", truss.lengthMm);
       readNumeric("Width", truss.widthMm);
       readNumeric("Height", truss.heightMm);
@@ -463,16 +464,17 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
     }
     readNumeric("Weight", truss.weightKg);
     if (tinyxml2::XMLElement *desc = info->FirstChildElement("GdtfDescription"))
-      if (desc->GetText())
-        truss.gdtfDescription = desc->GetText();
+      if (desc->GetText() ||
+          info->BoolAttribute("typeMetadataOverrides", false))
+        truss.gdtfDescription = desc->GetText() ? desc->GetText() : "";
     if (tinyxml2::XMLElement *cst = info->FirstChildElement("CrossSectionType"))
       if (cst->GetText()) {
         const std::string value = Trim(cst->GetText());
         truss.crossSectionType = (value == "Tube") ? "Tube" : "TrussFramework";
       }
     if (tinyxml2::XMLElement *cs = info->FirstChildElement("CrossSection"))
-      if (cs->GetText())
-        truss.crossSection = Trim(cs->GetText());
+      if (cs->GetText() || info->BoolAttribute("typeMetadataOverrides", false))
+        truss.crossSection = Trim(cs->GetText() ? cs->GetText() : "");
     if (tinyxml2::XMLElement *load = info->FirstChildElement("Load"))
       if (load->GetText()) {
         float parsed = 0.0f;
@@ -641,10 +643,15 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
 
         const bool hasGdtfMetadataAuthority =
             !truss.gdtfSpec.empty() && !gdtfLoadFailed;
+        const auto definitionMetadata = truss.CaptureGdtfSourceMetadata();
+        bool explicitTypeMetadataOverrides = false;
 
         auto rootTrussInfoIt = rootTrussInfoByUuid.find(truss.uuid);
         if (rootTrussInfoIt != rootTrussInfoByUuid.end()) {
           consumedRootTrussInfoUuids.insert(rootTrussInfoIt->first);
+          explicitTypeMetadataOverrides =
+              rootTrussInfoIt->second->BoolAttribute("typeMetadataOverrides",
+                                                     false);
           applyTrussInfo(rootTrussInfoIt->second, truss,
                          hasGdtfMetadataAuthority);
         } else if (tinyxml2::XMLElement *ud =
@@ -756,7 +763,10 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
         }
 
         if (!truss.gdtfSpec.empty())
-          truss.boundGdtfMetadata = truss.CaptureGdtfSourceMetadata();
+          truss.boundGdtfMetadata =
+              explicitTypeMetadataOverrides && hasGdtfMetadataAuthority
+                  ? definitionMetadata
+                  : truss.CaptureGdtfSourceMetadata();
         scene.trusses[truss.uuid] = truss;
         return truss.uuid;
       };

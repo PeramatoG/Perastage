@@ -42,7 +42,9 @@ Maintenance rules for Codex and contributors:
 
 - Standard MVR Classes and Classing references are retained for supported scene objects, including definitions and assignments that do not belong to the same layer.
 
-- Nested MVR Symdefs, Symbol instances and geometry placements now survive project saves, merges and canonical exports, including model textures and unused definitions. VideoScreen/Projector data, file media and parametric children are retained even without an editor. Editing an instance’s geometry retains its original definition. Missing resources produce explicit errors rather than silently substituting another file.
+- Nested MVR Symdefs, Symbol instances and geometry placements now survive project saves, merges and canonical exports, including model textures and unused definitions. VideoScreen/Projector data, file media and parametric children are retained even without an editor. Editing an instance’s geometry retains its original definition. Unavailable resources and invalid source relationships receive precise recovery warnings.
+
+- Recoverable MVR import defects no longer veto supported project saves and exports: canonical publication repairs identities and invalid values, preserves wide integer labels, and reports specific omitted or substituted content. Recovery disclosures survive reopening; real write failures preserve the previous file.
 
 - Authored MVR fixture identifiers and UnitNumber presence are preserved without automatically renumbering valid imported values. High-precision matrices are retained through supported canonical saves and edits.
 

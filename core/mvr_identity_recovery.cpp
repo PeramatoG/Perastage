@@ -196,7 +196,9 @@ void RecoverObjectMap(std::unordered_map<std::string, Object> &objects,
     const std::string canonicalField = CanonicalizeUuid(field);
     std::string replacement =
         !canonicalField.empty() ? canonicalField : canonicalKey;
-    if (replacement.empty() || used.contains(replacement)) {
+    if (replacement.empty() ||
+        replacement == "00000000-0000-0000-0000-000000000000" ||
+        used.contains(replacement)) {
       if (!replacement.empty())
         AddDiagnostic(result, kind, ObjectName(object), context,
                       "canonical-identity", replacement, {},
@@ -255,6 +257,15 @@ void RecoverLayers(MvrScene &scene, const std::string &sourceContext,
   std::vector<Layer> layers;
   IdentityAliasResolver layerAliases;
   std::set<std::string> used;
+  const auto reserve = [&](const auto &objects) {
+    for (const auto &[id, node] : objects)
+      used.insert(id);
+  };
+  reserve(scene.fixtures);
+  reserve(scene.trusses);
+  reserve(scene.supports);
+  reserve(scene.sceneObjects);
+  reserve(scene.groupObjects);
   for (const std::string &key : keys) {
     Layer layer = scene.layers.at(key);
     const std::string field = layer.uuid;
@@ -264,7 +275,9 @@ void RecoverLayers(MvrScene &scene, const std::string &sourceContext,
         !canonicalField.empty() ? canonicalField : canonicalKey;
     if (replacement.empty() && (key == "layer_default" || field == "layer_default"))
       replacement = layerdomain::DefaultLayerUuid();
-    if (replacement.empty() || used.contains(replacement)) {
+    if (replacement.empty() ||
+        replacement == "00000000-0000-0000-0000-000000000000" ||
+        used.contains(replacement)) {
       if (!replacement.empty())
         AddDiagnostic(result, "Layer", layer.name, sourceContext,
                       "canonical-identity", replacement, {},
@@ -310,7 +323,7 @@ void RecoverLayers(MvrScene &scene, const std::string &sourceContext,
 RecoveryResult RecoverSceneIdentities(MvrScene &scene,
                                       const std::string &sourceContext) {
   RecoveryResult result;
-  std::set<std::string> usedSceneUuids;
+  std::set<std::string> usedSceneUuids{layerdomain::DefaultLayerUuid()};
   IdentityAliasResolver aliases;
 
   RecoverObjectMap(scene.fixtures, "Fixture", sourceContext, usedSceneUuids,

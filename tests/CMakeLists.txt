@@ -4768,5 +4768,12 @@ foreach(binding_case IN ITEMS absent whitespace valid missing-mode empty-mode ne
   set_perastage_test_labels(MvrImportAnomaly-${binding_case} LAYER standard-strict DOMAINS mvr project)
 endforeach()
 
+target_sources(project_preserved_fields_roundtrip_test PRIVATE support/mvr_publication_cases.h)
+foreach(publication_case IN ITEMS range field class focus connection model texture gdtf mode matrix addresses range-unit range-custom source-media definition symbol-cycle duplicate-symbol source-binding source-gobo truss-edits truss-zero power-edits power-physical class-invalid class-duplicate object-symbol color gdtf-content gdtf-sections position affine-source ambiguous-connection wrong-connection acquisition)
+  add_test(NAME MvrPublication-${publication_case} COMMAND project_preserved_fields_roundtrip_test --publication-${publication_case})
+  set_library_env(MvrPublication-${publication_case})
+  set_perastage_test_labels(MvrPublication-${publication_case} LAYER standard-strict DOMAINS mvr project)
+endforeach()
+
 # The archive writer shares the same atomic publication contract as PSTG.
 target_link_libraries(mvr_export_archive_writer_test PRIVATE perastage_project_archive_publication)

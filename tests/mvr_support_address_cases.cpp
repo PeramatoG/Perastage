@@ -1,3 +1,4 @@
+#include "support/mvr_recovery_assertions.h"
 /* This file is part of Perastage. */
 #include "mvr_support_address_cases.h"
 #include "configmanager.h"
@@ -155,7 +156,8 @@ void RunSupportAddressCases(const fs::path &dir, const FixtureNetworkTestService
     assert(config.SaveProject(retained.string())); const auto previous = Bytes(retained);
     for (const auto &invalid : {std::string("missing.gdtf"), replacement.string()}) {
       config.GetScene() = scene; config.GetScene().supports.at(uuid).gdtfSpec = invalid;
-      assert(!config.SaveProject(retained.string())); assert(Bytes(retained) == previous);
+      assert(config.SaveProject((dir / "support-recovered.pstg").string()));
+      assert(Bytes(retained) == previous);
       assert(config.GetScene().supports.at(uuid).dmxAddresses == support.dmxAddresses);
     }
   }
@@ -169,7 +171,7 @@ void RunSupportAddressCases(const fs::path &dir, const FixtureNetworkTestService
     auto invalid = services.import(dir / "support-invalid.mvr");
     assert(!invalid.preservationIssues.empty());
     MvrExporter exporter; std::vector<unsigned char> bytes;
-    assert(!exporter.ExportCanonicalSnapshotToBuffer(invalid, bytes));
+    tests::recovery::Export(exporter, invalid, dir / "support-recovered.mvr");
   }
   std::string archiveError;
   assert(tests::archive::WriteStoredZipWithRawNames(dir / "support-missing-source.mvr",
@@ -215,9 +217,17 @@ void RunSupportAddressCases(const fs::path &dir, const FixtureNetworkTestService
       assert(reopened.dmxAddresses == before.dmxAddresses);
       continue;
     }
-    assert(!config.SaveProject(bindingProject.string()));
+    const auto beforeResources = support;
+    assert(
+        config.SaveProject((dir / "support-resource-recovered.pstg").string()));
+    assert(support.dmxAddresses == beforeResources.dmxAddresses);
+    assert(
+        config.LoadProject((dir / "support-resource-recovered.pstg").string()));
+    assert(config.GetScene().supports.at(uuid).gdtfSpec.empty());
     assert(Bytes(bindingProject) == bindingBytes);
-    assert(support.dmxAddresses == bindingScene.supports.at(uuid).dmxAddresses);
+    assert(config.GetScene().supports.at(uuid).dmxAddresses->entries ==
+           beforeResources.dmxAddresses->entries);
+    assert(config.GetScene().supports.at(uuid).dmxAddresses->networks.empty());
   }
   // Conversion keeps the same standard identity, definition and numeric matrix source.
   auto conversionSource = services.source(mixed);

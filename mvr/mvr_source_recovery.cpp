@@ -1,4 +1,5 @@
 #include "mvr_source_recovery.h"
+#include "mvr_import_reference_repair.h"
 #include "mvr_source_structure_internal.h"
 #include "mvr_import_reference_resolver.h"
 #include "mvr_binding_content.h"
@@ -23,10 +24,13 @@ bool EmptyPair(Element &owner) {
 std::vector<MvrExportDiagnostic> RecoverRetainedSource(MvrScene &scene) {
   std::vector<MvrExportDiagnostic> result;
   std::map<std::string, size_t> counts;
+  std::vector<std::string> rawOccurrenceIds;
   for (const auto &source : scene.sourceStructures)
     if (source)
-      for (const auto &node : source->nodes)
+      for (const auto &node : source->nodes) {
         ++counts[node.uuid];
+        rawOccurrenceIds.push_back(node.uuid);
+      }
   std::set<std::string> recoveredOwners, used;
   MvrImportReferenceResolver replay;
   size_t occurrence = 0;
@@ -195,6 +199,7 @@ std::vector<MvrExportDiagnostic> RecoverRetainedSource(MvrScene &scene) {
   };
   normalizeBindings(scene.trusses, "Truss");
   normalizeBindings(scene.supports, "Support");
+  IsolateRetainedAmbiguousReferences(scene, rawOccurrenceIds);
   return result;
 }
 } // namespace mvr

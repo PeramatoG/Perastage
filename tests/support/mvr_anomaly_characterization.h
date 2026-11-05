@@ -74,6 +74,22 @@ inline void CheckRecovered(ConfigManager &cfg,
           xml.Print(&printer);
           node.xml = printer.CStr();
         }
+      for (auto &node : copy->nodes)
+        if (node.kind == "Fixture") {
+          tinyxml2::XMLDocument xml;
+          assert(xml.Parse(node.xml.c_str()) == tinyxml2::XML_SUCCESS);
+          auto *connections = xml.NewElement("Connections");
+          auto *link = xml.NewElement("Connection");
+          link->SetAttribute("own", "A");
+          link->SetAttribute("other", "B");
+          link->SetAttribute("toObject",
+                             "71abcdef-0000-4000-8000-000000000001");
+          connections->InsertEndChild(link);
+          xml.RootElement()->InsertEndChild(connections);
+          tinyxml2::XMLPrinter printer;
+          xml.Print(&printer);
+          node.xml = printer.CStr();
+        }
       mvr::IndexSourceStructure(*copy);
       original = copy;
     }
@@ -127,6 +143,21 @@ inline void CheckRecovered(ConfigManager &cfg,
         self(self, child);
     };
     findEdit(findEdit, projection.RootElement()->FirstChildElement("Scene"));
+    const auto checkReference = [&](auto &&self,
+                                    tinyxml2::XMLElement *node) -> void {
+      assert(std::string(node->Name()) != "Connection");
+      for (auto *child = node->FirstChildElement(); child;
+           child = child->NextSiblingElement())
+        self(self, child);
+    };
+    checkReference(checkReference,
+                   projection.RootElement()->FirstChildElement("Scene"));
+    assert(std::any_of(
+        repair.GetExportDiagnostics().begin(),
+        repair.GetExportDiagnostics().end(), [](const auto &finding) {
+          return finding.impact == MvrExportDiagnosticImpact::DataOmitted &&
+                 finding.technicalDetail.find("ambiguous") != std::string::npos;
+        }));
     assert(retainedEdit &&
            legacy.sceneObjects.at(legacyMoved).transform.o[0] == 2.25f);
     int reassigned = 0;

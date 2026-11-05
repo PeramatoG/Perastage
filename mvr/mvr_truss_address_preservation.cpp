@@ -1,5 +1,6 @@
 /* This file is part of Perastage. */
 #include "mvr_truss_address_preservation.h"
+#include "file_import_utils.h"
 #include "fixture_patch_service.h"
 #include "truss_gdtf_binding.h"
 #include "fixture_network_reference.h"
@@ -32,8 +33,8 @@ std::vector<MvrExportDiagnostic> CheckTrussAddressBindings(const MvrScene &scene
   std::vector<MvrExportDiagnostic> result;
   for (const auto &[uuid, truss] : scene.trusses) {
     if (!PreserveTrussAddressBinding(truss)) continue;
-    if (truss.boundGdtfMetadata && *truss.boundGdtfMetadata != truss.CaptureGdtfSourceMetadata())
-      result.push_back(Block(truss, "GDTFSpec/TypeMetadata", "Edited GDTF type metadata requires a verified lossless derivative; the authored definition cannot be replaced by generic generation."));
+    // Native planning/type overrides live in explicit root Perastage metadata.
+    // The standard binding still retains and verifies the authored GDTF bytes.
     if (!truss.perastageAuxGdtfArchivePath.empty()) {
       auto auxiliary = truss; auxiliary.gdtfSpec = truss.perastageAuxGdtfArchivePath;
       std::error_code error;
@@ -64,7 +65,8 @@ std::vector<MvrExportDiagnostic> CheckTrussAddressBindings(const MvrScene &scene
 }
 std::vector<MvrExportDiagnostic> CheckSerializedTrussAddressBindings(
     const tinyxml2::XMLElement &root, const MvrScene &scene,
-    const std::function<std::filesystem::path(const std::string &)> &resource) {
+    const std::function<std::filesystem::path(const std::string &)> &resource,
+    const std::vector<CanonicalGdtfProof> &proofs) {
   std::vector<MvrExportDiagnostic> result;
   const auto visit = [&](auto &&self, const tinyxml2::XMLElement &node) -> void {
     if (std::string_view(node.Name()) == "UserData") return;
@@ -80,7 +82,22 @@ std::vector<MvrExportDiagnostic> CheckSerializedTrussAddressBindings(
           result.push_back(Block(truss, "GDTFSpec", "Serialized Truss binding differs from its standard source owner."));
         else if (!outputSpec.empty()) {
           const auto path = resource(outputSpec);
-          if (!EqualBytes(Source(scene, truss), path))
+          const auto original = Source(scene, truss);
+          bool verifiedDerivative = false;
+          for (const auto &proof : proofs) {
+            std::error_code error;
+            if (!std::filesystem::equivalent(original, proof.source, error) ||
+                error || path != proof.output)
+              continue;
+            verifiedDerivative =
+                !proof.sourceSha256.empty() && !proof.outputSha256.empty() &&
+                FileImportUtils::ComputeFileSha256(original) ==
+                    proof.sourceSha256 &&
+                FileImportUtils::ComputeFileSha256(path) == proof.outputSha256;
+            if (verifiedDerivative)
+              break;
+          }
+          if (!EqualBytes(original, path) && !verifiedDerivative)
             result.push_back(Block(truss, "GDTFSpec", "Serialized Truss GDTF was replaced or rewritten without an authorized derivative operation."));
           const auto references = fixture_network::InspectTrussReferences(truss, path);
           if (!references) result.push_back(Block(truss, "Addresses/Network", references.detail));

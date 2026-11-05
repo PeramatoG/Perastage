@@ -1,3 +1,4 @@
+#include "support/mvr_recovery_assertions.h"
 /* This file is part of Perastage. */
 #include "configmanager.h"
 #include "inspection/xml_schema_validation.h"
@@ -196,21 +197,24 @@ int main(int argc, char **argv) {
   assert(group.changed);
   assert(exporter.ExportCanonicalSnapshotToFile(copied, (dir / "grouped.mvr").string()));
   CheckExport(dir / "grouped.mvr", 3, 3);
-  // A dangling target must fail before recovery can clear the reference.
+  // Omit only a dangling Focus relationship, retaining all other fixtures.
   MvrScene dangling = reimported;
   dangling.sceneObjects.erase(focusId);
   std::vector<uint8_t> bytes{1, 2, 3};
-  assert(!exporter.ExportCanonicalSnapshotToBuffer(dangling, bytes));
-  assert(bytes.empty());
-  assert(exporter.GetExportDiagnostics().front().code ==
-         MvrExportDiagnosticCode::StandardDataPreservationBlocked);
+  auto repaired =
+      tests::recovery::Export(exporter, dangling, dir / "repaired-focus.mvr");
+  assert(tests::recovery::Count(repaired, "Focus") == 0);
   MvrScene missing = reimported;
   missing.sceneObjects.at(focusId).geometries.front().modelFile = "absent.glb";
-  assert(!exporter.ExportCanonicalSnapshotToBuffer(missing, bytes));
+  assert(
+      tests::recovery::Count(
+          tests::recovery::Export(exporter, missing, dir / "missing-model.mvr"),
+          "FocusPoint") == 2);
   std::string missingSource = Wrap(FocusXml(focusId));
   missingSource.replace(missingSource.find("target.glb"), 10, "absent.glb");
   WriteSource(dir, missingSource);
-  assert(!exporter.ExportCanonicalSnapshotToBuffer(Import(dir / "source.mvr"), bytes));
+  tests::recovery::Export(exporter, Import(dir / "source.mvr"),
+                          dir / "repaired-source.mvr");
   for (const auto &extra : {"<Alignments><Alignment geometry=\"Beam\" up=\"0,0,1\" direction=\"0,0,-1\"/></Alignments>",
                              "<Protocols><Protocol type=\"Art-Net\"/></Protocols>"}) {
     WriteSource(dir, Wrap(FocusXml(focusId) + FixtureXml(1, extra)));
@@ -249,11 +253,12 @@ int main(int argc, char **argv) {
   }
   MvrScene future;
   future.versionMinor = 7;
-  assert(!exporter.ExportCanonicalSnapshotToBuffer(future, bytes));
+  tests::recovery::Export(exporter, future, dir / "future.mvr");
   std::string futureSource = sourceXml;
   futureSource.replace(futureSource.find("verMinor=\"6\""), 12, "verMinor=\"7\"");
   WriteSource(dir, futureSource);
-  assert(!exporter.ExportCanonicalSnapshotToBuffer(Import(dir / "source.mvr"), bytes));
+  tests::recovery::Export(exporter, Import(dir / "source.mvr"),
+                          dir / "repaired-source.mvr");
   WriteSource(dir, Wrap("<FocusPoint uuid=\"" + std::string(focusId) + "\"><Geometries/></FocusPoint>"));
   assert(exporter.ExportCanonicalSnapshotToFile(Import(dir / "source.mvr"), (dir / "empty.mvr").string()));
   CheckExport(dir / "empty.mvr", 1, 0);

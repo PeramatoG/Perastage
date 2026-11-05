@@ -13,8 +13,8 @@ for forbidden in 'ConfigManager::Get' 'tinyxml2' 'wxZip' 'wxFile' 'ofstream' 'Wr
   fi
 done
 
-rg -q 'Result Prepare\(const MvrScene &sourceScene, const MvrExportOptions &options\)' "$implementation"
-rg -q 'mvr_export_preparation::Prepare\(sourceScene, options\)' "$exporter"
+rg -q 'Result Prepare\(const MvrScene &sourceScene, const MvrExportOptions &options,' "$implementation"
+rg -Uq 'mvr_export_preparation::Prepare\(\s*sourceScene,\s*options,' "$exporter"
 rg -q 'class MvrExporter' "$repo_root/mvr/mvrexporter.h"
 if rg -n 'ExportLayerUuid|mvr:layer:' "$exporter" >/dev/null; then
   echo "MVR exporter must consume prepared layer UUIDs without rederiving them." >&2

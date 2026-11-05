@@ -3,7 +3,11 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 service_files=("$repo_root"/mvr/mvr_source_structure*.h "$repo_root"/mvr/mvr_source_structure*.cpp
-               "$repo_root"/mvr/mvr_source_recovery.{h,cpp})
+               "$repo_root"/mvr/mvr_source_recovery.{h,cpp}
+               "$repo_root"/mvr/mvr_import_reference_repair.{h,cpp}
+               "$repo_root"/mvr/mvr_retained_reference_repair.cpp
+               "$repo_root"/mvr/mvr_scene_resource_lookup.{h,cpp}
+               "$repo_root"/mvr/mvr_publication_*.h "$repo_root"/mvr/mvr_publication_*.cpp)
 if rg -n 'ConfigManager|wx[A-Z]|MvrExporter|MvrImporter|ofstream|wxZip|system\(' "${service_files[@]}"; then
   echo "MVR source structure must remain a scene/XML service without GUI, archive, or hidden session access." >&2
   exit 1

@@ -23,6 +23,7 @@
 #include "mvr_standard_preservation.h"
 #include "mvr_source_structure_service.h"
 #include "mvr_source_recovery.h"
+#include "mvr_publication_repair.h"
 #include "scene_transform_integrity.h"
 #include "uuidutils.h"
 
@@ -166,10 +167,16 @@ void AppendIdentityDiagnostics(Result &result,
     if (ambiguous) {
       result.diagnostics.push_back(
           {MvrExportDiagnosticCode::IdentityConflict,
-           MvrExportDiagnosticSeverity::Error, MvrExportDiagnosticImpact::ExportFailed,
-           true, diagnostic.objectKind, diagnostic.objectName, {}, {},
+           MvrExportDiagnosticSeverity::Warning,
+           MvrExportDiagnosticImpact::DataOmitted,
+           true,
+           diagnostic.objectKind,
+           diagnostic.objectName,
+           {},
+           {},
            mvridentity::FormatRecoveryDiagnostic(diagnostic) +
-               " Resolve the UUID conflict before exporting; no reference target was selected."});
+               " Omitted the ambiguous reference on the export snapshot; no "
+               "target was selected."});
       continue;
     }
     const bool conflict = diagnostic.conflictingValidIdentities;
@@ -313,7 +320,10 @@ void PreparePositions(Result &result) {
     }
     const std::string canonical = CanonicalizeUuid(id);
     if (!canonical.empty()) {
-      auto [it, inserted] = result.positions.try_emplace(canonical, name);
+      auto it = result.positions.find(canonical);
+      if (it == result.positions.end())
+        return;
+      const bool inserted = false;
       if (!inserted && !name.empty())
         it->second = name;
       if (!name.empty())
@@ -344,6 +354,8 @@ void PreparePositions(Result &result) {
     const std::string canonical = CanonicalizeUuid(id);
     if (!canonical.empty() && result.positions.contains(canonical))
       return canonical;
+    if (!canonical.empty())
+      return std::string{};
     if (auto it = byName.find(name); !name.empty() && it != byName.end()) {
       resolvedByName = true;
       return it->second;
@@ -391,27 +403,32 @@ void PreparePositions(Result &result) {
 } // namespace
 
 // Prepares an immutable source scene for export without package or XML I/O.
-Result Prepare(const MvrScene &sourceScene, const MvrExportOptions &options) {
+Result Prepare(const MvrScene &sourceScene, const MvrExportOptions &options,
+               const std::filesystem::path &fallbackGdtf) {
   (void)options;
   Result result;
   result.scene = sourceScene;
   result.diagnostics = mvr::RecoverRetainedSource(result.scene);
-  mvr::PrepareSourceStructureEdits(result.scene);
-  const auto preservation = mvr::CheckStandardPreservation(result.scene);
-  result.diagnostics.insert(result.diagnostics.end(), preservation.begin(),
-                            preservation.end());
-  if (std::any_of(result.diagnostics.begin(), result.diagnostics.end(),
-                  [](const auto &d) {
-                    return d.severity == MvrExportDiagnosticSeverity::Error;
-                  }))
-    return result;
   const auto recovery =
       mvridentity::RecoverSceneIdentities(result.scene, "editable-scene");
   AppendIdentityDiagnostics(result, recovery);
-  if (std::any_of(result.diagnostics.begin(), result.diagnostics.end(),
-                  [](const auto &diagnostic) {
-                    return diagnostic.severity == MvrExportDiagnosticSeverity::Error;
-                  }))
+  mvr::publication::ReconcileIdentityReferences(result.scene, recovery);
+  mvr::publication::RepairSourceClasses(result.scene, result.diagnostics);
+  mvr::publication::RepairNative(result.scene, result.diagnostics);
+  mvr::publication::RepairSourceIdentities(result.scene, result.diagnostics);
+  mvr::publication::RepairSourceHierarchy(result.scene, result.diagnostics);
+  mvr::publication::RepairSymbols(result.scene, result.diagnostics);
+  mvr::PrepareSourceStructureEdits(result.scene);
+  mvr::publication::RepairResources(result.scene, fallbackGdtf,
+                                    result.diagnostics);
+  mvr::publication::RepairSource(result.scene, result.diagnostics);
+  mvr::publication::RepairSourceHierarchy(result.scene, result.diagnostics);
+  const auto preservation = mvr::CheckStandardPreservation(result.scene);
+  result.diagnostics.insert(result.diagnostics.end(), preservation.begin(),
+                            preservation.end());
+  if (std::any_of(preservation.begin(), preservation.end(), [](const auto &d) {
+        return d.severity == MvrExportDiagnosticSeverity::Error;
+      }))
     return result;
   for (auto &[uuid, fixture] : result.scene.fixtures)
     if (const auto patch = perastage::patch::ResolveFixturePatch(fixture); patch)
@@ -447,6 +464,7 @@ Result Prepare(const MvrScene &sourceScene, const MvrExportOptions &options) {
                             ? uuid
                             : DeriveDeterministicUuid(
                                   "mvr:layer:" + layer.name + ":" + uuid));
+  mvr::publication::RetainDisclosure(result.scene, result.diagnostics);
   result.success = true;
   return result;
 }

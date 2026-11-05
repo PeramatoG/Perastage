@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvr_xml_extension_writer.h"
+#include "mvr_fixture_planning_metadata.h"
 
 #include "mvrscene.h"
 #include "uuidutils.h"
@@ -180,6 +181,7 @@ void AppendProjectFixtures(tinyxml2::XMLDocument &document,
                            const MvrScene &scene) {
   if (!perastageData)
     return;
+  mvr::WriteFixturePlanningMetadata(document, *perastageData, scene);
   tinyxml2::XMLElement *map = document.NewElement("ProjectFixtureMetadataMap");
   map->SetAttribute("schemaVersion", "1.0");
   std::map<std::string, const Fixture *> fixturesByUuid;
@@ -251,6 +253,8 @@ void AppendTrussInfo(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *map,
                      const TrussInfoMetadata &values) {
   tinyxml2::XMLElement *info = document.NewElement("TrussInfo");
   info->SetAttribute("uuid", values.uuid.c_str());
+  if (values.typeMetadataOverrides)
+    info->SetAttribute("typeMetadataOverrides", true);
   if (values.manualLoadKg) {
     tinyxml2::XMLElement *load = document.NewElement("Load");
     load->SetAttribute("unit", "kg");
@@ -258,16 +262,21 @@ void AppendTrussInfo(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *map,
     load->SetText(std::to_string(*values.manualLoadKg).c_str());
     info->InsertEndChild(load);
   }
-  AppendMetadataText(document, info, "Manufacturer", values.manufacturer);
-  AppendMetadataText(document, info, "Model", values.model);
-  AppendMetadataText(document, info, "Length", values.length);
-  AppendMetadataText(document, info, "Width", values.width);
-  AppendMetadataText(document, info, "Height", values.height);
-  AppendMetadataText(document, info, "Weight", values.weight);
-  AppendMetadataText(document, info, "GdtfDescription", values.gdtfDescription);
-  AppendMetadataText(document, info, "CrossSectionType",
-                     values.crossSectionType);
-  AppendMetadataText(document, info, "CrossSection", values.crossSection);
+  const auto append = [&](const char *name, const std::string &value) {
+    if (value.empty() && values.typeMetadataOverrides) {
+      info->InsertEndChild(document.NewElement(name));
+    } else
+      AppendMetadataText(document, info, name, value);
+  };
+  append("Manufacturer", values.manufacturer);
+  append("Model", values.model);
+  append("Length", values.length);
+  append("Width", values.width);
+  append("Height", values.height);
+  append("Weight", values.weight);
+  append("GdtfDescription", values.gdtfDescription);
+  append("CrossSectionType", values.crossSectionType);
+  append("CrossSection", values.crossSection);
   AppendMetadataText(document, info, "ModelFile", values.modelFile);
   AppendMetadataText(document, info, "PositionName", values.positionName);
   AppendMetadataText(document, info, "HangPos", values.positionName);

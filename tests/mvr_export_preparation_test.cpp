@@ -147,8 +147,9 @@ void TestPositionPreparation() {
   assert(scene.fixtures.at(remappedUuid).position == "outdated-position");
 }
 
-// Verifies fatal transform validation retains its established diagnostic model.
-void TestFatalTransformPreparation() {
+// Invalid numeric components are repaired on the snapshot and precisely
+// disclosed.
+void TestPrivateTransformRepair() {
   const std::string fixtureUuid = "99999999-9999-4999-8999-999999999999";
   MvrScene scene;
   Fixture fixture = MakeFixture(fixtureUuid, "Invalid Transform", 1, 1, 0.0f);
@@ -158,12 +159,13 @@ void TestFatalTransformPreparation() {
   const auto result =
       mvr_export_preparation::Prepare(scene, CanonicalMvrExportOptions());
   const MvrExportDiagnostic *diagnostic = FindDiagnostic(
-      result.diagnostics, MvrExportDiagnosticCode::TransformInvalid);
+      result.diagnostics, MvrExportDiagnosticCode::InternalRecovery);
 
-  assert(!result.success);
+  assert(result.success);
+  assert(result.scene.fixtures.at(fixtureUuid).transform.o[0] == 0.0f);
   assert(diagnostic != nullptr);
-  assert(diagnostic->severity == MvrExportDiagnosticSeverity::Error);
-  assert(diagnostic->impact == MvrExportDiagnosticImpact::ExportFailed);
+  assert(diagnostic->severity == MvrExportDiagnosticSeverity::Warning);
+  assert(diagnostic->impact == MvrExportDiagnosticImpact::DataSubstituted);
   assert(diagnostic->userVisible);
   assert(diagnostic->objectIdentity == fixtureUuid);
   assert(std::isnan(scene.fixtures.at(fixtureUuid).transform.o[0]));
@@ -231,7 +233,8 @@ void TestFocusDoesNotConsumeObjectIds() {
   assert(result.objectIds.at(object.uuid).first == "Deck");
 }
 
-// Identity repair must retain a unique hierarchy edge and reject ambiguous aliases.
+// Retain unique hierarchy edges; omit ambiguous edges without guessing a
+// target.
 void TestIdentityRepairScope() {
   MvrScene scene;
   GroupObject group;
@@ -251,10 +254,13 @@ void TestIdentityRepairScope() {
   scene.groupObjects["second-group"] = group;
   scene.fixtures.at(fixture.uuid).parentGroupUuid = group.uuid;
   const auto conflict = mvr_export_preparation::Prepare(scene, CanonicalMvrExportOptions());
-  assert(!conflict.success);
+  assert(conflict.success);
+  assert(conflict.scene.groupObjects.size() == 2);
+  assert(conflict.scene.fixtures.at(fixture.uuid).parentGroupUuid.empty());
   const auto *diagnostic = FindDiagnostic(conflict.diagnostics, MvrExportDiagnosticCode::IdentityConflict);
-  assert(diagnostic && diagnostic->severity == MvrExportDiagnosticSeverity::Error);
-  assert(diagnostic->impact == MvrExportDiagnosticImpact::ExportFailed);
+  assert(diagnostic &&
+         diagnostic->severity == MvrExportDiagnosticSeverity::Warning);
+  assert(diagnostic->impact == MvrExportDiagnosticImpact::DataOmitted);
   assert(diagnostic->technicalDetail.find("ambiguous-reference") != std::string::npos);
   assert(scene.groupObjects.size() == 2);
   assert(scene.fixtures.at(fixture.uuid).parentGroupUuid == group.uuid);
@@ -303,7 +309,7 @@ int main() {
   TestIncompleteOptionalBindings();
   TestPreparedValuesAndSourceImmutability();
   TestPositionPreparation();
-  TestFatalTransformPreparation();
+  TestPrivateTransformRepair();
   TestDeterminismAcrossInsertionOrder();
   TestFocusDoesNotConsumeObjectIds();
   TestIdentityRepairScope();

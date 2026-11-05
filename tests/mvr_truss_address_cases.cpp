@@ -1,3 +1,4 @@
+#include "support/mvr_recovery_assertions.h"
 /* This file is part of Perastage. */
 #include "mvr_truss_address_cases.h"
 #include "configmanager.h"
@@ -109,7 +110,8 @@ void RunTrussAddressCases(const fs::path &dir, const FixtureNetworkTestServices 
     auto dimensionEdit = scene;
     dimensionEdit.trusses.at(id).lengthMm += 1000.0f;
     MvrExporter refusedDimensions; std::vector<unsigned char> refusedBytes;
-    assert(!refusedDimensions.ExportCanonicalSnapshotToBuffer(dimensionEdit, refusedBytes));
+    tests::recovery::Export(refusedDimensions, dimensionEdit,
+                            dir / "truss-type-override.mvr");
     assert(dimensionEdit.trusses.at(id).dmxAddresses == original.dmxAddresses);
     Export(config.GetScene(), dir / "truss-edited.mvr");
     config.Undo(); Export(config.GetScene(), dir / "truss-undo.mvr");
@@ -207,7 +209,9 @@ void RunTrussAddressCases(const fs::path &dir, const FixtureNetworkTestServices 
                !reopened.sourceSymdefUuid.empty());
         continue;
       }
-      config.GetScene() = invalid; assert(!config.SaveProject(retained.string())); assert(Bytes(retained) == previous);
+      config.GetScene() = invalid;
+      assert(config.SaveProject((dir / "truss-recovered.pstg").string()));
+      assert(Bytes(retained) == previous);
       assert(config.GetScene().trusses.at(id).dmxAddresses == truss.dmxAddresses);
     }
   }
@@ -219,7 +223,9 @@ void RunTrussAddressCases(const fs::path &dir, const FixtureNetworkTestServices 
       "<Addresses><Network geometry='ethernet_1'><Child/></Network></Addresses>"}) {
     Archive(dir / "truss-invalid.mvr", Source(assignments, true), services);
     const auto invalid = services.import(dir / "truss-invalid.mvr"); assert(!invalid.preservationIssues.empty());
-    MvrExporter exporter; std::vector<unsigned char> bytes; assert(!exporter.ExportCanonicalSnapshotToBuffer(invalid, bytes));
+    MvrExporter exporter;
+    std::vector<unsigned char> bytes;
+    tests::recovery::Export(exporter, invalid, dir / "truss-recovered.mvr");
   }
   auto unavailableSource = Source(mixed, true);
   unavailableSource.replace(unavailableSource.find("fixture.gdtf"), std::string("fixture.gdtf").size(), "unavailable.gdtf");

@@ -263,8 +263,20 @@ ProjectSourceStructure(tinyxml2::XMLDocument &document, const MvrScene &scene,
           if (auto *old = element->FirstChildElement("Geometries")) {
             element->InsertAfterChild(old, geometry);
             element->DeleteChild(old);
-          } else
-            element->InsertEndChild(geometry);
+          } else {
+            tinyxml2::XMLElement *previous = nullptr;
+            for (auto *child = element->FirstChildElement(); child;
+                 child = child->NextSiblingElement()) {
+              const std::string_view name = child->Name();
+              if (name != "Matrix" && name != "Classing" && name != "Position")
+                break;
+              previous = child;
+            }
+            if (previous)
+              element->InsertAfterChild(previous, geometry);
+            else
+              element->InsertFirstChild(geometry);
+          }
         }
       }
       if (node->valid) {

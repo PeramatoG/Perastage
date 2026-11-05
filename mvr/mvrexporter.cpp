@@ -34,6 +34,7 @@
 #include "matrixutils.h"
 #include "mvr_preferences.h"
 #include "mvr_export_preparation.h"
+#include "mvr_publication_repair.h"
 #include "mvr_standard_preservation.h"
 #include "mvr_symdef_preservation.h"
 #include "mvr_matrix_precision.h"
@@ -1250,18 +1251,21 @@ static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
     return;
   mvr_xml_extension::TrussInfoMetadata values;
   values.uuid = exportUuid;
+  values.typeMetadataOverrides =
+      truss.boundGdtfMetadata &&
+      *truss.boundGdtfMetadata != truss.CaptureGdtfSourceMetadata();
   if (truss.hasManualLoadOverride)
     values.manualLoadKg = truss.manualLoadKg;
   values.manufacturer = truss.manufacturer;
   values.model = truss.model;
-  if (truss.lengthMm > 0.0f)
-    values.length = std::to_string(truss.lengthMm);
-  if (truss.widthMm > 0.0f)
-    values.width = std::to_string(truss.widthMm);
-  if (truss.heightMm > 0.0f)
-    values.height = std::to_string(truss.heightMm);
-  if (truss.weightKg > 0.0f)
-    values.weight = std::to_string(truss.weightKg);
+  if (truss.lengthMm > 0.0f || values.typeMetadataOverrides)
+    values.length = mvr::publication::PlanningNumber(truss.lengthMm);
+  if (truss.widthMm > 0.0f || values.typeMetadataOverrides)
+    values.width = mvr::publication::PlanningNumber(truss.widthMm);
+  if (truss.heightMm > 0.0f || values.typeMetadataOverrides)
+    values.height = mvr::publication::PlanningNumber(truss.heightMm);
+  if (truss.weightKg > 0.0f || values.typeMetadataOverrides)
+    values.weight = mvr::publication::PlanningNumber(truss.weightKg);
   values.gdtfDescription = truss.gdtfDescription;
   values.crossSectionType = truss.crossSectionType.empty()
                                 ? "TrussFramework"
@@ -1367,7 +1371,9 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                                           const MvrExportEnvironment &environment) {
   m_exportDiagnostics.clear();
   m_exportWarningAdapter.clear();
-  auto preparation = mvr_export_preparation::Prepare(sourceScene, options);
+  auto preparation = mvr_export_preparation::Prepare(
+      sourceScene, options,
+      environment.fixtureFallbackGdtfPath.value_or(fs::path{}));
   for (auto &diagnostic : preparation.diagnostics)
     AddDiagnostic(std::move(diagnostic));
   for (const std::string &message : preparation.informationalLogs)
@@ -1908,9 +1914,9 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                                 ? trussWorkspace.Path() / ((t.uuid.empty() ? std::string("truss") : t.uuid) + ".gdtf")
                                 : fs::path{};
         std::string conversionError;
-        if (!tempPath.empty() && BuildTrussGdtfFromInstance(
-                                     effectiveTruss, tempPath,
-                                     &conversionError)) {
+        if (!tempPath.empty() &&
+            BuildTrussGdtfFromInstance(effectiveTruss, tempPath,
+                                       &conversionError, {}, true)) {
           trussSourceGdtf = tempPath.string();
           resourceCollection.AdoptGeneratedResource(tempPath);
           resourceCollection.AdoptWorkspace(std::move(trussWorkspace));
@@ -2478,7 +2484,11 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                           mvr_export_resources::ResourceKind::ModelDependency);
       });
   for (const auto &diagnostic : sourceProjection.diagnostics) AddDiagnostic(diagnostic);
-  if (!sourceProjection.diagnostics.empty()) return false;
+  if (std::any_of(sourceProjection.diagnostics.begin(),
+                  sourceProjection.diagnostics.end(), [](const auto &d) {
+                    return d.severity == MvrExportDiagnosticSeverity::Error;
+                  }))
+    return false;
   auto focusDiagnostics = mvr::CheckSerializedFocus(*sceneNode);
   auto classDiagnostics = mvr::CheckSerializedClasses(*sceneNode, scene);
   focusDiagnostics.insert(focusDiagnostics.end(), classDiagnostics.begin(), classDiagnostics.end());
@@ -2530,11 +2540,15 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   mvr_export_resources::ResourcePlan resourcePlan =
       std::move(gdtfPreparation.plan);
   auto &resourceEntries = resourcePlan.entries;
-  const auto trussBindingDiagnostics = mvr::CheckSerializedTrussAddressBindings(*doc.RootElement(), scene,
+  const auto trussBindingDiagnostics = mvr::CheckSerializedTrussAddressBindings(
+      *doc.RootElement(), scene,
       [&](const std::string &name) {
-        for (const auto &entry : resourceEntries) if (entry.archivePath == name) return entry.sourcePath;
+        for (const auto &entry : resourceEntries)
+          if (entry.archivePath == name)
+            return entry.sourcePath;
         return fs::path{};
-      });
+      },
+      resourcePlan.canonicalGdtfProofs);
   for (const auto &diagnostic : trussBindingDiagnostics) AddDiagnostic(diagnostic);
   if (!trussBindingDiagnostics.empty()) return false;
   const auto addressProjection = mvr::CheckFixtureAddressProjection(*doc.RootElement(), scene);
@@ -2599,6 +2613,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                    MvrExportDiagnosticImpact::DataOmitted, true, {}, {}, {}, {},
                    warning});
 
+  mvr::publication::AppendDisclosure(doc, m_exportDiagnostics, scene.basePath);
   // Serialize XML
   tinyxml2::XMLPrinter printer;
   doc.Print(&printer);

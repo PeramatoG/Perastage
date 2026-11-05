@@ -1,3 +1,4 @@
+#include "support/mvr_recovery_assertions.h"
 #include "configmanager.h"
 #include "LayoutManager.h"
 #include "mvrexporter.h"
@@ -11,6 +12,7 @@
 #include "support/zip_test_utils.h"
 #include "support/mvr_structure_fixture.h"
 #include "support/mvr_anomaly_characterization.h"
+#include "support/mvr_publication_cases.h"
 #include "inspection/xml_schema_validation.h"
 #include <tinyxml2.h>
 #include <cassert>
@@ -35,8 +37,11 @@ int main(int argc, char **argv) {
   wxInitializer initialize;
   assert(initialize.IsOk());
   const std::string mode = argc > 1 ? argv[1] : "";
+  const bool publication = mode.starts_with("--publication-");
+  const auto publicationCase = publication ? mode.substr(14) : std::string{};
   const bool anomaly = mode.starts_with("--anomalies");
-  const bool structured = mode.starts_with("--structure") || anomaly;
+  const bool structured =
+      mode.starts_with("--structure") || anomaly || publication;
   const bool geometryEdit = mode.find("geometry") != std::string::npos;
   const bool dependencies = mode.find("dependencies") != std::string::npos;
   const bool merge = mode.find("merge") != std::string::npos;
@@ -48,6 +53,28 @@ int main(int argc, char **argv) {
   tests::gdtf::BuildMinimalValidFixture()
       .WithDmxMode("Mode", "Base")
       .WriteArchive(gdtf);
+  if (publicationCase == "gdtf-content" || publicationCase == "gdtf-sections") {
+    std::string description;
+    assert(tests::zip::ReadEntry(gdtf, "description.xml", &description));
+    tinyxml2::XMLDocument definition;
+    assert(definition.Parse(description.c_str()) == tinyxml2::XML_SUCCESS);
+    auto *type = definition.RootElement()->FirstChildElement("FixtureType");
+    assert(type);
+    if (publicationCase == "gdtf-content") {
+      type->SetAttribute("VendorCustom", "original-value");
+      auto *unknown = definition.NewElement("VendorCustom");
+      unknown->SetText("source-only-value");
+      type->InsertEndChild(unknown);
+    } else
+      type->DeleteChild(type->FirstChildElement("Geometries"));
+    tinyxml2::XMLPrinter printer;
+    definition.Print(&printer);
+    wxFFileOutputStream out(gdtf.string());
+    wxZipOutputStream zip(out);
+    assert(zip.PutNextEntry("description.xml"));
+    zip.Write(printer.CStr(), printer.CStrSize() - 1);
+    assert(zip.Close());
+  }
   const std::string id = "51000000-0000-4000-8000-000000000001";
   const std::string ordinaryXml =
       "<GeneralSceneDescription verMajor='1' verMinor='6' provider='Test' "
@@ -79,18 +106,19 @@ int main(int argc, char **argv) {
               "break='0'>1</Address><Network geometry='port' "
               "ipv4='192.0.2.1'/></Addresses>";
   const std::string xml =
-      anomaly ? tests::mvr_anomaly::Source(binding,
-                                           mode == "--anomalies-v16" ? 6 : 5)
+      publication ? tests::mvr_publication::Source(publicationCase)
+      : anomaly ? tests::mvr_anomaly::Source(binding,
+                                             mode == "--anomalies-v16" ? 6 : 5)
       : structured ? tests::mvr_structure::Xml(id)
                    : ordinaryXml;
   const auto validation = perastage::inspection::ValidateXmlAgainstSchema(
       xml, perastage::inspection::Mvr16Schema());
-  if (validation.schema.status !=
-      perastage::inspection::ValidationStatus::Valid)
+  if (!publication && validation.schema.status !=
+                          perastage::inspection::ValidationStatus::Valid)
     for (const auto &diagnostic : validation.schema.diagnostics)
       std::cerr << diagnostic.message << "\n";
-  assert(validation.schema.status ==
-         perastage::inspection::ValidationStatus::Valid);
+  assert(publication || validation.schema.status ==
+                            perastage::inspection::ValidationStatus::Valid);
   const auto source = dir / "source.mvr";
   {
     wxFFileOutputStream out(source.string());
@@ -102,10 +130,17 @@ int main(int argc, char **argv) {
     assert(zip.PutNextEntry("fixture.gdtf"));
     zip.Write(bytes.data(), bytes.size());
     assert(zip.CloseEntry());
-    if (anomaly) {
+    if (anomaly || publication) {
       const auto bytes = tests::gdtf::BuildMinimalValidGlb();
       assert(zip.PutNextEntry("71abcdef-0000-4000-8000-000000000001.glb"));
       zip.Write(bytes.data(), bytes.size());
+      assert(zip.CloseEntry());
+    }
+    if (publicationCase == "texture") {
+      const std::string linked =
+          R"({"asset":{"version":"2.0"},"buffers":[{"uri":"unavailable.bin","byteLength":3}]})";
+      assert(zip.PutNextEntry("linked.gltf"));
+      zip.Write(linked.data(), linked.size());
       assert(zip.CloseEntry());
     }
     if (structured) {
@@ -134,6 +169,14 @@ int main(int argc, char **argv) {
   options.applyDictionary = false;
   options.allowDummyFallback = false;
   assert(MvrImporter::ImportAndRegister(source.string(), options));
+  if (publication) {
+    const auto target = dir / "recovered.pstg";
+    tests::mvr_publication::Check(cfg, target, publicationCase);
+    assert(Read(source) == original);
+    cfg.Reset();
+    fs::remove_all(dir);
+    return 0;
+  }
   if (anomaly) {
     const auto target = dir / "recovered.pstg";
     Write(target, "previous");
@@ -414,27 +457,29 @@ int main(int argc, char **argv) {
         model = fs::path(cfg.GetScene().basePath) / model;
       const auto texture = model.parent_path() / "textures/mask.png";
       fs::rename(texture, texture.string() + ".held");
-      assert(!cfg.SaveProject(target.string()));
-      assert(cfg.GetLastProjectSaveFailure().kind ==
-             ProjectSaveFailureKind::Resource);
-      assert(Read(target) == before && cfg.IsDirty());
+      const auto copy = dir / "missing-dependency.pstg";
+      assert(cfg.SaveProject(copy.string()));
+      assert(Read(target) == before);
+      auto retained = cfg.GetScene();
+      assert(cfg.LoadProject(copy.string()));
+      assert(cfg.GetScene().fixtures.size() == retained.fixtures.size());
+      cfg.GetScene() = retained;
       fs::rename(texture.string() + ".held", texture);
     }
     const auto media = fs::path(cfg.GetScene().basePath) / "movie.bin";
     fs::rename(media, media.string() + ".held");
     fs::create_directories(media.parent_path() / "other");
     Write(media.parent_path() / "other" / "movie.bin", "unrelated namesake");
-    assert(!cfg.SaveProject(target.string()));
-    assert(cfg.GetLastProjectSaveFailure().kind ==
-           ProjectSaveFailureKind::Resource);
-    assert(Read(target) == before && cfg.IsDirty() &&
-           !fs::exists(target.string() + ".tmp"));
+    const auto recoveryCopy = dir / "missing-media.pstg";
+    assert(cfg.SaveProject(recoveryCopy.string()));
+    assert(Read(target) == before);
+    assert(!fs::exists(recoveryCopy.string() + ".tmp"));
     fs::rename(media.string() + ".held", media);
     auto broken = cfg.GetScene();
     broken.symdefs.at(tests::mvr_structure::nested).symbols[0].symdef =
         tests::mvr_structure::nested;
     std::vector<uint8_t> blocked;
-    assert(!exporter.ExportCanonicalSnapshotToBuffer(broken, blocked));
+    tests::recovery::Export(exporter, broken, dir / "repaired-structure.mvr");
     broken = cfg.GetScene();
     auto invalid =
         std::make_shared<MvrSourceStructure>(*broken.sourceStructures.front());
@@ -443,16 +488,11 @@ int main(int argc, char **argv) {
         node.uuid = "00000000-0000-0000-0000-000000000000";
     mvr::IndexSourceStructure(*invalid);
     broken.sourceStructures.front() = invalid;
-    assert(!exporter.ExportCanonicalSnapshotToBuffer(broken, blocked));
-    assert(std::any_of(
-        exporter.GetExportDiagnostics().begin(),
-        exporter.GetExportDiagnostics().end(), [](const auto &item) {
-          return item.code == MvrExportDiagnosticCode::IdentityConflict;
-        }));
+    tests::recovery::Export(exporter, broken, dir / "repaired-structure.mvr");
   }
 
-  // A malformed retained field is distinct from a valid standard field. It
-  // cannot become a successful, silently reduced-fidelity save.
+  // Malformed source-only fields are isolated with retained evidence; all
+  // represented edits and Layout content must remain reopenable.
   const auto goodScene = cfg.GetScene();
   for (auto &issue : cfg.GetScene().preservationIssues) {
     if (issue.node == "CastShadow")
@@ -461,15 +501,18 @@ int main(int argc, char **argv) {
       issue.originalInformation = "<CustomCommands><Invalid/></CustomCommands>";
   }
   cfg.MarkDirty();
+  assert(cfg.SaveProject(target.string()));
+  cfg.Reset();
+  assert(cfg.LoadProject(target.string()));
+  assert(cfg.GetScene().fixtures.at(id).instanceName == "Edited fixture");
+  bool disclosure = false;
+  for (const auto &block : cfg.GetScene().opaqueUserDataBlocks)
+    disclosure |= block.provider == "org.perastage.canonical-recovery" &&
+                  block.xml.find("CastShadow") != std::string::npos &&
+                  block.xml.find("CustomCommands") != std::string::npos;
+  assert(disclosure && !cfg.IsDirty() && Read(source) == original);
   const auto previous = Read(target);
-  assert(!cfg.SaveProject(target.string()));
-  const auto failure = cfg.GetLastProjectSaveFailure();
-  assert(failure.kind == ProjectSaveFailureKind::MvrPreservation);
-  assert(failure.detail.find("CastShadow") != std::string::npos);
-  assert(failure.detail.find("CustomCommands") != std::string::npos);
-  assert(failure.detail.find(id) != std::string::npos);
-  assert(cfg.IsDirty() && Read(target) == previous && Read(source) == original);
-  assert(!fs::exists(target.string() + ".tmp"));
+  cfg.MarkDirty();
   cfg.GetScene() = goodScene;
   assert(!cfg.SaveProject((dir / "absent" / "project.pstg").string()));
   assert(cfg.GetLastProjectSaveFailure().kind ==
@@ -477,10 +520,12 @@ int main(int argc, char **argv) {
   assert(cfg.IsDirty() && Read(target) == previous);
   cfg.GetScene().fixtures.at(id).gdtfSpec =
       (dir / "missing-authored.gdtf").string();
-  assert(!cfg.SaveProject(target.string()));
-  assert(cfg.GetLastProjectSaveFailure().kind ==
-         ProjectSaveFailureKind::Resource);
-  assert(Read(target) == previous && cfg.IsDirty());
+  const auto copy = dir / "missing-resource-recovery.pstg";
+  assert(cfg.SaveProject(copy.string()));
+  cfg.Reset();
+  assert(cfg.LoadProject(copy.string()));
+  assert(cfg.GetScene().fixtures.at(id).instanceName == "Edited fixture");
+  assert(Read(target) == previous);
   cfg.GetScene() = goodScene;
   const auto directoryTarget = dir / "directory.pstg";
   fs::create_directory(directoryTarget);

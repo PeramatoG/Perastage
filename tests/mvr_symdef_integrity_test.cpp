@@ -1,3 +1,4 @@
+#include "support/mvr_recovery_assertions.h"
 /* This file is part of Perastage. */
 #include "configmanager.h"
 #include "inspection/xml_schema_validation.h"
@@ -343,47 +344,67 @@ int main(int argc, char **argv) {
     return std::string(std::istreambuf_iterator<char>(input), {});
   };
   const auto originalProject = readProject();
-  const auto checkRejectedSave = [&](const MvrScene &rejectedScene,
-                                     ProjectSaveFailureKind kind,
-                                     const std::string &entry = {}) {
-    config.GetScene() = rejectedScene;
-    assert(!config.SaveProject(projectPath.string()));
-    assert(config.GetLastProjectSaveFailure().kind == kind);
-    assert(config.GetLastProjectSaveFailure().stage == "SerializeScene");
-    assert(!config.GetLastProjectSaveFailure().detail.empty());
-    if (!entry.empty()) assert(config.GetLastProjectSaveFailure().entry == entry);
+  const auto checkRecoveredSave = [&](const MvrScene &repairedScene) {
+    config.GetScene() = repairedScene;
+    const auto copy = dir / "repaired.pstg";
+    assert(config.SaveProject(copy.string()));
+    assert(config.LoadProject(copy.string()));
+    assert(config.GetScene().fixtures.size() == repairedScene.fixtures.size());
+    assert(!fs::exists(copy.string() + ".tmp"));
     assert(readProject() == originalProject);
-    assert(!fs::exists(projectPath.string() + ".tmp"));
-    assert(config.LoadProject(projectPath.string()));
-    assert(config.GetScene().symdefs.size() == 3);
   };
   MvrScene missing = incoming;
   missing.symdefs.at(unusedId).geometries.front().file = "missing.glb";
   std::vector<uint8_t> bytes{1, 2, 3};
-  assert(!exporter.ExportCanonicalSnapshotToBuffer(missing, bytes));
-  assert(bytes.empty());
+  auto repaired =
+      tests::recovery::Export(exporter, missing, dir / "missing-model.mvr");
+  assert(tests::recovery::Count(repaired, "Symdef") == missing.symdefs.size());
   // Losing an incoming resource must never bind its definition to a target namesake.
   const auto lostPath = fs::path(different.basePath) /
       different.symdefs.at(definitionId).geometries.front().file;
   assert(fs::remove(lostPath));
   MvrScene missingMerge = incoming;
   mvr::MergeImportedSceneIntoCurrent(missingMerge, different);
-  assert(!exporter.ExportCanonicalSnapshotToBuffer(missingMerge, bytes));
-  assert(bytes.empty());
+  const auto recoveredMerge = tests::recovery::Export(
+      exporter, missingMerge, dir / "missing-merged.mvr");
+  tinyxml2::XMLDocument recoveredDocument;
+  assert(recoveredDocument.Parse(recoveredMerge.c_str()) ==
+         tinyxml2::XML_SUCCESS);
+  auto *aux = recoveredDocument.RootElement()
+                  ->FirstChildElement("Scene")
+                  ->FirstChildElement("AUXData");
+  assert(aux);
+  size_t checkedAcquisitions = 0;
+  for (const auto &issue : missingMerge.preservationIssues)
+    if (issue.kind == MvrPreservationIssueKind::ResourceFailure &&
+        missingMerge.symdefs.contains(issue.objectUuid)) {
+      const auto &definition = missingMerge.symdefs.at(issue.objectUuid);
+      const auto removed =
+          std::count_if(definition.geometries.begin(),
+                        definition.geometries.end(), [&](const auto &geometry) {
+                          return geometry.file == issue.originalInformation;
+                        });
+      if (!removed)
+        continue;
+      auto *owner = aux->FirstChildElement("Symdef");
+      while (owner && std::string(owner->Attribute("uuid")) != issue.objectUuid)
+        owner = owner->NextSiblingElement("Symdef");
+      assert(owner);
+      size_t actual = 0;
+      for (auto *geometry = owner->FirstChildElement("ChildList")
+                                ->FirstChildElement("Geometry3D");
+           geometry; geometry = geometry->NextSiblingElement("Geometry3D"))
+        ++actual;
+      assert(actual == definition.geometries.size() - removed);
+      ++checkedAcquisitions;
+    }
+  assert(checkedAcquisitions > 0);
   assert(!missingMerge.preservationIssues.empty());
-  bool resourceFailure = false;
-  for (const auto &diagnostic : exporter.GetExportDiagnostics()) {
-    if (diagnostic.code != MvrExportDiagnosticCode::ResourceMissing) continue;
-    assert(diagnostic.resourceName == different.symdefs.at(definitionId).geometries.front().file);
-    resourceFailure = true;
-  }
-  assert(resourceFailure);
-  checkRejectedSave(missingMerge, ProjectSaveFailureKind::Resource,
-                    different.symdefs.at(definitionId).geometries.front().file);
-  checkRejectedSave(missing, ProjectSaveFailureKind::Resource);
+  checkRecoveredSave(missingMerge);
+  checkRecoveredSave(missing);
   MvrScene dangling = incoming;
   dangling.symdefs.erase(definitionId);
-  assert(!exporter.ExportCanonicalSnapshotToBuffer(dangling, bytes));
+  tests::recovery::Export(exporter, dangling, dir / "dangling-definition.mvr");
   std::string unsafeXml = Source(true);
   unsafeXml.replace(unsafeXml.find("unused.glb"), 10, "absent.glb");
   WriteSource(dir / "unsafe.mvr", unsafeXml);
@@ -392,7 +413,7 @@ int main(int argc, char **argv) {
   assert(!unsafe.preservationIssues.front().originalInformation.empty());
   MvrScene protectedMerge = incoming;
   mvr::MergeImportedSceneIntoCurrent(protectedMerge, unsafe);
-  assert(!exporter.ExportCanonicalSnapshotToBuffer(protectedMerge, bytes));
+  tests::recovery::Export(exporter, protectedMerge, dir / "repaired-merge.mvr");
   std::vector<std::string> retainedStructures;
   auto nested = Source(true);
   nested.insert(nested.find("</AUXData>"),

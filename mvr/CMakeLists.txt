@@ -9,7 +9,12 @@ target_include_directories(perastage_gdtf_matching PUBLIC ${CMAKE_CURRENT_SOURCE
 add_library(perastage_mvr_read STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_package.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_reference_resolver.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_reference_repair.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_reference_repair.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_retained_reference_repair.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_resource_resolver.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_resource_lookup.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_resource_lookup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_read_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_fixture_addresses.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_matrix_precision.cpp
@@ -22,6 +27,16 @@ add_library(perastage_mvr_read STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_class_preservation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_standard_preservation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_binding_content.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_fixture_planning_metadata.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_fixture_planning_metadata.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_publication_text.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_publication_repair.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_publication_repair.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_publication_resource_repair.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_publication_source_repair.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_publication_symbol_repair.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_publication_class_repair.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_publication_topology_repair.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_recovery.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_recovery.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_structure_service.h
@@ -32,6 +47,7 @@ add_library(perastage_mvr_read STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_structure_edits.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_standard_field_projection.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_standard_field_projection.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_canonical_resource_proof.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_truss_address_preservation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_focus_validation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_node_reader.cpp

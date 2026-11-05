@@ -16,9 +16,11 @@
 #include "layer_service.h"
 #include "matrixutils.h"
 #include "mvr_import_reference_resolver.h"
+#include "mvr_import_reference_repair.h"
 #include "mvr_scene_node_reader.h"
 #include "mvr_source_structure_service.h"
 #include "mvr_standard_preservation.h"
+#include "mvr_fixture_planning_metadata.h"
 #include "mvr_symdef_preservation.h"
 #include "primitive_model_resources.h"
 #include "uuidutils.h"
@@ -275,6 +277,20 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
       }
       if (ToLowerCopy(dataProvider) == "perastage")
         continue;
+      if (dataProvider == "org.perastage.canonical-recovery" &&
+          data->IntAttribute("ver") == 1) {
+        for (auto *finding = data->FirstChildElement("Finding"); finding;
+             finding = finding->NextSiblingElement("Finding"))
+          logMessage(
+              MvrReadLogLevel::Warning,
+              std::string("Retained canonical recovery disclosure: uuid=") +
+                  (finding->Attribute("uuid") ? finding->Attribute("uuid")
+                                              : "") +
+                  " field=" +
+                  (finding->Attribute("field") ? finding->Attribute("field")
+                                               : "") +
+                  " " + (finding->GetText() ? finding->GetText() : ""));
+      }
       tinyxml2::XMLPrinter printer(nullptr, true);
       data->Accept(&printer);
       MvrOpaqueUserDataBlock block{
@@ -1032,8 +1048,10 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
   // Mutate only this in-memory XML working copy, after readers have finished
   // using attribute pointers. Resource paths and Class target UUIDs are
   // untouched.
+  IsolateAmbiguousImportedReferences(*root, scene, resolvedOccurrences);
   for (const auto &[node, identity] : resolvedOccurrences)
     node->SetAttribute("uuid", identity.c_str());
+  ReadFixturePlanningMetadata(*root, scene);
   RecordStandardPreservationRisks(*root, scene);
   CaptureSourceStructure(*sceneNode, scene, [&](const std::string &path) {
     return RemapPackagePath(package, path);

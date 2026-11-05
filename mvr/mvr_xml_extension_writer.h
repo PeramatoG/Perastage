@@ -52,6 +52,7 @@ struct PrimitiveGeometryMetadata {
 
 struct TrussInfoMetadata {
   std::string uuid;
+  bool typeMetadataOverrides = false;
   std::optional<float> manualLoadKg;
   std::string manufacturer, model, length, width, height, weight;
   std::string gdtfDescription, crossSectionType, crossSection, modelFile;
