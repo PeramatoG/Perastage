@@ -18,10 +18,10 @@ inline PageOutputMapping UniformPageFit(double ratioX, double ratioY) {
 }
 inline PageOutputMapping PageFitForSizes(double docW, double docH, double outW, double outH) {
   const auto valid = [](double v) { return std::isfinite(v) && v > 0; };
-  if (!valid(docW) || !valid(docH))
-    throw std::invalid_argument("document page dimensions must be finite and greater than zero");
   if (!valid(outW) || !valid(outH))
     throw std::invalid_argument("output paper dimensions must be finite and greater than zero");
+  if (!valid(docW) || !valid(docH))
+    throw std::invalid_argument("document page dimensions must be finite and greater than zero");
   return UniformPageFit(outW/docW, outH/docH);
 }
 }

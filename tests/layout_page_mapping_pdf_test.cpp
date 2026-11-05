@@ -150,6 +150,7 @@ int main(int argc,char **argv) {
       {std::ofstream f(path);f<<"original target";}
       const auto result=ExportLayoutToPdf({view},{legend},{table},{text},{image},options,path);
       assert(!result.success && result.message.starts_with("Invalid Layout page mapping:"));
+      assert(result.message.find(index<2 ? "output paper dimensions" : "page scale ratios")!=std::string::npos);
       std::ifstream f(path);std::string unchanged;std::getline(f,unchanged);assert(unchanged=="original target");
     }
   }
