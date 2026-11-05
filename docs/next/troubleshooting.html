@@ -88,12 +88,14 @@ Truss/Support bindings are omitted with precise warnings in the log; the MVR
 export result also exposes the warning details.</p>
 <p>Standard video/projector nodes, nested Symbols and parametric children are
 retained during normal project saving and MVR export; they do not need an
-editor to survive. A preservation error identifies malformed or unsupported
-content that cannot be safely represented. Expand <strong>Details</strong> in the failure
-dialog to read every affected object/field. A resource error identifies a
-required missing asset; restore it before retrying. For an archive error, check
-the destination, permissions and free space. Failed saves retain the previous
-file and unsaved session state. The original imported MVR is never rewritten.</p>
+editor to survive. Recoverable source defects are repaired or projected with
+field-specific warnings in the log. Missing media/model references and invalid
+relationships may be omitted while other project content remains available;
+missing required fixture profiles may use the installed generic definition.
+Recovery disclosures remain in the saved scene and are logged on reopen. Keep
+the original source package to restore missing assets. For an actual archive
+error, check the destination, permissions and free space. Failed writes preserve
+the previous file and unsaved session state. The imported MVR is never rewritten.</p>
 <h2 id="project-and-runtime-problems">Project and runtime problems</h2>
 <p>Save a separate project copy when possible, restart Perastage and reopen it. Recheck critical data in 2D, 3D and tables. For slow 3D navigation, lower <a href="preferences.html#3d-viewer">Model detail</a> or enable the navigation proxy. Compare with a small project to isolate scene-specific problems.</p>
 <h2 id="gdtf-share-credentials">GDTF Share credentials</h2>

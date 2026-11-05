@@ -56,13 +56,21 @@ is omitted with a warning, including any Network assignments that depend on
 it; geometry and DMX addresses remain. Review the log and export warning details.
 The imported MVR is never overwritten by these operations.
 
-Current limits: missing essential resources, malformed data, ambiguous references and writing
-failures still produce specific errors and keep the previous destination. Read
-all affected objects/resources in the dialog's expandable details. Successful
-export does not certify every third-party extension; see the
+Recoverable import anomalies are repaired on an export copy. Invalid or
+unavailable relationships and resources are omitted only where necessary, with
+precise warnings in the log and MVR export details. A missing required fixture
+profile can use the installed generic profile; the warning identifies the
+substitution. Restore the original asset and re-export when fidelity matters.
+Warnings and original field evidence survive reopening; missing asset bytes
+still require the original source package. Saving never changes the imported MVR.
+Actual write/replace failures still preserve the previous destination and unsaved
+session. Successful export does not certify every third-party extension; see the
 [data-integrity coverage report](../audits/mvr-1.6-data-integrity-and-roundtrip.md).
 
-Imported FixtureID, FixtureIDNumeric and UnitNumber values are retained on supported fixtures, trusses, supports and scene objects, including zero, duplicates and optional UnitNumber presence. Copying and merging do not implicitly renumber those labels. Values beyond the supported integer range stop project save and export; keep the source file. Explicit numbering edits remain possible.
+Authored FixtureID, FixtureIDNumeric and UnitNumber values retain optional
+presence, zero and duplicates. Valid integers beyond the editor's numeric range
+are preserved as standard text without implicit renumbering. Explicit edits
+remain possible. Malformed source fields are disclosed individually.
 
 ## Export MVR
 

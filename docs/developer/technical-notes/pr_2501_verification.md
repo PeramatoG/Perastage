@@ -259,11 +259,104 @@ the synthetic reproduction of the reported duplicate-owner/empty-binding
 blockers; it does not prove the unavailable private package passes. No private
 source archive, filename or object name is present in these fixtures/docs.
 
-**Merge gate remains open:** the broader nonblocking policy still needs
-best-effort rules for unavailable resources, ambiguous external relationships,
-unrepresentable native scalars and malformed retained fields. These strict
-gates are not silently relabeled as warnings. Do not call the general product
-acceptance gate complete or merge automatically. Windows/macOS native and
-interactive visual validation remain pending. The preceding CI revision passed
-Linux, failed Windows CTest and had a cancelled macOS job; no hosted validation
-of this recovery patch is claimed.
+## Best-effort canonical publication follow-up
+
+The former preflight treated every durable preservation finding as a veto before
+trying repair. `mvr_export_preparation.cpp::Prepare` now repairs a private snapshot
+before running the unchanged strict validators on its actual projection. PSTG,
+ordinary canonical MVR and MVR-xchange keep one serializer and effective options.
+No alternate native scene or unchecked ignore-errors option is introduced.
+
+Additional causes found and corrected:
+
+- `mvr_identifier_preservation.cpp` narrowed legal XML integers to int32. Valid
+  wide scalars now retain lexical values, independently of their editor projection.
+- Native ownership, nonfinite components and legacy primary-address conflicts
+  could veto unrelated scene edits. Repair is component/relationship specific;
+  an explicit primary edit keeps secondary breaks.
+- Source and Symbol identities used different occurrence views. The reader's
+  occurrence plan now also identifies genuinely ambiguous external relationships;
+  older retained sessions reuse the same audit with their actual recovered IDs.
+  Class targets remain independent of owner identity. No model filename is
+  rewritten from UUID substrings.
+- Resource failures during merge could leave a reference matching an unrelated
+  target namesake. Exact owner/resource failure evidence forces omission or an
+  explicit required-profile substitution before packaging; a basename is not proof
+  of source ownership. Other available geometry and resources remain.
+- GDTF canonicalization rejected unsupported FixtureType payloads after initial
+  import. An explicit MVR-only projection removes just those attributes/subtrees
+  with complete escaped evidence, then validates the derivative. Truss bindings
+  accept only an issued path/source/output SHA-256 proof and verified mode/wires.
+- Truss type and planning-power edits could disappear on reopen. Versioned
+  existing application metadata now retains those values and explicit zero/empty
+  overrides without inventing a standard GDTF write owner.
+- Generated revision and nested ZIP timestamps changed GDTF payload bytes across
+  saves. Canonical publication keeps authored dates and omits only generated
+  optional dates; generated ZIP metadata is deterministic.
+- Standalone export truncated its destination before all resources were copied.
+  The standalone archive-publication change closes a complete temporary archive before atomic replacement.
+  Nested GDTF writers now check write/close failures too.
+
+| Finding | Save/export decision |
+| --- | --- |
+| Equivalent normalization | Normal success; retained semantics |
+| Deterministic identity/component repair | Success with precise repair finding; live scene unchanged |
+| Invalid/unresolved relationship, unavailable optional resource | Omit only affected payload/reference; Warning/DataOmitted |
+| Unusable required fixture profile | Use the supplied installed fallback and actual declared mode; Warning/DataSubstituted |
+| No safe physical GDTF write target | Keep standard source definition and explicit native planning value; RequestNotHonored warning |
+| Source acquisition failed despite a target namesake | Never borrow that file; project only independently available content |
+| Actual IO, serializer or generated-output invalidity | Real failure; previous bytes/dirty/session path retained |
+
+Material findings include type, UUID/occurrence, field/path, action and original
+content. They are retained as inert permitted UserData evidence and logged on
+reopen; no automatic reconciliation executes that evidence. Missing binary
+assets require the original package or an explicit rebind/reimport. Ordinary
+Save has no consent loop; warnings are logged, and MVR export exposes grouped,
+expandable details. Failed saves still close the busy overlay before dialogs.
+
+The native corpus includes 34 publication cases plus the earlier eight synthetic
+1.5/1.6 import variants. It checks real save/reopen/save/export, edited Fixtures,
+repeated-ID object placement, Layout text, Classing, Symbols, model dependencies,
+wide integers and native planning metadata. Ordered `scene.mvr` entries and
+payload bytes equal standalone output; two derivative cases cross a ZIP clock
+tick deliberately. The source package remains byte-identical. Acquisition-loss
+assertions inspect the actual affected definition, not just a successful boolean.
+
+The standard Scene is checked against the unchanged pinned 1.6 XSD. Existing
+UserData content and published syntax/XSD discrepancies (signed identifiers and
+breaks, Universe.Address, IPv6) are explicitly qualified in the legacy corpus;
+full-document pinned-XSD conformance is not claimed. The private production MVR
+was unavailable, so synthetic evidence does not certify that file.
+
+Local Linux Debug qualification: **128/128 passed** under Xvfb in the combined
+MVR/project/Legend regression selection. The application and
+`perastage_check_translations` build. Module-tree, GUI dependency, source-size,
+repository-hygiene and MVR service boundary guards pass. Documentation has no drift.
+
+Focused reproduction commands for the new native acceptance cases:
+
+```sh
+cmake --build build/wsl-x64-debug --target project_preserved_fields_roundtrip_test -j4
+xvfb-run -a ctest --test-dir build/wsl-x64-debug -R '^MvrPublication-' --output-on-failure -j2
+cmake --build build/wsl-x64-debug --target Perastage perastage_check_translations -j4
+```
+
+The 128-test selection additionally covers the earlier eight import-anomaly
+variants, independent XML/ZIP readers, source/identifier/Class/Focus/Symdef,
+DMX/Layer matrices, project IO/save UI, MVR-xchange and real Legend vector/raster
+parity. The new publication subset is **34/34**, not a replacement for those
+regressions.
+An additional **4/4** passed: SaveLoadRoundtrip (including fixture labels,
+colors and durable recovery disclosure), SceneTransformIntegrity,
+MvrIdentityRecovery and ExternalSceneWorkflowBoundary. This makes **132/132**
+executed focused/regression checks across the two selections.
+
+```sh
+cmake --build build/wsl-x64-debug --target save_load_roundtrip_test scene_transform_integrity_test mvr_identity_recovery_test -j4
+xvfb-run -a ctest --test-dir build/wsl-x64-debug -R '^(SaveLoadRoundtrip|SceneTransformIntegrity|MvrIdentityRecovery|ExternalSceneWorkflowBoundary)$' --output-on-failure -j2
+```
+
+Hosted `ed55993d` passed Linux and Windows; macOS was cancelled. New hosted CI,
+Windows/macOS native save/visual review and physical disk-exhaustion injection
+remain pending. Keep the PR draft and do not merge automatically; review the P0
+commits independently from Legend, preferably as a separate PR before merge.

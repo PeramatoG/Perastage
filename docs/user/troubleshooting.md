@@ -30,12 +30,14 @@ export result also exposes the warning details.
 
 Standard video/projector nodes, nested Symbols and parametric children are
 retained during normal project saving and MVR export; they do not need an
-editor to survive. A preservation error identifies malformed or unsupported
-content that cannot be safely represented. Expand **Details** in the failure
-dialog to read every affected object/field. A resource error identifies a
-required missing asset; restore it before retrying. For an archive error, check
-the destination, permissions and free space. Failed saves retain the previous
-file and unsaved session state. The original imported MVR is never rewritten.
+editor to survive. Recoverable source defects are repaired or projected with
+field-specific warnings in the log. Missing media/model references and invalid
+relationships may be omitted while other project content remains available;
+missing required fixture profiles may use the installed generic definition.
+Recovery disclosures remain in the saved scene and are logged on reopen. Keep
+the original source package to restore missing assets. For an actual archive
+error, check the destination, permissions and free space. Failed writes preserve
+the previous file and unsaved session state. The imported MVR is never rewritten.
 
 ## Project and runtime problems
 

@@ -110,12 +110,20 @@ fields are normalized away. An incomplete optional Truss/Support GDTF binding
 is omitted with a warning, including any Network assignments that depend on
 it; geometry and DMX addresses remain. Review the log and export warning details.
 The imported MVR is never overwritten by these operations.</p>
-<p>Current limits: missing essential resources, malformed data, ambiguous references and writing
-failures still produce specific errors and keep the previous destination. Read
-all affected objects/resources in the dialog&#39;s expandable details. Successful
-export does not certify every third-party extension; see the
+<p>Recoverable import anomalies are repaired on an export copy. Invalid or
+unavailable relationships and resources are omitted only where necessary, with
+precise warnings in the log and MVR export details. A missing required fixture
+profile can use the installed generic profile; the warning identifies the
+substitution. Restore the original asset and re-export when fidelity matters.
+Warnings and original field evidence survive reopening; missing asset bytes
+still require the original source package. Saving never changes the imported MVR.
+Actual write/replace failures still preserve the previous destination and unsaved
+session. Successful export does not certify every third-party extension; see the
 <a href="https://github.com/PeramatoG/Perastage/blob/main/docs/audits/mvr-1.6-data-integrity-and-roundtrip.md">data-integrity coverage report</a>.</p>
-<p>Imported FixtureID, FixtureIDNumeric and UnitNumber values are retained on supported fixtures, trusses, supports and scene objects, including zero, duplicates and optional UnitNumber presence. Copying and merging do not implicitly renumber those labels. Values beyond the supported integer range stop project save and export; keep the source file. Explicit numbering edits remain possible.</p>
+<p>Authored FixtureID, FixtureIDNumeric and UnitNumber values retain optional
+presence, zero and duplicates. Valid integers beyond the editor&#39;s numeric range
+are preserved as standard text without implicit renumbering. Explicit edits
+remain possible. Malformed source fields are disclosed individually.</p>
 <h2 id="export-mvr">Export MVR</h2>
 <ol>
 <li>Choose <strong>File → Export MVR...</strong>.</li>

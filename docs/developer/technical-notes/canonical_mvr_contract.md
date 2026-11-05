@@ -30,7 +30,7 @@ non-fatal diagnostics.
 
 Valid foreign root `Data` blocks are stored separately as opaque scene data.
 Perastage does not interpret them. Canonical export reparses each stored block,
-diagnoses and rejects malformed or misplaced payloads, omits anything claiming
+isolates malformed payloads as inert recovery evidence, omits anything claiming
 Perastage ownership, deduplicates repeated payloads, and places accepted blocks
 beside the single Perastage block under the one legal root `UserData`. Merge
 unions these blocks without accumulating duplicates. XML subtree serialization
@@ -72,8 +72,9 @@ node transforms are world-space; exported local matrices are relative to the
 immediate GroupObject or, for roots, the owning Layer. Import composes each
 parent once. Export preserves unedited numeric source values, repairs locals on
 a private snapshot after world-space edits, and may omit an identity Layer Matrix.
-Layer merge equality includes the authored matrix values. Non-elevation,
-malformed or ambiguous layer matrices remain fail-closed.
+Layer merge equality includes the authored matrix values. Publication projects
+non-elevation layers to elevation while retaining represented world placements
+and rebasing retained source children. Unrepresentable source values are disclosed.
 
 Fixture, Support and Truss each own one optional standard Addresses collection with ordered DMX Address
 and Network lists (Address children precede Network), retaining container
@@ -91,29 +92,23 @@ mapping. A final serialized projection check protects the complete ordered list.
 Fixture Network retains required case-sensitive GDTF wire-geometry names and
 optional ipv4/subnetmask/ipv6/dhcp/hostname presence and text. Patch edits never
 modify this list. Names are not UUID references and are not remapped at merge.
-Known-invalid or ambiguous GDTF references block publication; unavailable local
-GDTF evidence retains metadata without guessing and reports ResourceMissing at
-publication, preventing a dummy GDTF from invalidating wire references. Core rebind validation rejects unsafe definition changes before
-publishing. Support uses the same reference policy and XML assignment writer;
-its Addresses follow GDTFMode and precede FixtureID. Authored Support GDTF
-bindings also require an available resource and explicit mode, even without
-Network; a dangling mode cannot be omitted or replaced by Default. Malformed/unknown data,
-other address consumers and unsupported
-extensions remain guarded. Network geometry/hostname control whitespace also
-fails closed because the XML writer cannot retain its character-reference form.
-Truss uses that same collection, reference policy and child order. Standard
-bindings on address-bearing Truss nodes are isolated from auxiliary generation
-and resource reuse/rewrite requests. Standard definitions without an explicitly matching auxiliary ownership
-reference also remain byte-preserved. An auxiliary GDTF cannot
-supply a missing standard binding. Modes must match the linked definition; final
-resource-plan checks verify the exact serialized GDTF bytes and WiringObjects.
-Controlled native generation without Addresses remains available for an owned
-Default-mode definition with verified absence of WiringObjects. Authored or
-network-capable definitions are never replaced by generic generation. Changes
-to GDTF-authoritative type metadata or controlled generation that would replace an
-authored addressed definition require a verified lossless derivative and are
-refused until that operation is supported. Existing geometry/Symdef authority
-and transform limitations remain guarded. SceneObject-to-Truss conversion copies
+Publication validates each Network independently against the effective definition.
+An invalid or unresolved assignment is omitted with its exact values in a warning;
+independent DMX Address entries survive. Optional unusable Support/Truss bindings
+are omitted rather than given a fictitious mode. Required Fixture bindings use
+the caller's existing installed fallback profile and an actual declared mode when
+needed, with an explicit substitution warning. No GDTF file or mode is fabricated.
+Controlled rebind commands remain strict and atomic before editor mutation.
+Standard addressed Truss resources remain byte-preserved unless a validated
+canonical derivative is issued: final verification checks both source/output
+SHA-256 digests, the exact paths and actual WiringObjects/mode relationships.
+Type metadata edits are retained in explicit existing TrussInfo overrides; they
+never silently rewrite the authored standard GDTF. A unique legacy-native filename alias may be resolved in the scene resource
+directory before selecting a fallback. Imported source owners and explicit failed
+acquisition evidence never use that alias policy. Missing model/dependency
+references are omitted individually, preserving owners, placements and a valid
+empty Geometries container without invented replacement geometry.
+SceneObject-to-Truss conversion copies
 compatible identifiers, Classing and matrix provenance; retained source issues,
 FocusPoint, multiple models, Symbol ownership and nonidentity geometry cause
 atomic structured refusal. SceneObject Addresses, including empty presence, are retained by the validated
@@ -146,9 +141,11 @@ identity/resource/mutation services. Symbol-based focus geometry retains standar
 the source-structure projection described below. A required Geometries
 container may be empty; no replacement mesh is invented for an empty focus.
 
-Export preparation rejects durable known-loss evidence before identity/transform
-recovery or archive writing. PSTG and MVR-xchange snapshots use that same gate.
-This is bounded protection, not proof that every standard field survives.
+Export preparation repairs a private snapshot before validating the actual
+projection. Recoverable source defects produce precise warnings after a real
+repair, omission or substitution; the validator still rejects invalid generated
+output. PSTG and MVR-xchange use that same preparation and serializer. Successful
+publication is not proof that every provider extension survives.
 See the [coverage audit](../../audits/mvr-1.6-data-integrity-and-roundtrip.md)
 for protected structures, unresolved P0 losses and the official XSD/UserData
 discrepancy. Full-document XSD conformance must not be inferred from the internal
@@ -160,9 +157,11 @@ supported Fixture, GroupObject, FocusPoint, SceneObject, Truss and Support owns
 its optional direct Classing UUID. Export retains unused definitions and exact
 optional names; equal names never identify or coalesce classes. Merge remaps
 real identity collisions and incoming references together, including cross-kind
-collisions regardless of object replacement policy. Malformed/ambiguous source
-identities, dangling references or unrepresented class content remain blocked;
-a final projection check rejects serializer omissions before publication.
+collisions regardless of object replacement policy. Malformed/duplicate source Class identities receive deterministic occurrence
+identities; uniquely resolvable Classing targets are updated together. Genuinely
+ambiguous/unresolved Classing relationships are omitted with a precise warning,
+without discarding unrelated definitions or objects. A final projection check
+continues to reject accidental serializer omissions.
 
 This preserves the identity model needed for future class visibility filtering
 across layers in Viewer2D, Viewer3D and Layout Mode. There are no visibility
@@ -227,15 +226,36 @@ imported archive remains byte-identical. Export warnings use the existing
 structured diagnostic/log and MVR result dialog; no ignore-preservation option
 or alternate PSTG scene serializer is added.
 
-**Remaining acceptance gap:** this is not yet a general best-effort projection
-for every reasonably parseable source. Unresolved/ambiguous external references,
-unrepresentable native identifiers, unavailable resources and malformed retained
-payloads still have strict gates without a complete omission/reconciliation rule.
-The higher-level exporter still refuses ambiguous identity recovery rather than
-selecting an arbitrary target. These recoverable cases need focused projection
-rules and real output tests before claiming the nonblocking product policy is
-fully implemented. Do not merge on the strength of the duplicate-ID/empty-pair
-regression alone.
+The publication repair service distinguishes equivalent normalization, identity
+repair, specific omission/substitution and fatal technical failure. It does not
+change all Error severities to Warning. Only the repaired snapshot is serialized;
+strict pure validators still expose defects on the unmodified imported scene.
+
+| Additional recoverable case | Published result |
+| --- | --- |
+| Valid integer beyond native editor range | Preserve lexical standard integer; explicit native edits win |
+| Invalid scalar/source-only field | Publish the represented editable value; identify exact original field/value |
+| Missing geometry/media or invalid relationship | Omit only that reference/payload; retain independently valid objects/resources |
+| Repeated Symbols, missing/cyclic Symdef edge | Repair occurrence identities or remove only the unsatisfiable edge |
+| Nonfinite numeric component or broken ownership | Substitute only unrepresentable component or detach invalid parent; retain finite world placement |
+| Unknown top-level GDTF FixtureType payload | Explicit canonical projection retains standard fields/resources; removed original XML is disclosed |
+| Physical power change without a standard write owner | Keep authored profile and explicit per-fixture planning metadata; warn that external physical patch was not performed |
+
+Material findings are stored as inert escaped text in permitted root
+`Data provider="org.perastage.canonical-recovery" ver="1"`. Reopen retains and
+logs them; known extraction-directory prefixes become relative resource references
+in stored disclosures while local diagnostics retain full context. Evidence
+is never executed, reconciled automatically or treated as a
+second editable scene. Missing resource bytes cannot be reconstructed from a
+warning: the original imported package remains the recovery source. Existing
+application-owned planning metadata preserves native power/weight values and
+TrussInfo explicitly distinguishes type overrides from GDTF source authority.
+Canonical derivative revisions omit the optional generated Date, retaining all
+authored revision dates, so wall-clock time does not change canonical payloads.
+
+Coverage remains bounded by executed synthetic/regression cases. New unknown
+provider structures require actual projection tests; there is no catch-all
+ignore-preservation flag or promise that a corrupt/unwritable archive succeeds.
 
 Valid source-only fields of Fixture, Truss, Support and SceneObject have a
 focused export projection: the retained XML is validated against its existing
@@ -286,7 +306,7 @@ package root. No resource bytes are executed and no official schema is changed.
 
 Normal PSTG save, standalone canonical export and MVR-xchange all use these
 same owners. Valid retained structures no longer require a warning/consent
-loop merely because they have no editor. The remaining strict gates above and archive IO failures remain specific
-failures, never a successful corrupt or unwritten archive. Coverage remains
+loop merely because they have no editor. Unhandled generated-output invalidity and actual archive IO failures remain
+specific failures, never a successful corrupt or unwritten archive. Coverage remains
 bounded by the pinned standard and the regression fixtures; arbitrary provider
 extensions and every possible third-party package are not certified.
