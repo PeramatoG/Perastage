@@ -1146,6 +1146,7 @@ add_test(NAME LayoutPdfSymbolUsage COMMAND layout_pdf_symbol_usage_test)
 
 add_executable(layout_legend_pdf_test
     layout_legend_pdf_test.cpp layout_legend_pdf_resources_stub.cpp
+    ../viewer2d/pdf/layout_pdf_text_renderer.cpp
     ../viewer2d/pdf/layout_pdf_exporter.cpp
     ../viewer2d/pdf/layout_pdf_event_table_renderer.cpp
     ../viewer2d/pdf/layout_pdf_legend_renderer.cpp
@@ -1183,6 +1184,7 @@ target_link_libraries(layout_legend_cache_test PRIVATE perastage_legend_composit
 add_test(NAME LayoutLegendCache COMMAND layout_legend_cache_test)
 
 add_executable(layout_legend_history_test layout_legend_history_test.cpp
+    layout_viewer_state_panel_stubs.cpp ../viewer2d/viewer2dstate.cpp
     layout_legend_source_stubs.cpp ../gui/layoutlegenditems.cpp ../gui/legendutils.cpp
     ../core/configmanager.cpp ../core/configservices.cpp
     ../core/layouts/LayoutManager.cpp ../core/layouts/LayoutImageResourceRegistry.cpp
@@ -1190,7 +1192,8 @@ add_executable(layout_legend_history_test layout_legend_history_test.cpp
     ../core/layouts/LayoutTemplatePackageService.cpp ../core/layouts/LayoutTemplateSerializer.cpp
     ../core/projectutils.cpp ../core/runtime_storage.cpp ../core/library/library_bootstrap.cpp
     ../core/logger.cpp ../models/mvrscene.cpp mvr_io_stubs.cpp)
-target_include_directories(layout_legend_history_test PRIVATE . ../core ../gui ../third_party)
+target_include_directories(layout_legend_history_test PRIVATE . ../core ../gui ../third_party
+    ../viewer2d ../viewer3d ../viewer_common ../core/print)
 target_link_libraries(layout_legend_history_test PRIVATE ${wxWidgets_LIBRARIES} perastage_mvr_core_support)
 add_test(NAME LayoutLegendHistory COMMAND layout_legend_history_test)
 
@@ -4825,3 +4828,55 @@ endif()
 add_bash_policy_test(EventTableCompositionBoundary
     ${CMAKE_CURRENT_SOURCE_DIR}/check_event_table_composition_boundary.sh
     LABELS "architecture;layout;pdf")
+
+add_executable(layout_page_mapping_pdf_test
+    layout_page_mapping_pdf_test.cpp layout_legend_pdf_resources_stub.cpp
+    ../core/print/PageSetup.cpp
+    ../viewer2d/pdf/layout_pdf_text_renderer.cpp
+    ../viewer2d/pdf/layout_pdf_exporter.cpp
+    ../viewer2d/pdf/layout_pdf_event_table_renderer.cpp
+    ../viewer2d/pdf/layout_pdf_legend_renderer.cpp
+    ../viewer2d/legend_composition_adapter.cpp
+    ../viewer2d/pdf/layout_pdf_symbol_usage.cpp
+    ../viewer2d/pdf/pdf_draw_commands.cpp
+    ../viewer2d/pdf/pdf_font_metrics.cpp
+    ../viewer2d/pdf/pdf_objects.cpp
+    ../viewer2d/pdf/pdf_label_fonts.cpp
+    ../viewer2d/pdf/pdf_writer.cpp
+    ../viewer2d/viewer2dcommandrenderer.cpp)
+target_include_directories(layout_page_mapping_pdf_test PRIVATE
+    ../viewer2d ../viewer2d/pdf ../core ../core/layouts ../core/print
+    ../models ../gui ../viewer_common ../viewer3d ../third_party)
+target_compile_definitions(layout_page_mapping_pdf_test PRIVATE
+    PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
+target_link_libraries(layout_page_mapping_pdf_test PRIVATE
+    perastage_typography perastage_legend_composition ${wxWidgets_LIBRARIES})
+if(TARGET ZLIB::ZLIB)
+    target_link_libraries(layout_page_mapping_pdf_test PRIVATE ZLIB::ZLIB)
+endif()
+add_test(NAME LayoutPageMappingPdf COMMAND layout_page_mapping_pdf_test)
+
+add_executable(page_output_mapping_test page_output_mapping_test.cpp ../core/print/PageSetup.cpp)
+target_include_directories(page_output_mapping_test PRIVATE ../core ../core/print)
+add_test(NAME PageOutputMapping COMMAND page_output_mapping_test)
+add_executable(layout_export_input_test layout_export_input_test.cpp
+    layout_legend_pdf_resources_stub.cpp ../gui/layout_image_export.cpp ../gui/layouttextutils.cpp)
+target_include_directories(layout_export_input_test PRIVATE ../gui ../viewer2d ../core ../core/layouts
+    ../core/print ../models ../viewer_common ../viewer3d ../third_party)
+target_compile_definitions(layout_export_input_test PRIVATE PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
+target_link_libraries(layout_export_input_test PRIVATE ${_wx_libs} perastage_typography)
+if(UNIX AND NOT APPLE AND PERASTAGE_XVFB_RUN)
+    add_test(NAME LayoutExportInput COMMAND "${PERASTAGE_XVFB_RUN}" -a "$<TARGET_FILE:layout_export_input_test>")
+else()
+    add_test(NAME LayoutExportInput COMMAND layout_export_input_test)
+endif()
+set_library_env(LayoutExportInput)
+add_bash_policy_test(LayoutPageMappingBoundary
+    ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_page_mapping_boundary.sh LABELS "architecture;layout;pdf")
+if(UNIX AND NOT APPLE AND PERASTAGE_PDFTOPPM)
+    add_test(NAME LayoutPageMappingRaster COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/check_layout_page_mapping_raster.py"
+        --exporter "$<TARGET_FILE:layout_page_mapping_pdf_test>" --pdftoppm "${PERASTAGE_PDFTOPPM}")
+    set_library_env(LayoutPageMappingRaster)
+    set_tests_properties(LayoutPageMappingRaster PROPERTIES LABELS "layout;pdf" TIMEOUT 120)
+endif()

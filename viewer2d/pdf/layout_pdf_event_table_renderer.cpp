@@ -13,7 +13,7 @@ layouts::composition::EventTablePlan RenderEventTablePdf(std::ostringstream &out
       {fonts.labelRegular ? fonts.labelRegular->metrics : missing,
        fonts.labelBold ? fonts.labelBold->metrics : missing});
   if (plan.clip.width <= 0 || plan.clip.height <= 0) return plan;
-  BeginDocumentPageMapping(out, pageHeight, scaleX, scaleY, formatter);
+  ScopedDocumentPageMapping pageMapping(out, pageHeight, scaleX, scaleY, formatter);
   const auto x = [&](double local) { return formatter.Format(table.frame.x + local); };
   const auto y = [&](double local) { return formatter.Format(pageHeight - table.frame.y - local); };
   auto rect = [&](const Rect &r) {
@@ -36,7 +36,7 @@ layouts::composition::EventTablePlan RenderEventTablePdf(std::ostringstream &out
     }
   }
   out << "Q\n0 0 0 RG " << formatter.Format(plan.borderWidth) << " w ";
-  rect(plan.clip); out << "S\nQ\n";
+  rect(plan.clip); out << "S\n";
   return plan;
 }
 }

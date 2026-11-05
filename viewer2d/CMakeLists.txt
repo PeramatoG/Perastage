@@ -1,4 +1,6 @@
 target_sources(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_text_renderer.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_text_renderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_page_mapping.h
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_event_table_renderer.h
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_event_table_renderer.cpp

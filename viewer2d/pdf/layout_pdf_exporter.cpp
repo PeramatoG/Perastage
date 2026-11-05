@@ -43,6 +43,8 @@
 #include "layout_pdf_symbol_usage.h"
 #include "layout_pdf_legend_renderer.h"
 #include "layout_pdf_event_table_renderer.h"
+#include "layout_pdf_page_mapping.h"
+#include "layout_pdf_text_renderer.h"
 #include "pdf_draw_commands.h"
 #include "pdf_font_metrics.h"
 #include "pdf_fixture_symbol_source.h"
@@ -56,8 +58,6 @@ using namespace layout_pdf_internal;
 
 constexpr double kPdfPointsPerPixel = 72.0 / 96.0;
 constexpr double kPdfStrokeWidthScreenMatchFactor = 0.75;
-// Legacy free text retains its existing PDF point-size compensation.
-constexpr double kPdfLayoutTypographyCompensationScale = 1.45;
 constexpr double kSymbolBBoxPaddingPt = 0.25;
 
 // Returns whether label-order tracing diagnostics are enabled through the environment.
@@ -67,18 +67,6 @@ static bool ShouldTraceLabelOrder() {
 }
 
 using viewer2d::pdf::ShouldLoadLegendSvgFromKey;
-double ComputeTextLineAdvance(double ascent, double descent) {
-  // Negative because PDF moves the text cursor downward with a negative y
-  // translation. The advance mirrors the ascent + descent used by the
-  // on-screen viewer when positioning multi-line labels.
-  return -(ascent + descent);
-}
-
-double ApplyLayoutPdfTypographyScale(double baseFontSize,
-                                     double layoutScale) {
-  return baseFontSize * kPdfLayoutTypographyCompensationScale * layoutScale;
-}
-
 void InflateBBox(double &minX, double &minY, double &maxX, double &maxY,
                  double padding) {
   if (padding <= 0.0)
@@ -87,29 +75,6 @@ void InflateBBox(double &minX, double &minY, double &maxX, double &maxY,
   minY -= padding;
   maxX += padding;
   maxY += padding;
-}
-
-double ComputePdfRunAscent(const PdfFontDefinition *font, double fontSize) {
-  if (!font || !font->embedded || font->metrics.unitsPerEm <= 0)
-    return fontSize * 0.8;
-  const double unitsPerEm = static_cast<double>(font->metrics.unitsPerEm);
-  const double ascentUnits = std::max(0.0, static_cast<double>(font->metrics.ascent));
-  if (ascentUnits <= 0.0)
-    return fontSize * 0.8;
-  return (ascentUnits / unitsPerEm) * fontSize;
-}
-
-double ComputePdfRunLineHeight(const PdfFontDefinition *font, double fontSize) {
-  if (!font || !font->embedded || font->metrics.unitsPerEm <= 0)
-    return fontSize * 1.2;
-  const double unitsPerEm = static_cast<double>(font->metrics.unitsPerEm);
-  const double ascentUnits = std::max(0.0, static_cast<double>(font->metrics.ascent));
-  const double descentUnits =
-      std::abs(std::min(0.0, static_cast<double>(font->metrics.descent)));
-  const double heightUnits = ascentUnits + descentUnits;
-  if (heightUnits <= 0.0)
-    return fontSize * 1.2;
-  return (heightUnits / unitsPerEm) * fontSize;
 }
 
 int SymbolViewRank(SymbolViewKind kind) {
@@ -751,12 +716,15 @@ Viewer2DExportResult ExportLayoutToPdf(
 
   const double pageW = options.pageWidthPt;
   const double pageH = options.pageHeightPt;
-  if (pageW <= 0.0 || pageH <= 0.0) {
-    result.message = "The selected paper size leaves no space for drawing.";
+  try {
+    layouts::composition::UniformPageFit(options.layoutScaleX, options.layoutScaleY);
+    layouts::composition::PageFitForSizes(pageW/options.layoutScaleX,
+        pageH/options.layoutScaleY, pageW, pageH);
+  } catch (const std::invalid_argument &error) {
+    result.message = std::string("Invalid Layout page mapping: ") + error.what();
     return result;
   }
-  const double layoutScale =
-      std::max(0.1, (options.layoutScaleX + options.layoutScaleY) * 0.5);
+
 
   struct CommandGroup {
     std::vector<CanvasCommand> commands;
@@ -965,12 +933,6 @@ Viewer2DExportResult ExportLayoutToPdf(
     return it->second ? &it->second.value() : nullptr;
   };
   std::ostringstream contentStream;
-  auto encodeText = [&](const std::string &text) {
-    return EncodeWinAnsi(text);
-  };
-  auto escapeText = [](const std::string &text) {
-    return EscapePdfLiteralBytes(text);
-  };
   auto makeLayoutKeyName = [&](size_t viewIndex, const std::string &key) {
     return "K" + MakePdfName("V" + std::to_string(viewIndex) + "_" + key);
   };
@@ -1144,7 +1106,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     if (image.pixelWidth <= 0 || image.pixelHeight <= 0)
       return 0;
     if (image.pixels.size() !=
-        static_cast<size_t>(image.pixelWidth * image.pixelHeight * 3)) {
+        static_cast<size_t>(image.pixelWidth) * static_cast<size_t>(image.pixelHeight) * 3u) {
       Logger::Instance().Log("PDF export: skipping invalid layout image '" +
                              name + "' due to pixel buffer mismatch");
       return 0;
@@ -1285,6 +1247,7 @@ Viewer2DExportResult ExportLayoutToPdf(
 
   auto renderViewGroup = [&](size_t idx) {
     const auto &group = layoutGroups[idx];
+    ScopedDocumentPageMapping pageMapping(contentStream, pageH, options.layoutScaleX, options.layoutScaleY, formatter);
     std::unordered_map<std::string, std::string> viewKeyNames;
     std::unordered_map<uint32_t, std::string> viewIdNames;
     populateViewSymbolNames(group, viewKeyNames, viewIdNames);
@@ -1347,110 +1310,8 @@ Viewer2DExportResult ExportLayoutToPdf(
   };
 
   auto renderText = [&](size_t idx) {
-    const auto &text = texts[idx];
-    const double frameW = static_cast<double>(text.frame.width);
-    const double frameH = static_cast<double>(text.frame.height);
-    if (frameW <= 0.0 || frameH <= 0.0)
-      return;
-    const double frameX = static_cast<double>(text.frame.x);
-    const double frameY =
-        pageH - text.frame.y - static_cast<double>(text.frame.height);
-
-    contentStream << "q\n" << formatter.Format(frameX) << ' '
-                  << formatter.Format(frameY) << ' '
-                  << formatter.Format(frameW) << ' '
-                  << formatter.Format(frameH) << " re W n\n";
-    if (text.solidBackground) {
-      contentStream << "1 1 1 rg " << formatter.Format(frameX) << ' '
-                    << formatter.Format(frameY) << ' '
-                    << formatter.Format(frameW) << ' '
-                    << formatter.Format(frameH) << " re f\n";
-    }
-
-    const double padding = 4.0;
-    const double availableH = std::max(0.0, frameH - padding * 2.0);
-    constexpr double kItalicSkew = 0.2;
-    auto appendTextRun = [&](double x, double y, const std::string &line,
-                             const char *fontKey, double size, bool italic) {
-      contentStream << "BT\n/" << fontKey << ' ' << formatter.Format(size)
-                    << " Tf\n0 0 0 rg\n";
-      if (italic) {
-        contentStream << "1 0 " << formatter.Format(kItalicSkew) << " 1 "
-                      << formatter.Format(x) << ' ' << formatter.Format(y)
-                      << " Tm\n(" << escapeText(line) << ") Tj\nET\n";
-        return;
-      }
-      contentStream << formatter.Format(x) << ' ' << formatter.Format(y)
-                    << " Td\n(" << escapeText(line) << ") Tj\nET\n";
-    };
-
-    double usedHeight = 0.0;
-    for (const auto &line : text.lines) {
-      double lineFontSize =
-          text.fontSize > 0 ? static_cast<double>(text.fontSize) : 12.0;
-      lineFontSize *= layoutScale;
-      double lineAscent = ComputePdfRunAscent(fontCatalog.regular, lineFontSize);
-      double lineHeight = ComputePdfRunLineHeight(fontCatalog.regular, lineFontSize);
-      for (const auto &run : line.runs) {
-        const double runSize =
-            run.fontSize > 0
-                ? static_cast<double>(run.fontSize) * layoutScale
-                : lineFontSize;
-        lineFontSize = std::max(lineFontSize, runSize);
-        const PdfFontDefinition *runFont =
-            run.bold ? fontCatalog.bold : fontCatalog.regular;
-        lineAscent = std::max(lineAscent, ComputePdfRunAscent(runFont, runSize));
-        lineHeight =
-            std::max(lineHeight, ComputePdfRunLineHeight(runFont, runSize));
-      }
-      if (usedHeight + lineHeight > availableH && usedHeight > 0.0)
-        break;
-      double lineWidth = 0.0;
-      for (const auto &run : line.runs) {
-        const double runSize =
-            run.fontSize > 0
-                ? static_cast<double>(run.fontSize) * layoutScale
-                : lineFontSize;
-        const PdfFontDefinition *font =
-            run.bold ? fontCatalog.bold : fontCatalog.regular;
-        const std::string encoded = encodeText(run.text);
-        lineWidth += MeasureTextWidth(encoded, runSize, font);
-      }
-      double x = frameX + padding;
-      if (text.alignment == LayoutTextExportData::Alignment::Center) {
-        x = frameX + std::max(0.0, (frameW - lineWidth) * 0.5);
-      } else if (text.alignment == LayoutTextExportData::Alignment::Right) {
-        x = frameX + frameW - padding - lineWidth;
-      }
-      const double y = frameY + frameH - padding - usedHeight - lineAscent;
-      double cursorX = x;
-      if (line.runs.empty()) {
-        usedHeight += lineHeight;
-        continue;
-      }
-      for (const auto &run : line.runs) {
-        const double runSize =
-            run.fontSize > 0
-                ? static_cast<double>(run.fontSize) * layoutScale
-                : lineFontSize;
-        const char *fontKey = run.bold ? "F2" : "F1";
-        const PdfFontDefinition *font =
-            run.bold ? fontCatalog.bold : fontCatalog.regular;
-        const std::string encoded = encodeText(run.text);
-        const double runWidth = MeasureTextWidth(encoded, runSize, font);
-        appendTextRun(cursorX, y, encoded, fontKey, runSize, run.italic);
-        cursorX += runWidth;
-      }
-      usedHeight += lineHeight;
-    }
-    contentStream << "Q\n";
-
-    if (text.drawFrame) {
-      contentStream << "q\n0 0 0 RG 0.5 w " << formatter.Format(frameX) << ' '
-                    << formatter.Format(frameY) << ' '
-                    << formatter.Format(frameW) << ' '
-                    << formatter.Format(frameH) << " re S\nQ\n";
-    }
+    RenderLayoutTextPdf(contentStream, texts[idx], pageH, options.layoutScaleX,
+                        options.layoutScaleY, fontCatalog, formatter);
   };
 
   auto renderImage = [&](size_t idx) {
@@ -1464,6 +1325,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double frameH = static_cast<double>(image.frame.height);
     if (frameW <= 0.0 || frameH <= 0.0)
       return;
+    ScopedDocumentPageMapping pageMapping(contentStream, pageH, options.layoutScaleX, options.layoutScaleY, formatter);
     const double frameX = static_cast<double>(image.frame.x);
     const double frameY =
         pageH - image.frame.y - static_cast<double>(image.frame.height);
@@ -1476,6 +1338,8 @@ Viewer2DExportResult ExportLayoutToPdf(
   };
 
   for (const auto &entry : renderOrder) {
+    ScopedDocumentPageClip pageClip(contentStream, pageW, pageH,
+        options.layoutScaleX, options.layoutScaleY, formatter);
     if (entry.type == LayoutRenderElement::Type::View) {
       renderViewGroup(entry.index);
     } else if (entry.type == LayoutRenderElement::Type::Legend) {

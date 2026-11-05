@@ -70,6 +70,7 @@ full MVR/GDTF conformance, or interoperability with every third-party applicatio
 
 ## Layout, Symbols and Plotting
 
+- Layout PDFs now scale 2D views, Legends, Event Tables, text and images together when changing paper size, preserving alignment, proportions and the 2D crop. Printing no longer marks the Layout project dirty.
 - Layout Event Tables now share measured text, bold styles, clipping and ellipsis between preview and selectable vector PDF, independent of zoom and output scale.
 - Layout Legends now use the same bundled font, line wrapping, row geometry and symbol columns in the editable preview and vector PDF. Enabled Side symbols remain vector geometry, independent settings refresh reliably, and unsupported glyphs are identified in PDF completion details.
 

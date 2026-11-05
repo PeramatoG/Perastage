@@ -642,8 +642,29 @@ diagnostics; invalid font metrics produce a diagnosed empty text plan. The GUI
 `layout_event_table_renderer` draws glyph outlines through `document_text_renderer`;
 `viewer2d/pdf/layout_pdf_event_table_renderer` emits selectable embedded-font text
 and vector geometry. Both consume the same measured plan, then apply zoom or the
-`PageOutputMapping` top-left uniform output fit once. Legend and Event Table
-share the PDF coordinate-space adapter `layout_pdf_page_mapping`; migrating the
-remaining element types to this page policy is a separate B3 step. Each table's cache identity includes the
+`PageOutputMapping` top-left uniform output fit once. All five element kinds
+share the PDF coordinate-space adapter `layout_pdf_page_mapping`. Each table's
+cache identity includes the
 composition version, content and dimensions; position/selection do not affect its
 raster. Persisted arrays and LayoutManager mutation/history ownership are unchanged.
+
+
+### Layout page output mapping
+
+`core/layouts/PageOutputMapping` owns validated uniform, top-left page fitting.
+GUI print orchestration and text/image builders retain original document-point
+frames; image raster sizing alone uses the final output scale, bounded before
+integer conversion. `layout_image_export` owns wx image loading and existing
+white alpha flattening. Printing does not persist print settings as project edits. Temporary
+`ScopedViewer2DState` apply/restore calls preserve dirty revisions synchronously;
+no revision guard spans an asynchronous capture or suppresses unrelated edits.
+
+PDF element groups use `ScopedDocumentPageMapping` exactly once, including clips,
+borders, paths, text and nested symbol/image XObjects. PDF y reversal uses the
+output paper height; the CTM translation is `outH * (1 - scale)`. A separate
+untransformed page clip keeps authored content outside the source paper out of
+unused output space. `layout_pdf_text_renderer` retains legacy run metrics,
+alignment and italic skew in document points. B3.2 will address shared free-text
+typography; B3.1 introduces no parser, shaping or font changes. View capture,
+viewport state, stable cross-kind ordering and serialized Layout geometry remain
+owned by their existing modules.

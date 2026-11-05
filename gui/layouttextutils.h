@@ -29,8 +29,9 @@ bool LoadRichTextBufferFromString(wxRichTextBuffer &buffer,
                                   const wxString &content);
 wxString SaveRichTextBufferToString(wxRichTextBuffer &buffer);
 
+// Extract document-point data; output paper mapping belongs to the PDF adapter.
 LayoutTextExportData BuildLayoutTextExportData(
-    const layouts::LayoutTextDefinition &text, double scaleX, double scaleY);
+    const layouts::LayoutTextDefinition &text);
 
 wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
                         const wxSize &renderSize, const wxSize &logicalSize,
