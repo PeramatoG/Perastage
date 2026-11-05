@@ -19,6 +19,8 @@ Layouts arrange scene views and supporting information on printable pages.
 
 Edit each element's available settings to choose content and presentation. Check scene data in the [views and tables](views.md) before producing documentation.
 
+Legends group fixture types across the whole scene. Edit a legend to reorder or hide types, set custom names, choose Bottom/Front/Side symbols, and show or hide the channel column. Enabled Side symbols are included in the vector PDF when a corresponding symbol is available. Oversized symbols are clipped to their column and row; very small frames can hide rows.
+
 ## Arrange and edit
 
 Drag a frame to move it and a frame handle to resize it. Double-click a frame to edit the element. Right-click for editing, deletion and stacking controls. Drag empty space to pan and use the wheel to zoom. **Z** fits the layout; **Delete** removes the selected layout element.
@@ -36,4 +38,6 @@ Select a non-empty layout and choose **File → Print Layout...**. Choose a writ
 
 For missing views, incorrect output or export errors, see [Troubleshooting](troubleshooting.md#layout-and-pdf-problems).
 
-Fixture labels are configured in **2D View settings → Edit Fixture Labels...**. Project defaults and UUID-based fixture overrides also feed Layout viewports and vector PDF. Newly edited fields use the same bundled fonts and positioned composition in both targets. Legacy fields keep their earlier rendering; Layout free text, legends and tables still use their existing typography paths. See [Fixture labels](views.md#fixture-labels) for scope, units, Apply/Cancel and supported characters.
+Fixture labels are configured in **2D View settings → Edit Fixture Labels...**. Project defaults and UUID-based fixture overrides also feed Layout viewports and vector PDF. Newly edited fields use the same bundled fonts and positioned composition in both targets. Legacy fields, Layout free text and event tables keep their earlier typography. See [Fixture labels](views.md#fixture-labels) for scope, units, Apply/Cancel and supported characters.
+
+Legends use the bundled PerastageSans regular/bold fonts with the same wrapping, row geometry and symbol columns in the editable preview and vector PDF. Screen zoom changes rasterization only. Printing on different paper uniformly fits the composed Legend without recomputing line breaks. Text that exceeds its column is clipped; its full value remains editable. Western European WinAnsi characters are supported. Unsupported glyphs are omitted on both targets while their original text is retained; PDF completion details identify the affected UTF-8 bytes.

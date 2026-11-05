@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+#include "layouts/LegendContent.h"
 #include "mouse_capture_ownership.h"
 
 #include "LayoutCollection.h"
@@ -75,19 +76,7 @@ public:
   void SetStartupMetrics(std::shared_ptr<startup::Metrics> metrics);
 
 private:
-  struct LegendItem {
-    std::string typeName;
-    std::string displayName;
-    int count = 0;
-    std::optional<int> channelCount;
-    std::string symbolKey;
-    std::string persistentSymbolIdentity;
-    std::string gdtfPath;
-    std::optional<std::string> symbolFillHex;
-    bool showBottomSymbol = true;
-    bool showFrontSymbol = true;
-    bool showSideSymbol = false;
-  };
+  using LegendItem = layouts::LegendResolvedItem;
 
   struct ViewCache {
     int captureVersion = -1;

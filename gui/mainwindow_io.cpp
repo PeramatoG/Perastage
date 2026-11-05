@@ -338,8 +338,7 @@ void MainWindow::OnSave(wxCommandEvent &event) {
         "Project save failed: " +
         diagnostics::DiagnosticLogger::FileNameOnly(currentProjectPath) +
         " - " + reason);
-    wxMessageBox(_("Failed to save project.\n\n") + message,
-                 _("Error"), wxOK | wxICON_ERROR, this);
+    project_save_ui::ShowFailure(*this, message, reason);
   } else {
     diagnostics::DiagnosticLogger::Info(
         "Project save completed: " +
@@ -386,15 +385,14 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
     return;
 
   const std::filesystem::path selectedPath(dlg.GetPath().ToStdWstring());
-  currentProjectPath = EnsureProjectFileExtension(Utf8StringFromPath(selectedPath));
-  currentProjectDisplayName.clear();
+  const std::string destinationPath = EnsureProjectFileExtension(Utf8StringFromPath(selectedPath));
 
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const auto result = project_save_ui::Run(*this, [&] {
     // Sync table edits inside the scope; exceptions also restore enabled windows.
     SyncSceneData();
     SaveUserConfigWithViewport2DState();
-    return cfg.SaveProject(currentProjectPath);
+    return cfg.SaveProject(destinationPath);
   });
   if (!result.saved) {
     const std::string reason = result.threw ? result.exceptionDetail : cfg.GetLastProjectSaveError();
@@ -402,11 +400,12 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
         ? ProjectSaveFailureKind::Unexpected : cfg.GetLastProjectSaveFailure().kind);
     diagnostics::DiagnosticLogger::Error(
         "Project save-as failed: " +
-        diagnostics::DiagnosticLogger::FileNameOnly(currentProjectPath) +
+        diagnostics::DiagnosticLogger::FileNameOnly(destinationPath) +
         " - " + reason);
-    wxMessageBox(_("Failed to save project.\n\n") + message,
-                 _("Error"), wxOK | wxICON_ERROR, this);
+    project_save_ui::ShowFailure(*this, message, reason);
   } else {
+    currentProjectPath = destinationPath;
+    currentProjectDisplayName.clear();
     diagnostics::DiagnosticLogger::Info(
         "Project save-as completed: " +
         diagnostics::DiagnosticLogger::FileNameOnly(currentProjectPath));

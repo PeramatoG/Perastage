@@ -62,29 +62,27 @@ void RetainUneditedSourceParts(Matrix &local, const Matrix &projection,
 
 // Inverts an affine matrix and rejects singular linear components.
 bool Invert(const Matrix &matrix, Matrix &inverse) {
-  const float determinant =
-      matrix.u[0] * (matrix.v[1] * matrix.w[2] - matrix.w[1] * matrix.v[2]) -
-      matrix.v[0] * (matrix.u[1] * matrix.w[2] - matrix.w[1] * matrix.u[2]) +
-      matrix.w[0] * (matrix.u[1] * matrix.v[2] - matrix.v[1] * matrix.u[2]);
-  if (!std::isfinite(determinant) || std::fabs(determinant) < 1.0e-8f)
+  const double a = matrix.u[0], b = matrix.v[0], c = matrix.w[0],
+               d = matrix.u[1], e = matrix.v[1], f = matrix.w[1],
+               g = matrix.u[2], h = matrix.v[2], i = matrix.w[2];
+  const double determinant =
+      a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+  if (!std::isfinite(determinant) || determinant == 0)
     return false;
-
-  const float reciprocal = 1.0f / determinant;
   inverse = MatrixUtils::Identity();
-  inverse.u = {(matrix.v[1] * matrix.w[2] - matrix.v[2] * matrix.w[1]) * reciprocal,
-               (matrix.u[2] * matrix.w[1] - matrix.u[1] * matrix.w[2]) * reciprocal,
-               (matrix.u[1] * matrix.v[2] - matrix.u[2] * matrix.v[1]) * reciprocal};
-  inverse.v = {(matrix.v[2] * matrix.w[0] - matrix.v[0] * matrix.w[2]) * reciprocal,
-               (matrix.u[0] * matrix.w[2] - matrix.u[2] * matrix.w[0]) * reciprocal,
-               (matrix.u[2] * matrix.v[0] - matrix.u[0] * matrix.v[2]) * reciprocal};
-  inverse.w = {(matrix.v[0] * matrix.w[1] - matrix.v[1] * matrix.w[0]) * reciprocal,
-               (matrix.u[1] * matrix.w[0] - matrix.u[0] * matrix.w[1]) * reciprocal,
-               (matrix.u[0] * matrix.v[1] - matrix.u[1] * matrix.v[0]) * reciprocal};
-  const std::array<float, 3> translation = matrix.o;
-  inverse.o = {
-      -(inverse.u[0] * translation[0] + inverse.v[0] * translation[1] + inverse.w[0] * translation[2]),
-      -(inverse.u[1] * translation[0] + inverse.v[1] * translation[1] + inverse.w[1] * translation[2]),
-      -(inverse.u[2] * translation[0] + inverse.v[2] * translation[1] + inverse.w[2] * translation[2])};
+  inverse.u = {float((e * i - f * h) / determinant),
+               float((f * g - d * i) / determinant),
+               float((d * h - e * g) / determinant)};
+  inverse.v = {float((c * h - b * i) / determinant),
+               float((a * i - c * g) / determinant),
+               float((b * g - a * h) / determinant)};
+  inverse.w = {float((b * f - c * e) / determinant),
+               float((c * d - a * f) / determinant),
+               float((a * e - b * d) / determinant)};
+  for (size_t row = 0; row < 3; ++row)
+    inverse.o[row] = float(-(double(inverse.u[row]) * matrix.o[0] +
+                             double(inverse.v[row]) * matrix.o[1] +
+                             double(inverse.w[row]) * matrix.o[2]));
   return IsFinite(inverse);
 }
 

@@ -3,6 +3,21 @@ target_include_directories(perastage_typography PUBLIC ${CMAKE_CURRENT_SOURCE_DI
 target_compile_features(perastage_typography PUBLIC cxx_std_20)
 target_link_libraries(${PROJECT_NAME} PRIVATE perastage_typography)
 
+add_library(perastage_project_archive_publication STATIC
+    project_archive_publication.h project_archive_publication.cpp)
+target_include_directories(perastage_project_archive_publication PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_features(perastage_project_archive_publication PUBLIC cxx_std_20)
+target_link_libraries(${PROJECT_NAME} PRIVATE perastage_project_archive_publication)
+
+add_library(perastage_legend_composition STATIC
+    layouts/DocumentComposition.h layouts/LegendComposition.h
+    layouts/LegendComposition.cpp layouts/LegendContent.h layouts/LegendContent.cpp)
+target_include_directories(perastage_legend_composition PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/print)
+target_compile_features(perastage_legend_composition PUBLIC cxx_std_20)
+target_link_libraries(perastage_legend_composition PUBLIC perastage_typography)
+target_link_libraries(${PROJECT_NAME} PRIVATE perastage_legend_composition)
+
 add_library(perastage_mvr_core_support STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_visual_color.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_fixture_category.cpp

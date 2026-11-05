@@ -12,6 +12,13 @@ class MvrScene;
 namespace tinyxml2 { class XMLElement; }
 
 namespace mvr_identifiers {
+inline constexpr const char *kLexicalIntegerReason =
+    "Integer exceeds the editor range; lexical source is retained.";
+bool IsIntegerLexical(const std::string &text);
+std::optional<std::string> RetainedIntegerText(const MvrScene &scene,
+                                               const std::string &uuid,
+                                               const std::string &field,
+                                               int nativeValue);
 bool ParseInteger(const std::string &text, int &value);
 std::optional<int> ReadOptionalInteger(const tinyxml2::XMLElement &node, const char *name);
 void Read(const tinyxml2::XMLElement &node, std::string &text, int &numeric,

@@ -17,6 +17,8 @@
  */
 #include "layer_identity.h"
 #include "mvr_merge_applier.h"
+#include "mvr_standard_field_projection.h"
+#include "mvr_source_structure_service.h"
 #include "fixture_network_reference.h"
 #include "filesystem_path_utils.h"
 
@@ -183,17 +185,23 @@ void RemapImportedReferences(MvrScene &scene,
         RemapImportedUuidReference(support.motorFixtureUuid, analysis);
     support.parentGroupUuid =
         RemapImportedUuidReference(support.parentGroupUuid, analysis);
-    for (auto &geometry : support.geometries)
+    for (auto &geometry : support.geometries) {
       geometry.sourceSymdefUuid =
           RemapImportedUuidReference(geometry.sourceSymdefUuid, analysis);
+      geometry.sourceSymbolUuid =
+          RemapImportedUuidReference(geometry.sourceSymbolUuid, analysis);
+    }
   }
 
   for (auto &[uuid, object] : scene.sceneObjects) {
     object.parentGroupUuid =
         RemapImportedUuidReference(object.parentGroupUuid, analysis);
-    for (auto &geometry : object.geometries)
+    for (auto &geometry : object.geometries) {
       geometry.sourceSymdefUuid =
           RemapImportedUuidReference(geometry.sourceSymdefUuid, analysis);
+      geometry.sourceSymbolUuid =
+          RemapImportedUuidReference(geometry.sourceSymbolUuid, analysis);
+    }
   }
 
   for (auto &[uuid, group] : scene.groupObjects) {
@@ -253,13 +261,39 @@ MvrSceneMergeResult ApplyImportedSceneMerge(MvrScene &target,
   MvrScene importedCopy = imported;
   layerdomain::MigrateLayerMembership(importedCopy);
   RewriteImportedSceneResourceReferences(target, importedCopy);
+
+
+  ApplyFixtureTypeDecisions(importedCopy, analysis);
+  RemapImportedReferences(importedCopy, analysis);
+  ReconcileStandardSourceFields(importedCopy, [&](const std::string &uuid) {
+    return RemapImportedUuidReference(uuid, analysis);
+  }, {});
+  ReconcileSourceStructure(importedCopy,
+                           [&](const std::string &uuid) {
+                             return RemapImportedUuidReference(uuid, analysis);
+                           },
+                           {});
+  for (const auto &incoming : importedCopy.sourceStructures)
+    if (incoming) {
+      auto retained = std::make_shared<MvrSourceStructure>(*incoming);
+      std::erase_if(retained->nodes, [&](const auto &node) {
+        return FindSourceNode(target, node.uuid) != nullptr ||
+               (node.modeled &&
+                analysis.skippedIncomingUuids.contains(node.uuid));
+      });
+      IndexSourceStructure(*retained);
+      if (!retained->nodes.empty())
+        target.sourceStructures.push_back(std::move(retained));
+    }
+  for (auto &[id, definition] : importedCopy.symdefs)
+    for (auto &symbol : definition.symbols) {
+      symbol.uuid = RemapImportedUuidReference(symbol.uuid, analysis);
+      symbol.symdef = RemapImportedUuidReference(symbol.symdef, analysis);
+    }
   for (const auto &issue : importedCopy.preservationIssues)
     if (std::find(target.preservationIssues.begin(), target.preservationIssues.end(),
                   issue) == target.preservationIssues.end())
       target.preservationIssues.push_back(issue);
-
-  ApplyFixtureTypeDecisions(importedCopy, analysis);
-  RemapImportedReferences(importedCopy, analysis);
 
   for (const MvrOpaqueUserDataBlock &block : importedCopy.opaqueUserDataBlocks) {
     if (std::find(target.opaqueUserDataBlocks.begin(),

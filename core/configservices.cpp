@@ -1,5 +1,6 @@
 #include "layer_identity.h"
 #include "configservices.h"
+#include "project_archive_publication.h"
 #include "filesystem_path_utils.h"
 #include "apppaths.h"
 #include "logger.h"
@@ -991,21 +992,15 @@ bool ProjectSession::SaveProject(
   if (!zip.Close())
     return fail("FinalizeArchive", "could not close project ZIP",
                                  tempPath.string());
-  std::error_code replaceEc;
-  fs::rename(tempPath, targetPath, replaceEc);
-  if (replaceEc) {
-    replaceEc.clear();
-    fs::copy_file(tempPath, targetPath, fs::copy_options::overwrite_existing,
-                  replaceEc);
-    fs::remove(tempPath, cleanupEc);
-    if (replaceEc)
-      return fail("FinalizeArchive",
-                  "could not replace target project archive",
-                                   targetPath.string());
-  }
+  if (!out.Close())
+    return fail("FinalizeArchive", "could not flush and close project archive", tempPath.string());
+  std::string publicationError;
+  if (!project_archive::Publish(tempPath, targetPath, publicationError))
+    return fail("FinalizeArchive", publicationError, targetPath.string());
   tempCleanup.keep = true;
   const auto finalizeEnd = std::chrono::steady_clock::now();
-  const std::uintmax_t archiveBytes = fs::file_size(targetPath);
+  std::error_code sizeError;
+  const std::uintmax_t archiveBytes = fs::file_size(targetPath, sizeError);
 
   auto elapsedMs = [](const auto &start, const auto &end) {
     return std::chrono::duration_cast<std::chrono::milliseconds>(end - start)

@@ -1,5 +1,6 @@
 /* This file is part of Perastage. */
 #include "mvr_class_preservation.h"
+#include "mvr_source_structure_service.h"
 #include "uuidutils.h"
 #include <tinyxml2.h>
 #include <map>
@@ -74,6 +75,16 @@ std::map<std::string, std::string> Assignments(const MvrScene &scene) {
   VisitObjects(scene, [&](const auto &key, const auto &object) {
     if (!object.classing.empty()) result[CanonicalizeUuid(key)] = object.classing;
   });
+  for (const auto &source : scene.sourceStructures)
+    if (source)
+      for (const auto &node : source->nodes)
+        if (!node.modeled && node.valid && SourceNodeSurvives(scene, node)) {
+          tinyxml2::XMLDocument xml;
+          xml.Parse(node.xml.c_str());
+          const auto target = ReadMvrClassing(*xml.RootElement());
+          if (!target.empty())
+            result[node.uuid] = target;
+        }
   return result;
 }
 } // namespace
@@ -113,7 +124,8 @@ void ReadMvrClasses(Element &root, MvrScene &scene) {
     const auto target = ReadMvrClassing(node);
     const auto owner = Uuid(node);
     static const std::unordered_set<std::string> owners = {
-        "Fixture", "GroupObject", "FocusPoint", "SceneObject", "Truss", "Support"};
+        "Fixture", "GroupObject", "FocusPoint",  "SceneObject",
+        "Truss",   "Support",     "VideoScreen", "Projector"};
     if (!owners.contains(node.Name()) || owner.empty() || identities[owner] != 1 ||
         classing->NextSiblingElement("Classing") || classing->FirstAttribute() ||
         classing->FirstChildElement() || target.empty() || !scene.classes.contains(target))

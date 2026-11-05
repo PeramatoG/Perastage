@@ -23,6 +23,7 @@
 #include "mvrscene.h"
 
 #include <string>
+#include <filesystem>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -49,6 +50,7 @@ struct Result {
 };
 
 // Prepares an immutable source scene for export without package or XML I/O.
-Result Prepare(const MvrScene &sourceScene, const MvrExportOptions &options);
+Result Prepare(const MvrScene &sourceScene, const MvrExportOptions &options,
+               const std::filesystem::path &fallbackGdtf = {});
 
 } // namespace mvr_export_preparation

@@ -16,6 +16,8 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvr_export_resource_collection.h"
+#include "file_import_utils.h"
+#include "mvr_publication_repair.h"
 
 #include "gdtf_canonicalizer.h"
 #include "gdtf_mutation_audit.h"
@@ -104,8 +106,11 @@ tinyxml2::XMLElement *InsertFixtureTypeChildInOrder(
 }
 
 // Applies an explicit export rewrite request to a GDTF description document.
-bool ApplyRewriteRequest(tinyxml2::XMLDocument &document,
-                         const mvr_export_resources::GdtfRewriteRequest &request) {
+bool ApplyRewriteRequest(
+    tinyxml2::XMLDocument &document,
+    const mvr_export_resources::GdtfRewriteRequest &request,
+    const mvr_export_resources::DiagnosticSink &diagnostics,
+    const std::string &archivePath) {
   tinyxml2::XMLElement *fixtureType = document.FirstChildElement("GDTF");
   if (fixtureType)
     fixtureType = fixtureType->FirstChildElement("FixtureType");
@@ -115,7 +120,22 @@ bool ApplyRewriteRequest(tinyxml2::XMLDocument &document,
     return false;
 
   const char *powerAttribute = nullptr;
-  if (request.hasPowerW && !gdtf::FindPowerWriteTarget(fixtureType, powerAttribute)) return false;
+  const bool writablePower =
+      !request.hasPowerW ||
+      gdtf::FindPowerWriteTarget(fixtureType, powerAttribute);
+  if (!writablePower && diagnostics)
+    diagnostics({MvrExportDiagnosticCode::GdtfPatchFailed,
+                 MvrExportDiagnosticSeverity::Warning,
+                 MvrExportDiagnosticImpact::RequestNotHonored,
+                 true,
+                 "Fixture",
+                 {},
+                 {},
+                 archivePath,
+                 "Retained requested planning power in Perastage metadata; "
+                 "source GDTF has no existing standard power owner. Definition "
+                 "power was not invented. Requested watts=" +
+                     std::to_string(request.powerW)});
   bool patched = false;
   if (!request.color.empty()) {
     tinyxml2::XMLElement *models = fixtureType->FirstChildElement("Models");
@@ -130,8 +150,9 @@ bool ApplyRewriteRequest(tinyxml2::XMLDocument &document,
   }
   const std::optional<float> weight =
       request.hasWeightKg ? std::optional<float>(request.weightKg) : std::nullopt;
-  const std::optional<float> power =
-      request.hasPowerW ? std::optional<float>(request.powerW) : std::nullopt;
+  const std::optional<float> power = request.hasPowerW && writablePower
+                                         ? std::optional<float>(request.powerW)
+                                         : std::nullopt;
   patched = GdtfMutationAudit::ApplyPhysicalProperties(
                 fixtureType, document, weight, power) ||
             patched;
@@ -165,7 +186,8 @@ bool ApplyRewriteRequest(tinyxml2::XMLDocument &document,
         (request.hasWeightKg || request.hasPowerW)
             ? kPhysicalPropertiesRevisionText
             : "Patched fixture metadata for MVR export",
-        GdtfMutationAudit::BuildPerastageModifiedBy());
+        GdtfMutationAudit::BuildPerastageModifiedBy(), 0, "",
+        GdtfMutationAudit::RevisionPolicy::SkipEquivalentAction, false);
   }
   return true;
 }
@@ -204,7 +226,8 @@ GdtfPreparationResult ResourceCollection::PrepareGdtfResources(
           GdtfCanonicalizer::RewriteArchiveDescription(
               entry.sourcePath, patchedPath,
               [&](tinyxml2::XMLDocument &document) {
-                return ApplyRewriteRequest(document, rewrite->second);
+                return ApplyRewriteRequest(document, rewrite->second,
+                                           m_diagnosticSink, entry.archivePath);
               });
       if (!patchResult.success) {
         if (m_diagnosticSink) {
@@ -242,8 +265,11 @@ GdtfPreparationResult ResourceCollection::PrepareGdtfResources(
             : fs::path{};
     GdtfCanonicalizer::Options options;
     options.allowFixtureTypeIdRepair = true;
+    options.projectUnsupportedFixtureTypeContent = true;
+    options.omitGeneratedRevisionDate = true;
     options.stableIdSeed =
-        entry.archivePath + "|" + entry.sourcePath.string();
+        entry.archivePath + "|" +
+        FileImportUtils::ComputeFileSha256(entry.sourcePath).value_or("");
     options.sourceLabel =
         entry.archivePath + " from " + entry.sourcePath.string();
     const GdtfCanonicalizer::Result canonicalResult =
@@ -265,6 +291,23 @@ GdtfPreparationResult ResourceCollection::PrepareGdtfResources(
       result.failureSourcePath = entry.sourcePath.string();
       result.failureReason = "canonicalizer reported errors";
       return result;
+    }
+    if (canonicalResult.changed) {
+      m_plan.canonicalGdtfProofs.push_back(
+          {entry.sourcePath, canonicalPath,
+           FileImportUtils::ComputeFileSha256(entry.sourcePath).value_or(""),
+           FileImportUtils::ComputeFileSha256(canonicalPath).value_or("")});
+    }
+    for (const auto &omission : canonicalResult.omissions) {
+      mvr::publication::Findings findings;
+      mvr::publication::Note(
+          findings, "GDTF", {}, entry.archivePath,
+          "Omitted unsupported FixtureType content from the canonical "
+          "derivative; other definition data and resources retained",
+          omission);
+      if (m_diagnosticSink)
+        for (const auto &finding : findings)
+          m_diagnosticSink(finding);
     }
     entry.sourcePath = canonicalPath;
     if (entry.provenance != ResourceProvenance::CompatibilityFallback)

@@ -1,3 +1,4 @@
+#include "support/mvr_recovery_assertions.h"
 /* This file is part of Perastage. */
 #include "configmanager.h"
 #include "inspection/xml_schema_validation.h"
@@ -158,11 +159,11 @@ void RunMatrixPrecisionRegression(const std::filesystem::path &directory) {
     const auto invalid = Import(dir / "invalid.mvr");
     assert(!invalid.preservationIssues.empty());
     std::vector<uint8_t> bytes{1};
-    assert(!exporter.ExportCanonicalSnapshotToBuffer(invalid, bytes) && bytes.empty());
+    tests::recovery::Export(exporter, invalid, dir / "repaired-matrix.mvr");
     assert(!exporter.GetExportDiagnostics().empty());
     config.GetScene() = invalid;
-    assert(!config.SaveProject((dir / "invalid.pstg").string()));
-    assert(config.GetLastProjectSaveFailure().stage == "SerializeScene");
+    assert(config.SaveProject((dir / "invalid.pstg").string()));
+    assert(config.LoadProject((dir / "invalid.pstg").string()));
   }
   config.Reset();
 }

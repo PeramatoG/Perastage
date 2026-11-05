@@ -1,6 +1,8 @@
 /*
  * This file is part of Perastage.
  */
+#include "support/mvr_userdata_test_utils.h"
+
 #include <cassert>
 #include <cmath>
 #include <filesystem>
@@ -178,6 +180,18 @@ int main() {
   const std::filesystem::path mvrPath = tempDir / "support_roundtrip.mvr";
   MvrExporter exporter;
   assert(exporter.ExportToFile(mvrPath.string()));
+  size_t geometryOmissions = 0;
+  for (const auto &finding : exporter.GetExportDiagnostics())
+    if (finding.objectType == "Support" &&
+        finding.resourceName == "Geometries/Geometry3D") {
+      assert(finding.severity == MvrExportDiagnosticSeverity::Warning);
+      assert(finding.impact == MvrExportDiagnosticImpact::DataOmitted);
+      assert(finding.technicalDetail.find("support.3ds") != std::string::npos);
+      assert(scene.supports.at(finding.objectIdentity).geometries.size() == 1);
+      ++geometryOmissions;
+    }
+  // The fixture deliberately contains invalid 3DS bytes on four supports.
+  assert(geometryOmissions == 4);
 
   const auto entries = ReadArchiveTextEntries(mvrPath);
   const auto xmlIt = entries.find("GeneralSceneDescription.xml");
@@ -188,7 +202,8 @@ int main() {
   assert(root != nullptr);
   tinyxml2::XMLElement *rootUserData = root->FirstChildElement("UserData");
   assert(rootUserData != nullptr);
-  tinyxml2::XMLElement *rootData = rootUserData->FirstChildElement("Data");
+  tinyxml2::XMLElement *rootData =
+      mvr_test::FindUniqueProviderData(*rootUserData, "Perastage");
   assert(rootData != nullptr);
   tinyxml2::XMLElement *hoistInfoMap = rootData->FirstChildElement("HoistInfoMap");
   assert(hoistInfoMap != nullptr);
@@ -236,7 +251,7 @@ int main() {
   assert(foundManualHoistInfo);
   bool foundLinkedSupport = false;
   bool foundLogicalOnlySupport = false;
-  bool foundEmptySceneObjectPlaceholder = false;
+  bool foundEmptySceneObject = false;
   bool foundInvalidSceneObject = false;
   std::vector<tinyxml2::XMLElement *> stack;
   stack.push_back(root);
@@ -274,18 +289,11 @@ int main() {
     if (std::string(current->Name()) == "SceneObject" &&
         current->Attribute("uuid") &&
         std::string(current->Attribute("uuid")) == "40000000-0000-4000-8000-000000000001") {
-      foundEmptySceneObjectPlaceholder = true;
+      foundEmptySceneObject = true;
       tinyxml2::XMLElement *geometries = current->FirstChildElement("Geometries");
       assert(geometries != nullptr);
-      tinyxml2::XMLElement *geometry3d = geometries->FirstChildElement("Geometry3D");
-      assert(geometry3d != nullptr);
-      tinyxml2::XMLElement *matrixNode = geometry3d->FirstChildElement("Matrix");
-      assert(matrixNode != nullptr && matrixNode->GetText() != nullptr);
-      Matrix placeholderMatrix;
-      assert(MatrixUtils::ParseMatrix(matrixNode->GetText(), placeholderMatrix));
-      assert(std::abs(placeholderMatrix.u[0] - 0.1f) < 0.001f);
-      assert(std::abs(placeholderMatrix.v[1] - 0.1f) < 0.001f);
-      assert(std::abs(placeholderMatrix.w[2] - 0.1f) < 0.001f);
+      // Canonical export retains an empty object without inventing a model.
+      assert(geometries->FirstChildElement() == nullptr);
     }
     if (std::string(current->Name()) == "SceneObject" &&
         current->FirstChildElement("Geometries") == nullptr)
@@ -296,7 +304,7 @@ int main() {
   }
   assert(foundLinkedSupport);
   assert(foundLogicalOnlySupport);
-  assert(foundEmptySceneObjectPlaceholder);
+  assert(foundEmptySceneObject);
   assert(!foundInvalidSceneObject);
 
   cfg.Reset();

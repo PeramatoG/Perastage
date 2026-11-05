@@ -1,4 +1,8 @@
 #include "mvr_export_preparation.h"
+#include "mvr_publication_repair.h"
+#include "runtime_storage.h"
+#include <filesystem>
+#include <fstream>
 
 #include <algorithm>
 #include <cassert>
@@ -6,6 +10,67 @@
 #include <limits>
 
 namespace {
+
+// Persisted recovery evidence must not leak physical temp-root aliases.
+void TestPortableDisclosure() {
+  runtime_storage::TemporaryWorkspace workspace("mvr-disclosure");
+  const auto real = std::filesystem::canonical(workspace.Path());
+  const auto alias = workspace.Path() / "alias";
+  std::error_code error;
+  std::filesystem::create_directory_symlink(real, alias, error);
+  MvrScene scene;
+  scene.basePath = (error ? workspace.Path() : alias).string();
+  mvr::publication::Findings findings;
+  const auto original = (real / "asset.gdtf").string();
+  mvr::publication::Note(findings, "Fixture", "fixture", "GDTFSpec",
+                         "Resolved definition " + original, original);
+  mvr::publication::RetainDisclosure(scene, findings);
+  assert(findings.front().technicalDetail.find(original) != std::string::npos);
+  assert(scene.opaqueUserDataBlocks.size() == 1);
+  const auto &xml = scene.opaqueUserDataBlocks.front().xml;
+  assert(xml.find("asset.gdtf") != std::string::npos);
+  assert(xml.find(real.generic_string()) == std::string::npos);
+  assert(xml.find(scene.basePath) == std::string::npos);
+}
+
+// Resource disclosures use portable paths; unrelated authored text stays exact.
+void TestResourceDisclosureSeparators() {
+  runtime_storage::TemporaryWorkspace workspace("mvr-resource-disclosure");
+  const auto model = workspace.Path() / "models" / "unusable.3ds";
+  std::filesystem::create_directories(model.parent_path());
+  std::ofstream(model, std::ios::binary) << "deliberately invalid model";
+  MvrScene scene;
+  scene.basePath = workspace.Path().string();
+  Support support;
+  support.uuid = "30000000-0000-4000-8000-000000000001";
+  GeometryInstance geometry;
+  geometry.modelFile = model.string();
+  support.geometries.push_back(geometry);
+  scene.supports.emplace(support.uuid, support);
+  mvr::publication::Findings findings;
+  mvr::publication::RepairResources(scene, {}, findings);
+  assert(findings.size() == 1);
+  assert(findings.front().impact == MvrExportDiagnosticImpact::DataOmitted);
+  assert(scene.supports.at(support.uuid).geometries.empty());
+  assert(findings.front().technicalDetail.find(model.generic_string()) !=
+         std::string::npos);
+  mvr::publication::RetainDisclosure(scene, findings);
+  assert(scene.opaqueUserDataBlocks.size() == 1);
+  const auto &xml = scene.opaqueUserDataBlocks.front().xml;
+  assert(xml.find("models/unusable.3ds") != std::string::npos);
+  assert(xml.find('\\') == std::string::npos);
+  assert(xml.find(workspace.Path().generic_string()) == std::string::npos);
+
+  MvrScene authored;
+  authored.basePath = scene.basePath;
+  const std::string original = R"(literal\authored\command)";
+  findings.clear();
+  mvr::publication::Note(findings, "Fixture", "fixture", "CustomCommands",
+                         "Omitted unsupported command", original);
+  mvr::publication::RetainDisclosure(authored, findings);
+  assert(authored.opaqueUserDataBlocks.front().xml.find(original) !=
+         std::string::npos);
+}
 
 // Builds a fixture with a stable identity for preparation characterization.
 Fixture MakeFixture(const std::string &uuid, const std::string &name,
@@ -147,8 +212,9 @@ void TestPositionPreparation() {
   assert(scene.fixtures.at(remappedUuid).position == "outdated-position");
 }
 
-// Verifies fatal transform validation retains its established diagnostic model.
-void TestFatalTransformPreparation() {
+// Invalid numeric components are repaired on the snapshot and precisely
+// disclosed.
+void TestPrivateTransformRepair() {
   const std::string fixtureUuid = "99999999-9999-4999-8999-999999999999";
   MvrScene scene;
   Fixture fixture = MakeFixture(fixtureUuid, "Invalid Transform", 1, 1, 0.0f);
@@ -158,12 +224,13 @@ void TestFatalTransformPreparation() {
   const auto result =
       mvr_export_preparation::Prepare(scene, CanonicalMvrExportOptions());
   const MvrExportDiagnostic *diagnostic = FindDiagnostic(
-      result.diagnostics, MvrExportDiagnosticCode::TransformInvalid);
+      result.diagnostics, MvrExportDiagnosticCode::InternalRecovery);
 
-  assert(!result.success);
+  assert(result.success);
+  assert(result.scene.fixtures.at(fixtureUuid).transform.o[0] == 0.0f);
   assert(diagnostic != nullptr);
-  assert(diagnostic->severity == MvrExportDiagnosticSeverity::Error);
-  assert(diagnostic->impact == MvrExportDiagnosticImpact::ExportFailed);
+  assert(diagnostic->severity == MvrExportDiagnosticSeverity::Warning);
+  assert(diagnostic->impact == MvrExportDiagnosticImpact::DataSubstituted);
   assert(diagnostic->userVisible);
   assert(diagnostic->objectIdentity == fixtureUuid);
   assert(std::isnan(scene.fixtures.at(fixtureUuid).transform.o[0]));
@@ -231,7 +298,8 @@ void TestFocusDoesNotConsumeObjectIds() {
   assert(result.objectIds.at(object.uuid).first == "Deck");
 }
 
-// Identity repair must retain a unique hierarchy edge and reject ambiguous aliases.
+// Retain unique hierarchy edges; omit ambiguous edges without guessing a
+// target.
 void TestIdentityRepairScope() {
   MvrScene scene;
   GroupObject group;
@@ -251,22 +319,64 @@ void TestIdentityRepairScope() {
   scene.groupObjects["second-group"] = group;
   scene.fixtures.at(fixture.uuid).parentGroupUuid = group.uuid;
   const auto conflict = mvr_export_preparation::Prepare(scene, CanonicalMvrExportOptions());
-  assert(!conflict.success);
+  assert(conflict.success);
+  assert(conflict.scene.groupObjects.size() == 2);
+  assert(conflict.scene.fixtures.at(fixture.uuid).parentGroupUuid.empty());
   const auto *diagnostic = FindDiagnostic(conflict.diagnostics, MvrExportDiagnosticCode::IdentityConflict);
-  assert(diagnostic && diagnostic->severity == MvrExportDiagnosticSeverity::Error);
-  assert(diagnostic->impact == MvrExportDiagnosticImpact::ExportFailed);
+  assert(diagnostic &&
+         diagnostic->severity == MvrExportDiagnosticSeverity::Warning);
+  assert(diagnostic->impact == MvrExportDiagnosticImpact::DataOmitted);
   assert(diagnostic->technicalDetail.find("ambiguous-reference") != std::string::npos);
   assert(scene.groupObjects.size() == 2);
   assert(scene.fixtures.at(fixture.uuid).parentGroupUuid == group.uuid);
+}
+
+// Optional bindings with no usable pair are omitted only on the export copy.
+void TestIncompleteOptionalBindings() {
+  MvrScene scene;
+  Support support;
+  support.uuid = "34343434-3434-4434-8434-343434343434";
+  support.gdtfSpec = "authored.gdtf";
+  support.dmxAddresses.emplace();
+  support.dmxAddresses->entries.push_back({{}, "513"});
+  FixtureNetworkAssignment network;
+  network.geometry = "port";
+  network.ipv4 = "192.0.2.1";
+  support.dmxAddresses->networks.push_back(network);
+  scene.supports.emplace(support.uuid, support);
+  auto prepared =
+      mvr_export_preparation::Prepare(scene, CanonicalMvrExportOptions());
+  assert(prepared.success);
+  const auto &output = prepared.scene.supports.at(support.uuid);
+  assert(output.gdtfSpec.empty() && output.gdtfMode.empty());
+  assert(output.dmxAddresses->entries == support.dmxAddresses->entries);
+  assert(output.dmxAddresses->networks.empty());
+  assert(scene.supports.at(support.uuid).gdtfSpec == "authored.gdtf");
+  assert(scene.supports.at(support.uuid).dmxAddresses->networks.size() == 1);
+  int omissions = 0;
+  for (const auto &finding : prepared.diagnostics)
+    if (finding.impact == MvrExportDiagnosticImpact::DataOmitted) {
+      ++omissions;
+      assert(finding.severity == MvrExportDiagnosticSeverity::Warning);
+      assert(finding.objectType == "Support" &&
+             finding.objectIdentity == support.uuid);
+      assert(finding.technicalDetail.find(omissions == 1 ? "authored.gdtf"
+                                                         : "192.0.2.1") !=
+             std::string::npos);
+    }
+  assert(omissions == 2);
 }
 
 } // namespace
 
 // Runs focused MVR export preparation characterization.
 int main() {
+  TestPortableDisclosure();
+  TestResourceDisclosureSeparators();
+  TestIncompleteOptionalBindings();
   TestPreparedValuesAndSourceImmutability();
   TestPositionPreparation();
-  TestFatalTransformPreparation();
+  TestPrivateTransformRepair();
   TestDeterminismAcrossInsertionOrder();
   TestFocusDoesNotConsumeObjectIds();
   TestIdentityRepairScope();

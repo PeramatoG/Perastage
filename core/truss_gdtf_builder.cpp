@@ -95,6 +95,7 @@ struct TrussSourceData {
   std::string crossSectionType = "TrussFramework";
   std::string crossSection;
   std::string revisionText;
+  bool deterministicPublication = false;
   Truss::DimensionSource dimensionSource = Truss::DimensionSource::Unknown;
   bool legacyMetadataContext = false;
 };
@@ -148,8 +149,13 @@ static bool WriteZipFile(const fs::path &zipPath,
   wxZipOutputStream zip(output);
   for (const auto &[archiveName, sourcePath] : entries) {
     auto *entry = new wxZipEntry(archiveName);
+    entry->SetDateTime(wxDateTime(1, wxDateTime::Jan, 1980));
     entry->SetMethod(wxZIP_METHOD_DEFLATE);
-    zip.PutNextEntry(entry);
+    if (!zip.PutNextEntry(entry)) {
+      if (outError)
+        *outError = "Failed to create archive entry: " + archiveName;
+      return false;
+    }
     std::ifstream in(sourcePath, std::ios::binary);
     if (!in.is_open()) {
       if (outError)
@@ -163,9 +169,17 @@ static bool WriteZipFile(const fs::path &zipPath,
       if (read > 0)
         zip.Write(buffer, read);
     }
-    zip.CloseEntry();
+    if (in.bad() || !zip.IsOk() || !zip.CloseEntry()) {
+      if (outError)
+        *outError = "Failed to copy archive entry: " + archiveName;
+      return false;
+    }
   }
-  zip.Close();
+  if (!zip.Close() || !output.Close()) {
+    if (outError)
+      *outError = "Failed to finalize generated GDTF archive";
+    return false;
+  }
   return true;
 }
 
@@ -374,7 +388,9 @@ static std::string BuildDescriptionXml(const TrussSourceData &data) {
       fixtureType, doc,
       data.revisionText.empty() ? "Generated canonical Perastage truss GDTF"
                                 : data.revisionText,
-      GdtfMutationAudit::BuildPerastageModifiedBy());
+      GdtfMutationAudit::BuildPerastageModifiedBy(), 0, "",
+      GdtfMutationAudit::RevisionPolicy::SkipEquivalentAction,
+      !data.deterministicPublication);
 
   tinyxml2::XMLPrinter printer;
   doc.Print(&printer);
@@ -466,7 +482,8 @@ bool BuildTrussGdtfFromInstance(const Truss &truss, const fs::path &outGdtfPath,
 // Builds a Perastage-authored GDTF archive with an explicit revision summary.
 bool BuildTrussGdtfFromInstance(const Truss &truss, const fs::path &outGdtfPath,
                                 std::string *outError,
-                                const std::string &revisionText) {
+                                const std::string &revisionText,
+                                bool deterministicPublication) {
   TrussSourceData source;
   source.manufacturer = truss.manufacturer;
   source.model = truss.model.empty() ? truss.name : truss.model;
@@ -479,6 +496,7 @@ bool BuildTrussGdtfFromInstance(const Truss &truss, const fs::path &outGdtfPath,
   source.crossSectionType = truss.crossSectionType.empty() ? "TrussFramework" : truss.crossSectionType;
   source.crossSection = truss.crossSection;
   source.revisionText = revisionText;
+  source.deterministicPublication = deterministicPublication;
   source.dimensionSource = truss.dimensionSource;
   source.legacyMetadataContext =
       truss.dimensionSource == Truss::DimensionSource::PerastageMetadata &&

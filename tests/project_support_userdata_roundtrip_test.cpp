@@ -153,8 +153,10 @@ int main() {
   tinyxml2::XMLElement *userData = root->FirstChildElement("UserData");
   assert(userData != nullptr);
   tinyxml2::XMLElement *data = userData->FirstChildElement("Data");
+  while (data && (!data->Attribute("provider") ||
+                  std::string(data->Attribute("provider")) != "Perastage"))
+    data = data->NextSiblingElement("Data");
   assert(data != nullptr);
-  assert(std::string(data->Attribute("provider")) == "Perastage");
   assert(std::string(data->Attribute("ver")) == "1.0");
   tinyxml2::XMLElement *hoistInfoMap =
       data->FirstChildElement("HoistInfoMap");

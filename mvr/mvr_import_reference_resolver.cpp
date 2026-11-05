@@ -63,6 +63,8 @@ std::string MvrImportReferenceResolver::ResolveStableUuid(
     const MvrImportedIdentity &identity) {
   std::string stableUuid = CanonicalizeUuid(identity.rawUuid);
   const std::string seed = StableSeed(identity);
+  if (stableUuid == "00000000-0000-0000-0000-000000000000")
+    stableUuid.clear();
   if (stableUuid.empty()) {
     stableUuid = CanonicalizeUuid(identity.legacyStableId);
     if (stableUuid.empty() && !identity.rawUuid.empty()) {
@@ -85,6 +87,11 @@ std::string MvrImportReferenceResolver::ResolveStableUuid(
     stableUuid = std::move(candidate);
   }
   usedStableUuids_.insert(stableUuid);
+  if (stableUuid != CanonicalizeUuid(identity.rawUuid))
+    Warn("MVR identity repair: kind=" + identity.kind +
+         " occurrence=" + std::to_string(usedStableUuids_.size()) +
+         " oldUuid=" + identity.rawUuid + " newUuid=" + stableUuid +
+         " matrix=" + identity.transform);
   return stableUuid;
 }
 
@@ -134,6 +141,10 @@ MvrImportReferenceResolver::EnsurePosition(const std::string &positionId,
   const auto existing = scene.positions.find(normalized);
   if (existing != scene.positions.end())
     return existing->second;
+  // A valid standard UUID with no definition is an unresolved relationship,
+  // not permission to create a fictitious Position target.
+  if (!canonical.empty())
+    return {};
   scene.positions[normalized] = positionId;
   return positionId;
 }

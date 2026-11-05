@@ -187,6 +187,10 @@ Result Execute(const Request &request) {
     result.diagnostics.push_back(std::move(publicationDiagnostic));
     return result;
   }
+  for (const auto &diagnostic : exporter.GetExportDiagnostics())
+    if (diagnostic.userVisible &&
+        diagnostic.severity == MvrExportDiagnosticSeverity::Warning)
+      result.diagnostics.push_back(diagnostic.technicalDetail);
   result.outputPublished = true;
   result.success = true;
   return result;

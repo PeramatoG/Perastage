@@ -240,6 +240,7 @@ ReadProjectFixtureMetadata(const std::filesystem::path &projectPath) {
   tinyxml2::XMLElement *userData = root->FirstChildElement("UserData");
   assert(userData != nullptr);
   tinyxml2::XMLElement *data = userData->FirstChildElement("Data");
+  while(data&&(!data->Attribute("provider")||std::string(data->Attribute("provider"))!="Perastage"))data=data->NextSiblingElement("Data");
   assert(data != nullptr);
   tinyxml2::XMLElement *map =
       data->FirstChildElement("ProjectFixtureMetadataMap");
@@ -792,20 +793,31 @@ int main() {
     assert(scene3.fixtures.at("20000000-0000-4000-8000-000000000002")
                .fixtureIdNumeric == 101);
 
-    const auto beforeBlocked = ReadProjectIdentityPayload(secondProject);
+    const auto beforeRecovery = ReadProjectIdentityPayload(secondProject);
+    const auto fixtureCount = cfg.GetScene().fixtures.size();
     cfg.GetScene().preservationIssues.push_back({"Symdef", "source-definition",
         "Scene/AUXData/Symdef", "<Symdef name='protected'/>",
         "Test source content needs canonical preservation.", "Keep the original."});
-    assert(!cfg.SaveProject(secondProject.string()));
-    assert(cfg.GetLastProjectSaveFailure().kind == ProjectSaveFailureKind::MvrPreservation);
-    assert(cfg.GetLastProjectSaveFailure().stage == "SerializeScene");
-    assert(cfg.GetLastProjectSaveFailure().detail.find("canonical preservation") != std::string::npos);
-    assert(cfg.GetLastProjectSaveError().find("archive could not be written") == std::string::npos);
-    const auto afterBlocked = ReadProjectIdentityPayload(secondProject);
-    assert(afterBlocked.configJson == beforeBlocked.configJson);
-    assert(afterBlocked.sceneXml == beforeBlocked.sceneXml);
+    cfg.MarkDirty();
+    assert(cfg.SaveProject(secondProject.string()));
+    assert(!cfg.IsDirty());
+    const auto afterRecovery = ReadProjectIdentityPayload(secondProject);
+    assert(afterRecovery.sceneXml.find("org.perastage.canonical-recovery") !=
+           std::string::npos);
+    assert(afterRecovery.sceneXml.find("canonical preservation") !=
+           std::string::npos);
+    assert(nlohmann::json::parse(afterRecovery.configJson)
+               .at(project_identity::kFixtureLabelOverridesConfigKey) ==
+           nlohmann::json::parse(beforeRecovery.configJson)
+               .at(project_identity::kFixtureLabelOverridesConfigKey));
     assert(cfg.LoadProject(secondProject.string()));
+    assert(cfg.GetScene().fixtures.size() == fixtureCount);
     assert(cfg.GetScene().preservationIssues.empty());
+    assert(std::any_of(
+        cfg.GetScene().opaqueUserDataBlocks.begin(),
+        cfg.GetScene().opaqueUserDataBlocks.end(), [](const auto &block) {
+          return block.provider == "org.perastage.canonical-recovery";
+        }));
 
     std::filesystem::remove(temp);
     std::filesystem::remove(foreignNavigationProject);

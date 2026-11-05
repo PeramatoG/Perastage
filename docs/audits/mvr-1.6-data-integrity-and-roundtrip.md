@@ -1,6 +1,12 @@
 # MVR 1.6 data integrity and round-trip audit
 
-Status: **bounded P0 corrections through #2484 plus canonical export policy consolidation and Layer elevation, Fixture DMX breaks and Fixture Network preservation; non-blocking persistence and complete semantic provenance remain unfinished**.
+Status: **bounded P0 corrections through #2484 and PR 2501, including canonical
+policy, elevations, DMX/network assignments, source-only fields and structural
+preservation**. PR 2501 supplies normal save/export owners for media nodes,
+parametric children and nested Symbols; see its [follow-up](#pr-2501-structural-preservation-follow-up)
+and [executed verification](../developer/technical-notes/pr_2501_verification.md).
+Earlier coverage tables describe their examined revisions. Complete semantic
+provenance for arbitrary packages/extensions is not certified.
 
 The scene-format inventory below covers every attribute/child entry in published
 MVR 1.6 Tables 2–64, plus value types, archive rules, references and version policy.
@@ -1399,3 +1405,25 @@ full-document XSD are separate assertions: the UserData discrepancy remains, and
 the pinned IPv6 regex also rejects the tested expanded lowercase form. Neither
 stripped validation nor round trips establish full conformance or external
 interoperability. The official XSD is unchanged. Next address consumer: SceneObject.
+
+
+### PR 2501 structural preservation follow-up
+
+This follow-up supersedes the historical “unrepresented” status above for
+VideoScreen/Projector, their Classing/media/resources, parametric ChildList,
+multipatch and standard Symbol/Symdef geometry. A validated shallow source
+structure surrounds edited typed nodes; nested instances live in the existing
+definition registry. Canonical PSTG/MVR serializers share that projection.
+Model dependencies retain their original bytes and portable relative tree.
+No recovery-copy mode or blanket preservation bypass is needed for these cases.
+
+`ProjectStructured*Roundtrip` exercises actual PSTG saves/reloads and standalone
+MVR, with unchanged source bytes, Fixture/Layout edits, nonidentity placements,
+shared/nested Symbols, mixed geometry, class links, texture closure and UUID
+collisions during merge. Geometry edits fork only the edited instance's standard
+definition. Missing media/texture/GDTF, invalid cyclic references and archive
+failures remain errors. Independent XSD validation excludes existing Perastage
+root UserData, whose published-schema discrepancy is unchanged. See
+[PR verification](../developer/technical-notes/pr_2501_verification.md) for exact
+commands, results and platform limitations. Earlier tables are historical
+coverage evidence, not a claim of complete MVR or provider-extension support.

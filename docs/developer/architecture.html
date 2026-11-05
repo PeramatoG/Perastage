@@ -498,6 +498,13 @@ by the established safe extraction implementation. The narrow
 by Core and Models respectively, so the shared reader links their single
 production implementations without directly registering foreign module
 sources or creating a broad general-purpose Core library.</p>
+<p>The <code>mvr_source_structure_*</code> service retains immutable standard topology and
+source-only payloads beside editable scene values. Capture/validation, private
+geometry edit preparation, XML projection and merge reconciliation have separate
+units. They do not access the GUI, global project configuration or archive
+writers. The typed Symdef registry owns nested Symbol graphs. Model resource
+closure discovery is read-only; the existing resource collection owns packaging.
+See the <a href="technical-notes/canonical_mvr_contract.html#retained-standard-scene-structure">canonical MVR contract</a>.</p>
 <p>The shared read context returns neutral conflict and manually authored category
 facts, exact authored layer UUID membership for every parsed node, and each
 layer&#39;s direct authored child UUIDs. This preserves duplicate layer names and
@@ -596,6 +603,30 @@ it. Passive 2D viewport persistence explicitly skips history publication.</p>
 with scene, selection, layer state, label overrides and fixture symbols. History
 restoration bypasses startup default loading and resource re-reading, preserving
 absent metadata and explicitly empty collections without rewriting configuration.</p>
+<h2 id="layout-legend-composition">Layout Legend composition</h2>
+<p><code>core/layouts/LegendContent</code> resolves ordered per-type settings from explicit
+scene-wide aggregates. <code>DocumentComposition</code> supplies local point rectangles,
+text roles and a measurement callback; <code>LegendComposition</code> alone decides Legend
+columns, two-line wrapping, rows, clipping diagnostics and symbol placements.
+<code>viewer2d/legend_composition_adapter</code> resolves existing SVG/command references
+and bounds before composition. The focused GUI and PDF Legend renderers draw
+the resulting plan without a second layout algorithm. No persistent schema or
+transaction boundary changes. Oversized legacy symbols retain their size and
+origin alignment but are clipped to their planned slots.</p>
+<p>Legend plans use the existing bundled PerastageSans regular/bold metrics and
+<code>typography::Compose</code> for positioned glyphs. Both adapters compose with the same
+logical frame and font identities. The GUI draws the bundled glyph contours;
+PDF embeds those same fonts and writes selectable vector text. No platform font
+measurement, target-specific geometry profile or Legend typography compensation
+remains. The existing Event Table/free-text compensation is unchanged. Output
+paper scaling uniformly fits the original Legend plan after composition, so
+zoom, DPI and paper changes cannot change wrapping or distort symbols.</p>
+<p>Text cells and symbol slots have shared clipping rectangles. Source UTF-8 stays
+in the plan and persistent data. The supported repertoire is WinAnsi Latin;
+unsupported glyphs are omitted consistently on both targets and reported with
+bounded line/byte/UTF-8 diagnostics, including PDF dialog details. This does not
+claim full Unicode shaping. The per-Legend content hash includes the v2 font/
+composition identity; unrelated rasters remain reusable.</p>
 <h2 id="fixture-label-typography">Fixture label typography</h2>
 <p>Core&#39;s GUI-independent <code>typography/</code> boundary owns the existing TrueType metrics
 reader, WinAnsi encoding and bounded text composition. It produces advances,
@@ -609,7 +640,7 @@ same composed positions to NanoVG and capture, and PDF embeds the resolved fonts
 <code>__project_defaults__</code> entry participates in the same project history and is
 excluded from UUID normalization/pruning. Legacy keys remain a read-only adapter
 until a field is edited; existing line-spacing and Layout compensation constants
-remain intact. Layout free text, legends, tables, 3D labels and the old global PDF
+remain intact. Layout free text, tables, 3D labels and the old global PDF
 metrics compatibility API remain legacy consumers. The next integration is shared
 composition for Layout free text, with explicit migration and wrapping tests;
 this change does not claim preview/PDF parity for those paths.</p>

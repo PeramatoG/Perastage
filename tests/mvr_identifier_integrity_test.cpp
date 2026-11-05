@@ -1,3 +1,5 @@
+#include "support/mvr_recovery_assertions.h"
+#include "mvr_identifier_preservation.h"
 /* This file is part of Perastage. */
 #include "configmanager.h"
 #include "inspection/xml_schema_validation.h"
@@ -170,36 +172,35 @@ int main(int argc, char **argv) {
     assert(config.LoadProject((dir / (name + ".pstg")).string()));
     assert(exporter.ExportToFile((dir / (name + "-reopened.mvr")).string()));
   }
-  const auto previous = tests::archive::ReadBinaryFile((dir / "roundtrip.pstg").string());
   for (const auto &number : {"2147483648", "-2147483649", "12junk", "+-1"}) {
     WriteSource(dir, replaceAll(xml, "Numeric>0", std::string("Numeric>") + number));
     config.GetScene() = Import(dir / "source.mvr");
-    assert(!config.GetScene().preservationIssues.empty());
-    if (std::string(number) == "2147483648") {
-      auto target = Import(dir / "canonical.mvr");
-      mvr::MergeImportedSceneIntoCurrent(target, config.GetScene());
-      std::vector<uint8_t> mergedBytes{1};
-      assert(!exporter.ExportCanonicalSnapshotToBuffer(target, mergedBytes));
-      assert(mergedBytes.empty());
-    }
-    std::vector<uint8_t> rejected{1, 2};
-    assert(!exporter.ExportToBuffer(rejected));
-    assert(rejected.empty());
-    assert(!config.SaveProject((dir / "roundtrip.pstg").string()));
-    assert(config.GetLastProjectSaveFailure().kind == ProjectSaveFailureKind::MvrPreservation);
-    assert(tests::archive::ReadBinaryFile((dir / "roundtrip.pstg").string()) == previous);
-    assert(!fs::exists((dir / "roundtrip.pstg").string() + ".tmp"));
+    const bool lexical = mvr_identifiers::IsIntegerLexical(number);
+    auto result = tests::recovery::Export(exporter, config.GetScene(),
+                                          dir / "wide.mvr", !lexical);
+    if (lexical)
+      assert(result.find(std::string(">") + number + "</FixtureIDNumeric>") !=
+             std::string::npos);
+    assert(config.SaveProject((dir / "repaired.pstg").string()));
+    config.Reset();
+    assert(config.LoadProject((dir / "repaired.pstg").string()));
+    result = tests::recovery::Export(exporter, config.GetScene(),
+                                     dir / "wide-reopened.mvr", false);
+    if (lexical)
+      assert(result.find(std::string(">") + number + "</FixtureIDNumeric>") !=
+             std::string::npos);
+    auto target = Import(dir / "canonical.mvr");
+    mvr::MergeImportedSceneIntoCurrent(target, config.GetScene());
+    tests::recovery::Export(exporter, target, dir / "wide-merged.mvr", false);
   }
   for (const auto &broken : {
       replaceAll(xml, "<UnitNumber>0</UnitNumber>", "<UnitNumber>0</UnitNumber><UnitNumber>1</UnitNumber>"),
       replaceAll(xml, "<FixtureID/>", "<FixtureID><Nested/>text</FixtureID>"),
       replaceAll(xml, "<UnitNumber>0</UnitNumber>", "<UnitNumber>2147483648</UnitNumber>")}) {
     WriteSource(dir, broken);
-    auto protectedScene = Import(dir / "source.mvr");
-    std::vector<uint8_t> rejected{1};
-    assert(!protectedScene.preservationIssues.empty());
-    assert(!exporter.ExportCanonicalSnapshotToBuffer(protectedScene, rejected));
-    assert(rejected.empty());
+    auto repaired = Import(dir / "source.mvr");
+    tests::recovery::Export(exporter, repaired, dir / "repaired-fields.mvr",
+                            false);
   }
   WriteSource(dir, xml);
   const auto prepared = mvr_export_preparation::Prepare(Import(dir / "source.mvr"), CanonicalMvrExportOptions());

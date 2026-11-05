@@ -67,16 +67,17 @@ void ReadMvrSymdefs(Element &sceneElement, MvrScene &scene,
       const auto raw = node->Attribute("uuid") ? node->Attribute("uuid") : "";
       const auto uuid = Identity(raw);
       const std::string location = "Scene/AUXData/Symdef";
+      SymdefDefinition definition;
       bool rejected = false;
       auto reject = [&](const auto &reason) {
         if (!rejected) Record(scene, *node, location, raw, reason);
         rejected = true;
+        definition.sourceComplete = false;
       };
       if (uuid.empty() || identities[uuid] != 1) {
         reject("Symdef identity is missing, nil, duplicated or shared with another standard node.");
         continue;
       }
-      SymdefDefinition definition;
       if (const auto *name = node->Attribute("name")) definition.name = name;
       auto *children = node->FirstChildElement("ChildList");
       if (!Attributes(*node, {"uuid", "name"}) || !children ||
@@ -85,6 +86,18 @@ void ReadMvrSymdefs(Element &sceneElement, MvrScene &scene,
         if (child != children) reject("Symdef contains an unrepresented child.");
       if (children && children->FirstAttribute()) reject("Symdef ChildList attributes are not represented.");
       for (auto *geo = children ? children->FirstChildElement() : nullptr; geo; geo = geo->NextSiblingElement()) {
+        if (std::string_view(geo->Name()) == "Symbol") {
+          MvrSymbolInstance symbol;
+          symbol.uuid = Identity(geo->Attribute("uuid"));
+          symbol.symdef = Identity(geo->Attribute("symdef"));
+          if (symbol.uuid.empty() || symbol.symdef.empty() ||
+              !Attributes(*geo, {"uuid", "symdef"}) || !OnlyMatrix(*geo) ||
+              !ReadMatrix(*geo, symbol.transform, &symbol.matrixSource))
+            reject("Nested Symbol identity, reference or matrix is malformed.");
+          else
+            definition.symbols.push_back(std::move(symbol));
+          continue;
+        }
         SymdefGeometry geometry;
         if (std::string_view(geo->Name()) != "Geometry3D" ||
             !Attributes(*geo, {"fileName"}) || !geo->Attribute("fileName") ||

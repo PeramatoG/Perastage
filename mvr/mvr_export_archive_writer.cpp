@@ -8,6 +8,8 @@
  * (at your option) any later version.
  */
 #include "mvr_export_archive_writer.h"
+#include "project_archive_publication.h"
+#include <wx/filename.h>
 
 #include "wx_path_utils.h"
 
@@ -57,7 +59,7 @@ Result WriteBytes(wxZipOutputStream &zip,
 } // namespace
 
 // Writes prepared XML and resources to an MVR ZIP package.
-Result Write(const Request &request) {
+static Result WritePrepared(const Request &request) {
   wxFileOutputStream output(
       WxPathUtils::WxStringFromFilesystemPath(request.destinationPath));
   if (!output.IsOk())
@@ -124,6 +126,43 @@ Result Write(const Request &request) {
   if (!zip.Close())
     return Failure("FinalizeArchive", {}, request.destinationPath.string(),
                    "could not close ZIP");
+  if (!output.Close())
+    return Failure("FinalizeArchive", {}, request.destinationPath.string(),
+                   "could not flush and close archive");
+  return {true};
+}
+
+// Publish only a complete, closed archive. A semantic or resource failure must
+// never truncate an earlier standalone MVR at the requested destination.
+Result Write(const Request &request) {
+  std::error_code locationError;
+  const auto target =
+      std::filesystem::absolute(request.destinationPath, locationError);
+  if (locationError)
+    return Failure("OpenOutput", {}, request.destinationPath.string(),
+                   locationError.message());
+  const auto temporaryName = wxFileName::CreateTempFileName(
+      WxPathUtils::WxStringFromFilesystemPath(target) + ".tmp-");
+  if (temporaryName.empty())
+    return Failure("OpenOutput", {}, request.destinationPath.string(),
+                   "could not create output temporary file");
+  const auto temporary = WxPathUtils::FilesystemPathFromWxString(temporaryName);
+  struct Cleanup {
+    std::filesystem::path path;
+    ~Cleanup() {
+      std::error_code error;
+      std::filesystem::remove(path, error);
+    }
+  } cleanup{temporary};
+  auto prepared = request;
+  prepared.destinationPath = temporary;
+  auto result = WritePrepared(prepared);
+  if (!result.success)
+    return result;
+  std::string reason;
+  if (!project_archive::Publish(temporary, target, reason))
+    return Failure("FinalizeArchive", {}, request.destinationPath.string(),
+                   reason);
   return {true};
 }
 

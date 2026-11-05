@@ -30,6 +30,7 @@
 #include "mvr_layer_uuid_identity_test_support.h"
 #include "mvr_exporter_geometry_test_support.h"
 #include "mvr_export_file_buffer_parity_test_support.h"
+#include "support/zip_test_utils.h"
 #include "mvrimporter.h"
 #include "sceneobject.h"
 #include "support.h"
@@ -55,17 +56,10 @@ static std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
 
 static std::unordered_map<std::string, std::string>
 ReadArchiveTextEntries(const fs::path &archivePath) {
-  wxFileInputStream input(archivePath.generic_string());
-  assert(input.IsOk());
-  wxZipInputStream zip(input);
-
+  // ZIP keys must use logical Unix paths, including on Windows hosts.
   std::unordered_map<std::string, std::string> entries;
-  std::unique_ptr<wxZipEntry> entry;
-  while ((entry.reset(zip.GetNextEntry())), entry) {
-    const std::string name = entry->GetName().ToStdString();
-    assert(entries.find(name) == entries.end());
-    entries[name] = ReadCurrentZipEntry(zip);
-  }
+  for (const auto &entry : tests::zip::ReadEntries(archivePath))
+    assert(entries.emplace(entry.name, entry.payload).second);
   return entries;
 }
 
@@ -684,9 +678,14 @@ int main(int argc, char **argv) {
   tinyxml2::XMLElement *root = doc.FirstChildElement("GeneralSceneDescription");
   assert(root != nullptr);
   assert(root->FirstChildElement("UserData") != nullptr);
-  assert(root->FirstChildElement("UserData")
-             ->FirstChildElement("Data")
-             ->FirstChildElement("ProjectFixtureMetadataMap") != nullptr);
+  auto *perastageData =
+      root->FirstChildElement("UserData")->FirstChildElement("Data");
+  while (perastageData &&
+         (!perastageData->Attribute("provider") ||
+          std::string(perastageData->Attribute("provider")) != "Perastage"))
+    perastageData = perastageData->NextSiblingElement("Data");
+  assert(perastageData &&
+         perastageData->FirstChildElement("ProjectFixtureMetadataMap"));
   const std::string caseAReference = FindFixtureGdtfSpec(root, "Case A");
   const std::string caseBReference = FindFixtureGdtfSpec(root, "Case B");
   assert(!caseAReference.empty());
@@ -1299,9 +1298,7 @@ int main(int argc, char **argv) {
          supportPositionNode->GetText() != nullptr);
   assert(CanonicalizeUuid(supportPositionNode->GetText()) ==
          std::string(supportPositionNode->GetText()));
-  auto *rootHoistInfoMap =
-      rootUserData->FirstChildElement("Data")->FirstChildElement(
-          "HoistInfoMap");
+  auto *rootHoistInfoMap = perastageData->FirstChildElement("HoistInfoMap");
   assert(rootHoistInfoMap != nullptr);
   tinyxml2::XMLElement *hoistInfo = nullptr;
   for (auto *info = rootHoistInfoMap->FirstChildElement("HoistInfo"); info;
@@ -1567,16 +1564,19 @@ int main(int argc, char **argv) {
   const fs::path dependencyMvrPath = tempDir / "model_dependencies.mvr";
   assert(MvrExporter().ExportToFile(dependencyMvrPath.generic_string()));
   const auto dependencyEntries = ReadArchiveTextEntries(dependencyMvrPath);
-  assert(dependencyEntries.count("textured.3ds") == 1);
-  assert(dependencyEntries.count("scene.gltf") == 1);
-  assert(dependencyEntries.count("mesh.bin") == 1);
-  assert(dependencyEntries.count("shared.png") == 1);
-  assert(dependencyEntries.count("stale.gltf") == 0);
-  assert(dependencyEntries.count("stale.png") == 0);
-  assert(dependencyEntries.at("scene.gltf").find("mesh.bin") !=
-         std::string::npos);
-  assert(dependencyEntries.at("scene.gltf").find("shared.png") !=
-         std::string::npos);
+  const auto packagedName = [&](const std::string &basename) {
+    for (const auto &[name, bytes] : dependencyEntries)
+      if (fs::path(name).filename().generic_string() == basename) return name;
+    assert(false); return std::string{};
+  };
+  assert(dependencyEntries.at(packagedName("textured.3ds")) == BuildTexturedGeometry3ds("shared.png"));
+  const auto gltfName = packagedName("scene.gltf");
+  const auto prefix = fs::path(gltfName).parent_path();
+  assert(dependencyEntries.at((prefix / "mesh.bin").generic_string()) == "BIN");
+  assert(dependencyEntries.at((prefix / "shared.png").generic_string()) == "PNG");
+  assert(dependencyEntries.at(gltfName).find("mesh.bin") != std::string::npos);
+  for (const auto &[name, bytes] : dependencyEntries)
+    assert(fs::path(name).filename() != "stale.gltf" && fs::path(name).filename() != "stale.png");
 
   const fs::path collisionDir = tempDir / "dependency_collision";
   fs::create_directories(collisionDir);
@@ -1590,15 +1590,16 @@ int main(int argc, char **argv) {
       (collisionDir / "collision.gltf").generic_string();
   dependencyScene.sceneObjects[collisionObject.uuid] = collisionObject;
   MvrExporter collisionExporter;
-  assert(!collisionExporter.ExportToFile(
-      (tempDir / "model_dependency_collision.mvr").generic_string()));
-  assert(std::any_of(collisionExporter.GetExportDiagnostics().begin(),
-                     collisionExporter.GetExportDiagnostics().end(),
-                     [](const MvrExportDiagnostic &diagnostic) {
-                       return diagnostic.severity ==
-                                  MvrExportDiagnosticSeverity::Error &&
-                              diagnostic.resourceName == "shared.png";
-                     }));
+  const auto collisionPath = tempDir / "model_dependency_collision.mvr";
+  assert(collisionExporter.ExportToFile(collisionPath.generic_string()));
+  const auto collisionEntries = ReadArchiveTextEntries(collisionPath);
+  bool originalTexture = false, differentTexture = false;
+  for (const auto &[name, bytes] : collisionEntries)
+    if (fs::path(name).filename() == "shared.png") {
+      originalTexture |= bytes == "PNG";
+      differentTexture |= bytes == "OTHER";
+    }
+  assert(originalTexture && differentTexture);
 
   VerifyMvrExportFileBufferParity(cfg, tempDir);
 

@@ -460,6 +460,14 @@ by Core and Models respectively, so the shared reader links their single
 production implementations without directly registering foreign module
 sources or creating a broad general-purpose Core library.
 
+The `mvr_source_structure_*` service retains immutable standard topology and
+source-only payloads beside editable scene values. Capture/validation, private
+geometry edit preparation, XML projection and merge reconciliation have separate
+units. They do not access the GUI, global project configuration or archive
+writers. The typed Symdef registry owns nested Symbol graphs. Model resource
+closure discovery is read-only; the existing resource collection owns packaging.
+See the [canonical MVR contract](technical-notes/canonical_mvr_contract.md#retained-standard-scene-structure).
+
 The shared read context returns neutral conflict and manually authored category
 facts, exact authored layer UUID membership for every parsed node, and each
 layer's direct authored child UUIDs. This preserves duplicate layer names and
@@ -577,6 +585,34 @@ with scene, selection, layer state, label overrides and fixture symbols. History
 restoration bypasses startup default loading and resource re-reading, preserving
 absent metadata and explicitly empty collections without rewriting configuration.
 
+## Layout Legend composition
+
+`core/layouts/LegendContent` resolves ordered per-type settings from explicit
+scene-wide aggregates. `DocumentComposition` supplies local point rectangles,
+text roles and a measurement callback; `LegendComposition` alone decides Legend
+columns, two-line wrapping, rows, clipping diagnostics and symbol placements.
+`viewer2d/legend_composition_adapter` resolves existing SVG/command references
+and bounds before composition. The focused GUI and PDF Legend renderers draw
+the resulting plan without a second layout algorithm. No persistent schema or
+transaction boundary changes. Oversized legacy symbols retain their size and
+origin alignment but are clipped to their planned slots.
+
+Legend plans use the existing bundled PerastageSans regular/bold metrics and
+`typography::Compose` for positioned glyphs. Both adapters compose with the same
+logical frame and font identities. The GUI draws the bundled glyph contours;
+PDF embeds those same fonts and writes selectable vector text. No platform font
+measurement, target-specific geometry profile or Legend typography compensation
+remains. The existing Event Table/free-text compensation is unchanged. Output
+paper scaling uniformly fits the original Legend plan after composition, so
+zoom, DPI and paper changes cannot change wrapping or distort symbols.
+
+Text cells and symbol slots have shared clipping rectangles. Source UTF-8 stays
+in the plan and persistent data. The supported repertoire is WinAnsi Latin;
+unsupported glyphs are omitted consistently on both targets and reported with
+bounded line/byte/UTF-8 diagnostics, including PDF dialog details. This does not
+claim full Unicode shaping. The per-Legend content hash includes the v2 font/
+composition identity; unrelated rasters remain reusable.
+
 ## Fixture label typography
 
 Core's GUI-independent `typography/` boundary owns the existing TrueType metrics
@@ -592,7 +628,7 @@ Version-2 `presentation` fields extend existing PSTG label overrides with an ind
 `__project_defaults__` entry participates in the same project history and is
 excluded from UUID normalization/pruning. Legacy keys remain a read-only adapter
 until a field is edited; existing line-spacing and Layout compensation constants
-remain intact. Layout free text, legends, tables, 3D labels and the old global PDF
+remain intact. Layout free text, tables, 3D labels and the old global PDF
 metrics compatibility API remain legacy consumers. The next integration is shared
 composition for Layout free text, with explicit migration and wrapping tests;
 this change does not claim preview/PDF parity for those paths.

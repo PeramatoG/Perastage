@@ -10,6 +10,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -94,8 +95,10 @@ ReadComparableGdtfEntries(const std::string &bytes) {
         const char *text = revision->Attribute("Text");
         if (text && std::string(text) ==
             "Updated physical properties for Perastage MVR export") {
-          assert(revision->Attribute("Date") && *revision->Attribute("Date"));
-          revision->SetAttribute("Date", "export-time");
+          // Compare separate physical edit operations semantically. Authored
+          // dates may exist; canonical MVR-only generated revisions omit Date.
+          if (revision->Attribute("Date"))
+            revision->SetAttribute("Date", "export-time");
         }
       }
       tinyxml2::XMLPrinter printer;
@@ -688,7 +691,7 @@ int main() {
                      missingAuxiliaryExporter.GetExportDiagnostics().end(),
                      [](const MvrExportDiagnostic &diagnostic) {
                        return diagnostic.code ==
-                                  MvrExportDiagnosticCode::TrussGdtfMissing &&
+                                  MvrExportDiagnosticCode::InternalRecovery &&
                               diagnostic.userVisible;
                      }));
   const auto missingAuxiliaryEntries =
@@ -805,9 +808,24 @@ int main() {
   generatedScene.groupObjects[generatedGroup.uuid].children.push_back(
       {MvrNodeType::Truss, collidingTruss.uuid});
   const fs::path collisionMvr = tempDir / "collision.mvr";
-  // Authored instance identities cannot be silently repaired during export.
-  assert(!exporter.ExportToFile(collisionMvr.string()));
+  // Repair on the snapshot with a visible identity finding; retain both
+  // instances.
+  assert(exporter.ExportToFile(collisionMvr.string()));
   assert(!exporter.GetExportDiagnostics().empty());
+  MvrImportResult collisionImport;
+  MvrImporter collisionReader;
+  MvrImportOptions collisionOptions;
+  collisionOptions.promptConflicts = false;
+  collisionOptions.applyDictionary = false;
+  assert(collisionReader.ImportFromFile(collisionMvr.string(), collisionImport,
+                                        MvrImportMode::ParseOnly,
+                                        collisionOptions));
+  assert(collisionImport.scene.trusses.size() == 2);
+  std::set<std::string> instanceIdentities;
+  for (const auto &[uuid, value] : collisionImport.scene.trusses)
+    assert(instanceIdentities.insert(value.sourceSymbolUuid).second);
+  assert(generatedScene.trusses.at(collidingTruss.uuid).sourceSymbolUuid ==
+         sourceSymbolUuid);
 
   Truss typeA;
   typeA.symbolFile = symModel.generic_string();

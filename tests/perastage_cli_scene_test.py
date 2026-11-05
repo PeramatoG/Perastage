@@ -164,21 +164,41 @@ def main() -> int:
         unsafe = root / "unsupported-standard-data.mvr"
         unsafe_xml = SCENE_XML.replace(
             "</Fixture>",
-            '<Alignments><Alignment geometry="Beam" up="0,0,1" '
+            '<Alignments><Alignment geometry="Beam" unsupported="invalid" up="0,0,1" '
             'direction="0,0,-1"/></Alignments></Fixture>')
         with zipfile.ZipFile(unsafe, "w") as archive:
             archive.writestr("GeneralSceneDescription.xml", unsafe_xml)
             archive.writestr("fixture.gdtf", fixture_bytes.getvalue())
-        protected_destination = output.read_bytes()
-        protected = run(cli, "scene", str(unsafe), "--output", str(output),
+        unsafe_digest = digest(unsafe)
+        recovered = run(cli, "scene", str(unsafe), "--output", str(output),
                         "--overwrite", "--command", "clear", "--json")
-        assert protected.returncode != 0
-        protected_json = json.loads(protected.stdout)
-        assert protected_json["output_published"] is False
+        assert recovered.returncode == 0, recovered.stderr
+        recovered_json = json.loads(recovered.stdout)
+        assert recovered_json["output_published"] is True
         assert any("Alignments" in diagnostic and
                    "22222222-2222-4222-8222-222222222222" in diagnostic
-                   for diagnostic in protected_json["diagnostics"])
-        assert output.read_bytes() == protected_destination
+                   for diagnostic in recovered_json["diagnostics"])
+        assert digest(unsafe) == unsafe_digest
+        with zipfile.ZipFile(output) as archive:
+            xml = ET.fromstring(archive.read("GeneralSceneDescription.xml"))
+            fixtures = xml.findall(".//Scene//Fixture")
+            assert len(fixtures) == 1
+            fixture = fixtures[0]
+            assert fixture.attrib["uuid"] == "22222222-2222-4222-8222-222222222222"
+            assert fixture.find("Alignments") is None
+            assert fixture.findtext("GDTFMode") == "Mode"
+            assert archive.read(fixture.findtext("GDTFSpec")) == fixture_bytes.getvalue()
+            evidence = xml.findall(
+                "./UserData/Data[@provider='org.perastage.canonical-recovery']/Finding")
+            assert any("Alignments" in (finding.text or "") for finding in evidence)
+        reopened = root / "reopened.mvr"
+        assert run(cli, "scene", str(output), "--output", str(reopened),
+                   "--command", "clear").returncode == 0
+        human = run(cli, "scene", str(unsafe), "--output", str(reopened),
+                    "--overwrite", "--command", "clear")
+        assert human.returncode == 0
+        assert "warning:" in human.stderr and "Alignments" in human.stderr
+        assert digest(unsafe) == unsafe_digest
     return 0
 
 

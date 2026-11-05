@@ -1,3 +1,4 @@
+#include "support/mvr_recovery_assertions.h"
 /* This file is part of Perastage. */
 #include "configmanager.h"
 #include "inspection/xml_schema_validation.h"
@@ -270,13 +271,13 @@ int main(int argc, char **argv) {
   MvrScene dangling = incoming;
   dangling.classes.erase(classId);
   std::vector<uint8_t> buffer{1, 2, 3};
-  assert(!exporter.ExportCanonicalSnapshotToBuffer(dangling, buffer));
-  assert(buffer.empty());
-  assert(exporter.GetExportDiagnostics().front().code == MvrExportDiagnosticCode::StandardDataPreservationBlocked);
+  auto repaired =
+      tests::recovery::Export(exporter, dangling, dir / "dangling.mvr");
+  assert(tests::recovery::Count(repaired, "Classing") == 0);
   config.GetScene() = dangling;
-  assert(!config.SaveProject((dir / "roundtrip.pstg").string()));
-  assert(config.LoadProject((dir / "roundtrip.pstg").string()));
-  assert(config.GetScene().classes.size() == 3);
+  assert(config.SaveProject((dir / "repaired.pstg").string()));
+  assert(config.LoadProject((dir / "repaired.pstg").string()));
+  assert(config.GetScene().classes.size() == incoming.classes.size() - 1);
   std::string unsupported = xml;
   unsupported.insert(unsupported.find("name='  Shared"), "future='not represented' ");
   assert(tests::archive::WriteStoredZipWithRawNames(dir / "unsafe.mvr",
@@ -285,12 +286,12 @@ int main(int argc, char **argv) {
   MvrScene unsafe = Import(dir / "unsafe.mvr");
   assert(!unsafe.preservationIssues.empty());
   assert(!unsafe.preservationIssues.front().originalInformation.empty());
-  assert(!exporter.ExportCanonicalSnapshotToBuffer(unsafe, buffer));
+  tests::recovery::Export(exporter, unsafe, dir / "repaired-unsupported.mvr");
   config.GetScene() = unsafe;
-  assert(!config.SaveProject((dir / "roundtrip.pstg").string()));
+  assert(config.SaveProject((dir / "repaired.pstg").string()));
   assert(config.LoadProject((dir / "roundtrip.pstg").string()));
   MvrScene protectedMerge = incoming;
   mvr::MergeImportedSceneIntoCurrent(protectedMerge, unsafe);
-  assert(!exporter.ExportCanonicalSnapshotToBuffer(protectedMerge, buffer));
+  tests::recovery::Export(exporter, protectedMerge, dir / "repaired-merge.mvr");
   std::cout << "Class preservation, PSTG, merge and protection passed\n";
 }

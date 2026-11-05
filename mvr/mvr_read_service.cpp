@@ -16,8 +16,11 @@
 #include "layer_service.h"
 #include "matrixutils.h"
 #include "mvr_import_reference_resolver.h"
+#include "mvr_import_reference_repair.h"
 #include "mvr_scene_node_reader.h"
+#include "mvr_source_structure_service.h"
 #include "mvr_standard_preservation.h"
+#include "mvr_fixture_planning_metadata.h"
 #include "mvr_symdef_preservation.h"
 #include "primitive_model_resources.h"
 #include "uuidutils.h"
@@ -218,7 +221,8 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
 
   root->QueryIntAttribute("verMajor", &scene.versionMajor);
   root->QueryIntAttribute("verMinor", &scene.versionMinor);
-  RecordStandardPreservationRisks(*root, scene);
+  // Preservation reads the same occurrence identities as the typed scene.
+  // Scan after parsing, once the resolver assignments have been reconciled.
 
   // Warn if the MVR file uses a newer version than we officially support.
   // The importer still attempts to parse the file so that documents with a
@@ -273,6 +277,20 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
       }
       if (ToLowerCopy(dataProvider) == "perastage")
         continue;
+      if (dataProvider == "org.perastage.canonical-recovery" &&
+          data->IntAttribute("ver") == 1) {
+        for (auto *finding = data->FirstChildElement("Finding"); finding;
+             finding = finding->NextSiblingElement("Finding"))
+          logMessage(
+              MvrReadLogLevel::Warning,
+              std::string("Retained canonical recovery disclosure: uuid=") +
+                  (finding->Attribute("uuid") ? finding->Attribute("uuid")
+                                              : "") +
+                  " field=" +
+                  (finding->Attribute("field") ? finding->Attribute("field")
+                                               : "") +
+                  " " + (finding->GetText() ? finding->GetText() : ""));
+      }
       tinyxml2::XMLPrinter printer(nullptr, true);
       data->Accept(&printer);
       MvrOpaqueUserDataBlock block{
@@ -872,7 +890,7 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
 
     const auto definition = scene.symdefs.find(CanonicalizeUuid(symdef));
     if (definition != scene.symdefs.end()) {
-      outGeometries = definition->second.geometries;
+      outGeometries = ExpandSymdefGeometry(scene, CanonicalizeUuid(symdef));
       for (auto &geometry : outGeometries)
         geometry.file = normalizeGeometryFileName(geometry.file);
     }
@@ -891,16 +909,22 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
 
   using CachedCategory = mvr::SceneReadCachedCategory;
   std::unordered_map<std::string, CachedCategory> categoryByTypeKey;
+  std::unordered_map<tinyxml2::XMLElement *, std::string> resolvedOccurrences;
   auto resolveStableUuid = [&](const char *kind, tinyxml2::XMLElement *node,
                                const std::string &layerName,
                                const Matrix &nodeTransform,
                                const std::string &legacyStableId = {}) {
+    if (const auto found = resolvedOccurrences.find(node);
+        found != resolvedOccurrences.end())
+      return found->second;
     const char *uuidAttr = node->Attribute("uuid");
     const char *nameAttr = node->Attribute("name");
-    return referenceResolver.ResolveStableUuid(
+    auto resolved = referenceResolver.ResolveStableUuid(
         {kind, layerName, nameAttr ? Trim(nameAttr) : "",
          MatrixUtils::FormatMatrix(nodeTransform),
          uuidAttr ? Trim(uuidAttr) : "", Trim(legacyStableId)});
+    resolvedOccurrences.emplace(node, resolved);
+    return resolved;
   };
 
   std::unordered_map<std::string, SceneReadGdtfConflict>
@@ -1021,6 +1045,17 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
   mvr::ReadMvrSceneNodes(sceneNode, scene, importResult, options,
                          sceneReadServices, sceneReadMetadata, sceneReadState,
                          sceneReadMetrics);
+  // Mutate only this in-memory XML working copy, after readers have finished
+  // using attribute pointers. Resource paths and Class target UUIDs are
+  // untouched.
+  IsolateAmbiguousImportedReferences(*root, scene, resolvedOccurrences);
+  for (const auto &[node, identity] : resolvedOccurrences)
+    node->SetAttribute("uuid", identity.c_str());
+  ReadFixturePlanningMetadata(*root, scene);
+  RecordStandardPreservationRisks(*root, scene);
+  CaptureSourceStructure(*sceneNode, scene, [&](const std::string &path) {
+    return RemapPackagePath(package, path);
+  });
 
   if (matrixScaleAggregation.acceptedTinyUniformScaleCount > 0) {
     logMessage(MvrReadLogLevel::Info,

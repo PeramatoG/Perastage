@@ -22,14 +22,22 @@ Save and Save As close the saving indicator and re-enable Perastage before
 showing a failure dialog. The indicator belongs to the Perastage window and
 has no system-wide always-on-top style.
 
-A preservation error means the shared canonical MVR exporter cannot yet retain
-some imported standard content. PSTG embeds that same canonical scene; choosing
-a different filename does not remove this limitation. Keep the original MVR
-and consult the log for the affected object or field. A resource error means a
-required project asset could not be saved. An archive error concerns writing
-the destination: check the folder, permissions and free disk space. Technical
-stage and resource details remain in the diagnostic log. No lossy conversion
-or alternative native scene representation is used.
+Duplicate imported SceneObject UUIDs and empty optional Truss GDTF fields no
+longer prevent normal project saving or canonical MVR export. Separate objects,
+Class assignments and shared model resources are retained. Incomplete optional
+Truss/Support bindings are omitted with precise warnings in the log; the MVR
+export result also exposes the warning details.
+
+Standard video/projector nodes, nested Symbols and parametric children are
+retained during normal project saving and MVR export; they do not need an
+editor to survive. Recoverable source defects are repaired or projected with
+field-specific warnings in the log. Missing media/model references and invalid
+relationships may be omitted while other project content remains available;
+missing required fixture profiles may use the installed generic definition.
+Recovery disclosures remain in the saved scene and are logged on reopen. Keep
+the original source package to restore missing assets. For an actual archive
+error, check the destination, permissions and free space. Failed writes preserve
+the previous file and unsaved session state. The imported MVR is never rewritten.
 
 ## Project and runtime problems
 

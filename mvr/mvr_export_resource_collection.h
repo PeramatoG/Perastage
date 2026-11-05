@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+#include "mvr_canonical_resource_proof.h"
 
 #include "mvr_export_diagnostic.h"
 #include "runtime_storage.h"
@@ -51,6 +52,7 @@ struct ResourcePlan {
   std::unordered_map<std::string, std::string> gdtfArchiveByObjectUuid;
   std::vector<std::filesystem::path> generatedPaths;
   std::vector<runtime_storage::SceneResourceLeasePtr> workspaceLeases;
+  std::vector<mvr::CanonicalGdtfProof> canonicalGdtfProofs;
 };
 
 struct GdtfRewriteRequest {
@@ -137,8 +139,6 @@ private:
   std::string NormalizeSourcePath(const std::string &rawPath) const;
   std::string ResolveExistingResourceSourcePath(
       const std::string &rawSource) const;
-  void RegisterModelDependencies(const std::string &resolvedModelSource,
-                                 const std::string &modelArchivePath);
 
   std::string m_sceneBasePath;
   std::filesystem::path m_fixtureFallbackGdtfPath;

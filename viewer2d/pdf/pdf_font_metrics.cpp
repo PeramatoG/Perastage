@@ -2,8 +2,32 @@
 #include <vector>
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 
 namespace layout_pdf_internal {
+std::string EscapePdfLiteralBytes(const std::string &bytes) {
+  std::string escaped;
+  escaped.reserve(bytes.size());
+  for (const unsigned char ch : bytes) {
+    switch (ch) {
+    case '(': case ')': case '\\':
+      escaped.push_back('\\'); escaped.push_back(static_cast<char>(ch)); break;
+    case '\n': escaped += "\\n"; break;
+    case '\r': escaped += "\\r"; break;
+    case '\t': escaped += "\\t"; break;
+    case '\b': escaped += "\\b"; break;
+    case '\f': escaped += "\\f"; break;
+    default:
+      if (ch < 0x20 || ch > 0x7e) {
+        char octal[5] = {};
+        std::snprintf(octal, sizeof(octal), "\\%03o", ch);
+        escaped += octal;
+      } else escaped.push_back(static_cast<char>(ch));
+    }
+  }
+  return escaped;
+}
+
 std::string ToLowerCopy(std::string_view input) {
   std::string lower;
   lower.reserve(input.size());

@@ -1,3 +1,4 @@
+#include "support/mvr_recovery_assertions.h"
 /* This file is part of Perastage. */
 #include "mvr_fixture_network_cases.h"
 #include "fixture_network_reference.h"
@@ -160,8 +161,10 @@ void RunFixtureNetworkCases(const fs::path &dir, const MvrScene &scene,
     const auto invalid = services.import(dir / "network-invalid.mvr");
     assert(!mvr::CheckStandardPreservation(invalid).empty());
     config.GetScene() = invalid;
-    assert(!config.SaveProject(retained.string()));
-    assert(config.GetLastProjectSaveFailure().stage == "SerializeScene");
+    const auto copy = dir / "network-recovered.pstg";
+    assert(config.SaveProject(copy.string()));
+    assert(config.LoadProject(copy.string()));
+    assert(config.GetScene().fixtures.size() == invalid.fixtures.size());
     assert(Bytes(retained) == originalBytes);
   }
   // Missing local resources retain assignments, with unverified reference evidence.
@@ -173,7 +176,9 @@ void RunFixtureNetworkCases(const fs::path &dir, const MvrScene &scene,
   assert(fixture_network::InspectReferences(unresolved.fixtures.at(multi), dir / "missing.gdtf").conflict ==
       fixture_network::Conflict::UnavailableGdtf);
   config.GetScene() = unresolved;
-  assert(!config.SaveProject(retained.string()));
+  assert(config.SaveProject((dir / "missing-network-recovered.pstg").string()));
+  assert(config.LoadProject((dir / "missing-network-recovered.pstg").string()));
+  assert(config.GetScene().fixtures.at(multi).dmxAddresses->networks.empty());
   assert(Bytes(retained) == originalBytes);
   auto duplicateDescription = tests::gdtf::BuildMinimalValidFixture().BuildDescriptionXml();
   duplicateDescription.insert(duplicateDescription.find("</Geometries>"),
