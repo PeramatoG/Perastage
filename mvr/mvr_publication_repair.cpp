@@ -267,6 +267,7 @@ void RepairNative(MvrScene &scene, Findings &out) {
     Note(out, "UserData", {}, block.provider,
          "Isolated malformed provider XML as inert recovery evidence",
          block.xml);
+    out.back().code = MvrExportDiagnosticCode::ForeignMetadataDiscarded;
     return true;
   });
   const auto objects = [&](auto &values, const char *type) {
@@ -500,9 +501,19 @@ std::string PortableDisclosure(const MvrScene &scene, std::string text) {
   const auto base = PathUtils::PathFromUtf8(scene.basePath).lexically_normal();
   if (base == base.root_path())
     return text;
-  const auto utf8 = base.generic_u8string();
-  const std::string generic(utf8.begin(), utf8.end());
-  for (auto prefix : {scene.basePath, PathUtils::PathToUtf8(base), generic}) {
+  std::vector<std::string> prefixes{scene.basePath};
+  const auto addPrefixes = [&](const std::filesystem::path &path) {
+    prefixes.push_back(PathUtils::PathToUtf8(path));
+    const auto generic = path.generic_u8string();
+    prefixes.emplace_back(generic.begin(), generic.end());
+  };
+  addPrefixes(base);
+  // Physical aliases include Windows short paths and macOS /var symlinks.
+  std::error_code error;
+  const auto physical = std::filesystem::weakly_canonical(base, error);
+  if (!error && physical != physical.root_path())
+    addPrefixes(physical);
+  for (auto prefix : prefixes) {
     while (!prefix.empty() && (prefix.back() == '/' || prefix.back() == '\\'))
       prefix.pop_back();
     if (prefix.empty())

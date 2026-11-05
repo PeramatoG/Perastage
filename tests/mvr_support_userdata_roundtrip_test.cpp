@@ -1,6 +1,8 @@
 /*
  * This file is part of Perastage.
  */
+#include "support/mvr_userdata_test_utils.h"
+
 #include <cassert>
 #include <cmath>
 #include <filesystem>
@@ -188,7 +190,8 @@ int main() {
   assert(root != nullptr);
   tinyxml2::XMLElement *rootUserData = root->FirstChildElement("UserData");
   assert(rootUserData != nullptr);
-  tinyxml2::XMLElement *rootData = rootUserData->FirstChildElement("Data");
+  tinyxml2::XMLElement *rootData =
+      mvr_test::FindUniqueProviderData(*rootUserData, "Perastage");
   assert(rootData != nullptr);
   tinyxml2::XMLElement *hoistInfoMap = rootData->FirstChildElement("HoistInfoMap");
   assert(hoistInfoMap != nullptr);

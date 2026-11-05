@@ -2250,6 +2250,7 @@ set_library_env(MvrDmxAddressConversion)
 
 
 add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtrip_test.cpp
+               support/mvr_userdata_test_utils.h
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
                ../core/configservices.cpp
@@ -2340,6 +2341,7 @@ set_library_env(MvrLayerAppearanceUserData)
 
 
 add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtrip_test.cpp
+               support/mvr_userdata_test_utils.h
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
                ../core/configservices.cpp

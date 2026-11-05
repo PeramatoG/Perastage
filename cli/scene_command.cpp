@@ -104,6 +104,8 @@ int RunScene(std::span<const std::string_view> args, std::ostream &out,
     out << SerializeWorkflowResult(result) << '\n';
   } else {
     out << "Published canonical MVR: " << request.outputPath.string() << '\n';
+    for (const auto &diagnostic : result.diagnostics)
+      err << "perastage-cli scene: warning: " << diagnostic << '\n';
   }
   return 0;
 }

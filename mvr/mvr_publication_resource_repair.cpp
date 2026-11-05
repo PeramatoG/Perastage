@@ -126,7 +126,10 @@ void RepairResources(MvrScene &scene, const std::filesystem::path &fallback,
         !FindSourceNode(scene, id)) {
       const auto resolved = ResolveExistingSceneResource(
           spec, PathUtils::PathFromUtf8(scene.basePath), true);
-      if (!resolved.empty() &&
+      std::error_code equivalentError;
+      const bool sameFile =
+          std::filesystem::equivalent(resolved, exact, equivalentError);
+      if (!resolved.empty() && !sameFile &&
           resolved.lexically_normal() != exact.lexically_normal()) {
         Note(out, "Fixture", id, "GDTFSpec",
              "Resolved a unique legacy native filename alias to " +

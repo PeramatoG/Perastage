@@ -310,3 +310,11 @@ loop merely because they have no editor. Unhandled generated-output invalidity a
 specific failures, never a successful corrupt or unwritten archive. Coverage remains
 bounded by the pinned standard and the regression fixtures; arbitrary provider
 extensions and every possible third-party package are not certified.
+
+The external-scene CLI reports successful canonical recovery warnings in its JSON
+`diagnostics` array and on stderr for human output, after atomic publication.
+Resource aliases that identify the same physical file are equivalent, including
+Windows short paths and macOS temporary-directory aliases. Stored recovery
+evidence strips both lexical and physical source-root prefixes; local diagnostics
+retain their full context. UserData consumers identify providers by name rather
+than their position.

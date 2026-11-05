@@ -1,4 +1,8 @@
 #include "mvr_export_preparation.h"
+#include "mvr_publication_repair.h"
+#include "runtime_storage.h"
+#include <tinyxml2.h>
+#include <filesystem>
 
 #include <algorithm>
 #include <cassert>
@@ -6,6 +10,28 @@
 #include <limits>
 
 namespace {
+
+// Persisted recovery evidence must not leak physical temp-root aliases.
+void TestPortableDisclosure() {
+  runtime_storage::TemporaryWorkspace workspace("mvr-disclosure");
+  const auto real = std::filesystem::canonical(workspace.Path());
+  const auto alias = workspace.Path() / "alias";
+  std::error_code error;
+  std::filesystem::create_directory_symlink(real, alias, error);
+  MvrScene scene;
+  scene.basePath = (error ? workspace.Path() : alias).string();
+  mvr::publication::Findings findings;
+  const auto original = (real / "asset.gdtf").string();
+  mvr::publication::Note(findings, "Fixture", "fixture", "GDTFSpec",
+                         "Resolved definition " + original, original);
+  mvr::publication::RetainDisclosure(scene, findings);
+  assert(findings.front().technicalDetail.find(original) != std::string::npos);
+  assert(scene.opaqueUserDataBlocks.size() == 1);
+  const auto &xml = scene.opaqueUserDataBlocks.front().xml;
+  assert(xml.find("asset.gdtf") != std::string::npos);
+  assert(xml.find(real.generic_string()) == std::string::npos);
+  assert(xml.find(scene.basePath) == std::string::npos);
+}
 
 // Builds a fixture with a stable identity for preparation characterization.
 Fixture MakeFixture(const std::string &uuid, const std::string &name,
@@ -306,6 +332,7 @@ void TestIncompleteOptionalBindings() {
 
 // Runs focused MVR export preparation characterization.
 int main() {
+  TestPortableDisclosure();
   TestIncompleteOptionalBindings();
   TestPreparedValuesAndSourceImmutability();
   TestPositionPreparation();

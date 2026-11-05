@@ -481,6 +481,27 @@ int main() {
       ParseSceneSignature(standalone.sceneXml, true);
   assert(CountForeignProviderBlocks(standalone.sceneXml,
                                     "SomeOtherApplication") == 1);
+  assert(CountForeignProviderBlocks(standalone.sceneXml, "MalformedProvider") == 0);
+  tinyxml2::XMLDocument recoveryXml;
+  assert(recoveryXml.Parse(standalone.sceneXml.c_str()) == tinyxml2::XML_SUCCESS);
+  auto *userData = recoveryXml.RootElement()->FirstChildElement("UserData");
+  assert(userData);
+  bool retainedMalformedEvidence = false;
+  for (auto *data = userData->FirstChildElement("Data"); data;
+       data = data->NextSiblingElement("Data")) {
+    if (!data->Attribute("provider", "org.perastage.canonical-recovery"))
+      continue;
+    for (auto *finding = data->FirstChildElement("Finding"); finding;
+         finding = finding->NextSiblingElement("Finding"))
+      if (finding->GetText() &&
+          std::string(finding->GetText()).find(
+              "<Data provider=\"MalformedProvider\">") != std::string::npos) {
+        assert(finding->IntAttribute("impact") ==
+               static_cast<int>(MvrExportDiagnosticImpact::DataOmitted));
+        retainedMalformedEvidence = true;
+      }
+  }
+  assert(retainedMalformedEvidence);
   const ConfigManager::DirtyState dirtyBeforeSnapshot =
       config.CaptureDirtyState();
   const MvrScene sceneBeforeSnapshot = scene;

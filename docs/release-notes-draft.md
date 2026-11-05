@@ -86,6 +86,8 @@ Do not list these as delivered until implemented and verified.
 
 ## CLI and External Integrations
 
+- Successful CLI MVR exports now report recovery warnings in JSON and human output. Equivalent temporary-directory path aliases no longer cause unnecessary GDTF substitution warnings.
+
 <!--
 Add completed, user-facing CLI, OSC or external-integration changes here.
 Clearly identify experimental functionality; do not repeat 1.7.0 features.
