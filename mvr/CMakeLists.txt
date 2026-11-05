@@ -98,6 +98,7 @@ target_include_directories(perastage_mvr_export
             ${CMAKE_SOURCE_DIR}/third_party
 )
 target_link_libraries(perastage_mvr_export
+    PRIVATE perastage_project_archive_publication
     PUBLIC perastage_mvr_core_support perastage_runtime_storage
     PRIVATE perastage_gdtf_filename_policy perastage_gdtf_read
             perastage_layer_validation perastage_mvr_read tinyxml2::tinyxml2

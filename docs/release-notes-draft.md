@@ -46,6 +46,8 @@ Maintenance rules for Codex and contributors:
 
 - Authored MVR fixture identifiers and UnitNumber presence are preserved without automatically renumbering valid imported values. High-precision matrices are retained through supported canonical saves and edits.
 
+- Standalone MVR export now replaces the destination only after the complete archive closes successfully; failed writes retain the previous file.
+
 - Normal MVR export now uses the same canonical representation as project saving. An explicit option is required to use a preferred compatibility representation for an individual export.
 
 - Truss nodes now preserve supported DMX and network assignments through project save/reopen and MVR export, retaining their original GDTF interfaces.

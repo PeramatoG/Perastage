@@ -4767,3 +4767,6 @@ foreach(binding_case IN ITEMS absent whitespace valid missing-mode empty-mode ne
   set_library_env(MvrImportAnomaly-${binding_case})
   set_perastage_test_labels(MvrImportAnomaly-${binding_case} LAYER standard-strict DOMAINS mvr project)
 endforeach()
+
+# The archive writer shares the same atomic publication contract as PSTG.
+target_link_libraries(mvr_export_archive_writer_test PRIVATE perastage_project_archive_publication)
