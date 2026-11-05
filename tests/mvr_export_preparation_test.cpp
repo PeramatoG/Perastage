@@ -1,7 +1,6 @@
 #include "mvr_export_preparation.h"
 #include "mvr_publication_repair.h"
 #include "runtime_storage.h"
-#include <tinyxml2.h>
 #include <filesystem>
 
 #include <algorithm>
