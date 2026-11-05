@@ -2,6 +2,7 @@
 #include "mvr_publication_repair.h"
 #include "runtime_storage.h"
 #include <filesystem>
+#include <fstream>
 
 #include <algorithm>
 #include <cassert>
@@ -30,6 +31,45 @@ void TestPortableDisclosure() {
   assert(xml.find("asset.gdtf") != std::string::npos);
   assert(xml.find(real.generic_string()) == std::string::npos);
   assert(xml.find(scene.basePath) == std::string::npos);
+}
+
+// Resource disclosures use portable paths; unrelated authored text stays exact.
+void TestResourceDisclosureSeparators() {
+  runtime_storage::TemporaryWorkspace workspace("mvr-resource-disclosure");
+  const auto model = workspace.Path() / "models" / "unusable.3ds";
+  std::filesystem::create_directories(model.parent_path());
+  std::ofstream(model, std::ios::binary) << "deliberately invalid model";
+  MvrScene scene;
+  scene.basePath = workspace.Path().string();
+  Support support;
+  support.uuid = "30000000-0000-4000-8000-000000000001";
+  GeometryInstance geometry;
+  geometry.modelFile = model.string();
+  support.geometries.push_back(geometry);
+  scene.supports.emplace(support.uuid, support);
+  mvr::publication::Findings findings;
+  mvr::publication::RepairResources(scene, {}, findings);
+  assert(findings.size() == 1);
+  assert(findings.front().impact == MvrExportDiagnosticImpact::DataOmitted);
+  assert(scene.supports.at(support.uuid).geometries.empty());
+  assert(findings.front().technicalDetail.find(model.generic_string()) !=
+         std::string::npos);
+  mvr::publication::RetainDisclosure(scene, findings);
+  assert(scene.opaqueUserDataBlocks.size() == 1);
+  const auto &xml = scene.opaqueUserDataBlocks.front().xml;
+  assert(xml.find("models/unusable.3ds") != std::string::npos);
+  assert(xml.find('\\') == std::string::npos);
+  assert(xml.find(workspace.Path().generic_string()) == std::string::npos);
+
+  MvrScene authored;
+  authored.basePath = scene.basePath;
+  const std::string original = R"(literal\authored\command)";
+  findings.clear();
+  mvr::publication::Note(findings, "Fixture", "fixture", "CustomCommands",
+                         "Omitted unsupported command", original);
+  mvr::publication::RetainDisclosure(authored, findings);
+  assert(authored.opaqueUserDataBlocks.front().xml.find(original) !=
+         std::string::npos);
 }
 
 // Builds a fixture with a stable identity for preparation characterization.
@@ -332,6 +372,7 @@ void TestIncompleteOptionalBindings() {
 // Runs focused MVR export preparation characterization.
 int main() {
   TestPortableDisclosure();
+  TestResourceDisclosureSeparators();
   TestIncompleteOptionalBindings();
   TestPreparedValuesAndSourceImmutability();
   TestPositionPreparation();

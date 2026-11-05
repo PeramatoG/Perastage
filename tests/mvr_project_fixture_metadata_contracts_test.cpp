@@ -358,8 +358,41 @@ static void AddFixture(MvrScene &scene, const std::string &uuid,
   scene.fixtures.emplace(uuid, std::move(fixture));
 }
 
+// Valid foreign data and inert recovery evidence must both survive reopening.
+static void AssertRetainedProviderData(const MvrScene &scene) {
+  size_t foreign = 0;
+  bool malformedEvidence = false;
+  for (const auto &block : scene.opaqueUserDataBlocks) {
+    tinyxml2::XMLDocument xml;
+    assert(xml.Parse(block.xml.c_str()) == tinyxml2::XML_SUCCESS);
+    auto *data = xml.RootElement();
+    assert(data);
+    if (block.provider == "SomeOtherApplication") {
+      ++foreign;
+      auto *payload = data->FirstChildElement("VendorPayload");
+      assert(payload && payload->IntAttribute("meaning") == 42);
+      assert(std::string(payload->FirstChildElement("Nested")->GetText()) ==
+             "preserved");
+    } else {
+      assert(block.provider == "org.perastage.canonical-recovery");
+      for (auto *finding = data->FirstChildElement("Finding"); finding;
+           finding = finding->NextSiblingElement("Finding"))
+        if (finding->GetText() &&
+            std::string(finding->GetText())
+                    .find("<Data provider=\"MalformedProvider\">") !=
+                std::string::npos) {
+          assert(finding->IntAttribute("impact") ==
+                 static_cast<int>(MvrExportDiagnosticImpact::DataOmitted));
+          malformedEvidence = true;
+        }
+    }
+  }
+  assert(foreign == 1 && malformedEvidence);
+}
+
 // Verifies colors and fixture identifiers after a project restore.
 static void AssertRestoredScene(const MvrScene &scene) {
+  AssertRetainedProviderData(scene);
   const Fixture &fixtureA =
       scene.fixtures.at("20000000-0000-4000-8000-000000000001");
   const Fixture &fixtureB =
@@ -567,7 +600,6 @@ int main() {
   assert(MvrImporter::ImportAndRegister(standalonePath.string(), false,
                                         false));
   AssertRestoredScene(config.GetScene());
-  assert(config.GetScene().opaqueUserDataBlocks.size() == 1);
 
   MvrExportOptions projectOptions = CanonicalMvrExportOptions();
   const fs::path explicitProjectMvr = workspace.Path() / "project-option.mvr";

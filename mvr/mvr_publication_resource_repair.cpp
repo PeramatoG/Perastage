@@ -26,6 +26,11 @@ bool FailedResourceReference(const MvrScene &scene, const std::string &owner,
                      });
 }
 namespace {
+// Diagnostics keep full filesystem context with portable UTF-8 separators.
+std::string GenericPathText(const std::filesystem::path &path) {
+  const auto text = path.generic_u8string();
+  return {text.begin(), text.end()};
+}
 std::filesystem::path Path(const MvrScene &scene, const std::string &name) {
   auto p = PathUtils::PathFromUtf8(name);
   if (p.is_relative() &&
@@ -133,7 +138,7 @@ void RepairResources(MvrScene &scene, const std::filesystem::path &fallback,
           resolved.lexically_normal() != exact.lexically_normal()) {
         Note(out, "Fixture", id, "GDTFSpec",
              "Resolved a unique legacy native filename alias to " +
-                 PathUtils::PathToUtf8(resolved),
+                 GenericPathText(resolved),
              spec, MvrExportDiagnosticImpact::DataSubstituted);
         spec = PathUtils::PathToUtf8(resolved);
       }
@@ -218,15 +223,24 @@ void RepairResources(MvrScene &scene, const std::filesystem::path &fallback,
     std::string primitive;
     if (ResolvePrimitiveTokenFromModelRef(file, primitive))
       return false;
-    const auto problem = FailedResourceReference(scene, id, file)
-                             ? "Source resource acquisition failed; target "
-                               "namesakes are not replacements."
-                             : SymdefResourceProblem(scene, file);
+    auto problem = FailedResourceReference(scene, id, file)
+                       ? "Source resource acquisition failed; target "
+                         "namesakes are not replacements."
+                       : SymdefResourceProblem(scene, file);
     if (problem.empty())
       return false;
+    const auto portable = GenericPathText(PathUtils::PathFromUtf8(file));
+    // Replace this exact resource spelling, not arbitrary authored backslashes.
+    if (!file.empty()) {
+      size_t at = 0;
+      while ((at = problem.find(file, at)) != std::string::npos) {
+        problem.replace(at, file.size(), portable);
+        at += portable.size();
+      }
+    }
     Note(out, type, id, "Geometries/Geometry3D",
          "Omitted unavailable/unpackageable geometry reference: " + problem,
-         file);
+         portable);
     return true;
   };
   for (auto &[id, definition] : scene.symdefs)
