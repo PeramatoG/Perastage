@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <array>
+#include <optional>
 #include <string_view>
 #include <unordered_set>
 #include <utility>
@@ -259,6 +260,21 @@ void ApplyState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
     renderPanel->ApplyConfig();
 }
 
+namespace {
+void ApplyScopedState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
+    ConfigManager &cfg, const Viewer2DState &state, bool persistCamera) {
+  // Preserve revisions only during synchronous temporary apply/restore calls.
+  // Never hold this guard across asynchronous captures or unrelated user edits.
+  struct DirtyStateRestore {
+    ConfigManager &cfg;
+    std::optional<ConfigManager::DirtyState> previous;
+    ~DirtyStateRestore() { if (previous) cfg.RestoreDirtyState(*previous); }
+  } revisions{cfg, persistCamera ? std::nullopt :
+      std::optional<ConfigManager::DirtyState>{cfg.CaptureDirtyState()}};
+  ApplyState(panel, renderPanel, cfg, state, persistCamera, true);
+}
+} // namespace
+
 // Applies a temporary Viewer2D state and saves the previous state for restore.
 ScopedViewer2DState::ScopedViewer2DState(Viewer2DPanel *applyPanel,
                                          Viewer2DRenderPanel *applyRenderPanel,
@@ -273,8 +289,8 @@ ScopedViewer2DState::ScopedViewer2DState(Viewer2DPanel *applyPanel,
       restoreRenderPanel_(restoreRenderPanel),
       restored_(false), persistCameraToConfig_(persistCameraToConfig) {
   previousState_ = CaptureState(restorePanel ? restorePanel : applyPanel, cfg);
-  ApplyState(applyPanel_.get(), applyRenderPanel_.get(), cfg, state,
-             persistCameraToConfig_, true);
+  ApplyScopedState(applyPanel_.get(), applyRenderPanel_.get(), cfg, state,
+                   persistCameraToConfig_);
 }
 
 // Restores the previously captured state when the guard leaves scope.
@@ -321,8 +337,8 @@ void ScopedViewer2DState::Restore() {
       restoreRenderPanel_ ? restoreRenderPanel_.get()
                           : applyRenderPanel_.get();
 
-  ApplyState(targetPanel, targetRenderPanel, *cfg_, previousState_,
-             persistCameraToConfig_, true);
+  ApplyScopedState(targetPanel, targetRenderPanel, *cfg_, previousState_,
+                   persistCameraToConfig_);
   restored_ = true;
 }
 

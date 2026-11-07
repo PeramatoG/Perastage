@@ -52,8 +52,17 @@ value remains editable and is saved unchanged. Unsupported glyphs are omitted
 consistently in both outputs and recorded in technical diagnostics; full Unicode
 shaping is not supported.
 
-Like Legends, Event Tables uniformly fit the original document to the output
-paper, anchored at the top left. Existing printing keeps the document orientation.
-Other element types retain their existing paper mapping policy; mixed pages with
-unlike paper aspect ratios can still differ in relative placement. This change
-does not redefine their printing behavior.
+### Output paper size
+
+PDF printing uniformly fits the complete original Layout page to the output
+paper, anchored at the top left, with unused space at the right or bottom. 2D
+views, Legends, Event Tables, free text and images preserve their relative
+positions, proportions, overlap and clips. Changing paper does not refit the 2D
+camera or change its visible crop. Content outside the original page remains
+clipped. Printing keeps the document orientation and does not edit the Layout or
+mark the project dirty.
+
+Images retain their document frames; print raster resolution follows final size
+at the existing 300 DPI target, subject to pixel limits. Alpha continues to flatten
+to white. Free text keeps its existing formatting and PDF typography; this page
+mapping correction does not establish free-text preview/PDF typography parity.

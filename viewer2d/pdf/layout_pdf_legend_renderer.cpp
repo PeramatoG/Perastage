@@ -42,7 +42,7 @@ LegendPdfRenderResult RenderLegendPdf(std::ostringstream &out,
   if (composedPlan) *composedPlan = plan;
   result.textSubstitutions = plan.unsupportedGlyphs;
   result.diagnostics = plan.diagnostics;
-  BeginDocumentPageMapping(out, pageHeight, outputScaleX, outputScaleY, formatter);
+  ScopedDocumentPageMapping pageMapping(out, pageHeight, outputScaleX, outputScaleY, formatter);
   const double frameX = legend.frame.x;
   const double frameTop = pageHeight - legend.frame.y;
   const auto x = [&](double local) { return formatter.Format(frameX + local); };
@@ -118,7 +118,7 @@ LegendPdfRenderResult RenderLegendPdf(std::ostringstream &out,
     out << "Q\n";
   }
   out << "Q\nq\n0 0 0 RG " << formatter.Format(plan.borderWidth) << " w ";
-  rect(plan.clip); out << "S\nQ\nQ\n";
+  rect(plan.clip); out << "S\nQ\n";
   return result;
 }
 } // namespace layout_pdf_internal

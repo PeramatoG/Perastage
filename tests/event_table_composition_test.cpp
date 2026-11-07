@@ -14,7 +14,9 @@ int main() {
       auto page = mapping.Map(Point{paper.first,paper.second});
       assert(page.x <= output.first+1e-9 && page.y <= output.second+1e-9);
     }
-  assert(UniformPageFit(-1,1).scale == 0);
+  bool rejected = false;
+  try { UniformPageFit(-1,1); } catch (const std::invalid_argument &) { rejected = true; }
+  assert(rejected);
   const typography::FontPair fonts(PERASTAGE_TEST_RESOURCE_DIR);
   EventTableInput input{300, 100, {"Venue", "Málaga", "Date", "Stage", "Version", "Design", "Mail"}};
   auto plan = ComposeEventTable(input, {fonts.regular, fonts.bold});

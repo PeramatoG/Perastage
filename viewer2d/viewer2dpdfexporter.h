@@ -39,6 +39,8 @@ struct Viewer2DPrintOptions {
   double pageWidthPt = 297.0 * kMmToPt;  // A3 portrait width
   double pageHeightPt = 420.0 * kMmToPt; // A3 portrait height
   double marginPt = 36.0;                // Half an inch margin for readability
+  // Layout output/document page ratios; all Layout frames remain original points.
+  // Uniform fit is applied once per complete drawing group. Invalid ratios fail.
   double layoutScaleX = 1.0;
   double layoutScaleY = 1.0;
   bool landscape = false;
@@ -126,7 +128,8 @@ Viewer2DExportResult ExportViewer2DToPdf(
     const std::filesystem::path &outputPath,
     std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot = nullptr);
 
-// Writes multiple 2D views into a single vector PDF layout.
+// Writes a document-space Layout to one uniformly fitted vector PDF page.
+// Captured view mappings and legacy text placement use original frame dimensions.
 Viewer2DExportResult ExportLayoutToPdf(
     const std::vector<LayoutViewExportData> &views,
     const std::vector<LayoutLegendExportData> &legends,

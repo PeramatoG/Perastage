@@ -652,11 +652,28 @@ diagnostics; invalid font metrics produce a diagnosed empty text plan. The GUI
 <code>layout_event_table_renderer</code> draws glyph outlines through <code>document_text_renderer</code>;
 <code>viewer2d/pdf/layout_pdf_event_table_renderer</code> emits selectable embedded-font text
 and vector geometry. Both consume the same measured plan, then apply zoom or the
-<code>PageOutputMapping</code> top-left uniform output fit once. Legend and Event Table
-share the PDF coordinate-space adapter <code>layout_pdf_page_mapping</code>; migrating the
-remaining element types to this page policy is a separate B3 step. Each table&#39;s cache identity includes the
+<code>PageOutputMapping</code> top-left uniform output fit once. All five element kinds
+share the PDF coordinate-space adapter <code>layout_pdf_page_mapping</code>. Each table&#39;s
+cache identity includes the
 composition version, content and dimensions; position/selection do not affect its
 raster. Persisted arrays and LayoutManager mutation/history ownership are unchanged.</p>
+<h3 id="layout-page-output-mapping">Layout page output mapping</h3>
+<p><code>core/layouts/PageOutputMapping</code> owns validated uniform, top-left page fitting.
+GUI print orchestration and text/image builders retain original document-point
+frames; image raster sizing alone uses the final output scale, bounded before
+integer conversion. <code>layout_image_export</code> owns wx image loading and existing
+white alpha flattening. Printing does not persist print settings as project edits. Temporary
+<code>ScopedViewer2DState</code> apply/restore calls preserve dirty revisions synchronously;
+no revision guard spans an asynchronous capture or suppresses unrelated edits.</p>
+<p>PDF element groups use <code>ScopedDocumentPageMapping</code> exactly once, including clips,
+borders, paths, text and nested symbol/image XObjects. PDF y reversal uses the
+output paper height; the CTM translation is <code>outH * (1 - scale)</code>. A separate
+untransformed page clip keeps authored content outside the source paper out of
+unused output space. <code>layout_pdf_text_renderer</code> retains legacy run metrics,
+alignment and italic skew in document points. B3.2 will address shared free-text
+typography; B3.1 introduces no parser, shaping or font changes. View capture,
+viewport state, stable cross-kind ordering and serialized Layout geometry remain
+owned by their existing modules.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>
