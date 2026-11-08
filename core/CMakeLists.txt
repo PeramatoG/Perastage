@@ -386,6 +386,7 @@ add_library(perastage_gdtf_read STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_power_reader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/gdtf_document.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_color_cie.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_channel_footprint.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_mode_channel_browser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_wheel_catalog.cpp
 )

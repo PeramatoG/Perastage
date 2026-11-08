@@ -1,4 +1,5 @@
 #include "gdtf/gdtf_mode_channel_browser.h"
+#include "gdtf/gdtf_channel_footprint.h"
 
 #include <algorithm>
 #include <cctype>
@@ -149,88 +150,20 @@ std::vector<GdtfDmxValue> ParseOffsets(const std::string &raw, GdtfModeChannelDo
   std::stringstream input(raw);
   std::string token;
   while (std::getline(input, token, ',')) {
-    auto parsed = ParseGdtfDmxValue(token);
-    if (!parsed.valid)
+    GdtfDmxValue parsed;
+    parsed.raw = token;
+    int address = 0;
+    parsed.valid = ParseIntText(Trim(token), address) && address > 0;
+    if (parsed.valid) {
+      parsed.value = address;
+      parsed.normalized = address;
+    } else {
       AddDiagnostic(doc, GdtfDiagnosticSeverity::Warning, "Malformed Offset value.",
                     "DMXChannel", token, nodeId);
+    }
     values.push_back(std::move(parsed));
   }
   return values;
-}
-
-// Finds a geometry element by exact Name below a geometry subtree.
-const tinyxml2::XMLElement *FindGeometryByName(const tinyxml2::XMLElement *node,
-                                               const std::string &name) {
-  if (!node || name.empty())
-    return nullptr;
-  if (Attr(node, "Name") == name)
-    return node;
-  for (const auto *child = node->FirstChildElement(); child;
-       child = child->NextSiblingElement()) {
-    if (const auto *found = FindGeometryByName(child, name))
-      return found;
-  }
-  return nullptr;
-}
-
-// Collects DMX offset shifts introduced by GeometryReference nodes.
-void CollectGeometryReferenceOffsets(const tinyxml2::XMLElement *node,
-                                     std::map<std::string, std::vector<int>> &offsets,
-                                     GdtfModeChannelDocument &doc,
-                                     const std::string &modeId) {
-  if (!node)
-    return;
-  if (std::string(node->Name()) == "GeometryReference") {
-    const std::string referencedGeometry = Attr(node, "Geometry");
-    if (!referencedGeometry.empty()) {
-      bool hadBreak = false;
-      for (const auto *br = node->FirstChildElement("Break"); br;
-           br = br->NextSiblingElement("Break")) {
-        hadBreak = true;
-        int dmxOffset = 1;
-        const std::string rawOffset = Attr(br, "DMXOffset");
-        if (!rawOffset.empty() && !ParseIntText(Trim(rawOffset), dmxOffset))
-          AddDiagnostic(doc, GdtfDiagnosticSeverity::Warning,
-                        "Malformed GeometryReference DMXOffset.",
-                        "GeometryReference", rawOffset, modeId);
-        offsets[referencedGeometry].push_back(std::max(0, dmxOffset - 1));
-      }
-      if (!hadBreak)
-        offsets[referencedGeometry].push_back(0);
-    }
-  }
-  for (const auto *child = node->FirstChildElement(); child;
-       child = child->NextSiblingElement()) {
-    CollectGeometryReferenceOffsets(child, offsets, doc, modeId);
-  }
-}
-
-// Builds per-geometry DMX offset shifts for the selected mode root geometry.
-std::map<std::string, std::vector<int>> BuildGeometryReferenceOffsets(
-    const tinyxml2::XMLElement *geometries, const std::string &rootGeometryName,
-    GdtfModeChannelDocument &doc, const std::string &modeId) {
-  std::map<std::string, std::vector<int>> offsets;
-  if (!geometries || rootGeometryName.empty())
-    return offsets;
-  const tinyxml2::XMLElement *rootGeometry = nullptr;
-  for (const auto *geometry = geometries->FirstChildElement(); geometry && !rootGeometry;
-       geometry = geometry->NextSiblingElement()) {
-    rootGeometry = FindGeometryByName(geometry, rootGeometryName);
-  }
-  CollectGeometryReferenceOffsets(rootGeometry, offsets, doc, modeId);
-  return offsets;
-}
-
-// Returns offsets shifted by a GeometryReference DMXOffset value.
-std::vector<GdtfDmxValue> ShiftOffsets(const std::vector<GdtfDmxValue> &offsets,
-                                       int shift) {
-  std::vector<GdtfDmxValue> shifted = offsets;
-  for (auto &offset : shifted) {
-    if (!offset.valid || !offset.normalized)
-      continue;
-    offset.normalized = *offset.normalized + static_cast<std::uint64_t>(std::max(0, shift));
-  }
-  return shifted;
 }
 
 // Rebuilds stable child identities after a GeometryReference expansion clone.
@@ -395,8 +328,12 @@ GdtfModeChannelDocument ReadGdtfModeChannelDocument(const std::string &descripti
     mode.description = Attr(modeXml, "Description");
     mode.geometry = Attr(modeXml, "Geometry");
     mode.id = "mode[" + std::to_string(modeIndex) + "]:" + mode.name;
-    const auto geometryReferenceOffsets =
-        BuildGeometryReferenceOffsets(geometries, mode.geometry, result, mode.id);
+    // Shared GeometryReference / DMXOffset resolution also serves the fixture table.
+    const auto footprint = ResolveGdtfModeFootprint(geometries, modeXml);
+    mode.footprintsByBreak = footprint.footprintsByBreak;
+    mode.calculatedFootprint = footprint.PrimaryFootprint();
+    for (const auto &message : footprint.diagnostics)
+      AddDiagnostic(result, GdtfDiagnosticSeverity::Warning, message, "DMXMode", {}, mode.id);
     const auto *channelsXml = modeXml->FirstChildElement("DMXChannels");
     int channelIndex = 0;
     for (const auto *channelXml = channelsXml ? channelsXml->FirstChildElement("DMXChannel") : nullptr;
@@ -409,15 +346,10 @@ GdtfModeChannelDocument ReadGdtfModeChannelDocument(const std::string &descripti
       channel.initialFunction = Attr(channelXml, "InitialFunction");
       channel.highlight = Attr(channelXml, "Highlight");
       channel.geometry = Attr(channelXml, "Geometry");
-      channel.virtualChannel = channel.rawOffset.empty() || channel.rawOffset == "None";
+      channel.virtualChannel = footprint.channels[channelIndex].virtualChannel;
       if (!channel.virtualChannel) {
         channel.offsets = ParseOffsets(channel.rawOffset, result, channel.id);
         channel.resolution = static_cast<int>(channel.offsets.size());
-        for (const auto &offset : channel.offsets) {
-          if (offset.valid && offset.normalized)
-            mode.calculatedFootprint = std::max(mode.calculatedFootprint,
-                                                static_cast<int>(*offset.normalized));
-        }
       }
       int logicalIndex = 0;
       for (const auto *logicalXml = channelXml->FirstChildElement("LogicalChannel"); logicalXml;
@@ -504,24 +436,33 @@ GdtfModeChannelDocument ReadGdtfModeChannelDocument(const std::string &descripti
         channel.logicalChannels.push_back(std::move(logical));
       }
       CalculateRanges(channel, result);
-      auto geometryShifts = geometryReferenceOffsets.find(channel.geometry);
-      if (!channel.virtualChannel && geometryShifts != geometryReferenceOffsets.end() &&
-          !geometryShifts->second.empty()) {
-        for (size_t shiftIndex = 0; shiftIndex < geometryShifts->second.size(); ++shiftIndex) {
+      const auto &addresses = footprint.channels[channelIndex];
+      if (addresses.virtualChannel) {
+        mode.channels.push_back(std::move(channel));
+      } else if (addresses.instances.empty()) {
+        // Keep unresolved source data inspectable without inventing physical addresses.
+        channel.offsets.clear();
+        mode.channels.push_back(std::move(channel));
+      } else {
+        for (const auto &instance : addresses.instances) {
           GdtfDmxChannelNode expanded = channel;
-          expanded.geometryReferenceIndex = static_cast<int>(shiftIndex + 1);
-          expanded.offsets = ShiftOffsets(channel.offsets, geometryShifts->second[shiftIndex]);
-          RebaseChannelIds(expanded, channel.id + "/geometryReference[" +
-                                         std::to_string(shiftIndex) + "]");
-          for (const auto &offset : expanded.offsets) {
-            if (offset.valid && offset.normalized)
-              mode.calculatedFootprint = std::max(mode.calculatedFootprint,
-                                                  static_cast<int>(*offset.normalized));
+          expanded.geometryReferenceIndex = instance.referenceIndex;
+          expanded.effectiveDmxBreak = instance.dmxBreak;
+          expanded.offsets.clear();
+          for (size_t byte = 0; byte < instance.offsets.size(); ++byte) {
+            GdtfDmxValue offset;
+            offset.raw = byte < channel.offsets.size() ? channel.offsets[byte].raw : "";
+            if (byte < channel.offsets.size())
+              offset.value = channel.offsets[byte].value;
+            offset.normalized = instance.offsets[byte];
+            offset.valid = true;
+            expanded.offsets.push_back(std::move(offset));
           }
+          if (instance.referenceIndex)
+            RebaseChannelIds(expanded, channel.id + "/geometryReference[" +
+                                         std::to_string(instance.referenceIndex) + "]");
           mode.channels.push_back(std::move(expanded));
         }
-      } else {
-        mode.channels.push_back(std::move(channel));
       }
     }
     result.modes.push_back(std::move(mode));

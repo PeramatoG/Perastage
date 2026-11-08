@@ -17,6 +17,8 @@
  */
 #include "../viewer3d/gdtfloader.h"
 
+#include "support/gdtf_channel_footprint_cases.h"
+#include "support/zip_test_utils.h"
 #include <cassert>
 #include <filesystem>
 #include <string>
@@ -29,7 +31,7 @@ class wxZipStreamLink;
 
 namespace {
 // Creates a temporary GDTF with mode and fixture identity metadata.
-std::string MakeGdtf()
+std::string MakeGdtf(const std::string& overrideXml = {})
 {
     wxFileName tempName(wxFileName::CreateTempFileName("gdtf_modes_"));
     const std::string outPath = tempName.GetFullPath().ToStdString() + ".gdtf";
@@ -91,7 +93,8 @@ std::string MakeGdtf()
         "</DMXModes>"
         "</FixtureType>"
         "</GDTF>";
-    zipOut.Write(xml.data(), xml.size());
+    const auto& description = overrideXml.empty() ? xml : overrideXml;
+    zipOut.Write(description.data(), description.size());
     zipOut.Close();
 
     return outPath;
@@ -100,6 +103,20 @@ std::string MakeGdtf()
 
 int main()
 {
+    for (const auto& test : tests::gdtf::FootprintCases()) {
+        const auto path = MakeGdtf(test.xml);
+        const auto primary = test.breaks.find(1);
+        assert(GetGdtfModeChannelCount(path, "Pixels") ==
+               (primary == test.breaks.end() ? 0 : primary->second));
+        std::map<int, std::vector<int>> bytes;
+        for (const auto& channel : GetGdtfModeChannels(path, "Pixels"))
+            if (!channel.isVirtual) bytes[channel.dmxBreak].push_back(channel.channel);
+        assert(bytes == test.bytes);
+        std::string unchangedXml;
+        assert(tests::zip::ReadEntry(path, "description.xml", &unchangedXml));
+        assert(unchangedXml == test.xml);
+        std::filesystem::remove(path);
+    }
     const std::string gdtfPath = MakeGdtf();
     const std::vector<GdtfChannelInfo> channels =
         GetGdtfModeChannels(gdtfPath, "Standard");
