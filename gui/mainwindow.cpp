@@ -421,6 +421,7 @@ EVT_MENU(ID_Edit_Ungroup, MainWindow::OnUngroupSelection)
 EVT_MENU(ID_Edit_ReplaceFixtures, MainWindow::OnReplaceSelectedFixtures)
 EVT_MENU(ID_Edit_ReplaceTrusses, MainWindow::OnReplaceSelectedTrusses)
 EVT_MENU(ID_View_ToggleConsole, MainWindow::OnToggleConsole)
+EVT_MENU(ID_View_TogglePositionTool, MainWindow::OnTogglePositionTool)
 EVT_MENU(ID_View_ToggleFixtures, MainWindow::OnToggleFixtures)
 EVT_MENU(ID_View_ToggleViewport, MainWindow::OnToggleViewport)
 EVT_MENU(ID_View_ToggleViewport2D, MainWindow::OnToggleViewport2D)
@@ -1299,6 +1300,8 @@ void MainWindow::UpdateViewMenuChecks() {
   if (!auiManager || !GetMenuBar())
     return;
 
+  auto &positionPane = auiManager->GetPane("PositionTool");
+  GetMenuBar()->Check(ID_View_TogglePositionTool, positionPane.IsShown());
   auto &consolePane = auiManager->GetPane("Console");
   GetMenuBar()->Check(ID_View_ToggleConsole,
                       consolePane.IsOk() && consolePane.IsShown());
@@ -1522,6 +1525,7 @@ void MainWindow::SyncSceneData() {
 
 // Refreshes scene panels and schedules dependent Layout preview regeneration.
 void MainWindow::RefreshAfterSceneChange(bool refreshViewport) {
+  guiConfigServices->LegacyConfigManager().NotifyChange(ConfigManager::Change::Scene);
   PersistFixtureTypeAutoColors(
       GetDefaultGuiConfigServices().LegacyConfigManager());
   if (fixturePanel)

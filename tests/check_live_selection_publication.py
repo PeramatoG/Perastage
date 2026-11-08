@@ -28,7 +28,7 @@ def function_body(path: str, signature: str) -> str:
 
 def main() -> None:
     """Keep selection publication synchronized without scene side effects."""
-    panel = function_body('viewer2d/viewer2dpanel.cpp',
+    panel = function_body('viewer2d/viewer2dpanel_presentation.cpp',
                           'void Viewer2DPanel::SetSelectedUuids(')
     assert 'm_lastApplied' not in panel, (
         'Picking and history can change controller selection independently of tables'

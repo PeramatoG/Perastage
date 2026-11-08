@@ -21,6 +21,12 @@ Deleting a GroupObject explicitly deletes its complete subtree. Deleting leaf
 nodes preserves non-empty ancestors and prunes empty ancestors. This is a
 Perastage editing policy; it does not change MVR import hierarchy semantics.
 
+The shared Position Tool reads the same effective interactive targets and sends
+one absolute world-axis component through Command transform execution. Direct
+GroupObject selections remain exact; selected descendants covered by an effective
+ancestor are removed before editing and marker presentation. Undo snapshots retain
+the direct group selection as well as the complete scene hierarchy.
+
 ## Reviewed-safe paths
 
 - MVR import builds world transforms from parent-world and local matrices.

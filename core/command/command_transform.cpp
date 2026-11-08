@@ -141,7 +141,8 @@ Request BuildRequest(const Command &command) {
 
 // Validates and executes one semantic transform as one mutation transaction.
 Result Execute(const Command &command, ExecutionContext &context,
-               const scene_grouping::InteractiveTransformPolicy &policy) {
+               const scene_grouping::InteractiveTransformPolicy &policy,
+               const std::string &undoLabel) {
   Result result;
   result.request = BuildRequest(command);
   if (!Validate(command, result)) {
@@ -196,7 +197,9 @@ Result Execute(const Command &command, ExecutionContext &context,
     MutationSummary changes;
     changes.sceneChanged = true;
     result.mutation = transaction.Commit(
-        changes, command.kind == Kind::Position ? "cli pos" : "cli rot");
+        changes, undoLabel.empty()
+                     ? (command.kind == Kind::Position ? "cli pos" : "cli rot")
+                     : undoLabel);
   } catch (const std::exception &error) {
     transaction.Rollback();
     result.outcome = Outcome::ExecutionError;

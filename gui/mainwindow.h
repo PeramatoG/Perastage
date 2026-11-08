@@ -50,6 +50,7 @@ class Viewer2DRenderPanel;
 class Viewer2DOffscreenRenderer;
 namespace startup { struct Metrics; }
 class ConsolePanel;
+class PositionToolPanel;
 class LayerPanel;
 class LayoutPanel;
 class LayoutViewerPanel;
@@ -157,6 +158,9 @@ private:
   Viewer2DRenderPanel *viewport2DRenderPanel = nullptr;
   std::unique_ptr<Viewer2DOffscreenRenderer> offscreenViewer2DRenderer;
   ConsolePanel *consolePanel = nullptr;
+  PositionToolPanel *positionToolPanel = nullptr;
+  void CreatePositionTool();
+  void OnTogglePositionTool(wxCommandEvent &event);
   LayerPanel *layerPanel = nullptr;
   LayoutPanel *layoutPanel = nullptr;
   LayoutViewerPanel *layoutViewerPanel = nullptr;

@@ -389,6 +389,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           appendSelection(selection.trusses);
           appendSelection(selection.supports);
           appendSelection(selection.sceneObjects);
+          appendSelection(selection.groupObjects);
 
           if (Viewer3DPanel::Instance()) {
             Viewer3DPanel::Instance()->SetSelectedFixtures(mergedSelection);
@@ -403,7 +404,8 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         .fixtures = cfg.GetSelectedFixtures(),
         .trusses = cfg.GetSelectedTrusses(),
         .supports = cfg.GetSelectedSupports(),
-        .sceneObjects = cfg.GetSelectedSceneObjects()};
+        .sceneObjects = cfg.GetSelectedSceneObjects(),
+        .groupObjects = cfg.GetSelectedGroupObjects()};
     GuiProjectMutationHost mutationHost(cfg);
     perastage::command::ExecutionContext context{
         cfg.GetScene(), commandSelection, mutationHost};
@@ -421,6 +423,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         cfg.SetSelectedFixtures(record.selectionAfter.fixtures);
         cfg.SetSelectedTrusses(record.selectionAfter.trusses);
         cfg.SetSelectedSceneObjects(record.selectionAfter.sceneObjects);
+        cfg.SetSelectedGroupObjects(record.selectionAfter.groupObjects);
         if (FixtureTablePanel::Instance())
           FixtureTablePanel::Instance()->SelectByUuid({});
         if (TrussTablePanel::Instance())

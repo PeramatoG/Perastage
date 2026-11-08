@@ -33,7 +33,8 @@ bool EqualSelection(const scene_grouping::ObjectSelection &left,
                     const scene_grouping::ObjectSelection &right) {
   return left.fixtures == right.fixtures && left.trusses == right.trusses &&
          left.supports == right.supports &&
-         left.sceneObjects == right.sceneObjects;
+         left.sceneObjects == right.sceneObjects &&
+         left.groupObjects == right.groupObjects;
 }
 
 // Reports whether every requested identity exists in its declared container.

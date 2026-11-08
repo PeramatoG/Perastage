@@ -38,6 +38,22 @@ public:
     // Access singleton instance
     static ConfigManager& Get();
 
+    enum class Change { Scene, Selection, Preferences };
+    using ChangeListener = std::function<void(Change)>;
+    std::size_t SubscribeChanges(ChangeListener listener) {
+        const auto id = ++nextListenerId;
+        changeListeners.emplace(id, std::move(listener));
+        return id;
+    }
+    void UnsubscribeChanges(std::size_t id) { changeListeners.erase(id); }
+    void NotifyChange(Change change) {
+        if (change == Change::Selection) ++selectionRevision;
+        const auto listeners = changeListeners;
+        for (const auto &[id, listener] : listeners)
+            if (changeListeners.contains(id)) listener(change);
+    }
+    std::size_t GetSelectionRevision() const { return selectionRevision; }
+
     // Generic key-value storage for config (persistent or session)
     void SetValue(const std::string& key, const std::string& value);
     std::optional<std::string> GetValue(const std::string& key) const;
@@ -80,6 +96,8 @@ public:
     const std::vector<std::string>& GetSelectedSupports() const;
     void SetSelectedSupports(const std::vector<std::string>& uuids);
     const std::vector<std::string>& GetSelectedSceneObjects() const;
+    const std::vector<std::string>& GetSelectedGroupObjects() const;
+    void SetSelectedGroupObjects(const std::vector<std::string>& uuids);
     void SetSelectedSceneObjects(const std::vector<std::string>& uuids);
 
     void RegisterVariable(const std::string& name, const std::string& type,
@@ -173,4 +191,7 @@ private:
     std::string lastProjectSaveError;
 
     bool suppressRevision = false;
+    std::size_t nextListenerId = 0;
+    std::size_t selectionRevision = 0;
+    std::unordered_map<std::size_t, ChangeListener> changeListeners;
 };

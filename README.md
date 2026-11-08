@@ -34,7 +34,7 @@ Perastage is not intended to be a real-time DMX visualizer.
 - **GDTF libraries:** maintain local fixture definitions and download profiles from GDTF Share.
 - **MVR / GDTF Inspector:** read-only inspection of projects and external packages.
 - **2D and 3D:** review plans and spatial relationships.
-- **Scene editing:** practical table, patch and grouping tools.
+- **Scene editing:** practical table, patch and grouping tools, plus the shared [Position Tool](docs/user/views.md#position-tool) for absolute world coordinates.
 - **Create from Text:** generate starting scenes from production notes and riders.
 - **Layouts and PDF:** build production layouts and export technical documentation.
 - **Fixture resources:** project fixture symbols and standards-oriented GDTF workflows.

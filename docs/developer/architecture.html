@@ -247,7 +247,13 @@ services. The shared GUI <code>GuiProjectMutationHost</code> is the application-
 publisher used by Console and current main-window command consumers; refresh
 and presentation remain frontend-owned. Auto patching and fixture distribution
 remain with their existing owners until their implicit scope/geometry inputs
-have neutral contracts. The focused <code>core/capability/</code> boundary describes the
+have neutral contracts. The shared Position Tool uses <code>core/position_selection</code> to query interactive
+transform targets and execute absolute world-axis commands. Its wx panel only
+presents fields and owns field focus behavior; Viewer2D projects the same target
+origins for an onscreen-only overlay. ConfigManager publishes scene, selection
+and preference changes at existing mutation/presentation boundaries; the panel
+coalesces notifications on the GUI event loop without polling.</p>
+<p>The focused <code>core/capability/</code> boundary describes the
 real Command and Query surfaces without dispatching them. It consumes neutral
 operation IDs and request value types without linking Command execution or
 mutation infrastructure; separate serialization provides versioned discovery

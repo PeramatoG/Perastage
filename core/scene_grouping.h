@@ -33,6 +33,7 @@ struct ObjectSelection {
   std::vector<std::string> trusses;
   std::vector<std::string> supports;
   std::vector<std::string> sceneObjects;
+  std::vector<std::string> groupObjects;
 };
 
 struct SceneTransformTarget {

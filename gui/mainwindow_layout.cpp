@@ -459,6 +459,7 @@ void MainWindow::SetupLayout() {
                           .MaximizeButton(true)
                           .Hide());
 
+  CreatePositionTool();
   gui::InitializeNativeGuiBackgrounds(*this);
 
   // Apply all changes to layout

@@ -32,6 +32,7 @@ void MainWindow::RefreshAfterToolSelectionUpdate(
   config.SetSelectedTrusses(selection.trusses);
   config.SetSelectedSupports(selection.supports);
   config.SetSelectedSceneObjects(selection.sceneObjects);
+  config.SetSelectedGroupObjects(selection.groupObjects);
 
   if (fixturePanel)
     fixturePanel->SelectByUuid(selection.fixtures, false);
@@ -50,6 +51,7 @@ void MainWindow::RefreshAfterToolSelectionUpdate(
   appendSelection(selection.trusses);
   appendSelection(selection.supports);
   appendSelection(selection.sceneObjects);
+  appendSelection(selection.groupObjects);
   if (viewportPanel)
     viewportPanel->SetSelectedFixtures(mergedSelection);
   if (viewport2DPanel)

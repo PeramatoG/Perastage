@@ -21,6 +21,8 @@ Maintenance rules for Codex and contributors:
 
 ## Highlights
 
+- New dockable **Position Tool** for precise absolute X, Y and Z editing in 2D and 3D, with mixed-value multi-selection, group positioning, Undo/Redo and 2D insertion-point indicators.
+
 - More reliable MVR import and export, with improved preservation of standard scene data, assignments, references, and transforms.
 - Smarter GDTF matching and DMX mode selection during MVR import, with clearer manual choices.
 - New Fixture Label Editor with a shared label presentation across the 2D viewer, Layout captures, and vector PDF output.

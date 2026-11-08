@@ -33,6 +33,7 @@ Request BuildRequest(const Command &command);
 
 // Validates and executes one semantic transform as one mutation transaction.
 Result Execute(const Command &command, ExecutionContext &context,
-               const scene_grouping::InteractiveTransformPolicy &policy);
+               const scene_grouping::InteractiveTransformPolicy &policy,
+               const std::string &undoLabel = {});
 
 } // namespace perastage::command::transform

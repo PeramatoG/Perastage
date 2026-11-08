@@ -8,6 +8,18 @@ In 3D, drag to orbit, Shift-drag or middle-drag to pan, and use the wheel to zoo
 
 In 2D, drag empty space to pan and use the wheel to zoom. Select scene elements to cross-check their rows in Fixtures, Trusses, Hoists and Objects. Double-click a cell within a multi-selection to edit that column for the selected rows.
 
+## Position Tool
+
+Open **View → Position Tool** in either the 2D or 3D workspace. Dock, float, resize or hide the same panel; its placement and visibility are saved with the workspace. With no selection, the coordinate fields are disabled.
+
+X, Y and Z are absolute world coordinates of the insertion point. Edit one field and press Enter or leave the field to apply it; the other axes, rotation and scale stay unchanged. Escape cancels an uncommitted edit. Each completed edit is one Undo step. Invalid or empty input does not move anything.
+
+For multiple selections, shared coordinates appear normally and mixed coordinates are empty. Entering a value assigns that absolute coordinate to every effective target independently. Grouped children follow **Selection & Movement** preferences. Use **Select group…** to select a GroupObject directly, including a nested group; its own insertion point is used and its members move together.
+
+Small red squares mark the effective insertion points in the interactive 2D viewer in Top, Bottom, Front and Side views. They stay the same screen size and are excluded from captures, printed layouts and exports. There are no markers in 3D.
+
+Distance units follow **Preferences → Units**: metres with three decimals, or the existing imperial feet format. Unit suffixes and feet/inches input are accepted. Display rounding does not change stored positions.
+
 ## Move and select
 
 - **Drag Move** enables left-button dragging of scene selections; it is disabled by default.
