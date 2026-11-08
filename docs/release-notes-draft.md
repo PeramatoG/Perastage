@@ -34,6 +34,8 @@ Maintenance rules for Codex and contributors:
 
 - Project saving and canonical MVR export now retain validated source-only fixture fields such as shadow settings and custom commands. Failed saves keep the previous file and session path, with complete diagnostic details available in the error dialog.
 
+- Fixed the fixture table channel count and mode/channel browser for GDTF fixtures with RGB channels on children of referenced pixel geometries, including 60-pixel fixtures occupying 180 DMX channels.
+
 - The GDTF download window now stays open after a completed MVR import queue until acknowledged. A preference can restore automatic closing.
 
 - Automatic GDTF matching better distinguishes suitable fixture models from ambiguous candidates. Matching DMX modes can be inferred from the imported mode name or unambiguous channel-count evidence, including after manual GDTF selection; uncertain matches retain the original profile for review.

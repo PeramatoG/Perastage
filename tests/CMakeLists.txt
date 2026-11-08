@@ -1412,7 +1412,8 @@ set_perastage_test_labels(DummyGdtfFallbackIntegration LAYER perastage-extension
 set_perastage_test_labels(GdtfTestFixtureBuilder LAYER standard-strict DOMAINS gdtf zip)
 add_executable(gdtf_mode_channel_browser_test
                gdtf_mode_channel_browser_test.cpp
-               ../core/gdtf/gdtf_mode_channel_browser.cpp)
+               ../core/gdtf/gdtf_mode_channel_browser.cpp
+               ../core/gdtf/gdtf_channel_footprint.cpp)
 target_include_directories(gdtf_mode_channel_browser_test PRIVATE ../core)
 target_link_libraries(gdtf_mode_channel_browser_test PRIVATE tinyxml2::tinyxml2)
 add_test(NAME GdtfModeChannelBrowser COMMAND gdtf_mode_channel_browser_test)
@@ -1420,7 +1421,8 @@ add_test(NAME GdtfModeChannelBrowser COMMAND gdtf_mode_channel_browser_test)
 add_executable(gdtf_mode_browser_presenter_test
                gdtf_mode_browser_presenter_test.cpp
                ../gui/gdtf/gdtf_mode_browser_presenter.cpp
-               ../core/gdtf/gdtf_mode_channel_browser.cpp)
+               ../core/gdtf/gdtf_mode_channel_browser.cpp
+               ../core/gdtf/gdtf_channel_footprint.cpp)
 target_include_directories(gdtf_mode_browser_presenter_test PRIVATE ../core ../gui)
 target_link_libraries(gdtf_mode_browser_presenter_test PRIVATE tinyxml2::tinyxml2)
 add_test(NAME GdtfModeBrowserPresenter COMMAND gdtf_mode_browser_presenter_test)
@@ -1430,7 +1432,8 @@ add_executable(gdtf_wheel_attribute_inspector_test
                ../core/gdtf/gdtf_color_cie.cpp
                ../core/gdtf/gdtf_wheel_catalog.cpp
                ../core/gdtf/gdtf_dmx_inspector.cpp
-               ../core/gdtf/gdtf_mode_channel_browser.cpp)
+               ../core/gdtf/gdtf_mode_channel_browser.cpp
+               ../core/gdtf/gdtf_channel_footprint.cpp)
 target_include_directories(gdtf_wheel_attribute_inspector_test PRIVATE ../core)
 target_link_libraries(gdtf_wheel_attribute_inspector_test PRIVATE tinyxml2::tinyxml2)
 add_test(NAME GdtfWheelAttributeInspector COMMAND gdtf_wheel_attribute_inspector_test)

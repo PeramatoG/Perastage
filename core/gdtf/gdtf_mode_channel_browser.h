@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -142,6 +143,7 @@ struct GdtfDmxChannelNode {
   std::string highlight;
   std::string geometry;
   int geometryReferenceIndex = 0;
+  std::optional<int> effectiveDmxBreak;
   int sourceIndex = 0;
   std::vector<GdtfLogicalChannelNode> logicalChannels;
 };
@@ -152,7 +154,8 @@ struct GdtfDmxModeNode {
   std::string description;
   std::string geometry;
   int sourceIndex = 0;
-  int calculatedFootprint = 0;
+  int calculatedFootprint = 0; // Break 1, matching the legacy single-address table.
+  std::map<int, int> footprintsByBreak;
   std::vector<GdtfDmxChannelNode> channels;
 };
 
