@@ -84,7 +84,8 @@ def main():
             entries = dict(package(directory / f'cycle{cycle}.mvr'))
             for fixture in root(directory / f'cycle{cycle}.mvr').iter('Fixture'):
                 assert entries[fixture.findtext('GDTFSpec')] == original_resources['fixture.gdtf']
-        for name, primary in (('edited', '2065'), ('redo', '2065'), ('edited-reopened', '2065'),
+        # The overflowing manual start 1.400 is the standard absolute address 400.
+        for name, primary in (('edited', '400'), ('redo', '400'), ('edited-reopened', '400'),
                               ('legacy-edited', '2681')):
             actual = assignments(root(directory / f'{name}.mvr'))
             assert actual[SINGLE] == source[SINGLE] and actual[NONZERO] == source[NONZERO]
