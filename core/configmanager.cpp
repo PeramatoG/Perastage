@@ -59,6 +59,7 @@ struct RestoredUserPreference {
 std::vector<RestoredUserPreference> CaptureUserInteractionPreferences(
     const ConfigManager &config) {
   return {
+      {"ui_position_tool_sidebar_initialized", config.GetValue("ui_position_tool_sidebar_initialized")},
       {magnet_snap::kMagnetEnabledConfigKey,
        config.GetValue(magnet_snap::kMagnetEnabledConfigKey)},
       {selection_movement_settings::kAxisConstrainedMovementConfigKey,

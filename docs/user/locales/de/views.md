@@ -12,9 +12,11 @@ Ziehen Sie in 2D auf freier Fläche zum Verschieben und nutzen Sie das Mausrad z
 
 Öffnen Sie **View → Position Tool** im 2D- oder 3D-Arbeitsbereich. Dasselbe Fenster lässt sich andocken, lösen, skalieren oder ausblenden; Position und Sichtbarkeit werden mit dem Arbeitsbereich gespeichert. Ohne Auswahl sind die Koordinatenfelder deaktiviert.
 
+Das Fenster erscheint in 2D und 3D standardmäßig unter Summary in der rechten Spalte. Die Pfeile jeder Achse verschieben jedes effektive Ziel pro Klick um 1 mm in metrischen Einheiten oder 0,01 Fuß in imperialen Einheiten. Unterschiedliche Werte und gespeicherte Präzision bleiben erhalten. Jeder Klick lässt sich rückgängig machen.
+
 X, Y und Z sind absolute Weltkoordinaten des Einfügepunkts. Bearbeiten Sie ein Feld und drücken Sie die Eingabetaste oder verlassen Sie das Feld, um den Wert anzuwenden. Die anderen Achsen, Drehung und Skalierung bleiben erhalten. Escape verwirft die noch nicht bestätigte Eingabe. Jede bestätigte Änderung bildet einen Rückgängig-Schritt. Leere oder ungültige Eingaben verschieben nichts.
 
-Bei Mehrfachauswahl werden gemeinsame Koordinaten angezeigt; unterschiedliche Koordinaten bleiben leer. Ein eingegebener Wert setzt diese absolute Koordinate für jedes effektive Ziel einzeln. Gruppierte Kinder folgen den Einstellungen unter **Selection & Movement**. Mit **Select group…** wählen Sie ein GroupObject direkt aus, auch eine verschachtelte Gruppe. Ihr eigener Einfügepunkt wird verwendet und ihre Mitglieder bewegen sich gemeinsam.
+Bei Mehrfachauswahl werden gemeinsame Koordinaten angezeigt; unterschiedliche Koordinaten bleiben leer. Ein eingegebener Wert setzt diese absolute Koordinate für jedes effektive Ziel einzeln. Gruppierte Kinder folgen den Einstellungen unter **Selection & Movement**.
 
 Kleine rote Quadrate markieren die effektiven Einfügepunkte in den Ansichten Oben, Unten, Vorne und Seite des interaktiven 2D-Viewers. Ihre Bildschirmgröße bleibt konstant. Sie erscheinen nicht in Aufnahmen, gedruckten Layouts oder Exporten. In 3D werden keine Markierungen angezeigt.
 

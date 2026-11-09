@@ -160,6 +160,7 @@ private:
   ConsolePanel *consolePanel = nullptr;
   PositionToolPanel *positionToolPanel = nullptr;
   void CreatePositionTool();
+  void InitializePositionToolSidebar(bool sceneWorkspace);
   void OnTogglePositionTool(wxCommandEvent &event);
   LayerPanel *layerPanel = nullptr;
   LayoutPanel *layoutPanel = nullptr;

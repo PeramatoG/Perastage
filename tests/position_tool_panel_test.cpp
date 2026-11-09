@@ -15,6 +15,7 @@
 #include <wx/modalhook.h>
 #include <wx/frame.h>
 #include <wx/sizer.h>
+#include <wx/spinbutt.h>
 #include <wx/textctrl.h>
 
 class PositionTestApp final : public wxApp {
@@ -153,14 +154,11 @@ int main(int argc, char **argv) {
   const auto group = scene_grouping::GroupSelection(config.GetScene(), {{a.uuid, b.uuid}});
   assert(group.changed);
   config.NotifyChange(ConfigManager::Change::Scene); Flush();
-  wxButton *selectGroup = nullptr;
   for (auto *child : panel->GetChildren())
-    if (auto *button = dynamic_cast<wxButton *>(child)) selectGroup = button;
-  assert(selectGroup);
+    assert(!dynamic_cast<wxButton *>(child));
   GroupChoice choose;
   choose.Register();
-  wxCommandEvent click(wxEVT_BUTTON, selectGroup->GetId());
-  selectGroup->GetEventHandler()->ProcessEvent(click);
+  panel->SelectGroup();
   choose.Unregister();
   Flush();
   assert(config.GetSelectedGroupObjects() == std::vector<std::string>{group.groupUuid});
@@ -173,8 +171,17 @@ int main(int argc, char **argv) {
   assert(z->GetValue() == "5.750");
   assert(config.Redo() == "Position Tool"); Flush();
   assert(z->GetValue() == "9.000");
+  wxSpinButton *stepper = nullptr;
+  for (auto *child : z->GetParent()->GetChildren())
+    if (auto *spin = dynamic_cast<wxSpinButton *>(child)) stepper = spin;
+  assert(stepper && stepper->IsEnabled());
+  wxSpinEvent step(wxEVT_SPIN_UP, stepper->GetId());
+  stepper->GetEventHandler()->ProcessEvent(step); Flush();
+  assert(publications == 5 && z->GetValue() == "9.001");
+  assert(config.Undo() == "Position Tool"); Flush();
+  assert(z->GetValue() == "9.000");
   config.SetSelectedFixtures({}); Flush();
-  assert(!x->IsEnabled() && x->GetValue().empty());
+  assert(!x->IsEnabled() && x->GetValue().empty() && !stepper->IsEnabled());
   frame->Destroy(); Flush();
   // Destroying the panel unregisters its callback before later publications.
   config.NotifyChange(ConfigManager::Change::Scene); Flush();

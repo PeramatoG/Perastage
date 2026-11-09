@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-08 20:20+0000\n"
+"POT-Creation-Date: 2026-11-09 04:33+0000\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: French\n"
@@ -3597,11 +3597,11 @@ msgstr "X : -- m  Y : -- m  Z : -- m"
 msgid "Version %s"
 msgstr "Version %s"
 
-#: gui/mainwindow_layout.cpp:1143
+#: gui/mainwindow_layout.cpp:1148
 msgid "Layout view update skipped: target view not found."
 msgstr "Mise à jour de la vue de mise en page ignorée : vue cible introuvable."
 
-#: gui/mainwindow_layout.cpp:1173
+#: gui/mainwindow_layout.cpp:1178
 msgid "Layout view update failed."
 msgstr "Échec de la mise à jour de la vue de mise en page."
 
@@ -4152,8 +4152,8 @@ msgstr "Préférences…"
 msgid "Layout Mode View"
 msgstr "Vue du mode mise en page"
 
-#: gui/mainwindow_menu_builders.cpp:79 gui/mainwindow_position_tool.cpp:19
-#: gui/positiontoolpanel.cpp:211
+#: gui/mainwindow_menu_builders.cpp:79 gui/mainwindow_position_tool.cpp:20
+#: gui/positiontoolpanel.cpp:216
 msgid "Position Tool"
 msgstr "Outil de position"
 
@@ -5032,55 +5032,52 @@ msgid "%zu discovered, %zu incoming joined, %zu outgoing joined"
 msgstr "%zu découvertes, %zu adhésions entrantes, %zu adhésions sortantes"
 
 #
-#: gui/positiontoolpanel.cpp:41 gui/positiontoolpanel.cpp:135
+#: gui/positiontoolpanel.cpp:41 gui/positiontoolpanel.cpp:139
 msgid "No selection"
 msgstr "Aucune sélection"
 
-#: gui/positiontoolpanel.cpp:45
-msgid "Select group…"
-msgstr "Sélectionner un groupe…"
-
-#: gui/positiontoolpanel.cpp:53
+#: gui/positiontoolpanel.cpp:49
 msgid "X:"
 msgstr "X :"
 
-#: gui/positiontoolpanel.cpp:53
+#: gui/positiontoolpanel.cpp:49
 msgid "Y:"
 msgstr "Y :"
 
-#: gui/positiontoolpanel.cpp:53
+#: gui/positiontoolpanel.cpp:49
 msgid "Z:"
 msgstr "Z :"
 
-#: gui/positiontoolpanel.cpp:136
+#: gui/positiontoolpanel.cpp:140
 msgid "Multiple objects selected"
 msgstr "Plusieurs objets sélectionnés"
 
-#: gui/positiontoolpanel.cpp:138
+#: gui/positiontoolpanel.cpp:142
 msgid "Group selected"
 msgstr "Groupe sélectionné"
 
-#: gui/positiontoolpanel.cpp:138
+#: gui/positiontoolpanel.cpp:142
 msgid "Object selected"
 msgstr "Objet sélectionné"
 
-#: gui/positiontoolpanel.cpp:148
+#: gui/positiontoolpanel.cpp:153
 msgid "Select an object to edit its world position."
 msgstr "Sélectionnez un objet pour modifier sa position dans le monde."
 
-#: gui/positiontoolpanel.cpp:149
+#: gui/positiontoolpanel.cpp:154
 msgid "Absolute world coordinate. An empty field means mixed values."
-msgstr "Coordonnée absolue du monde. Un champ vide indique des valeurs différentes."
+msgstr ""
+"Coordonnée absolue du monde. Un champ vide indique des valeurs différentes."
 
-#: gui/positiontoolpanel.cpp:181 gui/positiontoolpanel.cpp:182
+#: gui/positiontoolpanel.cpp:186 gui/positiontoolpanel.cpp:187
 msgid "Enter a valid distance."
 msgstr "Saisissez une distance valide."
 
-#: gui/positiontoolpanel.cpp:192
+#: gui/positiontoolpanel.cpp:197
 msgid "Position could not be updated."
 msgstr "La position n’a pas pu être mise à jour."
 
-#: gui/positiontoolpanel.cpp:210
+#: gui/positiontoolpanel.cpp:215
 msgid "Select a group to position."
 msgstr "Sélectionnez un groupe à positionner."
 
@@ -6393,6 +6390,9 @@ msgstr "Style de rendu"
 #: viewer3d/viewer3dpanel.cpp:2288
 msgid "Export image..."
 msgstr "Exporter l’image…"
+
+#~ msgid "Select group…"
+#~ msgstr "Sélectionner un groupe…"
 
 #~ msgid "Labels"
 #~ msgstr "Étiquettes"

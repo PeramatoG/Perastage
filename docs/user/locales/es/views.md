@@ -12,9 +12,11 @@ En 2D, arrastra sobre un espacio vacío para desplazar y utiliza la rueda para a
 
 Abre **View → Position Tool** en el espacio de trabajo 2D o 3D. Puedes acoplar, separar, redimensionar u ocultar el mismo panel; su posición y visibilidad se guardan con el espacio de trabajo. Sin selección, los campos están desactivados.
 
+El panel aparece por defecto debajo de Summary, en la columna derecha de las vistas 2D y 3D. Las flechas de cada eje desplazan cada destino efectivo 1 mm por pulsación en métrico o 0,01 pies en imperial, conservando las diferencias y la precisión almacenada. Cada pulsación se puede deshacer.
+
 X, Y y Z son coordenadas absolutas del punto de inserción en el mundo. Edita un campo y pulsa Intro o sal del campo para aplicarlo; los demás ejes, la rotación y la escala se conservan. Escape cancela la edición pendiente. Cada edición completada crea un paso de Deshacer. Las entradas vacías o no válidas no mueven nada.
 
-En una selección múltiple se muestran las coordenadas comunes y se dejan vacías las que difieren. Introducir un valor asigna esa coordenada absoluta a cada destino efectivo por separado. Los hijos agrupados siguen las preferencias de **Selection & Movement**. Usa **Select group…** para seleccionar directamente un GroupObject, incluso anidado; se utiliza su punto de inserción y sus miembros se mueven juntos.
+En una selección múltiple se muestran las coordenadas comunes y se dejan vacías las que difieren. Introducir un valor asigna esa coordenada absoluta a cada destino efectivo por separado. Los hijos agrupados siguen las preferencias de **Selection & Movement**.
 
 Pequeños cuadrados rojos indican los puntos de inserción efectivos en las vistas Superior, Inferior, Frontal y Lateral del visor 2D interactivo. Mantienen su tamaño en pantalla y no aparecen en capturas, planos impresos ni exportaciones. No hay indicadores en 3D.
 

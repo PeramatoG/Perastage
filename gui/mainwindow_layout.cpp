@@ -511,6 +511,9 @@ void MainWindow::ApplyCanonicalPaneDocking() {
   dockPane("LayerPanel", [](wxAuiPaneInfo &pane) {
     pane.Right().Layer(1).Row(0).Position(0);
   });
+  dockPane("PositionTool", [](wxAuiPaneInfo &pane) {
+    pane.Right().Layer(1).Row(0).Position(2);
+  });
   dockPane("SummaryPanel", [](wxAuiPaneInfo &pane) {
     pane.Right().Layer(1).Row(0).Position(1);
   });
@@ -619,12 +622,12 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
     } else if (preset.name == "layout_mode_view") {
       applyPaneState({"LayoutPanel", "LayoutViewer"}, true);
       applyPaneState({"3DViewport", "2DViewport", "2DRenderOptions",
-                      "InspectorWorkspace"},
+                      "PositionTool", "InspectorWorkspace"},
                      false);
     } else if (preset.name == "inspector_view") {
       applyPaneState({"InspectorWorkspace", "Console"}, true);
       applyPaneState({"3DViewport", "2DViewport", "2DRenderOptions",
-                      "DataNotebook", "LayerPanel", "SummaryPanel",
+                      "DataNotebook", "LayerPanel", "SummaryPanel", "PositionTool",
                       "RiggingPanel", "LayoutPanel", "LayoutViewer"},
                      false);
     }
@@ -632,6 +635,8 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
     applyPaneState(preset.showPanes, true);
     applyPaneState(preset.hidePanes, false);
   }
+  InitializePositionToolSidebar(preset.name == "2d_layout_view" ||
+                                preset.name == "3d_layout_view");
   EnforceMainToolbarVisibility();
 
   if (commitAui) {

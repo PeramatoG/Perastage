@@ -90,4 +90,21 @@ perastage::command::Result SetAxis(
                                                "Position Tool");
 }
 
+perastage::command::Result StepAxis(
+    perastage::command::ExecutionContext &context,
+    const scene_grouping::InteractiveTransformPolicy &policy, int axis,
+    int direction, Units::DistanceUnitSystem units) {
+  if (axis < 0 || axis > 2 || (direction != 1 && direction != -1)) {
+    perastage::command::Result result;
+    result.outcome = perastage::command::Outcome::ValidationError;
+    return result;
+  }
+  const double increment = Units::DistanceDisplayToMillimeters(
+      units == Units::DistanceUnitSystem::Metric ? 0.001 : 0.01, units) * direction;
+  perastage::command::transform::Command command;
+  command.components = {{axis, {increment}, true}};
+  return perastage::command::transform::Execute(command, context, policy,
+                                               "Position Tool");
+}
+
 } // namespace position_selection

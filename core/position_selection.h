@@ -35,6 +35,12 @@ perastage::command::Result SetAxis(
     const scene_grouping::InteractiveTransformPolicy &policy, int axis,
     const std::string &text, Units::DistanceUnitSystem units);
 
+// Steps by 0.001 metres or 0.01 feet, preserving mixed coordinates and precision.
+perastage::command::Result StepAxis(
+    perastage::command::ExecutionContext &context,
+    const scene_grouping::InteractiveTransformPolicy &policy, int axis,
+    int direction, Units::DistanceUnitSystem units);
+
 // Captures the existing authoritative selection, including directly selected groups.
 template <typename Store>
 scene_grouping::ObjectSelection SelectionFrom(const Store &store) {

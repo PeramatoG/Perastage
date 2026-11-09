@@ -10,7 +10,7 @@
 #include "selection_movement_settings.h"
 
 #include <algorithm>
-#include <wx/button.h>
+#include <wx/spinbutt.h>
 #include <wx/choicdlg.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
@@ -42,10 +42,6 @@ PositionToolPanel::PositionToolPanel(
                              wxDefaultPosition, wxDefaultSize, wxST_ELLIPSIZE_END);
   status_->SetMinSize(FromDIP(wxSize(1, -1)));
   heading->Add(status_, 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(4));
-  auto *group = new wxButton(this, wxID_ANY, _("Select group…"),
-                              wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
-  group->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { SelectGroup(); });
-  heading->Add(group, 0);
   outer->Add(heading, 0, wxEXPAND | wxALL, FromDIP(4));
 
   // Whole axis controls wrap together when a pane is narrow.
@@ -62,6 +58,14 @@ PositionToolPanel::PositionToolPanel(
     fields_[axis] = field;
     field->SetName(labels[axis]);
     row->Add(field, 1);
+    auto *stepper = new wxSpinButton(cell, wxID_ANY, wxDefaultPosition,
+                                     wxDefaultSize, wxSP_VERTICAL);
+    steppers_[axis] = stepper;
+    stepper->SetRange(-1000000, 1000000);
+    stepper->SetValue(0);
+    row->Add(stepper, 0, wxEXPAND);
+    stepper->Bind(wxEVT_SPIN_UP, [this, axis](wxSpinEvent &) { Step(axis, 1); });
+    stepper->Bind(wxEVT_SPIN_DOWN, [this, axis](wxSpinEvent &) { Step(axis, -1); });
     cell->SetSizer(row);
     coordinates->Add(cell, 0, wxALL, FromDIP(3));
     field->Bind(wxEVT_SET_FOCUS, [this, axis](wxFocusEvent &event) {
@@ -140,6 +144,7 @@ void PositionToolPanel::RefreshValues() {
   for (int axis = 0; axis < 3; ++axis) {
     auto *field = fields_[axis];
     field->Enable(!empty);
+    steppers_[axis]->Enable(!empty);
     if (!modified_[axis]) {
       const wxString value = snapshot.commonMm[axis]
           ? wxString::FromUTF8(position_selection::FormatCoordinate(
@@ -213,4 +218,25 @@ void PositionToolPanel::SelectGroup() {
   scene_grouping::ObjectSelection selection;
   selection.groupObjects = {groups[dialog.GetSelection()].second};
   refresh_(selection, false);
+}
+
+// Each arrow applies a relative world-axis command to the effective targets.
+void PositionToolPanel::Step(int axis, int direction) {
+  steppers_[axis]->SetValue(0);
+  if (modified_[axis]) {
+    if (editRevision_[axis] != config_.GetSelectionRevision() ||
+        !position_selection::ParseCoordinate(fields_[axis]->GetValue().ToStdString(),
+                                               editUnits_[axis]))
+      return;
+    Commit(axis);
+    if (modified_[axis]) return;
+  }
+  auto selection = position_selection::SelectionFrom(config_);
+  GuiProjectMutationHost host(config_);
+  perastage::command::ExecutionContext context{config_.GetScene(), selection, host};
+  const auto result = position_selection::StepAxis(
+      context, selection_movement_settings::LoadInteractiveTransformPolicy(config_),
+      axis, direction, DistanceUnits(config_));
+  if (result.Success() && result.mutation.sceneChanged) refresh_(selection, true);
+  RefreshValues();
 }

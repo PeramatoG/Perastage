@@ -98,6 +98,10 @@ void AbsoluteAndMixed() {
   assert(position_selection::FormatCoordinate(0.125, metric) ==
          position_selection::FormatCoordinate(0.126, metric));
   assert(!read().commonMm[0]);
+  assert(position_selection::StepAxis(context, policy, 0, 1, metric).Success());
+  assert(Near(scene.fixtures.at("a").transform.o[0], 1.125));
+  assert(Near(scene.fixtures.at("b").transform.o[0], 1.126));
+  assert(!read().commonMm[0]);
   scene.fixtures.at("b").transform.o = scene.fixtures.at("a").transform.o;
   for (const auto &axis : read().commonMm) assert(axis.has_value());
   scene.fixtures.erase("a");
@@ -125,6 +129,11 @@ void CategoriesAndUnits() {
   assert(scene.trusses.at("t").transform.o == scene.supports.at("s").transform.o);
   assert(scene.supports.at("s").transform.o == scene.sceneObjects.at("o").transform.o);
   assert(host.count == 1);
+  assert(position_selection::StepAxis(context, policy, 0, -1, imperial).Success());
+  assert(Near(scene.trusses.at("t").transform.o[0], 11 - 3.048));
+  assert(scene.trusses.at("t").transform.o[1] == 22);
+  assert(!position_selection::StepAxis(context, policy, 0, 0, metric).Success());
+  assert(host.count == 2);
 }
 
 void GroupsAndProjection() {
