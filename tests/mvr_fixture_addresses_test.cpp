@@ -49,6 +49,7 @@ std::string Source(const std::string &addresses = "<Addresses><Address break='0'
 void Archive(const fs::path &path, const std::string &xml) {
   const auto fixture = path.parent_path() / "fixture.gdtf";
   auto description = tests::gdtf::BuildMinimalValidFixture().WithDmxMode("Mode", "Root").WithModelResource("body").BuildDescriptionXml();
+  description.replace(description.find("Offset=\"1\""), 10, "Offset=\"180\"");
   const auto end = description.find("</Geometries>");
   description.insert(end, "<WiringObject Name='ethernet_1' ComponentType='NetworkInOut' ConnectorType='RJ45' SignalType='Ethernet' PinCount='8'/>"
       "<WiringObject Name='wireless_1' ComponentType='NetworkInOut' ConnectorType='Wireless' SignalType='Ethernet' PinCount='0'/>"
@@ -140,12 +141,19 @@ int main(int argc, char **argv) {
   }
   config.Reset(); config.GetScene() = scene;
   config.PushUndoState("edit fixture primary assignment");
-  assert(perastage::patch::SetFixturePrimaryPatch(config.GetScene().fixtures.at(multi), "5.17"));
+  assert(perastage::patch::SetFixturePrimaryPatch(config.GetScene().fixtures.at(multi), "1.400"));
   Export(config.GetScene(), dir / "edited.mvr");
+  assert(Import(dir / "edited.mvr").fixtures.at(multi).address == "1.400");
   assert(config.SaveProject((dir / "edited.pstg").string()));
-  config.Undo(); Export(config.GetScene(), dir / "undo.mvr");
-  config.Redo(); Export(config.GetScene(), dir / "redo.mvr");
+  config.Undo();
+  assert(config.GetScene().fixtures.at(multi).address == scene.fixtures.at(multi).address);
+  Export(config.GetScene(), dir / "undo.mvr");
+  config.Redo();
+  assert(config.GetScene().fixtures.at(multi).address == "1.400");
+  Export(config.GetScene(), dir / "redo.mvr");
   config.Reset(); assert(config.LoadProject((dir / "edited.pstg").string()));
+  assert(config.GetScene().fixtures.at(multi).address == "1.400");
+  assert(config.GetScene().fixtures.at(multi).dmxAddresses->entries[1] == scene.fixtures.at(multi).dmxAddresses->entries[1]);
   Export(config.GetScene(), dir / "edited-reopened.mvr");
 
   auto cleared = scene;

@@ -39,6 +39,7 @@
 #include "mainwindow.h"
 #include "matrixutils.h"
 #include "patchmanager.h"
+#include "fixture_patch_edit_plan.h"
 #include "projectutils.h"
 #include "riggingpanel.h"
 #include "selection_origin_token.h"
@@ -776,12 +777,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
     int newUni = dlg.GetUniverse();
     int newCh = dlg.GetChannel();
-    if (newCh < 1)
-      newCh = 1;
-    if (newCh > 512) {
-      newUni += (newCh - 1) / 512;
-      newCh = 1;
-    }
+    if (newUni < 1 || newCh < 1 || newCh > 512)
+      return;
 
     wxDataViewItemArray adrSelections;
     table->GetSelections(adrSelections);
@@ -814,7 +811,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       counts.push_back(static_cast<int>(c));
     }
 
-    auto addrs = PatchManager::SequentialPatch(counts, newUni, newCh);
+    // One explicit edit preserves its authored start; batches remain sequential.
+    const auto addrs = perastage::patch::PlanTablePatch(counts, newUni, newCh);
     for (size_t i = 0; i < orderedRows.size() && i < addrs.size(); ++i) {
       table->SetValue(
           wxVariant(addrs[i].universe), orderedRows[i],
@@ -1284,68 +1282,6 @@ void FixtureTablePanel::HighlightFixture(
   table->Refresh();
 }
 
-// Highlights fixtures with duplicate DMX universe/channel patch addresses.
-void FixtureTablePanel::HighlightPatchConflicts() {
-  // Clear previous highlighting on Universe and Channel columns
-  for (unsigned i = 0; i < table->GetItemCount(); ++i) {
-    store->ClearCellTextColour(
-        i, FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Universe));
-    store->ClearCellTextColour(
-        i, FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Channel));
-  }
-
-  struct PatchInfo {
-    int start;
-    int end;
-    unsigned row;
-  };
-  std::unordered_map<int, std::vector<PatchInfo>> uniMap;
-
-  for (unsigned i = 0; i < table->GetItemCount(); ++i) {
-    wxVariant v;
-    table->GetValue(
-        v, i,
-        FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Universe));
-    long uni = v.GetLong();
-    table->GetValue(
-        v, i,
-        FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Channel));
-    long ch = v.GetLong();
-    table->GetValue(v, i,
-                    FixtureTableColumns::ToIndex(
-                        FixtureTableColumns::Column::ChannelCount));
-    long count = 1;
-    if (!v.GetString().ToLong(&count))
-      count = 1;
-
-    if (uni <= 0 || ch <= 0 || count <= 0)
-      continue;
-
-    PatchInfo info{static_cast<int>(ch), static_cast<int>(ch + count - 1), i};
-    uniMap[static_cast<int>(uni)].push_back(info);
-  }
-
-  for (auto &[uni, vec] : uniMap) {
-    std::sort(vec.begin(), vec.end(),
-              [](const PatchInfo &a, const PatchInfo &b) {
-                return a.start < b.start;
-              });
-
-    for (size_t i = 0; i < vec.size(); ++i) {
-      for (size_t j = i + 1; j < vec.size(); ++j) {
-        if (vec[j].start <= vec[i].end) {
-          store->SetCellTextColour(vec[i].row, 5, *wxRED);
-          store->SetCellTextColour(vec[i].row, 6, *wxRED);
-          store->SetCellTextColour(vec[j].row, 5, *wxRED);
-          store->SetCellTextColour(vec[j].row, 6, *wxRED);
-        } else {
-          break;
-        }
-      }
-    }
-  }
-}
-
 // Clears all current table row selections.
 void FixtureTablePanel::ClearSelection() {
   if (deferredSelectionGuard)
@@ -1555,7 +1491,11 @@ void FixtureTablePanel::UpdateHoverTooltip(const wxPoint &position) {
         if (it != fixtures.end())
           tooltip = BuildCategoryFallbackTooltip(it->second);
       } else {
-        tooltip = BuildFixtureTooltipForColumn(modelColumn);
+        if ((modelColumn == 5 || modelColumn == 6) && row >= 0 &&
+            static_cast<size_t>(row) < rowUuids.size()) {
+          const auto found = patchWarnings.find(rowUuids[row]);
+          if (found != patchWarnings.end()) tooltip = found->second;
+        } else tooltip = BuildFixtureTooltipForColumn(modelColumn);
       }
     }
   }

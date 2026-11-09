@@ -4,6 +4,7 @@
 #include "mvrscene.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <map>
 #include <set>
 
@@ -241,7 +242,7 @@ PatchStatus GetPatchStatus(const MvrScene &scene,
            scene_identity::ObjectReference{scene_identity::ObjectKind::Fixture,
                                            fixture->uuid}});
     } else if (status.startChannel) {
-      const int end = *status.startChannel + *status.footprint - 1;
+      const std::int64_t end = static_cast<std::int64_t>(*status.startChannel) + *status.footprint - 1;
       if (end > 512) {
         result.diagnostics.push_back(
             {"scene.patch.range_exceeds_universe",
@@ -255,15 +256,17 @@ PatchStatus GetPatchStatus(const MvrScene &scene,
   }
   for (std::size_t i = 0; i < result.fixtures.size(); ++i) {
     const auto &first = result.fixtures[i];
-    if (!first.universe || !first.startChannel || !first.endChannel)
+    if (!first.universe || !first.startChannel || !first.footprint)
       continue;
     for (std::size_t j = i + 1; j < result.fixtures.size(); ++j) {
       const auto &second = result.fixtures[j];
       if (first.universe != second.universe || !second.startChannel ||
-          !second.endChannel)
+          !second.footprint)
         continue;
       const int begin = std::max(*first.startChannel, *second.startChannel);
-      const int end = std::min(*first.endChannel, *second.endChannel);
+      const int end = static_cast<int>(std::min<std::int64_t>({512,
+          static_cast<std::int64_t>(*first.startChannel) + *first.footprint - 1,
+          static_cast<std::int64_t>(*second.startChannel) + *second.footprint - 1}));
       if (begin <= end)
         result.conflicts.push_back(
             {*first.universe, begin, end, {first.uuid, second.uuid}});

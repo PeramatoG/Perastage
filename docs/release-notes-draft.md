@@ -24,6 +24,7 @@ Maintenance rules for Codex and contributors:
 - Position Tool uses a shorter sidebar panel with flexible X/Y/Z fields on one row.
 
 - New dockable **Position Tool**, shown below Summary by default in 2D and 3D, supports precise absolute coordinates and incremental axis arrows, mixed-value multi-selection, group positioning, Undo/Redo and 2D insertion-point indicators.
+- Manual single-fixture patch edits preserve valid start addresses when the primary footprint exceeds a universe. Red Channel warnings explain compatibility and overlaps without changing AutoPatch or secondary DMX breaks.
 
 - More reliable MVR import and export, with improved preservation of standard scene data, assignments, references, and transforms.
 - Smarter GDTF matching and DMX mode selection during MVR import, with clearer manual choices.

@@ -136,5 +136,6 @@ private:
     void HighlightAutoFallbackCategories();
     void RunValidationHighlights(SceneDataUpdateType updateType);
 
+    std::unordered_map<std::string, wxString> patchWarnings;
     wxString activeHoverTooltip;
 };

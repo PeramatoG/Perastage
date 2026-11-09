@@ -37,3 +37,7 @@ OSC y [MCP](https://github.com/PeramatoG/Perastage/blob/main/docs/developer/mcp_
 ## Plataformas y código fuente
 
 Perastage admite Windows, macOS y Linux y utiliza la licencia GNU GPL versión 3 o posterior. Consulta [Instalación](installation.md) para los paquetes y el [repositorio](https://github.com/PeramatoG/Perastage) para el código y las contribuciones.
+
+## Patch DMX manual
+
+La edición manual de una luminaria conserva un inicio Universe/Channel válido (canal 1–512), aunque su footprint GDTF primario exceda el universo. Una celda Channel roja explica al pasar el ratón el desbordamiento, footprint desconocido o solapamiento. Por ejemplo, 180 canales en 1.400 abarcarían 1.400–1.512 y 2.1–2.67 con un hipotético Auto Span continuo. Es información: MVR estándar almacena el inicio y no garantiza ese enrutamiento; debe admitirlo la aplicación receptora o controladora. Los breaks secundarios se conservan. AutoPatch y la asignación secuencial múltiple mantienen sus reglas de salto de universo.

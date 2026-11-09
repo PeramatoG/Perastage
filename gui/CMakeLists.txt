@@ -1,4 +1,5 @@
 target_sources(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixturetablepanel_patch_diagnostics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layout_image_export.h
     ${CMAKE_CURRENT_SOURCE_DIR}/layout_image_export.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layout_event_table_cache_policy.h

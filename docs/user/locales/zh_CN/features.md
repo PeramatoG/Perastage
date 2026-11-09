@@ -37,3 +37,7 @@ OSC 和 [MCP](https://github.com/PeramatoG/Perastage/blob/main/docs/developer/mc
 ## 平台与源码
 
 Perastage 支持 Windows、macOS 和 Linux，采用 GNU GPL 第 3 版或更高版本许可。软件包见[安装](installation.md)，源码和贡献说明见[代码仓库](https://github.com/PeramatoG/Perastage)。
+
+## 手动 DMX 配接
+
+手动编辑单个灯具时，只要 Universe/Channel 起始地址有效（通道为 1–512），就会保留该地址，即使主 GDTF 通道占用超出当前宇宙。红色 Channel 单元格的悬停提示会分别说明溢出、未知通道占用或重叠。例如，1.400 起始的 180 通道在假设连续 Auto Span 路由下会占用 1.400–1.512 和 2.1–2.67。这些范围仅供参考：标准 MVR 保存起始地址，并不保证该路由，接收或控制应用必须自行支持。次级 DMX breaks 保持不变。AutoPatch 和多个灯具的顺序分配仍采用原有的跨宇宙分配规则。

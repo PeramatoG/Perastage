@@ -37,3 +37,7 @@ OSC et [MCP](https://github.com/PeramatoG/Perastage/blob/main/docs/developer/mcp
 ## Plateformes et sources
 
 Perastage prend en charge Windows, macOS et Linux sous GNU GPL version 3 ou ultérieure. Consultez [Installation](installation.md) pour les paquets et le [dépôt](https://github.com/PeramatoG/Perastage) pour les sources et contributions.
+
+## Patch DMX manuel
+
+La saisie manuelle pour un appareil conserve un départ Universe/Channel valide (canal 1–512), même si son empreinte GDTF primaire dépasse cet univers. Une cellule Channel rouge explique au survol le dépassement, une empreinte inconnue ou un chevauchement. Par exemple, 180 canaux à 1.400 couvriraient 1.400–1.512 et 2.1–2.67 avec un Auto Span continu hypothétique. Ces plages sont informatives : MVR standard conserve le départ sans garantir ce routage, qui doit être pris en charge par le contrôleur ou le récepteur. Les breaks secondaires sont conservés. AutoPatch et le patch séquentiel multiple gardent leurs règles de changement d’univers.
