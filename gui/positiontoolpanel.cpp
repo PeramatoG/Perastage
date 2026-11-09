@@ -44,8 +44,8 @@ PositionToolPanel::PositionToolPanel(
   heading->Add(status_, 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(4));
   outer->Add(heading, 0, wxEXPAND | wxALL, FromDIP(4));
 
-  // Whole axis controls wrap together when a pane is narrow.
-  auto *coordinates = new wxWrapSizer(wxHORIZONTAL);
+  // Share available width equally while keeping all three axes on one row.
+  auto *coordinates = new wxBoxSizer(wxHORIZONTAL);
   const wxString labels[] = {_("X:"), _("Y:"), _("Z:")};
   for (int axis = 0; axis < 3; ++axis) {
     auto *cell = new wxPanel(this);
@@ -53,13 +53,22 @@ PositionToolPanel::PositionToolPanel(
     row->Add(new wxStaticText(cell, wxID_ANY, labels[axis]), 0,
              wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(3));
     auto *field = new wxTextCtrl(cell, wxID_ANY, wxEmptyString,
-                                 wxDefaultPosition, FromDIP(wxSize(92, -1)),
+                                 wxDefaultPosition, FromDIP(wxSize(45, -1)),
                                  wxTE_PROCESS_ENTER);
+    field->SetMinSize(FromDIP(wxSize(20, -1)));
     fields_[axis] = field;
     field->SetName(labels[axis]);
     row->Add(field, 1);
     auto *stepper = new wxSpinButton(cell, wxID_ANY, wxDefaultPosition,
                                      wxDefaultSize, wxSP_VERTICAL);
+#ifdef __WXGTK__
+    // GTK presents two horizontal buttons; retain room for both hit targets.
+    const int stepperWidth = 48;
+#else
+    const int stepperWidth = 20;
+#endif
+    stepper->SetMinSize(FromDIP(wxSize(stepperWidth, -1)));
+    stepper->SetSize(FromDIP(wxSize(stepperWidth, -1)));
     steppers_[axis] = stepper;
     stepper->SetRange(-1000000, 1000000);
     stepper->SetValue(0);
@@ -67,7 +76,8 @@ PositionToolPanel::PositionToolPanel(
     stepper->Bind(wxEVT_SPIN_UP, [this, axis](wxSpinEvent &) { Step(axis, 1); });
     stepper->Bind(wxEVT_SPIN_DOWN, [this, axis](wxSpinEvent &) { Step(axis, -1); });
     cell->SetSizer(row);
-    coordinates->Add(cell, 0, wxALL, FromDIP(3));
+    cell->SetMinSize(wxSize(1, -1));
+    coordinates->Add(cell, 1, wxEXPAND | wxALL, FromDIP(3));
     field->Bind(wxEVT_SET_FOCUS, [this, axis](wxFocusEvent &event) {
       BeginEdit(axis);
       event.Skip();

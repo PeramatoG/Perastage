@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-09 04:33+0000\n"
+"POT-Creation-Date: 2026-11-09 09:07+0000\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: German\n"
@@ -4153,7 +4153,7 @@ msgid "Layout Mode View"
 msgstr "Layoutmodus-Ansicht"
 
 #: gui/mainwindow_menu_builders.cpp:79 gui/mainwindow_position_tool.cpp:20
-#: gui/positiontoolpanel.cpp:216
+#: gui/positiontoolpanel.cpp:226
 msgid "Position Tool"
 msgstr "Positionswerkzeug"
 
@@ -5034,7 +5034,7 @@ msgid "%zu discovered, %zu incoming joined, %zu outgoing joined"
 msgstr "%zu gefunden, %zu eingehende Beitritte, %zu ausgehende Beitritte"
 
 #
-#: gui/positiontoolpanel.cpp:41 gui/positiontoolpanel.cpp:139
+#: gui/positiontoolpanel.cpp:41 gui/positiontoolpanel.cpp:149
 msgid "No selection"
 msgstr "Keine Auswahl"
 
@@ -5050,36 +5050,36 @@ msgstr "Y:"
 msgid "Z:"
 msgstr "Z:"
 
-#: gui/positiontoolpanel.cpp:140
+#: gui/positiontoolpanel.cpp:150
 msgid "Multiple objects selected"
 msgstr "Mehrere Objekte ausgewählt"
 
-#: gui/positiontoolpanel.cpp:142
+#: gui/positiontoolpanel.cpp:152
 msgid "Group selected"
 msgstr "Gruppe ausgewählt"
 
-#: gui/positiontoolpanel.cpp:142
+#: gui/positiontoolpanel.cpp:152
 msgid "Object selected"
 msgstr "Objekt ausgewählt"
 
-#: gui/positiontoolpanel.cpp:153
+#: gui/positiontoolpanel.cpp:163
 msgid "Select an object to edit its world position."
 msgstr "Wählen Sie ein Objekt aus, um seine Weltposition zu bearbeiten."
 
-#: gui/positiontoolpanel.cpp:154
+#: gui/positiontoolpanel.cpp:164
 msgid "Absolute world coordinate. An empty field means mixed values."
 msgstr ""
 "Absolute Weltkoordinate. Ein leeres Feld bedeutet unterschiedliche Werte."
 
-#: gui/positiontoolpanel.cpp:186 gui/positiontoolpanel.cpp:187
+#: gui/positiontoolpanel.cpp:196 gui/positiontoolpanel.cpp:197
 msgid "Enter a valid distance."
 msgstr "Geben Sie eine gültige Entfernung ein."
 
-#: gui/positiontoolpanel.cpp:197
+#: gui/positiontoolpanel.cpp:207
 msgid "Position could not be updated."
 msgstr "Die Position konnte nicht aktualisiert werden."
 
-#: gui/positiontoolpanel.cpp:215
+#: gui/positiontoolpanel.cpp:225
 msgid "Select a group to position."
 msgstr "Wählen Sie eine Gruppe zum Positionieren aus."
 

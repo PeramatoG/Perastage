@@ -18,8 +18,8 @@ void MainWindow::CreatePositionTool() {
       });
   auiManager->AddPane(positionToolPanel, wxAuiPaneInfo()
       .Name("PositionTool").Caption(_("Position Tool"))
-      .Right().Layer(1).Row(0).Position(2).BestSize(FromDIP(wxSize(295, 160)))
-      .MinSize(FromDIP(wxSize(180, 85))).CloseButton(true));
+      .Right().Layer(1).Row(0).Position(2).BestSize(FromDIP(wxSize(295, 70)))
+      .MinSize(FromDIP(wxSize(280, 70))).CloseButton(true));
 }
 
 void MainWindow::OnTogglePositionTool(wxCommandEvent &) {
@@ -33,11 +33,21 @@ void MainWindow::OnTogglePositionTool(wxCommandEvent &) {
 // Migrate the original bottom/hidden default once, retaining later user layouts.
 void MainWindow::InitializePositionToolSidebar(bool sceneWorkspace) {
   auto &preferences = guiConfigServices->Preferences();
+  if (sceneWorkspace && !preferences.GetValue("ui_position_tool_compact_height")) {
+    auto &pane = auiManager->GetPane("PositionTool");
+    pane.BestSize(FromDIP(wxSize(295, 70))).MinSize(FromDIP(wxSize(280, 70)));
+    pane.dock_proportion = 25000;
+    auto &config = guiConfigServices->LegacyConfigManager();
+    const auto dirty = config.CaptureDirtyState();
+    preferences.SetValue("ui_position_tool_compact_height", "1");
+    preferences.SetValue("layout_perspective", auiManager->SavePerspective().ToStdString());
+    config.RestoreDirtyState(dirty);
+  }
   if (!sceneWorkspace || preferences.GetValue("ui_position_tool_sidebar_initialized"))
     return;
   auto &pane = auiManager->GetPane("PositionTool");
   pane.Dock().Right().Layer(1).Row(0).Position(2)
-      .BestSize(FromDIP(wxSize(295, 160))).Show();
+      .BestSize(FromDIP(wxSize(295, 70))).Show();
   auto &config = guiConfigServices->LegacyConfigManager();
   const auto dirty = config.CaptureDirtyState();
   preferences.SetValue("ui_position_tool_sidebar_initialized", "1");

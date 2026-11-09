@@ -12,7 +12,7 @@ In 2D, drag empty space to pan and use the wheel to zoom. Select scene elements 
 
 Open **View → Position Tool** in either the 2D or 3D workspace. Dock, float, resize or hide the same panel; its placement and visibility are saved with the workspace. With no selection, the coordinate fields are disabled.
 
-The panel is shown by default below Summary in the right sidebar in 2D and 3D. The arrows beside each axis move every effective target by 1 mm per click in metric units or 0.01 ft in imperial units, preserving mixed values and stored precision. Each click is undoable.
+The three axis fields share one flexible row in a compact-height panel. The panel is shown by default below Summary in the right sidebar in 2D and 3D. The arrows beside each axis move every effective target by 1 mm per click in metric units or 0.01 ft in imperial units, preserving mixed values and stored precision. Each click is undoable.
 
 X, Y and Z are absolute world coordinates of the insertion point. Edit one field and press Enter or leave the field to apply it; the other axes, rotation and scale stay unchanged. Escape cancels an uncommitted edit. Each completed edit is one Undo step. Invalid or empty input does not move anything.
 

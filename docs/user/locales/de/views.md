@@ -12,6 +12,8 @@ Ziehen Sie in 2D auf freier Fläche zum Verschieben und nutzen Sie das Mausrad z
 
 Öffnen Sie **View → Position Tool** im 2D- oder 3D-Arbeitsbereich. Dasselbe Fenster lässt sich andocken, lösen, skalieren oder ausblenden; Position und Sichtbarkeit werden mit dem Arbeitsbereich gespeichert. Ohne Auswahl sind die Koordinatenfelder deaktiviert.
 
+X, Y und Z teilen sich eine flexible Zeile in einem kompakten Fenster.
+
 Das Fenster erscheint in 2D und 3D standardmäßig unter Summary in der rechten Spalte. Die Pfeile jeder Achse verschieben jedes effektive Ziel pro Klick um 1 mm in metrischen Einheiten oder 0,01 Fuß in imperialen Einheiten. Unterschiedliche Werte und gespeicherte Präzision bleiben erhalten. Jeder Klick lässt sich rückgängig machen.
 
 X, Y und Z sind absolute Weltkoordinaten des Einfügepunkts. Bearbeiten Sie ein Feld und drücken Sie die Eingabetaste oder verlassen Sie das Feld, um den Wert anzuwenden. Die anderen Achsen, Drehung und Skalierung bleiben erhalten. Escape verwirft die noch nicht bestätigte Eingabe. Jede bestätigte Änderung bildet einen Rückgängig-Schritt. Leere oder ungültige Eingaben verschieben nichts.

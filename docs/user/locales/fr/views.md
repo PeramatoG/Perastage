@@ -12,6 +12,8 @@ En 2D, glissez dans l’espace vide pour déplacer la vue et utilisez la molette
 
 Ouvrez **View → Position Tool** dans l’espace de travail 2D ou 3D. Le même panneau peut être ancré, flottant, redimensionné ou masqué ; sa position et sa visibilité sont enregistrées avec l’espace de travail. Sans sélection, les champs sont désactivés.
 
+Les champs X, Y et Z partagent une seule ligne de largeur flexible dans un panneau de hauteur réduite.
+
 Le panneau apparaît par défaut sous Summary dans la colonne droite en 2D et 3D. Les flèches de chaque axe déplacent chaque cible effective de 1 mm par clic en métrique ou de 0,01 pied en impérial, en conservant les différences et la précision enregistrée. Chaque clic peut être annulé.
 
 X, Y et Z sont les coordonnées absolues du point d’insertion dans le monde. Modifiez un champ puis appuyez sur Entrée ou quittez le champ pour appliquer la valeur ; les autres axes, la rotation et l’échelle sont conservés. Échap annule la modification en cours. Chaque modification validée constitue une étape d’annulation. Une saisie vide ou incorrecte ne déplace rien.

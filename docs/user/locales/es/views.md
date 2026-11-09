@@ -12,6 +12,8 @@ En 2D, arrastra sobre un espacio vacío para desplazar y utiliza la rueda para a
 
 Abre **View → Position Tool** en el espacio de trabajo 2D o 3D. Puedes acoplar, separar, redimensionar u ocultar el mismo panel; su posición y visibilidad se guardan con el espacio de trabajo. Sin selección, los campos están desactivados.
 
+Los campos X, Y y Z comparten una sola fila de ancho flexible en un panel de altura compacta.
+
 El panel aparece por defecto debajo de Summary, en la columna derecha de las vistas 2D y 3D. Las flechas de cada eje desplazan cada destino efectivo 1 mm por pulsación en métrico o 0,01 pies en imperial, conservando las diferencias y la precisión almacenada. Cada pulsación se puede deshacer.
 
 X, Y y Z son coordenadas absolutas del punto de inserción en el mundo. Edita un campo y pulsa Intro o sal del campo para aplicarlo; los demás ejes, la rotación y la escala se conservan. Escape cancela la edición pendiente. Cada edición completada crea un paso de Deshacer. Las entradas vacías o no válidas no mueven nada.
