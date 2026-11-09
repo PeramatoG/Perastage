@@ -88,6 +88,8 @@
 <p>OSC and <a href="../developer/mcp_adapter.html">MCP</a> offer experimental local integration for separately configured automation. Technical contracts belong in the <a href="../developer/index.html">developer documentation</a>.</p>
 <h2 id="platforms-and-source">Platforms and source</h2>
 <p>Perastage supports Windows, macOS and Linux and is licensed under GNU GPL version 3 or later. See <a href="installation.html">Installation</a> for release packages and the <a href="https://github.com/PeramatoG/Perastage">repository</a> for source and contribution information.</p>
+<h2 id="manual-dmx-patching">Manual DMX patching</h2>
+<p>Manual patching of one fixture preserves a valid Universe/Channel start (channel 1–512), even when its primary GDTF footprint exceeds that universe. A red Channel cell explains overflow, unresolved footprints or overlaps on hover. For example, 180 channels at 1.400 would span 1.400–1.512 and 2.1–2.67 under hypothetical continuous Auto Span routing. This is informational: standard MVR stores the start, does not guarantee that routing, and the receiving/controller application must support it. Secondary DMX breaks stay unchanged. AutoPatch and intentional multi-fixture sequential patching retain their existing universe-wrapping behavior.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

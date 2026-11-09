@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-09 09:07+0000\n"
+"POT-Creation-Date: 2026-11-09 10:00+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -115,15 +115,15 @@ msgstr "灯具 ID："
 msgid "Mode:"
 msgstr "模式："
 
-#: gui/addressdialog.cpp:21
+#: gui/addressdialog.cpp:22
 msgid "Edit Address"
 msgstr "编辑地址"
 
-#: gui/addressdialog.cpp:26 gui/fixturepatchdialog.cpp:39
+#: gui/addressdialog.cpp:27 gui/fixturepatchdialog.cpp:39
 msgid "Universe:"
 msgstr "DMX 域："
 
-#: gui/addressdialog.cpp:30 gui/fixturepatchdialog.cpp:43
+#: gui/addressdialog.cpp:31 gui/fixturepatchdialog.cpp:43
 msgid "Channel:"
 msgstr "通道："
 
@@ -469,7 +469,7 @@ msgid "Mode"
 msgstr "模式"
 
 #: gui/dictionaryeditdialog.cpp:519 gui/dictionaryeditdialog.cpp:2236
-#: gui/fixturetable/fixture_table_columns.cpp:21 gui/fixturetablepanel.cpp:851
+#: gui/fixturetable/fixture_table_columns.cpp:21 gui/fixturetablepanel.cpp:849
 msgid "Category"
 msgstr "类别"
 
@@ -818,19 +818,19 @@ msgstr ""
 "\n"
 
 #: gui/dictionaryeditdialog.cpp:1521 gui/dictionaryeditdialog.cpp:2276
-#: gui/fixtureeditdialog.cpp:644 gui/fixturetablepanel.cpp:525
+#: gui/fixtureeditdialog.cpp:644 gui/fixturetablepanel.cpp:526
 #: gui/mainwindow_fixture_replace.cpp:227 gui/mainwindow_menu.cpp:998
 #: gui/mainwindow_menu.cpp:1021
 msgid "Select GDTF file"
 msgstr "选择 GDTF 文件"
 
 #: gui/dictionaryeditdialog.cpp:1537 gui/dictionaryeditdialog.cpp:2220
-#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:693
+#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:694
 msgid "Select DMX mode"
 msgstr "选择 DMX 模式"
 
 #: gui/dictionaryeditdialog.cpp:1537 gui/dictionaryeditdialog.cpp:2220
-#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:693
+#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:694
 msgid "DMX Mode"
 msgstr "DMX 模式"
 
@@ -1091,7 +1091,7 @@ msgstr ""
 "桁架字典恢复为默认值.\n"
 "\n"
 
-#: gui/dictionaryeditdialog.cpp:2236 gui/fixturetablepanel.cpp:851
+#: gui/dictionaryeditdialog.cpp:2236 gui/fixturetablepanel.cpp:849
 msgid "Select category"
 msgstr "选择类别"
 
@@ -1381,7 +1381,7 @@ msgstr "GDTF 更新"
 msgid "Type"
 msgstr "类型"
 
-#: gui/fixturetable/fixture_table_columns.cpp:13 gui/fixturetablepanel.cpp:742
+#: gui/fixturetable/fixture_table_columns.cpp:13 gui/fixturetablepanel.cpp:743
 #: gui/hoisttablepanel.cpp:465 gui/hoisttablepanel.cpp:786
 #: gui/layerpanel.cpp:86 gui/sceneobjecttablepanel.cpp:265
 #: gui/sceneobjecttablepanel.cpp:433 gui/trusstablepanel.cpp:300
@@ -1410,24 +1410,24 @@ msgstr "通道数"
 msgid "Model file"
 msgstr "模型文件"
 
-#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:280
-#: gui/fixturetablepanel.cpp:314 gui/hoisttablepanel.cpp:467
+#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:281
+#: gui/fixturetablepanel.cpp:315 gui/hoisttablepanel.cpp:467
 #: gui/hoisttablepanel.cpp:500 gui/sceneobjecttablepanel.cpp:267
 #: gui/sceneobjecttablepanel.cpp:292 gui/trusstablepanel.cpp:301
 #: gui/trusstablepanel.cpp:334
 msgid "Pos X"
 msgstr "位置 X"
 
-#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:283
-#: gui/fixturetablepanel.cpp:317 gui/hoisttablepanel.cpp:468
+#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:284
+#: gui/fixturetablepanel.cpp:318 gui/hoisttablepanel.cpp:468
 #: gui/hoisttablepanel.cpp:501 gui/sceneobjecttablepanel.cpp:268
 #: gui/sceneobjecttablepanel.cpp:293 gui/trusstablepanel.cpp:301
 #: gui/trusstablepanel.cpp:335
 msgid "Pos Y"
 msgstr "位置 Y"
 
-#: gui/fixturetable/fixture_table_columns.cpp:18 gui/fixturetablepanel.cpp:286
-#: gui/fixturetablepanel.cpp:320 gui/hoisttablepanel.cpp:469
+#: gui/fixturetable/fixture_table_columns.cpp:18 gui/fixturetablepanel.cpp:287
+#: gui/fixturetablepanel.cpp:321 gui/hoisttablepanel.cpp:469
 #: gui/hoisttablepanel.cpp:502 gui/sceneobjecttablepanel.cpp:269
 #: gui/sceneobjecttablepanel.cpp:294 gui/trusstablepanel.cpp:301
 #: gui/trusstablepanel.cpp:336
@@ -1462,7 +1462,7 @@ msgstr "重量 (kg)"
 msgid "Color Filter"
 msgstr "滤色片"
 
-#: gui/fixturetablepanel.cpp:289 gui/fixturetablepanel.cpp:323
+#: gui/fixturetablepanel.cpp:290 gui/fixturetablepanel.cpp:324
 #: gui/hoisttablepanel.cpp:475 gui/hoisttablepanel.cpp:506
 #: gui/inspection/gdtf_inspector_details_panel.cpp:47
 #: gui/trusstablepanel.cpp:304 gui/trusstablepanel.cpp:340
@@ -1471,27 +1471,27 @@ msgstr "滤色片"
 msgid "Weight"
 msgstr "重量"
 
-#: gui/fixturetablepanel.cpp:742 gui/hoisttablepanel.cpp:786
+#: gui/fixturetablepanel.cpp:743 gui/hoisttablepanel.cpp:786
 #: gui/sceneobjecttablepanel.cpp:433 gui/trusstablepanel.cpp:533
 msgid "Select layer"
 msgstr "选择图层"
 
-#: gui/fixturetablepanel.cpp:984 gui/hoisttablepanel.cpp:849
+#: gui/fixturetablepanel.cpp:982 gui/hoisttablepanel.cpp:849
 #: gui/sceneobjecttablepanel.cpp:499 gui/trusstablepanel.cpp:677
 msgid "Edit value:"
 msgstr "编辑值："
 
-#: gui/fixturetablepanel.cpp:1035 gui/fixturetablepanel.cpp:1040
+#: gui/fixturetablepanel.cpp:1033 gui/fixturetablepanel.cpp:1038
 #: gui/hoisttablepanel.cpp:897 gui/hoisttablepanel.cpp:902
 #: gui/sceneobjecttablepanel.cpp:545 gui/sceneobjecttablepanel.cpp:550
 #: gui/trusstablepanel.cpp:723 gui/trusstablepanel.cpp:728
 msgid "Invalid numeric value"
 msgstr "无效的数值"
 
-#: gui/fixturetablepanel.cpp:1035 gui/fixturetablepanel.cpp:1040
-#: gui/fixturetablepanel.cpp:1047 gui/fixturetablepanel.cpp:1053
-#: gui/fixturetablepanel.cpp:1061 gui/fixturetablepanel.cpp:1067
-#: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
+#: gui/fixturetablepanel.cpp:1033 gui/fixturetablepanel.cpp:1038
+#: gui/fixturetablepanel.cpp:1045 gui/fixturetablepanel.cpp:1051
+#: gui/fixturetablepanel.cpp:1059 gui/fixturetablepanel.cpp:1065
+#: gui/fixturetablepanel.cpp:1101 gui/fixturetablepanel.cpp:1108
 #: gui/gdtf_share_download_workflow.cpp:477
 #: gui/gdtf_share_download_workflow.cpp:481 gui/hoisttablepanel.cpp:897
 #: gui/hoisttablepanel.cpp:902 gui/hoisttablepanel.cpp:908
@@ -1516,17 +1516,39 @@ msgstr "无效的数值"
 msgid "Error"
 msgstr "错误"
 
-#: gui/fixturetablepanel.cpp:1047 gui/fixturetablepanel.cpp:1061
-#: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
+#: gui/fixturetablepanel.cpp:1045 gui/fixturetablepanel.cpp:1059
+#: gui/fixturetablepanel.cpp:1101 gui/fixturetablepanel.cpp:1108
 #: gui/hoisttablepanel.cpp:908 gui/hoisttablepanel.cpp:915
 #: gui/sceneobjecttablepanel.cpp:556 gui/sceneobjecttablepanel.cpp:563
 #: gui/trusstablepanel.cpp:734 gui/trusstablepanel.cpp:741
 msgid "Invalid value"
 msgstr "无效值"
 
-#: gui/fixturetablepanel.cpp:1053 gui/fixturetablepanel.cpp:1067
+#: gui/fixturetablepanel.cpp:1051 gui/fixturetablepanel.cpp:1065
 msgid "Channel out of range (1-512)"
 msgstr "通道超出范围（1-512）"
+
+#: gui/fixturetablepanel_patch_diagnostics.cpp:44
+msgid "Invalid DMX start address. The channel must be between 1 and 512."
+msgstr "DMX 起始地址无效。通道必须介于 1 和 512 之间。"
+
+#: gui/fixturetablepanel_patch_diagnostics.cpp:46
+msgid "The GDTF DMX footprint is unknown or unresolved."
+msgstr "GDTF 的 DMX 通道占用未知或无法解析。"
+
+#: gui/fixturetablepanel_patch_diagnostics.cpp:50
+#, c-format
+msgid ""
+"DMX footprint exceeds universe %d. Primary footprint: %d channels. Start: "
+"%s. Hypothetical continuous Auto Span ranges: %s. The manually entered start "
+"address is preserved. Continuous operation requires routing support in the "
+"receiving or controlling application; these ranges do not define additional "
+"DMX breaks."
+msgstr "DMX 通道占用超出宇宙 %d。主通道占用：%d 个通道。起始地址：%s。假设连续 Auto Span 的范围：%s。保留手动输入的起始地址。连续运行需要接收或控制应用支持相应路由；这些范围不定义额外的 DMX breaks。"
+
+#: gui/fixturetablepanel_patch_diagnostics.cpp:59
+msgid "DMX overlap with another fixture in the assigned universe."
+msgstr "与所分配宇宙内的其他灯具发生 DMX 重叠。"
 
 #: gui/gdtf/fixture_part_navigator.cpp:10
 #: gui/gdtf/fixture_part_navigator.cpp:25

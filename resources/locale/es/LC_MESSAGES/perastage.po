@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-09 09:07+0000\n"
+"POT-Creation-Date: 2026-11-09 10:00+0000\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -122,15 +122,15 @@ msgstr "ID del aparato:"
 msgid "Mode:"
 msgstr "Modo:"
 
-#: gui/addressdialog.cpp:21
+#: gui/addressdialog.cpp:22
 msgid "Edit Address"
 msgstr "Editar dirección"
 
-#: gui/addressdialog.cpp:26 gui/fixturepatchdialog.cpp:39
+#: gui/addressdialog.cpp:27 gui/fixturepatchdialog.cpp:39
 msgid "Universe:"
 msgstr "Universo:"
 
-#: gui/addressdialog.cpp:30 gui/fixturepatchdialog.cpp:43
+#: gui/addressdialog.cpp:31 gui/fixturepatchdialog.cpp:43
 msgid "Channel:"
 msgstr "Canal:"
 
@@ -479,7 +479,7 @@ msgid "Mode"
 msgstr "Modo"
 
 #: gui/dictionaryeditdialog.cpp:519 gui/dictionaryeditdialog.cpp:2236
-#: gui/fixturetable/fixture_table_columns.cpp:21 gui/fixturetablepanel.cpp:851
+#: gui/fixturetable/fixture_table_columns.cpp:21 gui/fixturetablepanel.cpp:849
 msgid "Category"
 msgstr "Categoría"
 
@@ -837,19 +837,19 @@ msgstr ""
 "\n"
 
 #: gui/dictionaryeditdialog.cpp:1521 gui/dictionaryeditdialog.cpp:2276
-#: gui/fixtureeditdialog.cpp:644 gui/fixturetablepanel.cpp:525
+#: gui/fixtureeditdialog.cpp:644 gui/fixturetablepanel.cpp:526
 #: gui/mainwindow_fixture_replace.cpp:227 gui/mainwindow_menu.cpp:998
 #: gui/mainwindow_menu.cpp:1021
 msgid "Select GDTF file"
 msgstr "Seleccione el archivo GDTF"
 
 #: gui/dictionaryeditdialog.cpp:1537 gui/dictionaryeditdialog.cpp:2220
-#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:693
+#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:694
 msgid "Select DMX mode"
 msgstr "Seleccione el modo DMX"
 
 #: gui/dictionaryeditdialog.cpp:1537 gui/dictionaryeditdialog.cpp:2220
-#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:693
+#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:694
 msgid "DMX Mode"
 msgstr "Modo DMX"
 
@@ -1117,7 +1117,7 @@ msgstr ""
 "Diccionario de trusses restaurado a los valores predeterminados.\n"
 "\n"
 
-#: gui/dictionaryeditdialog.cpp:2236 gui/fixturetablepanel.cpp:851
+#: gui/dictionaryeditdialog.cpp:2236 gui/fixturetablepanel.cpp:849
 msgid "Select category"
 msgstr "Seleccionar categoría"
 
@@ -1414,7 +1414,7 @@ msgstr "GDTF actualización"
 msgid "Type"
 msgstr "Tipo"
 
-#: gui/fixturetable/fixture_table_columns.cpp:13 gui/fixturetablepanel.cpp:742
+#: gui/fixturetable/fixture_table_columns.cpp:13 gui/fixturetablepanel.cpp:743
 #: gui/hoisttablepanel.cpp:465 gui/hoisttablepanel.cpp:786
 #: gui/layerpanel.cpp:86 gui/sceneobjecttablepanel.cpp:265
 #: gui/sceneobjecttablepanel.cpp:433 gui/trusstablepanel.cpp:300
@@ -1443,24 +1443,24 @@ msgstr "N.º de canales"
 msgid "Model file"
 msgstr "Archivo de modelo"
 
-#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:280
-#: gui/fixturetablepanel.cpp:314 gui/hoisttablepanel.cpp:467
+#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:281
+#: gui/fixturetablepanel.cpp:315 gui/hoisttablepanel.cpp:467
 #: gui/hoisttablepanel.cpp:500 gui/sceneobjecttablepanel.cpp:267
 #: gui/sceneobjecttablepanel.cpp:292 gui/trusstablepanel.cpp:301
 #: gui/trusstablepanel.cpp:334
 msgid "Pos X"
 msgstr "Pos X"
 
-#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:283
-#: gui/fixturetablepanel.cpp:317 gui/hoisttablepanel.cpp:468
+#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:284
+#: gui/fixturetablepanel.cpp:318 gui/hoisttablepanel.cpp:468
 #: gui/hoisttablepanel.cpp:501 gui/sceneobjecttablepanel.cpp:268
 #: gui/sceneobjecttablepanel.cpp:293 gui/trusstablepanel.cpp:301
 #: gui/trusstablepanel.cpp:335
 msgid "Pos Y"
 msgstr "Pos Y"
 
-#: gui/fixturetable/fixture_table_columns.cpp:18 gui/fixturetablepanel.cpp:286
-#: gui/fixturetablepanel.cpp:320 gui/hoisttablepanel.cpp:469
+#: gui/fixturetable/fixture_table_columns.cpp:18 gui/fixturetablepanel.cpp:287
+#: gui/fixturetablepanel.cpp:321 gui/hoisttablepanel.cpp:469
 #: gui/hoisttablepanel.cpp:502 gui/sceneobjecttablepanel.cpp:269
 #: gui/sceneobjecttablepanel.cpp:294 gui/trusstablepanel.cpp:301
 #: gui/trusstablepanel.cpp:336
@@ -1495,7 +1495,7 @@ msgstr "Peso (kg)"
 msgid "Color Filter"
 msgstr "Filtro de color"
 
-#: gui/fixturetablepanel.cpp:289 gui/fixturetablepanel.cpp:323
+#: gui/fixturetablepanel.cpp:290 gui/fixturetablepanel.cpp:324
 #: gui/hoisttablepanel.cpp:475 gui/hoisttablepanel.cpp:506
 #: gui/inspection/gdtf_inspector_details_panel.cpp:47
 #: gui/trusstablepanel.cpp:304 gui/trusstablepanel.cpp:340
@@ -1504,27 +1504,27 @@ msgstr "Filtro de color"
 msgid "Weight"
 msgstr "Peso"
 
-#: gui/fixturetablepanel.cpp:742 gui/hoisttablepanel.cpp:786
+#: gui/fixturetablepanel.cpp:743 gui/hoisttablepanel.cpp:786
 #: gui/sceneobjecttablepanel.cpp:433 gui/trusstablepanel.cpp:533
 msgid "Select layer"
 msgstr "Seleccionar capa"
 
-#: gui/fixturetablepanel.cpp:984 gui/hoisttablepanel.cpp:849
+#: gui/fixturetablepanel.cpp:982 gui/hoisttablepanel.cpp:849
 #: gui/sceneobjecttablepanel.cpp:499 gui/trusstablepanel.cpp:677
 msgid "Edit value:"
 msgstr "Editar valor:"
 
-#: gui/fixturetablepanel.cpp:1035 gui/fixturetablepanel.cpp:1040
+#: gui/fixturetablepanel.cpp:1033 gui/fixturetablepanel.cpp:1038
 #: gui/hoisttablepanel.cpp:897 gui/hoisttablepanel.cpp:902
 #: gui/sceneobjecttablepanel.cpp:545 gui/sceneobjecttablepanel.cpp:550
 #: gui/trusstablepanel.cpp:723 gui/trusstablepanel.cpp:728
 msgid "Invalid numeric value"
 msgstr "Valor numérico no válido"
 
-#: gui/fixturetablepanel.cpp:1035 gui/fixturetablepanel.cpp:1040
-#: gui/fixturetablepanel.cpp:1047 gui/fixturetablepanel.cpp:1053
-#: gui/fixturetablepanel.cpp:1061 gui/fixturetablepanel.cpp:1067
-#: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
+#: gui/fixturetablepanel.cpp:1033 gui/fixturetablepanel.cpp:1038
+#: gui/fixturetablepanel.cpp:1045 gui/fixturetablepanel.cpp:1051
+#: gui/fixturetablepanel.cpp:1059 gui/fixturetablepanel.cpp:1065
+#: gui/fixturetablepanel.cpp:1101 gui/fixturetablepanel.cpp:1108
 #: gui/gdtf_share_download_workflow.cpp:477
 #: gui/gdtf_share_download_workflow.cpp:481 gui/hoisttablepanel.cpp:897
 #: gui/hoisttablepanel.cpp:902 gui/hoisttablepanel.cpp:908
@@ -1549,17 +1549,39 @@ msgstr "Valor numérico no válido"
 msgid "Error"
 msgstr "Error"
 
-#: gui/fixturetablepanel.cpp:1047 gui/fixturetablepanel.cpp:1061
-#: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
+#: gui/fixturetablepanel.cpp:1045 gui/fixturetablepanel.cpp:1059
+#: gui/fixturetablepanel.cpp:1101 gui/fixturetablepanel.cpp:1108
 #: gui/hoisttablepanel.cpp:908 gui/hoisttablepanel.cpp:915
 #: gui/sceneobjecttablepanel.cpp:556 gui/sceneobjecttablepanel.cpp:563
 #: gui/trusstablepanel.cpp:734 gui/trusstablepanel.cpp:741
 msgid "Invalid value"
 msgstr "Valor no válido"
 
-#: gui/fixturetablepanel.cpp:1053 gui/fixturetablepanel.cpp:1067
+#: gui/fixturetablepanel.cpp:1051 gui/fixturetablepanel.cpp:1065
 msgid "Channel out of range (1-512)"
 msgstr "Canal fuera de rango (1-512)"
+
+#: gui/fixturetablepanel_patch_diagnostics.cpp:44
+msgid "Invalid DMX start address. The channel must be between 1 and 512."
+msgstr "Dirección DMX inicial no válida. El canal debe estar entre 1 y 512."
+
+#: gui/fixturetablepanel_patch_diagnostics.cpp:46
+msgid "The GDTF DMX footprint is unknown or unresolved."
+msgstr "El footprint DMX del GDTF es desconocido o no se ha podido resolver."
+
+#: gui/fixturetablepanel_patch_diagnostics.cpp:50
+#, c-format
+msgid ""
+"DMX footprint exceeds universe %d. Primary footprint: %d channels. Start: "
+"%s. Hypothetical continuous Auto Span ranges: %s. The manually entered start "
+"address is preserved. Continuous operation requires routing support in the "
+"receiving or controlling application; these ranges do not define additional "
+"DMX breaks."
+msgstr "El footprint DMX excede el universo %d. Footprint primario: %d canales. Inicio: %s. Rangos hipotéticos de Auto Span continuo: %s. Se conserva la dirección inicial introducida manualmente. El funcionamiento continuo requiere compatibilidad de enrutamiento en la aplicación receptora o controladora; estos rangos no definen breaks DMX adicionales."
+
+#: gui/fixturetablepanel_patch_diagnostics.cpp:59
+msgid "DMX overlap with another fixture in the assigned universe."
+msgstr "Solapamiento DMX con otra luminaria en el universo asignado."
 
 #: gui/gdtf/fixture_part_navigator.cpp:10
 #: gui/gdtf/fixture_part_navigator.cpp:25

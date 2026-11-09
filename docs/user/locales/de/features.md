@@ -37,3 +37,7 @@ OSC und [MCP](https://github.com/PeramatoG/Perastage/blob/main/docs/developer/mc
 ## Plattformen und Quellcode
 
 Perastage unterstützt Windows, macOS und Linux und steht unter GNU GPL Version 3 oder höher. Siehe [Installation](installation.md) für Pakete und das [Repository](https://github.com/PeramatoG/Perastage) für Quellcode und Beiträge.
+
+## Manuelles DMX-Patchen
+
+Die manuelle Eingabe für ein Gerät erhält einen gültigen Universe/Channel-Start (Kanal 1–512), auch wenn der primäre GDTF-Kanalumfang das Universum überschreitet. Eine rote Channel-Zelle erläutert beim Darüberfahren Überlauf, unbekannten Kanalumfang oder Überschneidung. 180 Kanäle ab 1.400 würden bei hypothetischem kontinuierlichem Auto Span die Bereiche 1.400–1.512 und 2.1–2.67 benötigen. Dies ist nur eine Information: Standard-MVR speichert den Start und garantiert dieses Routing nicht; Empfänger oder Controller müssen es unterstützen. Sekundäre DMX-Breaks bleiben erhalten. AutoPatch und sequenzielles Patchen mehrerer Geräte behalten ihre bisherigen Universumswechsel bei.

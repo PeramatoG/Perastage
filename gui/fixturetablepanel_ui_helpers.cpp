@@ -31,8 +31,7 @@ wxPoint NormalizeMousePositionForTable(wxDataViewListCtrl *table,
 wxString BuildFixtureTooltipForColumn(int modelColumn) {
   if (modelColumn == 0)
     return "Duplicate Fixture ID. Each fixture must have a unique ID.";
-  if (modelColumn == 5 || modelColumn == 6)
-    return "DMX patch conflict detected. Universe and channel overlap with another fixture.";
+  // Patch tooltips use query-backed per-fixture diagnostics instead.
   return wxString();
 }
 
