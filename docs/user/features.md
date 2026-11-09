@@ -41,3 +41,7 @@ Perastage supports Windows, macOS and Linux and is licensed under GNU GPL versio
 ## Manual DMX patching
 
 Manual patching of one fixture preserves a valid Universe/Channel start (channel 1–512), even when its primary GDTF footprint exceeds that universe. A red Channel cell explains overflow, unresolved footprints or overlaps on hover. For example, 180 channels at 1.400 would span 1.400–1.512 and 2.1–2.67 under hypothetical continuous Auto Span routing. This is informational: standard MVR stores the start, does not guarantee that routing, and the receiving/controller application must support it. Secondary DMX breaks stay unchanged. AutoPatch and intentional multi-fixture sequential patching retain their existing universe-wrapping behavior.
+
+## DMX Patch viewer
+
+Open **View → DMX Patch** to inspect the 512 channels of any universe below the active 2D/3D viewport. Choose 16 or 32 columns; enter a universe number to inspect an empty universe. Colors follow fixture presentation colors, labels show physical GDTF channel attributes, and hover text identifies every occupant and break. Striped cells indicate overlaps. The status tooltip explains missing definitions, assignments and overflow; channels beyond 512 are not continued into another universe. This viewer is read-only. Close it to reclaim viewport space; visibility and height are remembered. It is temporarily hidden in Layout and Inspector modes.

@@ -8,15 +8,18 @@ import argparse
 import json
 from pathlib import Path
 import shlex
+import shutil
 import subprocess
 import tempfile
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('build_dir', type=Path)
+parser.add_argument('--source', type=Path, help='Alternative native smoke entry point')
+parser.add_argument('--artifacts', type=Path, help='Copy smoke artifacts to this directory')
 args = parser.parse_args()
 build = args.build_dir.resolve()
 root = Path(__file__).resolve().parents[1]
-source = root / 'tests/viewport_regression_smoke.cpp'
+source = (args.source or (root / 'tests/viewport_regression_smoke.cpp')).resolve()
 entries = json.loads((build / 'compile_commands.json').read_text())
 main = next(entry for entry in entries if Path(entry['file']) == root / 'main.cpp')
 compiler = shlex.split(main['command'])
@@ -39,4 +42,6 @@ with tempfile.TemporaryDirectory(prefix='viewport-smoke-', dir=build) as tempora
         for mode in ([], ['existing']):
             subprocess.run([str(binary), str(scratch), *mode], cwd=build, check=True, timeout=90)
     finally:
+        if args.artifacts:
+            shutil.copytree(scratch, args.artifacts, dirs_exist_ok=True)
         binary.unlink(missing_ok=True)

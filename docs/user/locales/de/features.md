@@ -41,3 +41,7 @@ Perastage unterstützt Windows, macOS und Linux und steht unter GNU GPL Version 
 ## Manuelles DMX-Patchen
 
 Die manuelle Eingabe für ein Gerät erhält einen gültigen Universe/Channel-Start (Kanal 1–512), auch wenn der primäre GDTF-Kanalumfang das Universum überschreitet. Eine rote Channel-Zelle erläutert beim Darüberfahren Überlauf, unbekannten Kanalumfang oder Überschneidung. 180 Kanäle ab 1.400 würden bei hypothetischem kontinuierlichem Auto Span die Bereiche 1.400–1.512 und 2.1–2.67 benötigen. Dies ist nur eine Information: Standard-MVR speichert den Start und garantiert dieses Routing nicht; Empfänger oder Controller müssen es unterstützen. Sekundäre DMX-Breaks bleiben erhalten. AutoPatch und sequenzielles Patchen mehrerer Geräte behalten ihre bisherigen Universumswechsel bei.
+
+## DMX-Patch-Ansicht
+
+Öffnen Sie **Ansicht → DMX Patch**, um die 512 Kanäle eines Universums unter der aktiven 2D-/3D-Ansicht zu prüfen. Wählen Sie 16 oder 32 Spalten; geben Sie eine Universumsnummer ein, um ein leeres Universum anzuzeigen. Die Farben entsprechen den Gerätefarben, die Beschriftungen den physischen GDTF-Kanalattributen. Tooltips nennen alle belegenden Geräte und Breaks. Schraffierte Zellen zeigen Überschneidungen. Der Statustooltip erklärt fehlende Definitionen, Zuweisungen und Überläufe; es erfolgt keine automatische Fortsetzung im nächsten Universum. Die Ansicht ist schreibgeschützt. Beim Schließen wird Platz freigegeben; Sichtbarkeit und Höhe bleiben gespeichert. Im Layout- und Inspector-Modus wird sie vorübergehend ausgeblendet.

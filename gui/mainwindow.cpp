@@ -1297,6 +1297,7 @@ void MainWindow::UpdateToolBarAvailability() {
 }
 
 void MainWindow::UpdateViewMenuChecks() {
+  SyncDmxPatchWorkspace();
   if (!auiManager || !GetMenuBar())
     return;
 

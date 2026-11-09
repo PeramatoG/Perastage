@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-09 10:00+0000\n"
+"POT-Creation-Date: 2026-11-09 17:17+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -72,7 +72,7 @@ msgid ""
 msgstr ""
 "Perastage 基于开源技术构建。完整的依赖项和许可证信息可在项目仓库中查看。"
 
-#: gui/about_dialog.cpp:166 gui/mainwindow_menu_builders.cpp:134
+#: gui/about_dialog.cpp:166 gui/mainwindow_menu_builders.cpp:135
 msgid "About Perastage"
 msgstr "关于 Perastage"
 
@@ -120,6 +120,7 @@ msgid "Edit Address"
 msgstr "编辑地址"
 
 #: gui/addressdialog.cpp:27 gui/fixturepatchdialog.cpp:39
+#: gui/patch/dmx_patch_panel.cpp:36
 msgid "Universe:"
 msgstr "DMX 域："
 
@@ -479,7 +480,7 @@ msgid "Type Color"
 msgstr "类型颜色"
 
 #: gui/dictionaryeditdialog.cpp:599 gui/mainwindow_layout.cpp:328
-#: gui/mainwindow_menu_builders.cpp:80 gui/mainwindow_print.cpp:505
+#: gui/mainwindow_menu_builders.cpp:81 gui/mainwindow_print.cpp:505
 #: gui/riggingpanel.cpp:185 gui/summarypanel.cpp:139
 msgid "Fixtures"
 msgstr "灯具"
@@ -1544,7 +1545,10 @@ msgid ""
 "address is preserved. Continuous operation requires routing support in the "
 "receiving or controlling application; these ranges do not define additional "
 "DMX breaks."
-msgstr "DMX 通道占用超出宇宙 %d。主通道占用：%d 个通道。起始地址：%s。假设连续 Auto Span 的范围：%s。保留手动输入的起始地址。连续运行需要接收或控制应用支持相应路由；这些范围不定义额外的 DMX breaks。"
+msgstr ""
+"DMX 通道占用超出宇宙 %d。主通道占用：%d 个通道。起始地址：%s。假设连续 Auto "
+"Span 的范围：%s。保留手动输入的起始地址。连续运行需要接收或控制应用支持相应路"
+"由；这些范围不定义额外的 DMX breaks。"
 
 #: gui/fixturetablepanel_patch_diagnostics.cpp:59
 msgid "DMX overlap with another fixture in the assigned universe."
@@ -2484,7 +2488,7 @@ msgid "Source: none"
 msgstr "来源：无"
 
 #: gui/inspection/inspector_workspace_panel.cpp:527
-#: gui/mainwindow_layout.cpp:421 gui/mainwindow_menu_builders.cpp:86
+#: gui/mainwindow_layout.cpp:421 gui/mainwindow_menu_builders.cpp:87
 #: gui/summarypanel.cpp:112
 msgid "Summary"
 msgstr "摘要"
@@ -3101,7 +3105,7 @@ msgstr "正在更新 3D 视口..."
 msgid "Updating 2D viewport..."
 msgstr "正在更新 2D 视口..."
 
-#: gui/mainwindow.cpp:970 gui/mainwindow.cpp:1658
+#: gui/mainwindow.cpp:970 gui/mainwindow.cpp:1659
 msgid "Refreshing panels..."
 msgstr "正在刷新面板..."
 
@@ -3117,7 +3121,7 @@ msgstr "正在更新窗口标题..."
 msgid "Finalizing project load..."
 msgstr "正在完成项目加载..."
 
-#: gui/mainwindow.cpp:1616
+#: gui/mainwindow.cpp:1617
 msgid "Loading tables..."
 msgstr "正在加载表格..."
 
@@ -3127,7 +3131,7 @@ msgstr "请先选择要转换的灯具。"
 
 #: gui/mainwindow_conversion.cpp:35 gui/mainwindow_conversion.cpp:47
 #: gui/mainwindow_conversion.cpp:71 gui/mainwindow_conversion.cpp:90
-#: gui/mainwindow_menu_builders.cpp:109
+#: gui/mainwindow_menu_builders.cpp:110
 msgid "Convert to Hoist"
 msgstr "转换为电动葫芦"
 
@@ -3150,7 +3154,7 @@ msgid "Please select a scene object to convert first."
 msgstr "请先选择要转换的场景对象。"
 
 #: gui/mainwindow_conversion.cpp:99 gui/mainwindow_conversion.cpp:118
-#: gui/mainwindow_conversion.cpp:150 gui/mainwindow_menu_builders.cpp:111
+#: gui/mainwindow_conversion.cpp:150 gui/mainwindow_menu_builders.cpp:112
 msgid "Convert Scene Objects to Truss"
 msgstr "导出场景对象..."
 
@@ -3241,7 +3245,7 @@ msgstr "在选择端点之前激活 2D 或 3D 场景视口。"
 msgid "Choose two points on the truss line, or press Esc to cancel."
 msgstr "选择桁架线上的两个点，或按 Esc 键取消。"
 
-#: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:483
+#: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:484
 #: gui/mainwindow_startup_splash.cpp:123
 #: gui/services/fixture_symbol_preparation_service.cpp:509
 #: gui/viewer_load_status.cpp:26
@@ -3511,11 +3515,11 @@ msgstr "布局视图"
 msgid "Console"
 msgstr "控制台"
 
-#: gui/mainwindow_layout.cpp:378 gui/mainwindow_menu_builders.cpp:84
+#: gui/mainwindow_layout.cpp:378 gui/mainwindow_menu_builders.cpp:85
 msgid "Layers"
 msgstr "图层"
 
-#: gui/mainwindow_layout.cpp:392 gui/mainwindow_menu_builders.cpp:85
+#: gui/mainwindow_layout.cpp:392 gui/mainwindow_menu_builders.cpp:86
 msgid "Layouts"
 msgstr "布局"
 
@@ -3523,24 +3527,24 @@ msgstr "布局"
 msgid "Layout Viewer"
 msgstr "布局视图"
 
-#: gui/mainwindow_layout.cpp:435 gui/mainwindow_menu_builders.cpp:87
+#: gui/mainwindow_layout.cpp:435 gui/mainwindow_menu_builders.cpp:88
 msgid "Rigging"
 msgstr "吊挂"
 
-#: gui/mainwindow_layout.cpp:484
+#: gui/mainwindow_layout.cpp:485
 msgid "X: -- m  Y: -- m  Z: -- m"
 msgstr "X: -- 米 Y: -- 米 Z: -- 米"
 
-#: gui/mainwindow_layout.cpp:486
+#: gui/mainwindow_layout.cpp:487
 #, c-format
 msgid "Version %s"
 msgstr "版本 %s"
 
-#: gui/mainwindow_layout.cpp:1148
+#: gui/mainwindow_layout.cpp:1150
 msgid "Layout view update skipped: target view not found."
 msgstr "布局视图更新已跳过：未找到目标视图。"
 
-#: gui/mainwindow_layout.cpp:1178
+#: gui/mainwindow_layout.cpp:1180
 msgid "Layout view update failed."
 msgstr "布局视图更新失败。"
 
@@ -3752,7 +3756,7 @@ msgstr "跨表操作"
 msgid "Toggle viewport actions across all tables"
 msgstr "2D 视口不可用。"
 
-#: gui/mainwindow_menu.cpp:316 gui/mainwindow_menu_builders.cpp:88
+#: gui/mainwindow_menu.cpp:316 gui/mainwindow_menu_builders.cpp:89
 msgid "Layout Views"
 msgstr "布局视图"
 
@@ -3835,7 +3839,7 @@ msgid "Could not resolve writable user library path."
 msgstr "无法解析可写用户库路径。"
 
 #: gui/mainwindow_menu.cpp:417 gui/mainwindow_menu.cpp:429
-#: gui/mainwindow_menu_builders.cpp:98
+#: gui/mainwindow_menu_builders.cpp:99
 msgid "Open user library folder"
 msgstr "打开用户库文件夹"
 
@@ -4091,103 +4095,108 @@ msgstr "布局模式视图"
 msgid "Position Tool"
 msgstr "位置工具"
 
-#: gui/mainwindow_menu_builders.cpp:81 gui/mainwindow_viewport_creation.cpp:24
+#: gui/mainwindow_menu_builders.cpp:80 gui/patch/dmx_patch_panel.cpp:32
+#: gui/patch/dmx_patch_panel.cpp:35 gui/patch/dmx_patch_panel.cpp:44
+msgid "DMX Patch"
+msgstr "DMX Patch"
+
+#: gui/mainwindow_menu_builders.cpp:82 gui/mainwindow_viewport_creation.cpp:27
 msgid "3D Viewport"
 msgstr "3D 视口"
 
-#: gui/mainwindow_menu_builders.cpp:82 gui/mainwindow_viewport_creation.cpp:69
+#: gui/mainwindow_menu_builders.cpp:83 gui/mainwindow_viewport_creation.cpp:74
 msgid "2D Viewport"
 msgstr "2D 视口"
 
-#: gui/mainwindow_menu_builders.cpp:83 gui/mainwindow_viewport_creation.cpp:85
+#: gui/mainwindow_menu_builders.cpp:84 gui/mainwindow_viewport_creation.cpp:90
 msgid "2D Render Options"
 msgstr "2D 渲染选项"
 
-#: gui/mainwindow_menu_builders.cpp:95
+#: gui/mainwindow_menu_builders.cpp:96
 msgid "Download GDTF fixture..."
 msgstr "下载 GDTF 灯具..."
 
-#: gui/mainwindow_menu_builders.cpp:96
+#: gui/mainwindow_menu_builders.cpp:97
 msgid "Edit dictionaries..."
 msgstr "编辑词典..."
 
-#: gui/mainwindow_menu_builders.cpp:99
+#: gui/mainwindow_menu_builders.cpp:100
 msgid "Create from text..."
 msgstr "从文本创建..."
 
-#: gui/mainwindow_menu_builders.cpp:101
+#: gui/mainwindow_menu_builders.cpp:102
 msgid "Distribute hoist weights..."
 msgstr "分配电动葫芦负载..."
 
-#: gui/mainwindow_menu_builders.cpp:103
+#: gui/mainwindow_menu_builders.cpp:104
 msgid "Distribute fixtures...\tAlt+D"
 msgstr "分配电动葫芦负载..."
 
-#: gui/mainwindow_menu_builders.cpp:104
+#: gui/mainwindow_menu_builders.cpp:105
 msgid "Export Fixture..."
 msgstr "导出灯具..."
 
-#: gui/mainwindow_menu_builders.cpp:105
+#: gui/mainwindow_menu_builders.cpp:106
 msgid "Export Truss..."
 msgstr "导出桁架..."
 
-#: gui/mainwindow_menu_builders.cpp:106
+#: gui/mainwindow_menu_builders.cpp:107
 msgid "Export Scene Object..."
 msgstr "导出场景对象..."
 
-#: gui/mainwindow_menu_builders.cpp:107
+#: gui/mainwindow_menu_builders.cpp:108
 msgid "Auto patch"
 msgstr "自动配接"
 
-#: gui/mainwindow_menu_builders.cpp:108
+#: gui/mainwindow_menu_builders.cpp:109
 msgid "Auto color"
 msgstr "自动着色"
 
-#: gui/mainwindow_menu_builders.cpp:114
+#: gui/mainwindow_menu_builders.cpp:115
 msgid "Generate Fixture Symbols..."
 msgstr "生成灯具符号..."
 
-#: gui/mainwindow_menu_builders.cpp:118
+#: gui/mainwindow_menu_builders.cpp:119
 msgid "Auto-assign categories to selected fixtures..."
 msgstr "自动为所选灯具分配类别..."
 
-#: gui/mainwindow_menu_builders.cpp:126
+#: gui/mainwindow_menu_builders.cpp:127
 msgid "Help\tF1"
 msgstr "帮助\tF1"
 
-#: gui/mainwindow_menu_builders.cpp:127 gui/user_manual_dialog.cpp:39
+#: gui/mainwindow_menu_builders.cpp:128 gui/user_manual_dialog.cpp:39
 msgid "Online Documentation"
 msgstr "在线文档"
 
-#: gui/mainwindow_menu_builders.cpp:128
+#: gui/mainwindow_menu_builders.cpp:129
 msgid "Check for Updates..."
 msgstr "检查更新..."
 
-#: gui/mainwindow_menu_builders.cpp:130
+#: gui/mainwindow_menu_builders.cpp:131
 msgid "Open Logs Folder"
 msgstr "打开日志文件夹"
 
-#: gui/mainwindow_menu_builders.cpp:132
+#: gui/mainwindow_menu_builders.cpp:133
 msgid "Export Diagnostic Report..."
 msgstr "导出诊断报告..."
 
-#: gui/mainwindow_menu_builders.cpp:143
+#: gui/mainwindow_menu_builders.cpp:144
 msgid "&File"
 msgstr "文件(&F)"
 
-#: gui/mainwindow_menu_builders.cpp:144
+#: gui/mainwindow_menu_builders.cpp:145
 msgid "&Edit"
 msgstr "编辑(&E)"
 
-#: gui/mainwindow_menu_builders.cpp:145
+#: gui/mainwindow_menu_builders.cpp:146
 msgid "&View"
 msgstr "视图(&V)"
 
-#: gui/mainwindow_menu_builders.cpp:146
+#: gui/mainwindow_menu_builders.cpp:147
 msgid "&Tools"
 msgstr "工具(&T)"
 
-#: gui/mainwindow_menu_builders.cpp:147
+#: gui/mainwindow_menu_builders.cpp:148
 msgid "&Help"
 msgstr "帮助(&H)"
 
@@ -4909,7 +4918,7 @@ msgstr "发布当前 MVR"
 msgid "Request Selected MVR"
 msgstr "请求选择 MVR"
 
-#: gui/mvrxchange/mvr_xchange_dialog.cpp:210
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:210 gui/patch/dmx_patch_panel.cpp:46
 msgid "Close"
 msgstr "关闭"
 
@@ -4921,6 +4930,93 @@ msgstr "运行于"
 #, c-format
 msgid "%zu discovered, %zu incoming joined, %zu outgoing joined"
 msgstr "%zu 已发现，%zu 传入加入，%zu 传出加入"
+
+#: gui/patch/dmx_patch_canvas.cpp:85
+msgid " Fine"
+msgstr " 精细"
+
+#: gui/patch/dmx_patch_canvas.cpp:86
+#, c-format
+msgid " Byte %d"
+msgstr " 字节 %d"
+
+#: gui/patch/dmx_patch_canvas.cpp:122
+#, c-format
+msgid "Universe %s · Channel %d"
+msgstr "Universe %s · 通道 %d"
+
+#: gui/patch/dmx_patch_canvas.cpp:124
+msgid "Overlapping fixtures"
+msgstr "灯具重叠"
+
+#: gui/patch/dmx_patch_canvas.cpp:127
+#, c-format
+msgid ""
+"\n"
+"%s — %s\n"
+"UUID: %s\n"
+"GDTF break %d / MVR break %d · Offset %d · Byte %d\n"
+"Attribute: %s\n"
+"Functions: %s"
+msgstr "\n%s — %s\nUUID：%s\nGDTF Break %d / MVR Break %d · 偏移 %d · 字节 %d\n属性：%s\n功能：%s"
+
+#: gui/patch/dmx_patch_canvas.cpp:130
+#, c-format
+msgid "Fixture purpose: %s"
+msgstr "灯具用途：%s"
+
+#: gui/patch/dmx_patch_panel.cpp:20
+msgid "Missing patch assignment"
+msgstr "缺少 Patch 分配"
+
+#: gui/patch/dmx_patch_panel.cpp:21
+msgid "Invalid or unsupported DMX address"
+msgstr "DMX 地址无效或不受支持"
+
+#: gui/patch/dmx_patch_panel.cpp:22
+msgid "Invalid or ambiguous DMX break"
+msgstr "DMX Break 无效或有歧义"
+
+#: gui/patch/dmx_patch_panel.cpp:23
+msgid "GDTF definition or DMX mode unavailable"
+msgstr "GDTF 定义或 DMX 模式不可用"
+
+#: gui/patch/dmx_patch_panel.cpp:24
+msgid "Physical channel or geometry reference unresolved"
+msgstr "物理通道或几何引用无法解析"
+
+#: gui/patch/dmx_patch_panel.cpp:25
+msgid "Physical channels exceed 512; no automatic span is displayed"
+msgstr "物理通道超过 512；不显示自动跨 Universe 延续"
+
+#: gui/patch/dmx_patch_panel.cpp:38
+msgid "DMX universe"
+msgstr "DMX Universe"
+
+#: gui/patch/dmx_patch_panel.cpp:39 gui/patch/dmx_patch_panel.cpp:76
+msgid "Choose a patched universe or enter any positive universe number."
+msgstr "选择已分配的 Universe，或输入正整数 Universe 编号。"
+
+#: gui/patch/dmx_patch_panel.cpp:42
+msgid "16 columns"
+msgstr "16 列"
+
+#: gui/patch/dmx_patch_panel.cpp:42
+msgid "32 columns"
+msgstr "32 列"
+
+#: gui/patch/dmx_patch_panel.cpp:72
+msgid "Enter a positive universe number."
+msgstr "请输入正整数 Universe 编号。"
+
+#: gui/patch/dmx_patch_panel.cpp:121
+#, c-format
+msgid "Occupied: %d/512 · Conflicts: %d · Warnings: %d"
+msgstr "已占用：%d/512 · 冲突：%d · 警告：%d"
+
+#: gui/patch/dmx_patch_panel.cpp:131
+msgid "Additional diagnostics omitted."
+msgstr "已省略其他诊断信息。"
 
 #
 #: gui/positiontoolpanel.cpp:41 gui/positiontoolpanel.cpp:149

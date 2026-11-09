@@ -51,6 +51,8 @@ class Viewer2DOffscreenRenderer;
 namespace startup { struct Metrics; }
 class ConsolePanel;
 class PositionToolPanel;
+class DmxPatchPanel;
+class ViewportPatchWorkspace;
 class LayerPanel;
 class LayoutPanel;
 class LayoutViewerPanel;
@@ -158,6 +160,14 @@ private:
   Viewer2DRenderPanel *viewport2DRenderPanel = nullptr;
   std::unique_ptr<Viewer2DOffscreenRenderer> offscreenViewer2DRenderer;
   ConsolePanel *consolePanel = nullptr;
+  DmxPatchPanel *dmxPatchPanel = nullptr;
+  ViewportPatchWorkspace *viewport2DWorkspace = nullptr;
+  ViewportPatchWorkspace *viewport3DWorkspace = nullptr;
+  void InitializeDmxPatch();
+  void ToggleDmxPatch();
+  void SyncDmxPatchWorkspace();
+  void SaveDmxPatchPreference(const std::string &key, const std::string &value);
+  ViewportPatchWorkspace *CreateDmxViewportWorkspace();
   PositionToolPanel *positionToolPanel = nullptr;
   void CreatePositionTool();
   void InitializePositionToolSidebar(bool sceneWorkspace);

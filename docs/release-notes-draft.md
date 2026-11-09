@@ -6,6 +6,7 @@ RELEASE NOTES — WORK IN PROGRESS
 This is the living draft for the next Perastage release.
 
 Maintenance rules for Codex and contributors:
+- Added an optional read-only DMX Patch grid below the 2D/3D viewport, showing physical GDTF channels, fixture colors, overlap indicators and incomplete-patch diagnostics without changing addressing.
 - Update this file in the same pull request as each meaningful user-facing change, before merge.
 - Describe only implemented and adequately verified behavior; do not announce plans or unsupported capabilities.
 - A pull request may include its own new entry while under review; main contains only merged entries.

@@ -41,3 +41,7 @@ Perastage prend en charge Windows, macOS et Linux sous GNU GPL version 3 ou ult�
 ## Patch DMX manuel
 
 La saisie manuelle pour un appareil conserve un départ Universe/Channel valide (canal 1–512), même si son empreinte GDTF primaire dépasse cet univers. Une cellule Channel rouge explique au survol le dépassement, une empreinte inconnue ou un chevauchement. Par exemple, 180 canaux à 1.400 couvriraient 1.400–1.512 et 2.1–2.67 avec un Auto Span continu hypothétique. Ces plages sont informatives : MVR standard conserve le départ sans garantir ce routage, qui doit être pris en charge par le contrôleur ou le récepteur. Les breaks secondaires sont conservés. AutoPatch et le patch séquentiel multiple gardent leurs règles de changement d’univers.
+
+## Vue DMX Patch
+
+Ouvrez **Affichage → DMX Patch** pour consulter les 512 canaux de chaque univers sous la vue 2D/3D active. Choisissez 16 ou 32 colonnes ; saisissez un numéro pour afficher un univers vide. Les couleurs suivent celles des appareils et les libellés montrent les attributs physiques GDTF ; les infobulles identifient tous les occupants et breaks. Les cellules hachurées indiquent les chevauchements. L’infobulle du statut explique les définitions manquantes, les affectations et les dépassements ; aucun canal ne continue automatiquement dans l’univers suivant. Cette vue est en lecture seule. Fermez-la pour libérer de la place ; sa visibilité et sa hauteur sont mémorisées. Elle est temporairement masquée dans les modes Layout et Inspector.

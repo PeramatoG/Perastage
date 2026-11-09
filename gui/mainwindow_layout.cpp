@@ -460,6 +460,7 @@ void MainWindow::SetupLayout() {
                           .Hide());
 
   CreatePositionTool();
+  InitializeDmxPatch();
   gui::InitializeNativeGuiBackgrounds(*this);
 
   // Apply all changes to layout
@@ -635,6 +636,7 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
     applyPaneState(preset.showPanes, true);
     applyPaneState(preset.hidePanes, false);
   }
+  SyncDmxPatchWorkspace();
   InitializePositionToolSidebar(preset.name == "2d_layout_view" ||
                                 preset.name == "3d_layout_view");
   EnforceMainToolbarVisibility();

@@ -41,3 +41,7 @@ Perastage admite Windows, macOS y Linux y utiliza la licencia GNU GPL versión 3
 ## Patch DMX manual
 
 La edición manual de una luminaria conserva un inicio Universe/Channel válido (canal 1–512), aunque su footprint GDTF primario exceda el universo. Una celda Channel roja explica al pasar el ratón el desbordamiento, footprint desconocido o solapamiento. Por ejemplo, 180 canales en 1.400 abarcarían 1.400–1.512 y 2.1–2.67 con un hipotético Auto Span continuo. Es información: MVR estándar almacena el inicio y no garantiza ese enrutamiento; debe admitirlo la aplicación receptora o controladora. Los breaks secundarios se conservan. AutoPatch y la asignación secuencial múltiple mantienen sus reglas de salto de universo.
+
+## Visor DMX Patch
+
+Abre **Ver → DMX Patch** para consultar los 512 canales de cualquier universo debajo del visor 2D/3D activo. Elige 16 o 32 columnas; introduce un número de universo para consultar uno vacío. Los colores siguen la presentación de los aparatos y las etiquetas muestran atributos físicos GDTF; la información al pasar el ratón identifica todos los aparatos y breaks. Las celdas rayadas indican solapamientos. La información del estado explica definiciones ausentes, asignaciones y desbordamientos; no se continúa automáticamente al siguiente universo. El visor es de solo lectura. Al cerrarlo recuperas el espacio del visor; se recuerdan su visibilidad y altura. Se oculta temporalmente en los modos Layout e Inspector.
