@@ -651,7 +651,8 @@ std::vector<std::string> BuildDirectSelection(const ConfigManager &cfg) {
   selection = MergeSelectionAdditive(selection, cfg.GetSelectedFixtures());
   selection = MergeSelectionAdditive(selection, cfg.GetSelectedTrusses());
   selection = MergeSelectionAdditive(selection, cfg.GetSelectedSupports());
-  return MergeSelectionAdditive(selection, cfg.GetSelectedSceneObjects());
+  selection = MergeSelectionAdditive(selection, cfg.GetSelectedSceneObjects());
+  return MergeSelectionAdditive(selection, cfg.GetSelectedGroupObjects());
 }
 
 // Combines all selected entity UUID lists into a stable unique sequence.
@@ -660,7 +661,8 @@ std::vector<std::string> BuildCombinedSelection(const ConfigManager &cfg) {
       .fixtures = cfg.GetSelectedFixtures(),
       .trusses = cfg.GetSelectedTrusses(),
       .supports = cfg.GetSelectedSupports(),
-      .sceneObjects = cfg.GetSelectedSceneObjects()};
+      .sceneObjects = cfg.GetSelectedSceneObjects(),
+      .groupObjects = cfg.GetSelectedGroupObjects()};
   return scene_grouping::ExpandSelectionForGroupHighlights(
       cfg.GetScene(), selection,
       selection_movement_settings::LoadInteractiveTransformPolicy(cfg));
@@ -756,6 +758,7 @@ void Viewer2DPanel::SetInstance(Viewer2DPanel *panel) { g_instance = panel; }
 
 // Updates cached 2D scene data, selection state, and repaint scheduling.
 void Viewer2DPanel::UpdateScene(bool reload) {
+  ConfigManager::Get().NotifyChange(ConfigManager::Change::Scene);
   if (reload && m_enableSelection && ShouldPauseHeavyTasks())
     return;
 
@@ -794,23 +797,7 @@ void Viewer2DPanel::SetView(Viewer2DView view) {
   RequestRepaint();
 }
 
-void Viewer2DPanel::SetSelectedUuids(
-    const std::vector<std::string> &selection) {
-  if (!m_enableSelection)
-    return;
-  const scene_grouping::ObjectSelection typedSelection{.fixtures = selection,
-                                                       .trusses = selection,
-                                                       .supports = selection,
-                                                       .sceneObjects =
-                                                           selection};
-  const std::vector<std::string> expandedSelection =
-      scene_grouping::ExpandSelectionForGroupHighlights(
-          ConfigManager::Get().GetScene(), typedSelection,
-          selection_movement_settings::LoadInteractiveTransformPolicy(
-              ConfigManager::Get()));
-  m_controller.SetSelectedUuids(expandedSelection, selection);
-  RequestRepaint();
-}
+
 
 void Viewer2DPanel::SetLayerColor(const std::string &layer,
                                   const std::string &hex) {
@@ -1351,6 +1338,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     }
   }
 
+  DrawInsertionPointOverlay(w, h, swapBuffers, framePlan.captureActive);
   DrawLayoutEditOverlay(w, h);
 
   if (framePlan.showRuler)
@@ -2490,6 +2478,7 @@ void Viewer2DPanel::DrawSelectionRectangle(int width, int height,
 }
 
 void Viewer2DPanel::ScheduleDragTableUpdate() {
+  ConfigManager::Get().NotifyChange(ConfigManager::Change::Scene);
   if (m_interaction.activeUuids.empty())
     return;
   if (ShouldPauseHeavyTasks())

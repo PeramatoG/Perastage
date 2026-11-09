@@ -3953,6 +3953,7 @@ void Viewer3DPanel::OnMouseLeave(wxMouseEvent &event) {
 // Updates scene resources only when the 3D canvas is fully shown and its GL
 // context can be safely activated.
 void Viewer3DPanel::UpdateScene() {
+    ConfigManager::Get().NotifyChange(ConfigManager::Change::Scene);
     m_runtimeState.MarkSceneChanged();
     m_controller.MarkResourceSyncPending();
 
@@ -3981,27 +3982,6 @@ void Viewer3DPanel::PrepareForSceneReplacement() {
 // Resumes controller synchronization after a replacement scene is installed.
 void Viewer3DPanel::CompleteSceneReplacement() {
     m_controller.CompleteSceneReplacement();
-}
-
-// Applies a new selected UUID set to the 3D controller and schedules a refresh.
-void Viewer3DPanel::SetSelectedFixtures(const std::vector<std::string> &uuids) {
-  const scene_grouping::ObjectSelection typedSelection{.fixtures = uuids,
-                                                       .trusses = uuids,
-                                                       .supports = uuids,
-        .sceneObjects = uuids};
-    const std::vector<std::string> expandedUuids =
-        scene_grouping::ExpandSelectionForGroupHighlights(
-          ConfigManager::Get().GetScene(), typedSelection,
-          selection_movement_settings::LoadInteractiveTransformPolicy(
-              ConfigManager::Get()));
-    if (expandedUuids == m_lastAppliedSelectionUuids &&
-        uuids == m_lastAppliedPrimarySelectionUuids)
-        return;
-    m_lastAppliedSelectionUuids = expandedUuids;
-    m_lastAppliedPrimarySelectionUuids = uuids;
-    m_runtimeState.MarkSelectionChanged();
-    m_controller.SetSelectedUuids(expandedUuids, uuids);
-    Refresh();
 }
 
 // Updates the cached layer color used by 3D rendering.

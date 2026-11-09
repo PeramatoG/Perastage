@@ -30,7 +30,7 @@ void Assert3D(const PaneState &state) {
   assert(!state.at("LayoutViewer"));
   assert(!state.at("InspectorWorkspace"));
   for (const std::string pane : {"DataNotebook", "Console", "LayerPanel",
-                                 "SummaryPanel", "RiggingPanel"})
+                                 "SummaryPanel", "PositionTool", "RiggingPanel"})
     assert(state.at(pane));
   for (const std::string_view toolbar : gui::kAlwaysVisibleToolbarPanes)
     assert(state.at(std::string(toolbar)));
@@ -45,7 +45,7 @@ void Assert2D(const PaneState &state) {
   assert(!state.at("LayoutViewer"));
   assert(!state.at("InspectorWorkspace"));
   for (const std::string pane : {"DataNotebook", "Console", "LayerPanel",
-                                 "SummaryPanel", "RiggingPanel"})
+                                 "SummaryPanel", "PositionTool", "RiggingPanel"})
     assert(state.at(pane));
   for (const std::string_view toolbar : gui::kAlwaysVisibleToolbarPanes)
     assert(state.at(std::string(toolbar)));
@@ -60,7 +60,7 @@ void AssertLayout(const PaneState &state) {
   assert(state.at("LayoutViewer"));
   assert(!state.at("InspectorWorkspace"));
   for (const std::string pane : {"DataNotebook", "Console", "LayerPanel",
-                                 "SummaryPanel", "RiggingPanel"})
+                                 "SummaryPanel", "PositionTool", "RiggingPanel"})
     assert(!state.at(pane));
   for (const std::string_view toolbar : gui::kAlwaysVisibleToolbarPanes)
     assert(state.at(std::string(toolbar)));
@@ -72,7 +72,7 @@ void AssertInspector(const PaneState &state) {
   assert(state.at("Console"));
   for (const std::string pane : {"3DViewport", "2DViewport", "2DRenderOptions",
                                  "LayoutPanel", "LayoutViewer", "DataNotebook",
-                                 "LayerPanel", "SummaryPanel", "RiggingPanel"})
+                                 "LayerPanel", "SummaryPanel", "PositionTool", "RiggingPanel"})
     assert(!state.at(pane));
   for (const std::string_view toolbar : gui::kAlwaysVisibleToolbarPanes)
     assert(state.at(std::string(toolbar)));

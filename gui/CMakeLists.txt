@@ -9,6 +9,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutlegendrenderer.h
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutlegendcachepolicy.h
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutlegendrenderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/positiontoolpanel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_position_tool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_patch_workflow.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_editor_drag.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_editor.cpp

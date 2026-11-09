@@ -76,6 +76,7 @@ wxMenu *BuildLayoutViewsMenu() {
 wxMenu *BuildViewMenu() {
   wxMenu *viewMenu = new wxMenu();
   viewMenu->AppendCheckItem(ID_View_ToggleConsole, _("Console"));
+  viewMenu->AppendCheckItem(ID_View_TogglePositionTool, _("Position Tool"));
   viewMenu->AppendCheckItem(ID_View_ToggleFixtures, _("Fixtures"));
   viewMenu->AppendCheckItem(ID_View_ToggleViewport, _("3D Viewport"));
   viewMenu->AppendCheckItem(ID_View_ToggleViewport2D, _("2D Viewport"));

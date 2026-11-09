@@ -254,3 +254,11 @@ While the preview owns an active label drag, its local character hook consumes
 `Escape`, restores the draft from before the drag and releases mouse capture.
 The dialog stays open. Outside a drag, normal dialog cancellation applies. No
 global accelerator or viewport navigation shortcut changes.
+
+## Position Tool fields
+
+The Position Tool owns Enter (commit the focused coordinate) and Escape (cancel
+its pending edit) locally in its text controls. Focus loss also commits valid
+input. These field actions do not change the global shortcut registry. Editable
+focus continues to block viewport and Console-prefill shortcuts, and Enter does
+not close the dock pane or move focus. Selection changes discard pending edits.

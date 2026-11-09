@@ -286,6 +286,20 @@ add_test(NAME CommandTransform COMMAND command_transform_test)
 set_perastage_test_labels(CommandTransform LAYER unit
                           DOMAINS command architecture)
 
+if(BASH_EXECUTABLE)
+  add_bash_policy_test(PositionToolBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_position_tool_boundary.sh
+                       LABELS architecture gui viewer2d)
+endif()
+
+add_executable(position_selection_test position_selection_test.cpp
+               ../viewer2d/position_insertion_overlay.cpp
+               ../viewer2d/viewer2d_coordinate_math.cpp)
+target_include_directories(position_selection_test PRIVATE ../viewer2d)
+target_link_libraries(position_selection_test PRIVATE
+                      perastage_command_transform perastage_mvr_scene_model)
+add_test(NAME PositionSelection COMMAND position_selection_test)
+set_perastage_test_labels(PositionSelection LAYER unit DOMAINS command viewer2d)
+
 add_executable(command_transform_batch_test command_transform_batch_test.cpp)
 target_link_libraries(command_transform_batch_test PRIVATE
                       perastage_command_transform
@@ -2425,6 +2439,7 @@ set_perastage_test_labels(MvrSceneObjectSymbolIdentity LAYER legacy-compatibilit
 set_library_env(MvrSceneObjectSymbolIdentity)
 
 add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_test.cpp
+               ../gui/project_mutation_host.cpp
                build_info_stub.cpp
                ../core/configservices.cpp
                ../core/library/library_bootstrap.cpp
@@ -2441,10 +2456,30 @@ add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_
 target_include_directories(mvr_truss_roundtrip_structure_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(mvr_truss_roundtrip_structure_test PRIVATE
+                      perastage_command_transform
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME MvrTrussRoundtripStructure COMMAND mvr_truss_roundtrip_structure_test)
 set_perastage_test_labels(MvrTrussRoundtripStructure LAYER standard-strict DOMAINS mvr gdtf)
 set_library_env(MvrTrussRoundtripStructure)
+
+# Reuse the existing real-project integration fixture dependency inventory.
+get_target_property(POSITION_TOOL_PANEL_TEST_SOURCES mvr_truss_roundtrip_structure_test SOURCES)
+list(REMOVE_ITEM POSITION_TOOL_PANEL_TEST_SOURCES mvr_truss_roundtrip_structure_test.cpp)
+add_executable(position_tool_panel_test position_tool_panel_test.cpp
+               ../gui/positiontoolpanel.cpp ${POSITION_TOOL_PANEL_TEST_SOURCES})
+target_include_directories(position_tool_panel_test PRIVATE
+                           . ../core ../models ../mvr ../gui ../third_party)
+target_link_libraries(position_tool_panel_test PRIVATE
+                      perastage_command_transform ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+find_program(POSITION_TOOL_XVFB_RUN xvfb-run)
+if(UNIX AND NOT APPLE AND POSITION_TOOL_XVFB_RUN)
+  add_test(NAME PositionToolPanel COMMAND "${POSITION_TOOL_XVFB_RUN}" -a "$<TARGET_FILE:position_tool_panel_test>")
+else()
+  add_test(NAME PositionToolPanel COMMAND position_tool_panel_test)
+endif()
+set_perastage_test_labels(PositionToolPanel LAYER integration DOMAINS gui command)
+set_tests_properties(PositionToolPanel PROPERTIES TIMEOUT 60)
+set_library_env(PositionToolPanel)
 
 add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                mvr_export_file_buffer_parity_test_support.cpp
@@ -3473,6 +3508,7 @@ set(PERASTAGE_CONFIGMANAGER_TEST_TARGETS
     mvr_fixture_category_roundtrip_test
     mvr_sceneobject_symbol_identity_test
     mvr_truss_roundtrip_structure_test
+    position_tool_panel_test
     mvr_exporter_compliance_test
     rider_save_roundtrip_test
     riderimporter_fixtureid_test
@@ -4254,6 +4290,7 @@ foreach(mvr_read_consumer
         mvr_fixture_category_roundtrip_test
         mvr_sceneobject_symbol_identity_test
         mvr_truss_roundtrip_structure_test
+        position_tool_panel_test
         mvr_exporter_compliance_test
         mvr_importer_archive_characterization_test
         rider_save_roundtrip_test
@@ -4288,6 +4325,7 @@ set(PERASTAGE_GDTF_DICTIONARY_PUBLICATION_TEST_TARGETS
     mvr_fixture_category_roundtrip_test
     mvr_sceneobject_symbol_identity_test
     mvr_truss_roundtrip_structure_test
+    position_tool_panel_test
     mvr_exporter_compliance_test
     mvr_importer_archive_characterization_test
     rider_save_roundtrip_test
@@ -4343,6 +4381,7 @@ foreach(PERASTAGE_MVR_ROUNDTRIP_CONSUMER IN ITEMS
         mvr_layer_appearance_userdata_test
         mvr_fixture_category_roundtrip_test
         mvr_truss_roundtrip_structure_test
+        position_tool_panel_test
         mvr_exporter_compliance_test)
     target_link_libraries(${PERASTAGE_MVR_ROUNDTRIP_CONSUMER} PRIVATE
                           perastage_gdtf_filename_policy

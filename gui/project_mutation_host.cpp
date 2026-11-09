@@ -17,9 +17,11 @@ perastage::command::MutationPublication GuiProjectMutationHost::CommitMutation(
   selection.SetSelectedTrusses(selectionBefore.trusses);
   selection.SetSelectedSupports(selectionBefore.supports);
   selection.SetSelectedSceneObjects(selectionBefore.sceneObjects);
+  selection.SetSelectedGroupObjects(selectionBefore.groupObjects);
   config_.PushUndoSnapshot(
       sceneBefore, selection,
       config_.GetValue(project_identity::kFixtureLabelOverridesConfigKey),
       undoLabel);
+  config_.NotifyChange(ConfigManager::Change::Scene);
   return {true, config_.IsDirty()};
 }

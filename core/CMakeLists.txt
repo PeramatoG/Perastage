@@ -169,6 +169,8 @@ target_include_directories(perastage_command_core PUBLIC
 )
 
 add_library(perastage_command_transform STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/position_selection.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/units/units.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/command/command_transform.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/command/command_transform_apply.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/command/command_transform_batch.cpp

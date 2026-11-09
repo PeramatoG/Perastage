@@ -239,6 +239,8 @@ private:
   viewer2d::render::RenderFramePlan BuildRenderFramePlan();
   viewer2d::RulerOverlayViewState
   BuildRulerOverlayViewState(int width, int height, bool useImperialUnits) const;
+  void DrawInsertionPointOverlay(int width, int height, bool onscreenFrame,
+                                 bool captureActive);
   void DrawLayoutEditOverlay(int width, int height);
   void DrawRulerOverlayFrame(
       const viewer2d::RulerOverlayViewState &rulerState, bool darkMode,

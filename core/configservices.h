@@ -79,6 +79,8 @@ public:
   const std::vector<std::string> &GetSelectedSupports() const;
   void SetSelectedSupports(const std::vector<std::string> &uuids);
   const std::vector<std::string> &GetSelectedSceneObjects() const;
+  const std::vector<std::string> &GetSelectedGroupObjects() const;
+  void SetSelectedGroupObjects(const std::vector<std::string> &uuids);
   void SetSelectedSceneObjects(const std::vector<std::string> &uuids);
   void Clear();
 
@@ -87,6 +89,7 @@ private:
   std::vector<std::string> selectedTrusses;
   std::vector<std::string> selectedSupports;
   std::vector<std::string> selectedSceneObjects;
+  std::vector<std::string> selectedGroupObjects;
 };
 
 class LayerVisibilityState;
@@ -99,6 +102,7 @@ public:
     std::vector<std::string> selTrusses;
     std::vector<std::string> selSupports;
     std::vector<std::string> selSceneObjects;
+    std::vector<std::string> selGroupObjects;
     std::string description;
     std::optional<std::string> layoutsCollection;
     std::optional<std::string> fixtureLabelOverrides;

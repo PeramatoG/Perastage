@@ -59,6 +59,8 @@ struct RestoredUserPreference {
 std::vector<RestoredUserPreference> CaptureUserInteractionPreferences(
     const ConfigManager &config) {
   return {
+      {"ui_position_tool_compact_height", config.GetValue("ui_position_tool_compact_height")},
+      {"ui_position_tool_sidebar_initialized", config.GetValue("ui_position_tool_sidebar_initialized")},
       {magnet_snap::kMagnetEnabledConfigKey,
        config.GetValue(magnet_snap::kMagnetEnabledConfigKey)},
       {selection_movement_settings::kAxisConstrainedMovementConfigKey,
@@ -325,6 +327,7 @@ void ConfigManager::SetValue(const std::string &key, const std::string &value) {
   auto next = preferencesStore.GetValue(key);
   if (prev == next)
     return;
+  NotifyChange(Change::Preferences);
   if (!suppressRevision)
     projectSession.Touch();
 }
@@ -485,7 +488,12 @@ const std::vector<std::string> &ConfigManager::GetSelectedFixtures() const {
 }
 
 void ConfigManager::SetSelectedFixtures(const std::vector<std::string> &uuids) {
+  if (selectionState.GetSelectedFixtures() == uuids &&
+      selectionState.GetSelectedGroupObjects().empty())
+    return;
+  selectionState.SetSelectedGroupObjects({});
   selectionState.SetSelectedFixtures(uuids);
+  NotifyChange(Change::Selection);
 }
 
 const std::vector<std::string> &ConfigManager::GetSelectedTrusses() const {
@@ -493,7 +501,12 @@ const std::vector<std::string> &ConfigManager::GetSelectedTrusses() const {
 }
 
 void ConfigManager::SetSelectedTrusses(const std::vector<std::string> &uuids) {
+  if (selectionState.GetSelectedTrusses() == uuids &&
+      selectionState.GetSelectedGroupObjects().empty())
+    return;
+  selectionState.SetSelectedGroupObjects({});
   selectionState.SetSelectedTrusses(uuids);
+  NotifyChange(Change::Selection);
 }
 
 const std::vector<std::string> &ConfigManager::GetSelectedSupports() const {
@@ -501,7 +514,12 @@ const std::vector<std::string> &ConfigManager::GetSelectedSupports() const {
 }
 
 void ConfigManager::SetSelectedSupports(const std::vector<std::string> &uuids) {
+  if (selectionState.GetSelectedSupports() == uuids &&
+      selectionState.GetSelectedGroupObjects().empty())
+    return;
+  selectionState.SetSelectedGroupObjects({});
   selectionState.SetSelectedSupports(uuids);
+  NotifyChange(Change::Selection);
 }
 
 const std::vector<std::string> &ConfigManager::GetSelectedSceneObjects() const {
@@ -510,7 +528,22 @@ const std::vector<std::string> &ConfigManager::GetSelectedSceneObjects() const {
 
 void ConfigManager::SetSelectedSceneObjects(
     const std::vector<std::string> &uuids) {
+  if (selectionState.GetSelectedSceneObjects() == uuids &&
+      selectionState.GetSelectedGroupObjects().empty())
+    return;
+  selectionState.SetSelectedGroupObjects({});
   selectionState.SetSelectedSceneObjects(uuids);
+  NotifyChange(Change::Selection);
+}
+
+const std::vector<std::string> &ConfigManager::GetSelectedGroupObjects() const {
+  return selectionState.GetSelectedGroupObjects();
+}
+
+void ConfigManager::SetSelectedGroupObjects(const std::vector<std::string> &uuids) {
+  if (selectionState.GetSelectedGroupObjects() == uuids) return;
+  selectionState.SetSelectedGroupObjects(uuids);
+  NotifyChange(Change::Selection);
 }
 
 // -- Persistence --
@@ -812,6 +845,8 @@ bool ConfigManager::LoadProject(const std::string &path,
     layouts::LayoutImageResourceRegistry::Get() = previousLayoutResources;
     RestoreDirtyState(previousDirtyState);
   }
+  NotifyChange(Change::Scene);
+  NotifyChange(Change::Selection);
   return ok;
 }
 
@@ -864,6 +899,8 @@ void ConfigManager::Reset() {
   layerVisibilityState.SetCurrentLayer(layerdomain::DefaultLayerUuid());
   ClearHistory();
   projectSession.ResetDirty();
+  NotifyChange(Change::Scene);
+  NotifyChange(Change::Selection);
 }
 
 std::string ConfigManager::GetUserConfigFile() {
@@ -963,6 +1000,8 @@ std::string ConfigManager::Undo() {
   else
     RemoveKey(kLayoutsConfigKey);
   layouts::LayoutManager::Get().RestoreFromHistory(layoutsCollection);
+  NotifyChange(Change::Scene);
+  NotifyChange(Change::Selection);
   return action;
 }
 
@@ -989,6 +1028,8 @@ std::string ConfigManager::Redo() {
   else
     RemoveKey(kLayoutsConfigKey);
   layouts::LayoutManager::Get().RestoreFromHistory(layoutsCollection);
+  NotifyChange(Change::Scene);
+  NotifyChange(Change::Selection);
   return action;
 }
 
@@ -1008,7 +1049,10 @@ void ConfigManager::RestoreDirtyState(const DirtyState& state) {
 }
 
 // Marks the current project as modified when derived project metadata changes.
-void ConfigManager::MarkDirty() { projectSession.Touch(); }
+void ConfigManager::MarkDirty() {
+  projectSession.Touch();
+  NotifyChange(Change::Scene);
+}
 
 // Marks the active project as saved after successful persistence.
 void ConfigManager::MarkSaved() { projectSession.MarkSaved(); }

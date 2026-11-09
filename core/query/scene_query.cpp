@@ -80,6 +80,8 @@ GetSelection(const scene_grouping::ObjectSelection &selection) {
                   selection.supports);
   AppendSelection(result, scene_identity::ObjectKind::SceneObject,
                   selection.sceneObjects);
+  AppendSelection(result, scene_identity::ObjectKind::Group,
+                  selection.groupObjects);
   std::sort(result.begin(), result.end(), ReferenceLess);
   result.erase(std::unique(result.begin(), result.end()), result.end());
   return result;

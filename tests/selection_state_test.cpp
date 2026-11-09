@@ -8,6 +8,8 @@ int main() {
   state.SetSelectedTrusses({"t1"});
   state.SetSelectedSupports({"s1"});
   state.SetSelectedSceneObjects({"o1"});
+  state.SetSelectedGroupObjects({"g1"});
+  assert(state.GetSelectedGroupObjects() == std::vector<std::string>{"g1"});
 
   assert(state.GetSelectedFixtures().size() == 2);
   assert(state.GetSelectedTrusses().size() == 1);
@@ -19,5 +21,6 @@ int main() {
   assert(state.GetSelectedTrusses().empty());
   assert(state.GetSelectedSupports().empty());
   assert(state.GetSelectedSceneObjects().empty());
+  assert(state.GetSelectedGroupObjects().empty());
   return 0;
 }
