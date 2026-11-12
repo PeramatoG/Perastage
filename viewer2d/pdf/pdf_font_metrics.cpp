@@ -2,8 +2,32 @@
 #include <vector>
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 
 namespace layout_pdf_internal {
+std::string EscapePdfLiteralBytes(const std::string &bytes) {
+  std::string escaped;
+  escaped.reserve(bytes.size());
+  for (const unsigned char ch : bytes) {
+    switch (ch) {
+    case '(': case ')': case '\\':
+      escaped.push_back('\\'); escaped.push_back(static_cast<char>(ch)); break;
+    case '\n': escaped += "\\n"; break;
+    case '\r': escaped += "\\r"; break;
+    case '\t': escaped += "\\t"; break;
+    case '\b': escaped += "\\b"; break;
+    case '\f': escaped += "\\f"; break;
+    default:
+      if (ch < 0x20 || ch > 0x7e) {
+        char octal[5] = {};
+        std::snprintf(octal, sizeof(octal), "\\%03o", ch);
+        escaped += octal;
+      } else escaped.push_back(static_cast<char>(ch));
+    }
+  }
+  return escaped;
+}
+
 std::string ToLowerCopy(std::string_view input) {
   std::string lower;
   lower.reserve(input.size());
@@ -50,8 +74,8 @@ std::filesystem::path FindFontPath(bool bold) {
     const char *regularPath;
     const char *boldPath;
   };
-  // Keep this list in sync with the font face names used by the UI legend/event
-  // table rendering so PDFs and on-screen views share the same family.
+  // Platform fonts remain a legacy free-text/scene fallback. Composed document
+  // elements use the bundled LabelFonts metrics instead.
   const std::vector<FontCandidate> candidates = {
 #ifdef _WIN32
       {"C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/arialbd.ttf"},

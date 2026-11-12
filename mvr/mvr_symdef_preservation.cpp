@@ -1,6 +1,8 @@
 /* This file is part of Perastage. */
 #include "mvr_symdef_preservation.h"
+#include "mvr_source_structure_service.h"
 #include "mvr_model_dependencies.h"
+#include "mvr_model_resource_closure.h"
 #include "filesystem_path_utils.h"
 #include "matrixutils.h"
 #include "mvr_matrix_precision.h"
@@ -54,8 +56,12 @@ std::string SymdefResourceProblem(const MvrScene &scene, const std::string &file
   if (!std::filesystem::is_regular_file(path, error)) return "Geometry3D resource is unavailable: " + file;
   const auto dependencies = InspectModelDependencies(path);
   if (!dependencies.error.empty()) return dependencies.error + " Resource: " + file;
-  if (!dependencies.references.empty())
-    return "Externally dependent Symdef geometry needs a complete dependency merge/ownership contract: " + file;
+  if (!dependencies.references.empty()) {
+    const auto closure = DiscoverModelResourceClosure(
+        path, PathUtils::PathFromUtf8(scene.basePath));
+    if (!closure.error.empty())
+      return closure.error;
+  }
   return {};
 }
 
@@ -76,7 +82,9 @@ std::vector<MvrExportDiagnostic> CheckMvrSymdefs(const MvrScene &scene) {
   const auto protectProjections = [&](const auto &objects) {
     for (const auto &[uuid, object] : objects)
       for (const auto &geometry : object.geometries)
-        if (!geometry.sourceSymbolUuid.empty() || !geometry.sourceSymdefUuid.empty()) {
+        if ((!geometry.sourceSymbolUuid.empty() ||
+             !geometry.sourceSymdefUuid.empty()) &&
+            !SourceOwnsGeometry(scene, uuid)) {
           result.push_back(Block(uuid, "Expanded geometric objects/supports still lack canonical Symbol instance ownership."));
           break;
         }
@@ -87,13 +95,21 @@ std::vector<MvrExportDiagnostic> CheckMvrSymdefs(const MvrScene &scene) {
       result.push_back(Block(uuid, "Symdef UUID must be canonical, nonnil and exclusively owned."));
     for (const auto &geometry : definition.geometries) {
       Matrix roundTrip;
-      if (!MatrixUtils::ParseMatrix(MatrixUtils::FormatMatrix(geometry.transform), roundTrip) || !Equal(geometry.transform, roundTrip))
+      if (!MatrixUtils::ParseMatrix(
+              FormatCanonicalMatrix(geometry.transform, geometry.matrixSource),
+              roundTrip) ||
+          !Equal(geometry.transform, roundTrip))
         result.push_back(Block(uuid, "Definition geometry exceeds the current matrix serialization precision."));
       if (!Finite(geometry.transform)) result.push_back(Block(uuid, "Definition geometry has a nonfinite matrix."));
       if (const auto problem = SymdefResourceProblem(scene, geometry.file); !problem.empty()) {
         auto diagnostic = Block(uuid, problem);
         std::error_code error;
-        if (!std::filesystem::is_regular_file(ResolveSymdefResource(scene, geometry.file), error)) {
+        if (!std::filesystem::is_regular_file(
+                ResolveSymdefResource(scene, geometry.file), error) ||
+            DiscoverModelResourceClosure(
+                ResolveSymdefResource(scene, geometry.file),
+                PathUtils::PathFromUtf8(scene.basePath))
+                .missingResource) {
           diagnostic.code = MvrExportDiagnosticCode::ResourceMissing;
           diagnostic.resourceName = geometry.file;
         }
@@ -101,17 +117,42 @@ std::vector<MvrExportDiagnostic> CheckMvrSymdefs(const MvrScene &scene) {
       }
     }
   }
+  std::unordered_map<std::string, int> colors;
+  const auto validateGraph = [&](auto &&self, const std::string &id) -> void {
+    if (colors[id] == 2)
+      return;
+    if (colors[id] == 1) {
+      result.push_back(Block(id, "Symdef reference graph contains a cycle."));
+      return;
+    }
+    colors[id] = 1;
+    for (const auto &symbol : scene.symdefs.at(id).symbols) {
+      if (!ValidIdentity(symbol.uuid) || !occupied.insert(symbol.uuid).second ||
+          !ValidIdentity(symbol.symdef) ||
+          !scene.symdefs.contains(symbol.symdef) || !Finite(symbol.transform))
+        result.push_back(Block(id, "Nested Symbol identity, matrix or "
+                                   "definition reference is invalid."));
+      else
+        self(self, symbol.symdef);
+    }
+    colors[id] = 2;
+  };
+  for (const auto &[id, definition] : scene.symdefs)
+    validateGraph(validateGraph, id);
   for (const auto &[uuid, truss] : scene.trusses) {
     if (truss.sourceRepresentation != Truss::GeometryRepresentation::SymbolSymdef) continue;
     if ((!truss.sourceSymbolUuid.empty() && (!ValidIdentity(truss.sourceSymbolUuid) ||
           !occupied.insert(truss.sourceSymbolUuid).second)) || !scene.symdefs.contains(truss.sourceSymdefUuid))
       result.push_back(Block(uuid, "Truss Symbol identity must be unique and reference a retained Symdef."));
-    if (!Equal(truss.sourceSymbolMatrix, MatrixUtils::Identity()))
+    if (!SourceOwnsGeometry(scene, uuid) &&
+        !Equal(truss.sourceSymbolMatrix, MatrixUtils::Identity()))
       result.push_back(Block(uuid, "Nonidentity Symbol placement needs a separate canonical node/display transform contract."));
     if (auto definition = scene.symdefs.find(truss.sourceSymdefUuid); definition != scene.symdefs.end())
-      if (!definition->second.geometries.empty() &&
-          !CanonicalMatrixIsIdentity(definition->second.geometries.front().transform,
-                                    definition->second.geometries.front().matrixSource))
+      if (!SourceOwnsGeometry(scene, uuid) &&
+          !definition->second.geometries.empty() &&
+          !CanonicalMatrixIsIdentity(
+              definition->second.geometries.front().transform,
+              definition->second.geometries.front().matrixSource))
         result.push_back(Block(uuid, "First definition geometry placement is baked into the Truss display transform."));
   }
   return result;
@@ -135,8 +176,29 @@ std::vector<MvrExportDiagnostic> CheckSerializedSymdefs(
     if (const auto *text = definition->Attribute("name")) name = text;
     auto *children = definition->FirstChildElement("ChildList");
     bool valid = name == expected.name && children;
-    size_t index = 0;
-    for (auto *geo = children ? children->FirstChildElement() : nullptr; geo; geo = geo->NextSiblingElement(), ++index) {
+    size_t index = 0, symbolIndex = 0;
+    for (auto *geo = children ? children->FirstChildElement() : nullptr; geo;
+         geo = geo->NextSiblingElement()) {
+      if (std::string(geo->Name()) == "Symbol") {
+        valid &= symbolIndex < expected.symbols.size();
+        if (symbolIndex < expected.symbols.size()) {
+          const auto &symbol = expected.symbols[symbolIndex];
+          valid &= geo->Attribute("uuid") &&
+                   symbol.uuid == geo->Attribute("uuid") &&
+                   geo->Attribute("symdef") &&
+                   symbol.symdef == geo->Attribute("symdef");
+          auto *matrix = geo->FirstChildElement("Matrix");
+          const auto actual =
+              ParseCanonicalMatrix(matrix && matrix->GetText()
+                                       ? matrix->GetText()
+                                       : MatrixUtils::FormatMatrix(Matrix{}));
+          const auto original = ParseCanonicalMatrix(
+              FormatCanonicalMatrix(symbol.transform, symbol.matrixSource));
+          valid &= actual && original && actual->values == original->values;
+        }
+        ++symbolIndex;
+        continue;
+      }
       Matrix matrix = MatrixUtils::Identity();
       auto *element = geo->FirstChildElement("Matrix");
       valid &= std::string(geo->Name()) == "Geometry3D" && geo->Attribute("fileName") &&
@@ -159,8 +221,10 @@ std::vector<MvrExportDiagnostic> CheckSerializedSymdefs(
           valid &= first && second && first == second;
         }
       }
+      ++index;
     }
-    if (!valid || index != expected.geometries.size())
+    if (!valid || index != expected.geometries.size() ||
+        symbolIndex != expected.symbols.size())
       result.push_back(Block(uuid, "Serialized definition name, structure or transforms changed."));
   }
   if (seen.size() != scene.symdefs.size()) result.push_back(Block({}, "Serialization omitted a Symdef, including an unused definition."));
@@ -184,14 +248,23 @@ std::vector<MvrExportDiagnostic> CheckSerializedSymdefs(
         unique &= value->GetText() && MatrixUtils::ParseMatrix(value->GetText(), matrix);
       if (ownerUuid) symbolMatrices[ownerUuid] = matrix;
       if (!uuid || !target || !ownerUuid || !seen.contains(target) ||
-          !symbols.emplace(ownerUuid, std::make_pair(uuid, target)).second) unique = false;
+          identities[uuid] > 1)
+        unique = false;
+      else if (!SourceOwnsGeometry(scene, ownerUuid) &&
+               !symbols.emplace(ownerUuid, std::make_pair(uuid, target))
+                    .second &&
+               std::string(owner->Name()) == "Truss")
+        unique = false;
     }
     for (auto *child = node.FirstChildElement(); child; child = child->NextSiblingElement()) self(self, *child);
   };
   visit(visit, sceneElement);
   if (canonicalSymbols)
     for (const auto &[uuid, truss] : scene.trusses) {
-      if (truss.sourceRepresentation != Truss::GeometryRepresentation::SymbolSymdef) continue;
+      if (truss.sourceRepresentation !=
+              Truss::GeometryRepresentation::SymbolSymdef ||
+          SourceOwnsGeometry(scene, uuid))
+        continue;
       if (!symbols.contains(uuid) || symbols.at(uuid).second != truss.sourceSymdefUuid ||
           !ValidIdentity(symbols.at(uuid).first) || identities[symbols.at(uuid).first] != 1 ||
           (!truss.sourceSymbolUuid.empty() && symbols.at(uuid).first != truss.sourceSymbolUuid) ||

@@ -1,8 +1,19 @@
 target_sources(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_text_renderer.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_text_renderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_page_mapping.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_event_table_renderer.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_event_table_renderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/legend_composition_adapter.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/legend_composition_adapter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/position_insertion_overlay.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel_position_overlay.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel_resource_sync.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas2d.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/font_metrics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_exporter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_legend_renderer.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_legend_renderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_symbol_usage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_draw_commands.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_font_metrics.cpp

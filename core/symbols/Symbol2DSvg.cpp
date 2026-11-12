@@ -1,3 +1,4 @@
+#include "symbols/fixture_symbol_operation_counters.h"
 #include "symbols/Symbol2DSvg.h"
 
 #include <algorithm>
@@ -38,6 +39,7 @@ bool SerializeSymbolToSvg(const Symbol2D &symbol, std::string &svgContent,
     return false;
   }
 
+  symbols::diagnostics::Count(symbols::diagnostics::Operation::SvgGeneration);
   std::ostringstream file;
   file.imbue(std::locale::classic());
   file << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";

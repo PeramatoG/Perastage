@@ -40,6 +40,7 @@ struct SymdefValues {
   std::string uuid;
   std::optional<std::string> name;
   std::vector<SymdefGeometryValues> geometries;
+  std::vector<MvrSymbolInstance> symbols;
 };
 
 // Creates the MVR declaration and GeneralSceneDescription root.

@@ -34,6 +34,7 @@ void MvrScene::Clear() {
     runtimeResourceLeases.clear();
     opaqueUserDataBlocks.clear();
     preservationIssues.clear();
+    sourceStructures.clear();
     versionMajor = 1;
     versionMinor = 6;
 }

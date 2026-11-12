@@ -1,5 +1,8 @@
 #include "mvr_identifier_preservation.h"
+#include "mvr_binding_content.h"
 #include "mvr_standard_preservation.h"
+#include "mvr_standard_field_projection.h"
+#include "mvr_source_structure_service.h"
 #include "mvr_fixture_addresses.h"
 #include "mvr_truss_address_preservation.h"
 #include "fixture_patch_service.h"
@@ -69,7 +72,9 @@ void Scan(tinyxml2::XMLElement &element, MvrScene &scene,
   if (const char *uuid = element.Attribute("uuid")) owner = uuid;
   if (name == "Fixture" || name == "Support" || name == "Truss") ScanFixtureAddresses(element, scene);
   if (name == "Truss" && element.FirstChildElement("GDTFSpec") &&
-      (!element.FirstChildElement("GDTFMode") || !element.FirstChildElement("GDTFMode")->GetText()))
+      HasBindingContent(element.FirstChildElement("GDTFSpec")->GetText()) &&
+      (!element.FirstChildElement("GDTFMode") ||
+       !HasBindingContent(element.FirstChildElement("GDTFMode")->GetText())))
     Record(scene, element, owner, location + "/GDTFMode", "MVR 1.6 Table 28 requires an authored mode with GDTFSpec.");
   if (name == "Layer") {
     const auto source = ReadMatrixSource(element, scene);
@@ -84,12 +89,10 @@ void Scan(tinyxml2::XMLElement &element, MvrScene &scene,
   }
   if (name == "VideoScreen" || name == "Projector") {
     Record(scene, element, owner, location, "This scene node has no durable representation.");
-    return;
   }
   if (element.Attribute("multipatch")) {
     Record(scene, element, owner, location + "/@multipatch",
            "Multipatch ownership is not retained.");
-    return;
   }
   // Root UserData already has a dedicated validated preservation service.
   if (name == "UserData") {
@@ -133,6 +136,14 @@ void Scan(tinyxml2::XMLElement &element, MvrScene &scene,
     const std::string childLocation = location + "/" + childName;
     const auto rule = unsupportedChildren.find(name);
     if (rule != unsupportedChildren.end() && rule->second.contains(childName)) {
+      if ((childName == "GDTFSpec" || childName == "GDTFMode") &&
+          name != "Fixture") {
+        const auto *spec = element.FirstChildElement("GDTFSpec");
+        const auto *mode = element.FirstChildElement("GDTFMode");
+        if ((!spec || IsEmptyAssignment(*spec)) &&
+            (!mode || IsEmptyAssignment(*mode)))
+          continue;
+      }
       static const Names emptyContainers = {"Alignments", "Protocols", "CustomCommands",
           "Overwrites", "Connections", "Mappings", "Addresses"};
       if (emptyContainers.contains(childName) && IsEmptyAssignment(*child) &&
@@ -146,7 +157,6 @@ void Scan(tinyxml2::XMLElement &element, MvrScene &scene,
         name != "Layer" && name != "GroupObject" && name != "Symdef") {
       Record(scene, *child, owner, childLocation,
              "Children of parametric objects would be reparented.");
-      continue;
     }
     if (name == "Symdef" && childName == "ChildList" && child->FirstChildElement("Symbol"))
       Record(scene, *child, owner, childLocation,
@@ -172,12 +182,17 @@ void RecordStandardPreservationRisks(tinyxml2::XMLElement &root, MvrScene &scene
 
 std::vector<MvrExportDiagnostic> CheckStandardPreservation(const MvrScene &scene) {
   auto result = CheckMvrClasses(scene);
+  const auto structure = CheckSourceStructure(scene);
+  result.insert(result.end(), structure.begin(), structure.end());
   const auto symbols = CheckMvrSymdefs(scene);
   result.insert(result.end(), symbols.begin(), symbols.end());
   if (scene.versionMajor != 1 || scene.versionMinor > 6)
     result.push_back(Block("GeneralSceneDescription", {}, "/@verMajor,verMinor",
                            "Unsupported MVR version cannot be downgraded safely."));
   for (const auto &issue : scene.preservationIssues) {
+    if (CanProjectStandardSourceField(issue) ||
+        CanRestoreSourceIssue(scene, issue))
+      continue;
     auto diagnostic = Block(issue.node, issue.objectUuid, issue.sourceLocation,
                             issue.reason + " " + issue.recommendedAction);
     if (issue.kind == MvrPreservationIssueKind::ResourceFailure) {
@@ -199,9 +214,16 @@ std::vector<MvrExportDiagnostic> CheckStandardPreservation(const MvrScene &scene
       auto path = PathUtils::PathFromUtf8(file);
       if (!path.is_absolute()) path = PathUtils::PathFromUtf8(scene.basePath) / path;
       std::error_code error;
-      if (requiresSymbol || !std::filesystem::is_regular_file(path, error))
-        result.push_back(Block("FocusPoint", uuid, "Geometries",
-                               "Focus geometry cannot be preserved: " + file));
+      const bool available = std::filesystem::is_regular_file(path, error);
+      if ((requiresSymbol && !SourceOwnsGeometry(scene, uuid)) || !available) {
+        auto diagnostic = Block("FocusPoint", uuid, "Geometries",
+                                "Focus geometry cannot be preserved: " + file);
+        if (!available) {
+          diagnostic.code = MvrExportDiagnosticCode::ResourceMissing;
+          diagnostic.resourceName = file;
+        }
+        result.push_back(std::move(diagnostic));
+      }
     };
     for (const auto &geometry : object.geometries)
       checkGeometry(geometry.modelFile, !geometry.sourceSymdefUuid.empty());
@@ -212,6 +234,21 @@ std::vector<MvrExportDiagnostic> CheckStandardPreservation(const MvrScene &scene
   for (const auto &[uuid, fixture] : scene.fixtures) {
     if (const auto patch = perastage::patch::ResolveFixturePatch(fixture); !patch)
       result.push_back(Block("Fixture", uuid, "Fixture/Addresses", patch.detail));
+    // An imported definition is authored information, even without Network.
+    // A dummy profile cannot repair missing source bytes without data loss.
+    if (!fixture.originalMvrGdtfSpec.empty()) {
+      const auto &spec = fixture.gdtfSpec.empty() ? fixture.originalMvrGdtfSpec : fixture.gdtfSpec;
+      auto path = PathUtils::PathFromUtf8(spec);
+      if (!path.is_absolute()) path = PathUtils::PathFromUtf8(scene.basePath) / path;
+      std::error_code error;
+      if (!std::filesystem::is_regular_file(path, error)) {
+        auto diagnostic = Block("Fixture", uuid, "Fixture/GDTFSpec",
+            "The authored GDTF resource is unavailable; no fallback is substituted.");
+        diagnostic.code = MvrExportDiagnosticCode::ResourceMissing;
+        diagnostic.resourceName = spec;
+        result.push_back(std::move(diagnostic));
+      }
+    }
     if (fixture.dmxAddresses && !fixture.dmxAddresses->networks.empty()) {
       const auto &networkSpec = fixture.gdtfSpec.empty() ? fixture.originalMvrGdtfSpec : fixture.gdtfSpec;
       auto gdtfPath = PathUtils::PathFromUtf8(networkSpec);

@@ -1,6 +1,8 @@
 /*
  * This file is part of Perastage.
  */
+#include "support/mvr_userdata_test_utils.h"
+
 #include <cassert>
 #include <cstdlib>
 #include <filesystem>
@@ -227,6 +229,9 @@ int main() {
   const fs::path mvrPath = tempDir / "fixture_category.mvr";
   MvrExporter exporter;
   assert(exporter.ExportToFile(mvrPath.string()));
+  for (const auto &finding : exporter.GetExportDiagnostics())
+    assert(finding.technicalDetail.find("legacy native filename alias") ==
+           std::string::npos);
 
   const auto entries = ReadArchive(mvrPath);
   const std::string sceneXmlText =
@@ -237,8 +242,9 @@ int main() {
   auto *root = xml.FirstChildElement("GeneralSceneDescription");
   auto *rootUserData = root->FirstChildElement("UserData");
   assert(rootUserData);
-  auto *fixtureTypeMap = rootUserData->FirstChildElement("Data")
-                             ->FirstChildElement("FixtureTypeInfoMap");
+  auto *nativeData = mvr_test::FindUniqueProviderData(*rootUserData, "Perastage");
+  assert(nativeData);
+  auto *fixtureTypeMap = nativeData->FirstChildElement("FixtureTypeInfoMap");
   assert(fixtureTypeMap);
   auto *fixtureTypeInfo = fixtureTypeMap->FirstChildElement("FixtureTypeInfo");
   assert(fixtureTypeInfo);

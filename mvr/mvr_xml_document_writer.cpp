@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvr_xml_document_writer.h"
+#include "mvr_matrix_precision.h"
 
 #include "matrixutils.h"
 
@@ -87,6 +88,17 @@ void AppendSymdef(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *aux,
     matrix->SetText(MatrixUtils::FormatMatrix(value.matrix).c_str());
     geometry->InsertEndChild(matrix);
     children->InsertEndChild(geometry);
+  }
+  for (const auto &value : values.symbols) {
+    auto *symbol = document.NewElement("Symbol");
+    symbol->SetAttribute("uuid", value.uuid.c_str());
+    symbol->SetAttribute("symdef", value.symdef.c_str());
+    auto *matrix = document.NewElement("Matrix");
+    matrix->SetText(
+        mvr::FormatCanonicalMatrix(value.transform, value.matrixSource)
+            .c_str());
+    symbol->InsertEndChild(matrix);
+    children->InsertEndChild(symbol);
   }
   symdef->InsertEndChild(children);
   // AUXData orders Symdefs before Positions, after any Classes.

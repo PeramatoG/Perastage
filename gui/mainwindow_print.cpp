@@ -1,3 +1,4 @@
+#include <wx/richmsgdlg.h>
 /*
  * This file is part of Perastage.
  * Copyright (C) 2025 Luisma Peramato
@@ -39,6 +40,9 @@
 #include "fixturetablepanel.h"
 #include "hoisttablepanel.h"
 #include "layouttextutils.h"
+#include "layout_image_export.h"
+#include "layouts/PageOutputMapping.h"
+#include "logger.h"
 #include "layoutlegenditems.h"
 #include "Viewer2DPrintSettings.h"
 #include "print_diagnostics.h"
@@ -61,148 +65,10 @@ void SetPrintStatus(MainWindow *window, const wxString &message) {
 
 std::vector<LayoutLegendItem> BuildLayoutLegendItems(
     const layouts::LayoutLegendDefinition *legend) {
-  std::vector<SharedLayoutLegendItem> sharedItems =
-      BuildSharedLayoutLegendItems();
-  std::unordered_map<std::string, layouts::LayoutLegendDefinition::ItemSettings>
-      settingsByType;
-  if (legend) {
-    settingsByType.reserve(legend->itemSettings.size());
-    for (const auto &settings : legend->itemSettings)
-      settingsByType[settings.typeName] = settings;
-  }
-
-  std::unordered_map<std::string, SharedLayoutLegendItem> availableByType;
-  availableByType.reserve(sharedItems.size());
-  for (const auto &shared : sharedItems)
-    availableByType.emplace(shared.typeName, shared);
-
-  std::vector<LayoutLegendItem> items;
-  items.reserve(sharedItems.size());
-  auto appendItem = [&](const SharedLayoutLegendItem &shared) {
-    LayoutLegendItem item;
-    item.typeName = shared.typeName;
-    item.displayName = shared.typeName;
-    item.count = shared.count;
-    item.channelCount = shared.channelCount;
-    item.symbolKey = shared.symbolKey;
-    item.gdtfPath = shared.gdtfPath;
-    item.symbolFillHex = shared.symbolFillHex;
-    if (const auto it = settingsByType.find(shared.typeName);
-        it != settingsByType.end()) {
-      item.showBottomSymbol = it->second.showBottomSymbol;
-      item.showFrontSymbol = it->second.showFrontSymbol;
-      item.showSideSymbol = it->second.showSideSymbol;
-      if (!it->second.customName.empty())
-        item.displayName = it->second.customName;
-      if (!it->second.visible)
-        return;
-    }
-    items.push_back(std::move(item));
-  };
-
-  if (legend) {
-    std::unordered_set<std::string> usedTypes;
-    usedTypes.reserve(legend->itemSettings.size());
-    for (const auto &settings : legend->itemSettings) {
-      const auto it = availableByType.find(settings.typeName);
-      if (it == availableByType.end())
-        continue;
-      appendItem(it->second);
-      usedTypes.insert(settings.typeName);
-    }
-    for (const auto &shared : sharedItems) {
-      if (usedTypes.find(shared.typeName) != usedTypes.end())
-        continue;
-      appendItem(shared);
-    }
-  } else {
-    for (const auto &shared : sharedItems)
-      appendItem(shared);
-  }
-
-  return items;
+  return layouts::ResolveLegendItems(BuildSharedLayoutLegendItems(), legend);
 }
 
-std::optional<LayoutImageExportData> BuildLayoutImageExportData(
-    const layouts::LayoutImageDefinition &imageDef, double scaleX,
-    double scaleY) {
-  constexpr double kPdfPointsPerInch = 72.0;
-  constexpr double kTargetPrintDpi = 300.0;
-  constexpr int kMaxImageSidePx = 8192;
-  constexpr int kMaxImagePixels = 8192 * 8192;
 
-  LayoutImageExportData data;
-  data.zIndex = imageDef.zIndex;
-  data.frame = imageDef.frame;
-  data.frame.x = static_cast<int>(std::lround(data.frame.x * scaleX));
-  data.frame.y = static_cast<int>(std::lround(data.frame.y * scaleY));
-  data.frame.width = static_cast<int>(std::lround(data.frame.width * scaleX));
-  data.frame.height = static_cast<int>(std::lround(data.frame.height * scaleY));
-  if (data.frame.width <= 0 || data.frame.height <= 0)
-    return std::nullopt;
-  if (imageDef.imagePath.empty())
-    return std::nullopt;
-
-  wxImage sourceImage;
-  if (!sourceImage.LoadFile(wxString::FromUTF8(imageDef.imagePath)))
-    return std::nullopt;
-  if (sourceImage.GetWidth() <= 0 || sourceImage.GetHeight() <= 0)
-    return std::nullopt;
-
-  const double frameWidthInches =
-      static_cast<double>(data.frame.width) / kPdfPointsPerInch;
-  const double frameHeightInches =
-      static_cast<double>(data.frame.height) / kPdfPointsPerInch;
-  int targetPixelWidth = static_cast<int>(
-      std::lround(std::max(1.0, frameWidthInches * kTargetPrintDpi)));
-  int targetPixelHeight = static_cast<int>(
-      std::lround(std::max(1.0, frameHeightInches * kTargetPrintDpi)));
-  targetPixelWidth = std::clamp(targetPixelWidth, 1, kMaxImageSidePx);
-  targetPixelHeight = std::clamp(targetPixelHeight, 1, kMaxImageSidePx);
-  if (targetPixelWidth > 0 &&
-      targetPixelHeight > (kMaxImagePixels / targetPixelWidth)) {
-    targetPixelHeight = std::max(1, kMaxImagePixels / targetPixelWidth);
-  }
-
-  wxImage scaled =
-      sourceImage.Scale(targetPixelWidth, targetPixelHeight, wxIMAGE_QUALITY_HIGH);
-  if (!scaled.IsOk() || scaled.GetWidth() <= 0 || scaled.GetHeight() <= 0)
-    return std::nullopt;
-
-  data.pixelWidth = scaled.GetWidth();
-  data.pixelHeight = scaled.GetHeight();
-  data.pixels.resize(static_cast<size_t>(data.pixelWidth) *
-                     static_cast<size_t>(data.pixelHeight) * 3u);
-
-  const unsigned char *rgb = scaled.GetData();
-  const unsigned char *alpha = scaled.HasAlpha() ? scaled.GetAlpha() : nullptr;
-  if (!rgb)
-    return std::nullopt;
-  for (int idx = 0; idx < data.pixelWidth * data.pixelHeight; ++idx) {
-    const size_t rgbOffset = static_cast<size_t>(idx) * 3u;
-    if (!alpha) {
-      data.pixels[rgbOffset + 0] = rgb[rgbOffset + 0];
-      data.pixels[rgbOffset + 1] = rgb[rgbOffset + 1];
-      data.pixels[rgbOffset + 2] = rgb[rgbOffset + 2];
-      continue;
-    }
-
-    const double a = static_cast<double>(alpha[idx]) / 255.0;
-    data.pixels[rgbOffset + 0] = static_cast<unsigned char>(
-        std::clamp((static_cast<double>(rgb[rgbOffset + 0]) * a) +
-                       (255.0 * (1.0 - a)),
-                   0.0, 255.0));
-    data.pixels[rgbOffset + 1] = static_cast<unsigned char>(
-        std::clamp((static_cast<double>(rgb[rgbOffset + 1]) * a) +
-                       (255.0 * (1.0 - a)),
-                   0.0, 255.0));
-    data.pixels[rgbOffset + 2] = static_cast<unsigned char>(
-        std::clamp((static_cast<double>(rgb[rgbOffset + 2]) * a) +
-                       (255.0 * (1.0 - a)),
-                   0.0, 255.0));
-  }
-  return data;
-}
 }
 
 void MainWindow::OnPrintMenu(wxCommandEvent &WXUNUSED(event)) {
@@ -400,7 +266,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   settings.landscape = layout->pageSetup.landscape;
   ui::ApplyBuildDefaultsToViewer2DPrintSettings(settings);
   settings.includeGrid = true;
-  settings.SaveToConfig(cfg);
+  // Layout printing is derived: do not publish print preferences as project edits.
 
   wxFileDialog dlg(this, _("Save layout as"), "", "layout.pdf",
                    "PDF files (*.pdf)|*.pdf",
@@ -423,10 +289,16 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   const bool outputLandscape = outputSetup.landscape;
   const double layoutPageW = layout->pageSetup.PageWidthPt();
   const double layoutPageH = layout->pageSetup.PageHeightPt();
-  const double scaleX =
-      layoutPageW > 0.0 ? outputPageW / layoutPageW : 1.0;
-  const double scaleY =
-      layoutPageH > 0.0 ? outputPageH / layoutPageH : 1.0;
+  layouts::composition::PageOutputMapping pageMapping;
+  try {
+    pageMapping = layouts::composition::PageFitForSizes(layoutPageW, layoutPageH, outputPageW, outputPageH);
+  } catch (const std::invalid_argument &error) {
+    wxMessageBox(wxString::Format(_("Failed to generate layout PDF: %s"), wxString::FromUTF8(error.what())),
+                 _("Print Layout"), wxOK | wxICON_ERROR, this);
+    return;
+  }
+  const double scaleX = outputPageW / layoutPageW;
+  const double scaleY = outputPageH / layoutPageH;
 
   const bool useSimplifiedFootprints = !settings.detailedFootprints;
   const bool includeGrid = true;
@@ -448,32 +320,24 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
     legendData.items = BuildLayoutLegendItems(&legend);
     legendData.zIndex = legend.zIndex;
     legendData.showChannelColumn = legend.showChannelColumn;
-    layouts::Layout2DViewFrame frame = legend.frame;
-    frame.x = static_cast<int>(std::lround(frame.x * scaleX));
-    frame.y = static_cast<int>(std::lround(frame.y * scaleY));
-    frame.width = static_cast<int>(std::lround(frame.width * scaleX));
-    frame.height = static_cast<int>(std::lround(frame.height * scaleY));
-    legendData.frame = frame;
+    legendData.frame = legend.frame;
     layoutLegends.push_back(std::move(legendData));
   }
   for (const auto &table : layout->eventTables) {
     LayoutEventTableExportData tableData;
     tableData.fields = table.fields;
     tableData.zIndex = table.zIndex;
-    layouts::Layout2DViewFrame frame = table.frame;
-    frame.x = static_cast<int>(std::lround(frame.x * scaleX));
-    frame.y = static_cast<int>(std::lround(frame.y * scaleY));
-    frame.width = static_cast<int>(std::lround(frame.width * scaleX));
-    frame.height = static_cast<int>(std::lround(frame.height * scaleY));
-    tableData.frame = frame;
+    tableData.frame = table.frame;
     layoutTables.push_back(std::move(tableData));
   }
   for (const auto &text : layout->textViews) {
     layoutTexts.push_back(
-        layouttext::BuildLayoutTextExportData(text, scaleX, scaleY));
+        layouttext::BuildLayoutTextExportData(text));
   }
   for (const auto &image : layout->imageViews) {
-    auto imageData = BuildLayoutImageExportData(image, scaleX, scaleY);
+    std::string diagnostic;
+    auto imageData = gui::BuildLayoutImageExportData(image, pageMapping, &diagnostic);
+    if (!diagnostic.empty()) Logger::Instance().Log(diagnostic);
     if (imageData.has_value())
       layoutImages.push_back(std::move(*imageData));
   }
@@ -556,8 +420,18 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
                     _("\n\nSymbol summary:\nPerastage symbols: %zu\nRendered fallbacks: %zu"),
                     res.perastageSymbolInstances,
                     res.fallbackSymbolInstances);
-                wxMessageBox(successMessage, _("Print Layout"),
-                             wxOK | wxICON_INFORMATION, this);
+                auto diagnostics = res.legendTextDiagnostics;
+                diagnostics.insert(diagnostics.end(), res.eventTableTextDiagnostics.begin(),
+                                   res.eventTableTextDiagnostics.end());
+                wxRichMessageDialog dialog(this, successMessage, _("Print Layout"),
+                    wxOK | (diagnostics.empty() ? wxICON_INFORMATION : wxICON_WARNING));
+                if (!diagnostics.empty()) {
+                  wxString details;
+                  for (const auto &finding : diagnostics) details += wxString::FromUTF8(finding) + "\n";
+                  dialog.SetMessage(successMessage + "\n\n" + wxString::FromUTF8(diagnostics.front()));
+                  dialog.ShowDetailedText(details);
+                }
+                dialog.ShowModal();
               }
             });
           }).detach();
@@ -594,7 +468,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
             false);
         capturePanel->CaptureFrameNow(
             [captureNext, exportViews, view, viewportWidth, viewportHeight,
-             capturePanel, scaleX, scaleY,
+             capturePanel,
              stateGuard](CommandBuffer buffer, Viewer2DViewState state) {
               LayoutViewExportData data;
               data.buffer = std::move(buffer);
@@ -603,16 +477,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
                 data.viewState.viewportWidth = viewportWidth;
               if (data.viewState.viewportHeight <= 0)
                 data.viewState.viewportHeight = viewportHeight;
-              layouts::Layout2DViewFrame frame = view.frame;
-              frame.x =
-                  static_cast<int>(std::lround(frame.x * scaleX));
-              frame.y =
-                  static_cast<int>(std::lround(frame.y * scaleY));
-              frame.width =
-                  static_cast<int>(std::lround(frame.width * scaleX));
-              frame.height =
-                  static_cast<int>(std::lround(frame.height * scaleY));
-              data.frame = frame;
+              data.frame = view.frame;
               data.zIndex = view.zIndex;
               data.drawFrame = view.drawFrame;
               if (capturePanel)

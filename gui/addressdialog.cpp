@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "addressdialog.h"
+#include <limits>
 
 AddressDialog::AddressDialog(wxWindow* parent, int universe, int channel)
     : wxDialog(parent, wxID_ANY, _("Edit Address"), wxDefaultPosition, wxDefaultSize)
@@ -39,9 +40,13 @@ AddressDialog::AddressDialog(wxWindow* parent, int universe, int channel)
 }
 
 int AddressDialog::GetUniverse() const {
-    long v = 0; uniCtrl->GetValue().ToLong(&v); return static_cast<int>(v);
+    long v = 0;
+    if (!uniCtrl->GetValue().ToLong(&v) || v < 1 || v > std::numeric_limits<int>::max()) return 0;
+    return static_cast<int>(v);
 }
 
 int AddressDialog::GetChannel() const {
-    long v = 0; chCtrl->GetValue().ToLong(&v); return static_cast<int>(v);
+    long v = 0;
+    if (!chCtrl->GetValue().ToLong(&v) || v < std::numeric_limits<int>::min() || v > std::numeric_limits<int>::max()) return 0;
+    return static_cast<int>(v);
 }

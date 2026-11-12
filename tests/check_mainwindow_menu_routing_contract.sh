@@ -50,6 +50,8 @@ expected_routes = {
     "ID_Edit_ReplaceTrusses": "OnReplaceSelectedTrusses",
     "ID_Edit_Preferences": "OnPreferences",
     "ID_View_ToggleConsole": "OnToggleConsole",
+    "ID_View_TogglePositionTool": "OnTogglePositionTool",
+    "ID_View_ToggleDmxPatch": "OnToggleDmxPatch",
     "ID_View_ToggleFixtures": "OnToggleFixtures",
     "ID_View_ToggleViewport": "OnToggleViewport",
     "ID_View_ToggleViewport2D": "OnToggleViewport2D",

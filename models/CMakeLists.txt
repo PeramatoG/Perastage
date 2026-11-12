@@ -1,4 +1,5 @@
 add_library(perastage_mvr_scene_model STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_structure.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mvrscene.cpp
 )
 target_compile_features(perastage_mvr_scene_model PUBLIC cxx_std_20)

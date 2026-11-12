@@ -1,3 +1,4 @@
+#include "symbols/fixture_symbol_operation_counters.h"
 #include "tools/fixture_geometry_bounds.h"
 
 #include <vector>
@@ -13,6 +14,7 @@ bool ComputeFixtureGeometryBoundsMm(const std::string &gdtfPath,
                                     const std::string &gdtfMode,
                                     FixtureGeometryBounds &bounds,
                                     std::string &errorMessage) {
+  symbols::diagnostics::Count(symbols::diagnostics::Operation::GeometryInspection);
   bounds = FixtureGeometryBounds{};
   std::vector<GdtfObject> objects;
   if (!LoadGdtf(gdtfPath, objects, gdtfMode, &errorMessage))

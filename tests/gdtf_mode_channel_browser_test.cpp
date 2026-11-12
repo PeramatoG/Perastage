@@ -1,9 +1,33 @@
 #include "gdtf/gdtf_mode_channel_browser.h"
 
+#include "support/gdtf_channel_footprint_cases.h"
 #include <cassert>
+#include <algorithm>
+#include <set>
 #include <string>
 
 int main() {
+  for (const auto &test : tests::gdtf::FootprintCases()) {
+    const auto document = gdtf::ReadGdtfModeChannelDocument(test.xml);
+    const auto &mode = document.modes.at(0);
+    assert(mode.footprintsByBreak == test.breaks);
+    const auto primary = test.breaks.find(1);
+    assert(mode.calculatedFootprint == (primary == test.breaks.end() ? 0 : primary->second));
+    std::map<int, std::vector<int>> bytes;
+    std::set<std::string> identities;
+    for (const auto &channel : mode.channels) {
+      assert(identities.insert(channel.id).second);
+      if (channel.virtualChannel) continue;
+      for (const auto &offset : channel.offsets) {
+        if (!channel.effectiveDmxBreak) { assert(!offset.normalized); continue; }
+        assert(offset.normalized);
+        bytes[*channel.effectiveDmxBreak].push_back(static_cast<int>(*offset.normalized));
+      }
+    }
+    for (auto &[br, offsets] : bytes) std::sort(offsets.begin(), offsets.end());
+    assert(bytes == test.bytes); // Exact byte lists detect gaps and duplicate expansion.
+    assert(document.diagnostics.empty() != test.diagnostic);
+  }
   auto plain = gdtf::ParseGdtfDmxValue(" 255 ");
   assert(plain.valid && plain.value == 255 && plain.byteCount == 1);
   auto two = gdtf::ParseGdtfDmxValue("65535/2");

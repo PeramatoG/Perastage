@@ -110,6 +110,9 @@ public:
   Viewer2DView GetView() const { return m_view; }
 
   // Synchronize the highlighted selection from external sources (tables/3D).
+  // Presents external table/patch hover without publishing another hover event.
+  void SetExternalHoverUuid(const std::string &uuid);
+  const std::string &GetHoveredUuid() const { return m_hoverUuid; }
   void SetSelectedUuids(const std::vector<std::string> &selection);
 
   // Update cached color for a specific layer so user selections are applied
@@ -239,6 +242,8 @@ private:
   viewer2d::render::RenderFramePlan BuildRenderFramePlan();
   viewer2d::RulerOverlayViewState
   BuildRulerOverlayViewState(int width, int height, bool useImperialUnits) const;
+  void DrawInsertionPointOverlay(int width, int height, bool onscreenFrame,
+                                 bool captureActive);
   void DrawLayoutEditOverlay(int width, int height);
   void DrawRulerOverlayFrame(
       const viewer2d::RulerOverlayViewState &rulerState, bool darkMode,

@@ -33,4 +33,5 @@ bool BuildTrussGdtfFromInstance(const Truss &truss,
 bool BuildTrussGdtfFromInstance(const Truss &truss,
                                 const std::filesystem::path &outGdtfPath,
                                 std::string *outError,
-                                const std::string &revisionText);
+                                const std::string &revisionText,
+                                bool deterministicPublication = false);

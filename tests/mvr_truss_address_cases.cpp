@@ -1,3 +1,4 @@
+#include "support/mvr_recovery_assertions.h"
 /* This file is part of Perastage. */
 #include "mvr_truss_address_cases.h"
 #include "configmanager.h"
@@ -109,7 +110,8 @@ void RunTrussAddressCases(const fs::path &dir, const FixtureNetworkTestServices 
     auto dimensionEdit = scene;
     dimensionEdit.trusses.at(id).lengthMm += 1000.0f;
     MvrExporter refusedDimensions; std::vector<unsigned char> refusedBytes;
-    assert(!refusedDimensions.ExportCanonicalSnapshotToBuffer(dimensionEdit, refusedBytes));
+    tests::recovery::Export(refusedDimensions, dimensionEdit,
+                            dir / "truss-type-override.mvr");
     assert(dimensionEdit.trusses.at(id).dmxAddresses == original.dmxAddresses);
     Export(config.GetScene(), dir / "truss-edited.mvr");
     config.Undo(); Export(config.GetScene(), dir / "truss-undo.mvr");
@@ -189,7 +191,27 @@ void RunTrussAddressCases(const fs::path &dir, const FixtureNetworkTestServices 
         assert(fixture_network::InspectTrussReferences(truss, path).conflict ==
             (failure == 3 ? fixture_network::Conflict::UnknownGeometry : fixture_network::Conflict::AmbiguousGeometry));
       }
-      config.GetScene() = invalid; assert(!config.SaveProject(retained.string())); assert(Bytes(retained) == previous);
+      if (failure == 1 || failure == 2) {
+        const auto copy = dir / ("truss-binding-repaired-" +
+                                 std::to_string(failure) + ".pstg");
+        config.GetScene() = invalid;
+        assert(config.SaveProject(copy.string()));
+        assert(config.GetScene().trusses.at(id).dmxAddresses ==
+               truss.dmxAddresses);
+        assert(Bytes(retained) == previous);
+        config.Reset();
+        assert(config.LoadProject(copy.string()));
+        const auto &reopened = config.GetScene().trusses.at(id);
+        assert(reopened.gdtfSpec.empty() && reopened.gdtfMode.empty());
+        assert(reopened.dmxAddresses->entries == truss.dmxAddresses->entries);
+        assert(reopened.dmxAddresses->networks.empty());
+        assert(!reopened.symbolFile.empty() ||
+               !reopened.sourceSymdefUuid.empty());
+        continue;
+      }
+      config.GetScene() = invalid;
+      assert(config.SaveProject((dir / "truss-recovered.pstg").string()));
+      assert(Bytes(retained) == previous);
       assert(config.GetScene().trusses.at(id).dmxAddresses == truss.dmxAddresses);
     }
   }
@@ -201,7 +223,9 @@ void RunTrussAddressCases(const fs::path &dir, const FixtureNetworkTestServices 
       "<Addresses><Network geometry='ethernet_1'><Child/></Network></Addresses>"}) {
     Archive(dir / "truss-invalid.mvr", Source(assignments, true), services);
     const auto invalid = services.import(dir / "truss-invalid.mvr"); assert(!invalid.preservationIssues.empty());
-    MvrExporter exporter; std::vector<unsigned char> bytes; assert(!exporter.ExportCanonicalSnapshotToBuffer(invalid, bytes));
+    MvrExporter exporter;
+    std::vector<unsigned char> bytes;
+    tests::recovery::Export(exporter, invalid, dir / "truss-recovered.mvr");
   }
   auto unavailableSource = Source(mixed, true);
   unavailableSource.replace(unavailableSource.find("fixture.gdtf"), std::string("fixture.gdtf").size(), "unavailable.gdtf");

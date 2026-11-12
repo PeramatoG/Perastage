@@ -9,16 +9,45 @@ target_include_directories(perastage_gdtf_matching PUBLIC ${CMAKE_CURRENT_SOURCE
 add_library(perastage_mvr_read STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_package.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_reference_resolver.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_reference_repair.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_reference_repair.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_retained_reference_repair.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_resource_resolver.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_resource_lookup.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_resource_lookup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_read_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_fixture_addresses.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_matrix_precision.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_symdef_reader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_symdef_preservation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_model_dependencies.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_model_resource_closure.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_model_resource_closure.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_identifier_preservation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_class_preservation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_standard_preservation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_binding_content.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_fixture_planning_metadata.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_fixture_planning_metadata.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_publication_text.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_publication_repair.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_publication_repair.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_publication_resource_repair.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_publication_source_repair.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_publication_symbol_repair.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_publication_class_repair.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_publication_topology_repair.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_recovery.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_recovery.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_structure_service.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_structure_internal.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_structure_capture.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_structure_projection.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_structure_merge.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_source_structure_edits.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_standard_field_projection.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_standard_field_projection.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_canonical_resource_proof.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_truss_address_preservation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_focus_validation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_node_reader.cpp
@@ -37,7 +66,7 @@ target_link_libraries(perastage_mvr_read
            perastage_gdtf_matching
     PRIVATE perastage_mvr_core_support perastage_mvr_scene_model perastage_gdtf_read
             perastage_fixture_network
-            tinyxml2::tinyxml2 ${_wx_base_libs}
+            perastage_inspection_validation tinyxml2::tinyxml2 ${_wx_base_libs}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE perastage_mvr_read)
@@ -85,6 +114,7 @@ target_include_directories(perastage_mvr_export
             ${CMAKE_SOURCE_DIR}/third_party
 )
 target_link_libraries(perastage_mvr_export
+    PRIVATE perastage_project_archive_publication
     PUBLIC perastage_mvr_core_support perastage_runtime_storage
     PRIVATE perastage_gdtf_filename_policy perastage_gdtf_read
             perastage_layer_validation perastage_mvr_read tinyxml2::tinyxml2

@@ -164,6 +164,7 @@ CollectSelectedObjects(const MvrScene &scene,
   append(scene.trusses, selection.trusses, MvrNodeType::Truss);
   append(scene.supports, selection.supports, MvrNodeType::Support);
   append(scene.sceneObjects, selection.sceneObjects, MvrNodeType::SceneObject);
+  append(scene.groupObjects, selection.groupObjects, MvrNodeType::GroupObject);
   return refs;
 }
 
@@ -897,32 +898,40 @@ std::vector<SceneTransformTarget>
 BuildInteractiveTransformTargets(const MvrScene &scene,
                                  const ObjectSelection &selection,
                                  const InteractiveTransformPolicy &policy) {
-  struct Candidate {
-    SceneTransformTarget target;
-    std::string rootGroupUuid;
-  };
-
-  std::vector<Candidate> candidates;
+  std::vector<SceneTransformTarget> candidates;
   std::set<std::string> promotedGroups;
   for (const auto &object : CollectSelectedObjects(scene, selection)) {
     const std::string rootUuid = ResolveRootGroupUuid(scene, object);
     SceneTransformTarget target{object.type, object.uuid};
-    if (policy.PromotesToGroup(object.type) && !rootUuid.empty()) {
+    if (object.type != MvrNodeType::GroupObject &&
+        policy.PromotesToGroup(object.type) && !rootUuid.empty()) {
       target = {MvrNodeType::GroupObject, rootUuid};
       promotedGroups.insert(rootUuid);
     }
-    candidates.push_back({std::move(target), rootUuid});
+    if (target.type == MvrNodeType::GroupObject)
+      promotedGroups.insert(target.uuid);
+    candidates.push_back(std::move(target));
   }
 
   std::vector<SceneTransformTarget> targets;
   std::set<std::pair<MvrNodeType, std::string>> seen;
-  for (const auto &candidate : candidates) {
-    if (candidate.target.type != MvrNodeType::GroupObject &&
-        !candidate.rootGroupUuid.empty() &&
-        promotedGroups.find(candidate.rootGroupUuid) != promotedGroups.end())
+  for (const auto &target : candidates) {
+    std::string parent = ParentGroupUuidForTarget(scene, target);
+    std::unordered_set<std::string> visited;
+    bool covered = false;
+    while (!parent.empty() && visited.insert(parent).second) {
+      if (promotedGroups.contains(parent)) {
+        covered = true;
+        break;
+      }
+      const auto it = scene.groupObjects.find(parent);
+      parent = it == scene.groupObjects.end() ? std::string{}
+                                             : it->second.parentGroupUuid;
+    }
+    if (covered)
       continue;
-    if (seen.insert({candidate.target.type, candidate.target.uuid}).second)
-      targets.push_back(candidate.target);
+    if (seen.insert({target.type, target.uuid}).second)
+      targets.push_back(target);
   }
   return targets;
 }

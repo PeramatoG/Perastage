@@ -27,4 +27,5 @@ double MeasureTextWidth(const std::string &text, double fontSize,
                         const PdfFontDefinition *font);
 
 bool LoadPdfFontMetrics(PdfFontDefinition &font, bool bold);
+std::string EscapePdfLiteralBytes(const std::string &bytes);
 }

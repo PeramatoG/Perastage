@@ -1,6 +1,8 @@
 #include "viewer2dpanel.h"
 
 #include <chrono>
+#include "configmanager.h"
+#include "selection_movement_settings.h"
 
 // A load-time paint can be consumed while interaction is disabled.
 bool Viewer2DPanel::Enable(bool enable) {
@@ -72,4 +74,33 @@ void Viewer2DPanel::FinishInteractiveTransformPresentation() {
   RequestRepaint();
   if (!m_paintInProgress)
     Update();
+}
+
+void Viewer2DPanel::SetSelectedUuids(
+    const std::vector<std::string> &selection) {
+  if (!m_enableSelection)
+    return;
+  const scene_grouping::ObjectSelection typedSelection{.fixtures = selection,
+                                                       .trusses = selection,
+                                                       .supports = selection,
+                                                       .sceneObjects = selection,
+                                                       .groupObjects = selection};
+  const std::vector<std::string> expandedSelection =
+      scene_grouping::ExpandSelectionForGroupHighlights(
+          ConfigManager::Get().GetScene(), typedSelection,
+          selection_movement_settings::LoadInteractiveTransformPolicy(
+              ConfigManager::Get()));
+  m_controller.SetSelectedUuids(expandedSelection, selection);
+  RequestRepaint();
+}
+
+// External feedback changes outlines only, without anchoring a viewport tooltip.
+void Viewer2DPanel::SetExternalHoverUuid(const std::string &uuid) {
+  m_hoverHitTestTimer.Stop();
+  m_runtimeState.CancelHoverQuery();
+  if (m_hoverUuid == uuid && !m_hasHover) return;
+  m_hoverUuid = uuid;
+  m_hasHover = false;
+  m_controller.SetHighlightUuid(uuid);
+  RequestRepaint();
 }

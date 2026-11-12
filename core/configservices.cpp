@@ -1,5 +1,7 @@
+#include "symbols/fixture_symbol_operation_counters.h"
 #include "layer_identity.h"
 #include "configservices.h"
+#include "project_archive_publication.h"
 #include "filesystem_path_utils.h"
 #include "apppaths.h"
 #include "logger.h"
@@ -217,7 +219,10 @@ bool WriteZipBytes(wxZipOutputStream &zip, const std::string &entryName,
       return false;
     }
   }
-  return zip.CloseEntry();
+  const bool written = zip.CloseEntry();
+  if (written)
+    symbols::diagnostics::Count(symbols::diagnostics::Operation::ResourceWrite);
+  return written;
 }
 
 // Writes one owned payload to a temporary compatibility file.
@@ -573,11 +578,20 @@ void SelectionState::SetSelectedSceneObjects(
   selectedSceneObjects = uuids;
 }
 
+const std::vector<std::string> &SelectionState::GetSelectedGroupObjects() const {
+  return selectedGroupObjects;
+}
+
+void SelectionState::SetSelectedGroupObjects(const std::vector<std::string> &uuids) {
+  selectedGroupObjects = uuids;
+}
+
 void SelectionState::Clear() {
   selectedFixtures.clear();
   selectedTrusses.clear();
   selectedSupports.clear();
   selectedSceneObjects.clear();
+  selectedGroupObjects.clear();
 }
 
 void HistoryManager::PushUndoState(
@@ -593,6 +607,7 @@ void HistoryManager::PushUndoState(
                 selection.GetSelectedTrusses(),
                 selection.GetSelectedSupports(),
                 selection.GetSelectedSceneObjects(),
+                selection.GetSelectedGroupObjects(),
                 description,
                 layoutsCollection,
                 fixtureLabelOverrides,
@@ -625,6 +640,7 @@ std::string HistoryManager::Undo(
                        selection.GetSelectedTrusses(),
                        selection.GetSelectedSupports(),
                        selection.GetSelectedSceneObjects(),
+                       selection.GetSelectedGroupObjects(),
                        snap.description,
                        layoutsCollection ? *layoutsCollection : snap.layoutsCollection,
                        fixtureLabelOverrides ? *fixtureLabelOverrides
@@ -647,6 +663,7 @@ std::string HistoryManager::Undo(
   selection.SetSelectedTrusses(snap.selTrusses);
   selection.SetSelectedSupports(snap.selSupports);
   selection.SetSelectedSceneObjects(snap.selSceneObjects);
+  selection.SetSelectedGroupObjects(snap.selGroupObjects);
   if (layerState) {
     layerState->SetHiddenLayers(snap.hiddenLayers);
     if (!snap.currentLayer.empty())
@@ -671,6 +688,7 @@ std::string HistoryManager::Redo(
                        selection.GetSelectedTrusses(),
                        selection.GetSelectedSupports(),
                        selection.GetSelectedSceneObjects(),
+                       selection.GetSelectedGroupObjects(),
                        snap.description,
                        layoutsCollection ? *layoutsCollection : snap.layoutsCollection,
                        fixtureLabelOverrides ? *fixtureLabelOverrides
@@ -693,6 +711,7 @@ std::string HistoryManager::Redo(
   selection.SetSelectedTrusses(snap.selTrusses);
   selection.SetSelectedSupports(snap.selSupports);
   selection.SetSelectedSceneObjects(snap.selSceneObjects);
+  selection.SetSelectedGroupObjects(snap.selGroupObjects);
   if (layerState) {
     layerState->SetHiddenLayers(snap.hiddenLayers);
     if (!snap.currentLayer.empty())
@@ -991,21 +1010,15 @@ bool ProjectSession::SaveProject(
   if (!zip.Close())
     return fail("FinalizeArchive", "could not close project ZIP",
                                  tempPath.string());
-  std::error_code replaceEc;
-  fs::rename(tempPath, targetPath, replaceEc);
-  if (replaceEc) {
-    replaceEc.clear();
-    fs::copy_file(tempPath, targetPath, fs::copy_options::overwrite_existing,
-                  replaceEc);
-    fs::remove(tempPath, cleanupEc);
-    if (replaceEc)
-      return fail("FinalizeArchive",
-                  "could not replace target project archive",
-                                   targetPath.string());
-  }
+  if (!out.Close())
+    return fail("FinalizeArchive", "could not flush and close project archive", tempPath.string());
+  std::string publicationError;
+  if (!project_archive::Publish(tempPath, targetPath, publicationError))
+    return fail("FinalizeArchive", publicationError, targetPath.string());
   tempCleanup.keep = true;
   const auto finalizeEnd = std::chrono::steady_clock::now();
-  const std::uintmax_t archiveBytes = fs::file_size(targetPath);
+  std::error_code sizeError;
+  const std::uintmax_t archiveBytes = fs::file_size(targetPath, sizeError);
 
   auto elapsedMs = [](const auto &start, const auto &end) {
     return std::chrono::duration_cast<std::chrono::milliseconds>(end - start)

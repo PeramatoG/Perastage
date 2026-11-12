@@ -2,6 +2,7 @@
 #include "mvrscene.h"
 #include <tinyxml2.h>
 #include <tuple>
+#include <algorithm>
 #include <charconv>
 #include <string_view>
 #include <unordered_set>
@@ -26,6 +27,63 @@ MvrExportDiagnostic Block(const std::string &uuid, const std::string &detail) {
           true, "Identifiers", {}, uuid, {}, detail};
 }
 } // namespace
+
+// XML integer values have no int32 bound. The editor projection is separate.
+bool IsIntegerLexical(const std::string &text) {
+  const auto first = text.find_first_not_of(" \t\r\n");
+  if (first == std::string::npos)
+    return false;
+  auto value = std::string_view(text).substr(
+      first, text.find_last_not_of(" \t\r\n") - first + 1);
+  if (value.front() == '+' || value.front() == '-')
+    value.remove_prefix(1);
+  return !value.empty() && std::all_of(value.begin(), value.end(), [](char c) {
+    return c >= '0' && c <= '9';
+  });
+}
+std::optional<std::string> RetainedIntegerText(const MvrScene &scene,
+                                               const std::string &uuid,
+                                               const std::string &field,
+                                               int nativeValue) {
+  // An explicit editor change supersedes the imported out-of-range projection.
+  if (nativeValue != 0)
+    return {};
+  const auto optionalEdit = [&](const auto &objects) {
+    auto it = objects.find(uuid);
+    if (it == objects.end())
+      return false;
+    const auto &object = it->second;
+    if constexpr (requires { object.customId.has_value(); }) {
+      if (field == "CustomId")
+        return object.customId.has_value();
+      if (field == "CustomIdType")
+        return object.customIdType.has_value();
+    }
+    return false;
+  };
+  if (optionalEdit(scene.fixtures) || optionalEdit(scene.supports))
+    return {};
+
+  for (const auto &issue : scene.preservationIssues) {
+    if (issue.objectUuid != uuid || issue.node != field ||
+        issue.reason != kLexicalIntegerReason)
+      continue;
+    tinyxml2::XMLDocument xml;
+    if (xml.Parse(issue.originalInformation.c_str()) != tinyxml2::XML_SUCCESS)
+      continue;
+    if (xml.RootElement())
+      return Text(xml.RootElement());
+  }
+  return {};
+}
+bool MatchesInteger(const tinyxml2::XMLElement &owner, const MvrScene &scene,
+                    const std::string &uuid, const char *field, int expected) {
+  if (const auto lexical = RetainedIntegerText(scene, uuid, field, expected))
+    return Text(owner.FirstChildElement(field)) == *lexical;
+  int value = 0;
+  return ParseInteger(Text(owner.FirstChildElement(field)), value) &&
+         value == expected;
+}
 
 // Decimal conversion is checked before any narrowing or legacy fallback.
 bool ParseInteger(const std::string &text, int &value) {
@@ -82,10 +140,17 @@ void ScanSource(const tinyxml2::XMLElement &node, MvrScene &scene,
         !element->NextSiblingElement(name) && (!numeric || ParseInteger(Text(element), value))) continue;
     tinyxml2::XMLPrinter printer(nullptr, true);
     element->Accept(&printer);
-    scene.preservationIssues.push_back({name, node.Attribute("uuid") ? node.Attribute("uuid") : "",
-        location + "/" + name, printer.CStr(),
-        "Identifier scalar shape or integer range cannot be represented without loss.",
-        "Keep the original MVR until this representation is supported."});
+    scene.preservationIssues.push_back(
+        {name, node.Attribute("uuid") ? node.Attribute("uuid") : "",
+         location + "/" + name, printer.CStr(),
+         numeric && !element->FirstAttribute() &&
+                 !element->FirstChildElement() &&
+                 !element->NextSiblingElement(name) &&
+                 IsIntegerLexical(Text(element))
+             ? kLexicalIntegerReason
+             : "Identifier scalar shape or integer range cannot be represented "
+               "without loss.",
+         "Keep the original MVR until this representation is supported."});
   }
 }
 
@@ -98,8 +163,9 @@ bool ValidateElement(const tinyxml2::XMLElement &node, bool requiredUnit) {
   int value = 0;
   const auto *numeric = node.FirstChildElement("FixtureIDNumeric");
   const auto *unit = node.FirstChildElement("UnitNumber");
-  return node.FirstChildElement("FixtureID") && numeric && ParseInteger(Text(numeric), value) &&
-         (!requiredUnit || unit) && (!unit || ParseInteger(Text(unit), value));
+  return node.FirstChildElement("FixtureID") && numeric &&
+         IsIntegerLexical(Text(numeric)) && (!requiredUnit || unit) &&
+         (!unit || IsIntegerLexical(Text(unit)));
 }
 
 // Verify the serialized projection, rather than relying on visual equivalence.
@@ -136,7 +202,10 @@ std::vector<MvrExportDiagnostic> CheckProjection(
             std::tuple{"CustomId", truss.customId, truss.identifierSource && truss.identifierSource->customIdPresent},
             std::tuple{"CustomIdType", truss.customIdType, truss.identifierSource && truss.identifierSource->customIdTypePresent}}) {
           const auto actual = ReadOptionalInteger(node, name);
-          if (actual.has_value() != (present || value != 0) || (actual && *actual != value))
+          if ((node.FirstChildElement(name) != nullptr) !=
+                  (present || value != 0) ||
+              (node.FirstChildElement(name) &&
+               !MatchesInteger(node, scene, uuid, name, value)))
             result.push_back(Block(uuid, "Serialized Truss custom identifier changed."));
         }
       }
@@ -145,17 +214,22 @@ std::vector<MvrExportDiagnostic> CheckProjection(
         for (const auto &[name, expected] : {std::pair{"CustomIdType", support.customIdType},
                                            std::pair{"CustomId", support.customId}}) {
           const auto *element = node.FirstChildElement(name);
-          if ((element != nullptr) != expected.has_value() ||
-              (element && (!ParseInteger(Text(element), unitValue) || unitValue != *expected)))
+          if ((element != nullptr) !=
+                  (expected.has_value() ||
+                   RetainedIntegerText(scene, uuid, name, 0).has_value()) ||
+              (element &&
+               !MatchesInteger(node, scene, uuid, name, expected.value_or(0))))
             result.push_back(Block(uuid, "Serialized Support custom identifier changed."));
         }
       }
       if (!owns || !seen.insert(uuid).second || found == ids.end() ||
           !ValidateElement(node, kind == "Fixture") ||
           Text(node.FirstChildElement("FixtureID")) != found->second.first ||
-          !ParseInteger(Text(node.FirstChildElement("FixtureIDNumeric")), numeric) || numeric != found->second.second ||
+          !MatchesInteger(node, scene, uuid, "FixtureIDNumeric",
+                          found->second.second) ||
           (unit != nullptr) != expectedUnit.has_value() ||
-          (unit && (!ParseInteger(Text(unit), unitValue) || unitValue != *expectedUnit)))
+          (unit &&
+           !MatchesInteger(node, scene, uuid, "UnitNumber", *expectedUnit)))
         result.push_back(Block(uuid, "Serialized identifier values or UnitNumber presence changed."));
     }
     for (auto *child = node.FirstChildElement(); child; child = child->NextSiblingElement()) self(self, *child);

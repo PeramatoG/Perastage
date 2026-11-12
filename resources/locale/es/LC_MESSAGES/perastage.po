@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-20 18:54+0000\n"
+"POT-Creation-Date: 2026-11-12 09:31+0000\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -79,7 +79,7 @@ msgstr ""
 "información completa sobre las dependencias y sus licencias está disponible "
 "en el repositorio del proyecto."
 
-#: gui/about_dialog.cpp:166 gui/mainwindow_menu_builders.cpp:133
+#: gui/about_dialog.cpp:166 gui/mainwindow_menu_builders.cpp:135
 msgid "About Perastage"
 msgstr "Acerca de Perastage"
 
@@ -122,15 +122,16 @@ msgstr "ID del aparato:"
 msgid "Mode:"
 msgstr "Modo:"
 
-#: gui/addressdialog.cpp:21
+#: gui/addressdialog.cpp:22
 msgid "Edit Address"
 msgstr "Editar dirección"
 
-#: gui/addressdialog.cpp:26 gui/fixturepatchdialog.cpp:39
+#: gui/addressdialog.cpp:27 gui/fixturepatchdialog.cpp:39
+#: gui/patch/dmx_patch_panel.cpp:25
 msgid "Universe:"
 msgstr "Universo:"
 
-#: gui/addressdialog.cpp:30 gui/fixturepatchdialog.cpp:43
+#: gui/addressdialog.cpp:31 gui/fixturepatchdialog.cpp:43
 msgid "Channel:"
 msgstr "Canal:"
 
@@ -479,7 +480,7 @@ msgid "Mode"
 msgstr "Modo"
 
 #: gui/dictionaryeditdialog.cpp:519 gui/dictionaryeditdialog.cpp:2236
-#: gui/fixturetable/fixture_table_columns.cpp:21 gui/fixturetablepanel.cpp:851
+#: gui/fixturetable/fixture_table_columns.cpp:21 gui/fixturetablepanel.cpp:849
 msgid "Category"
 msgstr "Categoría"
 
@@ -489,13 +490,13 @@ msgid "Type Color"
 msgstr "Color del tipo"
 
 #: gui/dictionaryeditdialog.cpp:599 gui/mainwindow_layout.cpp:328
-#: gui/mainwindow_menu_builders.cpp:79 gui/mainwindow_print.cpp:640
+#: gui/mainwindow_menu_builders.cpp:81 gui/mainwindow_print.cpp:505
 #: gui/riggingpanel.cpp:185 gui/summarypanel.cpp:139
 msgid "Fixtures"
 msgstr "Aparatos"
 
 #: gui/dictionaryeditdialog.cpp:600 gui/mainwindow_layout.cpp:333
-#: gui/mainwindow_print.cpp:643 gui/riggingpanel.cpp:188
+#: gui/mainwindow_print.cpp:508 gui/riggingpanel.cpp:188
 #: gui/summarypanel.cpp:172
 msgid "Trusses"
 msgstr "Trusses"
@@ -837,24 +838,24 @@ msgstr ""
 "\n"
 
 #: gui/dictionaryeditdialog.cpp:1521 gui/dictionaryeditdialog.cpp:2276
-#: gui/fixtureeditdialog.cpp:644 gui/fixturetablepanel.cpp:525
-#: gui/mainwindow_fixture_replace.cpp:224 gui/mainwindow_menu.cpp:1001
-#: gui/mainwindow_menu.cpp:1024
+#: gui/fixtureeditdialog.cpp:644 gui/fixturetablepanel.cpp:526
+#: gui/mainwindow_fixture_replace.cpp:227 gui/mainwindow_menu.cpp:998
+#: gui/mainwindow_menu.cpp:1021
 msgid "Select GDTF file"
 msgstr "Seleccione el archivo GDTF"
 
 #: gui/dictionaryeditdialog.cpp:1537 gui/dictionaryeditdialog.cpp:2220
-#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:693
+#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:694
 msgid "Select DMX mode"
 msgstr "Seleccione el modo DMX"
 
 #: gui/dictionaryeditdialog.cpp:1537 gui/dictionaryeditdialog.cpp:2220
-#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:693
+#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:694
 msgid "DMX Mode"
 msgstr "Modo DMX"
 
 #: gui/dictionaryeditdialog.cpp:1556 gui/dictionaryeditdialog.cpp:2307
-#: gui/mainwindow_menu.cpp:1057 gui/mainwindow_menu.cpp:1076
+#: gui/mainwindow_menu.cpp:1054 gui/mainwindow_menu.cpp:1073
 #: gui/mainwindow_truss_replace.cpp:115
 msgid "Select Truss file"
 msgstr "Seleccionar archivo de armadura"
@@ -1117,7 +1118,7 @@ msgstr ""
 "Diccionario de trusses restaurado a los valores predeterminados.\n"
 "\n"
 
-#: gui/dictionaryeditdialog.cpp:2236 gui/fixturetablepanel.cpp:851
+#: gui/dictionaryeditdialog.cpp:2236 gui/fixturetablepanel.cpp:849
 msgid "Select category"
 msgstr "Seleccionar categoría"
 
@@ -1410,11 +1411,11 @@ msgstr "GDTF actualización"
 #: gui/inspection/gdtf_inspector_details_panel.cpp:154
 #: gui/inspection/inspector_workspace_panel.cpp:476
 #: gui/inspection/inspector_workspace_panel.cpp:483 gui/summarypanel.cpp:262
-#: gui/summarypanel.cpp:271 mvr/mvrimporter.cpp:315
+#: gui/summarypanel.cpp:271 mvr/mvrimporter.cpp:316
 msgid "Type"
 msgstr "Tipo"
 
-#: gui/fixturetable/fixture_table_columns.cpp:13 gui/fixturetablepanel.cpp:742
+#: gui/fixturetable/fixture_table_columns.cpp:13 gui/fixturetablepanel.cpp:743
 #: gui/hoisttablepanel.cpp:465 gui/hoisttablepanel.cpp:786
 #: gui/layerpanel.cpp:86 gui/sceneobjecttablepanel.cpp:265
 #: gui/sceneobjecttablepanel.cpp:433 gui/trusstablepanel.cpp:300
@@ -1443,24 +1444,24 @@ msgstr "N.º de canales"
 msgid "Model file"
 msgstr "Archivo de modelo"
 
-#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:280
-#: gui/fixturetablepanel.cpp:314 gui/hoisttablepanel.cpp:467
+#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:281
+#: gui/fixturetablepanel.cpp:315 gui/hoisttablepanel.cpp:467
 #: gui/hoisttablepanel.cpp:500 gui/sceneobjecttablepanel.cpp:267
 #: gui/sceneobjecttablepanel.cpp:292 gui/trusstablepanel.cpp:301
 #: gui/trusstablepanel.cpp:334
 msgid "Pos X"
 msgstr "Pos X"
 
-#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:283
-#: gui/fixturetablepanel.cpp:317 gui/hoisttablepanel.cpp:468
+#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:284
+#: gui/fixturetablepanel.cpp:318 gui/hoisttablepanel.cpp:468
 #: gui/hoisttablepanel.cpp:501 gui/sceneobjecttablepanel.cpp:268
 #: gui/sceneobjecttablepanel.cpp:293 gui/trusstablepanel.cpp:301
 #: gui/trusstablepanel.cpp:335
 msgid "Pos Y"
 msgstr "Pos Y"
 
-#: gui/fixturetable/fixture_table_columns.cpp:18 gui/fixturetablepanel.cpp:286
-#: gui/fixturetablepanel.cpp:320 gui/hoisttablepanel.cpp:469
+#: gui/fixturetable/fixture_table_columns.cpp:18 gui/fixturetablepanel.cpp:287
+#: gui/fixturetablepanel.cpp:321 gui/hoisttablepanel.cpp:469
 #: gui/hoisttablepanel.cpp:502 gui/sceneobjecttablepanel.cpp:269
 #: gui/sceneobjecttablepanel.cpp:294 gui/trusstablepanel.cpp:301
 #: gui/trusstablepanel.cpp:336
@@ -1495,7 +1496,7 @@ msgstr "Peso (kg)"
 msgid "Color Filter"
 msgstr "Filtro de color"
 
-#: gui/fixturetablepanel.cpp:289 gui/fixturetablepanel.cpp:323
+#: gui/fixturetablepanel.cpp:290 gui/fixturetablepanel.cpp:324
 #: gui/hoisttablepanel.cpp:475 gui/hoisttablepanel.cpp:506
 #: gui/inspection/gdtf_inspector_details_panel.cpp:47
 #: gui/trusstablepanel.cpp:304 gui/trusstablepanel.cpp:340
@@ -1504,27 +1505,27 @@ msgstr "Filtro de color"
 msgid "Weight"
 msgstr "Peso"
 
-#: gui/fixturetablepanel.cpp:742 gui/hoisttablepanel.cpp:786
+#: gui/fixturetablepanel.cpp:743 gui/hoisttablepanel.cpp:786
 #: gui/sceneobjecttablepanel.cpp:433 gui/trusstablepanel.cpp:533
 msgid "Select layer"
 msgstr "Seleccionar capa"
 
-#: gui/fixturetablepanel.cpp:984 gui/hoisttablepanel.cpp:849
+#: gui/fixturetablepanel.cpp:982 gui/hoisttablepanel.cpp:849
 #: gui/sceneobjecttablepanel.cpp:499 gui/trusstablepanel.cpp:677
 msgid "Edit value:"
 msgstr "Editar valor:"
 
-#: gui/fixturetablepanel.cpp:1035 gui/fixturetablepanel.cpp:1040
+#: gui/fixturetablepanel.cpp:1033 gui/fixturetablepanel.cpp:1038
 #: gui/hoisttablepanel.cpp:897 gui/hoisttablepanel.cpp:902
 #: gui/sceneobjecttablepanel.cpp:545 gui/sceneobjecttablepanel.cpp:550
 #: gui/trusstablepanel.cpp:723 gui/trusstablepanel.cpp:728
 msgid "Invalid numeric value"
 msgstr "Valor numérico no válido"
 
-#: gui/fixturetablepanel.cpp:1035 gui/fixturetablepanel.cpp:1040
-#: gui/fixturetablepanel.cpp:1047 gui/fixturetablepanel.cpp:1053
-#: gui/fixturetablepanel.cpp:1061 gui/fixturetablepanel.cpp:1067
-#: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
+#: gui/fixturetablepanel.cpp:1033 gui/fixturetablepanel.cpp:1038
+#: gui/fixturetablepanel.cpp:1045 gui/fixturetablepanel.cpp:1051
+#: gui/fixturetablepanel.cpp:1059 gui/fixturetablepanel.cpp:1065
+#: gui/fixturetablepanel.cpp:1101 gui/fixturetablepanel.cpp:1108
 #: gui/gdtf_share_download_workflow.cpp:477
 #: gui/gdtf_share_download_workflow.cpp:481 gui/hoisttablepanel.cpp:897
 #: gui/hoisttablepanel.cpp:902 gui/hoisttablepanel.cpp:908
@@ -1532,35 +1533,61 @@ msgstr "Valor numérico no válido"
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:283
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:509
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:652
-#: gui/mainwindow_io.cpp:253 gui/mainwindow_io.cpp:342
-#: gui/mainwindow_io.cpp:408 gui/mainwindow_io.cpp:441
-#: gui/mainwindow_io.cpp:463 gui/mainwindow_io.cpp:487
-#: gui/mainwindow_io.cpp:546 gui/mainwindow_io.cpp:681
-#: gui/mainwindow_io.cpp:691 gui/mainwindow_io.cpp:741
-#: gui/mainwindow_io.cpp:827 gui/mainwindow_io.cpp:868
-#: gui/mainwindow_io.cpp:886 gui/mainwindow_menu.cpp:1103
-#: gui/ridertextdialog.cpp:218 gui/ridertextdialog.cpp:224
-#: gui/ridertextdialog.cpp:233 gui/ridertextdialog.cpp:245
-#: gui/ridertextdialog.cpp:319 gui/ridertextdialog.cpp:334
-#: gui/ridertextdialog.cpp:346 gui/sceneobjecttablepanel.cpp:545
-#: gui/sceneobjecttablepanel.cpp:550 gui/sceneobjecttablepanel.cpp:556
-#: gui/sceneobjecttablepanel.cpp:563 gui/trusstablepanel.cpp:723
-#: gui/trusstablepanel.cpp:728 gui/trusstablepanel.cpp:734
-#: gui/trusstablepanel.cpp:741
+#: gui/mainwindow_io.cpp:253 gui/mainwindow_io.cpp:440
+#: gui/mainwindow_io.cpp:462 gui/mainwindow_io.cpp:486
+#: gui/mainwindow_io.cpp:545 gui/mainwindow_io.cpp:680
+#: gui/mainwindow_io.cpp:690 gui/mainwindow_io.cpp:740
+#: gui/mainwindow_io.cpp:826 gui/mainwindow_io.cpp:867
+#: gui/mainwindow_io.cpp:885 gui/mainwindow_menu.cpp:1100
+#: gui/project_save_ui.cpp:55 gui/ridertextdialog.cpp:218
+#: gui/ridertextdialog.cpp:224 gui/ridertextdialog.cpp:233
+#: gui/ridertextdialog.cpp:245 gui/ridertextdialog.cpp:319
+#: gui/ridertextdialog.cpp:334 gui/ridertextdialog.cpp:346
+#: gui/sceneobjecttablepanel.cpp:545 gui/sceneobjecttablepanel.cpp:550
+#: gui/sceneobjecttablepanel.cpp:556 gui/sceneobjecttablepanel.cpp:563
+#: gui/trusstablepanel.cpp:723 gui/trusstablepanel.cpp:728
+#: gui/trusstablepanel.cpp:734 gui/trusstablepanel.cpp:741
 msgid "Error"
 msgstr "Error"
 
-#: gui/fixturetablepanel.cpp:1047 gui/fixturetablepanel.cpp:1061
-#: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
+#: gui/fixturetablepanel.cpp:1045 gui/fixturetablepanel.cpp:1059
+#: gui/fixturetablepanel.cpp:1101 gui/fixturetablepanel.cpp:1108
 #: gui/hoisttablepanel.cpp:908 gui/hoisttablepanel.cpp:915
 #: gui/sceneobjecttablepanel.cpp:556 gui/sceneobjecttablepanel.cpp:563
 #: gui/trusstablepanel.cpp:734 gui/trusstablepanel.cpp:741
 msgid "Invalid value"
 msgstr "Valor no válido"
 
-#: gui/fixturetablepanel.cpp:1053 gui/fixturetablepanel.cpp:1067
+#: gui/fixturetablepanel.cpp:1051 gui/fixturetablepanel.cpp:1065
 msgid "Channel out of range (1-512)"
 msgstr "Canal fuera de rango (1-512)"
+
+#: gui/fixturetablepanel_patch_diagnostics.cpp:44
+msgid "Invalid DMX start address. The channel must be between 1 and 512."
+msgstr "Dirección DMX inicial no válida. El canal debe estar entre 1 y 512."
+
+#: gui/fixturetablepanel_patch_diagnostics.cpp:46
+msgid "The GDTF DMX footprint is unknown or unresolved."
+msgstr "El footprint DMX del GDTF es desconocido o no se ha podido resolver."
+
+#: gui/fixturetablepanel_patch_diagnostics.cpp:50
+#, c-format
+msgid ""
+"DMX footprint exceeds universe %d. Primary footprint: %d channels. Start: "
+"%s. Hypothetical continuous Auto Span ranges: %s. The manually entered start "
+"address is preserved. Continuous operation requires routing support in the "
+"receiving or controlling application; these ranges do not define additional "
+"DMX breaks."
+msgstr ""
+"El footprint DMX excede el universo %d. Footprint primario: %d canales. "
+"Inicio: %s. Rangos hipotéticos de Auto Span continuo: %s. Se conserva la "
+"dirección inicial introducida manualmente. El funcionamiento continuo "
+"requiere compatibilidad de enrutamiento en la aplicación receptora o "
+"controladora; estos rangos no definen breaks DMX adicionales."
+
+#: gui/fixturetablepanel_patch_diagnostics.cpp:59
+msgid "DMX overlap with another fixture in the assigned universe."
+msgstr "Solapamiento DMX con otra luminaria en el universo asignado."
 
 #: gui/gdtf/fixture_part_navigator.cpp:10
 #: gui/gdtf/fixture_part_navigator.cpp:25
@@ -1743,6 +1770,7 @@ msgid "Manufacturer"
 msgstr "Fabricante"
 
 #: gui/gdtf_catalog_details_panel.cpp:23 gui/gdtfsearchdialog.cpp:93
+#: gui/patch/dmx_patch_diagnostics.cpp:37
 msgid "Fixture"
 msgstr "Aparato"
 
@@ -1858,12 +1886,12 @@ msgstr "Estado"
 msgid "Progress"
 msgstr "Progreso"
 
-#: gui/gdtf_download_queue_table.cpp:53
+#: gui/gdtf_download_queue_table.cpp:53 gui/patch/dmx_patch_diagnostics.cpp:39
 #: gui/rider_fixture_resolution_dialog.cpp:115
 msgid "Details"
 msgstr "Detalles"
 
-#: gui/gdtf_download_queue_table.cpp:103 mvr/mvrimporter.cpp:316
+#: gui/gdtf_download_queue_table.cpp:103 mvr/mvrimporter.cpp:317
 msgid "MVR"
 msgstr "MVR"
 
@@ -2519,7 +2547,7 @@ msgid "Source: none"
 msgstr "Fuente: ninguna"
 
 #: gui/inspection/inspector_workspace_panel.cpp:527
-#: gui/mainwindow_layout.cpp:421 gui/mainwindow_menu_builders.cpp:85
+#: gui/mainwindow_layout.cpp:421 gui/mainwindow_menu_builders.cpp:87
 #: gui/summarypanel.cpp:112
 msgid "Summary"
 msgstr "Resumen"
@@ -2834,7 +2862,7 @@ msgid "Move Down"
 msgstr "Mover hacia abajo"
 
 #: gui/layoutpanel.cpp:35 gui/mainwindow_menu.cpp:369
-#: gui/mainwindow_print.cpp:210
+#: gui/mainwindow_print.cpp:76
 msgid "Layout"
 msgstr "Layout"
 
@@ -3101,65 +3129,65 @@ msgstr "Archivo de inicio no compatible. Use archivos %s o .mvr."
 msgid "Unsupported file"
 msgstr "Archivo no compatible"
 
-#: gui/mainwindow.cpp:685
+#: gui/mainwindow.cpp:687
 #, c-format
 msgid "Do you want to save changes before %s?"
 msgstr "¿Desea guardar los cambios antes de %s?"
 
-#: gui/mainwindow.cpp:759
+#: gui/mainwindow.cpp:761
 #, c-format
 msgid "Please wait until the startup project loading finishes before %s."
 msgstr "Espere a que termine la carga del proyecto inicial antes de %s."
 
-#: gui/mainwindow.cpp:761
+#: gui/mainwindow.cpp:763
 msgid "Perastage is still loading"
 msgstr "Perastage aún está cargando"
 
-#: gui/mainwindow.cpp:791
+#: gui/mainwindow.cpp:793
 msgid "Project loading"
 msgstr "Carga del proyecto"
 
-#: gui/mainwindow.cpp:818 gui/mainwindow.cpp:1039
+#: gui/mainwindow.cpp:820 gui/mainwindow.cpp:1041
 msgid "Loading project file..."
 msgstr "Cargando archivo de proyecto..."
 
-#: gui/mainwindow.cpp:875
+#: gui/mainwindow.cpp:877
 msgid "Building scene..."
 msgstr "Construyendo la escena..."
 
-#: gui/mainwindow.cpp:883
+#: gui/mainwindow.cpp:885
 msgid "Applying saved layout..."
 msgstr "Aplicando el layout guardado..."
 
-#: gui/mainwindow.cpp:911
+#: gui/mainwindow.cpp:913
 msgid "Reloading fixture/truss/support tables..."
 msgstr "Recargando las tablas de aparatos, trusses y soportes..."
 
-#: gui/mainwindow.cpp:937
+#: gui/mainwindow.cpp:939
 msgid "Updating 3D viewport..."
 msgstr "Actualizando visor 3D..."
 
-#: gui/mainwindow.cpp:951
+#: gui/mainwindow.cpp:953
 msgid "Updating 2D viewport..."
 msgstr "Actualizando visor 2D..."
 
-#: gui/mainwindow.cpp:969 gui/mainwindow.cpp:1654
+#: gui/mainwindow.cpp:971 gui/mainwindow.cpp:1660
 msgid "Refreshing panels..."
 msgstr "Actualizando paneles..."
 
-#: gui/mainwindow.cpp:971
+#: gui/mainwindow.cpp:973
 msgid "Refreshing rigging..."
 msgstr "Actualizando rigging..."
 
-#: gui/mainwindow.cpp:979
+#: gui/mainwindow.cpp:981
 msgid "Updating window title..."
 msgstr "Actualizando el título de la ventana..."
 
-#: gui/mainwindow.cpp:995
+#: gui/mainwindow.cpp:997
 msgid "Finalizing project load..."
 msgstr "Finalizando la carga del proyecto..."
 
-#: gui/mainwindow.cpp:1612
+#: gui/mainwindow.cpp:1618
 msgid "Loading tables..."
 msgstr "Cargando tablas..."
 
@@ -3168,8 +3196,8 @@ msgid "Please select fixtures to convert first."
 msgstr "Seleccione los accesorios para convertir primero."
 
 #: gui/mainwindow_conversion.cpp:35 gui/mainwindow_conversion.cpp:47
-#: gui/mainwindow_conversion.cpp:63 gui/mainwindow_conversion.cpp:82
-#: gui/mainwindow_menu_builders.cpp:108
+#: gui/mainwindow_conversion.cpp:71 gui/mainwindow_conversion.cpp:90
+#: gui/mainwindow_menu_builders.cpp:110
 msgid "Convert to Hoist"
 msgstr "Convertir en motor"
 
@@ -3182,26 +3210,26 @@ msgstr "Los aparatos seleccionados no se pueden convertir."
 msgid "The selected fixtures cannot be converted: %s"
 msgstr "Los aparatos seleccionados no se pueden convertir: %s"
 
-#: gui/mainwindow_conversion.cpp:80
+#: gui/mainwindow_conversion.cpp:88
 #, c-format
 msgid "Converted %zu fixture(s) to hoists."
 msgstr "Se convirtieron %zu accesorios en polipastos."
 
-#: gui/mainwindow_conversion.cpp:90
+#: gui/mainwindow_conversion.cpp:98
 msgid "Please select a scene object to convert first."
 msgstr "Seleccione un objeto de escena para convertir primero."
 
-#: gui/mainwindow_conversion.cpp:91 gui/mainwindow_conversion.cpp:110
-#: gui/mainwindow_conversion.cpp:142 gui/mainwindow_menu_builders.cpp:110
+#: gui/mainwindow_conversion.cpp:99 gui/mainwindow_conversion.cpp:118
+#: gui/mainwindow_conversion.cpp:150 gui/mainwindow_menu_builders.cpp:112
 msgid "Convert Scene Objects to Truss"
 msgstr "Convertir objetos de escena en truss"
 
-#: gui/mainwindow_conversion.cpp:109
+#: gui/mainwindow_conversion.cpp:117
 msgid "No scene objects with a valid model file were converted."
 msgstr ""
 "No se convirtió ningún objeto de escena con un archivo de modelo válido."
 
-#: gui/mainwindow_conversion.cpp:139
+#: gui/mainwindow_conversion.cpp:147
 #, c-format
 msgid "Converted %zu scene object(s) with model '%s' to truss."
 msgstr "Se convirtieron %zu objetos de escena con el modelo '%s' en truss."
@@ -3297,7 +3325,7 @@ msgid "Choose two points on the truss line, or press Esc to cancel."
 msgstr ""
 "Elija dos puntos en la línea de la armadura o presione Esc para cancelar."
 
-#: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:482
+#: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:483
 #: gui/mainwindow_startup_splash.cpp:123
 #: gui/services/fixture_symbol_preparation_service.cpp:509
 #: gui/viewer_load_status.cpp:26
@@ -3308,204 +3336,196 @@ msgstr "Listo"
 msgid "Fixtures distributed between the selected truss points."
 msgstr "Luminarias distribuidas entre los puntos de truss seleccionados."
 
-#: gui/mainwindow_fixture_replace.cpp:114
+#: gui/mainwindow_fixture_replace.cpp:117
 msgid "Select fixture mode"
 msgstr "Seleccione el modo de dispositivo"
 
-#: gui/mainwindow_fixture_replace.cpp:114
+#: gui/mainwindow_fixture_replace.cpp:117
 #: gui/rider_fixture_resolution_dialog.cpp:275
 msgid "Fixture mode"
 msgstr "Modo de fijación"
 
-#: gui/mainwindow_fixture_replace.cpp:131
+#: gui/mainwindow_fixture_replace.cpp:134
 msgid "Select at least one fixture before running Replace Fixtures."
 msgstr ""
 "Seleccione al menos un dispositivo antes de ejecutar Reemplazar dispositivos."
 
-#: gui/mainwindow_fixture_replace.cpp:132
-#: gui/mainwindow_fixture_replace.cpp:142
-#: gui/mainwindow_fixture_replace.cpp:166
-#: gui/mainwindow_fixture_replace.cpp:176
-#: gui/mainwindow_fixture_replace.cpp:192
-#: gui/mainwindow_fixture_replace.cpp:206
-#: gui/mainwindow_fixture_replace.cpp:210
-#: gui/mainwindow_fixture_replace.cpp:237
-#: gui/mainwindow_fixture_replace.cpp:246
+#: gui/mainwindow_fixture_replace.cpp:135
+#: gui/mainwindow_fixture_replace.cpp:145
+#: gui/mainwindow_fixture_replace.cpp:169
+#: gui/mainwindow_fixture_replace.cpp:179
+#: gui/mainwindow_fixture_replace.cpp:195
+#: gui/mainwindow_fixture_replace.cpp:209
+#: gui/mainwindow_fixture_replace.cpp:213
+#: gui/mainwindow_fixture_replace.cpp:240
+#: gui/mainwindow_fixture_replace.cpp:249
 msgid "Replace Fixtures"
 msgstr "Reemplazar accesorios"
 
-#: gui/mainwindow_fixture_replace.cpp:137
+#: gui/mainwindow_fixture_replace.cpp:140
 msgid "Fixture from scene"
 msgstr "Accesorio de la escena"
 
-#: gui/mainwindow_fixture_replace.cpp:138
+#: gui/mainwindow_fixture_replace.cpp:141
 msgid "Fixture from dictionary"
 msgstr "Accesorio del diccionario"
 
-#: gui/mainwindow_fixture_replace.cpp:139
+#: gui/mainwindow_fixture_replace.cpp:142
 msgid "GDTF file"
 msgstr "Archivo GDTF"
 
-#: gui/mainwindow_fixture_replace.cpp:142
+#: gui/mainwindow_fixture_replace.cpp:145
 msgid "Choose the source for the replacement fixture:"
 msgstr "Elija la fuente para el accesorio de reemplazo:"
 
-#: gui/mainwindow_fixture_replace.cpp:157
+#: gui/mainwindow_fixture_replace.cpp:160
 msgid "(no mode)"
 msgstr "(sin modo)"
 
-#: gui/mainwindow_fixture_replace.cpp:160
+#: gui/mainwindow_fixture_replace.cpp:163
 #, c-format
 msgid "%s | %s | ID %d"
 msgstr "%s | %s | ID %d"
 
-#: gui/mainwindow_fixture_replace.cpp:165
+#: gui/mainwindow_fixture_replace.cpp:168
 msgid "There are no fixtures with GDTF data in the scene."
 msgstr "No hay aparatos con datos GDTF en la escena."
 
-#: gui/mainwindow_fixture_replace.cpp:176
+#: gui/mainwindow_fixture_replace.cpp:179
 msgid "Choose a fixture from the scene:"
 msgstr "Elija un dispositivo de la escena:"
 
-#: gui/mainwindow_fixture_replace.cpp:192
+#: gui/mainwindow_fixture_replace.cpp:195
 msgid "The fixture dictionary is empty."
 msgstr "El diccionario de aparatos está vacío."
 
-#: gui/mainwindow_fixture_replace.cpp:205
+#: gui/mainwindow_fixture_replace.cpp:208
 msgid "No dictionary entries contain a GDTF path."
 msgstr "Ninguna entrada del diccionario contiene una ruta GDTF."
 
-#: gui/mainwindow_fixture_replace.cpp:209
+#: gui/mainwindow_fixture_replace.cpp:212
 msgid "Choose a fixture from the dictionary:"
 msgstr "Elija un dispositivo del diccionario:"
 
-#: gui/mainwindow_fixture_replace.cpp:237
+#: gui/mainwindow_fixture_replace.cpp:240
 msgid "Invalid replacement fixture selection."
 msgstr "Selección de accesorio de reemplazo no válida."
 
-#: gui/mainwindow_fixture_replace.cpp:245
+#: gui/mainwindow_fixture_replace.cpp:248
 msgid "Could not read fixture modes from the selected GDTF."
 msgstr "No se pudieron leer los modos de dispositivo del GDTF seleccionado."
 
-#: gui/mainwindow_io.cpp:233 gui/mainwindow_io.cpp:364
+#: gui/mainwindow_io.cpp:233 gui/mainwindow_io.cpp:363
 #, c-format
 msgid "Perastage files (*%s)|*%s"
 msgstr "Archivos de perastage (*%s)|*%s"
 
-#: gui/mainwindow_io.cpp:341 gui/mainwindow_io.cpp:407
-msgid ""
-"Failed to save project.\n"
-"\n"
-msgstr ""
-"No se pudo guardar el proyecto.\n"
-"\n"
-
-#: gui/mainwindow_io.cpp:383
+#: gui/mainwindow_io.cpp:382
 msgid "Save Project"
 msgstr "Guardar proyecto"
 
-#: gui/mainwindow_io.cpp:430 gui/ridertextdialog.cpp:201
+#: gui/mainwindow_io.cpp:429 gui/ridertextdialog.cpp:201
 msgid "Import Rider"
 msgstr "Importar rider"
 
-#: gui/mainwindow_io.cpp:441
+#: gui/mainwindow_io.cpp:440
 msgid "Failed to read rider."
 msgstr "No se pudo leer el anexo."
 
-#: gui/mainwindow_io.cpp:463 gui/ridertextdialog.cpp:233
+#: gui/mainwindow_io.cpp:462 gui/ridertextdialog.cpp:233
 msgid "Failed to import rider."
 msgstr "No se pudo importar el rider."
 
-#: gui/mainwindow_io.cpp:487 gui/ridertextdialog.cpp:319
+#: gui/mainwindow_io.cpp:486 gui/ridertextdialog.cpp:319
 #: gui/ridertextdialog.cpp:346
 msgid "Rider text is empty."
 msgstr "El texto del rider está vacío."
 
-#: gui/mainwindow_io.cpp:528
+#: gui/mainwindow_io.cpp:527
 msgid "Text scene creation progress"
 msgstr "Progreso de creación de escena desde texto"
 
-#: gui/mainwindow_io.cpp:535
+#: gui/mainwindow_io.cpp:534
 #, c-format
 msgid "Text import: %s (%d/%d)"
 msgstr "Importación de texto: %s (%d/%d)"
 
-#: gui/mainwindow_io.cpp:541
+#: gui/mainwindow_io.cpp:540
 #, c-format
 msgid "Text import: %s"
 msgstr "Importación de texto: %s"
 
-#: gui/mainwindow_io.cpp:546
+#: gui/mainwindow_io.cpp:545
 msgid "Failed to import rider text."
 msgstr "No se pudo importar el texto del anexo."
 
-#: gui/mainwindow_io.cpp:550
+#: gui/mainwindow_io.cpp:549
 msgid "Text import failed."
 msgstr "Error al importar texto."
 
-#: gui/mainwindow_io.cpp:572
+#: gui/mainwindow_io.cpp:571
 msgid "Text import completed."
 msgstr "Importación de texto completada."
 
-#: gui/mainwindow_io.cpp:596
+#: gui/mainwindow_io.cpp:595
 msgid "Export MVR file"
 msgstr "Exportar archivo MVR"
 
-#: gui/mainwindow_io.cpp:612 gui/project_save_ui.cpp:20
+#: gui/mainwindow_io.cpp:611 gui/project_save_ui.cpp:21
 msgid "Saving project..."
 msgstr "Guardando proyecto..."
 
-#: gui/mainwindow_io.cpp:641
+#: gui/mainwindow_io.cpp:640
 msgid "No truss data available."
 msgstr "No hay datos de armadura disponibles."
 
-#: gui/mainwindow_io.cpp:641 gui/mainwindow_io.cpp:700
+#: gui/mainwindow_io.cpp:640 gui/mainwindow_io.cpp:699
 msgid "Export Truss"
 msgstr "Armadura de exportación"
 
-#: gui/mainwindow_io.cpp:669
+#: gui/mainwindow_io.cpp:668
 msgid "Save Truss"
 msgstr "Guardar armadura"
 
-#: gui/mainwindow_io.cpp:681 gui/mainwindow_io.cpp:868
+#: gui/mainwindow_io.cpp:680 gui/mainwindow_io.cpp:867
 msgid "Model file not found."
 msgstr "Archivo de modelo no encontrado."
 
-#: gui/mainwindow_io.cpp:690
+#: gui/mainwindow_io.cpp:689
 msgid "Failed to export truss GDTF."
 msgstr "No se pudo exportar el truss GDTF."
 
-#: gui/mainwindow_io.cpp:700
+#: gui/mainwindow_io.cpp:699
 msgid "Truss exported successfully."
 msgstr "Truss exportado exitosamente."
 
-#: gui/mainwindow_io.cpp:714
+#: gui/mainwindow_io.cpp:713
 msgid "No fixture data available."
 msgstr "No hay datos de partidos disponibles."
 
-#: gui/mainwindow_io.cpp:714 gui/mainwindow_io.cpp:755
-#: gui/mainwindow_io.cpp:764 gui/mainwindow_io.cpp:772
-#: gui/mainwindow_io.cpp:831
+#: gui/mainwindow_io.cpp:713 gui/mainwindow_io.cpp:754
+#: gui/mainwindow_io.cpp:763 gui/mainwindow_io.cpp:771
+#: gui/mainwindow_io.cpp:830
 msgid "Export Fixture"
 msgstr "Accesorio de exportación"
 
-#: gui/mainwindow_io.cpp:741
+#: gui/mainwindow_io.cpp:740
 msgid "GDTF file not found."
 msgstr "Archivo GDTF no encontrado."
 
-#: gui/mainwindow_io.cpp:754
+#: gui/mainwindow_io.cpp:753
 msgid "Could not create the Perastage fixture derivative."
 msgstr "No se pudo crear el derivado del dispositivo Perastage."
 
-#: gui/mainwindow_io.cpp:763
+#: gui/mainwindow_io.cpp:762
 msgid "Could not update the Perastage fixture derivative."
 msgstr "No se pudo actualizar el derivado del dispositivo Perastage."
 
-#: gui/mainwindow_io.cpp:795
+#: gui/mainwindow_io.cpp:794
 msgid "Save Fixture"
 msgstr "Guardar accesorio"
 
-#: gui/mainwindow_io.cpp:807
+#: gui/mainwindow_io.cpp:806
 msgid ""
 "This will overwrite the original GDTF library asset. Perastage normally "
 "preserves originals and exports a derived copy instead.\n"
@@ -3518,54 +3538,54 @@ msgstr ""
 "\n"
 "¿Desea sobrescribir el archivo GDTF original?"
 
-#: gui/mainwindow_io.cpp:810
+#: gui/mainwindow_io.cpp:809
 msgid "Overwrite Original GDTF"
 msgstr "Sobrescribir original GDTF"
 
-#: gui/mainwindow_io.cpp:825
+#: gui/mainwindow_io.cpp:824
 #, c-format
 msgid "Failed to write file: %s"
 msgstr "No se pudo escribir el archivo: %s"
 
-#: gui/mainwindow_io.cpp:831
+#: gui/mainwindow_io.cpp:830
 msgid "Fixture exported successfully."
 msgstr "Accesorio exportado exitosamente."
 
-#: gui/mainwindow_io.cpp:844
+#: gui/mainwindow_io.cpp:843
 msgid "No scene objects available."
 msgstr "No hay objetos de escena disponibles."
 
-#: gui/mainwindow_io.cpp:844 gui/mainwindow_io.cpp:890
+#: gui/mainwindow_io.cpp:843 gui/mainwindow_io.cpp:889
 msgid "Export Scene Object"
 msgstr "Exportar objeto de escena"
 
-#: gui/mainwindow_io.cpp:876
+#: gui/mainwindow_io.cpp:875
 msgid "Save Object"
 msgstr "Guardar objeto"
 
-#: gui/mainwindow_io.cpp:886
+#: gui/mainwindow_io.cpp:885
 msgid "Failed to copy file."
 msgstr "No se pudo copiar el archivo."
 
-#: gui/mainwindow_io.cpp:890
+#: gui/mainwindow_io.cpp:889
 msgid "Object exported successfully."
 msgstr "Objeto exportado exitosamente."
 
-#: gui/mainwindow_io.cpp:907 gui/mainwindow_print.cpp:658
+#: gui/mainwindow_io.cpp:906 gui/mainwindow_print.cpp:523
 msgid "Select table"
 msgstr "Seleccione tabla"
 
-#: gui/mainwindow_io.cpp:907 gui/tableprinter.cpp:164 gui/tableprinter.cpp:172
+#: gui/mainwindow_io.cpp:906 gui/tableprinter.cpp:164 gui/tableprinter.cpp:172
 #: gui/tableprinter.cpp:207
 msgid "Export CSV"
 msgstr "Exportar CSV"
 
-#: gui/mainwindow_layout.cpp:338 gui/mainwindow_print.cpp:646
+#: gui/mainwindow_layout.cpp:338 gui/mainwindow_print.cpp:511
 #: gui/riggingpanel.cpp:191 gui/summarypanel.cpp:182
 msgid "Hoists"
 msgstr "Motores"
 
-#: gui/mainwindow_layout.cpp:343 gui/mainwindow_print.cpp:649
+#: gui/mainwindow_layout.cpp:343 gui/mainwindow_print.cpp:514
 #: gui/summarypanel.cpp:199
 msgid "Objects"
 msgstr "Objetos"
@@ -3578,11 +3598,11 @@ msgstr "Vistas de datos"
 msgid "Console"
 msgstr "Consola"
 
-#: gui/mainwindow_layout.cpp:378 gui/mainwindow_menu_builders.cpp:83
+#: gui/mainwindow_layout.cpp:378 gui/mainwindow_menu_builders.cpp:85
 msgid "Layers"
 msgstr "Capas"
 
-#: gui/mainwindow_layout.cpp:392 gui/mainwindow_menu_builders.cpp:84
+#: gui/mainwindow_layout.cpp:392 gui/mainwindow_menu_builders.cpp:86
 msgid "Layouts"
 msgstr "Layouts"
 
@@ -3590,26 +3610,26 @@ msgstr "Layouts"
 msgid "Layout Viewer"
 msgstr "Visor de diseño"
 
-#: gui/mainwindow_layout.cpp:435 gui/mainwindow_menu_builders.cpp:86
+#: gui/mainwindow_layout.cpp:435 gui/mainwindow_menu_builders.cpp:88
 msgid "Rigging"
 msgstr "Rigging"
 
-#: gui/mainwindow_layout.cpp:483
+#: gui/mainwindow_layout.cpp:484
 msgid "X: -- m  Y: -- m  Z: -- m"
 msgstr "X: -- m Y: -- m Z: -- m"
 
-#: gui/mainwindow_layout.cpp:485
+#: gui/mainwindow_layout.cpp:486
 #, c-format
 msgid "Version %s"
 msgstr "Versión %s"
 
-#: gui/mainwindow_layout.cpp:1142
+#: gui/mainwindow_layout.cpp:1149
 msgid "Layout view update skipped: target view not found."
 msgstr ""
 "Se omitió la actualización de la vista de diseño: no se encontró la vista de "
 "destino."
 
-#: gui/mainwindow_layout.cpp:1172
+#: gui/mainwindow_layout.cpp:1179
 msgid "Layout view update failed."
 msgstr "Error al actualizar la vista de diseño."
 
@@ -3653,7 +3673,7 @@ msgstr "Exportar MVR"
 msgid "Export the project to MVR"
 msgstr "Exportar el proyecto a MVR"
 
-#: gui/mainwindow_menu.cpp:182 gui/mainwindow_print.cpp:215
+#: gui/mainwindow_menu.cpp:182 gui/mainwindow_print.cpp:81
 msgid "Print"
 msgstr "Imprimir"
 
@@ -3823,7 +3843,7 @@ msgstr "Acciones entre mesas"
 msgid "Toggle viewport actions across all tables"
 msgstr "Alternar acciones de ventana gráfica en todas las tablas"
 
-#: gui/mainwindow_menu.cpp:316 gui/mainwindow_menu_builders.cpp:87
+#: gui/mainwindow_menu.cpp:316 gui/mainwindow_menu_builders.cpp:89
 msgid "Layout Views"
 msgstr "Vistas del layout"
 
@@ -3840,7 +3860,7 @@ msgid "Insert a new scene object"
 msgstr "Insertar un nuevo objeto de escena"
 
 #: gui/mainwindow_menu.cpp:334 gui/mainwindow_menu.cpp:336
-#: mvr/mvrimporter.cpp:319
+#: mvr/mvrimporter.cpp:320
 msgid "Download GDTF"
 msgstr "Descargar GDTF"
 
@@ -3906,7 +3926,7 @@ msgid "Could not resolve writable user library path."
 msgstr "No se pudo resolver la ruta de escritura de la biblioteca del usuario."
 
 #: gui/mainwindow_menu.cpp:417 gui/mainwindow_menu.cpp:429
-#: gui/mainwindow_menu_builders.cpp:97
+#: gui/mainwindow_menu_builders.cpp:99
 msgid "Open user library folder"
 msgstr "Abrir la carpeta de la biblioteca de usuario"
 
@@ -3914,38 +3934,38 @@ msgstr "Abrir la carpeta de la biblioteca de usuario"
 msgid "Could not open the user library folder."
 msgstr "No se pudo abrir la carpeta de la biblioteca del usuario."
 
-#: gui/mainwindow_menu.cpp:463
+#: gui/mainwindow_menu.cpp:456
 msgid "No hoists available for weight distribution."
 msgstr "No hay polipastos disponibles para la distribución del peso."
 
-#: gui/mainwindow_menu.cpp:464 gui/mainwindow_menu.cpp:475
-#: gui/mainwindow_menu.cpp:496
+#: gui/mainwindow_menu.cpp:457 gui/mainwindow_menu.cpp:468
+#: gui/mainwindow_menu.cpp:489
 msgid "Distribute hoist weights"
 msgstr "Distribuir los pesos del polipasto"
 
-#: gui/mainwindow_menu.cpp:469
+#: gui/mainwindow_menu.cpp:462
 msgid "All positions"
 msgstr "Todas las posiciones"
 
-#: gui/mainwindow_menu.cpp:474
+#: gui/mainwindow_menu.cpp:467
 msgid "Select hang position(s) to distribute hoist weights."
 msgstr ""
 "Seleccione las posiciones de suspensión para distribuir los pesos del "
 "polipasto."
 
-#: gui/mainwindow_menu.cpp:495
+#: gui/mainwindow_menu.cpp:488
 msgid "No hoists found for the selected position."
 msgstr "No se encontraron polipastos para la posición seleccionada."
 
-#: gui/mainwindow_menu.cpp:626
+#: gui/mainwindow_menu.cpp:619
 msgid "exiting"
 msgstr "salir"
 
-#: gui/mainwindow_menu.cpp:626
+#: gui/mainwindow_menu.cpp:619
 msgid "Exit"
 msgstr "Salir"
 
-#: gui/mainwindow_menu.cpp:723
+#: gui/mainwindow_menu.cpp:716
 #, c-format
 msgid ""
 "Could not create the logs folder.\n"
@@ -3956,12 +3976,12 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:725 gui/mainwindow_menu.cpp:743
-#: gui/mainwindow_menu.cpp:759 gui/mainwindow_menu.cpp:768
+#: gui/mainwindow_menu.cpp:718 gui/mainwindow_menu.cpp:736
+#: gui/mainwindow_menu.cpp:752 gui/mainwindow_menu.cpp:761
 msgid "Perastage Diagnostics"
 msgstr "Diagnóstico de Perastage"
 
-#: gui/mainwindow_menu.cpp:741
+#: gui/mainwindow_menu.cpp:734
 #, c-format
 msgid ""
 "Could not open the logs folder.\n"
@@ -3972,7 +3992,7 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:757
+#: gui/mainwindow_menu.cpp:750
 #, c-format
 msgid ""
 "Could not export the diagnostic report.\n"
@@ -3983,7 +4003,7 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:766
+#: gui/mainwindow_menu.cpp:759
 #, c-format
 msgid ""
 "Diagnostic report exported successfully.\n"
@@ -3994,11 +4014,11 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:787 gui/update/update_notification_dialog.cpp:30
+#: gui/mainwindow_menu.cpp:780 gui/update/update_notification_dialog.cpp:30
 msgid "Perastage Updates"
 msgstr "Actualizaciones de Perastage"
 
-#: gui/mainwindow_menu.cpp:789
+#: gui/mainwindow_menu.cpp:782
 msgid ""
 "Could not check for updates.\n"
 "\n"
@@ -4006,11 +4026,11 @@ msgstr ""
 "No se pudieron buscar actualizaciones.\n"
 "\n"
 
-#: gui/mainwindow_menu.cpp:792
+#: gui/mainwindow_menu.cpp:785
 msgid "Please verify your network connection and try again."
 msgstr "Verifique su conexión de red e inténtelo nuevamente."
 
-#: gui/mainwindow_menu.cpp:801
+#: gui/mainwindow_menu.cpp:794
 #, c-format
 msgid ""
 "Current version: %s\n"
@@ -4021,11 +4041,11 @@ msgstr ""
 "Última versión: %s\n"
 "\n"
 
-#: gui/mainwindow_menu.cpp:805
+#: gui/mainwindow_menu.cpp:798
 msgid "You are up to date."
 msgstr "Estás al día."
 
-#: gui/mainwindow_menu.cpp:1101 gui/mainwindow_truss_replace.cpp:145
+#: gui/mainwindow_menu.cpp:1098 gui/mainwindow_truss_replace.cpp:145
 msgid ""
 "Unsupported or unreadable truss file. Supported formats are GDTF, GTruss, "
 "GLB, and 3DS."
@@ -4033,7 +4053,7 @@ msgstr ""
 "Archivo de truss no compatible o ilegible. Los formatos admitidos son GDTF, "
 "GTruss, GLB y 3DS."
 
-#: gui/mainwindow_menu.cpp:1271 gui/mainwindow_menu.cpp:1293
+#: gui/mainwindow_menu.cpp:1268 gui/mainwindow_menu.cpp:1290
 msgid "Select Object file"
 msgstr "Seleccionar archivo de objeto"
 
@@ -4161,196 +4181,206 @@ msgstr "Preferencias..."
 msgid "Layout Mode View"
 msgstr "Vista del modo layout"
 
-#: gui/mainwindow_menu_builders.cpp:80 gui/mainwindow_viewport_creation.cpp:24
+#: gui/mainwindow_menu_builders.cpp:79 gui/mainwindow_position_tool.cpp:20
+#: gui/positiontoolpanel.cpp:226
+msgid "Position Tool"
+msgstr "Herramienta de posición"
+
+#: gui/mainwindow_menu_builders.cpp:80 gui/patch/dmx_patch_panel.cpp:22
+#: gui/patch/dmx_patch_panel.cpp:34 gui/patch/viewport_patch_workspace.cpp:30
+msgid "DMX Patch"
+msgstr "DMX Patch"
+
+#: gui/mainwindow_menu_builders.cpp:82 gui/mainwindow_viewport_creation.cpp:27
 msgid "3D Viewport"
 msgstr "Visor 3D"
 
-#: gui/mainwindow_menu_builders.cpp:81 gui/mainwindow_viewport_creation.cpp:69
+#: gui/mainwindow_menu_builders.cpp:83 gui/mainwindow_viewport_creation.cpp:74
 msgid "2D Viewport"
 msgstr "Visor 2D"
 
-#: gui/mainwindow_menu_builders.cpp:82 gui/mainwindow_viewport_creation.cpp:85
+#: gui/mainwindow_menu_builders.cpp:84 gui/mainwindow_viewport_creation.cpp:90
 msgid "2D Render Options"
 msgstr "Opciones de render 2D"
 
-#: gui/mainwindow_menu_builders.cpp:94
+#: gui/mainwindow_menu_builders.cpp:96
 msgid "Download GDTF fixture..."
 msgstr "Descargar aparato GDTF..."
 
-#: gui/mainwindow_menu_builders.cpp:95
+#: gui/mainwindow_menu_builders.cpp:97
 msgid "Edit dictionaries..."
 msgstr "Editar diccionarios..."
 
-#: gui/mainwindow_menu_builders.cpp:98
+#: gui/mainwindow_menu_builders.cpp:100
 msgid "Create from text..."
 msgstr "Crear desde texto..."
 
-#: gui/mainwindow_menu_builders.cpp:100
+#: gui/mainwindow_menu_builders.cpp:102
 msgid "Distribute hoist weights..."
 msgstr "Distribuir pesos en motores..."
 
-#: gui/mainwindow_menu_builders.cpp:102
+#: gui/mainwindow_menu_builders.cpp:104
 msgid "Distribute fixtures...\tAlt+D"
 msgstr "Distribuir accesorios... Alt+D"
 
-#: gui/mainwindow_menu_builders.cpp:103
+#: gui/mainwindow_menu_builders.cpp:105
 msgid "Export Fixture..."
 msgstr "Exportar aparato..."
 
-#: gui/mainwindow_menu_builders.cpp:104
+#: gui/mainwindow_menu_builders.cpp:106
 msgid "Export Truss..."
 msgstr "Exportar truss..."
 
-#: gui/mainwindow_menu_builders.cpp:105
+#: gui/mainwindow_menu_builders.cpp:107
 msgid "Export Scene Object..."
 msgstr "Exportar objeto de escena..."
 
-#: gui/mainwindow_menu_builders.cpp:106
+#: gui/mainwindow_menu_builders.cpp:108
 msgid "Auto patch"
 msgstr "Patch automático"
 
-#: gui/mainwindow_menu_builders.cpp:107
+#: gui/mainwindow_menu_builders.cpp:109
 msgid "Auto color"
 msgstr "Color automático"
 
-#: gui/mainwindow_menu_builders.cpp:113
+#: gui/mainwindow_menu_builders.cpp:115
 msgid "Generate Fixture Symbols..."
 msgstr "Generar símbolos de aparatos..."
 
-#: gui/mainwindow_menu_builders.cpp:117
+#: gui/mainwindow_menu_builders.cpp:119
 msgid "Auto-assign categories to selected fixtures..."
 msgstr "Asignar automáticamente categorías a los aparatos seleccionados..."
 
-#: gui/mainwindow_menu_builders.cpp:125
+#: gui/mainwindow_menu_builders.cpp:127
 msgid "Help\tF1"
 msgstr "Ayuda\tF1"
 
-#: gui/mainwindow_menu_builders.cpp:126 gui/user_manual_dialog.cpp:39
+#: gui/mainwindow_menu_builders.cpp:128 gui/user_manual_dialog.cpp:39
 msgid "Online Documentation"
 msgstr "Documentación en línea"
 
-#: gui/mainwindow_menu_builders.cpp:127
+#: gui/mainwindow_menu_builders.cpp:129
 msgid "Check for Updates..."
 msgstr "Buscar actualizaciones..."
 
-#: gui/mainwindow_menu_builders.cpp:129
+#: gui/mainwindow_menu_builders.cpp:131
 msgid "Open Logs Folder"
 msgstr "Abrir la carpeta de registros"
 
-#: gui/mainwindow_menu_builders.cpp:131
+#: gui/mainwindow_menu_builders.cpp:133
 msgid "Export Diagnostic Report..."
 msgstr "Exportar informe de diagnóstico..."
 
-#: gui/mainwindow_menu_builders.cpp:142
+#: gui/mainwindow_menu_builders.cpp:144
 msgid "&File"
 msgstr "&Archivo"
 
-#: gui/mainwindow_menu_builders.cpp:143
+#: gui/mainwindow_menu_builders.cpp:145
 msgid "&Edit"
 msgstr "&Editar"
 
-#: gui/mainwindow_menu_builders.cpp:144
+#: gui/mainwindow_menu_builders.cpp:146
 msgid "&View"
 msgstr "&Ver"
 
-#: gui/mainwindow_menu_builders.cpp:145
+#: gui/mainwindow_menu_builders.cpp:147
 msgid "&Tools"
 msgstr "&Herramientas"
 
-#: gui/mainwindow_menu_builders.cpp:146
+#: gui/mainwindow_menu_builders.cpp:148
 msgid "&Help"
 msgstr "A&yuda"
 
-#: gui/mainwindow_print.cpp:211
+#: gui/mainwindow_print.cpp:77
 msgid "2D View"
 msgstr "Vista 2D"
 
-#: gui/mainwindow_print.cpp:212
+#: gui/mainwindow_print.cpp:78
 msgid "Table"
 msgstr "Tabla"
 
-#: gui/mainwindow_print.cpp:214
+#: gui/mainwindow_print.cpp:80
 msgid "Select what to print:"
 msgstr "Seleccione qué imprimir:"
 
-#: gui/mainwindow_print.cpp:235 gui/mainwindow_print.cpp:382
+#: gui/mainwindow_print.cpp:101 gui/mainwindow_print.cpp:248
 msgid "2D viewport is not available."
 msgstr "La vista 2D no está disponible."
 
-#: gui/mainwindow_print.cpp:235 gui/mainwindow_print.cpp:265
-#: gui/mainwindow_print.cpp:295 gui/mainwindow_print.cpp:333
-#: gui/mainwindow_print.cpp:337
+#: gui/mainwindow_print.cpp:101 gui/mainwindow_print.cpp:131
+#: gui/mainwindow_print.cpp:161 gui/mainwindow_print.cpp:199
+#: gui/mainwindow_print.cpp:203
 msgid "Print Viewer 2D"
 msgstr "Imprimir vista 2D"
 
-#: gui/mainwindow_print.cpp:255
+#: gui/mainwindow_print.cpp:121
 msgid "Save 2D view as"
 msgstr "Guardar vista 2D como"
 
-#: gui/mainwindow_print.cpp:264
+#: gui/mainwindow_print.cpp:130
 msgid "Please choose a destination file for the 2D view."
 msgstr "Seleccione un archivo de destino para la vista 2D."
 
-#: gui/mainwindow_print.cpp:278
+#: gui/mainwindow_print.cpp:144
 msgid "Printing 2D view..."
 msgstr "Imprimiendo vista 2D..."
 
-#: gui/mainwindow_print.cpp:294
+#: gui/mainwindow_print.cpp:160
 msgid "Unable to capture the 2D view for printing."
 msgstr "No se puede capturar la vista 2D para imprimir."
 
-#: gui/mainwindow_print.cpp:330
+#: gui/mainwindow_print.cpp:196
 #, c-format
 msgid "Failed to generate PDF plan: %s"
 msgstr "No se pudo generar el plano PDF: %s"
 
-#: gui/mainwindow_print.cpp:332 gui/mainwindow_print.cpp:549
+#: gui/mainwindow_print.cpp:198 gui/mainwindow_print.cpp:413
 msgid "Print failed. Please review the error and try again."
 msgstr "La impresión falló. Revise el error e inténtelo de nuevo."
 
-#: gui/mainwindow_print.cpp:336
+#: gui/mainwindow_print.cpp:202
 #, c-format
 msgid "2D view saved to %s"
 msgstr "Vista 2D guardada en %s"
 
-#: gui/mainwindow_print.cpp:351
+#: gui/mainwindow_print.cpp:217
 msgid "No layout is selected."
 msgstr "No hay ningún layout seleccionado."
 
-#: gui/mainwindow_print.cpp:351 gui/mainwindow_print.cpp:364
-#: gui/mainwindow_print.cpp:374 gui/mainwindow_print.cpp:382
-#: gui/mainwindow_print.cpp:415 gui/mainwindow_print.cpp:550
-#: gui/mainwindow_print.cpp:559
+#: gui/mainwindow_print.cpp:217 gui/mainwindow_print.cpp:230
+#: gui/mainwindow_print.cpp:240 gui/mainwindow_print.cpp:248
+#: gui/mainwindow_print.cpp:281 gui/mainwindow_print.cpp:297
+#: gui/mainwindow_print.cpp:414 gui/mainwindow_print.cpp:426
 msgid "Print Layout"
 msgstr "Imprimir layout"
 
-#: gui/mainwindow_print.cpp:364
+#: gui/mainwindow_print.cpp:230
 msgid "Selected layout is not available."
 msgstr "El layout seleccionado no está disponible."
 
-#: gui/mainwindow_print.cpp:373
+#: gui/mainwindow_print.cpp:239
 msgid "The selected layout is empty."
 msgstr "El layout seleccionado está vacío."
 
-#: gui/mainwindow_print.cpp:405
+#: gui/mainwindow_print.cpp:271
 msgid "Save layout as"
 msgstr "Guardar layout como"
 
-#: gui/mainwindow_print.cpp:414
+#: gui/mainwindow_print.cpp:280
 msgid "Please choose a destination file for the layout."
 msgstr "Seleccione un archivo de destino para el layout."
 
-#: gui/mainwindow_print.cpp:546
+#: gui/mainwindow_print.cpp:296 gui/mainwindow_print.cpp:410
 #, c-format
 msgid "Failed to generate layout PDF: %s"
 msgstr "No se pudo generar el PDF del layout: %s"
 
-#: gui/mainwindow_print.cpp:554
+#: gui/mainwindow_print.cpp:418
 #, c-format
 msgid "Layout saved to %s"
 msgstr "Layout guardado en %s"
 
-#: gui/mainwindow_print.cpp:556
+#: gui/mainwindow_print.cpp:420
 #, c-format
 msgid ""
 "\n"
@@ -4365,11 +4395,11 @@ msgstr ""
 "Perastage symbols: %zu\n"
 "Reservas renderizadas: %zu"
 
-#: gui/mainwindow_print.cpp:627
+#: gui/mainwindow_print.cpp:492
 msgid "Printing layout..."
 msgstr "Imprimiendo layout..."
 
-#: gui/mainwindow_print.cpp:658
+#: gui/mainwindow_print.cpp:523
 msgid "Print Table"
 msgstr "Imprimir tabla"
 
@@ -4662,6 +4692,7 @@ msgstr "GDTF Compartir"
 
 #
 #: gui/mvr_gdtf_resolution_dialog.cpp:37 gui/mvr_gdtf_resolution_dialog.cpp:53
+#: gui/patch/dmx_patch_canvas.cpp:176
 msgid "Unresolved"
 msgstr "Sin resolver"
 
@@ -5036,6 +5067,190 @@ msgstr "Corriendo"
 #, c-format
 msgid "%zu discovered, %zu incoming joined, %zu outgoing joined"
 msgstr "%zu descubierto, %zu entrante unido, %zu saliente unido"
+
+#: gui/patch/dmx_patch_canvas.cpp:130
+msgid " Fine"
+msgstr " fino"
+
+#: gui/patch/dmx_patch_canvas.cpp:131
+#, c-format
+msgid " Byte %d"
+msgstr " byte %d"
+
+#: gui/patch/dmx_patch_canvas.cpp:163
+#, c-format
+msgid "Universe %s | Channel %d"
+msgstr "Universo %s | Canal %d"
+
+#: gui/patch/dmx_patch_canvas.cpp:165 gui/patch/dmx_patch_diagnostics.cpp:76
+msgid "Overlapping fixtures"
+msgstr "Aparatos solapados"
+
+#: gui/patch/dmx_patch_canvas.cpp:168
+#, c-format
+msgid ""
+"\n"
+"%s - %s\n"
+"UUID: %s\n"
+"GDTF break %d / MVR break %d | Offset %d | Byte %d\n"
+"Attribute: %s\n"
+"Functions: %s"
+msgstr "\n%s - %s\nUUID: %s\nBreak GDTF %d / break MVR %d | Offset %d | Byte %d\nAtributo: %s\nFunciones: %s"
+
+#: gui/patch/dmx_patch_canvas.cpp:171
+#, c-format
+msgid "Fixture purpose: %s"
+msgstr "Función del aparato: %s"
+
+#: gui/patch/dmx_patch_canvas.cpp:175
+#, c-format
+msgid "PROVISIONAL: %s | Declared offset %d | GDTF break: %s"
+msgstr "PROVISIONAL: %s | Offset declarado %d | Break GDTF: %s"
+
+#: gui/patch/dmx_patch_canvas.cpp:177
+msgid ""
+"Declared-offset compatibility preview; this is not a resolved physical patch "
+"assignment."
+msgstr "Vista compatible de offsets declarados; no es una asignación física de patch resuelta."
+
+#: gui/patch/dmx_patch_diagnostics.cpp:14
+msgid "Missing patch assignment"
+msgstr "Falta la asignación de patch"
+
+#: gui/patch/dmx_patch_diagnostics.cpp:15
+msgid "Invalid or unsupported DMX address"
+msgstr "Dirección DMX inválida o no compatible"
+
+#: gui/patch/dmx_patch_diagnostics.cpp:16
+msgid "Invalid or ambiguous DMX break"
+msgstr "Break DMX inválido o ambiguo"
+
+#: gui/patch/dmx_patch_diagnostics.cpp:17
+msgid "GDTF definition or DMX mode unavailable"
+msgstr "Definición GDTF o modo DMX no disponible"
+
+#: gui/patch/dmx_patch_diagnostics.cpp:18
+msgid "Physical channel or geometry reference unresolved"
+msgstr "Canal físico o referencia de geometría sin resolver"
+
+#: gui/patch/dmx_patch_diagnostics.cpp:19
+msgid "Physical channels exceed 512; excess channels are not displayed"
+msgstr "Los canales físicos superan 512; los canales sobrantes no se representan"
+
+#: gui/patch/dmx_patch_diagnostics.cpp:33
+#: gui/patch/dmx_patch_diagnostics.cpp:35 gui/patch/dmx_patch_panel.cpp:39
+msgid "Patch diagnostics"
+msgstr "Diagnósticos del patch"
+
+#: gui/patch/dmx_patch_diagnostics.cpp:38
+msgid "Warning"
+msgstr "Aviso"
+
+#: gui/patch/dmx_patch_diagnostics.cpp:54
+#, c-format
+msgid "Offsets: %s | GDTF break: %s | Geometry: %s"
+msgstr "Offsets: %s | Break GDTF: %s | Geometría: %s"
+
+#: gui/patch/dmx_patch_diagnostics.cpp:57
+#, c-format
+msgid "MVR break %s has no start address"
+msgstr "El break MVR %s no tiene dirección inicial"
+
+#: gui/patch/dmx_patch_diagnostics.cpp:74
+#, c-format
+msgid "Universe %s, channels %d-%d"
+msgstr "Universo %s, canales %d-%d"
+
+#: gui/patch/dmx_patch_panel.cpp:27
+msgid "DMX universe"
+msgstr "Universo DMX"
+
+#: gui/patch/dmx_patch_panel.cpp:28 gui/patch/dmx_patch_panel.cpp:70
+msgid "Choose a patched universe or enter any positive universe number."
+msgstr "Elige un universo con patch o introduce un número de universo positivo."
+
+#: gui/patch/dmx_patch_panel.cpp:30
+msgid "Declared offsets"
+msgstr "Offsets declarados"
+
+#: gui/patch/dmx_patch_panel.cpp:31
+msgid ""
+"Explicit provisional preview for unresolved GDTF channels; does not change "
+"the patch."
+msgstr "Vista provisional explícita de canales GDTF sin resolver; no cambia el patch."
+
+#: gui/patch/dmx_patch_panel.cpp:40
+msgid "Show patch diagnostics"
+msgstr "Mostrar diagnósticos del patch"
+
+#: gui/patch/dmx_patch_panel.cpp:66
+msgid "Enter a positive universe number."
+msgstr "Introduce un número de universo positivo."
+
+#: gui/patch/dmx_patch_panel.cpp:116
+#, c-format
+msgid "Occupied: %d/512 | Conflicts: %d"
+msgstr "Ocupados: %d/512 | Conflictos: %d"
+
+#: gui/patch/dmx_patch_panel.cpp:118
+#, c-format
+msgid "Occupied: %d/512 | Provisional: %d | Conflicts: %d"
+msgstr "Ocupados: %d/512 | Provisionales: %d | Conflictos: %d"
+
+#: gui/patch/dmx_patch_panel.cpp:122
+#, c-format
+msgid "Show patch diagnostics (%d)"
+msgstr "Mostrar diagnósticos del patch (%d)"
+
+#
+#: gui/positiontoolpanel.cpp:41 gui/positiontoolpanel.cpp:149
+msgid "No selection"
+msgstr "Sin selección"
+
+#: gui/positiontoolpanel.cpp:49
+msgid "X:"
+msgstr "X:"
+
+#: gui/positiontoolpanel.cpp:49
+msgid "Y:"
+msgstr "Y:"
+
+#: gui/positiontoolpanel.cpp:49
+msgid "Z:"
+msgstr "Z:"
+
+#: gui/positiontoolpanel.cpp:150
+msgid "Multiple objects selected"
+msgstr "Varios objetos seleccionados"
+
+#: gui/positiontoolpanel.cpp:152
+msgid "Group selected"
+msgstr "Grupo seleccionado"
+
+#: gui/positiontoolpanel.cpp:152
+msgid "Object selected"
+msgstr "Objeto seleccionado"
+
+#: gui/positiontoolpanel.cpp:163
+msgid "Select an object to edit its world position."
+msgstr "Selecciona un objeto para editar su posición en el mundo."
+
+#: gui/positiontoolpanel.cpp:164
+msgid "Absolute world coordinate. An empty field means mixed values."
+msgstr ""
+"Coordenada absoluta del mundo. Un campo vacío indica valores diferentes."
+
+#: gui/positiontoolpanel.cpp:196 gui/positiontoolpanel.cpp:197
+msgid "Enter a valid distance."
+msgstr "Introduce una distancia válida."
+
+#: gui/positiontoolpanel.cpp:207
+msgid "Position could not be updated."
+msgstr "No se pudo actualizar la posición."
+
+#: gui/positiontoolpanel.cpp:225
+msgid "Select a group to position."
+msgstr "Selecciona un grupo para posicionarlo."
 
 #: gui/preferences/cache_preferences_page.cpp:15
 msgid "Cache location:"
@@ -5502,6 +5717,14 @@ msgstr "Reinicio necesario"
 
 #: gui/project_save_ui.cpp:54
 msgid ""
+"Failed to save project.\n"
+"\n"
+msgstr ""
+"No se pudo guardar el proyecto.\n"
+"\n"
+
+#: gui/project_save_ui.cpp:63
+msgid ""
 "The project contains MVR information that cannot yet be saved without loss. "
 "The previous file was kept. See the diagnostic log for the affected content."
 msgstr ""
@@ -5509,7 +5732,7 @@ msgstr ""
 "pérdidas. Se ha conservado el archivo anterior. Consulte el registro de "
 "diagnóstico para identificar el contenido afectado."
 
-#: gui/project_save_ui.cpp:56
+#: gui/project_save_ui.cpp:65
 msgid ""
 "Required project resources could not be saved. See the diagnostic log for "
 "details."
@@ -5517,7 +5740,7 @@ msgstr ""
 "No se han podido guardar los recursos necesarios del proyecto. Consulte el "
 "registro de diagnóstico para obtener más información."
 
-#: gui/project_save_ui.cpp:58
+#: gui/project_save_ui.cpp:67
 msgid ""
 "The project archive could not be written. Check the destination and "
 "available disk space. See the diagnostic log for details."
@@ -5526,14 +5749,14 @@ msgstr ""
 "espacio disponible en disco. Consulte el registro de diagnóstico para "
 "obtener más información."
 
-#: gui/project_save_ui.cpp:60
+#: gui/project_save_ui.cpp:69
 msgid ""
 "Project data could not be serialized. See the diagnostic log for details."
 msgstr ""
 "No se han podido serializar los datos del proyecto. Consulte el registro de "
 "diagnóstico para obtener más información."
 
-#: gui/project_save_ui.cpp:62
+#: gui/project_save_ui.cpp:71
 msgid ""
 "An unexpected error interrupted project saving. See the diagnostic log for "
 "details."
@@ -6195,19 +6418,19 @@ msgstr ""
 "Las vistas del símbolo se han aplicado al proyecto. Guarda el proyecto para "
 "conservar el símbolo personalizado."
 
-#: mvr/mvrimporter.cpp:305
+#: mvr/mvrimporter.cpp:306
 msgid "Resolve GDTF source conflicts"
 msgstr "Resolver conflictos de origen GDTF"
 
-#: mvr/mvrimporter.cpp:308
+#: mvr/mvrimporter.cpp:309
 msgid "Choose which source to keep for each fixture type."
 msgstr "Elija qué origen conservar para cada tipo de aparato."
 
-#: mvr/mvrimporter.cpp:317
+#: mvr/mvrimporter.cpp:318
 msgid "App"
 msgstr "Aplicación"
 
-#: mvr/mvrimporter.cpp:331 mvr/mvrimporter.cpp:332 mvr/mvrimporter.cpp:334
+#: mvr/mvrimporter.cpp:332 mvr/mvrimporter.cpp:333 mvr/mvrimporter.cpp:335
 msgid "Select all"
 msgstr "Seleccionar todo"
 
@@ -6215,23 +6438,23 @@ msgstr "Seleccionar todo"
 msgid "Spanish"
 msgstr "Español"
 
-#: viewer2d/viewer2dpanel.cpp:3575
+#: viewer2d/viewer2dpanel.cpp:3564
 msgid "Gap measure: "
 msgstr "Medida de brecha:"
 
-#: viewer2d/viewer2dpanel.cpp:3576
+#: viewer2d/viewer2dpanel.cpp:3565
 msgid "Measure: "
 msgstr "Medida:"
 
-#: viewer2d/viewer2dpanel.cpp:3648 viewer3d/viewer3dpanel.cpp:2255
+#: viewer2d/viewer2dpanel.cpp:3637 viewer3d/viewer3dpanel.cpp:2255
 msgid "Convert to Truss"
 msgstr "Convertir a armadura"
 
-#: viewer2d/viewer2dpanel.cpp:3734 viewer3d/viewer3dpanel.cpp:2272
+#: viewer2d/viewer2dpanel.cpp:3723 viewer3d/viewer3dpanel.cpp:2272
 msgid "No position"
 msgstr "Sin posición"
 
-#: viewer2d/viewer2dpanel.cpp:3745 viewer3d/viewer3dpanel.cpp:2283
+#: viewer2d/viewer2dpanel.cpp:3734 viewer3d/viewer3dpanel.cpp:2283
 msgid "Select by position"
 msgstr "Seleccionar por posición"
 
@@ -6299,7 +6522,7 @@ msgstr "regla Z"
 msgid "Edit Fixture Labels..."
 msgstr "Editar etiquetas de aparatos..."
 
-#: viewer3d/labels/label_render_system.cpp:197
+#: viewer3d/labels/label_render_system.cpp:198
 #, c-format
 msgid "ID: %d"
 msgstr "Identificación: %d"
@@ -6338,6 +6561,18 @@ msgstr "Estilo de renderizado"
 #: viewer3d/viewer3dpanel.cpp:2288
 msgid "Export image..."
 msgstr "Exportar imagen..."
+
+#~ msgid "16 columns"
+#~ msgstr "16 columnas"
+
+#~ msgid "32 columns"
+#~ msgstr "32 columnas"
+
+#~ msgid "Additional diagnostics omitted."
+#~ msgstr "Se han omitido más diagnósticos."
+
+#~ msgid "Select group…"
+#~ msgstr "Seleccionar grupo…"
 
 #~ msgid "Labels"
 #~ msgstr "Etiquetas"

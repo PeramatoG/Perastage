@@ -15,6 +15,8 @@ struct Result {
   bool changed = false;
   std::vector<std::string> warnings;
   std::vector<std::string> errors;
+  // Exact unsupported source payload removed only by an explicit projection.
+  std::vector<std::string> omissions;
 };
 
 struct Options {
@@ -22,6 +24,8 @@ struct Options {
   bool allowPlaceholderFixtureTypeIdRepair = false;
   std::string stableIdSeed;
   std::string sourceLabel;
+  bool projectUnsupportedFixtureTypeContent = false;
+  bool omitGeneratedRevisionDate = false;
 };
 
 using DescriptionMutator =

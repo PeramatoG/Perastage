@@ -902,6 +902,8 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
                            cfg.GetSelectedSceneObjects().begin(),
                            cfg.GetSelectedSceneObjects().end());
     viewportPanel->UpdateScene();
+    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedGroupObjects().begin(),
+                           cfg.GetSelectedGroupObjects().end());
     viewportPanel->SetSelectedFixtures(mergedSelection);
     viewportPanel->Refresh();
   }
@@ -961,6 +963,8 @@ void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
                            cfg.GetSelectedSceneObjects().begin(),
                            cfg.GetSelectedSceneObjects().end());
     viewportPanel->UpdateScene();
+    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedGroupObjects().begin(),
+                           cfg.GetSelectedGroupObjects().end());
     viewportPanel->SetSelectedFixtures(mergedSelection);
     viewportPanel->Refresh();
   }

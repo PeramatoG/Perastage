@@ -61,20 +61,36 @@ int main() {
   assert(entries.at("two.bin") == "two");
 
   request.destinationPath = directory / "duplicate.mvr";
+  std::ofstream(request.destinationPath, std::ios::binary)
+      << "previous duplicate target";
   request.resources[1].archivePath = "models/one.bin";
   const auto duplicate = mvr_export_archive::Write(request);
   assert(!duplicate.success);
   assert(duplicate.operation == "WriteResource");
   assert(duplicate.archivePath == "models/one.bin");
   assert(duplicate.reason == "duplicate ZIP entry");
+  {
+    std::ifstream file(request.destinationPath, std::ios::binary);
+    assert(std::string(std::istreambuf_iterator<char>(file), {}) ==
+           "previous duplicate target");
+  }
 
   request.destinationPath = directory / "missing.mvr";
+  std::ofstream(request.destinationPath, std::ios::binary)
+      << "previous missing target";
   request.resources = {{directory / "sources" / "missing.bin", "missing.bin"}};
   const auto missing = mvr_export_archive::Write(request);
   assert(!missing.success);
   assert(missing.archivePath == "missing.bin");
   assert(missing.sourcePath.find("missing.bin") != std::string::npos);
   assert(missing.reason == "could not open source file");
+  {
+    std::ifstream file(request.destinationPath, std::ios::binary);
+    assert(std::string(std::istreambuf_iterator<char>(file), {}) ==
+           "previous missing target");
+  }
+  for (const auto &entry : fs::directory_iterator(directory))
+    assert(entry.path().filename().string().find(".tmp-") == std::string::npos);
   fs::remove_all(directory);
   return 0;
 }

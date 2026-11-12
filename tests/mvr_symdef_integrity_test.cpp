@@ -1,9 +1,11 @@
+#include "support/mvr_recovery_assertions.h"
 /* This file is part of Perastage. */
 #include "configmanager.h"
 #include "inspection/xml_schema_validation.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include "mvrscenemerger.h"
+#include "mvr_matrix_precision.h"
 #include "scene_clipboard.h"
 #include "scene_grouping.h"
 #include "support/archive_entry_test_utils.h"
@@ -132,6 +134,83 @@ static void CheckExport(const fs::path &path, int expectedDefinitions = 3,
   };
   visit(visit, scene);
   assert(count == expectedSymbols);
+}
+
+// Check source identities, hierarchy, numeric placement and actual resource
+// bytes independently of the display projection or exporter validation.
+static void CheckRetainedStructure(const std::string &sourceXml,
+                                   const fs::path &source,
+                                   const fs::path &output) {
+  std::string exported;
+  assert(
+      tests::zip::ReadEntry(output, "GeneralSceneDescription.xml", &exported));
+  CheckSchema(exported, true);
+  tinyxml2::XMLDocument before, after;
+  assert(before.Parse(sourceXml.c_str()) == tinyxml2::XML_SUCCESS);
+  assert(after.Parse(exported.c_str()) == tinyxml2::XML_SUCCESS);
+  const auto index = [](tinyxml2::XMLElement *root) {
+    std::map<std::string, tinyxml2::XMLElement *> result;
+    const auto visit = [&](auto &&self, tinyxml2::XMLElement *node) -> void {
+      if (std::string(node->Name()) == "UserData")
+        return;
+      if (const auto *id = node->Attribute("uuid"))
+        result[id] = node;
+      for (auto *child = node->FirstChildElement(); child;
+           child = child->NextSiblingElement())
+        self(self, child);
+    };
+    visit(visit, root);
+    return result;
+  };
+  const auto original = index(before.RootElement()),
+             actual = index(after.RootElement());
+  const auto matrix = [](tinyxml2::XMLElement *node) {
+    auto *value = node->FirstChildElement("Matrix");
+    auto parsed = mvr::ParseCanonicalMatrix(
+        value ? value->GetText() : "{1,0,0}{0,1,0}{0,0,1}{0,0,0}");
+    assert(parsed);
+    return parsed->values;
+  };
+  const auto owner = [](tinyxml2::XMLElement *node) {
+    auto *container = node->Parent() ? node->Parent()->ToElement() : nullptr;
+    auto *parent = container && container->Parent()
+                       ? container->Parent()->ToElement()
+                       : nullptr;
+    return parent && parent->Attribute("uuid")
+               ? std::string(parent->Attribute("uuid"))
+               : std::string();
+  };
+  for (const auto &[id, node] : original) {
+    assert(actual.contains(id));
+    auto *copy = actual.at(id);
+    assert(std::string(node->Name()) == copy->Name() &&
+           owner(node) == owner(copy));
+    assert(matrix(node) == matrix(copy));
+    if (const auto *reference = node->Attribute("symdef"))
+      assert(copy->Attribute("symdef") &&
+             std::string(reference) == copy->Attribute("symdef"));
+    const auto *containerName =
+        std::string(node->Name()) == "Symdef" ? "ChildList" : "Geometries";
+    auto *first = node->FirstChildElement(containerName),
+         *second = copy->FirstChildElement(containerName);
+    if (!first)
+      continue;
+    assert(second);
+    auto *geometry = first->FirstChildElement("Geometry3D");
+    auto *retained = second->FirstChildElement("Geometry3D");
+    for (; geometry && retained;
+         geometry = geometry->NextSiblingElement("Geometry3D"),
+         retained = retained->NextSiblingElement("Geometry3D")) {
+      assert(matrix(geometry) == matrix(retained));
+      std::string sourceBytes, outputBytes;
+      assert(tests::zip::ReadEntry(source, geometry->Attribute("fileName"),
+                                   &sourceBytes));
+      assert(tests::zip::ReadEntry(output, retained->Attribute("fileName"),
+                                   &outputBytes));
+      assert(sourceBytes == outputBytes);
+    }
+    assert(!geometry && !retained);
+  }
 }
 
 int main(int argc, char **argv) {
@@ -265,47 +344,67 @@ int main(int argc, char **argv) {
     return std::string(std::istreambuf_iterator<char>(input), {});
   };
   const auto originalProject = readProject();
-  const auto checkRejectedSave = [&](const MvrScene &rejectedScene,
-                                     ProjectSaveFailureKind kind,
-                                     const std::string &entry = {}) {
-    config.GetScene() = rejectedScene;
-    assert(!config.SaveProject(projectPath.string()));
-    assert(config.GetLastProjectSaveFailure().kind == kind);
-    assert(config.GetLastProjectSaveFailure().stage == "SerializeScene");
-    assert(!config.GetLastProjectSaveFailure().detail.empty());
-    if (!entry.empty()) assert(config.GetLastProjectSaveFailure().entry == entry);
+  const auto checkRecoveredSave = [&](const MvrScene &repairedScene) {
+    config.GetScene() = repairedScene;
+    const auto copy = dir / "repaired.pstg";
+    assert(config.SaveProject(copy.string()));
+    assert(config.LoadProject(copy.string()));
+    assert(config.GetScene().fixtures.size() == repairedScene.fixtures.size());
+    assert(!fs::exists(copy.string() + ".tmp"));
     assert(readProject() == originalProject);
-    assert(!fs::exists(projectPath.string() + ".tmp"));
-    assert(config.LoadProject(projectPath.string()));
-    assert(config.GetScene().symdefs.size() == 3);
   };
   MvrScene missing = incoming;
   missing.symdefs.at(unusedId).geometries.front().file = "missing.glb";
   std::vector<uint8_t> bytes{1, 2, 3};
-  assert(!exporter.ExportCanonicalSnapshotToBuffer(missing, bytes));
-  assert(bytes.empty());
+  auto repaired =
+      tests::recovery::Export(exporter, missing, dir / "missing-model.mvr");
+  assert(tests::recovery::Count(repaired, "Symdef") == missing.symdefs.size());
   // Losing an incoming resource must never bind its definition to a target namesake.
   const auto lostPath = fs::path(different.basePath) /
       different.symdefs.at(definitionId).geometries.front().file;
   assert(fs::remove(lostPath));
   MvrScene missingMerge = incoming;
   mvr::MergeImportedSceneIntoCurrent(missingMerge, different);
-  assert(!exporter.ExportCanonicalSnapshotToBuffer(missingMerge, bytes));
-  assert(bytes.empty());
+  const auto recoveredMerge = tests::recovery::Export(
+      exporter, missingMerge, dir / "missing-merged.mvr");
+  tinyxml2::XMLDocument recoveredDocument;
+  assert(recoveredDocument.Parse(recoveredMerge.c_str()) ==
+         tinyxml2::XML_SUCCESS);
+  auto *aux = recoveredDocument.RootElement()
+                  ->FirstChildElement("Scene")
+                  ->FirstChildElement("AUXData");
+  assert(aux);
+  size_t checkedAcquisitions = 0;
+  for (const auto &issue : missingMerge.preservationIssues)
+    if (issue.kind == MvrPreservationIssueKind::ResourceFailure &&
+        missingMerge.symdefs.contains(issue.objectUuid)) {
+      const auto &definition = missingMerge.symdefs.at(issue.objectUuid);
+      const auto removed =
+          std::count_if(definition.geometries.begin(),
+                        definition.geometries.end(), [&](const auto &geometry) {
+                          return geometry.file == issue.originalInformation;
+                        });
+      if (!removed)
+        continue;
+      auto *owner = aux->FirstChildElement("Symdef");
+      while (owner && std::string(owner->Attribute("uuid")) != issue.objectUuid)
+        owner = owner->NextSiblingElement("Symdef");
+      assert(owner);
+      size_t actual = 0;
+      for (auto *geometry = owner->FirstChildElement("ChildList")
+                                ->FirstChildElement("Geometry3D");
+           geometry; geometry = geometry->NextSiblingElement("Geometry3D"))
+        ++actual;
+      assert(actual == definition.geometries.size() - removed);
+      ++checkedAcquisitions;
+    }
+  assert(checkedAcquisitions > 0);
   assert(!missingMerge.preservationIssues.empty());
-  bool resourceFailure = false;
-  for (const auto &diagnostic : exporter.GetExportDiagnostics()) {
-    if (diagnostic.code != MvrExportDiagnosticCode::ResourceMissing) continue;
-    assert(diagnostic.resourceName == different.symdefs.at(definitionId).geometries.front().file);
-    resourceFailure = true;
-  }
-  assert(resourceFailure);
-  checkRejectedSave(missingMerge, ProjectSaveFailureKind::Resource,
-                    different.symdefs.at(definitionId).geometries.front().file);
-  checkRejectedSave(missing, ProjectSaveFailureKind::Resource);
+  checkRecoveredSave(missingMerge);
+  checkRecoveredSave(missing);
   MvrScene dangling = incoming;
   dangling.symdefs.erase(definitionId);
-  assert(!exporter.ExportCanonicalSnapshotToBuffer(dangling, bytes));
+  tests::recovery::Export(exporter, dangling, dir / "dangling-definition.mvr");
   std::string unsafeXml = Source(true);
   unsafeXml.replace(unsafeXml.find("unused.glb"), 10, "absent.glb");
   WriteSource(dir / "unsafe.mvr", unsafeXml);
@@ -314,31 +413,31 @@ int main(int argc, char **argv) {
   assert(!unsafe.preservationIssues.front().originalInformation.empty());
   MvrScene protectedMerge = incoming;
   mvr::MergeImportedSceneIntoCurrent(protectedMerge, unsafe);
-  assert(!exporter.ExportCanonicalSnapshotToBuffer(protectedMerge, bytes));
-  std::vector<std::string> protectedStructures;
+  tests::recovery::Export(exporter, protectedMerge, dir / "repaired-merge.mvr");
+  std::vector<std::string> retainedStructures;
   auto nested = Source(true);
   nested.insert(nested.find("</AUXData>"),
       "<Symdef uuid='a0000000-0000-4000-8000-000000000004' name='Nested'><ChildList>"
       "<Symbol uuid='40000000-0000-4000-8000-000000000004' symdef='" + std::string(definitionId) +
       "'><Matrix>{1,0,0}{0,1,0}{0,0,1}{9,8,7}</Matrix></Symbol></ChildList></Symdef>");
-  protectedStructures.push_back(nested);
+  retainedStructures.push_back(nested);
   auto mixed = Source(true);
   mixed.insert(mixed.find("<Geometries>") + 12, "<Geometry3D fileName='unused.glb'/>");
-  protectedStructures.push_back(mixed);
+  retainedStructures.push_back(mixed);
   auto multiple = Source(true);
   multiple.insert(multiple.find("</Geometries>"), "<Symbol uuid='40000000-0000-4000-8000-000000000004' symdef='" +
       std::string(definitionId) + "'/>");
-  protectedStructures.push_back(multiple);
+  retainedStructures.push_back(multiple);
   auto placement = Source(true);
   const auto ref = "symdef='" + std::string(definitionId) + "'/>";
   placement.replace(placement.find(ref), ref.size(), "symdef='" + std::string(definitionId) +
       "'><Matrix>{1,0,0}{0,1,0}{0,0,1}{1,2,3}</Matrix></Symbol>");
-  protectedStructures.push_back(placement);
+  retainedStructures.push_back(placement);
   auto geometryPlacement = Source(true);
   const std::string direct = "<Geometry3D fileName='shared.glb'/>";
   geometryPlacement.replace(geometryPlacement.find(direct), direct.size(),
       "<Geometry3D fileName='shared.glb'><Matrix>{1,0,0}{0,1,0}{0,0,1}{1,2,3}</Matrix></Geometry3D>");
-  protectedStructures.push_back(geometryPlacement);
+  retainedStructures.push_back(geometryPlacement);
   auto precise = Source(true);
   precise.replace(precise.find("{40,50,60}"), 10, "{40.123456789,50,60}");
   WriteSource(dir / "precise-definition.mvr", precise);
@@ -354,16 +453,27 @@ int main(int argc, char **argv) {
     if (std::string(kind) != "FocusPoint") object += "<FixtureID>3</FixtureID><FixtureIDNumeric>3</FixtureIDNumeric>";
     object += std::string("</") + kind + ">";
     projected.insert(projected.find("</ChildList></GroupObject>"), object);
-    protectedStructures.push_back(projected);
+    retainedStructures.push_back(projected);
   }
-  for (const auto &protectedXml : protectedStructures) {
-    CheckSchema(protectedXml, false);
-    WriteSource(dir / "protected.mvr", protectedXml);
-    auto protectedScene = Import(dir / "protected.mvr");
-    assert(!protectedScene.preservationIssues.empty());
-    assert(!exporter.ExportCanonicalSnapshotToBuffer(protectedScene, bytes));
-    checkRejectedSave(protectedScene, ProjectSaveFailureKind::MvrPreservation);
+  size_t structureIndex = 0;
+  for (const auto &retainedXml : retainedStructures) {
+    CheckSchema(retainedXml, false);
+    WriteSource(dir / "retained-source.mvr", retainedXml);
+    auto retainedScene = Import(dir / "retained-source.mvr");
+    const auto output =
+        dir / ("retained-" + std::to_string(structureIndex++) + ".mvr");
+    assert(
+        exporter.ExportCanonicalSnapshotToFile(retainedScene, output.string()));
+    CheckRetainedStructure(retainedXml, dir / "retained-source.mvr", output);
+    config.GetScene() = retainedScene;
+    const auto copy = dir / "retained.pstg";
+    assert(config.SaveProject(copy.string()) &&
+           config.LoadProject(copy.string()));
+    assert(exporter.ExportCanonicalSnapshotToFile(config.GetScene(),
+                                                  output.string()));
+    CheckRetainedStructure(retainedXml, dir / "retained-source.mvr", output);
   }
+  assert(config.LoadProject(projectPath.string()));
   assert(config.SaveProject(projectPath.string()));
   assert(config.GetLastProjectSaveFailure().kind == ProjectSaveFailureKind::None);
   std::cout << "Symdef definitions, resources, instances, merge and protection passed\n";

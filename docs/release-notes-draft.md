@@ -6,6 +6,7 @@ RELEASE NOTES — WORK IN PROGRESS
 This is the living draft for the next Perastage release.
 
 Maintenance rules for Codex and contributors:
+- Added an optional read-only DMX Patch grid below the 2D/3D viewport, showing physical GDTF channels, fixture colors, overlap indicators and scrollable diagnostics without changing addressing, with compact adaptive columns, clear fixture boundaries, names shown once, and standard close/maximize controls. The declared-offset preview is enabled by default and distinguishes provisional channels from confirmed physical occupancy without altering addressing. The grid populates automatically on startup, keeps the universe number visible and closes diagnostics on a second click. More rounded fixture boundaries replace heavy separators, and selection/hover outlines follow the fixture table and viewers. Bold fixture names improve readability; channel clicks select fixtures across tables and viewers, with additive/toggle selection and existing group preferences, without repatching. Pointer hover now highlights fixtures across the patch, table and viewers, and table refreshes retain the green feedback.
 - Update this file in the same pull request as each meaningful user-facing change, before merge.
 - Describe only implemented and adequately verified behavior; do not announce plans or unsupported capabilities.
 - A pull request may include its own new entry while under review; main contains only merged entries.
@@ -21,6 +22,11 @@ Maintenance rules for Codex and contributors:
 
 ## Highlights
 
+- Position Tool uses a shorter sidebar panel with flexible X/Y/Z fields on one row.
+
+- New dockable **Position Tool**, shown below Summary by default in 2D and 3D, supports precise absolute coordinates and incremental axis arrows, mixed-value multi-selection, group positioning, Undo/Redo and 2D insertion-point indicators.
+- Manual single-fixture patch edits preserve valid start addresses when the primary footprint exceeds a universe. Red Channel warnings explain compatibility and overlaps without changing AutoPatch or secondary DMX breaks.
+
 - More reliable MVR import and export, with improved preservation of standard scene data, assignments, references, and transforms.
 - Smarter GDTF matching and DMX mode selection during MVR import, with clearer manual choices.
 - New Fixture Label Editor with a shared label presentation across the 2D viewer, Layout captures, and vector PDF output.
@@ -32,6 +38,16 @@ Maintenance rules for Codex and contributors:
 
 - GDTF catalog loading handles unavailable and invalid ratings without repeated conversion exceptions, improving stability during profile resolution.
 
+- Preserve imported Truss and SceneObject model geometry when Symbol instances
+  reuse their Symdef UUID, including shared 3DS resources through project
+  save/reopen and canonical MVR export.
+
+- Repair repeated imported object identities consistently across editable objects and retained source structure, preserving placements, Class assignments and shared model bytes through project save/reopen and canonical MVR export. Empty optional GDTF fields no longer block saving; incomplete optional Truss/Support bindings are omitted with specific warnings.
+
+- Project saving and canonical MVR export now retain validated source-only fixture fields such as shadow settings and custom commands. Failed saves keep the previous file and session path, with complete diagnostic details available in the error dialog.
+
+- Fixed the fixture table channel count and mode/channel browser for GDTF fixtures with RGB channels on children of referenced pixel geometries, including 60-pixel fixtures occupying 180 DMX channels.
+
 - The GDTF download window now stays open after a completed MVR import queue until acknowledged. A preference can restore automatic closing.
 
 - Automatic GDTF matching better distinguishes suitable fixture models from ambiguous candidates. Matching DMX modes can be inferred from the imported mode name or unambiguous channel-count evidence, including after manual GDTF selection; uncertain matches retain the original profile for review.
@@ -40,9 +56,13 @@ Maintenance rules for Codex and contributors:
 
 - Standard MVR Classes and Classing references are retained for supported scene objects, including definitions and assignments that do not belong to the same layer.
 
-- Direct MVR Symdefs, their original resources, and Symbol instance identities are better preserved through supported imports, merges, and exports. Missing resources produce explicit errors rather than silently substituting another file.
+- Nested MVR Symdefs, Symbol instances and geometry placements now survive project saves, merges and canonical exports, including model textures and unused definitions. VideoScreen/Projector data, file media and parametric children are retained even without an editor. Editing an instance’s geometry retains its original definition. Unavailable resources and invalid source relationships receive precise recovery warnings.
+
+- Recoverable MVR import defects no longer veto supported project saves and exports: canonical publication repairs identities and invalid values, preserves wide integer labels, and reports specific omitted or substituted content. Recovery disclosures survive reopening; real write failures preserve the previous file.
 
 - Authored MVR fixture identifiers and UnitNumber presence are preserved without automatically renumbering valid imported values. High-precision matrices are retained through supported canonical saves and edits.
+
+- Standalone MVR export now replaces the destination only after the complete archive closes successfully; failed writes retain the previous file.
 
 - Normal MVR export now uses the same canonical representation as project saving. An explicit option is required to use a preferred compatibility representation for an individual export.
 
@@ -64,6 +84,10 @@ full MVR/GDTF conformance, or interoperability with every third-party applicatio
 
 ## Layout, Symbols and Plotting
 
+- Layout PDFs now scale 2D views, Legends, Event Tables, text and images together when changing paper size, preserving alignment, proportions and the 2D crop. Printing no longer marks the Layout project dirty.
+- Layout Event Tables now share measured text, bold styles, clipping and ellipsis between preview and selectable vector PDF, independent of zoom and output scale.
+- Layout Legends now use the same bundled font, line wrapping, row geometry and symbol columns in the editable preview and vector PDF. Enabled Side symbols remain vector geometry, independent settings refresh reliably, and unsupported glyphs are identified in PDF completion details.
+
 - A new **Fixture Label Editor** lets users adjust Name, ID, and DMX Address labels, including visibility, font weight, size, colors, outlines, alignment, anchors, and position. It supports project defaults, per-fixture overrides, and preview dragging.
 
 - Edited fixture labels share their positioned presentation between the interactive 2D viewer, Layout view captures, and vector PDF. Legacy name wrapping and small-text zoom appearance are retained more consistently.
@@ -78,12 +102,16 @@ Do not list these as delivered until implemented and verified.
 
 ## CLI and External Integrations
 
+- Successful CLI MVR exports now report recovery warnings in JSON and human output. Equivalent temporary-directory path aliases no longer cause unnecessary GDTF substitution warnings.
+
 <!--
 Add completed, user-facing CLI, OSC or external-integration changes here.
 Clearly identify experimental functionality; do not repeat 1.7.0 features.
 -->
 
 ## Performance and Usability
+
+- Fixture symbol preparation now waits for worker completion without continuously waking the GUI idle loop, and repeated rendering requests share one preparation job.
 
 - Project saving now reports more actionable errors when MVR data or resources cannot be preserved. The saving overlay closes before displaying the error, so the application does not remain blocked behind the dialog.
 

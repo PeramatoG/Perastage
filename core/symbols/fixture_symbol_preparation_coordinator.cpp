@@ -114,9 +114,15 @@ bool FixtureSymbolPreparationCoordinator::Complete(
 bool FixtureSymbolPreparationCoordinator::Fail(
     const FixtureSymbolPreparationKey &key, std::uint64_t epoch) {
   auto it = jobs_.find(key);
-  if (!IsCurrent(epoch) || it == jobs_.end() || it->second.epoch != epoch)
+  if (!IsCurrent(epoch) || it == jobs_.end() || it->second.epoch != epoch ||
+      it->second.state == FixtureSymbolPreparationState::Completed ||
+      it->second.state == FixtureSymbolPreparationState::Failed ||
+      it->second.state == FixtureSymbolPreparationState::Cancelled ||
+      it->second.state == FixtureSymbolPreparationState::Stale)
     return false;
-  publishingTargets_.erase(it->second.canonicalTarget);
+  const auto publishing = publishingTargets_.find(it->second.canonicalTarget);
+  if (publishing != publishingTargets_.end() && publishing->second == key)
+    publishingTargets_.erase(publishing);
   it->second.state = FixtureSymbolPreparationState::Failed;
   return true;
 }
@@ -127,7 +133,9 @@ bool FixtureSymbolPreparationCoordinator::Cancel(
   auto it = jobs_.find(key);
   if (!IsCurrent(epoch) || it == jobs_.end() || it->second.epoch != epoch)
     return false;
-  publishingTargets_.erase(it->second.canonicalTarget);
+  const auto publishing = publishingTargets_.find(it->second.canonicalTarget);
+  if (publishing != publishingTargets_.end() && publishing->second == key)
+    publishingTargets_.erase(publishing);
   it->second.state = FixtureSymbolPreparationState::Cancelled;
   return true;
 }

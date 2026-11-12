@@ -115,6 +115,7 @@ include(${CMAKE_SOURCE_DIR}/cmake/PerastageGitBashResolver.cmake)
 
 add_library(perastage_test_no_dialog OBJECT windows_no_dialog_runtime.cpp)
 link_libraries($<TARGET_OBJECTS:perastage_test_no_dialog>)
+link_libraries(perastage_project_archive_publication)
 
 function(set_perastage_test_labels test_name)
     set(options)
@@ -284,6 +285,20 @@ target_link_libraries(command_transform_test PRIVATE
 add_test(NAME CommandTransform COMMAND command_transform_test)
 set_perastage_test_labels(CommandTransform LAYER unit
                           DOMAINS command architecture)
+
+if(BASH_EXECUTABLE)
+  add_bash_policy_test(PositionToolBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_position_tool_boundary.sh
+                       LABELS architecture gui viewer2d)
+endif()
+
+add_executable(position_selection_test position_selection_test.cpp
+               ../viewer2d/position_insertion_overlay.cpp
+               ../viewer2d/viewer2d_coordinate_math.cpp)
+target_include_directories(position_selection_test PRIVATE ../viewer2d)
+target_link_libraries(position_selection_test PRIVATE
+                      perastage_command_transform perastage_mvr_scene_model)
+add_test(NAME PositionSelection COMMAND position_selection_test)
+set_perastage_test_labels(PositionSelection LAYER unit DOMAINS command viewer2d)
 
 add_executable(command_transform_batch_test command_transform_batch_test.cpp)
 target_link_libraries(command_transform_batch_test PRIVATE
@@ -1143,6 +1158,79 @@ target_include_directories(layout_pdf_symbol_usage_test PRIVATE
                            ../viewer2d ../viewer2d/pdf)
 add_test(NAME LayoutPdfSymbolUsage COMMAND layout_pdf_symbol_usage_test)
 
+add_executable(layout_legend_pdf_test
+    layout_legend_pdf_test.cpp layout_legend_pdf_resources_stub.cpp
+    ../viewer2d/pdf/layout_pdf_text_renderer.cpp
+    ../viewer2d/pdf/layout_pdf_exporter.cpp
+    ../viewer2d/pdf/layout_pdf_event_table_renderer.cpp
+    ../viewer2d/pdf/layout_pdf_legend_renderer.cpp
+    ../viewer2d/legend_composition_adapter.cpp
+    ../viewer2d/pdf/layout_pdf_symbol_usage.cpp
+    ../viewer2d/pdf/pdf_draw_commands.cpp
+    ../viewer2d/pdf/pdf_font_metrics.cpp
+    ../viewer2d/pdf/pdf_objects.cpp
+    ../viewer2d/pdf/pdf_label_fonts.cpp
+    ../viewer2d/pdf/pdf_writer.cpp
+    ../viewer2d/viewer2dcommandrenderer.cpp)
+target_include_directories(layout_legend_pdf_test PRIVATE
+    ../viewer2d ../viewer2d/pdf ../core ../core/layouts ../core/printing
+    ../models ../gui ../viewer_common ../viewer3d ../third_party)
+target_compile_definitions(layout_legend_pdf_test PRIVATE
+    PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
+target_link_libraries(layout_legend_pdf_test PRIVATE
+    perastage_typography perastage_legend_composition ${wxWidgets_LIBRARIES})
+if(TARGET ZLIB::ZLIB)
+    target_link_libraries(layout_legend_pdf_test PRIVATE ZLIB::ZLIB)
+endif()
+add_test(NAME LayoutLegendPdf COMMAND layout_legend_pdf_test)
+
+add_executable(legend_composition_test legend_composition_test.cpp
+    ../viewer2d/legend_composition_adapter.cpp ../core/utf8_utils.cpp)
+target_include_directories(legend_composition_test PRIVATE ../core ../viewer2d)
+target_link_libraries(legend_composition_test PRIVATE perastage_legend_composition)
+target_compile_definitions(legend_composition_test PRIVATE
+    PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
+add_test(NAME LegendComposition COMMAND legend_composition_test)
+add_executable(layout_legend_cache_test layout_legend_cache_test.cpp
+    ../core/layouts/LayoutTemplateSerializer.cpp)
+target_include_directories(layout_legend_cache_test PRIVATE ../core ../gui ../third_party)
+target_link_libraries(layout_legend_cache_test PRIVATE perastage_legend_composition)
+add_test(NAME LayoutLegendCache COMMAND layout_legend_cache_test)
+
+add_executable(layout_legend_history_test layout_legend_history_test.cpp
+    layout_viewer_state_panel_stubs.cpp ../viewer2d/viewer2dstate.cpp
+    layout_legend_source_stubs.cpp ../gui/layoutlegenditems.cpp ../gui/legendutils.cpp
+    ../core/configmanager.cpp ../core/configservices.cpp
+    ../core/layouts/LayoutManager.cpp ../core/layouts/LayoutImageResourceRegistry.cpp
+    ../core/layouts/LayoutDefaultsLoader.cpp ../core/layouts/LayoutCollection.cpp
+    ../core/layouts/LayoutTemplatePackageService.cpp ../core/layouts/LayoutTemplateSerializer.cpp
+    ../core/projectutils.cpp ../core/runtime_storage.cpp ../core/library/library_bootstrap.cpp
+    ../core/logger.cpp ../models/mvrscene.cpp mvr_io_stubs.cpp)
+target_include_directories(layout_legend_history_test PRIVATE . ../core ../gui ../third_party
+    ../viewer2d ../viewer3d ../viewer_common ../core/print)
+target_link_libraries(layout_legend_history_test PRIVATE ${wxWidgets_LIBRARIES} perastage_mvr_core_support)
+add_test(NAME LayoutLegendHistory COMMAND layout_legend_history_test)
+
+add_executable(layout_legend_preview_test layout_legend_preview_test.cpp
+    layout_legend_pdf_resources_stub.cpp ../gui/layoutlegendrenderer.cpp ../gui/document_text_renderer.cpp
+    ../viewer2d/legend_composition_adapter.cpp
+    ../viewer2d/pdf/layout_pdf_event_table_renderer.cpp
+    ../viewer2d/pdf/layout_pdf_legend_renderer.cpp ../viewer2d/pdf/pdf_font_metrics.cpp
+    ../viewer2d/pdf/pdf_label_fonts.cpp ../viewer2d/pdf/pdf_objects.cpp
+    ../viewer2d/pdf/pdf_draw_commands.cpp)
+target_include_directories(layout_legend_preview_test PRIVATE ../gui ../viewer2d ../viewer2d/pdf
+    ../core/layouts ../core/print ../models ../viewer_common ../viewer3d ../third_party)
+target_compile_definitions(layout_legend_preview_test PRIVATE
+    PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
+target_link_libraries(layout_legend_preview_test PRIVATE perastage_legend_composition
+    perastage_typography ${wxWidgets_LIBRARIES})
+if(TARGET ZLIB::ZLIB)
+    target_link_libraries(layout_legend_preview_test PRIVATE ZLIB::ZLIB)
+endif()
+add_bash_policy_test(LegendCompositionBoundary
+    ${CMAKE_CURRENT_SOURCE_DIR}/check_legend_composition_boundary.sh
+    LABELS "architecture;layout;pdf")
+
 add_executable(fixture_label_overrides_reconcile_test
                fixture_label_overrides_reconcile_test.cpp
                ../viewer2d/fixture_label_style.cpp
@@ -1338,7 +1426,8 @@ set_perastage_test_labels(DummyGdtfFallbackIntegration LAYER perastage-extension
 set_perastage_test_labels(GdtfTestFixtureBuilder LAYER standard-strict DOMAINS gdtf zip)
 add_executable(gdtf_mode_channel_browser_test
                gdtf_mode_channel_browser_test.cpp
-               ../core/gdtf/gdtf_mode_channel_browser.cpp)
+               ../core/gdtf/gdtf_mode_channel_browser.cpp
+               ../core/gdtf/gdtf_channel_footprint.cpp)
 target_include_directories(gdtf_mode_channel_browser_test PRIVATE ../core)
 target_link_libraries(gdtf_mode_channel_browser_test PRIVATE tinyxml2::tinyxml2)
 add_test(NAME GdtfModeChannelBrowser COMMAND gdtf_mode_channel_browser_test)
@@ -1346,7 +1435,8 @@ add_test(NAME GdtfModeChannelBrowser COMMAND gdtf_mode_channel_browser_test)
 add_executable(gdtf_mode_browser_presenter_test
                gdtf_mode_browser_presenter_test.cpp
                ../gui/gdtf/gdtf_mode_browser_presenter.cpp
-               ../core/gdtf/gdtf_mode_channel_browser.cpp)
+               ../core/gdtf/gdtf_mode_channel_browser.cpp
+               ../core/gdtf/gdtf_channel_footprint.cpp)
 target_include_directories(gdtf_mode_browser_presenter_test PRIVATE ../core ../gui)
 target_link_libraries(gdtf_mode_browser_presenter_test PRIVATE tinyxml2::tinyxml2)
 add_test(NAME GdtfModeBrowserPresenter COMMAND gdtf_mode_browser_presenter_test)
@@ -1356,7 +1446,8 @@ add_executable(gdtf_wheel_attribute_inspector_test
                ../core/gdtf/gdtf_color_cie.cpp
                ../core/gdtf/gdtf_wheel_catalog.cpp
                ../core/gdtf/gdtf_dmx_inspector.cpp
-               ../core/gdtf/gdtf_mode_channel_browser.cpp)
+               ../core/gdtf/gdtf_mode_channel_browser.cpp
+               ../core/gdtf/gdtf_channel_footprint.cpp)
 target_include_directories(gdtf_wheel_attribute_inspector_test PRIVATE ../core)
 target_link_libraries(gdtf_wheel_attribute_inspector_test PRIVATE tinyxml2::tinyxml2)
 add_test(NAME GdtfWheelAttributeInspector COMMAND gdtf_wheel_attribute_inspector_test)
@@ -2035,6 +2126,43 @@ target_link_libraries(project_support_userdata_roundtrip_test PRIVATE
 add_test(NAME ProjectSupportUserDataRoundtrip COMMAND project_support_userdata_roundtrip_test)
 set_library_env(ProjectSupportUserDataRoundtrip)
 
+add_executable(project_preserved_fields_roundtrip_test project_preserved_fields_roundtrip_test.cpp
+    mvr_symbol_collision_test.cpp
+    support/gdtf_test_fixture_builder.cpp build_info_stub.cpp
+    ../core/configservices.cpp ../core/library/library_bootstrap.cpp
+    ../core/gdtfdictionary.cpp ../core/trussdictionary.cpp ../core/trussloader.cpp
+    ../core/truss_gdtf_builder.cpp ../core/gdtf_canonicalizer.cpp
+    ../core/gdtf_mutation_audit.cpp ../core/logger.cpp
+    gdtfloader_stub.cpp consolepanel_stub.cpp
+    support/mvr_structure_fixture.h
+    ../mvr/mvr_merge_analyzer.cpp ../mvr/mvr_merge_applier.cpp ../mvr/mvr_merge_resource_rewriter.cpp
+    ${PERASTAGE_TEST_MVR_ROUNDTRIP_OBJECTS})
+target_include_directories(project_preserved_fields_roundtrip_test PRIVATE
+    . ../core ../models ../mvr ../gui ../third_party ../viewer3d)
+target_link_libraries(project_preserved_fields_roundtrip_test PRIVATE
+    ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_mvr_read
+    perastage_mvr_import_application_read perastage_inspection_validation
+    perastage_layer_validation)
+add_test(NAME ProjectPreservedFieldsRoundtrip COMMAND project_preserved_fields_roundtrip_test)
+add_test(NAME MvrSymbolCollisionLifecycle COMMAND project_preserved_fields_roundtrip_test --symbol-collisions)
+add_test(NAME MvrSymbolInvalidIsolation COMMAND project_preserved_fields_roundtrip_test --symbol-invalid)
+set_perastage_test_labels(MvrSymbolCollisionLifecycle
+                         LAYER standard-strict DOMAINS mvr project)
+set_perastage_test_labels(MvrSymbolInvalidIsolation
+                         LAYER standard-strict DOMAINS mvr project)
+add_test(NAME ProjectStructuredMvrRoundtrip COMMAND project_preserved_fields_roundtrip_test --structure)
+add_bash_policy_test(MvrSourceStructureBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_source_structure_boundary.sh LABELS "mvr;architecture")
+set_library_env(ProjectStructuredMvrRoundtrip)
+add_test(NAME ProjectStructuredGeometryRoundtrip COMMAND project_preserved_fields_roundtrip_test --structure-geometry)
+add_test(NAME ProjectStructuredDependenciesRoundtrip COMMAND project_preserved_fields_roundtrip_test --structure-dependencies)
+add_test(NAME ProjectStructuredGeometryDependenciesRoundtrip COMMAND project_preserved_fields_roundtrip_test --structure-geometry-dependencies)
+add_test(NAME ProjectStructuredMergeRoundtrip COMMAND project_preserved_fields_roundtrip_test --structure-merge)
+add_test(NAME ProjectStructuredMergeDependenciesRoundtrip COMMAND project_preserved_fields_roundtrip_test --structure-merge-dependencies)
+foreach(test_name IN ITEMS ProjectStructuredGeometryRoundtrip ProjectStructuredDependenciesRoundtrip ProjectStructuredGeometryDependenciesRoundtrip ProjectStructuredMergeRoundtrip ProjectStructuredMergeDependenciesRoundtrip)
+    set_library_env(${test_name})
+endforeach()
+set_library_env(ProjectPreservedFieldsRoundtrip)
+
 add_executable(truss_path_encoding_regression_test
                truss_path_encoding_regression_test.cpp
                build_info_stub.cpp
@@ -2151,6 +2279,7 @@ set_library_env(MvrDmxAddressConversion)
 
 
 add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtrip_test.cpp
+               support/mvr_userdata_test_utils.h
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
                ../core/configservices.cpp
@@ -2241,6 +2370,7 @@ set_library_env(MvrLayerAppearanceUserData)
 
 
 add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtrip_test.cpp
+               support/mvr_userdata_test_utils.h
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
                ../core/configservices.cpp
@@ -2316,6 +2446,7 @@ set_perastage_test_labels(MvrSceneObjectSymbolIdentity LAYER legacy-compatibilit
 set_library_env(MvrSceneObjectSymbolIdentity)
 
 add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_test.cpp
+               ../gui/project_mutation_host.cpp
                build_info_stub.cpp
                ../core/configservices.cpp
                ../core/library/library_bootstrap.cpp
@@ -2332,10 +2463,30 @@ add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_
 target_include_directories(mvr_truss_roundtrip_structure_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(mvr_truss_roundtrip_structure_test PRIVATE
+                      perastage_command_transform
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME MvrTrussRoundtripStructure COMMAND mvr_truss_roundtrip_structure_test)
 set_perastage_test_labels(MvrTrussRoundtripStructure LAYER standard-strict DOMAINS mvr gdtf)
 set_library_env(MvrTrussRoundtripStructure)
+
+# Reuse the existing real-project integration fixture dependency inventory.
+get_target_property(POSITION_TOOL_PANEL_TEST_SOURCES mvr_truss_roundtrip_structure_test SOURCES)
+list(REMOVE_ITEM POSITION_TOOL_PANEL_TEST_SOURCES mvr_truss_roundtrip_structure_test.cpp)
+add_executable(position_tool_panel_test position_tool_panel_test.cpp
+               ../gui/positiontoolpanel.cpp ${POSITION_TOOL_PANEL_TEST_SOURCES})
+target_include_directories(position_tool_panel_test PRIVATE
+                           . ../core ../models ../mvr ../gui ../third_party)
+target_link_libraries(position_tool_panel_test PRIVATE
+                      perastage_command_transform ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+find_program(POSITION_TOOL_XVFB_RUN xvfb-run)
+if(UNIX AND NOT APPLE AND POSITION_TOOL_XVFB_RUN)
+  add_test(NAME PositionToolPanel COMMAND "${POSITION_TOOL_XVFB_RUN}" -a "$<TARGET_FILE:position_tool_panel_test>")
+else()
+  add_test(NAME PositionToolPanel COMMAND position_tool_panel_test)
+endif()
+set_perastage_test_labels(PositionToolPanel LAYER integration DOMAINS gui command)
+set_tests_properties(PositionToolPanel PROPERTIES TIMEOUT 60)
+set_library_env(PositionToolPanel)
 
 add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                mvr_export_file_buffer_parity_test_support.cpp
@@ -3341,6 +3492,7 @@ target_link_libraries(fixture_symbol_svg_cache_test PRIVATE ${wxWidgets_LIBRARIE
 add_test(NAME FixtureSymbolSvgCache COMMAND fixture_symbol_svg_cache_test)
 
 set(PERASTAGE_CONFIGMANAGER_TEST_TARGETS
+    project_preserved_fields_roundtrip_test
     fixture_label_overrides_reconcile_test
     gdtf_dictionary_color_roundtrip_test
     gdtf_dictionary_color_mode_propagation_test
@@ -3363,6 +3515,7 @@ set(PERASTAGE_CONFIGMANAGER_TEST_TARGETS
     mvr_fixture_category_roundtrip_test
     mvr_sceneobject_symbol_identity_test
     mvr_truss_roundtrip_structure_test
+    position_tool_panel_test
     mvr_exporter_compliance_test
     rider_save_roundtrip_test
     riderimporter_fixtureid_test
@@ -4144,6 +4297,7 @@ foreach(mvr_read_consumer
         mvr_fixture_category_roundtrip_test
         mvr_sceneobject_symbol_identity_test
         mvr_truss_roundtrip_structure_test
+        position_tool_panel_test
         mvr_exporter_compliance_test
         mvr_importer_archive_characterization_test
         rider_save_roundtrip_test
@@ -4156,6 +4310,7 @@ endforeach()
 
 # Supplies the new publication dependency only to standalone dictionary consumers.
 set(PERASTAGE_GDTF_DICTIONARY_PUBLICATION_TEST_TARGETS
+    project_preserved_fields_roundtrip_test
     gdtf_dictionary_color_roundtrip_test
     gdtf_dictionary_color_mode_propagation_test
     dictionary_seed_merge_backup_test
@@ -4177,6 +4332,7 @@ set(PERASTAGE_GDTF_DICTIONARY_PUBLICATION_TEST_TARGETS
     mvr_fixture_category_roundtrip_test
     mvr_sceneobject_symbol_identity_test
     mvr_truss_roundtrip_structure_test
+    position_tool_panel_test
     mvr_exporter_compliance_test
     mvr_importer_archive_characterization_test
     rider_save_roundtrip_test
@@ -4232,6 +4388,7 @@ foreach(PERASTAGE_MVR_ROUNDTRIP_CONSUMER IN ITEMS
         mvr_layer_appearance_userdata_test
         mvr_fixture_category_roundtrip_test
         mvr_truss_roundtrip_structure_test
+        position_tool_panel_test
         mvr_exporter_compliance_test)
     target_link_libraries(${PERASTAGE_MVR_ROUNDTRIP_CONSUMER} PRIVATE
                           perastage_gdtf_filename_policy
@@ -4605,6 +4762,23 @@ else()
     add_test(NAME ProjectSaveUi COMMAND project_save_ui_test)
 endif()
 set_library_env(ProjectSaveUi)
+if(UNIX AND NOT APPLE AND PERASTAGE_XVFB_RUN)
+    add_test(NAME LayoutLegendPreview COMMAND "${PERASTAGE_XVFB_RUN}" -a "$<TARGET_FILE:layout_legend_preview_test>")
+else()
+    add_test(NAME LayoutLegendPreview COMMAND layout_legend_preview_test)
+endif()
+set_library_env(LayoutLegendPreview)
+find_program(PERASTAGE_PDFTOPPM NAMES pdftoppm)
+find_program(PERASTAGE_PDFTOTEXT NAMES pdftotext)
+if(UNIX AND NOT APPLE AND PERASTAGE_XVFB_RUN AND PERASTAGE_PDFTOPPM)
+    add_test(NAME LayoutLegendRasterParity COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/check_legend_raster_parity.py"
+        --preview "$<TARGET_FILE:layout_legend_preview_test>"
+        --pdf "$<TARGET_FILE:layout_legend_pdf_test>"
+        --xvfb "${PERASTAGE_XVFB_RUN}" --pdftoppm "${PERASTAGE_PDFTOPPM}")
+    set_library_env(LayoutLegendRasterParity)
+    set_tests_properties(LayoutLegendRasterParity PROPERTIES LABELS "layout;pdf;gui" TIMEOUT 120)
+endif()
 set_perastage_test_labels(ProjectSaveUi LAYER unit DOMAINS project gui)
 add_bash_policy_test(ProjectSaveUiBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_project_save_ui_boundary.sh LABELS "project;gui;architecture")
 
@@ -4639,3 +4813,183 @@ set_perastage_test_labels(FixturePatchService LAYER standard-strict DOMAINS mvr 
 add_bash_policy_test(FixturePatchPreservationBoundary
                     ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_patch_preservation_boundary.sh
                     LABELS standard-strict mvr core architecture)
+
+add_test(NAME MvrImportAnomalyRoundtrip COMMAND project_preserved_fields_roundtrip_test --anomalies)
+set_library_env(MvrImportAnomalyRoundtrip)
+target_sources(project_preserved_fields_roundtrip_test PRIVATE support/mvr_anomaly_characterization.h)
+set_perastage_test_labels(MvrImportAnomalyRoundtrip LAYER standard-strict DOMAINS mvr project)
+
+foreach(binding_case IN ITEMS absent whitespace valid missing-mode empty-mode network v16)
+  add_test(NAME MvrImportAnomaly-${binding_case} COMMAND project_preserved_fields_roundtrip_test --anomalies-${binding_case})
+  set_library_env(MvrImportAnomaly-${binding_case})
+  set_perastage_test_labels(MvrImportAnomaly-${binding_case} LAYER standard-strict DOMAINS mvr project)
+endforeach()
+
+target_sources(project_preserved_fields_roundtrip_test PRIVATE support/mvr_publication_cases.h)
+foreach(publication_case IN ITEMS range field class focus connection model texture gdtf mode matrix addresses range-unit range-custom source-media definition symbol-cycle duplicate-symbol source-binding source-gobo truss-edits truss-zero power-edits power-physical class-invalid class-duplicate object-symbol color gdtf-content gdtf-sections position affine-source ambiguous-connection wrong-connection acquisition)
+  add_test(NAME MvrPublication-${publication_case} COMMAND project_preserved_fields_roundtrip_test --publication-${publication_case})
+  set_library_env(MvrPublication-${publication_case})
+  set_perastage_test_labels(MvrPublication-${publication_case} LAYER standard-strict DOMAINS mvr project)
+endforeach()
+
+# The archive writer shares the same atomic publication contract as PSTG.
+target_link_libraries(mvr_export_archive_writer_test PRIVATE perastage_project_archive_publication)
+
+add_executable(event_table_composition_test event_table_composition_test.cpp)
+target_link_libraries(event_table_composition_test PRIVATE perastage_legend_composition)
+target_compile_definitions(event_table_composition_test PRIVATE
+    PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
+add_test(NAME EventTableComposition COMMAND event_table_composition_test)
+
+add_executable(layout_event_table_preview_test layout_event_table_preview_test.cpp
+    layout_legend_pdf_resources_stub.cpp ../gui/layout_event_table_renderer.cpp
+    ../gui/document_text_renderer.cpp ../viewer2d/pdf/layout_pdf_event_table_renderer.cpp
+    ../viewer2d/pdf/pdf_font_metrics.cpp ../viewer2d/pdf/pdf_label_fonts.cpp
+    ../viewer2d/pdf/pdf_objects.cpp)
+target_include_directories(layout_event_table_preview_test PRIVATE ../gui ../viewer2d ../viewer2d/pdf
+    ../core/layouts ../core/print ../models ../viewer_common ../viewer3d ../third_party)
+target_compile_definitions(layout_event_table_preview_test PRIVATE
+    PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
+target_link_libraries(layout_event_table_preview_test PRIVATE perastage_legend_composition ${wxWidgets_LIBRARIES})
+if(TARGET ZLIB::ZLIB)
+    target_link_libraries(layout_event_table_preview_test PRIVATE ZLIB::ZLIB)
+endif()
+if(UNIX AND NOT APPLE AND PERASTAGE_XVFB_RUN)
+    add_test(NAME LayoutEventTablePreview COMMAND "${PERASTAGE_XVFB_RUN}" -a "$<TARGET_FILE:layout_event_table_preview_test>")
+else()
+    add_test(NAME LayoutEventTablePreview COMMAND layout_event_table_preview_test)
+endif()
+set_library_env(LayoutEventTablePreview)
+
+set(EVENT_TABLE_PDF_TEXT_ARGS)
+if(PERASTAGE_PDFTOTEXT)
+    list(APPEND EVENT_TABLE_PDF_TEXT_ARGS --pdftotext "${PERASTAGE_PDFTOTEXT}")
+endif()
+if(UNIX AND NOT APPLE AND PERASTAGE_XVFB_RUN AND PERASTAGE_PDFTOPPM)
+    add_test(NAME LayoutEventTableRasterParity COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/check_legend_raster_parity.py"
+        --preview "$<TARGET_FILE:layout_event_table_preview_test>"
+        --pdf "$<TARGET_FILE:layout_legend_pdf_test>" --pdf-argument event-table ${EVENT_TABLE_PDF_TEXT_ARGS}
+        --xvfb "${PERASTAGE_XVFB_RUN}" --pdftoppm "${PERASTAGE_PDFTOPPM}")
+    set_library_env(LayoutEventTableRasterParity)
+    set_tests_properties(LayoutEventTableRasterParity PROPERTIES LABELS "layout;pdf;gui" TIMEOUT 120)
+endif()
+add_bash_policy_test(EventTableCompositionBoundary
+    ${CMAKE_CURRENT_SOURCE_DIR}/check_event_table_composition_boundary.sh
+    LABELS "architecture;layout;pdf")
+
+add_executable(layout_page_mapping_pdf_test
+    layout_page_mapping_pdf_test.cpp layout_legend_pdf_resources_stub.cpp
+    ../core/print/PageSetup.cpp
+    ../viewer2d/pdf/layout_pdf_text_renderer.cpp
+    ../viewer2d/pdf/layout_pdf_exporter.cpp
+    ../viewer2d/pdf/layout_pdf_event_table_renderer.cpp
+    ../viewer2d/pdf/layout_pdf_legend_renderer.cpp
+    ../viewer2d/legend_composition_adapter.cpp
+    ../viewer2d/pdf/layout_pdf_symbol_usage.cpp
+    ../viewer2d/pdf/pdf_draw_commands.cpp
+    ../viewer2d/pdf/pdf_font_metrics.cpp
+    ../viewer2d/pdf/pdf_objects.cpp
+    ../viewer2d/pdf/pdf_label_fonts.cpp
+    ../viewer2d/pdf/pdf_writer.cpp
+    ../viewer2d/viewer2dcommandrenderer.cpp)
+target_include_directories(layout_page_mapping_pdf_test PRIVATE
+    ../viewer2d ../viewer2d/pdf ../core ../core/layouts ../core/print
+    ../models ../gui ../viewer_common ../viewer3d ../third_party)
+target_compile_definitions(layout_page_mapping_pdf_test PRIVATE
+    PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
+target_link_libraries(layout_page_mapping_pdf_test PRIVATE
+    perastage_typography perastage_legend_composition ${wxWidgets_LIBRARIES})
+if(TARGET ZLIB::ZLIB)
+    target_link_libraries(layout_page_mapping_pdf_test PRIVATE ZLIB::ZLIB)
+endif()
+add_test(NAME LayoutPageMappingPdf COMMAND layout_page_mapping_pdf_test)
+
+add_executable(page_output_mapping_test page_output_mapping_test.cpp ../core/print/PageSetup.cpp)
+target_include_directories(page_output_mapping_test PRIVATE ../core ../core/print)
+add_test(NAME PageOutputMapping COMMAND page_output_mapping_test)
+add_executable(layout_export_input_test layout_export_input_test.cpp
+    layout_legend_pdf_resources_stub.cpp ../gui/layout_image_export.cpp ../gui/layouttextutils.cpp)
+target_include_directories(layout_export_input_test PRIVATE ../gui ../viewer2d ../core ../core/layouts
+    ../core/print ../models ../viewer_common ../viewer3d ../third_party)
+target_compile_definitions(layout_export_input_test PRIVATE PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
+target_link_libraries(layout_export_input_test PRIVATE ${_wx_libs} perastage_typography)
+if(UNIX AND NOT APPLE AND PERASTAGE_XVFB_RUN)
+    add_test(NAME LayoutExportInput COMMAND "${PERASTAGE_XVFB_RUN}" -a "$<TARGET_FILE:layout_export_input_test>")
+else()
+    add_test(NAME LayoutExportInput COMMAND layout_export_input_test)
+endif()
+set_library_env(LayoutExportInput)
+add_bash_policy_test(LayoutPageMappingBoundary
+    ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_page_mapping_boundary.sh LABELS "architecture;layout;pdf")
+if(UNIX AND NOT APPLE AND PERASTAGE_PDFTOPPM)
+    add_test(NAME LayoutPageMappingRaster COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/check_layout_page_mapping_raster.py"
+        --exporter "$<TARGET_FILE:layout_page_mapping_pdf_test>" --pdftoppm "${PERASTAGE_PDFTOPPM}")
+    set_library_env(LayoutPageMappingRaster)
+    set_tests_properties(LayoutPageMappingRaster PROPERTIES LABELS "layout;pdf" TIMEOUT 120)
+endif()
+
+add_executable(manual_patch_test manual_patch_test.cpp ../core/patchmanager.cpp)
+target_include_directories(manual_patch_test PRIVATE ../gui)
+target_link_libraries(manual_patch_test PRIVATE perastage_query_core perastage_mvr_scene_model)
+add_test(NAME ManualPatch COMMAND manual_patch_test)
+set_tests_properties(ManualPatch PROPERTIES LABELS "unit;core;gui;query")
+
+add_executable(dmx_patch_snapshot_test dmx_patch_snapshot_test.cpp)
+target_link_libraries(dmx_patch_snapshot_test PRIVATE perastage_dmx_patch)
+add_test(NAME DmxPatchSnapshot COMMAND dmx_patch_snapshot_test)
+set_library_env(DmxPatchSnapshot)
+set_perastage_test_labels(DmxPatchSnapshot LAYER unit DOMAINS core gdtf mvr)
+
+add_executable(dmx_patch_canvas_test dmx_patch_canvas_test.cpp
+               ../gui/patch/dmx_patch_canvas.cpp ../gui/patch/dmx_patch_highlight.cpp
+               ../gui/patch/viewport_patch_workspace.cpp)
+target_include_directories(dmx_patch_canvas_test PRIVATE ../gui)
+target_link_libraries(dmx_patch_canvas_test PRIVATE perastage_dmx_patch ${wxWidgets_LIBRARIES})
+if(UNIX AND NOT APPLE AND POSITION_TOOL_XVFB_RUN)
+  add_test(NAME DmxPatchCanvas COMMAND "${POSITION_TOOL_XVFB_RUN}" -a "$<TARGET_FILE:dmx_patch_canvas_test>")
+else()
+  add_test(NAME DmxPatchCanvas COMMAND dmx_patch_canvas_test)
+endif()
+set_library_env(DmxPatchCanvas)
+set_perastage_test_labels(DmxPatchCanvas LAYER integration DOMAINS gui)
+set_tests_properties(DmxPatchCanvas PROPERTIES TIMEOUT 60)
+
+add_executable(fixture_symbol_preparation_notifications_test
+    fixture_symbol_preparation_notifications_test.cpp
+    ../gui/services/fixture_symbol_preparation_notifications.cpp
+    ../core/symbols/fixture_symbol_preparation_coordinator.cpp)
+target_include_directories(fixture_symbol_preparation_notifications_test PRIVATE ../core ../gui)
+target_link_libraries(fixture_symbol_preparation_notifications_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME FixtureSymbolPreparationNotifications COMMAND fixture_symbol_preparation_notifications_test)
+
+add_executable(fixture_gdtf_resolution_logging_test
+    fixture_gdtf_resolution_logging_test.cpp
+    ../gui/fixtures/fixture_gdtf_resolution.cpp
+    ../models/fixture.cpp ../models/mvrscene.cpp ../models/truss.cpp
+    ../models/sceneobject.cpp ../models/layer.cpp)
+target_include_directories(fixture_gdtf_resolution_logging_test PRIVATE ../core ../gui ../models ../third_party)
+target_link_libraries(fixture_gdtf_resolution_logging_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME FixtureGdtfResolutionLogging COMMAND fixture_gdtf_resolution_logging_test)
+
+add_executable(fixture_symbol_preparation_scheduling_test
+    fixture_symbol_preparation_scheduling_test.cpp
+    ../gui/services/fixture_symbol_preparation_service.cpp
+    ../gui/services/fixture_symbol_preparation_notifications.cpp
+    ../gui/services/fixture_symbol_processing_worker.cpp
+    ../gui/fixtures/fixture_gdtf_resolution.cpp
+    ../core/symbols/fixture_symbol_preparation_coordinator.cpp
+    ../core/symbols/fixture_symbol_preparation_requests.cpp
+    ../core/symbols/fixture_symbol_resource_revision.cpp
+    ../core/filesystem_path_utils.cpp
+    ../models/fixture.cpp ../models/mvrscene.cpp ../models/truss.cpp
+    ../models/sceneobject.cpp ../models/layer.cpp)
+target_include_directories(fixture_symbol_preparation_scheduling_test BEFORE PRIVATE
+    support/fixture_symbol_preparation ../gui ../core ../models ../third_party
+    ../viewer3d/resources)
+target_link_libraries(fixture_symbol_preparation_scheduling_test PRIVATE ${wxWidgets_LIBRARIES})
+foreach(scenario complete epoch manual source destroy retry modes reopen touch)
+    add_test(NAME FixtureSymbolPreparationScheduling.${scenario}
+        COMMAND fixture_symbol_preparation_scheduling_test ${scenario})
+endforeach()

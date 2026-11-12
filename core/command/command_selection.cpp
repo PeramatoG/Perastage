@@ -67,7 +67,8 @@ bool Equal(const scene_grouping::ObjectSelection &left,
            const scene_grouping::ObjectSelection &right) {
   return left.fixtures == right.fixtures && left.trusses == right.trusses &&
          left.supports == right.supports &&
-         left.sceneObjects == right.sceneObjects;
+         left.sceneObjects == right.sceneObjects &&
+         left.groupObjects == right.groupObjects;
 }
 
 } // namespace
@@ -160,6 +161,7 @@ Result ExecuteClear(ExecutionContext &context) {
     context.selection.fixtures.clear();
     context.selection.trusses.clear();
     context.selection.sceneObjects.clear();
+    context.selection.groupObjects.clear();
     result.mutation.selectionChanged = !Equal(before, context.selection);
     const MutationPublication publication =
         context.mutationHost.CommitMutation(context.scene, before, "cli clear");

@@ -37,6 +37,16 @@ int main() {
       .sceneObjects = {"object"}};
   assert(scene_grouping::GroupSelection(scene, groupSelection).changed);
 
+  scene_grouping::InteractiveTransformPolicy policy;
+  policy.promoteFixturesToGroup = true;
+  const auto promoted = viewer3d::interaction::BuildClickSelection(scene, "fixture", policy);
+  assert(OccursOnce(promoted.fixtures, "fixture") && OccursOnce(promoted.trusses, "truss"));
+  assert(OccursOnce(promoted.supports, "support") && OccursOnce(promoted.sceneObjects, "object"));
+  policy.promoteFixturesToGroup = false;
+  const auto independent = viewer3d::interaction::BuildClickSelection(scene, "fixture", policy);
+  assert(independent.fixtures == std::vector<std::string>{"fixture"});
+  assert(independent.trusses.empty() && independent.supports.empty() && independent.sceneObjects.empty());
+
   const auto hover = viewer3d::interaction::BuildHoverSelection(scene, "truss");
   const auto click = viewer3d::interaction::BuildClickSelection(scene, "truss");
   assert(OccursOnce(hover.fixtures, "fixture"));

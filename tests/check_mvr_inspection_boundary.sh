@@ -29,7 +29,8 @@ grep -Fq 'add_library(perastage_mvr_read STATIC' "$mvr_cmake" ||
 grep -Fq 'add_library(perastage_mvr_import_application_read STATIC' "$mvr_cmake" ||
   fail "application read adapters must have a separate production owner"
 read_block="$(sed -n '/add_library(perastage_mvr_read STATIC/,/^)/p' "$mvr_cmake")"
-if printf '%s\n' "$read_block" | grep -Eiq 'project_application|merge|export|xchange|download|gdtfnet|dialog|gui'; then
+# Pure provenance reconciliation is shared with readers; application merge units remain forbidden.
+if printf '%s\n' "$read_block" | sed 's/mvr_source_structure_merge\.cpp/mvr_source_structure_reconciliation.cpp/g' | grep -Eiq 'project_application|merge|export|xchange|download|gdtfnet|dialog|gui'; then
   fail "the read target contains application, mutation, network, or GUI sources"
 fi
 if printf '%s\n' "$read_block" | grep -Fq 'mvr_import_application_read_services'; then

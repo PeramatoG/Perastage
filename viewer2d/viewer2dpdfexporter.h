@@ -17,6 +17,7 @@
  */
 
 #pragma once
+#include "layouts/LegendContent.h"
 
 #include "canvas2d.h"
 #include "symbolcache.h"
@@ -38,6 +39,8 @@ struct Viewer2DPrintOptions {
   double pageWidthPt = 297.0 * kMmToPt;  // A3 portrait width
   double pageHeightPt = 420.0 * kMmToPt; // A3 portrait height
   double marginPt = 36.0;                // Half an inch margin for readability
+  // Layout output/document page ratios; all Layout frames remain original points.
+  // Uniform fit is applied once per complete drawing group. Invalid ratios fail.
   double layoutScaleX = 1.0;
   double layoutScaleY = 1.0;
   bool landscape = false;
@@ -52,6 +55,11 @@ struct Viewer2DExportResult {
   std::string message;
   size_t perastageSymbolInstances = 0;
   size_t fallbackSymbolInstances = 0;
+  // Unsupported Legend glyphs are omitted consistently on both targets; source UTF-8 is retained.
+  size_t eventTableTextSubstitutions = 0;
+  std::vector<std::string> eventTableTextDiagnostics;
+  size_t legendTextSubstitutions = 0;
+  std::vector<std::string> legendTextDiagnostics;
 };
 
 struct LayoutViewExportData {
@@ -63,20 +71,10 @@ struct LayoutViewExportData {
   std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot;
 };
 
-struct LayoutLegendItem {
-  std::string typeName;
-  std::string displayName;
-  int count = 0;
-  std::optional<int> channelCount;
-  std::string symbolKey;
-  std::string gdtfPath;
-  std::optional<std::string> symbolFillHex;
-  bool showBottomSymbol = true;
-  bool showFrontSymbol = true;
-  bool showSideSymbol = false;
-};
+using LayoutLegendItem = layouts::LegendResolvedItem;
 
 struct LayoutLegendExportData {
+  // Original document-space frame; page scale is applied after composition.
   layouts::Layout2DViewFrame frame;
   std::vector<LayoutLegendItem> items;
   int zIndex = 0;
@@ -130,7 +128,8 @@ Viewer2DExportResult ExportViewer2DToPdf(
     const std::filesystem::path &outputPath,
     std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot = nullptr);
 
-// Writes multiple 2D views into a single vector PDF layout.
+// Writes a document-space Layout to one uniformly fitted vector PDF page.
+// Captured view mappings and legacy text placement use original frame dimensions.
 Viewer2DExportResult ExportLayoutToPdf(
     const std::vector<LayoutViewExportData> &views,
     const std::vector<LayoutLegendExportData> &legends,

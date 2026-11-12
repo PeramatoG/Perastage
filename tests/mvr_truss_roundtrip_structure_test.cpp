@@ -10,6 +10,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -25,6 +26,8 @@
 #include "mvrimporter.h"
 #include "mvr_preferences.h"
 #include "scene_node_operations.h"
+#include "position_selection.h"
+#include "project_mutation_host.h"
 #include "truss_gdtf_builder.h"
 #include "uuidutils.h"
 #include "support/archive_entry_test_utils.h"
@@ -94,8 +97,10 @@ ReadComparableGdtfEntries(const std::string &bytes) {
         const char *text = revision->Attribute("Text");
         if (text && std::string(text) ==
             "Updated physical properties for Perastage MVR export") {
-          assert(revision->Attribute("Date") && *revision->Attribute("Date"));
-          revision->SetAttribute("Date", "export-time");
+          // Compare separate physical edit operations semantically. Authored
+          // dates may exist; canonical MVR-only generated revisions omit Date.
+          if (revision->Attribute("Date"))
+            revision->SetAttribute("Date", "export-time");
         }
       }
       tinyxml2::XMLPrinter printer;
@@ -676,6 +681,88 @@ int main() {
   assert(secondEntries.find(secondAuxiliaryName) != secondEntries.end());
   assert(CountArchiveEntries(secondMvrPath, secondAuxiliaryName) == 1);
 
+  // Position edits use the real GUI mutation publisher and canonical archives.
+  cfg.ClearHistory();
+  cfg.SetSelectedTrusses({truss.uuid});
+  auto positionSelection = position_selection::SelectionFrom(cfg);
+  GuiProjectMutationHost positionHost(cfg);
+  perastage::command::ExecutionContext positionContext{
+      importedScene, positionSelection, positionHost};
+  int sceneNotifications = 0;
+  int selectionNotifications = 0;
+  int preferenceNotifications = 0;
+  const auto listener = cfg.SubscribeChanges([&](ConfigManager::Change change) {
+    if (change == ConfigManager::Change::Scene) ++sceneNotifications;
+    if (change == ConfigManager::Change::Selection) ++selectionNotifications;
+    if (change == ConfigManager::Change::Preferences) ++preferenceNotifications;
+  });
+  const auto oldPosition = importedScene.trusses.at(truss.uuid).transform;
+  auto edit = position_selection::SetAxis(positionContext, {false, false, false, false},
+      0, "7.125", Units::DistanceUnitSystem::Metric);
+  assert(edit.Success() && edit.mutation.undoEntryRecorded && cfg.IsDirty());
+  assert(importedScene.trusses.at(truss.uuid).transform.o[0] == 7125.0f);
+  assert(cfg.Undo() == "Position Tool" && !cfg.CanUndo());
+  assert(MatrixEqual(importedScene.trusses.at(truss.uuid).transform, oldPosition));
+  assert(cfg.Redo() == "Position Tool");
+  assert(importedScene.trusses.at(truss.uuid).transform.o[0] == 7125.0f);
+
+  cfg.SetSelectedTrusses({});
+  cfg.SetSelectedGroupObjects({group.uuid});
+  positionSelection = position_selection::SelectionFrom(cfg);
+  const Matrix childLocalBefore = importedScene.trusses.at(truss.uuid).localTransform;
+  edit = position_selection::SetAxis(positionContext, {}, 1, "-4.25",
+                                     Units::DistanceUnitSystem::Metric);
+  assert(edit.Success() && edit.mutation.sceneChanged);
+  assert(importedScene.groupObjects.at(group.uuid).transform.o[1] == -4250.0f);
+  assert(MatrixEqual(importedScene.trusses.at(truss.uuid).localTransform, childLocalBefore));
+  const MvrScene positioned = importedScene;
+  assert(cfg.Undo() == "Position Tool");
+  assert(cfg.GetSelectedGroupObjects() == std::vector<std::string>{group.uuid});
+  assert(cfg.Redo() == "Position Tool");
+  assert(MatrixEqual(importedScene.trusses.at(truss.uuid).transform,
+                     positioned.trusses.at(truss.uuid).transform));
+  positionSelection = {{}, {truss.uuid}, {}, {sibling.uuid}};
+  cfg.SetSelectedGroupObjects({});
+  cfg.SetSelectedTrusses({truss.uuid});
+  cfg.SetSelectedSceneObjects({sibling.uuid});
+  const MvrScene multiBefore = importedScene;
+  edit = position_selection::SetAxis(positionContext, {false, false, false, false},
+      2, "1.5", Units::DistanceUnitSystem::Metric);
+  assert(edit.Success());
+  assert(importedScene.trusses.at(truss.uuid).transform.o[2] == 1500.0f);
+  assert(importedScene.sceneObjects.at(sibling.uuid).transform.o[2] == 1500.0f);
+  assert(cfg.Undo() == "Position Tool");
+  assert(MatrixEqual(importedScene.trusses.at(truss.uuid).transform,
+                     multiBefore.trusses.at(truss.uuid).transform));
+  assert(MatrixEqual(importedScene.sceneObjects.at(sibling.uuid).transform,
+                     multiBefore.sceneObjects.at(sibling.uuid).transform));
+  assert(cfg.Redo() == "Position Tool");
+  cfg.SetValue("ui_distance_unit_system", "imperial");
+  assert(sceneNotifications >= 6 && selectionNotifications >= 6 && preferenceNotifications > 0);
+  cfg.UnsubscribeChanges(listener);
+
+  const MvrScene finalPositions = importedScene;
+  const fs::path positionedProject = tempDir / "positioned.pstg";
+  const fs::path positionedMvr = tempDir / "positioned.mvr";
+  assert(cfg.SaveProject(positionedProject.string()));
+  assert(MvrExporter().ExportToFile(positionedMvr.string()));
+  cfg.Reset();
+  assert(cfg.LoadProject(positionedProject.string()));
+  assert(MatrixEqual(importedScene.groupObjects.at(group.uuid).transform,
+                     finalPositions.groupObjects.at(group.uuid).transform));
+  assert(MatrixEqual(importedScene.trusses.at(truss.uuid).transform,
+                     finalPositions.trusses.at(truss.uuid).transform));
+  assert(MatrixEqual(importedScene.trusses.at(truss.uuid).localTransform,
+                     finalPositions.trusses.at(truss.uuid).localTransform));
+  assert(importedScene.trusses.at(truss.uuid).parentGroupUuid == group.uuid);
+  cfg.Reset();
+  assert(MvrImporter().ImportFromFile(positionedMvr.string(), false, false));
+  assert(MatrixEqual(importedScene.groupObjects.at(group.uuid).transform,
+                     finalPositions.groupObjects.at(group.uuid).transform));
+  assert(MatrixEqual(importedScene.trusses.at(truss.uuid).transform,
+                     finalPositions.trusses.at(truss.uuid).transform));
+  assert(importedScene.trusses.at(truss.uuid).parentGroupUuid == group.uuid);
+
   Truss &missingAuxiliaryTruss = importedScene.trusses.begin()->second;
   missingAuxiliaryTruss.gdtfSpec.clear();
   missingAuxiliaryTruss.perastageAuxGdtfArchivePath = "missing-explicit.gdtf";
@@ -688,7 +775,7 @@ int main() {
                      missingAuxiliaryExporter.GetExportDiagnostics().end(),
                      [](const MvrExportDiagnostic &diagnostic) {
                        return diagnostic.code ==
-                                  MvrExportDiagnosticCode::TrussGdtfMissing &&
+                                  MvrExportDiagnosticCode::InternalRecovery &&
                               diagnostic.userVisible;
                      }));
   const auto missingAuxiliaryEntries =
@@ -805,9 +892,24 @@ int main() {
   generatedScene.groupObjects[generatedGroup.uuid].children.push_back(
       {MvrNodeType::Truss, collidingTruss.uuid});
   const fs::path collisionMvr = tempDir / "collision.mvr";
-  // Authored instance identities cannot be silently repaired during export.
-  assert(!exporter.ExportToFile(collisionMvr.string()));
+  // Repair on the snapshot with a visible identity finding; retain both
+  // instances.
+  assert(exporter.ExportToFile(collisionMvr.string()));
   assert(!exporter.GetExportDiagnostics().empty());
+  MvrImportResult collisionImport;
+  MvrImporter collisionReader;
+  MvrImportOptions collisionOptions;
+  collisionOptions.promptConflicts = false;
+  collisionOptions.applyDictionary = false;
+  assert(collisionReader.ImportFromFile(collisionMvr.string(), collisionImport,
+                                        MvrImportMode::ParseOnly,
+                                        collisionOptions));
+  assert(collisionImport.scene.trusses.size() == 2);
+  std::set<std::string> instanceIdentities;
+  for (const auto &[uuid, value] : collisionImport.scene.trusses)
+    assert(instanceIdentities.insert(value.sourceSymbolUuid).second);
+  assert(generatedScene.trusses.at(collidingTruss.uuid).sourceSymbolUuid ==
+         sourceSymbolUuid);
 
   Truss typeA;
   typeA.symbolFile = symModel.generic_string();

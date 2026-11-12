@@ -7,6 +7,7 @@
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/utils.h>
+#include <wx/richmsgdlg.h>
 
 namespace project_save_ui {
 namespace {
@@ -46,6 +47,14 @@ Result Run(wxWindow &owner, const std::function<bool()> &save) {
   } catch (...) {
     return {false, true, "Unknown exception during project save."};
   }
+}
+
+void ShowFailure(wxWindow &owner, const wxString &message,
+                  const std::string &details) {
+  wxRichMessageDialog dialog(&owner, _("Failed to save project.\n\n") + message,
+                              _("Error"), wxOK | wxICON_ERROR);
+  dialog.ShowDetailedText(wxString::FromUTF8(details));
+  dialog.ShowModal();
 }
 
 wxString FailureMessage(ProjectSaveFailureKind kind) {

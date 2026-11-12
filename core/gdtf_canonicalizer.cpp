@@ -112,13 +112,28 @@ bool WriteZipEntries(const fs::path &path, std::vector<ZipEntryData> entries,
   wxZipOutputStream zip(output);
   for (const ZipEntryData &data : entries) {
     auto *entry = new wxZipEntry(data.name);
+    // Generated ZIP metadata must not change nested GDTF payloads between
+    // canonical PSTG and standalone MVR publication of the same snapshot.
+    entry->SetDateTime(wxDateTime(1, wxDateTime::Jan, 1980));
     entry->SetMethod(wxZIP_METHOD_DEFLATE);
-    zip.PutNextEntry(entry);
+    if (!zip.PutNextEntry(entry)) {
+      result.errors.push_back("Could not create GDTF archive entry: " +
+                              data.name);
+      return false;
+    }
     if (!data.bytes.empty())
       zip.Write(data.bytes.data(), data.bytes.size());
-    zip.CloseEntry();
+    if (!zip.IsOk() || !zip.CloseEntry()) {
+      result.errors.push_back("Could not write GDTF archive entry: " +
+                              data.name);
+      return false;
+    }
   }
-  zip.Close();
+  if (!zip.Close() || !output.Close()) {
+    result.errors.push_back("Could not finalize GDTF archive: " +
+                            path.string());
+    return false;
+  }
   return true;
 }
 
@@ -330,13 +345,41 @@ Result CanonicalizeDescription(tinyxml2::XMLDocument &doc, const Options &option
     result.changed = true;
   }
 
+  if (options.projectUnsupportedFixtureTypeContent) {
+    for (auto *attribute = fixtureType->FirstAttribute(); attribute;) {
+      const auto *next = attribute->Next();
+      if (!gdtf::IsStandardFixtureTypeAttribute(attribute->Name())) {
+        result.omissions.push_back(std::string("FixtureType/@") +
+                                   attribute->Name() + "=" +
+                                   attribute->Value());
+        fixtureType->DeleteAttribute(attribute->Name());
+        result.changed = true;
+      }
+      attribute = next;
+    }
+    for (auto *child = fixtureType->FirstChildElement(); child;) {
+      auto *next = child->NextSiblingElement();
+      if (OrderIndex(child->Name()) < 0) {
+        tinyxml2::XMLPrinter evidence;
+        child->Accept(&evidence);
+        result.omissions.push_back(std::string("FixtureType/") + child->Name() +
+                                   ": " + evidence.CStr());
+        fixtureType->DeleteChild(child);
+        result.changed = true;
+      }
+      child = next;
+    }
+  }
   result.changed = RemoveKnownLegacyPerastageMetadata(fixtureType) || result.changed;
   result.changed = ReorderFixtureTypeChildren(fixtureType) || result.changed;
 
   const std::string afterStructure = PrintDocument(doc);
   if (result.changed || before != afterStructure) {
-    GdtfMutationAudit::AppendRevision(fixtureType, doc, kCanonicalizationRevisionText,
-                                      GdtfMutationAudit::BuildPerastageModifiedBy());
+    GdtfMutationAudit::AppendRevision(
+        fixtureType, doc, kCanonicalizationRevisionText,
+        GdtfMutationAudit::BuildPerastageModifiedBy(), 0, "",
+        GdtfMutationAudit::RevisionPolicy::SkipEquivalentAction,
+        !options.omitGeneratedRevisionDate);
     ReorderFixtureTypeChildren(fixtureType);
   }
   result.changed = result.changed || before != PrintDocument(doc);
@@ -377,6 +420,7 @@ Result CanonicalizeArchive(const fs::path &sourcePath, const fs::path &destinati
   Result xmlResult = CanonicalizeDescription(doc, options);
   result.changed = xmlResult.changed;
   result.warnings = xmlResult.warnings;
+  result.omissions = xmlResult.omissions;
   result.errors = xmlResult.errors;
   if (!xmlResult.success)
     return result;

@@ -3,6 +3,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <mutex>
 #include <optional>
 #include <thread>
@@ -17,6 +18,7 @@ struct FixtureSymbolProcessingRequest {
   std::uint64_t epoch = 0;
   std::vector<symbols::RenderedSymbolImage> renders;
   tools::FixtureGeometryBounds bounds;
+  std::uint64_t requestId = 0;
 };
 
 struct FixtureSymbolProcessingResult {
@@ -25,11 +27,12 @@ struct FixtureSymbolProcessingResult {
   std::string error;
   std::vector<symbols::Symbol2D> symbols;
   tools::FixtureGeometryBounds bounds;
+  std::uint64_t requestId = 0;
 };
 
 class FixtureSymbolProcessingWorker {
 public:
-  FixtureSymbolProcessingWorker();
+  explicit FixtureSymbolProcessingWorker(std::function<void()> completed = {});
   ~FixtureSymbolProcessingWorker();
 
   bool Submit(FixtureSymbolProcessingRequest request);
@@ -44,6 +47,7 @@ private:
   void Run(std::stop_token stopToken);
 #endif
 
+  const std::function<void()> completed_;
   std::mutex mutex_;
   std::condition_variable_any condition_;
   std::deque<FixtureSymbolProcessingRequest> requests_;

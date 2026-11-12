@@ -17,6 +17,7 @@
  */
 #include "layer_identity.h"
 #include "fixturetablepanel.h"
+#include "fixturetable/fixture_table_highlight_event.h"
 #include "dataview_deferred_selection_guard.h"
 #include "dataview_sort_profiles.h"
 #include "addressdialog.h"
@@ -39,6 +40,7 @@
 #include "mainwindow.h"
 #include "matrixutils.h"
 #include "patchmanager.h"
+#include "fixture_patch_edit_plan.h"
 #include "projectutils.h"
 #include "riggingpanel.h"
 #include "selection_origin_token.h"
@@ -216,7 +218,7 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent,
   store->DecRef();
 
   table->SetAlternateRowColour(wxColour(40, 40, 40));
-  const wxColour selectionBackground(0, 255, 255);
+  const wxColour selectionBackground = gui::FixtureSelectionColor();
   const wxColour selectionForeground(0, 0, 0);
   store->SetSelectionColours(selectionBackground, selectionForeground);
   BindTableHoverEvents(table, this, &FixtureTablePanel::OnMouseMove,
@@ -482,6 +484,7 @@ void FixtureTablePanel::ReloadData() {
     Viewer3DPanel::Instance()->SetSelectedFixtures({});
 
   RunValidationHighlights(SceneDataUpdateType::kGeneral);
+  HighlightFixture(highlightedUuid, highlightedRelatedUuids, true);
 
   // Let wxDataViewListCtrl manage column headers and sorting
   if (LayerPanel::Instance())
@@ -776,12 +779,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
     int newUni = dlg.GetUniverse();
     int newCh = dlg.GetChannel();
-    if (newCh < 1)
-      newCh = 1;
-    if (newCh > 512) {
-      newUni += (newCh - 1) / 512;
-      newCh = 1;
-    }
+    if (newUni < 1 || newCh < 1 || newCh > 512)
+      return;
 
     wxDataViewItemArray adrSelections;
     table->GetSelections(adrSelections);
@@ -814,7 +813,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       counts.push_back(static_cast<int>(c));
     }
 
-    auto addrs = PatchManager::SequentialPatch(counts, newUni, newCh);
+    // One explicit edit preserves its authored start; batches remain sequential.
+    const auto addrs = perastage::patch::PlanTablePatch(counts, newUni, newCh);
     for (size_t i = 0; i < orderedRows.size() && i < addrs.size(); ++i) {
       table->SetValue(
           wxVariant(addrs[i].universe), orderedRows[i],
@@ -1243,109 +1243,6 @@ bool FixtureTablePanel::IsActivePage() const {
   return nb && nb->GetPage(nb->GetSelection()) == this;
 }
 
-// Applies a primary hover highlight to one fixture row.
-void FixtureTablePanel::HighlightFixture(const std::string &uuid) {
-  HighlightFixture(uuid, {});
-}
-
-// Applies primary and related group-hover highlights to fixture rows.
-void FixtureTablePanel::HighlightFixture(
-    const std::string &uuid, const std::vector<std::string> &relatedUuids) {
-  if (uuid == highlightedUuid && relatedUuids == highlightedRelatedUuids)
-    return;
-
-  auto findRow = [&](const std::string &candidate) -> int {
-    if (candidate.empty())
-      return wxNOT_FOUND;
-    auto it = std::find(rowUuids.begin(), rowUuids.end(), candidate);
-    if (it == rowUuids.end())
-      return wxNOT_FOUND;
-    int row = static_cast<int>(std::distance(rowUuids.begin(), it));
-    if (row < 0 || row >= static_cast<int>(table->GetItemCount()))
-      return wxNOT_FOUND;
-    return row;
-  };
-
-  std::vector<bool> primaryRows(table->GetItemCount(), false);
-  std::vector<bool> secondaryRows(table->GetItemCount(), false);
-  const int currentRow = findRow(uuid);
-  if (currentRow != wxNOT_FOUND)
-    primaryRows[static_cast<size_t>(currentRow)] = true;
-  for (const auto &relatedUuid : relatedUuids) {
-    const int relatedRow = findRow(relatedUuid);
-    if (relatedRow != wxNOT_FOUND && relatedRow != currentRow)
-      secondaryRows[static_cast<size_t>(relatedRow)] = true;
-  }
-  store->SetHighlightRows(primaryRows, secondaryRows, wxColour(170, 220, 0),
-                          wxColour(110, 210, 150), wxColour(0, 0, 0));
-
-  highlightedUuid = uuid;
-  highlightedRelatedUuids = relatedUuids;
-  table->Refresh();
-}
-
-// Highlights fixtures with duplicate DMX universe/channel patch addresses.
-void FixtureTablePanel::HighlightPatchConflicts() {
-  // Clear previous highlighting on Universe and Channel columns
-  for (unsigned i = 0; i < table->GetItemCount(); ++i) {
-    store->ClearCellTextColour(
-        i, FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Universe));
-    store->ClearCellTextColour(
-        i, FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Channel));
-  }
-
-  struct PatchInfo {
-    int start;
-    int end;
-    unsigned row;
-  };
-  std::unordered_map<int, std::vector<PatchInfo>> uniMap;
-
-  for (unsigned i = 0; i < table->GetItemCount(); ++i) {
-    wxVariant v;
-    table->GetValue(
-        v, i,
-        FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Universe));
-    long uni = v.GetLong();
-    table->GetValue(
-        v, i,
-        FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Channel));
-    long ch = v.GetLong();
-    table->GetValue(v, i,
-                    FixtureTableColumns::ToIndex(
-                        FixtureTableColumns::Column::ChannelCount));
-    long count = 1;
-    if (!v.GetString().ToLong(&count))
-      count = 1;
-
-    if (uni <= 0 || ch <= 0 || count <= 0)
-      continue;
-
-    PatchInfo info{static_cast<int>(ch), static_cast<int>(ch + count - 1), i};
-    uniMap[static_cast<int>(uni)].push_back(info);
-  }
-
-  for (auto &[uni, vec] : uniMap) {
-    std::sort(vec.begin(), vec.end(),
-              [](const PatchInfo &a, const PatchInfo &b) {
-                return a.start < b.start;
-              });
-
-    for (size_t i = 0; i < vec.size(); ++i) {
-      for (size_t j = i + 1; j < vec.size(); ++j) {
-        if (vec[j].start <= vec[i].end) {
-          store->SetCellTextColour(vec[i].row, 5, *wxRED);
-          store->SetCellTextColour(vec[i].row, 6, *wxRED);
-          store->SetCellTextColour(vec[j].row, 5, *wxRED);
-          store->SetCellTextColour(vec[j].row, 6, *wxRED);
-        } else {
-          break;
-        }
-      }
-    }
-  }
-}
-
 // Clears all current table row selections.
 void FixtureTablePanel::ClearSelection() {
   if (deferredSelectionGuard)
@@ -1521,21 +1418,6 @@ void FixtureTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
   startRow = wxNOT_FOUND;
 }
 
-// Updates hover tooltip state while the pointer moves over table cells.
-void FixtureTablePanel::OnMouseMove(wxMouseEvent &evt) {
-  UpdateHoverTooltip(NormalizeMousePositionForTable(table, evt));
-  evt.Skip();
-}
-
-// Clears hover tooltip state when the pointer leaves the table area.
-void FixtureTablePanel::OnMouseLeave(wxMouseEvent &evt) {
-  if (!activeHoverTooltip.IsEmpty()) {
-    SetTableAndChildTooltips(table, wxString());
-    activeHoverTooltip.clear();
-  }
-  evt.Skip();
-}
-
 // Shows contextual tooltip text for validation-marked table cells.
 void FixtureTablePanel::UpdateHoverTooltip(const wxPoint &position) {
   wxDataViewItem item;
@@ -1555,7 +1437,11 @@ void FixtureTablePanel::UpdateHoverTooltip(const wxPoint &position) {
         if (it != fixtures.end())
           tooltip = BuildCategoryFallbackTooltip(it->second);
       } else {
-        tooltip = BuildFixtureTooltipForColumn(modelColumn);
+        if ((modelColumn == 5 || modelColumn == 6) && row >= 0 &&
+            static_cast<size_t>(row) < rowUuids.size()) {
+          const auto found = patchWarnings.find(rowUuids[row]);
+          if (found != patchWarnings.end()) tooltip = found->second;
+        } else tooltip = BuildFixtureTooltipForColumn(modelColumn);
       }
     }
   }

@@ -54,5 +54,11 @@ int main() {
   assert(scene.fixtures["a"].address == "2.1");
   assert(scene.fixtures["b"].address == "2.121");
 
+  scene.fixtures.clear();
+  a.gdtfMode = "180";
+  scene.fixtures[a.uuid] = a;
+  assert(AutoPatcher::AutoPatch(scene, 1, 400));
+  assert(scene.fixtures.at(a.uuid).address == "2.1");
+
   return 0;
 }

@@ -29,6 +29,7 @@ const std::vector<LayoutViewPreset> kLayoutViewPresets = {
             "Console",
             "LayerPanel",
             "SummaryPanel",
+            "PositionTool",
             "RiggingPanel",
         },
         {
@@ -48,6 +49,7 @@ const std::vector<LayoutViewPreset> kLayoutViewPresets = {
             "Console",
             "LayerPanel",
             "SummaryPanel",
+            "PositionTool",
             "RiggingPanel",
         },
         {
@@ -71,6 +73,7 @@ const std::vector<LayoutViewPreset> kLayoutViewPresets = {
             "Console",
             "LayerPanel",
             "SummaryPanel",
+            "PositionTool",
             "RiggingPanel",
             "InspectorWorkspace",
         },
@@ -88,6 +91,7 @@ const std::vector<LayoutViewPreset> kLayoutViewPresets = {
             "DataNotebook",
             "LayerPanel",
             "SummaryPanel",
+            "PositionTool",
             "RiggingPanel",
             "LayoutPanel",
             "LayoutViewer",

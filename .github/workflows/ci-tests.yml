@@ -92,6 +92,7 @@ jobs:
       CI_LOG_DIR: ${{ github.workspace }}/out/ci-logs
       SCCACHE_GHA_ENABLED: ${{ needs.resolve-source.outputs.sccache_gha_enabled }}
       SCCACHE_DIR: ${{ github.workspace }}/.sccache-ephemeral
+      SCCACHE_CACHE_SIZE: 2G
       SCCACHE_LOCAL_RW_MODE: READ_WRITE
       SCCACHE_BACKEND: ${{ needs.resolve-source.outputs.sccache_backend }}
       SCCACHE_CACHE_SCOPE: ${{ needs.resolve-source.outputs.sccache_cache_scope }}
@@ -288,7 +289,7 @@ jobs:
       - name: Configure Debug tests
         id: cmake-configure
         run: |
-          python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-linux-debug.log" -- cmake -S . -B build/linux-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-linux -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=ON -C "$CI_LOG_DIR/cmake-compiler-cache-linux-debug.cmake"
+          python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-linux-debug.log" -- cmake -S . -B build/linux-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-linux -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DCMAKE_C_FLAGS_DEBUG=-g1 -DCMAKE_CXX_FLAGS_DEBUG=-g1 -DCMAKE_EXE_LINKER_FLAGS_DEBUG=-Wl,--compress-debug-sections=zlib -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=ON -C "$CI_LOG_DIR/cmake-compiler-cache-linux-debug.cmake"
           test -f build/linux-debug/compile_commands.json || { echo "Debug compile_commands.json was not generated"; exit 1; }
           if grep -Eq '(^|[[:space:]])-DNDEBUG([[:space:]]|$)' build/linux-debug/compile_commands.json; then echo "Debug tests must not compile with NDEBUG"; exit 1; fi
           python3 .github/scripts/validate_cmake_toolchain.py --build-dir build/linux-debug --expected-c-id GNU --expected-cxx-id GNU --expected-generator Ninja --expected-build-type Debug --expected-launcher "$SCCACHE_PATH"

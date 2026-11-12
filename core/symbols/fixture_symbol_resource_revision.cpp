@@ -1,3 +1,4 @@
+#include "symbols/fixture_symbol_operation_counters.h"
 #include "fixture_symbol_resource_revision.h"
 
 #include "filesystem_path_utils.h"
@@ -143,6 +144,7 @@ std::string GdtfFileRevision::Key() const {
 std::string ComputeGdtfSemanticFingerprintFromEntries(
     const std::vector<GdtfSemanticFingerprintEntry> &inputEntries,
     std::string &errorMessage) {
+  symbols::diagnostics::Count(symbols::diagnostics::Operation::Fingerprint);
   std::map<std::string, std::vector<std::uint8_t>> entries;
   for (const auto &entry : inputEntries) {
     const std::string normalized = NormalizeGdtfEntryPath(entry.normalizedPath);
@@ -181,6 +183,7 @@ std::string ComputeGdtfSemanticFingerprintFromEntries(
 static std::string
 ComputeGdtfSemanticFingerprintUncached(const std::string &path,
                                        std::string &errorMessage) {
+  symbols::diagnostics::Count(symbols::diagnostics::Operation::ArchiveOpen);
   wxFileInputStream input(WxStringFromUtf8Path(path));
   if (!input.IsOk()) {
     errorMessage = "Could not open GDTF archive for semantic fingerprinting.";

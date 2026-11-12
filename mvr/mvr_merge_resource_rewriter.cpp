@@ -16,8 +16,13 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvr_merge_resource_rewriter.h"
+#include "mvr_standard_field_projection.h"
+#include "mvr_source_structure_service.h"
+#include "mvr_model_resource_closure.h"
+#include "mvr_model_dependencies.h"
 
 #include "file_import_utils.h"
+#include "filesystem_path_utils.h"
 
 #include <cctype>
 #include <filesystem>
@@ -55,15 +60,15 @@ bool IsSafeRelativePath(const fs::path &path) {
 // Builds a filesystem path for a scene resource reference.
 fs::path ResolveSceneResourcePath(const std::string &basePath,
                                   const std::string &resourcePath) {
-  fs::path path = fs::path(resourcePath);
+  fs::path path = PathUtils::PathFromUtf8(resourcePath);
   if (path.is_absolute() || basePath.empty())
     return path;
-  return fs::path(basePath) / path;
+  return PathUtils::PathFromUtf8(basePath) / path;
 }
 
 // Converts a path reference to the preferred project-relative destination path.
 fs::path PreferredProjectRelativePath(const std::string &resourcePath) {
-  const fs::path rawPath = fs::path(resourcePath);
+  const fs::path rawPath = PathUtils::PathFromUtf8(resourcePath);
   if (IsSafeRelativePath(rawPath))
     return rawPath.lexically_normal();
 
@@ -107,12 +112,55 @@ CopyAndRewriteResource(const MvrScene &target, const MvrScene &imported,
   if (!sourceSha256)
     return std::nullopt;
 
+  auto extension = sourcePath.extension().string();
+  std::transform(
+      extension.begin(), extension.end(), extension.begin(),
+      [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  if ((extension == ".3ds" || extension == ".gltf" || extension == ".glb") &&
+      !InspectModelDependencies(sourcePath).references.empty()) {
+    const auto closure = DiscoverModelResourceClosure(
+        sourcePath, PathUtils::PathFromUtf8(imported.basePath));
+    if (!closure.error.empty())
+      return std::nullopt;
+    const auto prefix =
+        ModelResourcePrefix(closure, [&](const std::string &candidate) {
+          for (const auto &file : closure.files) {
+            const auto destination = PathUtils::PathFromUtf8(target.basePath) /
+                                     candidate /
+                                     file.lexically_relative(closure.root);
+            if (fs::exists(destination, ec)) {
+              const auto hash = FileImportUtils::ComputeFileSha256(file);
+              if (!hash || !FilesHaveSameContent(destination, *hash))
+                return false;
+            }
+          }
+          return true;
+        });
+    if (prefix.empty())
+      return std::nullopt;
+    for (const auto &file : closure.files) {
+      const auto destination = PathUtils::PathFromUtf8(target.basePath) /
+                               prefix / file.lexically_relative(closure.root);
+      fs::create_directories(destination.parent_path(), ec);
+      if (ec)
+        return std::nullopt;
+      if (!fs::exists(destination, ec)) {
+        fs::copy_file(file, destination, fs::copy_options::none, ec);
+        if (ec)
+          return std::nullopt;
+      }
+    }
+    const auto primary = fs::weakly_canonical(sourcePath, ec);
+    if (ec)
+      return std::nullopt;
+    return prefix + ModelResourceRelativeName(primary, closure.root);
+  }
   fs::path relativePath = PreferredProjectRelativePath(trimmed);
-  fs::path targetPath = fs::path(target.basePath) / relativePath;
+  fs::path targetPath = PathUtils::PathFromUtf8(target.basePath) / relativePath;
   if (fs::exists(targetPath, ec) && !ec &&
       !FilesHaveSameContent(targetPath, *sourceSha256)) {
     relativePath = BuildConflictRelativePath(relativePath, *sourceSha256);
-    targetPath = fs::path(target.basePath) / relativePath;
+    targetPath = PathUtils::PathFromUtf8(target.basePath) / relativePath;
     int suffix = 2;
     while (fs::exists(targetPath, ec) && !ec &&
            !FilesHaveSameContent(targetPath, *sourceSha256)) {
@@ -123,7 +171,7 @@ CopyAndRewriteResource(const MvrScene &target, const MvrScene &imported,
           parent / fs::path(stem.string() + "_" + std::to_string(suffix++) +
                             ext.string());
       relativePath = candidate;
-      targetPath = fs::path(target.basePath) / relativePath;
+      targetPath = PathUtils::PathFromUtf8(target.basePath) / relativePath;
     }
   }
 
@@ -169,6 +217,16 @@ bool RewriteResourceReference(
 void RewriteImportedSceneResourceReferences(const MvrScene &target,
                                             MvrScene &imported) {
   std::unordered_map<std::string, std::string> rewrittenByOriginal;
+  ReconcileSourceStructure(imported, {}, [&](const std::string &source) {
+    std::string path = source;
+    return RewriteResourceReference(target, imported, path, rewrittenByOriginal)
+               ? path
+               : std::string();
+  });
+  ReconcileStandardSourceFields(imported, {}, [&](const std::string &source) {
+    std::string path = source;
+    return RewriteResourceReference(target, imported, path, rewrittenByOriginal) ? path : std::string();
+  });
 
   for (auto &[uuid, fixture] : imported.fixtures)
     RewriteResourceReference(target, imported, fixture.gdtfSpec,

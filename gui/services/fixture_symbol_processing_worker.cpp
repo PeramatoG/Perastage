@@ -1,3 +1,4 @@
+#include "symbols/fixture_symbol_operation_counters.h"
 #include "services/fixture_symbol_processing_worker.h"
 
 #include <utility>
@@ -7,11 +8,12 @@
 namespace gui {
 
 // Starts the single managed worker used for pure symbol processing.
-FixtureSymbolProcessingWorker::FixtureSymbolProcessingWorker()
+FixtureSymbolProcessingWorker::FixtureSymbolProcessingWorker(
+    std::function<void()> completed)
 #if defined(PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT)
-    : thread_([this]() { Run(); }) {}
+    : completed_(std::move(completed)), thread_([this]() { Run(); }) {}
 #else
-    : thread_([this](std::stop_token stopToken) { Run(stopToken); }) {}
+    : completed_(std::move(completed)), thread_([this](std::stop_token stopToken) { Run(stopToken); }) {}
 #endif
 
 // Stops and joins the managed processing worker during application shutdown.
@@ -35,6 +37,7 @@ bool FixtureSymbolProcessingWorker::Submit(
   std::lock_guard<std::mutex> lock(mutex_);
   if (busy_ || !requests_.empty() || !results_.empty())
     return false;
+  symbols::diagnostics::Count(symbols::diagnostics::Operation::WorkerSubmission);
   requests_.push_back(std::move(request));
   condition_.notify_one();
   return true;
@@ -70,15 +73,19 @@ void FixtureSymbolProcessingWorker::Run() {
         std::move(request.renders), request.bounds);
     FixtureSymbolProcessingResult result;
     result.epoch = request.epoch;
+    result.requestId = request.requestId;
     result.ok = processed.ok;
     result.error = std::move(processed.error);
     result.symbols = std::move(processed.symbols);
     result.bounds = processed.fixtureBoundsMm;
     {
       std::lock_guard<std::mutex> lock(mutex_);
+      symbols::diagnostics::Count(symbols::diagnostics::Operation::WorkerCompletion);
       results_.push_back(std::move(result));
       busy_ = false;
     }
+    if (completed_)
+      completed_();
   }
 }
 #else
@@ -100,15 +107,19 @@ void FixtureSymbolProcessingWorker::Run(std::stop_token stopToken) {
         std::move(request.renders), request.bounds);
     FixtureSymbolProcessingResult result;
     result.epoch = request.epoch;
+    result.requestId = request.requestId;
     result.ok = processed.ok;
     result.error = std::move(processed.error);
     result.symbols = std::move(processed.symbols);
     result.bounds = processed.fixtureBoundsMm;
     {
       std::lock_guard<std::mutex> lock(mutex_);
+      symbols::diagnostics::Count(symbols::diagnostics::Operation::WorkerCompletion);
       results_.push_back(std::move(result));
       busy_ = false;
     }
+    if (completed_)
+      completed_();
   }
 }
 #endif

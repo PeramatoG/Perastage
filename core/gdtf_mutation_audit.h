@@ -52,13 +52,12 @@ enum class RevisionPolicy {
 // - Text: action description
 // - UserID: defaults to 0
 // - RecordEffectiveChange is for callers that have already verified a mutation.
-void AppendRevision(tinyxml2::XMLElement *fixtureType,
-                    tinyxml2::XMLDocument &doc,
-                    const std::string &text,
-                    const std::string &modifiedBy,
-                    int userId = 0,
-                    const std::string &dateUtcIso8601 = "",
-                    RevisionPolicy policy = RevisionPolicy::SkipEquivalentAction);
+void AppendRevision(
+    tinyxml2::XMLElement *fixtureType, tinyxml2::XMLDocument &doc,
+    const std::string &text, const std::string &modifiedBy, int userId = 0,
+    const std::string &dateUtcIso8601 = "",
+    RevisionPolicy policy = RevisionPolicy::SkipEquivalentAction,
+    bool includeCurrentDate = true);
 
 // Preserves the legacy call site while avoiding non-standard GDTF metadata.
 void StampPerastageMutationMetadata(tinyxml2::XMLElement *fixtureType,

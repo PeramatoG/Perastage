@@ -184,7 +184,14 @@ services. The shared GUI `GuiProjectMutationHost` is the application-side Undo
 publisher used by Console and current main-window command consumers; refresh
 and presentation remain frontend-owned. Auto patching and fixture distribution
 remain with their existing owners until their implicit scope/geometry inputs
-have neutral contracts. The focused `core/capability/` boundary describes the
+have neutral contracts. The shared Position Tool uses `core/position_selection` to query interactive
+transform targets and execute absolute world-axis commands. Its wx panel only
+presents fields and owns field focus behavior; Viewer2D projects the same target
+origins for an onscreen-only overlay. ConfigManager publishes scene, selection
+and preference changes at existing mutation/presentation boundaries; the panel
+coalesces notifications on the GUI event loop without polling.
+
+The focused `core/capability/` boundary describes the
 real Command and Query surfaces without dispatching them. It consumes neutral
 operation IDs and request value types without linking Command execution or
 mutation infrastructure; separate serialization provides versioned discovery
@@ -460,6 +467,14 @@ by Core and Models respectively, so the shared reader links their single
 production implementations without directly registering foreign module
 sources or creating a broad general-purpose Core library.
 
+The `mvr_source_structure_*` service retains immutable standard topology and
+source-only payloads beside editable scene values. Capture/validation, private
+geometry edit preparation, XML projection and merge reconciliation have separate
+units. They do not access the GUI, global project configuration or archive
+writers. The typed Symdef registry owns nested Symbol graphs. Model resource
+closure discovery is read-only; the existing resource collection owns packaging.
+See the [canonical MVR contract](technical-notes/canonical_mvr_contract.md#retained-standard-scene-structure).
+
 The shared read context returns neutral conflict and manually authored category
 facts, exact authored layer UUID membership for every parsed node, and each
 layer's direct authored child UUIDs. This preserves duplicate layer names and
@@ -577,6 +592,34 @@ with scene, selection, layer state, label overrides and fixture symbols. History
 restoration bypasses startup default loading and resource re-reading, preserving
 absent metadata and explicitly empty collections without rewriting configuration.
 
+## Layout Legend composition
+
+`core/layouts/LegendContent` resolves ordered per-type settings from explicit
+scene-wide aggregates. `DocumentComposition` supplies local point rectangles,
+text roles and a measurement callback; `LegendComposition` alone decides Legend
+columns, two-line wrapping, rows, clipping diagnostics and symbol placements.
+`viewer2d/legend_composition_adapter` resolves existing SVG/command references
+and bounds before composition. The focused GUI and PDF Legend renderers draw
+the resulting plan without a second layout algorithm. No persistent schema or
+transaction boundary changes. Oversized legacy symbols retain their size and
+origin alignment but are clipped to their planned slots.
+
+Legend plans use the existing bundled PerastageSans regular/bold metrics and
+`typography::Compose` for positioned glyphs. Both adapters compose with the same
+logical frame and font identities. The GUI draws the bundled glyph contours;
+PDF embeds those same fonts and writes selectable vector text. No platform font
+measurement, target-specific geometry profile or Legend typography compensation
+remains. Layout free-text compensation remains unchanged; Event Tables use the shared composition described below. Output
+paper scaling uniformly fits the original Legend plan after composition, so
+zoom, DPI and paper changes cannot change wrapping or distort symbols.
+
+Text cells and symbol slots have shared clipping rectangles. Source UTF-8 stays
+in the plan and persistent data. The supported repertoire is WinAnsi Latin;
+unsupported glyphs are omitted consistently on both targets and reported with
+bounded line/byte/UTF-8 diagnostics, including PDF dialog details. This does not
+claim full Unicode shaping. The per-Legend content hash includes the v2 font/
+composition identity; unrelated rasters remain reusable.
+
 ## Fixture label typography
 
 Core's GUI-independent `typography/` boundary owns the existing TrueType metrics
@@ -592,7 +635,43 @@ Version-2 `presentation` fields extend existing PSTG label overrides with an ind
 `__project_defaults__` entry participates in the same project history and is
 excluded from UUID normalization/pruning. Legacy keys remain a read-only adapter
 until a field is edited; existing line-spacing and Layout compensation constants
-remain intact. Layout free text, legends, tables, 3D labels and the old global PDF
+remain intact. Layout free text, tables, 3D labels and the old global PDF
 metrics compatibility API remain legacy consumers. The next integration is shared
 composition for Layout free text, with explicit migration and wrapping tests;
 this change does not claim preview/PDF parity for those paths.
+
+### Event Table composition
+
+`core/layouts/EventTableComposition` owns the stable seven-field labels/IDs,
+bundled-font point-space rows, columns, baselines, cell clips and single-line
+ellipsis policy. It retains original UTF-8 and bounds overflow/unsupported-glyph
+diagnostics; invalid font metrics produce a diagnosed empty text plan. The GUI
+`layout_event_table_renderer` draws glyph outlines through `document_text_renderer`;
+`viewer2d/pdf/layout_pdf_event_table_renderer` emits selectable embedded-font text
+and vector geometry. Both consume the same measured plan, then apply zoom or the
+`PageOutputMapping` top-left uniform output fit once. All five element kinds
+share the PDF coordinate-space adapter `layout_pdf_page_mapping`. Each table's
+cache identity includes the
+composition version, content and dimensions; position/selection do not affect its
+raster. Persisted arrays and LayoutManager mutation/history ownership are unchanged.
+
+
+### Layout page output mapping
+
+`core/layouts/PageOutputMapping` owns validated uniform, top-left page fitting.
+GUI print orchestration and text/image builders retain original document-point
+frames; image raster sizing alone uses the final output scale, bounded before
+integer conversion. `layout_image_export` owns wx image loading and existing
+white alpha flattening. Printing does not persist print settings as project edits. Temporary
+`ScopedViewer2DState` apply/restore calls preserve dirty revisions synchronously;
+no revision guard spans an asynchronous capture or suppresses unrelated edits.
+
+PDF element groups use `ScopedDocumentPageMapping` exactly once, including clips,
+borders, paths, text and nested symbol/image XObjects. PDF y reversal uses the
+output paper height; the CTM translation is `outH * (1 - scale)`. A separate
+untransformed page clip keeps authored content outside the source paper out of
+unused output space. `layout_pdf_text_renderer` retains legacy run metrics,
+alignment and italic skew in document points. B3.2 will address shared free-text
+typography; B3.1 introduces no parser, shaping or font changes. View capture,
+viewport state, stable cross-kind ordering and serialized Layout geometry remain
+owned by their existing modules.

@@ -2,6 +2,7 @@
 #include "mvr_symdef_preservation.h"
 #include "mvr_standard_preservation.h"
 #include "mvr_model_dependencies.h"
+#include "mvr_model_resource_closure.h"
 #include "matrixutils.h"
 #include "support/gdtf_test_fixture_builder.h"
 #include <tinyxml2.h>
@@ -49,6 +50,14 @@ int main() {
   assert(safe.preservationIssues.empty());
   assert(safe.symdefs.at(defId).name == "  Exact  ");
   assert(mvr::CheckMvrSymdefs(safe).empty());
+  // Wysiwyg may reuse the definition identity for every Symbol occurrence.
+  const auto reused = "<Symbol uuid='" + std::string(defId) + "' symdef='" + defId + "'/>";
+  const auto collided = Scan(dir, definition,
+      "<Truss uuid='" + std::string(nodeId) + "'><Geometries>" + reused +
+      "</Geometries></Truss><Truss uuid='b0000000-0000-4000-8000-000000000002'>"
+      "<Geometries>" + reused + "</Geometries></Truss>");
+  assert(collided.symdefs.contains(defId));
+  assert(collided.symdefs.at(defId).geometries.front().file == "geometry.glb");
   for (const auto &scene : {
       Scan(dir, "<Symdef><ChildList/></Symdef>"),
       Scan(dir, "<Symdef uuid='00000000-0000-0000-0000-000000000000'><ChildList/></Symdef>"),
@@ -127,6 +136,22 @@ int main() {
   const std::string gltf = R"({"asset":{"version":"2.0"},"buffers":[{"byteLength":4,"uri":"data:application/octet-stream;base64,AAAAAA=="}]})";
   std::ofstream(dir / "inline.gltf") << gltf;
   assert(mvr::SymdefResourceProblem(model, "inline.gltf").empty());
+  fs::create_directories(dir / "assets");
+  std::ofstream(dir / "assets" / "bytes value.bin", std::ios::binary) << "data";
+  std::ofstream(dir / "external.gltf")
+      << R"({"asset":{"version":"2.0"},"buffers":[{"byteLength":4,"uri":"assets/bytes%20value.bin"}]})";
+  const auto closure =
+      mvr::DiscoverModelResourceClosure(dir / "external.gltf", dir);
+  assert(closure.error.empty() && closure.files.size() == 2);
+  assert(mvr::SymdefResourceProblem(model, "external.gltf").empty());
+  fs::remove(dir / "assets" / "bytes value.bin");
+  assert(mvr::DiscoverModelResourceClosure(dir / "external.gltf", dir)
+             .missingResource);
+  std::ofstream(dir / "escape.gltf")
+      << R"({"asset":{"version":"2.0"},"buffers":[{"byteLength":4,"uri":"%2e%2e/escaped.bin"}]})";
+  const auto unsafe =
+      mvr::DiscoverModelResourceClosure(dir / "escape.gltf", dir);
+  assert(!unsafe.error.empty() && !unsafe.missingResource);
   std::ofstream(dir / "extensions.gltf") <<
       R"({"asset":{"version":"2.0"},"extensionsRequired":["KHR_draco_mesh_compression"]})";
   assert(!mvr::SymdefResourceProblem(model, "extensions.gltf").empty());

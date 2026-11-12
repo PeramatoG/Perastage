@@ -177,12 +177,10 @@ bool HasEquivalentRevision(const tinyxml2::XMLElement *fixtureType,
 
 // Records verified effective changes even when an earlier action has the same text.
 void AppendRevision(tinyxml2::XMLElement *fixtureType,
-                    tinyxml2::XMLDocument &doc,
-                    const std::string &text,
-                    const std::string &modifiedBy,
-                    int userId,
-                    const std::string &dateUtcIso8601,
-                    RevisionPolicy policy) {
+                    tinyxml2::XMLDocument &doc, const std::string &text,
+                    const std::string &modifiedBy, int userId,
+                    const std::string &dateUtcIso8601, RevisionPolicy policy,
+                    bool includeCurrentDate) {
   if (!fixtureType)
     return;
 
@@ -199,7 +197,8 @@ void AppendRevision(tinyxml2::XMLElement *fixtureType,
   tinyxml2::XMLElement *revision = doc.NewElement("Revision");
   const std::string timestamp =
       dateUtcIso8601.empty() ? BuildIsoTimestampUtcNow() : dateUtcIso8601;
-  revision->SetAttribute("Date", timestamp.c_str());
+  if (includeCurrentDate || !dateUtcIso8601.empty())
+    revision->SetAttribute("Date", timestamp.c_str());
   revision->SetAttribute("ModifiedBy", effectiveModifiedBy.c_str());
   revision->SetAttribute("Text", text.c_str());
   revision->SetAttribute("UserID", userId);

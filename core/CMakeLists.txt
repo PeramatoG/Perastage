@@ -3,6 +3,22 @@ target_include_directories(perastage_typography PUBLIC ${CMAKE_CURRENT_SOURCE_DI
 target_compile_features(perastage_typography PUBLIC cxx_std_20)
 target_link_libraries(${PROJECT_NAME} PRIVATE perastage_typography)
 
+add_library(perastage_project_archive_publication STATIC
+    project_archive_publication.h project_archive_publication.cpp)
+target_include_directories(perastage_project_archive_publication PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_features(perastage_project_archive_publication PUBLIC cxx_std_20)
+target_link_libraries(${PROJECT_NAME} PRIVATE perastage_project_archive_publication)
+
+add_library(perastage_legend_composition STATIC
+    layouts/PageOutputMapping.h layouts/EventTableComposition.h layouts/EventTableComposition.cpp
+    layouts/DocumentComposition.h layouts/LegendComposition.h
+    layouts/LegendComposition.cpp layouts/LegendContent.h layouts/LegendContent.cpp)
+target_include_directories(perastage_legend_composition PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/print)
+target_compile_features(perastage_legend_composition PUBLIC cxx_std_20)
+target_link_libraries(perastage_legend_composition PUBLIC perastage_typography)
+target_link_libraries(${PROJECT_NAME} PRIVATE perastage_legend_composition)
+
 add_library(perastage_mvr_core_support STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_visual_color.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_fixture_category.cpp
@@ -153,6 +169,8 @@ target_include_directories(perastage_command_core PUBLIC
 )
 
 add_library(perastage_command_transform STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/position_selection.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/units/units.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/command/command_transform.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/command/command_transform_apply.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/command/command_transform_batch.cpp
@@ -370,6 +388,7 @@ add_library(perastage_gdtf_read STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_power_reader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/gdtf_document.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_color_cie.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_channel_footprint.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_mode_channel_browser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_wheel_catalog.cpp
 )
@@ -657,3 +676,9 @@ target_link_libraries(perastage_gdtf_resolution_resources
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE
     perastage_gdtf_resolution perastage_gdtf_resolution_resources)
+
+add_library(perastage_dmx_patch STATIC patch/dmx_patch_snapshot.cpp)
+target_compile_features(perastage_dmx_patch PUBLIC cxx_std_20)
+target_include_directories(perastage_dmx_patch PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models)
+target_link_libraries(perastage_dmx_patch PUBLIC perastage_mvr_core_support perastage_gdtf_read)
+target_link_libraries(${PROJECT_NAME} PRIVATE perastage_dmx_patch)

@@ -1,4 +1,25 @@
 target_sources(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_dmx_patch.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/patch/dmx_patch_panel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/patch/dmx_patch_diagnostics.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/patch/dmx_patch_canvas.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/patch/dmx_patch_highlight.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/patch/dmx_patch_selection.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixturetable/fixture_table_highlight.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/patch/viewport_patch_workspace.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixturetablepanel_patch_diagnostics.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layout_image_export.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/layout_image_export.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layout_event_table_cache_policy.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/layout_event_table_renderer.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/layout_event_table_renderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/document_text_renderer.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/document_text_renderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layoutlegendrenderer.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/layoutlegendcachepolicy.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/layoutlegendrenderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/positiontoolpanel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_position_tool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_patch_workflow.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_editor_drag.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_editor.cpp
@@ -36,6 +57,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/editable_focus_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/fixture_gdtf_resolution.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/fixture_symbol_generation_tool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/services/fixture_symbol_preparation_notifications.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/services/fixture_symbol_preparation_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/services/fixture_symbol_processing_worker.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/fixture_geometry_bounds.cpp

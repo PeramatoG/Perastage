@@ -16,6 +16,7 @@
 #include "symbols/fixture_symbol_preparation_coordinator.h"
 #include "symbols/fixture_symbol_resource_revision.h"
 #include "services/fixture_symbol_processing_worker.h"
+#include "services/fixture_symbol_preparation_notifications.h"
 #include "tools/fixture_geometry_bounds.h"
 
 class MainWindow;
@@ -38,12 +39,15 @@ public:
   void CompleteManualFixture(const std::string &fixtureUuid, bool applied);
 
 private:
+  friend struct FixtureSymbolPreparationServiceTestAccess;
   enum class WorkStage { Capturing, Processing, Publishing, Finalizing };
 
   struct WorkContext {
     std::string fixtureUuid;
     std::string displayLabel;
     std::string sourceFingerprint;
+    std::string sourceSpec;
+    std::string sceneBasePath;
     symbol_cache::GdtfFileRevision sourceRevision;
     std::vector<symbols::RenderedSymbolImage> renders;
     std::vector<symbols::Symbol2D> processedSymbols;
@@ -51,23 +55,34 @@ private:
     WorkStage stage = WorkStage::Capturing;
     bool projectSymbolsUpdated = false;
     bool processingSubmitted = false;
+    std::uint64_t requestId = 0;
   };
 
   void ScanCurrentProject();
   void ScheduleNextStep();
   void OnIdle(wxIdleEvent &event);
   void RunNextStep();
+  void EnqueueRequest(const symbols::FixtureSymbolPreparationKey &key);
+  bool HasCurrentBinding(const symbols::FixtureSymbolPreparationKey &key,
+                         const WorkContext &work) const;
   void FailCurrent(const std::string &diagnostic);
   void UpdateStatus();
   std::string
-  FindFixtureUuid(const symbols::FixtureSymbolPreparationKey &key) const;
+  FindFixtureUuid(const symbols::FixtureSymbolPreparationKey &key);
   bool IsWorkIdentityCurrent(
       const symbols::FixtureSymbolPreparationKey &key,
       const WorkContext &work) const;
 
   MainWindow &window_;
   symbols::FixtureSymbolPreparationCoordinator coordinator_;
+  std::shared_ptr<FixtureSymbolPreparationNotifications> notifications_;
   FixtureSymbolProcessingWorker processingWorker_;
+  std::uint64_t nextRequestId_ = 0;
+  bool workerPending_ = false;
+  bool workerReady_ = false;
+  std::optional<FixtureSymbolProcessingResult> processingResult_;
+  std::unordered_map<symbols::FixtureSymbolPreparationKey, std::string,
+                     symbols::FixtureSymbolPreparationKeyHash> fixtureHints_;
   std::unordered_map<symbols::FixtureSymbolPreparationKey, WorkContext,
                      symbols::FixtureSymbolPreparationKeyHash>
       work_;
@@ -82,9 +97,11 @@ private:
   std::shared_ptr<int> lifetime_ = std::make_shared<int>(0);
   std::uint64_t epoch_ = 0;
   bool stepScheduled_ = false;
+  bool scanScheduled_ = false;
   wxString lastStatusText_;
   std::optional<symbols::FixtureSymbolPreparationKey> currentKey_;
   std::deque<std::string> scanFixtureUuids_;
+  std::unordered_map<std::string, std::string> scanPaths_;
   std::unordered_set<symbols::FixtureSymbolPreparationKey,
                      symbols::FixtureSymbolPreparationKeyHash>
       scanKeys_;

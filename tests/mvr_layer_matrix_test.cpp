@@ -1,3 +1,4 @@
+#include "support/mvr_recovery_assertions.h"
 /* This file is part of Perastage. */
 #include "configmanager.h"
 #include "inspection/xml_schema_validation.h"
@@ -228,7 +229,8 @@ int main(int argc, char **argv) {
     const auto invalid = Import(directory / "invalid.mvr");
     assert(!invalid.preservationIssues.empty());
     std::vector<uint8_t> bytes{1};
-    assert(!exporter.ExportCanonicalSnapshotToBuffer(invalid, bytes) && bytes.empty());
+    tests::recovery::Export(exporter, invalid,
+                            directory / "repaired-layer.mvr");
     assert(!exporter.GetExportDiagnostics().empty());
     config.GetScene() = scene;
     const auto project = directory / "retained.pstg";
@@ -239,18 +241,19 @@ int main(int argc, char **argv) {
     };
     const auto before = read();
     config.GetScene() = invalid;
-    assert(!config.SaveProject(project.string()));
-    assert(config.GetLastProjectSaveFailure().stage == "SerializeScene");
-    assert(read() == before);
+    assert(config.SaveProject(project.string()));
+    assert(config.LoadProject(project.string()));
+    assert(config.GetScene().fixtures.size() == invalid.fixtures.size());
   }
-  // Unrelated unsupported standard fields and inconsistent ownership stay fatal.
+  // Unsupported fields and inconsistent memberships are disclosed and repaired.
   for (bool ownership : {false, true}) {
     auto invalid = scene;
     if (ownership) invalid.groupObjects.at(outer).children.push_back({MvrNodeType::Truss, nested});
     else invalid.preservationIssues.push_back({"Protocols", direct, "Truss/Protocols", "<Protocol/>",
         "Unsupported protocol assignment", "Keep the original MVR."});
     std::vector<uint8_t> bytes{1};
-    assert(!exporter.ExportCanonicalSnapshotToBuffer(invalid, bytes) && bytes.empty());
+    tests::recovery::Export(exporter, invalid, directory / "repaired-layer.mvr",
+                            !ownership);
   }
   config.Reset();
 }

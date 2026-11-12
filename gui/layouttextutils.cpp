@@ -205,14 +205,9 @@ wxString SaveRichTextBufferToString(wxRichTextBuffer &buffer) {
 }
 
 LayoutTextExportData BuildLayoutTextExportData(
-    const layouts::LayoutTextDefinition &text, double scaleX, double scaleY) {
+    const layouts::LayoutTextDefinition &text) {
   LayoutTextExportData data;
-  layouts::Layout2DViewFrame frame = text.frame;
-  frame.x = static_cast<int>(std::lround(frame.x * scaleX));
-  frame.y = static_cast<int>(std::lround(frame.y * scaleY));
-  frame.width = static_cast<int>(std::lround(frame.width * scaleX));
-  frame.height = static_cast<int>(std::lround(frame.height * scaleY));
-  data.frame = frame;
+  data.frame = text.frame;
   data.zIndex = text.zIndex;
   data.solidBackground = text.solidBackground;
   data.drawFrame = text.drawFrame;
@@ -373,7 +368,7 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   dc.SetTextForeground(wxColour(0, 0, 0));
 
   const LayoutTextExportData data =
-      BuildLayoutTextExportData(text, 1.0, 1.0);
+      BuildLayoutTextExportData(text);
   wxString faceName = layoutviewerpanel::detail::ResolveSharedFontFaceName();
 
   const int padding = 4;

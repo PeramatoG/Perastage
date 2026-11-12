@@ -27,6 +27,7 @@
 #include "meshprimitives.h"
 #include "consolepanel.h"
 #include "logger.h"
+#include "gdtf/gdtf_channel_footprint.h"
 
 #include <cctype>
 #include <cerrno>
@@ -698,83 +699,6 @@ static void ParseModes(tinyxml2::XMLElement* ft,
         return;
     tinyxml2::XMLElement* geometriesNode = ft->FirstChildElement("Geometries");
 
-    auto parseIntAttribute = [](tinyxml2::XMLElement* element,
-                                const char* attributeName,
-                                int fallback) {
-        if (!element || !attributeName)
-            return fallback;
-        int parsed = fallback;
-        const char* raw = element->Attribute(attributeName);
-        if (!raw)
-            return fallback;
-        if (!TryParseInt(raw, parsed))
-            return fallback;
-        return parsed;
-    };
-    auto collectGeometryReferenceOffsets =
-        [&](const std::string& modeRootGeometryName) {
-            std::unordered_map<std::string, std::vector<int>> offsetsByGeometry;
-            if (!geometriesNode || modeRootGeometryName.empty())
-                return offsetsByGeometry;
-
-            auto findGeometryByName =
-                [&](auto&& self, tinyxml2::XMLElement* node,
-                    const std::string& wantedName) -> tinyxml2::XMLElement* {
-                    if (!node)
-                        return nullptr;
-                    const char* name = node->Attribute("Name");
-                    if (name && wantedName == name)
-                        return node;
-                    for (tinyxml2::XMLElement* child = node->FirstChildElement();
-                         child; child = child->NextSiblingElement()) {
-                        if (tinyxml2::XMLElement* found = self(self, child, wantedName))
-                            return found;
-                    }
-                    return nullptr;
-                };
-
-            tinyxml2::XMLElement* modeRootGeometry = nullptr;
-            for (tinyxml2::XMLElement* geometry = geometriesNode->FirstChildElement();
-                 geometry && !modeRootGeometry;
-                 geometry = geometry->NextSiblingElement()) {
-                modeRootGeometry = findGeometryByName(findGeometryByName, geometry,
-                                                      modeRootGeometryName);
-            }
-            if (!modeRootGeometry)
-                return offsetsByGeometry;
-
-            auto walkGeometry =
-                [&](auto&& self, tinyxml2::XMLElement* node) -> void {
-                    if (!node)
-                        return;
-
-                    if (std::string(node->Name()) == "GeometryReference") {
-                        const char* referencedGeometry = node->Attribute("Geometry");
-                        if (referencedGeometry && *referencedGeometry) {
-                            std::vector<int>& shifts =
-                                offsetsByGeometry[referencedGeometry];
-                            bool hadBreak = false;
-                            for (tinyxml2::XMLElement* br = node->FirstChildElement("Break");
-                                 br; br = br->NextSiblingElement("Break")) {
-                                hadBreak = true;
-                                int dmxOffset = parseIntAttribute(br, "DMXOffset", 1);
-                                shifts.push_back(std::max(0, dmxOffset - 1));
-                            }
-                            if (!hadBreak)
-                                shifts.push_back(0);
-                        }
-                    }
-
-                    for (tinyxml2::XMLElement* child = node->FirstChildElement();
-                         child; child = child->NextSiblingElement()) {
-                        self(self, child);
-                    }
-                };
-
-            walkGeometry(walkGeometry, modeRootGeometry);
-            return offsetsByGeometry;
-        };
-
     for (tinyxml2::XMLElement* m = modesNode->FirstChildElement("DMXMode");
          m; m = m->NextSiblingElement("DMXMode"))
     {
@@ -782,65 +706,14 @@ static void ParseModes(tinyxml2::XMLElement* ft,
         if (!name)
             continue;
         modes.push_back(name);
-        const std::string modeRootGeometryName =
-            m->Attribute("Geometry") ? m->Attribute("Geometry") : "";
-        const std::unordered_map<std::string, std::vector<int>> geometryOffsetShifts =
-            collectGeometryReferenceOffsets(modeRootGeometryName);
-
+        const auto footprint = gdtf::ResolveGdtfModeFootprint(geometriesNode, m);
+        for (const auto& diagnostic : footprint.diagnostics)
+            Logger::Instance().Log(Logger::Level::Warn, "GDTF: " + diagnostic);
         std::vector<GdtfChannelInfo> channelsVec;
-        int footprint = 0;
         if (tinyxml2::XMLElement* channels = m->FirstChildElement("DMXChannels")) {
             auto trim = [](std::string& value) {
                 value.erase(0, value.find_first_not_of(" \t\r\n"));
                 value.erase(value.find_last_not_of(" \t\r\n") + 1);
-            };
-            auto parseOffsets = [&](const char* rawOffset) {
-                std::vector<int> parsedOffsets;
-                if (!rawOffset)
-                    return parsedOffsets;
-                std::string offStr = rawOffset;
-                trim(offStr);
-                if (offStr.empty())
-                    return parsedOffsets;
-                auto toLower = [](std::string value) {
-                    std::transform(value.begin(), value.end(), value.begin(),
-                                   [](unsigned char ch) {
-                                       return static_cast<char>(std::tolower(ch));
-                                   });
-                    return value;
-                };
-                const std::string offStrLower = toLower(offStr);
-                if (offStrLower == "none")
-                    return parsedOffsets;
-                for (char& ch : offStr) {
-                    if (ch == ';' || ch == '|' || ch == '/')
-                        ch = ',';
-                }
-                std::stringstream ss(offStr);
-                std::string group;
-                while (std::getline(ss, group, ',')) {
-                    trim(group);
-                    if (group.empty() || toLower(group) == "none")
-                        continue;
-
-                    std::stringstream groupStream(group);
-                    std::string token;
-                    while (groupStream >> token) {
-                        trim(token);
-                        if (token.empty() || toLower(token) == "none")
-                            continue;
-                        int parsed = 0;
-                        if (TryParseInt(token, parsed)) {
-                            parsedOffsets.push_back(parsed);
-                        } else if (ConsolePanel::Instance()) {
-                            wxString msg = wxString::Format(
-                                "GDTF: invalid DMX channel offset '%s'",
-                                wxString::FromUTF8(token));
-                            ConsolePanel::Instance()->AppendMessage(msg);
-                        }
-                    }
-                }
-                return parsedOffsets;
             };
             auto extractFunctionName = [](tinyxml2::XMLElement* dmxChannel) {
                 if (!dmxChannel)
@@ -1036,52 +909,30 @@ static void ParseModes(tinyxml2::XMLElement* ft,
                 return wxString::Format(" (byte %zu)", byteIndex + 1).ToStdString();
             };
 
+            size_t sourceIndex = 0;
             for (tinyxml2::XMLElement* c = channels->FirstChildElement("DMXChannel");
-                 c; c = c->NextSiblingElement("DMXChannel"))
+                 c; c = c->NextSiblingElement("DMXChannel"), ++sourceIndex)
             {
-                const std::vector<int> offsets = parseOffsets(c->Attribute("Offset"));
+                const auto& addresses = footprint.channels[sourceIndex];
                 const std::string baseFunction = buildFunctionSummary(c);
-                const std::string geometryName =
-                    c->Attribute("Geometry") ? c->Attribute("Geometry") : "";
-
-                auto emitChannelByte = [&](int channelNumber, size_t byteIndex) {
-                    if (channelNumber <= 0)
-                        return;
+                if (addresses.virtualChannel) {
                     GdtfChannelInfo info;
-                    info.channel = channelNumber;
                     info.function = baseFunction;
-                    if (!info.function.empty() && byteIndex > 0)
-                        info.function += suffixForByte(byteIndex);
+                    info.isVirtual = true;
                     channelsVec.push_back(std::move(info));
-                    if (channelNumber > footprint)
-                        footprint = channelNumber;
-                };
-
-                if (!offsets.empty()) {
-                    bool expandedWithGeometryReference = false;
-                    auto geometryShiftIt = geometryOffsetShifts.find(geometryName);
-                    if (!geometryName.empty() &&
-                        geometryShiftIt != geometryOffsetShifts.end() &&
-                        !geometryShiftIt->second.empty()) {
-                        expandedWithGeometryReference = true;
-                        for (int shift : geometryShiftIt->second) {
-                            for (size_t i = 0; i < offsets.size(); ++i)
-                                emitChannelByte(offsets[i] + shift, i);
-                        }
-                    }
-
-                    if (!expandedWithGeometryReference) {
-                        for (size_t i = 0; i < offsets.size(); ++i)
-                            emitChannelByte(offsets[i], i);
-                    }
                     continue;
                 }
-
-                GdtfChannelInfo info;
-                info.channel = 0;
-                info.function = baseFunction;
-                info.isVirtual = true;
-                channelsVec.push_back(std::move(info));
+                for (const auto& instance : addresses.instances) {
+                    for (size_t byte = 0; byte < instance.offsets.size(); ++byte) {
+                        GdtfChannelInfo info;
+                        info.channel = instance.offsets[byte];
+                        info.dmxBreak = instance.dmxBreak;
+                        info.function = baseFunction;
+                        if (!info.function.empty() && byte > 0)
+                            info.function += suffixForByte(byte);
+                        channelsVec.push_back(std::move(info));
+                    }
+                }
             }
         }
 
@@ -1089,11 +940,13 @@ static void ParseModes(tinyxml2::XMLElement* ft,
                          [](const GdtfChannelInfo& lhs, const GdtfChannelInfo& rhs) {
                              if (lhs.isVirtual != rhs.isVirtual)
                                  return !lhs.isVirtual;
+                             if (lhs.dmxBreak != rhs.dmxBreak)
+                                 return lhs.dmxBreak < rhs.dmxBreak;
                              return lhs.channel < rhs.channel;
                          });
 
         modeChannels.emplace(name, std::move(channelsVec));
-        modeChannelCounts[name] = footprint;
+        modeChannelCounts[name] = footprint.PrimaryFootprint();
     }
 }
 
