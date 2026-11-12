@@ -7,10 +7,11 @@
 class ConfigManager;
 class wxComboBox;
 class wxStaticText;
+class wxBitmapButton;
 class DmxPatchCanvas;
 class DmxPatchPanel : public wxPanel {
 public:
-  DmxPatchPanel(wxWindow *parent, ConfigManager &config, std::function<void()> close);
+  DmxPatchPanel(wxWindow *parent, ConfigManager &config);
   ~DmxPatchPanel() override;
   void RefreshSnapshot();
 private:
@@ -20,6 +21,7 @@ private:
     std::shared_ptr<const gdtf::GdtfModeChannelDocument> document;
   };
   void QueueRefresh();
+  void ShowDiagnostics();
   void DisplayUniverse();
   std::shared_ptr<const gdtf::GdtfModeChannelDocument> Resolve(const Fixture &fixture);
   ConfigManager &config_;
@@ -33,4 +35,6 @@ private:
   wxComboBox *universeControl_;
   wxStaticText *status_;
   DmxPatchCanvas *canvas_;
+  wxBitmapButton *warnings_;
+  std::shared_ptr<const dmx_patch::Snapshot> snapshot_;
 };

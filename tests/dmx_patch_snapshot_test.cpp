@@ -102,6 +102,26 @@ int main() {
   assert(BuildSnapshot(scene, 1, resolve).occupied == 0);
   assert(ReadAddress("18000000000.512")->universe == 18000000000ULL);
   assert(ReadAddress("400")->channel == 400 && !ReadAddress("1.513"));
+  // Orphan Overwrite and a genuinely unassigned secondary break cannot be
+  // interpreted as primary bytes. Keep their declared offsets in diagnostics.
+  a.dmxAddresses.reset(); a.address = "1.273";
+  std::string inconsistent = Channel("1,2", "Tilt") + Channel("3", "Dimmer") +
+      Channel("4", "Duration") + Channel("5", "Rate") + Channel("7", "Control") +
+      Channel("8", "PlateDimmer", 2) + Channel("12", "Red") + Channel("13", "Green") + Channel("14", "Blue");
+  for (const auto offset : {6, 9, 10, 11}) {
+    auto orphan = Channel(std::to_string(offset), "Shutter");
+    orphan.replace(orphan.find("DMXBreak='1'"), 12, "DMXBreak='Overwrite'");
+    inconsistent += orphan;
+  }
+  document = Document(inconsistent);
+  const auto incomplete = BuildSnapshot(scene, 1, resolve);
+  assert(incomplete.occupied == 9 && incomplete.diagnostics.size() == 5);
+  const auto declared = std::find_if(incomplete.diagnostics.begin(), incomplete.diagnostics.end(),
+      [](const auto &issue) { return issue.source && issue.source->offsets == "6"; });
+  assert(declared != incomplete.diagnostics.end() && declared->source->breakId == "Overwrite");
+  assert(declared->issue == Issue::UnresolvedChannel);
+  assert(incomplete.cells[277].occupants.empty() && incomplete.cells[279].occupants.empty());
+  assert(a.address == "1.273" && !a.dmxAddresses);
   // The shared footprint corpus covers GeometryReference breaks, sparse bytes,
   // virtual channels, invalid offsets and partially resolvable geometries.
   for (const auto &test : tests::gdtf::FootprintCases()) {

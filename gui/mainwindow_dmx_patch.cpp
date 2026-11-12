@@ -6,9 +6,7 @@
 #include "patch/viewport_patch_workspace.h"
 #include <algorithm>
 
-void MainWindow::InitializeDmxPatch() {
-  Bind(wxEVT_MENU, [this](wxCommandEvent &) { ToggleDmxPatch(); }, ID_View_ToggleDmxPatch);
-}
+void MainWindow::OnToggleDmxPatch(wxCommandEvent &) { ToggleDmxPatch(); }
 void MainWindow::SaveDmxPatchPreference(const std::string &key, const std::string &value) {
   auto &config = guiConfigServices->LegacyConfigManager();
   const auto dirty = config.CaptureDirtyState();
@@ -16,12 +14,8 @@ void MainWindow::SaveDmxPatchPreference(const std::string &key, const std::strin
   config.RestoreDirtyState(dirty);
 }
 ViewportPatchWorkspace *MainWindow::CreateDmxViewportWorkspace() {
-  auto *workspace = new ViewportPatchWorkspace(this);
-  workspace->Bind(wxEVT_SPLITTER_SASH_POS_CHANGED, [this, workspace](wxSplitterEvent &e) {
-    if (workspace->IsSplit())
-      SaveDmxPatchPreference("ui_dmx_patch_height", std::to_string(ToDIP(workspace->PatchHeight())));
-    e.Skip();
-  });
+  auto *workspace = new ViewportPatchWorkspace(this, [this] { ToggleDmxPatch(); },
+      [this](int height) { SaveDmxPatchPreference("ui_dmx_patch_height", std::to_string(ToDIP(height))); });
   return workspace;
 }
 void MainWindow::ToggleDmxPatch() {
@@ -56,7 +50,7 @@ void MainWindow::SyncDmxPatchWorkspace() {
     return;
   }
   if (!dmxPatchPanel)
-    dmxPatchPanel = new DmxPatchPanel(this, guiConfigServices->LegacyConfigManager(), [this] { ToggleDmxPatch(); });
+    dmxPatchPanel = new DmxPatchPanel(this, guiConfigServices->LegacyConfigManager());
   long height = 240;
   const auto stored = guiConfigServices->Preferences().GetValue("ui_dmx_patch_height");
   if (stored) wxString::FromUTF8(*stored).ToLong(&height);

@@ -460,7 +460,6 @@ void MainWindow::SetupLayout() {
                           .Hide());
 
   CreatePositionTool();
-  InitializeDmxPatch();
   gui::InitializeNativeGuiBackgrounds(*this);
 
   // Apply all changes to layout

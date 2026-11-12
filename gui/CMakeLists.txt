@@ -1,6 +1,7 @@
 target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_dmx_patch.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/patch/dmx_patch_panel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/patch/dmx_patch_diagnostics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/patch/dmx_patch_canvas.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/patch/viewport_patch_workspace.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixturetablepanel_patch_diagnostics.cpp

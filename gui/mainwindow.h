@@ -163,7 +163,7 @@ private:
   DmxPatchPanel *dmxPatchPanel = nullptr;
   ViewportPatchWorkspace *viewport2DWorkspace = nullptr;
   ViewportPatchWorkspace *viewport3DWorkspace = nullptr;
-  void InitializeDmxPatch();
+  void OnToggleDmxPatch(wxCommandEvent &event);
   void ToggleDmxPatch();
   void SyncDmxPatchWorkspace();
   void SaveDmxPatchPreference(const std::string &key, const std::string &value);

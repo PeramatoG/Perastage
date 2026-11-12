@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-09 17:17+0000\n"
+"POT-Creation-Date: 2026-11-09 18:23+0000\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -127,7 +127,7 @@ msgid "Edit Address"
 msgstr "Editar dirección"
 
 #: gui/addressdialog.cpp:27 gui/fixturepatchdialog.cpp:39
-#: gui/patch/dmx_patch_panel.cpp:36
+#: gui/patch/dmx_patch_panel.cpp:25
 msgid "Universe:"
 msgstr "Universo:"
 
@@ -1770,6 +1770,7 @@ msgid "Manufacturer"
 msgstr "Fabricante"
 
 #: gui/gdtf_catalog_details_panel.cpp:23 gui/gdtfsearchdialog.cpp:93
+#: gui/patch/dmx_patch_diagnostics.cpp:37
 msgid "Fixture"
 msgstr "Aparato"
 
@@ -1885,7 +1886,7 @@ msgstr "Estado"
 msgid "Progress"
 msgstr "Progreso"
 
-#: gui/gdtf_download_queue_table.cpp:53
+#: gui/gdtf_download_queue_table.cpp:53 gui/patch/dmx_patch_diagnostics.cpp:39
 #: gui/rider_fixture_resolution_dialog.cpp:115
 msgid "Details"
 msgstr "Detalles"
@@ -3128,65 +3129,65 @@ msgstr "Archivo de inicio no compatible. Use archivos %s o .mvr."
 msgid "Unsupported file"
 msgstr "Archivo no compatible"
 
-#: gui/mainwindow.cpp:686
+#: gui/mainwindow.cpp:687
 #, c-format
 msgid "Do you want to save changes before %s?"
 msgstr "¿Desea guardar los cambios antes de %s?"
 
-#: gui/mainwindow.cpp:760
+#: gui/mainwindow.cpp:761
 #, c-format
 msgid "Please wait until the startup project loading finishes before %s."
 msgstr "Espere a que termine la carga del proyecto inicial antes de %s."
 
-#: gui/mainwindow.cpp:762
+#: gui/mainwindow.cpp:763
 msgid "Perastage is still loading"
 msgstr "Perastage aún está cargando"
 
-#: gui/mainwindow.cpp:792
+#: gui/mainwindow.cpp:793
 msgid "Project loading"
 msgstr "Carga del proyecto"
 
-#: gui/mainwindow.cpp:819 gui/mainwindow.cpp:1040
+#: gui/mainwindow.cpp:820 gui/mainwindow.cpp:1041
 msgid "Loading project file..."
 msgstr "Cargando archivo de proyecto..."
 
-#: gui/mainwindow.cpp:876
+#: gui/mainwindow.cpp:877
 msgid "Building scene..."
 msgstr "Construyendo la escena..."
 
-#: gui/mainwindow.cpp:884
+#: gui/mainwindow.cpp:885
 msgid "Applying saved layout..."
 msgstr "Aplicando el layout guardado..."
 
-#: gui/mainwindow.cpp:912
+#: gui/mainwindow.cpp:913
 msgid "Reloading fixture/truss/support tables..."
 msgstr "Recargando las tablas de aparatos, trusses y soportes..."
 
-#: gui/mainwindow.cpp:938
+#: gui/mainwindow.cpp:939
 msgid "Updating 3D viewport..."
 msgstr "Actualizando visor 3D..."
 
-#: gui/mainwindow.cpp:952
+#: gui/mainwindow.cpp:953
 msgid "Updating 2D viewport..."
 msgstr "Actualizando visor 2D..."
 
-#: gui/mainwindow.cpp:970 gui/mainwindow.cpp:1659
+#: gui/mainwindow.cpp:971 gui/mainwindow.cpp:1660
 msgid "Refreshing panels..."
 msgstr "Actualizando paneles..."
 
-#: gui/mainwindow.cpp:972
+#: gui/mainwindow.cpp:973
 msgid "Refreshing rigging..."
 msgstr "Actualizando rigging..."
 
-#: gui/mainwindow.cpp:980
+#: gui/mainwindow.cpp:981
 msgid "Updating window title..."
 msgstr "Actualizando el título de la ventana..."
 
-#: gui/mainwindow.cpp:996
+#: gui/mainwindow.cpp:997
 msgid "Finalizing project load..."
 msgstr "Finalizando la carga del proyecto..."
 
-#: gui/mainwindow.cpp:1617
+#: gui/mainwindow.cpp:1618
 msgid "Loading tables..."
 msgstr "Cargando tablas..."
 
@@ -3324,7 +3325,7 @@ msgid "Choose two points on the truss line, or press Esc to cancel."
 msgstr ""
 "Elija dos puntos en la línea de la armadura o presione Esc para cancelar."
 
-#: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:484
+#: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:483
 #: gui/mainwindow_startup_splash.cpp:123
 #: gui/services/fixture_symbol_preparation_service.cpp:509
 #: gui/viewer_load_status.cpp:26
@@ -3613,22 +3614,22 @@ msgstr "Visor de diseño"
 msgid "Rigging"
 msgstr "Rigging"
 
-#: gui/mainwindow_layout.cpp:485
+#: gui/mainwindow_layout.cpp:484
 msgid "X: -- m  Y: -- m  Z: -- m"
 msgstr "X: -- m Y: -- m Z: -- m"
 
-#: gui/mainwindow_layout.cpp:487
+#: gui/mainwindow_layout.cpp:486
 #, c-format
 msgid "Version %s"
 msgstr "Versión %s"
 
-#: gui/mainwindow_layout.cpp:1150
+#: gui/mainwindow_layout.cpp:1149
 msgid "Layout view update skipped: target view not found."
 msgstr ""
 "Se omitió la actualización de la vista de diseño: no se encontró la vista de "
 "destino."
 
-#: gui/mainwindow_layout.cpp:1180
+#: gui/mainwindow_layout.cpp:1179
 msgid "Layout view update failed."
 msgstr "Error al actualizar la vista de diseño."
 
@@ -4185,8 +4186,8 @@ msgstr "Vista del modo layout"
 msgid "Position Tool"
 msgstr "Herramienta de posición"
 
-#: gui/mainwindow_menu_builders.cpp:80 gui/patch/dmx_patch_panel.cpp:32
-#: gui/patch/dmx_patch_panel.cpp:35 gui/patch/dmx_patch_panel.cpp:44
+#: gui/mainwindow_menu_builders.cpp:80 gui/patch/dmx_patch_panel.cpp:22
+#: gui/patch/dmx_patch_panel.cpp:30 gui/patch/viewport_patch_workspace.cpp:30
 msgid "DMX Patch"
 msgstr "DMX Patch"
 
@@ -5053,7 +5054,7 @@ msgstr "Publicar actual MVR"
 msgid "Request Selected MVR"
 msgstr "Solicitud seleccionada MVR"
 
-#: gui/mvrxchange/mvr_xchange_dialog.cpp:210 gui/patch/dmx_patch_panel.cpp:46
+#: gui/mvrxchange/mvr_xchange_dialog.cpp:210
 msgid "Close"
 msgstr "Cerca"
 
@@ -5066,92 +5067,113 @@ msgstr "Corriendo"
 msgid "%zu discovered, %zu incoming joined, %zu outgoing joined"
 msgstr "%zu descubierto, %zu entrante unido, %zu saliente unido"
 
-#: gui/patch/dmx_patch_canvas.cpp:85
+#: gui/patch/dmx_patch_canvas.cpp:99
 msgid " Fine"
 msgstr " fino"
 
-#: gui/patch/dmx_patch_canvas.cpp:86
+#: gui/patch/dmx_patch_canvas.cpp:100
 #, c-format
 msgid " Byte %d"
 msgstr " byte %d"
 
-#: gui/patch/dmx_patch_canvas.cpp:122
+#: gui/patch/dmx_patch_canvas.cpp:131
 #, c-format
-msgid "Universe %s · Channel %d"
-msgstr "Universo %s · Canal %d"
+msgid "Universe %s | Channel %d"
+msgstr "Universo %s | Canal %d"
 
-#: gui/patch/dmx_patch_canvas.cpp:124
+#: gui/patch/dmx_patch_canvas.cpp:133 gui/patch/dmx_patch_diagnostics.cpp:73
 msgid "Overlapping fixtures"
 msgstr "Aparatos solapados"
 
-#: gui/patch/dmx_patch_canvas.cpp:127
+#: gui/patch/dmx_patch_canvas.cpp:136
 #, c-format
 msgid ""
 "\n"
-"%s — %s\n"
+"%s - %s\n"
 "UUID: %s\n"
-"GDTF break %d / MVR break %d · Offset %d · Byte %d\n"
+"GDTF break %d / MVR break %d | Offset %d | Byte %d\n"
 "Attribute: %s\n"
 "Functions: %s"
-msgstr "\n%s — %s\nUUID: %s\nBreak GDTF %d / break MVR %d · Offset %d · Byte %d\nAtributo: %s\nFunciones: %s"
+msgstr "\n%s - %s\nUUID: %s\nBreak GDTF %d / break MVR %d | Offset %d | Byte %d\nAtributo: %s\nFunciones: %s"
 
-#: gui/patch/dmx_patch_canvas.cpp:130
+#: gui/patch/dmx_patch_canvas.cpp:139
 #, c-format
 msgid "Fixture purpose: %s"
 msgstr "Función del aparato: %s"
 
-#: gui/patch/dmx_patch_panel.cpp:20
+#: gui/patch/dmx_patch_diagnostics.cpp:14
 msgid "Missing patch assignment"
 msgstr "Falta la asignación de patch"
 
-#: gui/patch/dmx_patch_panel.cpp:21
+#: gui/patch/dmx_patch_diagnostics.cpp:15
 msgid "Invalid or unsupported DMX address"
 msgstr "Dirección DMX inválida o no compatible"
 
-#: gui/patch/dmx_patch_panel.cpp:22
+#: gui/patch/dmx_patch_diagnostics.cpp:16
 msgid "Invalid or ambiguous DMX break"
 msgstr "Break DMX inválido o ambiguo"
 
-#: gui/patch/dmx_patch_panel.cpp:23
+#: gui/patch/dmx_patch_diagnostics.cpp:17
 msgid "GDTF definition or DMX mode unavailable"
 msgstr "Definición GDTF o modo DMX no disponible"
 
-#: gui/patch/dmx_patch_panel.cpp:24
+#: gui/patch/dmx_patch_diagnostics.cpp:18
 msgid "Physical channel or geometry reference unresolved"
 msgstr "Canal físico o referencia de geometría sin resolver"
 
-#: gui/patch/dmx_patch_panel.cpp:25
-msgid "Physical channels exceed 512; no automatic span is displayed"
-msgstr "Los canales físicos superan 512; no se muestra una extensión automática"
+#: gui/patch/dmx_patch_diagnostics.cpp:19
+msgid "Physical channels exceed 512; excess channels are not displayed"
+msgstr "Los canales físicos superan 512; los canales sobrantes no se representan"
 
-#: gui/patch/dmx_patch_panel.cpp:38
+#: gui/patch/dmx_patch_diagnostics.cpp:33
+#: gui/patch/dmx_patch_diagnostics.cpp:35 gui/patch/dmx_patch_panel.cpp:35
+msgid "Patch diagnostics"
+msgstr "Diagnósticos del patch"
+
+#: gui/patch/dmx_patch_diagnostics.cpp:38
+msgid "Warning"
+msgstr "Aviso"
+
+#: gui/patch/dmx_patch_diagnostics.cpp:51
+#, c-format
+msgid "Offsets: %s | GDTF break: %s | Geometry: %s"
+msgstr "Offsets: %s | Break GDTF: %s | Geometría: %s"
+
+#: gui/patch/dmx_patch_diagnostics.cpp:54
+#, c-format
+msgid "MVR break %s has no start address"
+msgstr "El break MVR %s no tiene dirección inicial"
+
+#: gui/patch/dmx_patch_diagnostics.cpp:71
+#, c-format
+msgid "Universe %s, channels %d-%d"
+msgstr "Universo %s, canales %d-%d"
+
+#: gui/patch/dmx_patch_panel.cpp:27
 msgid "DMX universe"
 msgstr "Universo DMX"
 
-#: gui/patch/dmx_patch_panel.cpp:39 gui/patch/dmx_patch_panel.cpp:76
+#: gui/patch/dmx_patch_panel.cpp:28 gui/patch/dmx_patch_panel.cpp:66
 msgid "Choose a patched universe or enter any positive universe number."
 msgstr "Elige un universo con patch o introduce un número de universo positivo."
 
-#: gui/patch/dmx_patch_panel.cpp:42
-msgid "16 columns"
-msgstr "16 columnas"
+#: gui/patch/dmx_patch_panel.cpp:36
+msgid "Show patch diagnostics"
+msgstr "Mostrar diagnósticos del patch"
 
-#: gui/patch/dmx_patch_panel.cpp:42
-msgid "32 columns"
-msgstr "32 columnas"
-
-#: gui/patch/dmx_patch_panel.cpp:72
+#: gui/patch/dmx_patch_panel.cpp:62
 msgid "Enter a positive universe number."
 msgstr "Introduce un número de universo positivo."
 
-#: gui/patch/dmx_patch_panel.cpp:121
+#: gui/patch/dmx_patch_panel.cpp:111
 #, c-format
-msgid "Occupied: %d/512 · Conflicts: %d · Warnings: %d"
-msgstr "Ocupados: %d/512 · Conflictos: %d · Avisos: %d"
+msgid "Occupied: %d/512 | Conflicts: %d"
+msgstr "Ocupados: %d/512 | Conflictos: %d"
 
-#: gui/patch/dmx_patch_panel.cpp:131
-msgid "Additional diagnostics omitted."
-msgstr "Se han omitido más diagnósticos."
+#: gui/patch/dmx_patch_panel.cpp:114
+#, c-format
+msgid "Show patch diagnostics (%d)"
+msgstr "Mostrar diagnósticos del patch (%d)"
 
 #
 #: gui/positiontoolpanel.cpp:41 gui/positiontoolpanel.cpp:149
@@ -6512,6 +6534,15 @@ msgstr "Estilo de renderizado"
 #: viewer3d/viewer3dpanel.cpp:2288
 msgid "Export image..."
 msgstr "Exportar imagen..."
+
+#~ msgid "16 columns"
+#~ msgstr "16 columnas"
+
+#~ msgid "32 columns"
+#~ msgstr "32 columnas"
+
+#~ msgid "Additional diagnostics omitted."
+#~ msgstr "Se han omitido más diagnósticos."
 
 #~ msgid "Select group…"
 #~ msgstr "Seleccionar grupo…"

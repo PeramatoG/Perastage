@@ -6,6 +6,9 @@
 #include <wx/aui/aui.h>
 #include <wx/dcscreen.h>
 #include <wx/dcmemory.h>
+#include <wx/bmpbuttn.h>
+#include <wx/popupwin.h>
+#include <wx/listctrl.h>
 #include "configmanager.h"
 #include "platform_locale.h"
 #include "mainwindow.h"
@@ -115,7 +118,7 @@ public:
       case 1: {
         patch_ = FindPatch(*frame_); Require(patch_ && patch_->IsShownOnScreen(), "Patch not visible");
         auto *workspace = dynamic_cast<ViewportPatchWorkspace *>(patch_->GetParent());
-        Require(workspace && workspace->IsSplit(), "No local splitter");
+        Require(workspace && workspace->HasPatch(), "No local patch pane");
         Require(patch_->GetSize().x == workspace->GetSize().x && patch_->GetSize().x < frame_->GetSize().x, "Patch spans other columns");
         Require(patch_->GetSize().y >= frame_->FromDIP(100), "Patch height impractical");
         bool hasStatus = false;
@@ -125,15 +128,31 @@ public:
             std::cout << "Patch status: " << text->GetLabel() << " size=" << text->GetSize().x << ',' << text->GetSize().y << std::endl;
           }
         Require(hasStatus, "Occupied channel status is missing or clipped");
-        workspace->SetSashPosition(-frame_->FromDIP(180));
-        wxSplitterEvent changed(wxEVT_SPLITTER_SASH_POS_CHANGED, workspace);
-        workspace->GetEventHandler()->ProcessEvent(changed);
+        workspace->SetPatchHeight(frame_->FromDIP(180));
+        wxYield();
         Require(!cfg.IsDirty(), "Viewing/resizing patch dirtied project");
         Require(cfg.SaveUserConfig(), "Patch preferences save failed");
         UserPreferencesStore restored;
         Require(restored.LoadUserConfig() && restored.GetValue("ui_dmx_patch_visible") == "1" &&
             restored.GetValue("ui_dmx_patch_height") == cfg.GetValue("ui_dmx_patch_height"), "Patch preferences did not round-trip");
-        Capture("dmx-patch-2d.png"); Menu(ID_View_Layout_Default); break;
+        Capture("dmx-patch-2d.png");
+        wxBitmapButton *warnings = nullptr;
+        for (auto *child : patch_->GetChildren())
+          if (auto *button = dynamic_cast<wxBitmapButton *>(child)) warnings = button;
+        Require(warnings && warnings->IsEnabled(), "Conflict diagnostics button unavailable");
+        wxCommandEvent showWarnings(wxEVT_BUTTON, warnings->GetId());
+        warnings->GetEventHandler()->ProcessEvent(showWarnings); wxYield();
+        wxPopupTransientWindow *popup = nullptr;
+        for (auto *child : patch_->GetChildren())
+          if (auto *candidate = dynamic_cast<wxPopupTransientWindow *>(child)) popup = candidate;
+        Require(popup && popup->IsShownOnScreen(), "Diagnostics dropdown did not open");
+        wxListView *list = nullptr;
+        for (auto *child : popup->GetChildren())
+          if (auto *candidate = dynamic_cast<wxListView *>(child)) list = candidate;
+        Require(list && list->GetItemCount() == 2, "Conflict ranges were not grouped by fixture");
+        Capture("dmx-patch-diagnostics.png");
+        popup->Dismiss(); popup->Destroy(); wxYield();
+        Menu(ID_View_Layout_Default); break;
       }
       case 2:
         Require(FindPatch(*frame_) == patch_ && patch_->IsShownOnScreen(), "3D switch lost shared panel");
@@ -154,10 +173,16 @@ public:
         Require(patch_->IsShownOnScreen(), "Returning from Inspector lost patch");
         Require(manager->LoadPerspective(legacy_), "Legacy perspective failed to load");
         cfg.MarkSaved(); // Layout presets have their own existing preference writes.
-        Menu(ID_View_ToggleDmxPatch); break;
+        {
+          auto *workspace = dynamic_cast<ViewportPatchWorkspace *>(patch_->GetParent());
+          wxAuiManagerEvent close(wxEVT_AUI_PANE_CLOSE);
+          close.SetManager(&workspace->PaneManager()); close.SetPane(&workspace->PaneManager().GetPane("DmxPatch"));
+          workspace->GetEventHandler()->ProcessEvent(close);
+        }
+        break;
       case 7:
         Require(!patch_->IsShownOnScreen(), "Closing patch failed");
-        Require(!dynamic_cast<ViewportPatchWorkspace *>(manager->GetPane("2DViewport").window)->IsSplit(), "Viewport space not reclaimed");
+        Require(!dynamic_cast<ViewportPatchWorkspace *>(manager->GetPane("2DViewport").window)->HasPatch(), "Viewport space not reclaimed");
         Require(!cfg.IsDirty(), "Closing patch changed project dirty state");
         // This smoke creates its sample after project loading; leave close clean.
         cfg.GetScene().fixtures.clear();

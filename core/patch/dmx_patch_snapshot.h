@@ -28,7 +28,13 @@ struct Cell {
 };
 enum class Issue { Unpatched, InvalidAddress, InvalidBreak, UnresolvedDefinition,
                    UnresolvedChannel, Overflow };
-struct Diagnostic { std::string uuid; Issue issue; std::string detail; };
+struct SourceChannel { std::string offsets, breakId, geometry; };
+struct Diagnostic {
+  std::string uuid;
+  Issue issue;
+  std::string detail;
+  std::optional<SourceChannel> source;
+};
 struct FixtureInfo {
   std::string name, identifier, purpose;
   std::optional<std::string> colorHex;

@@ -7,7 +7,8 @@ class DmxPatchCanvas : public wxScrolledWindow {
 public:
   explicit DmxPatchCanvas(wxWindow *parent);
   void SetSnapshot(std::shared_ptr<const dmx_patch::Snapshot> snapshot);
-  void SetColumns(int columns);
+  wxSize CellSize() const { return wxSize(geometry_.width, geometry_.height); }
+  int ColumnCount() const { return geometry_.columns; }
   std::optional<dmx_patch::Address> AddressAt(const wxPoint &clientPosition) const;
 private:
   void Paint(wxPaintEvent &);

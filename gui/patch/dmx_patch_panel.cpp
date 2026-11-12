@@ -5,53 +5,41 @@
 #include "fixtures/fixture_gdtf_resolution.h"
 #include "gdtf_archive_reader.h"
 #include <wx/combobox.h>
-#include <wx/choice.h>
+#include <wx/bmpbuttn.h>
+#include <wx/artprov.h>
 #include <wx/button.h>
 #include <wx/sizer.h>
-#include <wx/wrapsizer.h>
 #include <wx/stattext.h>
 #include <algorithm>
 
 namespace {
 wxString Text(const std::string &s) { return wxString::FromUTF8(s); }
-wxString IssueText(dmx_patch::Issue issue) {
-  using dmx_patch::Issue;
-  switch (issue) {
-  case Issue::Unpatched: return _("Missing patch assignment");
-  case Issue::InvalidAddress: return _("Invalid or unsupported DMX address");
-  case Issue::InvalidBreak: return _("Invalid or ambiguous DMX break");
-  case Issue::UnresolvedDefinition: return _("GDTF definition or DMX mode unavailable");
-  case Issue::UnresolvedChannel: return _("Physical channel or geometry reference unresolved");
-  case Issue::Overflow: return _("Physical channels exceed 512; no automatic span is displayed");
-  }
-  return {};
 }
-}
-DmxPatchPanel::DmxPatchPanel(wxWindow *parent, ConfigManager &config, std::function<void()> close)
+
+DmxPatchPanel::DmxPatchPanel(wxWindow *parent, ConfigManager &config)
     : wxPanel(parent), config_(config) {
   SetName(_("DMX Patch"));
   auto *outer = new wxBoxSizer(wxVERTICAL);
-  auto *bar = new wxWrapSizer(wxHORIZONTAL);
-  bar->Add(new wxStaticText(this, wxID_ANY, _("DMX Patch")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(8));
+  auto *bar = new wxBoxSizer(wxHORIZONTAL);
   bar->Add(new wxStaticText(this, wxID_ANY, _("Universe:")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(4));
   universeControl_ = new wxComboBox(this, wxID_ANY, "1", wxDefaultPosition, FromDIP(wxSize(105, -1)), 0, nullptr, wxTE_PROCESS_ENTER);
   universeControl_->SetName(_("DMX universe"));
   universeControl_->SetToolTip(_("Choose a patched universe or enter any positive universe number."));
   bar->Add(universeControl_, 0, wxRIGHT, FromDIP(6));
-  auto *columns = new wxChoice(this, wxID_ANY);
-  columns->Append(_("16 columns")); columns->Append(_("32 columns")); columns->SetSelection(0);
-  bar->Add(columns, 0, wxRIGHT, FromDIP(6));
   status_ = new wxStaticText(this, wxID_ANY, _("DMX Patch"), wxDefaultPosition, wxDefaultSize, wxST_ELLIPSIZE_END);
   status_->SetMinSize(wxSize(1, status_->GetCharHeight() + FromDIP(4)));
-  auto *hide = new wxButton(this, wxID_ANY, _("Close"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
-  hide->Bind(wxEVT_BUTTON, [close](wxCommandEvent &) { close(); });
-  bar->Add(hide, 0);
+  bar->Add(status_, 1, wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT, FromDIP(4));
+  warnings_ = new wxBitmapButton(this, wxID_ANY,
+      wxArtProvider::GetBitmap(wxART_WARNING, wxART_BUTTON, FromDIP(wxSize(16, 16))));
+  warnings_->SetName(_("Patch diagnostics"));
+  warnings_->SetToolTip(_("Show patch diagnostics"));
+  warnings_->Disable();
+  warnings_->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { ShowDiagnostics(); });
+  bar->Add(warnings_, 0, wxALIGN_CENTER_VERTICAL);
   outer->Add(bar, 0, wxEXPAND | wxALL, FromDIP(4));
-  outer->Add(status_, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(4));
   canvas_ = new DmxPatchCanvas(this);
   outer->Add(canvas_, 1, wxEXPAND);
   SetSizer(outer);
-  columns->Bind(wxEVT_CHOICE, [this, columns](wxCommandEvent &) { canvas_->SetColumns(columns->GetSelection() ? 32 : 16); });
   universeControl_->Bind(wxEVT_COMBOBOX, [this](wxCommandEvent &) { DisplayUniverse(); });
   universeControl_->Bind(wxEVT_TEXT_ENTER, [this](wxCommandEvent &) { DisplayUniverse(); });
   universeControl_->Bind(wxEVT_KILL_FOCUS, [this](wxFocusEvent &e) { DisplayUniverse(); e.Skip(); });
@@ -59,6 +47,7 @@ DmxPatchPanel::DmxPatchPanel(wxWindow *parent, ConfigManager &config, std::funct
     if (change == ConfigManager::Change::Scene) { stale_ = true; QueueRefresh(); }
   });
   Bind(wxEVT_SHOW, [this](wxShowEvent &e) { if (e.IsShown() && stale_) QueueRefresh(); e.Skip(); });
+  QueueRefresh();
 }
 DmxPatchPanel::~DmxPatchPanel() { config_.UnsubscribeChanges(subscription_); }
 void DmxPatchPanel::QueueRefresh() {
@@ -118,18 +107,12 @@ void DmxPatchPanel::RefreshSnapshot() {
   universeControl_->Clear();
   for (auto universe : snapshot->universes) universeControl_->Append(Text(std::to_string(universe)));
   universeControl_->ChangeValue(Text(std::to_string(universe_)));
-  status_->SetLabel(wxString::Format(_("Occupied: %d/512 · Conflicts: %d · Warnings: %d"),
-      snapshot->occupied, snapshot->conflicts, static_cast<int>(snapshot->diagnostics.size())));
-  wxString details = status_->GetLabel();
-  // Keep native tooltips bounded on large incomplete projects.
-  for (size_t i = 0; i < snapshot->diagnostics.size() && i < 40; ++i) {
-    const auto &issue = snapshot->diagnostics[i];
-    if (!details.empty()) details += "\n";
-    details += Text(issue.uuid) + ": " + IssueText(issue.issue);
-    if (!issue.detail.empty()) details += " (" + Text(issue.detail) + ")";
-  }
-  if (snapshot->diagnostics.size() > 40) details += "\n" + _("Additional diagnostics omitted.");
-  status_->SetToolTip(details);
+  status_->SetLabel(wxString::Format(_("Occupied: %d/512 | Conflicts: %d"), snapshot->occupied, snapshot->conflicts));
+  status_->SetToolTip(status_->GetLabel());
+  warnings_->Enable(!snapshot->diagnostics.empty() || snapshot->conflicts > 0);
+  warnings_->SetToolTip(wxString::Format(_("Show patch diagnostics (%d)"),
+      static_cast<int>(snapshot->diagnostics.size()) + snapshot->conflicts));
+  snapshot_ = snapshot;
   canvas_->SetSnapshot(snapshot);
   stale_ = false;
   Layout();

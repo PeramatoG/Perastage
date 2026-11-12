@@ -3,6 +3,7 @@
 #include <wx/dcbuffer.h>
 #include <wx/settings.h>
 #include <wx/control.h>
+#include <wx/dcclient.h>
 #include <algorithm>
 
 namespace {
@@ -28,18 +29,23 @@ DmxPatchCanvas::DmxPatchCanvas(wxWindow *parent)
   Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent &e) { hovered_.reset(); UnsetToolTip(); e.Skip(); });
   Bind(wxEVT_DPI_CHANGED, [this](wxDPIChangedEvent &e) { UpdateMetrics(); e.Skip(); });
   Bind(wxEVT_SYS_COLOUR_CHANGED, [this](wxSysColourChangedEvent &e) { Refresh(); e.Skip(); });
+  Bind(wxEVT_SIZE, [this](wxSizeEvent &e) { UpdateMetrics(); e.Skip(); });
   UpdateMetrics();
 }
 void DmxPatchCanvas::UpdateMetrics() {
-  geometry_.width = FromDIP(68); geometry_.height = FromDIP(62);
+  auto font = GetFont(); font.SetPointSize(std::max(7, font.GetPointSize() - 1));
+  wxClientDC dc(this); dc.SetFont(font);
+  const int minimum = FromDIP(52), available = std::max(1, GetClientSize().x);
+  geometry_.columns = std::clamp(available / minimum, 1, 512);
+  geometry_.width = std::max(minimum, available / geometry_.columns);
+  geometry_.height = std::max(FromDIP(42), 3 * dc.GetCharHeight() + 2 * FromDIP(2));
   SetScrollRate(FromDIP(12), FromDIP(12));
-  SetVirtualSize(geometry_.columns * geometry_.width, 512 / geometry_.columns * geometry_.height);
-  Refresh();
+  const int rows = (512 + geometry_.columns - 1) / geometry_.columns;
+  const wxSize size(geometry_.columns * geometry_.width, rows * geometry_.height);
+  if (GetVirtualSize() != size) SetVirtualSize(size);
+  hovered_.reset(); UnsetToolTip(); Refresh();
 }
-void DmxPatchCanvas::SetColumns(int columns) {
-  geometry_.columns = columns == 32 ? 32 : 16;
-  hovered_.reset(); UnsetToolTip(); UpdateMetrics();
-}
+
 void DmxPatchCanvas::SetSnapshot(std::shared_ptr<const dmx_patch::Snapshot> snapshot) {
   snapshot_ = std::move(snapshot);
   hovered_.reset(); UnsetToolTip(); Refresh();
@@ -56,17 +62,18 @@ void DmxPatchCanvas::Paint(wxPaintEvent &) {
   PrepareDC(dc);
   if (!snapshot_) return;
   auto font = GetFont(); font.SetPointSize(std::max(7, font.GetPointSize() - 1)); dc.SetFont(font);
-  const int pad = FromDIP(4), line = dc.GetCharHeight();
+  const int pad = FromDIP(2), line = dc.GetCharHeight();
   const auto neutral = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
   const auto ink = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
   const auto border = wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT);
   const int w = geometry_.width, h = geometry_.height;
   const auto top = CalcUnscrolledPosition(wxPoint(0, 0));
   const int firstRow = std::max(0, top.y / h);
-  const int lastRow = std::min(512 / geometry_.columns, (top.y + GetClientSize().y) / h + 1);
+  const int lastRow = std::min((512 + geometry_.columns - 1) / geometry_.columns, (top.y + GetClientSize().y) / h + 1);
   for (int row = firstRow; row < lastRow; ++row) {
     for (int col = 0; col < geometry_.columns; ++col) {
       const int i = row * geometry_.columns + col;
+      if (i >= 512) break;
       const auto &cell = snapshot_->cells[i];
       wxColour color = neutral, text = ink;
       if (!cell.occupants.empty()) {
@@ -102,10 +109,11 @@ void DmxPatchCanvas::Paint(wxPaintEvent &) {
     // One fixture name per uninterrupted segment, including row continuations.
     for (int col = 0; col < geometry_.columns;) {
       const int i = row * geometry_.columns + col;
+      if (i >= 512) break;
       const auto &cell = snapshot_->cells[i];
       if (cell.occupants.empty()) { ++col; continue; }
       int end = col + 1;
-      while (end < geometry_.columns && SameFixture(cell, snapshot_->cells[row * geometry_.columns + end])) ++end;
+      while (end < geometry_.columns && row * geometry_.columns + end < 512 && SameFixture(cell, snapshot_->cells[row * geometry_.columns + end])) ++end;
       const auto &info = snapshot_->fixtures.at(cell.occupants.front().uuid);
       wxColour bg = info.colorHex ? wxColour(Text(*info.colorHex)) : neutral;
       dc.SetTextForeground(bg.IsOk() && bg.Red() * 299 + bg.Green() * 587 + bg.Blue() * 114 < 140000 ? *wxWHITE : *wxBLACK);
@@ -120,12 +128,12 @@ void DmxPatchCanvas::Paint(wxPaintEvent &) {
   }
 }
 wxString DmxPatchCanvas::Tooltip(int channel) const {
-  wxString result = wxString::Format(_("Universe %s · Channel %d"), Text(std::to_string(snapshot_->universe)), channel);
+  wxString result = wxString::Format(_("Universe %s | Channel %d"), Text(std::to_string(snapshot_->universe)), channel);
   const auto &cell = snapshot_->cells[channel - 1];
   if (cell.Conflict()) result += "\n" + _("Overlapping fixtures");
   for (const auto &entry : cell.occupants) {
     const auto &info = snapshot_->fixtures.at(entry.uuid);
-    result += wxString::Format(_("\n%s — %s\nUUID: %s\nGDTF break %d / MVR break %d · Offset %d · Byte %d\nAttribute: %s\nFunctions: %s"),
+    result += wxString::Format(_("\n%s - %s\nUUID: %s\nGDTF break %d / MVR break %d | Offset %d | Byte %d\nAttribute: %s\nFunctions: %s"),
         Text(info.identifier), Text(info.name), Text(entry.uuid), entry.gdtfBreak, entry.gdtfBreak - 1,
         entry.offset, entry.byteIndex + 1, Text(entry.attribute), Text(entry.functions));
     if (!info.purpose.empty()) result += "\n" + wxString::Format(_("Fixture purpose: %s"), Text(info.purpose));

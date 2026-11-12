@@ -88,10 +88,17 @@ Snapshot BuildSnapshot(const MvrScene &scene, Universe universe, const DocumentR
     bool overflow = false, unresolved = false;
     for (const auto &channel : mode->channels) {
       if (channel.virtualChannel) continue;
-      if (!channel.effectiveDmxBreak || channel.offsets.empty()) { unresolved = true; continue; }
+      const SourceChannel source{channel.rawOffset, channel.rawDmxBreak, channel.geometry};
+      if (!channel.effectiveDmxBreak || channel.offsets.empty()) {
+        result.diagnostics.push_back({f.uuid, Issue::UnresolvedChannel, {}, source});
+        continue;
+      }
       const auto key = std::to_string(*channel.effectiveDmxBreak - 1);
       const auto start = starts.find(key);
-      if (start == starts.end()) { issue(Issue::Unpatched, key); continue; }
+      if (start == starts.end()) {
+        result.diagnostics.push_back({f.uuid, Issue::Unpatched, key, source});
+        continue;
+      }
       std::set<std::string> attributes, functions;
       for (const auto &logical : channel.logicalChannels) {
         const auto label = logical.attributeInfo.pretty.empty() ? logical.attribute : logical.attributeInfo.pretty;
