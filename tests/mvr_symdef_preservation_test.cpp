@@ -50,6 +50,14 @@ int main() {
   assert(safe.preservationIssues.empty());
   assert(safe.symdefs.at(defId).name == "  Exact  ");
   assert(mvr::CheckMvrSymdefs(safe).empty());
+  // Wysiwyg may reuse the definition identity for every Symbol occurrence.
+  const auto reused = "<Symbol uuid='" + std::string(defId) + "' symdef='" + defId + "'/>";
+  const auto collided = Scan(dir, definition,
+      "<Truss uuid='" + std::string(nodeId) + "'><Geometries>" + reused +
+      "</Geometries></Truss><Truss uuid='b0000000-0000-4000-8000-000000000002'>"
+      "<Geometries>" + reused + "</Geometries></Truss>");
+  assert(collided.symdefs.contains(defId));
+  assert(collided.symdefs.at(defId).geometries.front().file == "geometry.glb");
   for (const auto &scene : {
       Scan(dir, "<Symdef><ChildList/></Symdef>"),
       Scan(dir, "<Symdef uuid='00000000-0000-0000-0000-000000000000'><ChildList/></Symdef>"),

@@ -59,8 +59,15 @@ bool OnlyMatrix(Element &node) {
 void ReadMvrSymdefs(Element &sceneElement, MvrScene &scene,
                    const std::function<std::string(const std::string &)> &remapResource) {
   std::unordered_map<std::string, int> identities;
+  std::unordered_map<std::string, int> definitionIdentities;
   Visit(sceneElement, [&](Element &node, const auto &) {
-    if (auto uuid = Identity(node.Attribute("uuid")); !uuid.empty()) ++identities[uuid];
+    if (auto uuid = Identity(node.Attribute("uuid")); !uuid.empty()) {
+      ++identities[uuid];
+      // A Symbol's occurrence identity never identifies its definition target.
+      // Instance collisions are repaired after typed/source projection; genuine
+      // definition and other standard-node conflicts remain protected here.
+      if (std::string_view(node.Name()) != "Symbol") ++definitionIdentities[uuid];
+    }
   });
   if (auto *aux = sceneElement.FirstChildElement("AUXData")) {
     for (auto *node = aux->FirstChildElement("Symdef"); node; node = node->NextSiblingElement("Symdef")) {
@@ -74,7 +81,7 @@ void ReadMvrSymdefs(Element &sceneElement, MvrScene &scene,
         rejected = true;
         definition.sourceComplete = false;
       };
-      if (uuid.empty() || identities[uuid] != 1) {
+      if (uuid.empty() || definitionIdentities[uuid] != 1) {
         reject("Symdef identity is missing, nil, duplicated or shared with another standard node.");
         continue;
       }
@@ -90,7 +97,7 @@ void ReadMvrSymdefs(Element &sceneElement, MvrScene &scene,
           MvrSymbolInstance symbol;
           symbol.uuid = Identity(geo->Attribute("uuid"));
           symbol.symdef = Identity(geo->Attribute("symdef"));
-          if (symbol.uuid.empty() || symbol.symdef.empty() ||
+          if (symbol.symdef.empty() ||
               !Attributes(*geo, {"uuid", "symdef"}) || !OnlyMatrix(*geo) ||
               !ReadMatrix(*geo, symbol.transform, &symbol.matrixSource))
             reject("Nested Symbol identity, reference or matrix is malformed.");

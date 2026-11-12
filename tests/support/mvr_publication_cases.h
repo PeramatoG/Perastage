@@ -229,7 +229,9 @@ inline void Check(ConfigManager &cfg, const std::filesystem::path &target,
     assert(finding.severity != MvrExportDiagnosticSeverity::Error);
     warning |= finding.severity == MvrExportDiagnosticSeverity::Warning;
   }
-  if (!mode.starts_with("range") && mode != "power-edits")
+  // Object Symbol occurrence recovery now happens during import. Its retained
+  // disclosure is checked below; unchanged export needs no new repair warning.
+  if (!mode.starts_with("range") && mode != "power-edits" && mode != "object-symbol")
     assert(warning);
   std::string embedded;
   assert(zip::ReadEntry(target, "scene.mvr", &embedded));

@@ -346,8 +346,9 @@ void RepairSource(MvrScene &scene, Findings &out) {
             Truss::GeometryRepresentation::SymbolSymdef &&
         !scene.symdefs.contains(truss.sourceSymdefUuid)) {
       Note(out, "Truss", id, "Geometries/Symbol",
-           "Retained available native geometry without unresolved Symbol "
-           "definition",
+           truss.symbolFile.empty() && truss.modelFile.empty()
+               ? "Omitted unresolved Symbol definition; no native model geometry is available"
+               : "Retained available native geometry without unresolved Symbol definition",
            truss.sourceSymbolUuid + " -> " + truss.sourceSymdefUuid);
       truss.sourceRepresentation = Truss::GeometryRepresentation::Geometry3D;
       truss.sourceSymbolUuid.clear();
