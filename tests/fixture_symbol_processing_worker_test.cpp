@@ -1,10 +1,19 @@
 #include <cassert>
 #include <chrono>
+#include <condition_variable>
+#include <mutex>
 #include <thread>
 #include <utility>
 
 #include "services/fixture_symbol_processing_worker.h"
 #include "tools/scene_model_symbol_capture_service.h"
+
+namespace {
+std::mutex processingMutex;
+std::condition_variable processingCondition;
+bool holdProcessing = false;
+bool enteredProcessing = false;
+}
 
 namespace tools {
 
@@ -13,6 +22,12 @@ SceneModelSymbolCaptureResult ProcessSceneModelOrthographicRenders(
     std::vector<symbols::RenderedSymbolImage> renders,
     const FixtureGeometryBounds &fixtureBoundsMm,
     symbols::FixtureSymbolTimings *) {
+  {
+    std::unique_lock lock(processingMutex);
+    enteredProcessing = true;
+    processingCondition.notify_all();
+    processingCondition.wait(lock, [] { return !holdProcessing; });
+  }
   SceneModelSymbolCaptureResult result;
   result.fixtureBoundsMm = fixtureBoundsMm;
   result.ok = !renders.empty();
@@ -55,19 +70,6 @@ std::vector<symbols::RenderedSymbolImage> MakeRenders() {
   return renders;
 }
 
-// Waits for one worker result with a bounded regression-test timeout.
-std::optional<gui::FixtureSymbolProcessingResult>
-WaitForResult(gui::FixtureSymbolProcessingWorker &worker) {
-  const auto deadline = std::chrono::steady_clock::now() +
-                        std::chrono::seconds(10);
-  while (std::chrono::steady_clock::now() < deadline) {
-    if (auto result = worker.TakeResult())
-      return result;
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  }
-  return std::nullopt;
-}
-
 // Verifies request preservation, single-result delivery, and worker reuse.
 void TestWorkerContract() {
   tools::FixtureGeometryBounds bounds;
@@ -75,18 +77,55 @@ void TestWorkerContract() {
   bounds.max = {80.0f, 45.0f, 90.0f};
   bounds.valid = true;
   const auto renders = MakeRenders();
-  gui::FixtureSymbolProcessingWorker worker;
-  assert(worker.Submit({4182, renders, bounds}));
+  std::mutex mutex;
+  std::condition_variable condition;
+  int notifications = 0;
+  gui::FixtureSymbolProcessingWorker worker([&] {
+    std::lock_guard lock(mutex);
+    ++notifications;
+    condition.notify_all();
+  });
+  const auto wait = [&](int count) {
+    std::unique_lock lock(mutex);
+    assert(condition.wait_for(lock, std::chrono::seconds(10),
+                              [&] { return notifications == count; }));
+  };
+  {
+    std::lock_guard lock(processingMutex);
+    enteredProcessing = false;
+    holdProcessing = true;
+  }
+  assert(worker.Submit({4182, renders, bounds, 123}));
+  {
+    std::unique_lock lock(processingMutex);
+    assert(processingCondition.wait_for(lock, std::chrono::seconds(10),
+                                       [] { return enteredProcessing; }));
+  }
+  {
+    std::unique_lock lock(mutex);
+    assert(!condition.wait_for(lock, std::chrono::milliseconds(100),
+                              [&] { return notifications != 0; }));
+  }
+  // The consumer waits for completion; there is no TakeResult polling loop.
+  for (int i = 0; i < 100; ++i)
+    assert(!worker.Submit({4183, renders, bounds, 124}));
+  {
+    std::lock_guard lock(processingMutex);
+    holdProcessing = false;
+    processingCondition.notify_all();
+  }
+  wait(1);
   assert(!worker.Submit({4183, renders, bounds}));
-  auto result = WaitForResult(worker);
-  assert(result && result->ok && result->epoch == 4182);
+  auto result = worker.TakeResult();
+  assert(result && result->ok && result->epoch == 4182 && result->requestId == 123);
   assert(result->symbols.size() == 4);
   assert(result->bounds.min == bounds.min && result->bounds.max == bounds.max &&
          result->bounds.valid == bounds.valid);
   assert(!worker.TakeResult());
 
   assert(worker.Submit({4184, renders, bounds}));
-  auto second = WaitForResult(worker);
+  wait(2);
+  auto second = worker.TakeResult();
   assert(second && second->epoch == 4184 && second->symbols.size() == 4);
 }
 

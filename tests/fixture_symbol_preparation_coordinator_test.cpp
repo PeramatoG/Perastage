@@ -29,7 +29,9 @@ int main() {
                               symbols::FixtureSymbolPreparationPriority::Manual));
   assert(coordinator.NextQueued()->key == standard);
   assert(coordinator.BeginCapture(standard, epoch));
+  assert(!coordinator.BeginCapture(standard, epoch));
   assert(coordinator.CompleteCapture(standard, epoch));
+  assert(!coordinator.CompleteCapture(standard, epoch));
   assert(coordinator.Find(standard)->state ==
          symbols::FixtureSymbolPreparationState::Processing);
   assert(coordinator.BeginPublishing(standard, epoch));
@@ -37,7 +39,21 @@ int main() {
   assert(coordinator.BeginCapture(extended, epoch));
   assert(coordinator.CompleteCapture(extended, epoch));
   assert(!coordinator.BeginPublishing(extended, epoch));
+  const symbols::FixtureSymbolPreparationKey cancelled{standard.effectiveGdtfPath,
+                                                       "Cancelled Mode"};
+  assert(coordinator.Request(cancelled, "Fixture@Perastage.gdtf",
+                             symbols::FixtureSymbolPreparationPriority::Automatic));
+  assert(coordinator.Cancel(cancelled, epoch));
+  assert(!coordinator.BeginPublishing(extended, epoch));
+  assert(coordinator.Request(cancelled, "Fixture@Perastage.gdtf",
+                             symbols::FixtureSymbolPreparationPriority::Automatic));
+  assert(coordinator.Fail(cancelled, epoch));
+  assert(!coordinator.BeginPublishing(extended, epoch));
   assert(coordinator.Complete(standard, epoch, true));
+  assert(!coordinator.Complete(standard, epoch, true));
+  assert(!coordinator.Fail(standard, epoch));
+  assert(!coordinator.Request(standard, "Fixture@Perastage.gdtf",
+                              symbols::FixtureSymbolPreparationPriority::Automatic));
   assert(coordinator.BeginPublishing(extended, epoch));
 
   const auto replacementEpoch = coordinator.BeginProjectEpoch();
@@ -45,5 +61,16 @@ int main() {
   assert(!coordinator.Complete(extended, epoch, true));
   assert(coordinator.Find(extended)->state ==
          symbols::FixtureSymbolPreparationState::Stale);
+  // Failed work stays in cooldown until explicit invalidation or a new epoch.
+  assert(coordinator.Request(standard, "target",
+                            symbols::FixtureSymbolPreparationPriority::Automatic));
+  assert(coordinator.Fail(standard, replacementEpoch));
+  for (int request = 0; request < 100; ++request)
+    assert(!coordinator.Request(standard, "target",
+                               symbols::FixtureSymbolPreparationPriority::Automatic));
+  assert(coordinator.Cancel(standard, replacementEpoch));
+  assert(coordinator.Request(standard, "target",
+                            symbols::FixtureSymbolPreparationPriority::Automatic));
+  assert(!coordinator.BeginCapture(standard, epoch));
   return 0;
 }

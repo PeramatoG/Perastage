@@ -1,10 +1,13 @@
+#include "symbols/fixture_symbol_operation_counters.h"
 #include "fixtures/fixture_gdtf_resolution.h"
 
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
 #include <sstream>
+#include <unordered_map>
 #include <string>
+#include <vector>
 
 #include <wx/log.h>
 
@@ -67,12 +70,21 @@ std::string NormalizePathSeparators(std::string value) {
   return value;
 }
 
-void LogDiscardReason(const std::string &prefix,
-                      const std::string &candidateLabel,
-                      const fs::path &candidatePath,
-                      const std::string &reason) {
-  wxLogDebug("%s discarded %s candidate '%s': %s", prefix.c_str(),
-             candidateLabel.c_str(), candidatePath.string().c_str(), reason.c_str());
+// Bound diagnostic memory without caching resolution outcomes or errors.
+auto &LoggedSelections() {
+  static thread_local std::unordered_map<std::string, std::string> selections;
+  return selections;
+}
+
+void LogSelection(const std::string &prefix, const std::string &path) {
+  auto &selections = LoggedSelections();
+  auto previous = selections.find(prefix);
+  if (previous != selections.end() && previous->second == path)
+    return;
+  if (selections.size() >= 1024)
+    selections.clear();
+  selections[prefix] = path;
+  wxLogDebug("%s selected candidate '%s'.", prefix.c_str(), path.c_str());
 }
 
 } // namespace
@@ -82,6 +94,7 @@ bool ResolveFixtureGdtfDeterministic(const Fixture &fixture,
                                      FixtureGdtfResolution &resolution,
                                      std::string &errorMessage,
                                      const std::string &traceContext) {
+  symbols::diagnostics::Count(symbols::diagnostics::Operation::Resolution);
   resolution = {};
 
   const std::string sanitizedSpec =
@@ -92,39 +105,45 @@ bool ResolveFixtureGdtfDeterministic(const Fixture &fixture,
 
   if (specPath.empty()) {
     errorMessage = "Fixture gdtfSpec is empty; deterministic resolution requires a valid path or file name.";
+    LoggedSelections().erase(logPrefix);
     wxLogDebug("%s failed: %s", logPrefix.c_str(), errorMessage.c_str());
     return false;
   }
 
+  std::vector<std::string> discarded;
+  const auto discard = [&](const std::string &label,
+                           const fs::path &path, const std::string &reason) {
+    discarded.push_back(label + " candidate '" + path.string() + "': " + reason);
+  };
   std::error_code ec;
   if (specPath.is_absolute()) {
     ec.clear();
+    symbols::diagnostics::Count(symbols::diagnostics::Operation::FilesystemResolution);
     if (fs::exists(specPath, ec) && !ec) {
       resolution.selectedPath = specPath.string();
-      wxLogDebug("%s selected absolute candidate '%s'.", logPrefix.c_str(),
-                 resolution.selectedPath.c_str());
+      LogSelection(logPrefix, resolution.selectedPath);
       return true;
     }
-    LogDiscardReason(logPrefix, "absolute", specPath,
+    discard("absolute", specPath,
                      ec ? ec.message() : "path does not exist");
   }
 
   if (!scene.basePath.empty() && !specPath.is_absolute()) {
     const fs::path sceneCandidate = fs::path(scene.basePath) / specPath;
     ec.clear();
+    symbols::diagnostics::Count(symbols::diagnostics::Operation::FilesystemResolution);
     if (fs::exists(sceneCandidate, ec) && !ec) {
       resolution.scenePath = sceneCandidate.string();
       resolution.selectedPath = resolution.scenePath;
-      wxLogDebug("%s selected scene candidate '%s'.", logPrefix.c_str(),
-                 resolution.selectedPath.c_str());
+      LogSelection(logPrefix, resolution.selectedPath);
       return true;
     }
-    LogDiscardReason(logPrefix, "scene", sceneCandidate,
+    discard("scene", sceneCandidate,
                      ec ? ec.message() : "path does not exist");
   } else if (scene.basePath.empty()) {
-    LogDiscardReason(logPrefix, "scene", {}, "scene.basePath is empty");
+    discard("scene", {}, "scene.basePath is empty");
   } else {
-    LogDiscardReason(logPrefix, "scene", specPath,
+    discard("scene", specPath,
                      "gdtfSpec is absolute, scene-relative resolution skipped");
   }
 
@@ -132,6 +151,7 @@ bool ResolveFixtureGdtfDeterministic(const Fixture &fixture,
   if (fileName.empty()) {
     errorMessage =
         "Fixture gdtfSpec has no file name; cannot resolve fixtures library candidate.";
+    LoggedSelections().erase(logPrefix);
     wxLogDebug("%s failed: %s", logPrefix.c_str(), errorMessage.c_str());
     return false;
   }
@@ -140,15 +160,15 @@ bool ResolveFixtureGdtfDeterministic(const Fixture &fixture,
       fs::path(ProjectUtils::GetDefaultLibraryPath("fixtures"));
   const fs::path libraryCandidate = fixturesLibrary / fileName;
   ec.clear();
+  symbols::diagnostics::Count(symbols::diagnostics::Operation::FilesystemResolution);
   if (fs::exists(libraryCandidate, ec) && !ec) {
     resolution.libraryPath = libraryCandidate.string();
     resolution.selectedPath = resolution.libraryPath;
-    wxLogDebug("%s selected library candidate '%s'.", logPrefix.c_str(),
-               resolution.selectedPath.c_str());
+    LogSelection(logPrefix, resolution.selectedPath);
     return true;
   }
 
-  LogDiscardReason(logPrefix, "library", libraryCandidate,
+  discard("library", libraryCandidate,
                    ec ? ec.message() : "path does not exist");
 
   std::ostringstream out;
@@ -156,7 +176,10 @@ bool ResolveFixtureGdtfDeterministic(const Fixture &fixture,
       << fixture.uuid << "'."
       << " scene.basePath='" << scene.basePath << "'"
       << " gdtfSpec='" << fixture.gdtfSpec << "'.";
+  for (const auto &reason : discarded)
+    out << " " << reason << ";";
   errorMessage = out.str();
+  LoggedSelections().erase(logPrefix);
   wxLogDebug("%s failed: %s", logPrefix.c_str(), errorMessage.c_str());
   return false;
 }

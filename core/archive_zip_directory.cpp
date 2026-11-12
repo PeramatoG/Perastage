@@ -1,3 +1,4 @@
+#include "symbols/fixture_symbol_operation_counters.h"
 #include "archive_zip_directory.h"
 
 #include <algorithm>
@@ -210,6 +211,7 @@ DirectoryReadResult ReadDirectory(std::span<const std::uint8_t> input) {
 // Reads bounded, structurally validated classic-ZIP central-directory metadata.
 DirectoryReadResult ReadDirectory(const std::filesystem::path &archivePath) {
   std::ifstream input(archivePath, std::ios::binary);
+  symbols::diagnostics::Count(symbols::diagnostics::Operation::ArchiveOpen);
   if (!input.is_open())
     return Fail(DirectoryReadStatus::OpenFailed);
   input.seekg(0, std::ios::end);

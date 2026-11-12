@@ -1,3 +1,4 @@
+#include "symbols/fixture_symbol_operation_counters.h"
 #include "layer_identity.h"
 #include "configservices.h"
 #include "project_archive_publication.h"
@@ -218,7 +219,10 @@ bool WriteZipBytes(wxZipOutputStream &zip, const std::string &entryName,
       return false;
     }
   }
-  return zip.CloseEntry();
+  const bool written = zip.CloseEntry();
+  if (written)
+    symbols::diagnostics::Count(symbols::diagnostics::Operation::ResourceWrite);
+  return written;
 }
 
 // Writes one owned payload to a temporary compatibility file.

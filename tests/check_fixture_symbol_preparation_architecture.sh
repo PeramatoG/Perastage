@@ -70,3 +70,18 @@ rg -q 'exactGdtfMode' "$service"
 rg -q 'RequestFixtureSymbolPreparation' "$renderer"
 rg -q 'ScopedSceneReplacementLifecycle' "$root/gui/tools/scene_model_symbol_capture_service.cpp"
 echo "Fixture symbol preparation remains non-modal, runtime-only, and renderer-decoupled."
+
+# Completion waits must never schedule another idle iteration or resolve state.
+python3 - "$service" <<'PY'
+import pathlib
+import sys
+source = pathlib.Path(sys.argv[1]).read_text()
+wait = source.split('if (workerPending_) {', 1)[1].split('workerReady_ = false;', 1)[0]
+assert 'if (!workerReady_)\n      return;' in wait
+assert 'ScheduleNextStep' not in wait
+assert 'IsWorkIdentityCurrent' not in wait
+submission = source.split('work.processingSubmitted = true;', 1)[1].split('auto processed', 1)[0]
+assert 'ScheduleNextStep' not in submission
+bridge = source.split('SetFixtureSymbolPreparationRequestHandler(', 1)[1].split('// Disconnects', 1)[0]
+assert 'CallAfter' not in bridge
+PY

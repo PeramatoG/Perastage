@@ -1,3 +1,4 @@
+#include "symbols/fixture_symbol_operation_counters.h"
 #include "gdtf_archive_reader.h"
 
 #include "archive_entry_path.h"
@@ -435,6 +436,7 @@ ArchiveReadResult ReadGdtfArchive(const std::filesystem::path &sourcePath) {
 
     wxFileInputStream input(
         WxPathUtils::WxStringFromFilesystemPath(sourcePath));
+    symbols::diagnostics::Count(symbols::diagnostics::Operation::ArchiveOpen);
     if (!input.IsOk()) {
       AddDiagnostic(result, ArchiveDiagnosticCode::OpenFailed,
                     "Could not open GDTF archive.");
@@ -590,6 +592,7 @@ GdtfResourceReadResult ReadGdtfArchiveResource(
     return result;
   }
   wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(sourcePath));
+  symbols::diagnostics::Count(symbols::diagnostics::Operation::ArchiveOpen);
   if (!input.IsOk()) {
     if (TryReadExplodedGdtfResource(sourcePath, normalizedRequest, preferredPaths, extraResourceRoots, maxBytes, result))
       return result;
@@ -666,6 +669,7 @@ GdtfResourceReadResult ReadGdtfArchiveResource(
 
   wxFileInputStream dataInput(
       WxPathUtils::WxStringFromFilesystemPath(sourcePath));
+  symbols::diagnostics::Count(symbols::diagnostics::Operation::ArchiveOpen);
   wxZipInputStream zipInput(dataInput);
   entryIndex = 0;
   while ((entry.reset(zipInput.GetNextEntry())), entry) {
@@ -725,6 +729,7 @@ ExtractGdtfArchive(const std::filesystem::path &sourcePath,
 
     wxFileInputStream input(
         WxPathUtils::WxStringFromFilesystemPath(sourcePath));
+    symbols::diagnostics::Count(symbols::diagnostics::Operation::ArchiveOpen);
     if (!input.IsOk()) {
       AddDiagnostic(result, ArchiveDiagnosticCode::OpenFailed,
                     "Could not open GDTF archive.");

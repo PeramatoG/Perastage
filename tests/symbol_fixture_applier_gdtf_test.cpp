@@ -243,6 +243,17 @@ void CheckManualApplyAndIntegratedPersistence(ConfigManager &cfg,
   assert(cfg.LoadProject(project.string()));
   const auto &loadedScene = cfg.GetScene();
   assert(*store.FindForFixture(loadedScene.fixtures.at(kSelected)) == expectedOverride);
+  const auto reopenedBinding = loadedScene.fixtures.at(kSelected).projectSymbolDefinitionId;
+  const int reopenedBundles = static_cast<int>(store.BundleCount());
+  for (int request = 0; request < 100; ++request) {
+    assert(!symbols::NeedsAutomaticFixtureSymbolPreparation(
+        loadedScene.fixtures.at(kSelected), store, "unneeded-source.gdtf",
+        gdtf::MutationPolicy::PreserveImported));
+  }
+  assert(loadedScene.fixtures.at(kSelected).projectSymbolDefinitionId == reopenedBinding);
+  assert(static_cast<int>(store.BundleCount()) == reopenedBundles);
+  assert(!cfg.IsDirty());
+
   assert(*store.FindForFixture(loadedScene.fixtures.at(kGenerated)) == expectedGenerated);
   assert(store.FindForFixture(loadedScene.fixtures.at(kShared)) ==
          store.FindForFixture(loadedScene.fixtures.at(kSelected)));

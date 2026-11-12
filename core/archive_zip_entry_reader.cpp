@@ -1,3 +1,4 @@
+#include "symbols/fixture_symbol_operation_counters.h"
 #include "archive_zip_entry_reader.h"
 
 #include "wx_path_utils.h"
@@ -120,6 +121,7 @@ bool EntryReadResult::Success() const {
 EntryReadResult ReadEntry(const std::filesystem::path &archivePath,
                           const DirectoryEntry &entry, std::uint64_t maxBytes) {
   wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(archivePath));
+  symbols::diagnostics::Count(symbols::diagnostics::Operation::ArchiveOpen);
   if (!input.IsOk())
     return {EntryReadStatus::OpenFailed, {}};
   return ReadEntryFromStream(input, entry, maxBytes);
@@ -138,6 +140,7 @@ ReadEntryPrefixes(const std::filesystem::path &archivePath,
                   const std::vector<DirectoryEntry> &entries,
                   std::uint64_t maxBytes) {
   wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(archivePath));
+  symbols::diagnostics::Count(symbols::diagnostics::Operation::ArchiveOpen);
   if (!input.IsOk())
     return std::vector<EntryReadResult>(entries.size(),
                                         {EntryReadStatus::OpenFailed, {}});
