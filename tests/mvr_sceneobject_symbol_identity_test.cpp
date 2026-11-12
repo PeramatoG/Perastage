@@ -11,6 +11,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include <tinyxml2.h>
 #include <wx/init.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
@@ -19,7 +20,9 @@
 #include "configmanager.h"
 #include "matrixutils.h"
 #include "mvrimporter.h"
+#include "mvr_source_structure_service.h"
 #include "resource_sync_system.h"
+#include "uuidutils.h"
 
 namespace fs = std::filesystem;
 
@@ -53,7 +56,7 @@ static fs::path WriteDuplicateSymbolSceneMvr(const fs::path &dir) {
       "/></ChildList>"
       "</Symdef>"
       "</AUXData>"
-      "<Layers><Layer uuid=\"layer-1\" name=\"Default\"><ChildList>"
+      "<Layers><Layer uuid=\"11000000-0000-4000-8000-000000000001\" name=\"Default\"><ChildList>"
       "<SceneObject uuid=\"0D492000-BD81-4D3F-17AA-9FDC8BB0D613\" "
       "name=\"eurotruss_FD34-250 1\">"
       "<Matrix>{1,0,0}{0,1,0}{0,0,1}{-3299.999952,-1200.000048,6000}</Matrix>"
@@ -173,8 +176,9 @@ int main() {
 
   MvrImporter importer;
   MvrImportResult result;
+  const fs::path sourceMvr = WriteDuplicateSymbolSceneMvr(tempDir);
   assert(importer.ImportFromFile(
-      WriteDuplicateSymbolSceneMvr(tempDir).generic_string(), result,
+      sourceMvr.generic_string(), result,
       MvrImportMode::ParseOnly, false, false));
 
   const MvrScene &scene = result.scene;
@@ -192,10 +196,9 @@ int main() {
          "eurotruss_FD34-250.3ds");
   assert(fd250A.geometries.front().modelFile ==
          fd250B.geometries.front().modelFile);
-  assert(fd250A.geometries.front().sourceSymbolUuid ==
-         fd250B.geometries.front().sourceSymbolUuid);
-  assert(l90.geometries.front().sourceSymbolUuid ==
-         fd250A.geometries.front().sourceSymbolUuid);
+  // Shared models/definitions retain independent canonical Symbol identities.
+  assert(fd250A.geometries.front().sourceSymdefUuid ==
+         fd250B.geometries.front().sourceSymdefUuid);
   assert(l90.geometries.front().sourceSymdefUuid !=
          fd250A.geometries.front().sourceSymdefUuid);
   assert(fd250A.geometries.front().instanceKey !=
@@ -207,6 +210,39 @@ int main() {
   assert(fd250A.transform.o[0] != fd250B.transform.o[0]);
   assert(fd250A.transform.o[1] == fd250B.transform.o[1]);
   assert(fd250A.transform.o[2] == fd250B.transform.o[2]);
+
+  MvrImportResult repeated;
+  assert(importer.ImportFromFile(sourceMvr.generic_string(), repeated,
+                                MvrImportMode::ParseOnly, false, false));
+  std::unordered_set<std::string> instanceUuids;
+  for (const auto &[uuid, object] : scene.sceneObjects) {
+    const auto &geometry = object.geometries.front();
+    assert(IsValidUuid(geometry.sourceSymbolUuid));
+    assert(CanonicalizeUuid(geometry.sourceSymbolUuid) == geometry.sourceSymbolUuid);
+    assert(instanceUuids.insert(geometry.sourceSymbolUuid).second);
+    assert(scene.symdefs.contains(geometry.sourceSymdefUuid));
+    assert(!scene.symdefs.contains(geometry.sourceSymbolUuid));
+    assert(!scene.sceneObjects.contains(geometry.sourceSymbolUuid));
+    assert(!scene.layers.contains(geometry.sourceSymbolUuid));
+
+    const auto &again = repeated.scene.sceneObjects.at(uuid);
+    assert(again.geometries.front().sourceSymbolUuid == geometry.sourceSymbolUuid);
+    assert(again.geometries.front().sourceSymdefUuid == geometry.sourceSymdefUuid);
+    assert(again.geometries.front().instanceKey == geometry.instanceKey);
+    assert(MatrixUtils::FormatMatrix(again.transform) ==
+           MatrixUtils::FormatMatrix(object.transform));
+
+    const auto *source = mvr::FindSourceNode(scene, uuid);
+    assert(source && mvr::SourceOwnsGeometry(scene, uuid));
+    tinyxml2::XMLDocument xml;
+    assert(xml.Parse(source->xml.c_str()) == tinyxml2::XML_SUCCESS);
+    const auto *geometries = xml.RootElement()->FirstChildElement("Geometries");
+    assert(geometries);
+    const auto *symbol = geometries->FirstChildElement("Symbol");
+    assert(symbol && symbol->Attribute("uuid") && symbol->Attribute("symdef"));
+    assert(geometry.sourceSymbolUuid == symbol->Attribute("uuid"));
+    assert(geometry.sourceSymdefUuid == symbol->Attribute("symdef"));
+  }
 
   const auto bounds = BuildObjectBounds(scene.sceneObjects);
   const auto &boundsA = bounds.at(fd250A.uuid);
