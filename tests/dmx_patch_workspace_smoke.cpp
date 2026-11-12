@@ -20,6 +20,7 @@
 #include "patch/dmx_patch_canvas.h"
 #include "fixturetablepanel.h"
 #include "fixturetable/fixture_table_highlight_event.h"
+#include "selection_movement_settings.h"
 #include "patch/viewport_patch_workspace.h"
 #include "startup_profile.h"
 #include "viewer3dpanel.h"
@@ -137,6 +138,7 @@ public:
           cfg.GetScene().fixtures[fixture.uuid] = fixture;
           cfg.NotifyChange(ConfigManager::Change::Scene);
         }
+        FixtureTablePanel::Instance()->ReloadData();
         cfg.MarkSaved(); if (argc < 3) Menu(ID_View_ToggleDmxPatch); break;
       case 1: {
         patch_ = FindPatch(*frame_); Require(patch_ && patch_->IsShownOnScreen(), "Patch not visible");
@@ -168,6 +170,45 @@ public:
         Require(canvas->Highlights().at(first) == gui::FixtureRelatedHoverColor(), "Related group hover did not replace cleared selection");
         fixtureTable->HighlightFixture({});
         Require(canvas->Highlights().empty() && !cfg.IsDirty(), "Cleared hover remained in patch or changed project");
+        const auto pick = [&](int channel, bool shift = false, bool control = false) {
+          const auto size = canvas->CellSize();
+          const int index = channel - 1;
+          const wxPoint point = canvas->CalcScrolledPosition(wxPoint(
+              (index % canvas->ColumnCount()) * size.x + size.x / 2,
+              (index / canvas->ColumnCount()) * size.y + size.y / 2));
+          wxMouseEvent click(wxEVT_LEFT_DOWN); click.SetPosition(point);
+          click.SetShiftDown(shift); click.SetControlDown(control);
+          canvas->GetEventHandler()->ProcessEvent(click);
+        };
+        pick(1);
+        Require(cfg.GetSelectedFixtures() == std::vector<std::string>{first} &&
+            fixtureTable->GetSelectedUuids() == cfg.GetSelectedFixtures(), "Patch click did not select table fixture");
+        Menu(ID_Edit_Undo);
+        Require(cfg.GetSelectedFixtures().empty(), "Patch selection undo failed");
+        Menu(ID_Edit_Redo);
+        Require(cfg.GetSelectedFixtures() == std::vector<std::string>{first}, "Patch selection redo failed");
+        cfg.MarkSaved();
+        pick(181, false, true);
+        Require(cfg.GetSelectedFixtures() == (std::vector<std::string>{first, second}), "Ctrl-click did not add fixture");
+        pick(1, true);
+        Require(cfg.GetSelectedFixtures() == std::vector<std::string>{second}, "Shift-click did not toggle fixture");
+        pick(187);
+        Require(cfg.GetSelectedFixtures().empty(), "Free channel did not clear selection");
+        pick(7);
+        Require(cfg.GetSelectedFixtures() == (std::vector<std::string>{first, second}), "Overlap click did not preserve all fixture identities");
+        const auto group = scene_grouping::GroupSelection(cfg.GetScene(), {.fixtures = {first, second}});
+        Require(group.changed, "Selection group setup failed");
+        const auto previousPolicy = selection_movement_settings::LoadInteractiveTransformPolicy(cfg);
+        auto groupedPolicy = previousPolicy; groupedPolicy.promoteFixturesToGroup = true;
+        selection_movement_settings::SaveInteractiveTransformPolicy(cfg, groupedPolicy);
+        cfg.MarkSaved();
+        pick(187); pick(1);
+        Require(cfg.GetSelectedFixtures() == (std::vector<std::string>{first, second}), "Patch did not select the effective group");
+        Require(!cfg.IsDirty(), "Group selection dirtied the project");
+        selection_movement_settings::SaveInteractiveTransformPolicy(cfg, previousPolicy);
+        scene_grouping::UngroupSelection(cfg.GetScene(), {.groupObjects = {group.groupUuid}});
+        cfg.MarkSaved(); pick(187);
+        Require(!cfg.IsDirty(), "Patch selection dirtied the project");
         wxCheckBox *compatibility = nullptr;
         for (auto *child : patch_->GetChildren())
           if (auto *checkbox = dynamic_cast<wxCheckBox *>(child)) compatibility = checkbox;

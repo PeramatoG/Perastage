@@ -18,8 +18,8 @@ namespace {
 wxString Text(const std::string &s) { return wxString::FromUTF8(s); }
 }
 
-DmxPatchPanel::DmxPatchPanel(wxWindow *parent, ConfigManager &config)
-    : wxPanel(parent), config_(config) {
+DmxPatchPanel::DmxPatchPanel(wxWindow *parent, ConfigManager &config, SelectionPublisher publish)
+    : wxPanel(parent), config_(config), publishSelection_(std::move(publish)) {
   SetName(_("DMX Patch"));
   auto *outer = new wxBoxSizer(wxVERTICAL);
   auto *bar = new wxBoxSizer(wxHORIZONTAL);
@@ -45,6 +45,9 @@ DmxPatchPanel::DmxPatchPanel(wxWindow *parent, ConfigManager &config)
   bar->Add(warnings_, 0, wxALIGN_CENTER_VERTICAL);
   outer->Add(bar, 0, wxEXPAND | wxALL, FromDIP(4));
   canvas_ = new DmxPatchCanvas(this);
+  canvas_->SetPickHandler([this](const auto &uuids, bool shift, bool control) {
+    PickFixtures(uuids, shift, control);
+  });
   outer->Add(canvas_, 1, wxEXPAND);
   SetSizer(outer);
   universeControl_->Bind(wxEVT_COMBOBOX, [this](wxCommandEvent &event) {

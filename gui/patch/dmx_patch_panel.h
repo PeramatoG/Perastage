@@ -1,6 +1,7 @@
 /* This file is part of Perastage. License: GPL-3.0-or-later. */
 #pragma once
 #include "patch/dmx_patch_snapshot.h"
+#include "scene_grouping.h"
 #include "fixturetable/fixture_table_highlight_event.h"
 #include <wx/panel.h>
 #include <wx/weakref.h>
@@ -15,7 +16,8 @@ class DmxPatchCanvas;
 class wxPopupTransientWindow;
 class DmxPatchPanel : public wxPanel {
 public:
-  DmxPatchPanel(wxWindow *parent, ConfigManager &config);
+  using SelectionPublisher = std::function<void(const scene_grouping::ObjectSelection &)>;
+  DmxPatchPanel(wxWindow *parent, ConfigManager &config, SelectionPublisher publish = {});
   ~DmxPatchPanel() override;
   void RefreshSnapshot();
 private:
@@ -30,8 +32,10 @@ private:
   void OnHostShow(wxShowEvent &event);
   void OnHoverHighlight(wxThreadEvent &event);
   void RefreshHighlights();
+  void PickFixtures(const std::vector<std::string> &uuids, bool shift, bool control);
   std::shared_ptr<const gdtf::GdtfModeChannelDocument> Resolve(const Fixture &fixture);
   ConfigManager &config_;
+  SelectionPublisher publishSelection_;
   std::size_t subscription_ = 0;
   bool queued_ = false, stale_ = true;
   dmx_patch::Universe universe_ = 1;

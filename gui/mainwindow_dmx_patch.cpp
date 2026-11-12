@@ -50,7 +50,19 @@ void MainWindow::SyncDmxPatchWorkspace() {
     return;
   }
   if (!dmxPatchPanel)
-    dmxPatchPanel = new DmxPatchPanel(this, guiConfigServices->LegacyConfigManager());
+    dmxPatchPanel = new DmxPatchPanel(this, guiConfigServices->LegacyConfigManager(),
+        [this](const scene_grouping::ObjectSelection &selection) {
+          auto &config = guiConfigServices->LegacyConfigManager();
+          if (selection.fixtures == config.GetSelectedFixtures() &&
+              selection.trusses == config.GetSelectedTrusses() &&
+              selection.supports == config.GetSelectedSupports() &&
+              selection.sceneObjects == config.GetSelectedSceneObjects() &&
+              selection.groupObjects == config.GetSelectedGroupObjects()) return;
+          const auto dirty = config.CaptureDirtyState();
+          config.PushUndoState("object selection");
+          config.RestoreDirtyState(dirty);
+          RefreshAfterToolSelectionUpdate(selection);
+        });
   long height = 240;
   const auto stored = guiConfigServices->Preferences().GetValue("ui_dmx_patch_height");
   if (stored) wxString::FromUTF8(*stored).ToLong(&height);

@@ -262,3 +262,14 @@ its pending edit) locally in its text controls. Focus loss also commits valid
 input. These field actions do not change the global shortcut registry. Editable
 focus continues to block viewport and Console-prefill shortcuts, and Enter does
 not close the dock pane or move focus. Selection changes discard pending edits.
+
+## DMX Patch selection gestures
+
+The patch canvas handles left clicks locally through its semantic channel
+hit-test. Plain clicks replace selection, Ctrl-click adds and Shift-click toggles
+using the existing viewer selection policy; Ctrl takes precedence when both are
+held. Free-channel clicks clear only without modifiers. Overlapping channels
+select every occupying fixture; group expansion uses the configured interactive
+transform policy. The main window publishes through the existing selection-only
+refresh path, including selection history, without repatching or rebuilding
+occupancy. These mouse modifiers add no global accelerators or navigation keys.

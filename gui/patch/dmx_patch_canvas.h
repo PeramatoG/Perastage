@@ -4,9 +4,13 @@
 #include "patch/dmx_patch_grid_geometry.h"
 #include "patch/dmx_patch_grid_blocks.h"
 #include <wx/scrolwin.h>
+#include <functional>
 class DmxPatchCanvas : public wxScrolledWindow {
 public:
+  using PickHandler = std::function<void(const std::vector<std::string> &, bool, bool)>;
   explicit DmxPatchCanvas(wxWindow *parent);
+  void SetPickHandler(PickHandler handler) { pick_ = std::move(handler); }
+  std::vector<std::string> FixturesAt(const wxPoint &clientPosition) const;
   void SetSnapshot(std::shared_ptr<const dmx_patch::Snapshot> snapshot);
   void SetHighlights(std::map<std::string, wxColour> highlights);
   const std::map<std::string, wxColour> &Highlights() const { return highlights_; }
@@ -19,6 +23,7 @@ private:
   void UpdateMetrics();
   void PaintHighlights(wxDC &dc, int firstRow, int lastRow);
   wxString Tooltip(int channel) const;
+  PickHandler pick_;
   std::map<std::string, wxColour> highlights_;
   dmx_patch_ui::GridGeometry geometry_;
   std::shared_ptr<const dmx_patch::Snapshot> snapshot_;

@@ -55,6 +55,14 @@ int main(int argc, char **argv) {
   const int originalColumns = patch->ColumnCount();
   assert(width < patch->FromDIP(68));
   assert(patch->AddressAt(wxPoint(1, 1))->channel == 1);
+  assert(patch->FixturesAt(wxPoint(1, 1)) == (std::vector<std::string>{"a", "b"}));
+  bool picked = false;
+  patch->SetPickHandler([&](const auto &ids, bool shift, bool control) {
+    picked = ids == std::vector<std::string>{"a", "b"} && shift && !control;
+  });
+  wxMouseEvent click(wxEVT_LEFT_DOWN); click.SetPosition(wxPoint(1, 1)); click.SetShiftDown(true);
+  patch->GetEventHandler()->ProcessEvent(click);
+  assert(picked);
   assert(patch->AddressAt(wxPoint(width + 1, height + 1))->channel == originalColumns + 2);
   frame->SetSize(800, 800); Flush();
   assert(patch->Highlights().at("a") == wxColour(0, 255, 255));

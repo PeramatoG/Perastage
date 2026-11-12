@@ -22,6 +22,10 @@ DmxPatchCanvas::DmxPatchCanvas(wxWindow *parent)
                        wxHSCROLL | wxVSCROLL | wxBORDER_NONE) {
   SetBackgroundStyle(wxBG_STYLE_PAINT);
   Bind(wxEVT_PAINT, &DmxPatchCanvas::Paint, this);
+  Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &event) {
+    SetFocus();
+    if (pick_) pick_(FixturesAt(event.GetPosition()), event.ShiftDown(), event.ControlDown());
+  });
   Bind(wxEVT_MOTION, &DmxPatchCanvas::Hover, this);
   Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent &e) { hovered_.reset(); UnsetToolTip(); e.Skip(); });
   Bind(wxEVT_DPI_CHANGED, [this](wxDPIChangedEvent &e) { UpdateMetrics(); e.Skip(); });
@@ -53,6 +57,12 @@ std::optional<dmx_patch::Address> DmxPatchCanvas::AddressAt(const wxPoint &point
   const auto channel = geometry_.Hit(virtualPoint.x, virtualPoint.y);
   if (!channel || !snapshot_) return {};
   return dmx_patch::Address{snapshot_->universe, *channel};
+}
+std::vector<std::string> DmxPatchCanvas::FixturesAt(const wxPoint &point) const {
+  const auto address = AddressAt(point);
+  if (!address) return {};
+  const auto ids = FixtureIds(snapshot_->cells[address->channel - 1]);
+  return {ids.begin(), ids.end()};
 }
 void DmxPatchCanvas::Paint(wxPaintEvent &) {
   wxAutoBufferedPaintDC dc(this);
@@ -129,6 +139,7 @@ void DmxPatchCanvas::Paint(wxPaintEvent &) {
       }
 
     }
+    auto nameFont = font; nameFont.SetWeight(wxFONTWEIGHT_BOLD); dc.SetFont(nameFont);
     // Name each fixture on its first displayed row only; wrapping never repeats it.
     for (int col = 0; col < geometry_.columns;) {
       const int i = row * geometry_.columns + col;
@@ -149,6 +160,7 @@ void DmxPatchCanvas::Paint(wxPaintEvent &) {
       dc.DrawText(FitLabel(dc, names, (end - col) * w - 2 * pad), col * w + pad, row * h + pad + line);
       col = end;
     }
+    dc.SetFont(font);
   }
   PaintHighlights(dc, firstRow, lastRow);
 }
