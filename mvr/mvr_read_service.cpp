@@ -22,6 +22,7 @@
 #include "mvr_standard_preservation.h"
 #include "mvr_fixture_planning_metadata.h"
 #include "mvr_symdef_preservation.h"
+#include "mvr_publication_repair.h"
 #include "primitive_model_resources.h"
 #include "uuidutils.h"
 
@@ -1056,6 +1057,14 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
   CaptureSourceStructure(*sceneNode, scene, [&](const std::string &path) {
     return RemapPackagePath(package, path);
   });
+  // Resolve occurrence identities only after definitions and all native/source
+  // projections exist. Share the canonical repair so expanded meshes of one
+  // Symbol keep the same identity without coalescing distinct occurrences.
+  publication::Findings symbolRepairs;
+  publication::RepairSymbols(scene, symbolRepairs);
+  publication::RetainDisclosure(scene, symbolRepairs);
+  for (const auto &finding : symbolRepairs)
+    importResult.diagnostics.push_back({"symbol_identity_recovery", finding.technicalDetail});
 
   if (matrixScaleAggregation.acceptedTinyUniformScaleCount > 0) {
     logMessage(MvrReadLogLevel::Info,

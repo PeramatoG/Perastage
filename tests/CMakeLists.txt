@@ -2127,6 +2127,7 @@ add_test(NAME ProjectSupportUserDataRoundtrip COMMAND project_support_userdata_r
 set_library_env(ProjectSupportUserDataRoundtrip)
 
 add_executable(project_preserved_fields_roundtrip_test project_preserved_fields_roundtrip_test.cpp
+    mvr_symbol_collision_test.cpp
     support/gdtf_test_fixture_builder.cpp build_info_stub.cpp
     ../core/configservices.cpp ../core/library/library_bootstrap.cpp
     ../core/gdtfdictionary.cpp ../core/trussdictionary.cpp ../core/trussloader.cpp
@@ -2137,12 +2138,18 @@ add_executable(project_preserved_fields_roundtrip_test project_preserved_fields_
     ../mvr/mvr_merge_analyzer.cpp ../mvr/mvr_merge_applier.cpp ../mvr/mvr_merge_resource_rewriter.cpp
     ${PERASTAGE_TEST_MVR_ROUNDTRIP_OBJECTS})
 target_include_directories(project_preserved_fields_roundtrip_test PRIVATE
-    . ../core ../models ../mvr ../gui ../third_party)
+    . ../core ../models ../mvr ../gui ../third_party ../viewer3d)
 target_link_libraries(project_preserved_fields_roundtrip_test PRIVATE
     ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_mvr_read
     perastage_mvr_import_application_read perastage_inspection_validation
     perastage_layer_validation)
 add_test(NAME ProjectPreservedFieldsRoundtrip COMMAND project_preserved_fields_roundtrip_test)
+add_test(NAME MvrSymbolCollisionLifecycle COMMAND project_preserved_fields_roundtrip_test --symbol-collisions)
+add_test(NAME MvrSymbolInvalidIsolation COMMAND project_preserved_fields_roundtrip_test --symbol-invalid)
+set_perastage_test_labels(MvrSymbolCollisionLifecycle
+                         LAYER standard-strict DOMAINS mvr project)
+set_perastage_test_labels(MvrSymbolInvalidIsolation
+                         LAYER standard-strict DOMAINS mvr project)
 add_test(NAME ProjectStructuredMvrRoundtrip COMMAND project_preserved_fields_roundtrip_test --structure)
 add_bash_policy_test(MvrSourceStructureBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_source_structure_boundary.sh LABELS "mvr;architecture")
 set_library_env(ProjectStructuredMvrRoundtrip)

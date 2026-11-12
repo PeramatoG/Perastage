@@ -36,6 +36,10 @@ Maintenance rules for Codex and contributors:
 
 ## MVR / GDTF
 
+- Preserve imported Truss and SceneObject model geometry when Symbol instances
+  reuse their Symdef UUID, including shared 3DS resources through project
+  save/reopen and canonical MVR export.
+
 - Repair repeated imported object identities consistently across editable objects and retained source structure, preserving placements, Class assignments and shared model bytes through project save/reopen and canonical MVR export. Empty optional GDTF fields no longer block saving; incomplete optional Truss/Support bindings are omitted with specific warnings.
 
 - Project saving and canonical MVR export now retain validated source-only fixture fields such as shadow settings and custom commands. Failed saves keep the previous file and session path, with complete diagnostic details available in the error dialog.

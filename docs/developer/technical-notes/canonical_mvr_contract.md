@@ -171,6 +171,15 @@ will belong to PSTG, without adding proprietary Class attributes to MVR.
 
 ## Preservation, canonicalization and controlled repair
 
+Symdef collection distinguishes definition identities from Symbol occurrence
+identities and `symdef` targets. Repeated instance UUIDs, including UUIDs shared
+with their definition, do not invalidate an independently identifiable Symdef.
+Import resolves its model geometry before returning the typed scene, then uses
+the canonical occurrence repair for native projections and retained source XML
+together. Already valid instance identities remain unchanged. Genuine duplicate
+definitions and collisions with other standard nodes remain diagnosed. Repeated
+project/canonical saves retain the repaired identities and original model bytes.
+
 Preservation protects valid authored information and meaning, including fields
 without an editor. Canonicalization may change representation: standard element
 ordering, equivalent numeric spelling, resource packaging with consistent

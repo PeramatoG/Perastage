@@ -52,6 +52,9 @@ void RepairSymbols(MvrScene &scene, Findings &out) {
   }
   const auto definition = [&](const std::string &raw) {
     auto it = definitionIds.find(raw);
+    const auto canonical = CanonicalizeUuid(raw);
+    if (it == definitionIds.end() && !canonical.empty())
+      it = definitionIds.find(canonical);
     return it == definitionIds.end() ? raw : it->second;
   };
   for (auto &issue : scene.preservationIssues)
@@ -62,11 +65,15 @@ void RepairSymbols(MvrScene &scene, Findings &out) {
   // meshes of that instance. Repeated authored UUIDs remain separate instances.
   std::map<std::pair<std::string, std::string>, std::string> instances;
   const auto instance = [&](const std::string &owner, const std::string &raw) {
-    const auto key = std::pair{owner, raw};
+    // Retained XML uses canonical spelling; typed geometry can still carry
+    // the authored spelling. Both projections must identify one occurrence.
+    const auto canonical = CanonicalizeUuid(raw);
+    const auto normalized = canonical.empty() ? raw : canonical;
+    const auto key = std::pair{owner, normalized};
     if (instances.contains(key))
       return instances.at(key);
     const auto id =
-        identities.ResolveStableUuid({"Symbol", owner, {}, {}, raw, {}});
+        identities.ResolveStableUuid({"Symbol", owner, {}, {}, normalized, {}});
     instances[key] = id;
     if (id != raw)
       Note(out, "Symbol", owner, "Geometries/Symbol/@uuid",
@@ -123,7 +130,8 @@ void RepairSymbols(MvrScene &scene, Findings &out) {
   for (auto &[id, truss] : scene.trusses) {
     if (!truss.sourceSymdefUuid.empty())
       truss.sourceSymdefUuid = definition(truss.sourceSymdefUuid);
-    if (!truss.sourceSymbolUuid.empty())
+    if (!truss.sourceSymbolUuid.empty() ||
+        truss.sourceRepresentation == Truss::GeometryRepresentation::SymbolSymdef)
       truss.sourceSymbolUuid =
           instance(id + "/Symbol[0]", truss.sourceSymbolUuid);
   }
@@ -141,7 +149,7 @@ void RepairSymbols(MvrScene &scene, Findings &out) {
   const auto repairGeometry = [&](const std::string &owner, auto &geometry) {
     if (!geometry.sourceSymdefUuid.empty())
       geometry.sourceSymdefUuid = definition(geometry.sourceSymdefUuid);
-    if (!geometry.sourceSymbolUuid.empty())
+    if (!geometry.sourceSymbolUuid.empty() || !geometry.sourceSymdefUuid.empty())
       geometry.sourceSymbolUuid = instance(
           occurrence(owner, geometry.instanceKey), geometry.sourceSymbolUuid);
   };

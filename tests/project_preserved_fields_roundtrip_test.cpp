@@ -25,6 +25,7 @@
 #include <wx/mstream.h>
 
 namespace fs = std::filesystem;
+int RunSymbolCollisionRegression(int argc, char **argv);
 static std::string Read(const fs::path &path) {
   std::ifstream in(path, std::ios::binary);
   return {std::istreambuf_iterator<char>(in), {}};
@@ -36,6 +37,8 @@ static void Write(const fs::path &path, const std::string &bytes) {
 int main(int argc, char **argv) {
   wxInitializer initialize;
   assert(initialize.IsOk());
+  if (argc > 1 && std::string(argv[1]).starts_with("--symbol-"))
+    return RunSymbolCollisionRegression(argc, argv);
   const std::string mode = argc > 1 ? argv[1] : "";
   const bool publication = mode.starts_with("--publication-");
   const auto publicationCase = publication ? mode.substr(14) : std::string{};
