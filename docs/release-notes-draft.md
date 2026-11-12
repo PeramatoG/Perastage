@@ -48,6 +48,8 @@ Maintenance rules for Codex and contributors:
 
 - Fixed the fixture table channel count and mode/channel browser for GDTF fixtures with RGB channels on children of referenced pixel geometries, including 60-pixel fixtures occupying 180 DMX channels.
 
+- Accepted GDTF replacements and their selected modes are retained through project save/reopen and MVR export, including legacy Windows resource references. Unavailable assigned profiles now report an error and protect the previous saved file instead of silently publishing a dummy.
+
 - The GDTF download window now stays open after a completed MVR import queue until acknowledged. A preference can restore automatic closing.
 
 - Automatic GDTF matching better distinguishes suitable fixture models from ambiguous candidates. Matching DMX modes can be inferred from the imported mode name or unambiguous channel-count evidence, including after manual GDTF selection; uncertain matches retain the original profile for review.

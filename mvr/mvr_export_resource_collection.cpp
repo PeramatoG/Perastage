@@ -124,11 +124,9 @@ namespace mvr_export_resources {
 
 // Initializes collection and reserves a temporary workspace for primitive models.
 ResourceCollection::ResourceCollection(std::string sceneBasePath,
-                                       fs::path fixtureFallbackGdtfPath,
                                        DiagnosticSink diagnosticSink,
                                        InformationalLogSink informationalLogSink)
     : m_sceneBasePath(std::move(sceneBasePath)),
-      m_fixtureFallbackGdtfPath(std::move(fixtureFallbackGdtfPath)),
       m_diagnosticSink(std::move(diagnosticSink)),
       m_informationalLogSink(std::move(informationalLogSink)) {
   runtime_storage::TemporaryWorkspace workspace("mvr-export-primitives");
@@ -172,15 +170,9 @@ std::string ResourceCollection::NormalizeArchiveEntryPath(std::string path) {
 
 // Produces a stable absolute identity path relative to the scene base directory.
 std::string ResourceCollection::NormalizeSourcePath(const std::string &rawPath) const {
-  fs::path source = PathUtils::PathFromUtf8(rawPath);
-  if (source.is_relative() && !m_sceneBasePath.empty())
-    source = PathUtils::PathFromUtf8(m_sceneBasePath) / source;
-  std::error_code ec;
-  const fs::path weak = fs::weakly_canonical(source, ec);
-  if (!ec) return PathUtils::PathToUtf8(weak);
-  ec.clear();
-  const fs::path absolute = fs::absolute(source, ec);
-  return PathUtils::PathToUtf8(ec ? source.lexically_normal() : absolute.lexically_normal());
+  const auto source = PathUtils::ResolveSceneResourcePath(
+      rawPath, PathUtils::PathFromUtf8(m_sceneBasePath));
+  return source.empty() ? std::string{} : PathUtils::PathToUtf8(source);
 }
 
 // Resolves an existing source directly or by filename within scene resources.
@@ -225,26 +217,19 @@ std::string ResourceCollection::RegisterResource(const std::string &rawSource,
 // Selects a GDTF source, explicitly classifying fallback substitution.
 std::string ResourceCollection::RegisterGdtfResource(const std::string &objectUuid,
     const std::string &rawGdtfPath, const std::string &preferredName,
-    bool allowReuseBySource, bool usePreferredDerivativeName, bool allowFallback) {
+    bool allowReuseBySource, bool usePreferredDerivativeName, bool required) {
   if (rawGdtfPath.empty()) return {};
   std::string resolved = ResolveExistingResourceSourcePath(rawGdtfPath);
   ResourceProvenance provenance = ResourceProvenance::StandardPreserved;
-  if (resolved.empty() && allowFallback) {
-    std::error_code fallbackError;
-    if (!m_fixtureFallbackGdtfPath.empty() &&
-        fs::is_regular_file(m_fixtureFallbackGdtfPath, fallbackError) &&
-        !fallbackError)
-      resolved = m_fixtureFallbackGdtfPath.generic_string();
-    if (!resolved.empty()) {
-      provenance = ResourceProvenance::CompatibilityFallback;
-      if (m_diagnosticSink) m_diagnosticSink({MvrExportDiagnosticCode::GdtfFallbackUsed,
-        MvrExportDiagnosticSeverity::Warning, MvrExportDiagnosticImpact::DataSubstituted,
-        true, "Fixture", {}, objectUuid, fs::path(rawGdtfPath).filename().generic_string(),
-        "MVR export could not resolve fixture GDTF '" + rawGdtfPath + "'. Using fallback '" +
-        fs::path(resolved).filename().generic_string() + "'."});
-    }
+  if (resolved.empty() && required) {
+    m_resourceRegistrationFailed = true;
+    if (m_diagnosticSink) m_diagnosticSink({MvrExportDiagnosticCode::ResourceMissing,
+      MvrExportDiagnosticSeverity::Error, MvrExportDiagnosticImpact::ExportFailed,
+      true, "Fixture", {}, objectUuid, rawGdtfPath,
+      "The assigned GDTF is unavailable; its identity and mode were retained: " + rawGdtfPath});
+    return {};
   }
-  if (resolved.empty() && !allowFallback) {
+  if (resolved.empty() && !required) {
     if (m_diagnosticSink) m_diagnosticSink({MvrExportDiagnosticCode::TrussGdtfMissing,
       MvrExportDiagnosticSeverity::Warning, MvrExportDiagnosticImpact::DataOmitted,
       true, "Truss", {}, objectUuid, fs::path(rawGdtfPath).filename().generic_string(),
@@ -281,7 +266,7 @@ std::string ResourceCollection::RegisterModelResource(const std::string &rawMode
       PathUtils::PathFromUtf8(source),
       PathUtils::PathFromUtf8(m_sceneBasePath));
   if (!closure.error.empty()) {
-    m_dependencyRegistrationFailed = true;
+    m_resourceRegistrationFailed = true;
     if (m_diagnosticSink)
       m_diagnosticSink(
           {closure.missingResource
@@ -314,7 +299,7 @@ std::string ResourceCollection::RegisterModelResource(const std::string &rawMode
         return true;
       });
   if (prefix.empty()) {
-    m_dependencyRegistrationFailed = true;
+    m_resourceRegistrationFailed = true;
     return {};
   }
   std::map<fs::path, std::string> archives;
@@ -322,7 +307,7 @@ std::string ResourceCollection::RegisterModelResource(const std::string &rawMode
     const auto archive =
         prefix + mvr::ModelResourceRelativeName(file, closure.root);
     if (perastage::archive::IsUnsafeNormalizedEntryPath(archive)) {
-      m_dependencyRegistrationFailed = true;
+      m_resourceRegistrationFailed = true;
       return {};
     }
     const auto identity = PathUtils::BuildFilesystemIdentityKey(file);
@@ -335,7 +320,7 @@ std::string ResourceCollection::RegisterModelResource(const std::string &rawMode
       const auto before = FileImportUtils::ComputeFileSha256(found->sourcePath),
                  after = FileImportUtils::ComputeFileSha256(file);
       if (!before || !after || before != after) {
-        m_dependencyRegistrationFailed = true;
+        m_resourceRegistrationFailed = true;
         return {};
       }
     }
@@ -487,6 +472,6 @@ const std::unordered_map<std::string, std::string> &ResourceCollection::GdtfArch
 }
 
 // Reports whether dependency registration found an archive-breaking conflict.
-bool ResourceCollection::HasFatalDependencyError() const { return m_dependencyRegistrationFailed; }
+bool ResourceCollection::HasFatalResourceError() const { return m_resourceRegistrationFailed; }
 
 } // namespace mvr_export_resources

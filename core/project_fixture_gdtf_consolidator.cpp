@@ -148,12 +148,8 @@ void UpdateHash(std::uint64_t &hash, const void *data, size_t size) {
 
 // Resolves a project-relative fixture archive to its extracted file.
 std::string ResolveProjectPath(const MvrScene &scene, const std::string &spec) {
-  fs::path path = PathUtils::PathFromUtf8(spec);
-  if (path.is_relative())
-    path = PathUtils::PathFromUtf8(scene.basePath) / path;
-  std::error_code ec;
-  const fs::path canonical = fs::weakly_canonical(path, ec);
-  return PathUtils::PathToUtf8(ec ? path.lexically_normal() : canonical);
+  return PathUtils::PathToUtf8(PathUtils::ResolveSceneResourcePath(
+      spec, PathUtils::PathFromUtf8(scene.basePath)));
 }
 
 // Returns whether a filename is the canonical unsuffixed derivative.

@@ -10,15 +10,18 @@ ResolveExistingSceneResource(const std::string &reference,
                              bool allowFilenameAlias) {
   if (reference.empty())
     return {};
-  auto path = PathUtils::PathFromUtf8(reference);
-  if (path.is_relative())
-    path = base / path;
+  auto path = PathUtils::ResolveSceneResourcePath(reference, base);
+  if (path.empty())
+    return {};
   std::error_code error;
   if (std::filesystem::is_regular_file(path, error)) {
     auto canonical = std::filesystem::weakly_canonical(path, error);
     return error ? path.lexically_normal() : canonical;
   }
-  if (!allowFilenameAlias || base.empty())
+  auto portable = reference;
+  std::replace(portable.begin(), portable.end(), '\\', '/');
+  if (!allowFilenameAlias || base.empty() ||
+      PathUtils::PathFromUtf8(portable).has_parent_path())
     return {};
   const auto fold = [](std::string value) {
     std::transform(
@@ -27,7 +30,7 @@ ResolveExistingSceneResource(const std::string &reference,
     return value;
   };
   const auto requested =
-      fold(PathUtils::PathFromUtf8(reference).filename().generic_string());
+      fold(PathUtils::PathFromUtf8(portable).filename().generic_string());
   std::filesystem::path candidate;
   for (const auto &entry : std::filesystem::directory_iterator(base, error)) {
     if (error)
@@ -42,7 +45,7 @@ ResolveExistingSceneResource(const std::string &reference,
   }
   if (candidate.empty())
     return {};
-  auto canonical = std::filesystem::weakly_canonical(candidate, error);
-  return error ? candidate.lexically_normal() : canonical;
+  return PathUtils::ResolveSceneResourcePath(
+      PathUtils::PortablePathToUtf8(candidate.filename()), base);
 }
 } // namespace mvr

@@ -114,6 +114,23 @@ int main() {
   assert(resolver.NormalizeSupportGdtfSpec("Support Fixture .gdtf") ==
          "Support Fixture.gdtf");
 
+  fs::create_directories(root / "resolved-gdtf");
+  std::ofstream(root / "resolved-gdtf/fixture.gdtf").put('B');
+  const auto portable = resolver.ResolveScenePath("resolved-gdtf/fixture.gdtf");
+  assert(portable == resolver.ResolveScenePath("resolved-gdtf\\fixture.gdtf"));
+  assert(resolver.MakeSceneRelative(portable) == "resolved-gdtf/fixture.gdtf");
+  for (const auto &unsafe : {"../escape.gdtf", "..\\escape.gdtf", "a/../fixture.gdtf",
+                            "a\\..\\fixture.gdtf", "C:fixture.gdtf", "a//b.gdtf",
+                            "a/./b.gdtf", "a./b.gdtf", "a /b.gdtf"}) {
+    assert(resolver.ResolveScenePath(unsafe).empty());
+    assert(!resolver.GdtfFileExists(resolver.ResolveGdtfPath(unsafe)));
+  }
+  // A link must not turn a safe-looking scene reference into a workspace escape.
+  std::error_code linkError;
+  fs::create_directory_symlink(root.parent_path(), root / "escape", linkError);
+  if (!linkError)
+    assert(resolver.ResolveScenePath("escape/other.gdtf").empty());
+
   const std::vector<std::string> modes = {"Mode 16", "Standard", "Basic"};
   const auto count = [](const std::string &mode) {
     return mode == "Basic" ? 8 : 16;

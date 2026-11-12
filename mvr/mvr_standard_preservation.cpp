@@ -211,8 +211,7 @@ std::vector<MvrExportDiagnostic> CheckStandardPreservation(const MvrScene &scene
     if (const auto canonical = CanonicalizeUuid(uuid); !canonical.empty())
       focusUuids.insert(canonical);
     auto checkGeometry = [&](const std::string &file, bool requiresSymbol) {
-      auto path = PathUtils::PathFromUtf8(file);
-      if (!path.is_absolute()) path = PathUtils::PathFromUtf8(scene.basePath) / path;
+      auto path = PathUtils::ResolveSceneResourcePath(file, PathUtils::PathFromUtf8(scene.basePath));
       std::error_code error;
       const bool available = std::filesystem::is_regular_file(path, error);
       if ((requiresSymbol && !SourceOwnsGeometry(scene, uuid)) || !available) {
@@ -251,8 +250,7 @@ std::vector<MvrExportDiagnostic> CheckStandardPreservation(const MvrScene &scene
     }
     if (fixture.dmxAddresses && !fixture.dmxAddresses->networks.empty()) {
       const auto &networkSpec = fixture.gdtfSpec.empty() ? fixture.originalMvrGdtfSpec : fixture.gdtfSpec;
-      auto gdtfPath = PathUtils::PathFromUtf8(networkSpec);
-      if (!gdtfPath.is_absolute()) gdtfPath = PathUtils::PathFromUtf8(scene.basePath) / gdtfPath;
+      auto gdtfPath = PathUtils::ResolveSceneResourcePath(networkSpec, PathUtils::PathFromUtf8(scene.basePath));
       auto [evidence, inserted] = networkEvidence.try_emplace(PathUtils::PathToUtf8(gdtfPath));
       if (inserted) evidence->second = fixture_network::ReadWireNames(gdtfPath);
       const auto network = fixture_network::CheckReferences(fixture, evidence->second);
@@ -273,8 +271,7 @@ std::vector<MvrExportDiagnostic> CheckStandardPreservation(const MvrScene &scene
   for (const auto &[uuid, support] : scene.supports) {
     if (const auto addresses = perastage::patch::InspectFixtureAddresses(support); !addresses)
       result.push_back(Block("Support", uuid, "Support/Addresses", addresses.detail));
-    auto path = PathUtils::PathFromUtf8(support.gdtfSpec);
-    if (!path.is_absolute()) path = PathUtils::PathFromUtf8(scene.basePath) / path;
+    auto path = PathUtils::ResolveSceneResourcePath(support.gdtfSpec, PathUtils::PathFromUtf8(scene.basePath));
     if (!support.gdtfSpec.empty()) {
       if (support.gdtfMode.empty()) {
         result.push_back(Block("Support", uuid, "Support/GDTFMode",

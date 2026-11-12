@@ -32,12 +32,7 @@ std::string GenericPathText(const std::filesystem::path &path) {
   return {text.begin(), text.end()};
 }
 std::filesystem::path Path(const MvrScene &scene, const std::string &name) {
-  auto p = PathUtils::PathFromUtf8(name);
-  if (p.is_relative() &&
-      (perastage::archive::IsUnsafeNormalizedEntryPath(name) ||
-       name.find('\\') != std::string::npos))
-    return {};
-  return p.is_absolute() ? p : PathUtils::PathFromUtf8(scene.basePath) / p;
+  return PathUtils::ResolveSceneResourcePath(name, PathUtils::PathFromUtf8(scene.basePath));
 }
 std::vector<std::string> Modes(const std::filesystem::path &path) {
   const auto archive = gdtf::ReadGdtfArchive(path);
@@ -130,7 +125,7 @@ void RepairResources(MvrScene &scene, const std::filesystem::path &fallback,
         !FailedResourceReference(scene, id, spec) &&
         !FindSourceNode(scene, id)) {
       const auto resolved = ResolveExistingSceneResource(
-          spec, PathUtils::PathFromUtf8(scene.basePath), true);
+          spec, PathUtils::PathFromUtf8(scene.basePath), false);
       std::error_code equivalentError;
       const bool sameFile =
           std::filesystem::equivalent(resolved, exact, equivalentError);
@@ -146,6 +141,18 @@ void RepairResources(MvrScene &scene, const std::filesystem::path &fallback,
     auto modes = (spec.empty() || FailedResourceReference(scene, id, spec))
                      ? std::vector<std::string>{}
                      : modesFor(Path(scene, spec));
+    const bool nativeModeDefault = fixture.gdtfMode.empty() && !FindSourceNode(scene, id);
+    if (!spec.empty() && (modes.empty() || (!nativeModeDefault &&
+        std::find(modes.begin(), modes.end(), fixture.gdtfMode) == modes.end()))) {
+      out.push_back({modes.empty() ? MvrExportDiagnosticCode::ResourceMissing
+                                 : MvrExportDiagnosticCode::StandardDataPreservationBlocked,
+          MvrExportDiagnosticSeverity::Error, MvrExportDiagnosticImpact::ExportFailed,
+          true, "Fixture", fixture.instanceName, id, spec,
+          "Cannot preserve the assigned GDTF and mode '" + fixture.gdtfMode +
+          "'. Restore the selected resource or explicitly choose another definition/mode; "
+          "the authoritative binding was retained: " + spec});
+      continue;
+    }
     if (modes.empty() && !fallbackModes.empty()) {
       Note(out, "Fixture", id, "GDTFSpec/GDTFMode",
            "Substituted the installed generic fallback definition and its "

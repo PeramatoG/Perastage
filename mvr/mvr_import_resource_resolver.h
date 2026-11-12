@@ -20,6 +20,8 @@
 #include <unordered_map>
 #include <vector>
 
+struct MvrScene;
+
 namespace mvr {
 
 class MvrImportResourceResolver {
@@ -31,6 +33,7 @@ public:
       std::filesystem::path sceneBasePath,
       ArchivePathRemapper archivePathRemapper = {});
 
+  bool RetainSceneGdtfs(MvrScene &scene, std::string &diagnostic) const;
   std::string RemapArchivePath(const std::string &path) const;
   std::filesystem::path ResolveScenePath(const std::string &path) const;
   std::string MakeSceneRelative(const std::filesystem::path &path) const;

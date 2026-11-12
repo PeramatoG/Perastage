@@ -2489,6 +2489,7 @@ set_tests_properties(PositionToolPanel PROPERTIES TIMEOUT 60)
 set_library_env(PositionToolPanel)
 
 add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
+               mvr_gdtf_replacement_persistence_test.cpp
                mvr_export_file_buffer_parity_test_support.cpp
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
@@ -4993,3 +4994,23 @@ foreach(scenario complete epoch manual source destroy retry modes reopen touch)
     add_test(NAME FixtureSymbolPreparationScheduling.${scenario}
         COMMAND fixture_symbol_preparation_scheduling_test ${scenario})
 endforeach()
+
+# Offline replacement lifecycle through the real project and canonical MVR APIs.
+target_link_libraries(mvr_exporter_compliance_test PRIVATE perastage_gdtf_resolution_resources)
+add_test(NAME MvrGdtfReplacementPersistence COMMAND mvr_exporter_compliance_test replacement)
+set_library_env(MvrGdtfReplacementPersistence)
+set_perastage_test_labels(MvrGdtfReplacementPersistence LAYER standard-strict DOMAINS mvr gdtf project zip)
+
+# Load retained replacement geometry with the production GDTF loader.
+target_sources(gdtfloader_file_model_cache_identity_test PRIVATE support/gdtf_test_fixture_builder.cpp)
+target_include_directories(gdtfloader_file_model_cache_identity_test PRIVATE ../core)
+target_link_libraries(gdtfloader_file_model_cache_identity_test PRIVATE perastage_gdtf_resolution_resources)
+
+set_tests_properties(MvrGdtfReplacementPersistence PROPERTIES FIXTURES_SETUP GdtfReplacementProject)
+add_test(NAME MvrGdtfReplacementProcessReload COMMAND mvr_exporter_compliance_test replacement-restart)
+set_tests_properties(MvrGdtfReplacementProcessReload PROPERTIES FIXTURES_REQUIRED GdtfReplacementProject)
+set_library_env(MvrGdtfReplacementProcessReload)
+set_perastage_test_labels(MvrGdtfReplacementProcessReload LAYER standard-strict DOMAINS mvr gdtf project zip)
+
+# Directly cover the canonical publication repair boundary.
+target_sources(mvr_export_preparation_test PRIVATE support/gdtf_test_fixture_builder.cpp)

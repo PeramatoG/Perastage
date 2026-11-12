@@ -17,12 +17,13 @@ In particular, uppercase, braced, or otherwise noncanonical spelling represents
 the same UUID and is not a user warning.
 
 Meaningful identity replacement, cleared references, duplicate numeric fixture
-IDs, fallback or missing GDTFs, omitted resources or textures, placeholder or
+IDs, fallback for unbound fixtures, missing optional auxiliary GDTFs, omitted resources or textures, placeholder or
 empty geometry, rejected foreign metadata, omitted invalid DMX addresses, and
 an unavailable requested compatibility representation are user-visible
 `Warning` records. Structural validation, transform integrity, canonicalization,
 archive I/O, and hierarchy recursion failures are user-visible `Error` records
-and make the operation fail.
+and make the operation fail. An unavailable assigned fixture GDTF is also a
+fatal `ResourceMissing` error; it is never replaced by another profile.
 
 Identity storage mismatches are evaluated using both sources. A malformed or
 missing field remains log-only when the other source preserves the effective
@@ -42,6 +43,7 @@ The stable code policy is:
 | `GdtfFallbackUsed`, `GdtfMissing`, `TrussGdtfMissing`, `GdtfPatchFailed` | Warning | Shown |
 | `TextureMissing`, `ResourceMissing`, `ResourceDuplicate`, `SupportGeometryMissing`, `PlaceholderGeometryUsed` | Warning | Shown |
 | `CompatibilityRepresentationUnavailable`, `ForeignMetadataDiscarded`, `DmxAddressOmitted` | Warning | Shown |
+| `ResourceMissing` for an assigned fixture GDTF | Error | Shown; export fails |
 | `TransformInvalid`, `StructuralValidationFailed`, `CanonicalizationFailed`, `ArchiveIoFailed`, `HierarchyRecursion` | Error | Shown; export fails |
 
 `GetExportDiagnostics()` is the authoritative API. `GetExportWarnings()` is a
@@ -50,7 +52,8 @@ must not infer policy by parsing its English text.
 
 ## Non-fatal warnings
 
-When `GeneralSceneDescription.xml` references a `fileName`/`GDTFSpec` entry that is missing from the archive source set, or the same archive path appears more than once, export continues and records a warning:
+Missing optional resources or duplicate archive paths can produce non-fatal warnings.
+Assigned fixture GDTFs are required resources and are excluded from this policy:
 
 - Missing file warning: `Referenced file '<name>' is missing from the archive and will be omitted.`
 - Duplicate file warning: `Referenced file '<name>' appears multiple times; duplicates will be ignored.`

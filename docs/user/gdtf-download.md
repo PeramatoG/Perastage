@@ -90,3 +90,12 @@ Use **OK** to accept the results.
 **OK** also retries failed downloads. To continue with an original profile after
 a failure, select its **MVR** source and press **OK**. Canceling authentication
 stops the remaining attempts without repeating the sign-in dialog for every row.
+
+Accepted downloaded, local-file and application-library replacements are retained
+with the scene. Saving a project embeds the selected profiles and modes in its
+`scene.mvr`; reopening and subsequent MVR export do not need GDTF Share or the
+original download directory. Moving the saved project keeps those resources with it.
+If an assigned GDTF becomes unavailable or invalid, saving/exporting reports an
+error and retains the previous saved file. Restore that selected resource or
+explicitly choose another profile; Perastage does not silently replace it with a
+dummy or the original imported definition.

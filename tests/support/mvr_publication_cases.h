@@ -1,5 +1,6 @@
 #pragma once
 #include <thread>
+#include <algorithm>
 #include <chrono>
 #include "support/mvr_anomaly_characterization.h"
 #include "mvr_identifier_preservation.h"
@@ -216,6 +217,23 @@ inline void Check(ConfigManager &cfg, const std::filesystem::path &target,
          "Restore the source definition.",
          MvrPreservationIssueKind::ResourceFailure});
   const auto sourceIssues = scene.preservationIssues;
+  if (mode == "gdtf" || mode == "mode" || mode == "gdtf-sections" || mode == "acquisition") {
+    const auto spec = scene.fixtures.at(fixtureId).gdtfSpec;
+    const auto selectedMode = scene.fixtures.at(fixtureId).gdtfMode;
+    { std::ofstream previous(target, std::ios::binary); previous << "previous publication"; }
+    assert(!cfg.SaveProject(target.string()));
+    const auto previous = archive::ReadBinaryFile(target.string());
+    assert(std::string(previous.begin(), previous.end()) == "previous publication");
+    assert(cfg.GetScene().fixtures.at(fixtureId).gdtfSpec == spec);
+    assert(cfg.GetScene().fixtures.at(fixtureId).gdtfMode == selectedMode);
+    assert(cfg.GetScene().preservationIssues == sourceIssues);
+    MvrExporter exporter;
+    std::vector<std::uint8_t> bytes;
+    assert(!exporter.ExportToBuffer(bytes) && bytes.empty());
+    assert(std::any_of(exporter.GetExportDiagnostics().begin(), exporter.GetExportDiagnostics().end(),
+        [](const auto &finding) { return finding.severity == MvrExportDiagnosticSeverity::Error; }));
+    return;
+  }
   assert(cfg.SaveProject(target.string()));
   assert(scene.preservationIssues ==
          sourceIssues); // Export exceptions never edit the open scene.

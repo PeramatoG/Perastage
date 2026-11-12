@@ -1,5 +1,8 @@
 #include "mvr_export_preparation.h"
 #include "mvr_publication_repair.h"
+#include "mvr_scene_resource_lookup.h"
+#include "filesystem_path_utils.h"
+#include "support/gdtf_test_fixture_builder.h"
 #include "runtime_storage.h"
 #include <filesystem>
 #include <fstream>
@@ -70,6 +73,49 @@ void TestResourceDisclosureSeparators() {
   mvr::publication::RetainDisclosure(authored, findings);
   assert(authored.opaqueUserDataBlocks.front().xml.find(original) !=
          std::string::npos);
+}
+
+// Publication must preserve a selected definition even with a usable original and dummy nearby.
+void TestSelectedResourcePreservation() {
+  namespace fs = std::filesystem;
+  runtime_storage::TemporaryWorkspace workspace("replacement-publication");
+  const auto root = workspace.Path();
+  fs::create_directory(root / "resolved-gdtf");
+  const auto fallback = root / "dummy.gdtf";
+  tests::gdtf::BuildMinimalValidFixture().WriteArchive(fallback);
+  tests::gdtf::BuildMinimalValidFixture().WithDmxMode("Original", "Root")
+      .WriteArchive(root / "fixture.gdtf");
+  tests::gdtf::BuildMinimalValidFixture().WithDmxMode("Selected 17", "Root")
+      .WriteArchive(root / "resolved-gdtf/fixture.gdtf");
+  for (const auto &reference : {"resolved-gdtf/fixture.gdtf", "resolved-gdtf\\fixture.gdtf"}) {
+    MvrScene scene;
+    scene.basePath = PathUtils::PathToUtf8(root);
+    Fixture fixture;
+    fixture.uuid = "70000000-0000-4000-8000-000000000001";
+    fixture.gdtfSpec = reference;
+    fixture.originalMvrGdtfSpec = "fixture.gdtf";
+    fixture.gdtfMode = "Selected 17";
+    scene.fixtures.emplace(fixture.uuid, fixture);
+    assert(mvr::ResolveExistingSceneResource(reference, root, true) ==
+           PathUtils::ResolveSceneResourcePath("resolved-gdtf/fixture.gdtf", root));
+    auto prepared = mvr_export_preparation::Prepare(scene, CanonicalMvrExportOptions(), fallback);
+    assert(prepared.success);
+    assert(prepared.scene.fixtures.at(fixture.uuid).gdtfSpec == reference);
+    assert(prepared.scene.fixtures.at(fixture.uuid).gdtfMode == fixture.gdtfMode);
+    assert(prepared.scene.fixtures.at(fixture.uuid).originalMvrGdtfSpec == "fixture.gdtf");
+    for (const auto &bad : {"lost/fixture.gdtf", "resolved-gdtf\\..\\fixture.gdtf"}) {
+      scene.fixtures.at(fixture.uuid).gdtfSpec = bad;
+      prepared = mvr_export_preparation::Prepare(scene, CanonicalMvrExportOptions(), fallback);
+      assert(!prepared.success);
+      assert(prepared.scene.fixtures.at(fixture.uuid).gdtfSpec == bad);
+      assert(prepared.scene.fixtures.at(fixture.uuid).gdtfMode == fixture.gdtfMode);
+    }
+    scene.fixtures.at(fixture.uuid) = fixture;
+    scene.fixtures.at(fixture.uuid).gdtfMode = "Unavailable mode";
+    prepared = mvr_export_preparation::Prepare(scene, CanonicalMvrExportOptions(), fallback);
+    assert(!prepared.success);
+    assert(prepared.scene.fixtures.at(fixture.uuid).gdtfMode == "Unavailable mode");
+  }
 }
 
 // Builds a fixture with a stable identity for preparation characterization.
@@ -371,6 +417,7 @@ void TestIncompleteOptionalBindings() {
 
 // Runs focused MVR export preparation characterization.
 int main() {
+  TestSelectedResourcePreservation();
   TestPortableDisclosure();
   TestResourceDisclosureSeparators();
   TestIncompleteOptionalBindings();
