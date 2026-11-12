@@ -8,6 +8,8 @@ class DmxPatchCanvas : public wxScrolledWindow {
 public:
   explicit DmxPatchCanvas(wxWindow *parent);
   void SetSnapshot(std::shared_ptr<const dmx_patch::Snapshot> snapshot);
+  void SetHighlights(std::map<std::string, wxColour> highlights);
+  const std::map<std::string, wxColour> &Highlights() const { return highlights_; }
   wxSize CellSize() const { return wxSize(geometry_.width, geometry_.height); }
   int ColumnCount() const { return geometry_.columns; }
   std::optional<dmx_patch::Address> AddressAt(const wxPoint &clientPosition) const;
@@ -15,7 +17,9 @@ private:
   void Paint(wxPaintEvent &);
   void Hover(wxMouseEvent &);
   void UpdateMetrics();
+  void PaintHighlights(wxDC &dc, int firstRow, int lastRow);
   wxString Tooltip(int channel) const;
+  std::map<std::string, wxColour> highlights_;
   dmx_patch_ui::GridGeometry geometry_;
   std::shared_ptr<const dmx_patch::Snapshot> snapshot_;
   std::optional<int> hovered_;

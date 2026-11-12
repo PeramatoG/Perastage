@@ -83,7 +83,7 @@ void DmxPatchCanvas::Paint(wxPaintEvent &) {
         text = (color.Red() * 299 + color.Green() * 587 + color.Blue() * 114 < 140000) ? *wxWHITE : *wxBLACK;
       }
       const wxRect rect(col * w, row * h, w, h);
-      const int radius = std::min(FromDIP(12), std::min(w, h) / 3);
+      const int radius = std::min(FromDIP(18), std::min(w, h) / 2 - 1);
       dc.SetBrush(wxBrush(color)); dc.SetPen(wxPen(border));
       if (start || end) {
         dc.DrawRoundedRectangle(rect, radius);
@@ -109,10 +109,6 @@ void DmxPatchCanvas::Paint(wxPaintEvent &) {
           dc.DrawLine(rect.x + x, rect.y + 1, rect.x + std::min(w - 1, x + FromDIP(8)), rect.y + pad + line);
         dc.SetBrush(*wxTRANSPARENT_BRUSH); dc.DrawRectangle(wxRect(rect).Deflate(1));
       }
-      if (end) {
-        dc.SetPen(wxPen(text, FromDIP(2)));
-        dc.DrawLine(rect.GetRight() - 1, rect.y + radius, rect.GetRight() - 1, rect.GetBottom());
-      }
       dc.SetTextForeground(text);
       const auto number = wxString::Format("%d", i + 1);
       const int numberWidth = dc.GetTextExtent(number).x;
@@ -130,10 +126,6 @@ void DmxPatchCanvas::Paint(wxPaintEvent &) {
         if (entry.byteIndex == 1) label += _(" Fine");
         else if (entry.byteIndex > 1) label += wxString::Format(_(" Byte %d"), entry.byteIndex + 1);
         dc.DrawText(FitLabel(dc, label, w - 2 * pad), rect.x + pad, rect.y + h - line - pad);
-        if (start) {
-          dc.SetPen(wxPen(text, FromDIP(2)));
-          dc.DrawLine(rect.x + 1, rect.y + radius, rect.x + 1, rect.GetBottom());
-        }
       }
 
     }
@@ -158,6 +150,7 @@ void DmxPatchCanvas::Paint(wxPaintEvent &) {
       col = end;
     }
   }
+  PaintHighlights(dc, firstRow, lastRow);
 }
 wxString DmxPatchCanvas::Tooltip(int channel) const {
   wxString result = wxString::Format(_("Universe %s | Channel %d"), Text(std::to_string(snapshot_->universe)), channel);

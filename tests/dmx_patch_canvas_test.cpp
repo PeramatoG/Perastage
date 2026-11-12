@@ -46,6 +46,8 @@ int main(int argc, char **argv) {
   assert(previewBlocks.Ends(180) && !previewBlocks.Ends(179));
   snapshot->cells[180].provisional.push_back({"a", 0, 181, 0, "Dimmer", "Intensity"});
   patch->SetSnapshot(snapshot);
+  patch->SetHighlights({{"a", wxColour(0, 255, 255)}, {"b", wxColour(170, 220, 0)}});
+  assert(patch->Highlights().size() == 2);
   three->AttachPatch(patch, frame->FromDIP(240)); Flush();
   assert(three->HasPatch() && patch->GetParent() == three);
   assert(patch->GetSize().x < frame->GetClientSize().x);
@@ -55,6 +57,9 @@ int main(int argc, char **argv) {
   assert(patch->AddressAt(wxPoint(1, 1))->channel == 1);
   assert(patch->AddressAt(wxPoint(width + 1, height + 1))->channel == originalColumns + 2);
   frame->SetSize(800, 800); Flush();
+  assert(patch->Highlights().at("a") == wxColour(0, 255, 255));
+  patch->SetHighlights({}); Flush();
+  assert(patch->Highlights().empty());
   assert(patch->ColumnCount() < originalColumns);
   width = patch->CellSize().x; height = patch->CellSize().y;
   assert(patch->AddressAt(wxPoint(width + 1, height + 1))->channel == patch->ColumnCount() + 2);

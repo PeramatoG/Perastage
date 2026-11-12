@@ -4936,7 +4936,8 @@ set_library_env(DmxPatchSnapshot)
 set_perastage_test_labels(DmxPatchSnapshot LAYER unit DOMAINS core gdtf mvr)
 
 add_executable(dmx_patch_canvas_test dmx_patch_canvas_test.cpp
-               ../gui/patch/dmx_patch_canvas.cpp ../gui/patch/viewport_patch_workspace.cpp)
+               ../gui/patch/dmx_patch_canvas.cpp ../gui/patch/dmx_patch_highlight.cpp
+               ../gui/patch/viewport_patch_workspace.cpp)
 target_include_directories(dmx_patch_canvas_test PRIVATE ../gui)
 target_link_libraries(dmx_patch_canvas_test PRIVATE perastage_dmx_patch ${wxWidgets_LIBRARIES})
 if(UNIX AND NOT APPLE AND POSITION_TOOL_XVFB_RUN)

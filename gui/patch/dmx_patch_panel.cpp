@@ -2,6 +2,7 @@
 #include "patch/dmx_patch_panel.h"
 #include "patch/dmx_patch_canvas.h"
 #include "configmanager.h"
+#include "fixturetablepanel.h"
 #include "fixtures/fixture_gdtf_resolution.h"
 #include "gdtf_archive_reader.h"
 #include <wx/combobox.h>
@@ -55,10 +56,15 @@ DmxPatchPanel::DmxPatchPanel(wxWindow *parent, ConfigManager &config)
   universeControl_->Bind(wxEVT_KILL_FOCUS, [this](wxFocusEvent &e) { DisplayUniverse(universeControl_->GetValue()); e.Skip(); });
   subscription_ = config_.SubscribeChanges([this](ConfigManager::Change change) {
     if (change == ConfigManager::Change::Scene) { stale_ = true; QueueRefresh(); }
+    else if (change == ConfigManager::Change::Selection || change == ConfigManager::Change::Preferences)
+      RefreshHighlights();
   });
   Bind(wxEVT_SHOW, &DmxPatchPanel::OnHostShow, this);
   // A child may receive no show event when only its startup frame is revealed.
   host_ = wxGetTopLevelParent(this);
+  host_->Bind(gui::FixtureHoverChanged, &DmxPatchPanel::OnHoverHighlight, this);
+  if (auto *table = FixtureTablePanel::Instance())
+    hoverHighlight_ = {table->GetHighlightedUuid(), table->GetRelatedHighlightedUuids()};
   if (host_ != this) host_->Bind(wxEVT_SHOW, &DmxPatchPanel::OnHostShow, this);
   Bind(wxEVT_SIZE, [this](wxSizeEvent &event) {
     if (stale_ && IsShownOnScreen()) QueueRefresh();
@@ -68,6 +74,7 @@ DmxPatchPanel::DmxPatchPanel(wxWindow *parent, ConfigManager &config)
 }
 DmxPatchPanel::~DmxPatchPanel() {
   if (host_ && host_ != this) host_->Unbind(wxEVT_SHOW, &DmxPatchPanel::OnHostShow, this);
+  if (host_) host_->Unbind(gui::FixtureHoverChanged, &DmxPatchPanel::OnHoverHighlight, this);
   config_.UnsubscribeChanges(subscription_);
 }
 void DmxPatchPanel::OnHostShow(wxShowEvent &event) {
@@ -147,6 +154,7 @@ void DmxPatchPanel::RefreshSnapshot() {
       static_cast<int>(snapshot->diagnostics.size()) + snapshot->conflicts));
   snapshot_ = snapshot;
   canvas_->SetSnapshot(snapshot);
+  RefreshHighlights();
   stale_ = false;
   Layout();
 }

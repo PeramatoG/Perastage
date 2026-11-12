@@ -17,6 +17,9 @@
 #include "mainwindow.h"
 #include "mainwindow/ids/mainwindow_command_ids.h"
 #include "patch/dmx_patch_panel.h"
+#include "patch/dmx_patch_canvas.h"
+#include "fixturetablepanel.h"
+#include "fixturetable/fixture_table_highlight_event.h"
 #include "patch/viewport_patch_workspace.h"
 #include "startup_profile.h"
 #include "viewer3dpanel.h"
@@ -87,6 +90,15 @@ public:
     try {
       Require(++ticks_ < 400, "Workspace smoke timed out");
       if (frame_->IsStartupInitializationPending()) return;
+      // Snapshot publication is coalesced through the GUI event queue; a timer
+      // can run before its idle callback on a loaded CI worker.
+      if (stage_ == 1 || (stage_ == 0 && argc >= 3)) {
+        auto *pending = FindPatch(*frame_);
+        bool ready = false;
+        if (pending) for (auto *child : pending->GetChildren())
+          if (auto *text = dynamic_cast<wxStaticText *>(child)) ready |= text->GetLabel().Contains("/512");
+        if (!ready) return;
+      }
       auto &cfg = ConfigManager::Get(); auto *manager = wxAuiManager::GetManager(frame_);
       Require(manager, "AUI unavailable");
       std::cout << "Patch workspace stage " << stage_ << std::endl;
@@ -139,6 +151,23 @@ public:
             std::cout << "Patch status: " << text->GetLabel() << " size=" << text->GetSize().x << ',' << text->GetSize().y << std::endl;
           }
         Require(hasStatus, "Occupied channel status is missing or clipped");
+        DmxPatchCanvas *canvas = nullptr;
+        for (auto *child : patch_->GetChildren())
+          if (auto *candidate = dynamic_cast<DmxPatchCanvas *>(child)) canvas = candidate;
+        Require(canvas, "Patch canvas unavailable");
+        const std::string first = "11111111-1111-4111-8111-111111111111";
+        const std::string second = "22222222-2222-4222-8222-222222222222";
+        auto *fixtureTable = FixtureTablePanel::Instance();
+        Require(fixtureTable, "Fixture table unavailable");
+        cfg.SetSelectedFixtures({first});
+        fixtureTable->HighlightFixture(second, {first, second});
+        Require(canvas->Highlights().at(first) == gui::FixtureSelectionColor() &&
+            canvas->Highlights().at(second) == gui::FixtureHoverColor(), "Patch selection/hover colors are not synchronized");
+        Capture("dmx-patch-highlight.png");
+        cfg.SetSelectedFixtures({});
+        Require(canvas->Highlights().at(first) == gui::FixtureRelatedHoverColor(), "Related group hover did not replace cleared selection");
+        fixtureTable->HighlightFixture({});
+        Require(canvas->Highlights().empty() && !cfg.IsDirty(), "Cleared hover remained in patch or changed project");
         wxCheckBox *compatibility = nullptr;
         for (auto *child : patch_->GetChildren())
           if (auto *checkbox = dynamic_cast<wxCheckBox *>(child)) compatibility = checkbox;

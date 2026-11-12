@@ -1,6 +1,7 @@
 /* This file is part of Perastage. License: GPL-3.0-or-later. */
 #pragma once
 #include "patch/dmx_patch_snapshot.h"
+#include "fixturetable/fixture_table_highlight_event.h"
 #include <wx/panel.h>
 #include <wx/weakref.h>
 #include <filesystem>
@@ -27,6 +28,8 @@ private:
   void ShowDiagnostics();
   void DisplayUniverse(const wxString &value);
   void OnHostShow(wxShowEvent &event);
+  void OnHoverHighlight(wxThreadEvent &event);
+  void RefreshHighlights();
   std::shared_ptr<const gdtf::GdtfModeChannelDocument> Resolve(const Fixture &fixture);
   ConfigManager &config_;
   std::size_t subscription_ = 0;
@@ -42,6 +45,7 @@ private:
   wxBitmapButton *warnings_;
   wxCheckBox *compatibility_;
   std::shared_ptr<const dmx_patch::Snapshot> snapshot_;
+  gui::FixtureHoverHighlight hoverHighlight_;
   wxWindow *host_ = nullptr;
   std::set<dmx_patch::Universe> listedUniverses_;
   wxWeakRef<wxPopupTransientWindow> diagnosticsPopup_;
