@@ -36,6 +36,8 @@ Maintenance rules for Codex and contributors:
 
 ## MVR / GDTF
 
+- GDTF catalog loading handles unavailable and invalid ratings without repeated conversion exceptions, improving stability during profile resolution.
+
 - Preserve imported Truss and SceneObject model geometry when Symbol instances
   reuse their Symdef UUID, including shared 3DS resources through project
   save/reopen and canonical MVR export.

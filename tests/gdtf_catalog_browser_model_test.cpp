@@ -2,11 +2,69 @@
 #include "../mvr/gdtf_catalog_parser.h"
 #include <cassert>
 #include <algorithm>
+#include "json.hpp"
+#include <cmath>
 
 namespace parser = mvr::gdtf_catalog_parser;
 namespace browser = gdtf_catalog_browser;
 
+// Exercise the public parser so text, metadata and modes share the real path.
+static void VerifyRatings() {
+  using Json = nlohmann::json;
+  const auto parseRating = [](const Json &rating) {
+    return parser::ParseCatalog(Json{{"list", Json::array({
+        {{"rid", "1"}, {"fixture", "Spot"}, {"manufacturer", "Acme"},
+         {"rating", rating}, {"creator", "designer"},
+         {"modes", Json::array({{{"name", "Standard"}, {"dmxfootprint", 12}}})}}
+    })}}.dump());
+  };
+  for (const auto &text : {"N/A", "", "invalid", "4.5invalid", "4.5 ",
+                           "nan", "NaN", "inf", "-Infinity", "1e1000",
+                           "-1e1000", "3.5e38", "1e-1000", "4e", "+-4", "4,5"}) {
+    const auto result = parseRating(text);
+    assert(result.IsUsable() && result.entries.size() == 1);
+    const auto &entry = result.entries[0];
+    assert(entry.rating == 0 && entry.ratingText == text);
+    assert(entry.manufacturer == "Acme" && entry.creator == "designer");
+    assert(entry.modes.size() == 1 && entry.modes[0].name == "Standard");
+    assert(entry.modes[0].footprint == 12 && entry.downloadable);
+  }
+  for (const auto &rating : {Json(4.5), Json("4.5"), Json("+4.5"),
+                             Json(" \t4.5"), Json("45e-1")}) {
+    const auto result = parseRating(rating);
+    assert(result.entries[0].rating == 4.5f);
+    assert(result.entries[0].ratingText ==
+           (rating.is_string() ? rating.get<std::string>() : rating.dump()));
+  }
+  for (const auto &rating : {Json(), Json(true), Json::object(), Json(1e100),
+                             Json(-1e100)})
+    assert(parseRating(rating).entries[0].rating == 0);
+  const auto numeric = parseRating(4.5);
+  const auto text = parseRating("4.5");
+  assert(parser::CatalogsEquivalent(numeric, text));
+  assert(numeric.entries[0].rating == text.entries[0].rating);
+
+  Json rows = Json::array();
+  for (int i = 0; i < 12000; ++i) {
+    Json row = {{"rid", i}, {"fixture", "Spot"},
+                {"modes", Json::array({{{"name", "Standard"}, {"dmxfootprint", 12}}})}};
+    if (i % 3 == 0) row["rating"] = "N/A";
+    if (i % 3 == 1) row["rating"] = "invalid";
+    rows.push_back(std::move(row));
+  }
+  const auto bulk = parser::ParseCatalog(rows.dump());
+  assert(bulk.IsUsable() && bulk.usableEntryCount == 12000);
+  assert(bulk.entries.size() == 12000);
+  for (std::size_t i = 0; i < bulk.entries.size(); ++i) {
+    const auto &entry = bulk.entries[i];
+    assert(entry.rating == 0 && std::isfinite(entry.rating));
+    assert(entry.ratingText == (i % 3 == 0 ? "N/A" : i % 3 == 1 ? "invalid" : ""));
+    assert(entry.modes[0].footprint == 12);
+  }
+}
+
 int main() {
+  VerifyRatings();
   const auto parsed = parser::ParseCatalog(R"({"timestamp":1700000000,"list":[
     {"rid":17,"manufacturer":"Martin Professional","fixture":"VDO Sceptron 10",
      "revision":"Tour 2026","uuid":"abc-123-def","filesize":"1048576",
