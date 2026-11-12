@@ -73,3 +73,13 @@ void Viewer3DPanel::SetSelectedFixtures(const std::vector<std::string> &uuids) {
     m_controller.SetSelectedUuids(expandedUuids, uuids);
     Refresh();
 }
+
+// External feedback changes outlines only, without anchoring a viewport tooltip.
+void Viewer3DPanel::SetExternalHoverUuid(const std::string &uuid) {
+  if (m_hoverUuid == uuid && !m_hasHover) return;
+  m_runtimeState.MarkHighlightChanged();
+  m_hoverUuid = uuid;
+  m_hasHover = false;
+  m_controller.SetHighlightUuid(uuid);
+  Refresh(false);
+}

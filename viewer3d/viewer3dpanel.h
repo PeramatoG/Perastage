@@ -79,6 +79,9 @@ public:
     void RefreshAfterFixtureResourceRebind();
     void PrepareForSceneReplacement();
     void CompleteSceneReplacement();
+  // Presents external table/patch hover without publishing another hover event.
+  void SetExternalHoverUuid(const std::string &uuid);
+  const std::string &GetHoveredUuid() const { return m_hoverUuid; }
     void SetSelectedFixtures(const std::vector<std::string>& uuids);
     void SetLayerColor(const std::string& layer, const std::string& hex);
     std::shared_ptr<const SymbolDefinitionSnapshot>

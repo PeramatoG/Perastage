@@ -45,6 +45,9 @@ DmxPatchPanel::DmxPatchPanel(wxWindow *parent, ConfigManager &config, SelectionP
   bar->Add(warnings_, 0, wxALIGN_CENTER_VERTICAL);
   outer->Add(bar, 0, wxEXPAND | wxALL, FromDIP(4));
   canvas_ = new DmxPatchCanvas(this);
+  canvas_->SetHoverHandler([](const std::string &uuid) {
+    if (auto *table = FixtureTablePanel::Instance()) table->PreviewFixtureHover(uuid);
+  });
   canvas_->SetPickHandler([this](const auto &uuids, bool shift, bool control) {
     PickFixtures(uuids, shift, control);
   });

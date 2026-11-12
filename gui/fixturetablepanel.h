@@ -66,7 +66,8 @@ public:
     void ReloadData(); // Refresh content from ConfigManager
     void HighlightFixture(const std::string& uuid);
     void HighlightFixture(const std::string& uuid,
-                          const std::vector<std::string>& relatedUuids);
+                          const std::vector<std::string>& relatedUuids, bool force = false);
+    void PreviewFixtureHover(const std::string &uuid);
     const std::string &GetHighlightedUuid() const { return highlightedUuid; }
     const std::vector<std::string> &GetRelatedHighlightedUuids() const { return highlightedRelatedUuids; }
     void ClearSelection();

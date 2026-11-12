@@ -63,6 +63,16 @@ int main(int argc, char **argv) {
   wxMouseEvent click(wxEVT_LEFT_DOWN); click.SetPosition(wxPoint(1, 1)); click.SetShiftDown(true);
   patch->GetEventHandler()->ProcessEvent(click);
   assert(picked);
+  std::vector<std::string> hoverEvents;
+  patch->SetHoverHandler([&](const auto &uuid) { hoverEvents.push_back(uuid); });
+  wxMouseEvent motion(wxEVT_MOTION); motion.SetPosition(wxPoint(1, 1));
+  patch->GetEventHandler()->ProcessEvent(motion);
+  motion.SetPosition(wxPoint(width + 1, 1)); patch->GetEventHandler()->ProcessEvent(motion);
+  assert(hoverEvents == std::vector<std::string>{"a"});
+  patch->SetSnapshot(snapshot);
+  assert(hoverEvents == std::vector<std::string>{"a"});
+  wxMouseEvent leave(wxEVT_LEAVE_WINDOW); patch->GetEventHandler()->ProcessEvent(leave);
+  assert(hoverEvents == (std::vector<std::string>{"a", ""}));
   assert(patch->AddressAt(wxPoint(width + 1, height + 1))->channel == originalColumns + 2);
   frame->SetSize(800, 800); Flush();
   assert(patch->Highlights().at("a") == wxColour(0, 255, 255));

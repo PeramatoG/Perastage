@@ -93,3 +93,14 @@ void Viewer2DPanel::SetSelectedUuids(
   m_controller.SetSelectedUuids(expandedSelection, selection);
   RequestRepaint();
 }
+
+// External feedback changes outlines only, without anchoring a viewport tooltip.
+void Viewer2DPanel::SetExternalHoverUuid(const std::string &uuid) {
+  m_hoverHitTestTimer.Stop();
+  m_runtimeState.CancelHoverQuery();
+  if (m_hoverUuid == uuid && !m_hasHover) return;
+  m_hoverUuid = uuid;
+  m_hasHover = false;
+  m_controller.SetHighlightUuid(uuid);
+  RequestRepaint();
+}

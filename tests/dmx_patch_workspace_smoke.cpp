@@ -161,6 +161,40 @@ public:
         const std::string second = "22222222-2222-4222-8222-222222222222";
         auto *fixtureTable = FixtureTablePanel::Instance();
         Require(fixtureTable, "Fixture table unavailable");
+        const auto hoverPatch = [&](int channel) {
+          const auto size = canvas->CellSize();
+          wxMouseEvent motion(wxEVT_MOTION);
+          motion.SetPosition(canvas->CalcScrolledPosition(wxPoint(
+              ((channel - 1) % canvas->ColumnCount()) * size.x + size.x / 2,
+              ((channel - 1) / canvas->ColumnCount()) * size.y + size.y / 2)));
+          canvas->GetEventHandler()->ProcessEvent(motion);
+        };
+        hoverPatch(1);
+        Require(canvas->Highlights().at(first) == gui::FixtureHoverColor() &&
+            fixtureTable->GetHighlightedUuid() == first && Viewer2DPanel::Instance()->GetHoveredUuid() == first,
+            "Patch mouse motion did not publish green hover to table/viewer");
+        auto *tableControl = fixtureTable->GetTableCtrl();
+        const auto requireGreenRow = [&] {
+          for (unsigned row = 0; row < tableControl->GetItemCount(); ++row)
+            if (tableControl->GetTextValue(row, 1) == "RGB pixel strip") {
+              wxDataViewItemAttr attr;
+              auto *store = dynamic_cast<ColorfulDataViewListStore *>(tableControl->GetModel());
+              Require(store && store->GetAttrByRow(row, 1, attr) &&
+                  attr.GetBackgroundColour() == gui::FixtureHoverColor(), "Fixture table green styling is missing");
+              return row;
+            }
+          throw std::runtime_error("Hover fixture row missing");
+        };
+        const unsigned hoverRow = requireGreenRow();
+        fixtureTable->ReloadData(); wxYield(); requireGreenRow();
+        hoverPatch(187);
+        Require(canvas->Highlights().empty() && fixtureTable->GetHighlightedUuid().empty(), "Free channel did not clear green hover");
+        const auto itemRect = tableControl->GetItemRect(tableControl->RowToItem(hoverRow), tableControl->GetColumn(1));
+        wxMouseEvent tableMotion(wxEVT_MOTION); tableMotion.SetEventObject(tableControl);
+        tableMotion.SetPosition(wxPoint(itemRect.x + 4, itemRect.y + itemRect.height / 2));
+        tableControl->GetEventHandler()->ProcessEvent(tableMotion);
+        Require(canvas->Highlights().at(first) == gui::FixtureHoverColor(), "Table mouse motion did not highlight patch");
+        fixtureTable->PreviewFixtureHover({});
         cfg.SetSelectedFixtures({first});
         fixtureTable->HighlightFixture(second, {first, second});
         Require(canvas->Highlights().at(first) == gui::FixtureSelectionColor() &&
@@ -202,7 +236,11 @@ public:
         auto groupedPolicy = previousPolicy; groupedPolicy.promoteFixturesToGroup = true;
         selection_movement_settings::SaveInteractiveTransformPolicy(cfg, groupedPolicy);
         cfg.MarkSaved();
-        pick(187); pick(1);
+        pick(187); hoverPatch(1);
+        Require(canvas->Highlights().at(first) == gui::FixtureHoverColor() &&
+            canvas->Highlights().at(second) == gui::FixtureRelatedHoverColor(), "Group hover colors did not follow movement policy");
+        wxMouseEvent leavePatch(wxEVT_LEAVE_WINDOW); canvas->GetEventHandler()->ProcessEvent(leavePatch);
+        pick(1);
         Require(cfg.GetSelectedFixtures() == (std::vector<std::string>{first, second}), "Patch did not select the effective group");
         Require(!cfg.IsDirty(), "Group selection dirtied the project");
         selection_movement_settings::SaveInteractiveTransformPolicy(cfg, previousPolicy);
@@ -270,6 +308,9 @@ public:
         Require(FindPatch(*frame_) == patch_ && patch_->IsShownOnScreen(), "3D switch lost shared panel");
         Require(patch_->GetParent() == manager->GetPane("3DViewport").window, "Patch not under 3D");
         Require(manager->GetPane("3DViewport").IsShown() && !manager->GetPane("2DViewport").IsShown(), "3D pane visibility is wrong");
+        FixtureTablePanel::Instance()->PreviewFixtureHover("11111111-1111-4111-8111-111111111111");
+        Require(Viewer3DPanel::Instance()->GetHoveredUuid() == "11111111-1111-4111-8111-111111111111", "3D did not receive external hover");
+        FixtureTablePanel::Instance()->PreviewFixtureHover({});
         Require(Viewer3DPanel::Instance()->IsShownOnScreen() && !Viewer2DPanel::Instance()->IsShownOnScreen(), "Viewport native visibility is wrong");
         Capture("dmx-patch-3d.png"); Menu(ID_View_Layout_Mode); break;
       case 3:

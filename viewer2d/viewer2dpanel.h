@@ -110,6 +110,9 @@ public:
   Viewer2DView GetView() const { return m_view; }
 
   // Synchronize the highlighted selection from external sources (tables/3D).
+  // Presents external table/patch hover without publishing another hover event.
+  void SetExternalHoverUuid(const std::string &uuid);
+  const std::string &GetHoveredUuid() const { return m_hoverUuid; }
   void SetSelectedUuids(const std::vector<std::string> &selection);
 
   // Update cached color for a specific layer so user selections are applied

@@ -27,9 +27,17 @@ DmxPatchCanvas::DmxPatchCanvas(wxWindow *parent)
     if (pick_) pick_(FixturesAt(event.GetPosition()), event.ShiftDown(), event.ControlDown());
   });
   Bind(wxEVT_MOTION, &DmxPatchCanvas::Hover, this);
-  Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent &e) { hovered_.reset(); UnsetToolTip(); e.Skip(); });
+  Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent &e) { pointerPosition_.reset(); UpdateHoverFeedback(); e.Skip(); });
   Bind(wxEVT_DPI_CHANGED, [this](wxDPIChangedEvent &e) { UpdateMetrics(); e.Skip(); });
   Bind(wxEVT_SYS_COLOUR_CHANGED, [this](wxSysColourChangedEvent &e) { Refresh(); e.Skip(); });
+  for (auto type : {wxEVT_SCROLLWIN_TOP, wxEVT_SCROLLWIN_BOTTOM,
+                    wxEVT_SCROLLWIN_LINEUP, wxEVT_SCROLLWIN_LINEDOWN,
+                    wxEVT_SCROLLWIN_PAGEUP, wxEVT_SCROLLWIN_PAGEDOWN,
+                    wxEVT_SCROLLWIN_THUMBTRACK, wxEVT_SCROLLWIN_THUMBRELEASE})
+    Bind(type, [this](wxScrollWinEvent &event) {
+      event.Skip();
+      CallAfter([this] { UpdateHoverFeedback(true); });
+    });
   Bind(wxEVT_SIZE, [this](wxSizeEvent &e) { UpdateMetrics(); e.Skip(); });
   UpdateMetrics();
 }
@@ -44,13 +52,13 @@ void DmxPatchCanvas::UpdateMetrics() {
   const int rows = (512 + geometry_.columns - 1) / geometry_.columns;
   const wxSize size(geometry_.columns * geometry_.width, rows * geometry_.height);
   if (GetVirtualSize() != size) SetVirtualSize(size);
-  hovered_.reset(); UnsetToolTip(); Refresh();
+  UpdateHoverFeedback(true); Refresh();
 }
 
 void DmxPatchCanvas::SetSnapshot(std::shared_ptr<const dmx_patch::Snapshot> snapshot) {
   snapshot_ = std::move(snapshot);
   if (snapshot_) blocks_.emplace(*snapshot_); else blocks_.reset();
-  hovered_.reset(); UnsetToolTip(); Refresh();
+  UpdateHoverFeedback(true); Refresh();
 }
 std::optional<dmx_patch::Address> DmxPatchCanvas::AddressAt(const wxPoint &point) const {
   const auto virtualPoint = CalcUnscrolledPosition(point);
@@ -184,12 +192,23 @@ wxString DmxPatchCanvas::Tooltip(int channel) const {
   }
   return result;
 }
-void DmxPatchCanvas::Hover(wxMouseEvent &event) {
-  const auto address = AddressAt(event.GetPosition());
+void DmxPatchCanvas::PublishHover(const std::string &uuid) {
+  if (uuid == publishedHover_) return;
+  publishedHover_ = uuid;
+  if (hover_) hover_(uuid);
+}
+void DmxPatchCanvas::UpdateHoverFeedback(bool refreshTooltip) {
+  const auto address = pointerPosition_ ? AddressAt(*pointerPosition_) : std::nullopt;
   const std::optional<int> channel = address ? std::optional<int>(address->channel) : std::nullopt;
-  if (channel != hovered_) {
+  if (channel != hovered_ || refreshTooltip) {
     hovered_ = channel;
     if (channel) SetToolTip(Tooltip(*channel)); else UnsetToolTip();
+    const auto ids = channel ? FixtureIds(snapshot_->cells[*channel - 1]) : std::set<std::string>{};
+    PublishHover(ids.empty() ? std::string{} : *ids.begin());
   }
+}
+void DmxPatchCanvas::Hover(wxMouseEvent &event) {
+  pointerPosition_ = event.GetPosition();
+  UpdateHoverFeedback();
   event.Skip();
 }

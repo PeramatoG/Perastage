@@ -484,6 +484,7 @@ void FixtureTablePanel::ReloadData() {
     Viewer3DPanel::Instance()->SetSelectedFixtures({});
 
   RunValidationHighlights(SceneDataUpdateType::kGeneral);
+  HighlightFixture(highlightedUuid, highlightedRelatedUuids, true);
 
   // Let wxDataViewListCtrl manage column headers and sorting
   if (LayerPanel::Instance())
@@ -1415,21 +1416,6 @@ void FixtureTablePanel::OnLeftUp(wxMouseEvent &evt) { evt.Skip(); }
 void FixtureTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
   dragSelecting = false;
   startRow = wxNOT_FOUND;
-}
-
-// Updates hover tooltip state while the pointer moves over table cells.
-void FixtureTablePanel::OnMouseMove(wxMouseEvent &evt) {
-  UpdateHoverTooltip(NormalizeMousePositionForTable(table, evt));
-  evt.Skip();
-}
-
-// Clears hover tooltip state when the pointer leaves the table area.
-void FixtureTablePanel::OnMouseLeave(wxMouseEvent &evt) {
-  if (!activeHoverTooltip.IsEmpty()) {
-    SetTableAndChildTooltips(table, wxString());
-    activeHoverTooltip.clear();
-  }
-  evt.Skip();
 }
 
 // Shows contextual tooltip text for validation-marked table cells.
