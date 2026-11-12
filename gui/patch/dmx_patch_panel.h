@@ -8,6 +8,7 @@ class ConfigManager;
 class wxComboBox;
 class wxStaticText;
 class wxBitmapButton;
+class wxCheckBox;
 class DmxPatchCanvas;
 class DmxPatchPanel : public wxPanel {
 public:
@@ -36,5 +37,6 @@ private:
   wxStaticText *status_;
   DmxPatchCanvas *canvas_;
   wxBitmapButton *warnings_;
+  wxCheckBox *compatibility_;
   std::shared_ptr<const dmx_patch::Snapshot> snapshot_;
 };

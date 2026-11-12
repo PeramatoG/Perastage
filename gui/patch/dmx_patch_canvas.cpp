@@ -11,13 +11,10 @@ wxString Text(const std::string &value) { return wxString::FromUTF8(value); }
 wxString FitLabel(wxDC &dc, wxString value, int width) {
   return wxControl::Ellipsize(value, dc, wxELLIPSIZE_END, width);
 }
-std::set<std::string> FixtureIds(const dmx_patch::Cell &cell) {
-  std::set<std::string> result;
-  for (const auto &entry : cell.occupants) result.insert(entry.uuid);
-  return result;
-}
+using dmx_patch_ui::FixtureIds;
+
 bool SameFixture(const dmx_patch::Cell &a, const dmx_patch::Cell &b) {
-  return !a.occupants.empty() && FixtureIds(a) == FixtureIds(b);
+  return !FixtureIds(a).empty() && FixtureIds(a) == FixtureIds(b);
 }
 }
 DmxPatchCanvas::DmxPatchCanvas(wxWindow *parent)
@@ -48,6 +45,7 @@ void DmxPatchCanvas::UpdateMetrics() {
 
 void DmxPatchCanvas::SetSnapshot(std::shared_ptr<const dmx_patch::Snapshot> snapshot) {
   snapshot_ = std::move(snapshot);
+  if (snapshot_) blocks_.emplace(*snapshot_); else blocks_.reset();
   hovered_.reset(); UnsetToolTip(); Refresh();
 }
 std::optional<dmx_patch::Address> DmxPatchCanvas::AddressAt(const wxPoint &point) const {
@@ -75,15 +73,35 @@ void DmxPatchCanvas::Paint(wxPaintEvent &) {
       const int i = row * geometry_.columns + col;
       if (i >= 512) break;
       const auto &cell = snapshot_->cells[i];
+      const auto &entries = cell.occupants.empty() ? cell.provisional : cell.occupants;
+      const bool start = blocks_->Starts(i), end = blocks_->Ends(i);
       wxColour color = neutral, text = ink;
-      if (!cell.occupants.empty()) {
-        const auto &info = snapshot_->fixtures.at(cell.occupants.front().uuid);
+      if (!entries.empty()) {
+        const auto &info = snapshot_->fixtures.at(entries.front().uuid);
         if (info.colorHex) color = wxColour(Text(*info.colorHex));
         if (!color.IsOk()) color = neutral;
         text = (color.Red() * 299 + color.Green() * 587 + color.Blue() * 114 < 140000) ? *wxWHITE : *wxBLACK;
       }
       const wxRect rect(col * w, row * h, w, h);
-      dc.SetBrush(wxBrush(color)); dc.SetPen(wxPen(border)); dc.DrawRectangle(rect);
+      dc.SetBrush(wxBrush(color)); dc.SetPen(wxPen(border));
+      if (start || end) {
+        const int radius = FromDIP(5);
+        dc.DrawRoundedRectangle(rect, radius);
+        // Square the lower corners and the top corner not marking a boundary.
+        dc.SetPen(*wxTRANSPARENT_PEN);
+        dc.DrawRectangle(rect.x, rect.y + radius, w, h - radius);
+        if (!start) dc.DrawRectangle(rect.x, rect.y, radius + 1, radius + 1);
+        if (!end) dc.DrawRectangle(rect.GetRight() - radius, rect.y, radius + 1, radius + 1);
+        dc.SetPen(wxPen(border));
+        dc.DrawLine(rect.x + (start ? radius : 0), rect.y, rect.GetRight() - (end ? radius : 0), rect.y);
+        dc.DrawLine(rect.x, rect.GetBottom(), rect.GetRight(), rect.GetBottom());
+        dc.DrawLine(rect.x, rect.y + radius, rect.x, rect.GetBottom());
+        dc.DrawLine(rect.GetRight(), rect.y + radius, rect.GetRight(), rect.GetBottom());
+      } else dc.DrawRectangle(rect);
+      if (!cell.provisional.empty()) {
+        dc.SetPen(wxPen(wxColour(255, 180, 0), FromDIP(2), wxPENSTYLE_SHORT_DASH));
+        dc.SetBrush(*wxTRANSPARENT_BRUSH); dc.DrawRectangle(wxRect(rect).Deflate(1));
+      }
       if (cell.Conflict()) {
         dc.SetPen(wxPen(wxColour(255, 190, 0), FromDIP(2)));
         // Hatch only the number band, retaining readable function and name bands.
@@ -91,34 +109,48 @@ void DmxPatchCanvas::Paint(wxPaintEvent &) {
           dc.DrawLine(rect.x + x, rect.y + 1, rect.x + std::min(w - 1, x + FromDIP(8)), rect.y + pad + line);
         dc.SetBrush(*wxTRANSPARENT_BRUSH); dc.DrawRectangle(wxRect(rect).Deflate(1));
       }
+      if (end) {
+        dc.SetPen(wxPen(text, FromDIP(2)));
+        dc.DrawLine(rect.GetRight() - 1, rect.y + FromDIP(5), rect.GetRight() - 1, rect.GetBottom());
+      }
       dc.SetTextForeground(text);
-      dc.DrawText(wxString::Format("%d", i + 1), rect.x + pad, rect.y + pad);
-      if (!cell.occupants.empty()) {
-        const auto &entry = cell.occupants.front();
+      const auto number = wxString::Format("%d", i + 1);
+      const int numberWidth = dc.GetTextExtent(number).x;
+      const int numberX = rect.x + (w - numberWidth) / 2;
+      if (start) {
+        dc.SetBrush(*wxTRANSPARENT_BRUSH); dc.SetPen(wxPen(text, FromDIP(1)));
+        dc.DrawRectangle(numberX - pad, rect.y + 1, numberWidth + 2 * pad, line + 1);
+      }
+      dc.DrawText(number, numberX, rect.y + pad);
+      if (!cell.provisional.empty())
+        dc.DrawText("?", rect.GetRight() - pad - dc.GetTextExtent("?").x, rect.y + pad);
+      if (!entries.empty()) {
+        const auto &entry = entries.front();
         wxString label = Text(entry.attribute.empty() ? entry.functions : entry.attribute);
         if (entry.byteIndex == 1) label += _(" Fine");
         else if (entry.byteIndex > 1) label += wxString::Format(_(" Byte %d"), entry.byteIndex + 1);
         dc.DrawText(FitLabel(dc, label, w - 2 * pad), rect.x + pad, rect.y + h - line - pad);
-        if (col == 0 || !SameFixture(cell, snapshot_->cells[i - 1])) {
+        if (start) {
           dc.SetPen(wxPen(text, FromDIP(2)));
-          dc.DrawLine(rect.x + 1, rect.y + 1, rect.x + 1, rect.GetBottom());
+          dc.DrawLine(rect.x + 1, rect.y + FromDIP(5), rect.x + 1, rect.GetBottom());
         }
       }
 
     }
-    // One fixture name per uninterrupted segment, including row continuations.
+    // Name each fixture on its first displayed row only; wrapping never repeats it.
     for (int col = 0; col < geometry_.columns;) {
       const int i = row * geometry_.columns + col;
       if (i >= 512) break;
       const auto &cell = snapshot_->cells[i];
-      if (cell.occupants.empty()) { ++col; continue; }
+      const auto namesHere = blocks_->NamesAt(i);
+      if (namesHere.empty()) { ++col; continue; }
       int end = col + 1;
       while (end < geometry_.columns && row * geometry_.columns + end < 512 && SameFixture(cell, snapshot_->cells[row * geometry_.columns + end])) ++end;
-      const auto &info = snapshot_->fixtures.at(cell.occupants.front().uuid);
+      const auto &info = snapshot_->fixtures.at(namesHere.front());
       wxColour bg = info.colorHex ? wxColour(Text(*info.colorHex)) : neutral;
       dc.SetTextForeground(bg.IsOk() && bg.Red() * 299 + bg.Green() * 587 + bg.Blue() * 114 < 140000 ? *wxWHITE : *wxBLACK);
       wxString names;
-      for (const auto &uuid : FixtureIds(cell)) {
+      for (const auto &uuid : namesHere) {
         if (!names.empty()) names += " / ";
         names += Text(snapshot_->fixtures.at(uuid).name);
       }
@@ -137,6 +169,13 @@ wxString DmxPatchCanvas::Tooltip(int channel) const {
         Text(info.identifier), Text(info.name), Text(entry.uuid), entry.gdtfBreak, entry.gdtfBreak - 1,
         entry.offset, entry.byteIndex + 1, Text(entry.attribute), Text(entry.functions));
     if (!info.purpose.empty()) result += "\n" + wxString::Format(_("Fixture purpose: %s"), Text(info.purpose));
+  }
+  for (const auto &entry : cell.provisional) {
+    const auto &info = snapshot_->fixtures.at(entry.uuid);
+    result += "\n" + wxString::Format(_("PROVISIONAL: %s | Declared offset %d | GDTF break: %s"),
+        Text(info.name), entry.offset, entry.gdtfBreak ? Text(std::to_string(entry.gdtfBreak)) : _("Unresolved"));
+    result += "\n" + _("Declared-offset compatibility preview; this is not a resolved physical patch assignment.");
+    result += "\n" + Text(entry.attribute) + " | " + Text(entry.functions);
   }
   return result;
 }

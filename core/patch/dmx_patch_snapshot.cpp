@@ -35,7 +35,7 @@ std::string Join(const std::set<std::string> &values) {
   return result;
 }
 }
-Snapshot BuildSnapshot(const MvrScene &scene, Universe universe, const DocumentResolver &resolve) {
+Snapshot BuildSnapshot(const MvrScene &scene, Universe universe, const DocumentResolver &resolve, Preview preview) {
   Snapshot result;
   result.universe = universe;
   std::vector<const Fixture *> fixtures;
@@ -85,18 +85,45 @@ Snapshot BuildSnapshot(const MvrScene &scene, Universe universe, const DocumentR
         }
     }
     if (!mode) { issue(Issue::UnresolvedDefinition); continue; }
+    // Compatibility is an explicitly requested source-layout preview, never a
+    // repair or an alternative physical break allocation. Only declared bytes
+    // of unresolved channels are shown relative to the existing primary start.
+    auto previewChannel = [&](const gdtf::GdtfDmxChannelNode &channel) {
+      const auto primary = starts.find("0");
+      if (preview != Preview::DeclaredOffsets || primary == starts.end() || primary->second.universe != universe) return;
+      std::string attribute, functions;
+      for (const auto &logical : channel.logicalChannels) {
+        if (!attribute.empty()) attribute += " / ";
+        attribute += logical.attributeInfo.pretty.empty() ? logical.attribute : logical.attributeInfo.pretty;
+        for (const auto &function : logical.channelFunctions) {
+          if (!functions.empty()) functions += " / ";
+          functions += function.name;
+        }
+      }
+      for (size_t byte = 0; byte < channel.offsets.size(); ++byte) {
+        const auto &declared = channel.offsets[byte];
+        if (!declared.valid || !declared.value || *declared.value < 1 ||
+            *declared.value > std::numeric_limits<int>::max()) continue;
+        const auto physical = static_cast<std::uint64_t>(primary->second.channel) + *declared.value - 1;
+        if (physical <= 512)
+          result.cells[physical - 1].provisional.push_back({f.uuid, channel.effectiveDmxBreak.value_or(0),
+              static_cast<int>(*declared.value), static_cast<int>(byte), attribute, functions});
+      }
+    };
     bool overflow = false, unresolved = false;
     for (const auto &channel : mode->channels) {
       if (channel.virtualChannel) continue;
       const SourceChannel source{channel.rawOffset, channel.rawDmxBreak, channel.geometry};
       if (!channel.effectiveDmxBreak || channel.offsets.empty()) {
         result.diagnostics.push_back({f.uuid, Issue::UnresolvedChannel, {}, source});
+        previewChannel(channel);
         continue;
       }
       const auto key = std::to_string(*channel.effectiveDmxBreak - 1);
       const auto start = starts.find(key);
       if (start == starts.end()) {
         result.diagnostics.push_back({f.uuid, Issue::Unpatched, key, source});
+        previewChannel(channel);
         continue;
       }
       std::set<std::string> attributes, functions;
@@ -127,6 +154,7 @@ Snapshot BuildSnapshot(const MvrScene &scene, Universe universe, const DocumentR
              std::tie(b.uuid, b.gdtfBreak, b.offset, b.byteIndex, b.attribute, b.functions);
     });
     entries.erase(std::unique(entries.begin(), entries.end()), entries.end());
+    result.provisional += !cell.provisional.empty();
     result.occupied += !entries.empty();
     result.conflicts += cell.Conflict();
   }

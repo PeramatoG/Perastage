@@ -24,6 +24,8 @@ struct Occupant {
 };
 struct Cell {
   std::vector<Occupant> occupants;
+  // Declared-offset preview only: excluded from physical occupancy/conflicts.
+  std::vector<Occupant> provisional;
   bool Conflict() const;
 };
 enum class Issue { Unpatched, InvalidAddress, InvalidBreak, UnresolvedDefinition,
@@ -47,8 +49,11 @@ struct Snapshot {
   std::vector<Diagnostic> diagnostics;
   int occupied = 0;
   int conflicts = 0;
+  int provisional = 0;
 };
 using DocumentResolver = std::function<std::shared_ptr<const gdtf::GdtfModeChannelDocument>(const Fixture &)>;
 // Read-only projection. The resolver owns resource lookup/cache policy, never painting.
-Snapshot BuildSnapshot(const MvrScene &scene, Universe universe, const DocumentResolver &resolve);
+enum class Preview { ResolvedOnly, DeclaredOffsets };
+Snapshot BuildSnapshot(const MvrScene &scene, Universe universe, const DocumentResolver &resolve,
+                       Preview preview = Preview::ResolvedOnly);
 } // namespace dmx_patch

@@ -31,6 +31,20 @@ int main(int argc, char **argv) {
   snapshot->fixtures["b"] = {"Overlap", "2", {}, "#CCEEAA"};
   for (int i = 0; i < 180; ++i) snapshot->cells[i].occupants.push_back({"a", 1, i + 1, 0, "Red", "Red"});
   snapshot->cells[0].occupants.push_back({"b", 1, 1, 0, "Dimmer", "Intensity"});
+  // One name for a fixture across wraps; gaps and overlap transitions cannot
+  // cause a repeated name or introduce false fixture starts/ends.
+  dmx_patch_ui::GridBlocks blocks(*snapshot);
+  assert(blocks.NamesAt(0).size() == 2 && blocks.NamesAt(16).empty());
+  assert(blocks.Starts(0) && !blocks.Starts(16) && blocks.Ends(179));
+  assert(!blocks.Ends(15));
+  auto sparse = *snapshot;
+  sparse.cells[60].occupants.clear();
+  dmx_patch_ui::GridBlocks sparseBlocks(sparse);
+  assert(sparseBlocks.NamesAt(61).empty() && !sparseBlocks.Starts(61));
+  sparse.cells[180].provisional.push_back({"a", 0, 181, 0, "Dimmer", "Intensity"});
+  dmx_patch_ui::GridBlocks previewBlocks(sparse);
+  assert(previewBlocks.Ends(180) && !previewBlocks.Ends(179));
+  snapshot->cells[180].provisional.push_back({"a", 0, 181, 0, "Dimmer", "Intensity"});
   patch->SetSnapshot(snapshot);
   three->AttachPatch(patch, frame->FromDIP(240)); Flush();
   assert(three->HasPatch() && patch->GetParent() == three);

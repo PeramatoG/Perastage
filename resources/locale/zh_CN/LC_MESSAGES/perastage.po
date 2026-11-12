@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-09 18:23+0000\n"
+"POT-Creation-Date: 2026-11-12 09:31+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -4097,7 +4097,7 @@ msgid "Position Tool"
 msgstr "位置工具"
 
 #: gui/mainwindow_menu_builders.cpp:80 gui/patch/dmx_patch_panel.cpp:22
-#: gui/patch/dmx_patch_panel.cpp:30 gui/patch/viewport_patch_workspace.cpp:30
+#: gui/patch/dmx_patch_panel.cpp:34 gui/patch/viewport_patch_workspace.cpp:30
 msgid "DMX Patch"
 msgstr "DMX Patch"
 
@@ -4579,6 +4579,7 @@ msgstr "登录 GDTF Share"
 
 #
 #: gui/mvr_gdtf_resolution_dialog.cpp:37 gui/mvr_gdtf_resolution_dialog.cpp:53
+#: gui/patch/dmx_patch_canvas.cpp:176
 msgid "Unresolved"
 msgstr "未解析"
 
@@ -4932,25 +4933,25 @@ msgstr "运行于"
 msgid "%zu discovered, %zu incoming joined, %zu outgoing joined"
 msgstr "%zu 已发现，%zu 传入加入，%zu 传出加入"
 
-#: gui/patch/dmx_patch_canvas.cpp:99
+#: gui/patch/dmx_patch_canvas.cpp:130
 msgid " Fine"
 msgstr " 精细"
 
-#: gui/patch/dmx_patch_canvas.cpp:100
+#: gui/patch/dmx_patch_canvas.cpp:131
 #, c-format
 msgid " Byte %d"
 msgstr " 字节 %d"
 
-#: gui/patch/dmx_patch_canvas.cpp:131
+#: gui/patch/dmx_patch_canvas.cpp:163
 #, c-format
 msgid "Universe %s | Channel %d"
 msgstr "Universe %s | 通道 %d"
 
-#: gui/patch/dmx_patch_canvas.cpp:133 gui/patch/dmx_patch_diagnostics.cpp:73
+#: gui/patch/dmx_patch_canvas.cpp:165 gui/patch/dmx_patch_diagnostics.cpp:76
 msgid "Overlapping fixtures"
 msgstr "灯具重叠"
 
-#: gui/patch/dmx_patch_canvas.cpp:136
+#: gui/patch/dmx_patch_canvas.cpp:168
 #, c-format
 msgid ""
 "\n"
@@ -4961,10 +4962,21 @@ msgid ""
 "Functions: %s"
 msgstr "\n%s - %s\nUUID：%s\nGDTF Break %d / MVR Break %d | 偏移 %d | 字节 %d\n属性：%s\n功能：%s"
 
-#: gui/patch/dmx_patch_canvas.cpp:139
+#: gui/patch/dmx_patch_canvas.cpp:171
 #, c-format
 msgid "Fixture purpose: %s"
 msgstr "灯具用途：%s"
+
+#: gui/patch/dmx_patch_canvas.cpp:175
+#, c-format
+msgid "PROVISIONAL: %s | Declared offset %d | GDTF break: %s"
+msgstr "暂定：%s | 声明偏移 %d | GDTF Break：%s"
+
+#: gui/patch/dmx_patch_canvas.cpp:177
+msgid ""
+"Declared-offset compatibility preview; this is not a resolved physical patch "
+"assignment."
+msgstr "声明偏移的兼容性预览；并非已解析的物理 Patch 分配。"
 
 #: gui/patch/dmx_patch_diagnostics.cpp:14
 msgid "Missing patch assignment"
@@ -4991,7 +5003,7 @@ msgid "Physical channels exceed 512; excess channels are not displayed"
 msgstr "物理通道超过 512；不显示超出的通道"
 
 #: gui/patch/dmx_patch_diagnostics.cpp:33
-#: gui/patch/dmx_patch_diagnostics.cpp:35 gui/patch/dmx_patch_panel.cpp:35
+#: gui/patch/dmx_patch_diagnostics.cpp:35 gui/patch/dmx_patch_panel.cpp:39
 msgid "Patch diagnostics"
 msgstr "Patch 诊断"
 
@@ -4999,17 +5011,17 @@ msgstr "Patch 诊断"
 msgid "Warning"
 msgstr "警告"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:51
+#: gui/patch/dmx_patch_diagnostics.cpp:54
 #, c-format
 msgid "Offsets: %s | GDTF break: %s | Geometry: %s"
 msgstr "偏移：%s | GDTF Break：%s | 几何：%s"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:54
+#: gui/patch/dmx_patch_diagnostics.cpp:57
 #, c-format
 msgid "MVR break %s has no start address"
 msgstr "MVR Break %s 未分配起始地址"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:71
+#: gui/patch/dmx_patch_diagnostics.cpp:74
 #, c-format
 msgid "Universe %s, channels %d-%d"
 msgstr "Universe %s，通道 %d-%d"
@@ -5018,24 +5030,39 @@ msgstr "Universe %s，通道 %d-%d"
 msgid "DMX universe"
 msgstr "DMX Universe"
 
-#: gui/patch/dmx_patch_panel.cpp:28 gui/patch/dmx_patch_panel.cpp:66
+#: gui/patch/dmx_patch_panel.cpp:28 gui/patch/dmx_patch_panel.cpp:70
 msgid "Choose a patched universe or enter any positive universe number."
 msgstr "选择已分配的 Universe，或输入正整数 Universe 编号。"
 
-#: gui/patch/dmx_patch_panel.cpp:36
+#: gui/patch/dmx_patch_panel.cpp:30
+msgid "Declared offsets"
+msgstr "声明偏移"
+
+#: gui/patch/dmx_patch_panel.cpp:31
+msgid ""
+"Explicit provisional preview for unresolved GDTF channels; does not change "
+"the patch."
+msgstr "显式预览未解析的 GDTF 通道；不会更改 Patch。"
+
+#: gui/patch/dmx_patch_panel.cpp:40
 msgid "Show patch diagnostics"
 msgstr "显示 Patch 诊断"
 
-#: gui/patch/dmx_patch_panel.cpp:62
+#: gui/patch/dmx_patch_panel.cpp:66
 msgid "Enter a positive universe number."
 msgstr "请输入正整数 Universe 编号。"
 
-#: gui/patch/dmx_patch_panel.cpp:111
+#: gui/patch/dmx_patch_panel.cpp:116
 #, c-format
 msgid "Occupied: %d/512 | Conflicts: %d"
 msgstr "已占用：%d/512 | 冲突：%d"
 
-#: gui/patch/dmx_patch_panel.cpp:114
+#: gui/patch/dmx_patch_panel.cpp:118
+#, c-format
+msgid "Occupied: %d/512 | Provisional: %d | Conflicts: %d"
+msgstr "已占用：%d/512 | 暂定：%d | 冲突：%d"
+
+#: gui/patch/dmx_patch_panel.cpp:122
 #, c-format
 msgid "Show patch diagnostics (%d)"
 msgstr "显示 Patch 诊断（%d）"

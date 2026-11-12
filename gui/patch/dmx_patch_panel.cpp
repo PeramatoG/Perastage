@@ -6,6 +6,7 @@
 #include "gdtf_archive_reader.h"
 #include <wx/combobox.h>
 #include <wx/bmpbuttn.h>
+#include <wx/checkbox.h>
 #include <wx/artprov.h>
 #include <wx/button.h>
 #include <wx/sizer.h>
@@ -26,6 +27,10 @@ DmxPatchPanel::DmxPatchPanel(wxWindow *parent, ConfigManager &config)
   universeControl_->SetName(_("DMX universe"));
   universeControl_->SetToolTip(_("Choose a patched universe or enter any positive universe number."));
   bar->Add(universeControl_, 0, wxRIGHT, FromDIP(6));
+  compatibility_ = new wxCheckBox(this, wxID_ANY, _("Declared offsets"));
+  compatibility_->SetToolTip(_("Explicit provisional preview for unresolved GDTF channels; does not change the patch."));
+  compatibility_->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent &) { RefreshSnapshot(); });
+  bar->Add(compatibility_, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(6));
   status_ = new wxStaticText(this, wxID_ANY, _("DMX Patch"), wxDefaultPosition, wxDefaultSize, wxST_ELLIPSIZE_END);
   status_->SetMinSize(wxSize(1, status_->GetCharHeight() + FromDIP(4)));
   bar->Add(status_, 1, wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT, FromDIP(4));
@@ -95,10 +100,11 @@ void DmxPatchPanel::RefreshSnapshot() {
   if (newProject) { projectBase_ = scene.basePath; universe_ = 1; cache_.clear(); }
   paths_.clear();
   auto resolver = [this](const Fixture &f) { return Resolve(f); };
-  auto snapshot = std::make_shared<dmx_patch::Snapshot>(dmx_patch::BuildSnapshot(scene, universe_, resolver));
+  const auto preview = compatibility_->GetValue() ? dmx_patch::Preview::DeclaredOffsets : dmx_patch::Preview::ResolvedOnly;
+  auto snapshot = std::make_shared<dmx_patch::Snapshot>(dmx_patch::BuildSnapshot(scene, universe_, resolver, preview));
   if (newProject && !snapshot->universes.empty() && !snapshot->universes.contains(universe_)) {
     universe_ = *snapshot->universes.begin();
-    *snapshot = dmx_patch::BuildSnapshot(scene, universe_, resolver);
+    *snapshot = dmx_patch::BuildSnapshot(scene, universe_, resolver, preview);
   }
   for (auto it = cache_.begin(); it != cache_.end();) {
     const bool used = std::any_of(paths_.begin(), paths_.end(), [&](const auto &entry) { return entry.second == it->first; });
@@ -108,6 +114,9 @@ void DmxPatchPanel::RefreshSnapshot() {
   for (auto universe : snapshot->universes) universeControl_->Append(Text(std::to_string(universe)));
   universeControl_->ChangeValue(Text(std::to_string(universe_)));
   status_->SetLabel(wxString::Format(_("Occupied: %d/512 | Conflicts: %d"), snapshot->occupied, snapshot->conflicts));
+  if (compatibility_->GetValue())
+    status_->SetLabel(wxString::Format(_("Occupied: %d/512 | Provisional: %d | Conflicts: %d"),
+        snapshot->occupied, snapshot->provisional, snapshot->conflicts));
   status_->SetToolTip(status_->GetLabel());
   warnings_->Enable(!snapshot->diagnostics.empty() || snapshot->conflicts > 0);
   warnings_->SetToolTip(wxString::Format(_("Show patch diagnostics (%d)"),

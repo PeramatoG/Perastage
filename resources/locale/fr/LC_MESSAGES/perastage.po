@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-09 18:23+0000\n"
+"POT-Creation-Date: 2026-11-12 09:31+0000\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: French\n"
@@ -4188,7 +4188,7 @@ msgid "Position Tool"
 msgstr "Outil de position"
 
 #: gui/mainwindow_menu_builders.cpp:80 gui/patch/dmx_patch_panel.cpp:22
-#: gui/patch/dmx_patch_panel.cpp:30 gui/patch/viewport_patch_workspace.cpp:30
+#: gui/patch/dmx_patch_panel.cpp:34 gui/patch/viewport_patch_workspace.cpp:30
 msgid "DMX Patch"
 msgstr "DMX Patch"
 
@@ -4696,6 +4696,7 @@ msgstr "GDTF Share"
 
 #
 #: gui/mvr_gdtf_resolution_dialog.cpp:37 gui/mvr_gdtf_resolution_dialog.cpp:53
+#: gui/patch/dmx_patch_canvas.cpp:176
 msgid "Unresolved"
 msgstr "Non résolu"
 
@@ -5066,25 +5067,25 @@ msgstr "En cours sur "
 msgid "%zu discovered, %zu incoming joined, %zu outgoing joined"
 msgstr "%zu découvertes, %zu adhésions entrantes, %zu adhésions sortantes"
 
-#: gui/patch/dmx_patch_canvas.cpp:99
+#: gui/patch/dmx_patch_canvas.cpp:130
 msgid " Fine"
 msgstr " fin"
 
-#: gui/patch/dmx_patch_canvas.cpp:100
+#: gui/patch/dmx_patch_canvas.cpp:131
 #, c-format
 msgid " Byte %d"
 msgstr " octet %d"
 
-#: gui/patch/dmx_patch_canvas.cpp:131
+#: gui/patch/dmx_patch_canvas.cpp:163
 #, c-format
 msgid "Universe %s | Channel %d"
 msgstr "Univers %s | Canal %d"
 
-#: gui/patch/dmx_patch_canvas.cpp:133 gui/patch/dmx_patch_diagnostics.cpp:73
+#: gui/patch/dmx_patch_canvas.cpp:165 gui/patch/dmx_patch_diagnostics.cpp:76
 msgid "Overlapping fixtures"
 msgstr "Appareils en chevauchement"
 
-#: gui/patch/dmx_patch_canvas.cpp:136
+#: gui/patch/dmx_patch_canvas.cpp:168
 #, c-format
 msgid ""
 "\n"
@@ -5095,10 +5096,21 @@ msgid ""
 "Functions: %s"
 msgstr "\n%s - %s\nUUID : %s\nBreak GDTF %d / break MVR %d | Décalage %d | Octet %d\nAttribut : %s\nFonctions : %s"
 
-#: gui/patch/dmx_patch_canvas.cpp:139
+#: gui/patch/dmx_patch_canvas.cpp:171
 #, c-format
 msgid "Fixture purpose: %s"
 msgstr "Rôle de l’appareil : %s"
+
+#: gui/patch/dmx_patch_canvas.cpp:175
+#, c-format
+msgid "PROVISIONAL: %s | Declared offset %d | GDTF break: %s"
+msgstr "PROVISOIRE : %s | Offset déclaré %d | Break GDTF : %s"
+
+#: gui/patch/dmx_patch_canvas.cpp:177
+msgid ""
+"Declared-offset compatibility preview; this is not a resolved physical patch "
+"assignment."
+msgstr "Aperçu de compatibilité des offsets déclarés ; il ne s’agit pas d’une affectation physique de patch résolue."
 
 #: gui/patch/dmx_patch_diagnostics.cpp:14
 msgid "Missing patch assignment"
@@ -5125,7 +5137,7 @@ msgid "Physical channels exceed 512; excess channels are not displayed"
 msgstr "Les canaux physiques dépassent 512 ; les canaux excédentaires ne sont pas affichés"
 
 #: gui/patch/dmx_patch_diagnostics.cpp:33
-#: gui/patch/dmx_patch_diagnostics.cpp:35 gui/patch/dmx_patch_panel.cpp:35
+#: gui/patch/dmx_patch_diagnostics.cpp:35 gui/patch/dmx_patch_panel.cpp:39
 msgid "Patch diagnostics"
 msgstr "Diagnostics du patch"
 
@@ -5133,17 +5145,17 @@ msgstr "Diagnostics du patch"
 msgid "Warning"
 msgstr "Avertissement"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:51
+#: gui/patch/dmx_patch_diagnostics.cpp:54
 #, c-format
 msgid "Offsets: %s | GDTF break: %s | Geometry: %s"
 msgstr "Décalages : %s | Break GDTF : %s | Géométrie : %s"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:54
+#: gui/patch/dmx_patch_diagnostics.cpp:57
 #, c-format
 msgid "MVR break %s has no start address"
 msgstr "Le break MVR %s n’a pas d’adresse de départ"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:71
+#: gui/patch/dmx_patch_diagnostics.cpp:74
 #, c-format
 msgid "Universe %s, channels %d-%d"
 msgstr "Univers %s, canaux %d-%d"
@@ -5152,24 +5164,39 @@ msgstr "Univers %s, canaux %d-%d"
 msgid "DMX universe"
 msgstr "Univers DMX"
 
-#: gui/patch/dmx_patch_panel.cpp:28 gui/patch/dmx_patch_panel.cpp:66
+#: gui/patch/dmx_patch_panel.cpp:28 gui/patch/dmx_patch_panel.cpp:70
 msgid "Choose a patched universe or enter any positive universe number."
 msgstr "Choisissez un univers affecté ou saisissez un numéro d’univers positif."
 
-#: gui/patch/dmx_patch_panel.cpp:36
+#: gui/patch/dmx_patch_panel.cpp:30
+msgid "Declared offsets"
+msgstr "Offsets déclarés"
+
+#: gui/patch/dmx_patch_panel.cpp:31
+msgid ""
+"Explicit provisional preview for unresolved GDTF channels; does not change "
+"the patch."
+msgstr "Aperçu provisoire explicite des canaux GDTF non résolus ; ne modifie pas le patch."
+
+#: gui/patch/dmx_patch_panel.cpp:40
 msgid "Show patch diagnostics"
 msgstr "Afficher les diagnostics du patch"
 
-#: gui/patch/dmx_patch_panel.cpp:62
+#: gui/patch/dmx_patch_panel.cpp:66
 msgid "Enter a positive universe number."
 msgstr "Saisissez un numéro d’univers positif."
 
-#: gui/patch/dmx_patch_panel.cpp:111
+#: gui/patch/dmx_patch_panel.cpp:116
 #, c-format
 msgid "Occupied: %d/512 | Conflicts: %d"
 msgstr "Occupés : %d/512 | Conflits : %d"
 
-#: gui/patch/dmx_patch_panel.cpp:114
+#: gui/patch/dmx_patch_panel.cpp:118
+#, c-format
+msgid "Occupied: %d/512 | Provisional: %d | Conflicts: %d"
+msgstr "Occupés : %d/512 | Provisoires : %d | Conflits : %d"
+
+#: gui/patch/dmx_patch_panel.cpp:122
 #, c-format
 msgid "Show patch diagnostics (%d)"
 msgstr "Afficher les diagnostics du patch (%d)"

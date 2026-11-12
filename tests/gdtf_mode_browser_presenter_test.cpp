@@ -23,5 +23,15 @@ int main() {
   assert(rows.size() >= 4);
   assert(rows[0].item == "Ch 1 - Shutter1");
   assert(rows[3].item == "Ch 2, 3 - Pan, Pan Fine");
+  const auto unresolved = gdtf::ReadGdtfModeChannelDocument(R"(<GDTF><FixtureType>
+    <Geometries><Geometry Name="Body"/></Geometries>
+    <DMXModes><DMXMode Name="Unresolved" Geometry="Body"><DMXChannels>
+      <DMXChannel Geometry="Body" DMXBreak="Overwrite" Offset="6"><LogicalChannel Attribute="Shutter1"/></DMXChannel>
+    </DMXChannels></DMXMode></DMXModes></FixtureType></GDTF>)");
+  const auto *unresolvedMode = unresolved.FindMode("Unresolved");
+  assert(!unresolvedMode->channels[0].effectiveDmxBreak);
+  assert(!unresolvedMode->channels[0].offsets[0].normalized);
+  assert(BuildGdtfModeBrowserPresentation(unresolvedMode)[0].item == "Ch 6 - Shutter1");
+  assert(BuildGdtfModeChannelSummaryPresentation(unresolvedMode)[0].channelLabel == "6");
   return 0;
 }

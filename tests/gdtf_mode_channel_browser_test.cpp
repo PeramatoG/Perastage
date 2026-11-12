@@ -19,7 +19,8 @@ int main() {
       assert(identities.insert(channel.id).second);
       if (channel.virtualChannel) continue;
       for (const auto &offset : channel.offsets) {
-        assert(channel.effectiveDmxBreak && offset.normalized);
+        if (!channel.effectiveDmxBreak) { assert(!offset.normalized); continue; }
+        assert(offset.normalized);
         bytes[*channel.effectiveDmxBreak].push_back(static_cast<int>(*offset.normalized));
       }
     }

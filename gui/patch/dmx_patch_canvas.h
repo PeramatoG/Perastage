@@ -2,6 +2,7 @@
 #pragma once
 #include "patch/dmx_patch_snapshot.h"
 #include "patch/dmx_patch_grid_geometry.h"
+#include "patch/dmx_patch_grid_blocks.h"
 #include <wx/scrolwin.h>
 class DmxPatchCanvas : public wxScrolledWindow {
 public:
@@ -18,4 +19,5 @@ private:
   dmx_patch_ui::GridGeometry geometry_;
   std::shared_ptr<const dmx_patch::Snapshot> snapshot_;
   std::optional<int> hovered_;
+  std::optional<dmx_patch_ui::GridBlocks> blocks_;
 };

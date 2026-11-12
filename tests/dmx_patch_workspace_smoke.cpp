@@ -7,6 +7,7 @@
 #include <wx/dcscreen.h>
 #include <wx/dcmemory.h>
 #include <wx/bmpbuttn.h>
+#include <wx/checkbox.h>
 #include <wx/popupwin.h>
 #include <wx/listctrl.h>
 #include "configmanager.h"
@@ -128,6 +129,19 @@ public:
             std::cout << "Patch status: " << text->GetLabel() << " size=" << text->GetSize().x << ',' << text->GetSize().y << std::endl;
           }
         Require(hasStatus, "Occupied channel status is missing or clipped");
+        wxCheckBox *compatibility = nullptr;
+        for (auto *child : patch_->GetChildren())
+          if (auto *checkbox = dynamic_cast<wxCheckBox *>(child)) compatibility = checkbox;
+        Require(compatibility && !compatibility->GetValue(), "Compatibility must require explicit opt-in");
+        compatibility->SetValue(true);
+        wxCommandEvent preview(wxEVT_CHECKBOX, compatibility->GetId());
+        compatibility->GetEventHandler()->ProcessEvent(preview);
+        bool provisionalCounter = false;
+        for (auto *child : patch_->GetChildren())
+          if (auto *text = dynamic_cast<wxStaticText *>(child))
+            provisionalCounter |= text->GetLabel().Contains("Provisional:");
+        Require(provisionalCounter && !cfg.IsDirty(), "Preview is not explicit/read-only");
+        compatibility->SetValue(false); compatibility->GetEventHandler()->ProcessEvent(preview);
         workspace->SetPatchHeight(frame_->FromDIP(180));
         wxYield();
         Require(!cfg.IsDirty(), "Viewing/resizing patch dirtied project");

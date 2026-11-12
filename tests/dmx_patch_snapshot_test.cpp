@@ -79,6 +79,8 @@ int main() {
   assert(breaks.occupied == 1 && breaks.cells[509].occupants[0].gdtfBreak == 2);
   assert(breaks.universes.contains(1) && breaks.universes.contains(70000));
   assert(BuildSnapshot(scene, 1, resolve).occupied == 2);
+  const auto genuineBreaks = BuildSnapshot(scene, 1, resolve, Preview::DeclaredOffsets);
+  assert(genuineBreaks.occupied == 2 && genuineBreaks.provisional == 0);
   const auto authored = a.dmxAddresses;
   BuildSnapshot(scene, 1, resolve);
   assert(a.dmxAddresses == authored && a.address == "1.1" && a.function == "Stage wash");
@@ -91,6 +93,7 @@ int main() {
   a.dmxAddresses.reset(); a.address = "";
   auto unpatched = BuildSnapshot(scene, 1, resolve);
   assert(unpatched.occupied == 0 && Has(unpatched, Issue::Unpatched));
+  assert(BuildSnapshot(scene, 1, resolve, Preview::DeclaredOffsets).provisional == 0);
   a.address = "1.1";
   auto aliases = BuildSnapshot(scene, 1, resolve);
   assert(aliases.cells[0].occupants.size() == 2 && aliases.conflicts == 0);
@@ -122,6 +125,17 @@ int main() {
   assert(declared->issue == Issue::UnresolvedChannel);
   assert(incomplete.cells[277].occupants.empty() && incomplete.cells[279].occupants.empty());
   assert(a.address == "1.273" && !a.dmxAddresses);
+  const auto compatible = BuildSnapshot(scene, 1, resolve, Preview::DeclaredOffsets);
+  assert(compatible.occupied == 9 && compatible.provisional == 5 && compatible.conflicts == 0);
+  for (int i = 272; i < 286; ++i)
+    assert(compatible.cells[i].occupants.size() + compatible.cells[i].provisional.size() == 1);
+  assert(compatible.cells[277].provisional[0].attribute == "Shutter");
+  assert(BuildSnapshot(scene, 2, resolve, Preview::DeclaredOffsets).provisional == 0);
+  a.address = "1.511";
+  const auto clippedPreview = BuildSnapshot(scene, 1, resolve, Preview::DeclaredOffsets);
+  assert(clippedPreview.occupied == 2 && clippedPreview.provisional == 0);
+  assert(a.address == "1.511" && !a.dmxAddresses);
+  a.address = "1.273";
   // The shared footprint corpus covers GeometryReference breaks, sparse bytes,
   // virtual channels, invalid offsets and partially resolvable geometries.
   for (const auto &test : tests::gdtf::FootprintCases()) {
