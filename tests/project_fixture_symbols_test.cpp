@@ -144,6 +144,15 @@ int main() {
           return true;
         }));
     assert(reopened.GetFixtureSymbols().BundleCount() == 1);
+    std::vector<ProjectArchiveResource> reopenedResources;
+    assert(reopened.GetFixtureSymbols().CollectArchiveResources(
+        reopened.GetScene(), reopenedResources, error));
+    assert(reopenedResources.size() == resources.size());
+    for (size_t i = 0; i < resources.size(); ++i) {
+      assert(reopenedResources[i].entryName == resources[i].entryName);
+      assert(reopenedResources[i].bytes == resources[i].bytes);
+    }
+
     const auto retainedResource = std::filesystem::path(extractedResourceRoot) /
                                   "resources/layout_images/retained.rgba";
     assert(std::filesystem::is_regular_file(retainedResource));

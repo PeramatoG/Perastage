@@ -103,6 +103,21 @@ void TestStructuredKeysAndSafeHandles() {
   std::filesystem::remove_all(temp);
 }
 
+// A missing resource must become eligible when its physical revision appears.
+void TestMissingResourceAppears() {
+  const auto path = std::filesystem::temp_directory_path() /
+                    "perastage_fixture_symbol_missing" / "fixture.gdtf";
+  std::filesystem::remove_all(path.parent_path());
+  const auto missing = symbol_cache::ReadGdtfFileRevision(path.string());
+  assert(!missing.metadataAvailable);
+  WriteRevision(path, "available");
+  const auto available = symbol_cache::ReadGdtfFileRevision(path.string());
+  assert(available.metadataAvailable && available != missing);
+  WriteRevision(path, "replacement with a different revision");
+  assert(symbol_cache::ReadGdtfFileRevision(path.string()) != available);
+  std::filesystem::remove_all(path.parent_path());
+}
+
 // Verifies provenance changes invalidate generation identity even when the
 // parsed SVG geometry remains identical.
 void TestSymbolProvenanceSemanticFingerprint() {
@@ -193,6 +208,7 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &, SymbolViewKind,
 int main() {
   TestMissMutationAndInvalidation();
   TestStructuredKeysAndSafeHandles();
+  TestMissingResourceAppears();
   TestSymbolProvenanceSemanticFingerprint();
   return 0;
 }

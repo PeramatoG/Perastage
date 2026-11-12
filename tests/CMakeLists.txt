@@ -4955,3 +4955,41 @@ endif()
 set_library_env(DmxPatchCanvas)
 set_perastage_test_labels(DmxPatchCanvas LAYER integration DOMAINS gui)
 set_tests_properties(DmxPatchCanvas PROPERTIES TIMEOUT 60)
+
+add_executable(fixture_symbol_preparation_notifications_test
+    fixture_symbol_preparation_notifications_test.cpp
+    ../gui/services/fixture_symbol_preparation_notifications.cpp
+    ../core/symbols/fixture_symbol_preparation_coordinator.cpp)
+target_include_directories(fixture_symbol_preparation_notifications_test PRIVATE ../core ../gui)
+target_link_libraries(fixture_symbol_preparation_notifications_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME FixtureSymbolPreparationNotifications COMMAND fixture_symbol_preparation_notifications_test)
+
+add_executable(fixture_gdtf_resolution_logging_test
+    fixture_gdtf_resolution_logging_test.cpp
+    ../gui/fixtures/fixture_gdtf_resolution.cpp
+    ../models/fixture.cpp ../models/mvrscene.cpp ../models/truss.cpp
+    ../models/sceneobject.cpp ../models/layer.cpp)
+target_include_directories(fixture_gdtf_resolution_logging_test PRIVATE ../core ../gui ../models ../third_party)
+target_link_libraries(fixture_gdtf_resolution_logging_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME FixtureGdtfResolutionLogging COMMAND fixture_gdtf_resolution_logging_test)
+
+add_executable(fixture_symbol_preparation_scheduling_test
+    fixture_symbol_preparation_scheduling_test.cpp
+    ../gui/services/fixture_symbol_preparation_service.cpp
+    ../gui/services/fixture_symbol_preparation_notifications.cpp
+    ../gui/services/fixture_symbol_processing_worker.cpp
+    ../gui/fixtures/fixture_gdtf_resolution.cpp
+    ../core/symbols/fixture_symbol_preparation_coordinator.cpp
+    ../core/symbols/fixture_symbol_preparation_requests.cpp
+    ../core/symbols/fixture_symbol_resource_revision.cpp
+    ../core/filesystem_path_utils.cpp
+    ../models/fixture.cpp ../models/mvrscene.cpp ../models/truss.cpp
+    ../models/sceneobject.cpp ../models/layer.cpp)
+target_include_directories(fixture_symbol_preparation_scheduling_test BEFORE PRIVATE
+    support/fixture_symbol_preparation ../gui ../core ../models ../third_party
+    ../viewer3d/resources)
+target_link_libraries(fixture_symbol_preparation_scheduling_test PRIVATE ${wxWidgets_LIBRARIES})
+foreach(scenario complete epoch manual source destroy retry modes reopen touch)
+    add_test(NAME FixtureSymbolPreparationScheduling.${scenario}
+        COMMAND fixture_symbol_preparation_scheduling_test ${scenario})
+endforeach()

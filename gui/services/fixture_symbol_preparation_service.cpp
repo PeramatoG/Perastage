@@ -1,3 +1,4 @@
+#include "symbols/fixture_symbol_operation_counters.h"
 #include "services/fixture_symbol_preparation_service.h"
 
 #include <filesystem>
@@ -40,17 +41,27 @@ std::string CanonicalResourcePath(const std::string &path) {
 // Installs the runtime request bridge used by immediate rendering fallbacks.
 FixtureSymbolPreparationService::FixtureSymbolPreparationService(
     MainWindow &window)
-    : window_(window), epoch_(coordinator_.BeginProjectEpoch()) {
+    : window_(window),
+      notifications_(std::make_shared<FixtureSymbolPreparationNotifications>(
+          [this](const auto &key) { EnqueueRequest(key); },
+          [this]() {
+            workerReady_ = true;
+            ScheduleNextStep();
+          })),
+      processingWorker_([notifications = notifications_]() {
+        notifications->Completed();
+      }), epoch_(coordinator_.BeginProjectEpoch()) {
   window_.Bind(wxEVT_IDLE, &FixtureSymbolPreparationService::OnIdle, this);
   const std::weak_ptr<int> weakLifetime = lifetime_;
   symbols::SetFixtureSymbolPreparationRequestHandler(
-      [this, weakLifetime](const std::string &path, const std::string &mode) {
-        if (!weakLifetime.lock())
-          return;
-        window_.CallAfter([this, weakLifetime, path, mode]() {
+      [this, weakLifetime, notifications = notifications_](
+          const std::string &path, const std::string &mode) {
+        if (wxIsMainThread()) {
           if (weakLifetime.lock())
-            Request(path, mode);
-        });
+            EnqueueRequest({path, mode});
+        } else {
+          notifications->Request({path, mode});
+        }
       });
 }
 
@@ -58,6 +69,7 @@ FixtureSymbolPreparationService::FixtureSymbolPreparationService(
 FixtureSymbolPreparationService::~FixtureSymbolPreparationService() {
   window_.Unbind(wxEVT_IDLE, &FixtureSymbolPreparationService::OnIdle, this);
   symbols::SetFixtureSymbolPreparationRequestHandler({});
+  notifications_->Close();
   lifetime_.reset();
   coordinator_.BeginProjectEpoch();
 }
@@ -66,12 +78,15 @@ FixtureSymbolPreparationService::~FixtureSymbolPreparationService() {
 void FixtureSymbolPreparationService::BeginProjectEpoch(bool scheduleScan) {
   epoch_ = coordinator_.BeginProjectEpoch();
   work_.clear();
+  fixtureHints_.clear();
   manualWork_.clear();
   deferredRequests_.clear();
   fallbackDiagnostics_.clear();
   currentKey_.reset();
   scanFixtureUuids_.clear();
   scanKeys_.clear();
+  scanPaths_.clear();
+  scanScheduled_ = false;
   stepScheduled_ = false;
   UpdateStatus();
   if (scheduleScan)
@@ -80,13 +95,42 @@ void FixtureSymbolPreparationService::BeginProjectEpoch(bool scheduleScan) {
 
 // Posts a lifetime-safe scan after the current project operation returns.
 void FixtureSymbolPreparationService::ScheduleScan() {
+  if (scanScheduled_)
+    return;
+  scanScheduled_ = true;
   const std::weak_ptr<int> weakLifetime = lifetime_;
   const std::uint64_t requestedEpoch = epoch_;
   window_.CallAfter([this, weakLifetime, requestedEpoch]() {
     if (!weakLifetime.lock() || requestedEpoch != epoch_)
       return;
+    scanScheduled_ = false;
     ScanCurrentProject();
   });
+}
+
+// Rendering requests already arrive on the GUI thread. Coalesce before posting
+// GUI callbacks or doing geometry inspection; non-GUI callers use the mailbox.
+void FixtureSymbolPreparationService::EnqueueRequest(
+    const symbols::FixtureSymbolPreparationKey &requestedKey) {
+  if (requestedKey.effectiveGdtfPath.empty())
+    return;
+  const symbols::FixtureSymbolPreparationKey key{
+      CanonicalResourcePath(requestedKey.effectiveGdtfPath), requestedKey.exactGdtfMode};
+  const auto work = work_.find(key);
+  const auto *job = coordinator_.Find(key);
+  if (work != work_.end() && job && job->epoch == epoch_ &&
+      job->state != symbols::FixtureSymbolPreparationState::Cancelled &&
+      HasCurrentBinding(key, work->second) &&
+      symbol_cache::ReadGdtfFileRevision(key.effectiveGdtfPath) ==
+          work->second.sourceRevision) {
+    symbols::diagnostics::Count(symbols::diagnostics::Operation::CoalescedRequest);
+    return;
+  }
+  const bool inserted = deferredRequests_.try_emplace(
+      key, symbols::FixtureSymbolPreparationPriority::Automatic).second;
+  if (!inserted)
+    symbols::diagnostics::Count(symbols::diagnostics::Operation::CoalescedRequest);
+  ScheduleNextStep();
 }
 
 // Coalesces one physical-resource and exact-mode preparation request.
@@ -105,6 +149,41 @@ void FixtureSymbolPreparationService::Request(
   }
   const symbols::FixtureSymbolPreparationKey key{
       CanonicalResourcePath(effectiveGdtfPath), exactGdtfMode};
+  if (const auto *job = coordinator_.Find(key);
+      job && job->epoch == epoch_ &&
+      job->state != symbols::FixtureSymbolPreparationState::Cancelled) {
+    const auto work = work_.find(key);
+    if (work != work_.end() && HasCurrentBinding(key, work->second) &&
+        symbol_cache::ReadGdtfFileRevision(key.effectiveGdtfPath) ==
+            work->second.sourceRevision) {
+      symbols::diagnostics::Count(symbols::diagnostics::Operation::CoalescedRequest);
+      if (priority == symbols::FixtureSymbolPreparationPriority::Manual)
+        coordinator_.Request(key, key.effectiveGdtfPath, priority);
+      return;
+    }
+    // A metadata-only change does not invalidate immutable captured geometry.
+    // Rehash once in this bounded request slice, never in the rendering bridge.
+    if (job->state != symbols::FixtureSymbolPreparationState::Failed &&
+        work != work_.end() && HasCurrentBinding(key, work->second) &&
+        !work->second.sourceFingerprint.empty()) {
+      const auto revision = symbol_cache::ReadGdtfFileRevision(key.effectiveGdtfPath);
+      std::string error;
+      const auto fingerprint = symbol_cache::ComputeGdtfSemanticFingerprint(
+          key.effectiveGdtfPath, error);
+      if (revision.metadataAvailable && fingerprint == work->second.sourceFingerprint &&
+          symbol_cache::ReadGdtfFileRevision(key.effectiveGdtfPath) == revision) {
+        work->second.sourceRevision = revision;
+        if (priority == symbols::FixtureSymbolPreparationPriority::Manual)
+          coordinator_.Request(key, key.effectiveGdtfPath, priority);
+        return;
+      }
+    }
+    coordinator_.Cancel(key, epoch_);
+    work_.erase(key);
+    fallbackDiagnostics_.erase(key);
+    if (currentKey_ && *currentKey_ == key)
+      currentKey_.reset();
+  }
   for (const auto &[fixtureUuid, manualKey] : manualWork_) {
     (void)fixtureUuid;
     if (manualKey == key)
@@ -129,6 +208,14 @@ void FixtureSymbolPreparationService::Request(
     return;
   if (fallbackDiagnostics_.contains(key))
     return;
+  if (!coordinator_.Request(key, key.effectiveGdtfPath, priority))
+    return;
+  work_.erase(key);
+  auto &accepted = work_[key];
+  accepted.fixtureUuid = fixtureUuid;
+  accepted.sourceSpec = fixture.gdtfSpec;
+  accepted.sceneBasePath = cfg.GetScene().basePath;
+  accepted.sourceRevision = symbol_cache::ReadGdtfFileRevision(key.effectiveGdtfPath);
   tools::FixtureGeometryBounds bounds;
   std::string geometryDiagnostic;
   if (!tools::ComputeFixtureGeometryBoundsMm(key.effectiveGdtfPath,
@@ -148,9 +235,10 @@ void FixtureSymbolPreparationService::Request(
           "Fixture geometry is unavailable; the current symbol representation is retained. "
           "Project symbol capture was skipped: " + geometryDiagnostic);
     }
+    coordinator_.Fail(key, epoch_);
     return;
   }
-  if (coordinator_.Request(key, key.effectiveGdtfPath, priority)) {
+  {
     work_[key].fixtureUuid = fixtureUuid;
     work_[key].bounds = bounds;
     const auto &fixture = GetDefaultGuiConfigServices()
@@ -167,8 +255,12 @@ void FixtureSymbolPreparationService::Request(
     work_[key].sourceFingerprint =
         symbol_cache::ComputeGdtfSemanticFingerprint(
             key.effectiveGdtfPath, fingerprintError);
-    work_[key].sourceRevision =
-        symbol_cache::ReadGdtfFileRevision(key.effectiveGdtfPath);
+    if (symbol_cache::ReadGdtfFileRevision(key.effectiveGdtfPath) !=
+        accepted.sourceRevision) {
+      coordinator_.Fail(key, epoch_);
+      diagnostics::DiagnosticLogger::Warning(
+          "Fixture symbol source changed during inspection; retry is required.");
+    }
   }
   UpdateStatus();
   ScheduleNextStep();
@@ -191,6 +283,7 @@ void FixtureSymbolPreparationService::PromoteManualFixture(
       CanonicalResourcePath(resolution.selectedPath),
       fixtureIt->second.gdtfMode};
   manualWork_[fixtureUuid] = key;
+  fallbackDiagnostics_.erase(key);
   if (coordinator_.Find(key)) {
     coordinator_.Cancel(key, epoch_);
     if (currentKey_ && *currentKey_ == key)
@@ -219,6 +312,21 @@ void FixtureSymbolPreparationService::CompleteManualFixture(
 
 // Scans unique resolved resources and exact modes after project stabilization.
 void FixtureSymbolPreparationService::ScanCurrentProject() {
+  scanFixtureUuids_.clear();
+  scanKeys_.clear();
+  scanPaths_.clear();
+  // A fresh explicit scan may discover newly added bindings for an already
+  // completed resource. Recheck inheritance without regenerating valid symbols.
+  for (auto work = work_.begin(); work != work_.end();) {
+    const auto *job = coordinator_.Find(work->first);
+    if (job && job->state == symbols::FixtureSymbolPreparationState::Completed &&
+        (!currentKey_ || *currentKey_ != work->first)) {
+      coordinator_.Cancel(work->first, epoch_);
+      work = work_.erase(work);
+    } else {
+      ++work;
+    }
+  }
   const auto &scene =
       GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
   for (const auto &[uuid, fixture] : scene.fixtures) {
@@ -243,6 +351,8 @@ void FixtureSymbolPreparationService::OnIdle(wxIdleEvent &event) {
   if (!stepScheduled_ || window_.ShouldDeferAutomaticSceneWork())
     return;
   stepScheduled_ = false;
+  if (workerPending_ && !workerReady_)
+    symbols::diagnostics::Count(symbols::diagnostics::Operation::IdleWhileWorkerBusy);
   if (!deferredRequests_.empty()) {
     const auto request = *deferredRequests_.begin();
     deferredRequests_.erase(deferredRequests_.begin());
@@ -255,14 +365,23 @@ void FixtureSymbolPreparationService::OnIdle(wxIdleEvent &event) {
     const auto &scene =
         GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
     const auto fixtureIt = scene.fixtures.find(fixtureUuid);
-    if (fixtureIt != scene.fixtures.end()) {
+    if (fixtureIt != scene.fixtures.end() &&
+        !GetDefaultGuiConfigServices().LegacyConfigManager()
+             .GetProjectFixtureSymbols().FindForFixture(fixtureIt->second)) {
       fixtures::FixtureGdtfResolution resolution;
       std::string error;
-      if (fixtures::ResolveFixtureGdtfDeterministic(
-              fixtureIt->second, scene, resolution, error, "symbol-scan")) {
+      const auto known = scanPaths_.find(fixtureIt->second.gdtfSpec);
+      const bool resolved = known != scanPaths_.end() ||
+          fixtures::ResolveFixtureGdtfDeterministic(
+              fixtureIt->second, scene, resolution, error, "symbol-scan");
+      if (known != scanPaths_.end())
+        resolution.selectedPath = known->second;
+      if (resolved) {
+        scanPaths_.try_emplace(fixtureIt->second.gdtfSpec, resolution.selectedPath);
         const symbols::FixtureSymbolPreparationKey key{
             CanonicalResourcePath(resolution.selectedPath),
             fixtureIt->second.gdtfMode};
+        fixtureHints_.try_emplace(key, fixtureUuid);
         if (scanKeys_.insert(key).second)
           Request(key.effectiveGdtfPath, key.exactGdtfMode);
       } else {
@@ -287,6 +406,18 @@ void FixtureSymbolPreparationService::OnIdle(wxIdleEvent &event) {
 
 // Advances the active automatic job by one bounded production operation.
 void FixtureSymbolPreparationService::RunNextStep() {
+  if (workerPending_) {
+    if (!workerReady_)
+      return;
+    workerReady_ = false;
+    workerPending_ = false;
+    processingResult_ = processingWorker_.TakeResult();
+    if (!currentKey_ || !processingResult_ ||
+        processingResult_->epoch != epoch_ ||
+        !work_.contains(*currentKey_) ||
+        work_.at(*currentKey_).requestId != processingResult_->requestId)
+      processingResult_.reset();
+  }
   if (!currentKey_) {
     const auto next = coordinator_.NextQueued();
     if (!next) {
@@ -299,16 +430,12 @@ void FixtureSymbolPreparationService::RunNextStep() {
         GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
     if (workIt != work_.end()) {
       const auto fixtureIt = scene.fixtures.find(workIt->second.fixtureUuid);
-      fixtures::FixtureGdtfResolution resolution;
-      std::string resolutionError;
       if (fixtureIt != scene.fixtures.end() &&
-          fixtures::ResolveFixtureGdtfDeterministic(fixtureIt->second, scene,
-                                                    resolution, resolutionError,
-                                                    "symbol-reinspect")) {
+          HasCurrentBinding(*currentKey_, workIt->second)) {
         if (!symbols::NeedsAutomaticFixtureSymbolPreparation(
                 fixtureIt->second,
                 GetDefaultGuiConfigServices().LegacyConfigManager().GetProjectFixtureSymbols(),
-                resolution.selectedPath,
+                currentKey_->effectiveGdtfPath,
                 gdtf::MutationPolicy::PreserveImported)) {
           coordinator_.Skip(*currentKey_, epoch_);
           work_.erase(*currentKey_);
@@ -338,12 +465,16 @@ void FixtureSymbolPreparationService::RunNextStep() {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   if (!coordinator_.IsCurrent(epoch_) ||
       (work.stage != WorkStage::Finalizing &&
-       !IsWorkIdentityCurrent(*currentKey_, work))) {
+       !HasCurrentBinding(*currentKey_, work))) {
     FailCurrent("Fixture symbol preparation identity became stale.");
     return;
   }
 
   if (work.stage == WorkStage::Capturing) {
+    if (!IsWorkIdentityCurrent(*currentKey_, work)) {
+      FailCurrent("Fixture symbol preparation identity became stale before capture.");
+      return;
+    }
     Viewer2DOffscreenRenderer *renderer = window_.GetOffscreenRenderer();
     if (!renderer) {
       FailCurrent("Fixture symbol preparation could not acquire a renderer.");
@@ -353,6 +484,7 @@ void FixtureSymbolPreparationService::RunNextStep() {
         tools::BuildFixtureTypeSymbolCaptureOptions("automatic");
     if (work.bounds.valid)
       options.fixtureBoundsOverride = work.bounds;
+    symbols::diagnostics::Count(symbols::diagnostics::Operation::Capture);
     auto capture = tools::CaptureSceneModelOrthographicRenders(
         *renderer, cfg,
         {tools::SceneModelKind::Fixture, work.fixtureUuid}, options);
@@ -384,22 +516,20 @@ void FixtureSymbolPreparationService::RunNextStep() {
 
   if (work.stage == WorkStage::Processing) {
     if (!work.processingSubmitted) {
-      while (processingWorker_.TakeResult()) {
-      }
+      work.requestId = ++nextRequestId_;
       if (!processingWorker_.Submit(
-              {epoch_, std::move(work.renders), work.bounds})) {
-        ScheduleNextStep();
+              {epoch_, std::move(work.renders), work.bounds, work.requestId})) {
+        FailCurrent("Fixture symbol worker rejected an exclusive request.");
         return;
       }
       work.processingSubmitted = true;
-      ScheduleNextStep();
+      workerPending_ = true;
       return;
     }
-    auto processed = processingWorker_.TakeResult();
-    if (!processed) {
-      ScheduleNextStep();
+    auto processed = std::move(processingResult_);
+    processingResult_.reset();
+    if (!processed)
       return;
-    }
     if (processed->epoch != epoch_) {
       FailCurrent("Fixture symbol processing result became stale.");
       return;
@@ -455,6 +585,7 @@ void FixtureSymbolPreparationService::RunNextStep() {
       Request(staleKey.effectiveGdtfPath, staleKey.exactGdtfMode);
       return;
     }
+    symbols::diagnostics::Count(symbols::diagnostics::Operation::Publication);
     const auto applied = symbols::PrepareFixtureSymbols(
         cfg.GetScene(), cfg.GetProjectFixtureSymbols(), work.fixtureUuid,
         currentKey_->effectiveGdtfPath, work.processedSymbols,
@@ -468,6 +599,7 @@ void FixtureSymbolPreparationService::RunNextStep() {
     for (const auto &warning : applied.warnings)
       diagnostics::DiagnosticLogger::Warning("Fixture project symbols: " + warning);
     work.projectSymbolsUpdated = applied.projectSymbolsUpdated;
+    work.processedSymbols.clear();
     coordinator_.Complete(*currentKey_, epoch_, true);
     work.stage = WorkStage::Finalizing;
     ScheduleNextStep();
@@ -490,8 +622,14 @@ void FixtureSymbolPreparationService::RunNextStep() {
 // Leaves fallback rendering active and suppresses retries for this epoch.
 void FixtureSymbolPreparationService::FailCurrent(
     const std::string &diagnostic) {
-  if (currentKey_)
+  if (currentKey_) {
     coordinator_.Fail(*currentKey_, epoch_);
+    auto work = work_.find(*currentKey_);
+    if (work != work_.end()) {
+      work->second.renders.clear();
+      work->second.processedSymbols.clear();
+    }
+  }
   diagnostics::DiagnosticLogger::Warning("Fixture symbol preparation failed: " +
                                          diagnostic);
   currentKey_.reset();
@@ -558,9 +696,22 @@ void FixtureSymbolPreparationService::UpdateStatus() {
 
 // Finds a current-project fixture that owns the exact preparation identity.
 std::string FixtureSymbolPreparationService::FindFixtureUuid(
-    const symbols::FixtureSymbolPreparationKey &key) const {
+    const symbols::FixtureSymbolPreparationKey &key) {
   const auto &scene =
       GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+  const auto hint = fixtureHints_.find(key);
+  if (hint != fixtureHints_.end()) {
+    const auto fixture = scene.fixtures.find(hint->second);
+    fixtures::FixtureGdtfResolution resolution;
+    std::string error;
+    if (fixture != scene.fixtures.end() &&
+        fixture->second.gdtfMode == key.exactGdtfMode &&
+        fixtures::ResolveFixtureGdtfDeterministic(
+            fixture->second, scene, resolution, error, "symbol-request") &&
+        CanonicalResourcePath(resolution.selectedPath) == key.effectiveGdtfPath)
+      return hint->second;
+    fixtureHints_.erase(hint);
+  }
   std::string selected;
   for (const auto &[uuid, fixture] : scene.fixtures) {
     if (fixture.gdtfMode != key.exactGdtfMode)
@@ -574,7 +725,21 @@ std::string FixtureSymbolPreparationService::FindFixtureUuid(
     if (selected.empty() || uuid < selected)
       selected = uuid;
   }
+  if (!selected.empty())
+    fixtureHints_[key] = selected;
   return selected;
+}
+
+// Cheap binding checks are safe during immutable processing. Full filesystem
+// resolution belongs only at capture/publication boundaries.
+bool FixtureSymbolPreparationService::HasCurrentBinding(
+    const symbols::FixtureSymbolPreparationKey &key,
+    const WorkContext &work) const {
+  const auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+  const auto fixture = scene.fixtures.find(work.fixtureUuid);
+  return scene.basePath == work.sceneBasePath && fixture != scene.fixtures.end() &&
+         fixture->second.gdtfSpec == work.sourceSpec &&
+         fixture->second.gdtfMode == key.exactGdtfMode;
 }
 
 // Revalidates that a job still targets the same current-project resource and mode.

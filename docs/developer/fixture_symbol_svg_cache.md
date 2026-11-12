@@ -110,3 +110,43 @@ Its cache checks the scoped content identity before returning parsed data;
 active-project replacement or cache clearing cannot substitute another symbol.
 Nested scopes restore the previous context, and an explicit null scope exposes
 no symbols rather than falling through to the live project provider.
+
+
+## Automatic preparation scheduling
+
+The GUI preparation service retains the existing coordinator's project epochs,
+exact resource/mode keys, failure cooldown, and serialized publication targets.
+Rendering fallbacks coalesce requests before queuing bounded idle slices.
+Project scans reuse successful resolution for an exact source reference during
+that scan and retain a validated fixture hint for each physical resource/mode.
+Errors are never cached as resolution results.
+
+Capture remains an atomic four-view operation on the GUI/OpenGL context thread.
+After submitting immutable render data once, the service does not schedule idle
+work to poll the processor. Both worker backends post completion to a shared wx
+mailbox; the next idle slice consumes the result. Request IDs distinguish work
+cancelled and replaced within the same epoch, while epoch checks reject results
+from a previous project. Closing the mailbox disconnects service callbacks before
+the worker joins, so a retained poster cannot access a destroyed service/window.
+
+Intermediate state checks compare fixture source/mode and scene base path.
+Capture and publication boundaries still resolve the effective resource;
+publication also retains revision/fingerprint validation. Duplicate requests
+check the known file revision before returning, so a source change can invalidate
+queued, completed, or failed work. Manual preparation retains its cancellation
+and authoritative project-symbol precedence. Persisted project symbols satisfy
+eligibility checks without another capture.
+
+For controlled Debug measurements, set `PERASTAGE_SYMBOL_DIAGNOSTICS=1` before
+starting the process. A normal exit prints aggregate `fixture_symbol_operations`
+counters. Collection compiles out with `NDEBUG`. Resolution candidate filesystem
+probes are counted separately from revision metadata reads and canonicalization.
+Archive counters count filesystem stream open attempts in the shared ZIP/GDTF
+readers and semantic fingerprinter; they are not inferred from resolution logs.
+Geometry inspection, actual fingerprint computations, capture, worker submission
+and completion, SVG serialization, project application attempts, successful
+project resource ZIP-entry writes, scheduled idle slices while processing, and
+coalesced requests have independent counters. `gui_request_post` counts mailbox
+events, including worker completion. Other unrelated application/archive I/O
+requires separate tracing. These process-local diagnostics never enter PSTG
+metadata and do not alter source archives.
