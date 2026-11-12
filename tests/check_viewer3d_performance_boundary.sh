@@ -32,7 +32,8 @@ assert close.index('LockViewportInteraction();') < close.index('ConfirmSaveIfDir
 assert close.index('ConfirmSaveIfDirty(') < close.index('SaveUserConfigWithViewport2DState();')
 assert 'UnlockViewportInteraction();' in close
 symbols = Path('gui/services/fixture_symbol_preparation_service.cpp').read_text()
-request = symbols.split('void FixtureSymbolPreparationService::Request(', 1)[1].split('//', 1)[0]
+request = symbols.split('void FixtureSymbolPreparationService::Request(', 1)[1].split(
+    'void FixtureSymbolPreparationService::PromoteManualFixture(', 1)[0]
 assert request.index('ShouldDeferAutomaticSceneWork()') < request.index('ComputeFixtureGeometryBoundsMm(')
 assert 'deferredRequests_.clear();' in symbols
 assert '!stepScheduled_ || window_.ShouldDeferAutomaticSceneWork()' in symbols

@@ -2,6 +2,8 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$root/tests/test_tool_requirements.sh"
+require_ripgrep
 service="$root/gui/services/fixture_symbol_preparation_service.cpp"
 renderer="$root/viewer3d/render/opaque_fixture_pass.cpp"
 worker="$root/gui/services/fixture_symbol_processing_worker.cpp"
@@ -69,10 +71,9 @@ rg -q 'displayLabel' "$service"
 rg -q 'exactGdtfMode' "$service"
 rg -q 'RequestFixtureSymbolPreparation' "$renderer"
 rg -q 'ScopedSceneReplacementLifecycle' "$root/gui/tools/scene_model_symbol_capture_service.cpp"
-echo "Fixture symbol preparation remains non-modal, runtime-only, and renderer-decoupled."
 
 # Completion waits must never schedule another idle iteration or resolve state.
-python3 - "$service" <<'PY'
+run_test_python - "$service" <<'PY'
 import pathlib
 import sys
 source = pathlib.Path(sys.argv[1]).read_text()
@@ -85,3 +86,4 @@ assert 'ScheduleNextStep' not in submission
 bridge = source.split('SetFixtureSymbolPreparationRequestHandler(', 1)[1].split('// Disconnects', 1)[0]
 assert 'CallAfter' not in bridge
 PY
+echo "Fixture symbol preparation remains non-modal, runtime-only, and renderer-decoupled."

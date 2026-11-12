@@ -2,6 +2,7 @@
 #include "guiconfigservices.h"
 #include "mainwindow.h"
 #include "projectutils.h"
+#include "wx_path_utils.h"
 #include "symbols/fixture_symbol_application.h"
 #include "symbols/fixture_symbol_operation_counters.h"
 #include "symbols/fixture_symbol_preparation_requests.h"
@@ -125,7 +126,7 @@ int main(int argc, char **argv) {
   const std::string scenario = argc > 1 ? argv[1] : "complete";
   const auto path = std::filesystem::temp_directory_path() / ("symbol-scheduling-" + scenario + ".gdtf");
   {
-    wxFileOutputStream file(path.string());
+    wxFileOutputStream file(WxPathUtils::WxStringFromFilesystemPath(path));
     wxZipOutputStream zip(file);
     zip.PutNextEntry("description.xml");
     const std::string xml = "<GDTF/>";
@@ -208,7 +209,7 @@ int main(int argc, char **argv) {
     assert(inspections == 1 && captures == 1);
   }
   if (scenario == "source") {
-    wxFileOutputStream file(path.string());
+    wxFileOutputStream file(WxPathUtils::WxStringFromFilesystemPath(path));
     wxZipOutputStream zip(file);
     zip.PutNextEntry("description.xml");
     const std::string xml = "<GDTF changed=\"true\"/>";
