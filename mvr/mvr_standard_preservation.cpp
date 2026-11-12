@@ -237,8 +237,7 @@ std::vector<MvrExportDiagnostic> CheckStandardPreservation(const MvrScene &scene
     // A dummy profile cannot repair missing source bytes without data loss.
     if (!fixture.originalMvrGdtfSpec.empty()) {
       const auto &spec = fixture.gdtfSpec.empty() ? fixture.originalMvrGdtfSpec : fixture.gdtfSpec;
-      auto path = PathUtils::PathFromUtf8(spec);
-      if (!path.is_absolute()) path = PathUtils::PathFromUtf8(scene.basePath) / path;
+      auto path = PathUtils::ResolveSceneResourcePath(spec, PathUtils::PathFromUtf8(scene.basePath));
       std::error_code error;
       if (!std::filesystem::is_regular_file(path, error)) {
         auto diagnostic = Block("Fixture", uuid, "Fixture/GDTFSpec",

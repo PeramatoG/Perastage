@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include "support/mvr_anomaly_characterization.h"
+#include "support/archive_entry_test_utils.h"
 #include "mvr_identifier_preservation.h"
 namespace tests::mvr_publication {
 inline void Replace(std::string &text, const std::string &from,
