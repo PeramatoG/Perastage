@@ -5,6 +5,8 @@
 #include <wx/popupwin.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
+#include <wx/utils.h>
+#include <functional>
 
 namespace {
 wxString Text(const std::string &text) { return wxString::FromUTF8(text); }
@@ -22,14 +24,32 @@ wxString IssueText(dmx_patch::Issue issue) {
 }
 class DiagnosticsPopup final : public wxPopupTransientWindow {
 public:
-  explicit DiagnosticsPopup(wxWindow *parent) : wxPopupTransientWindow(parent, wxBORDER_SIMPLE) {}
+  DiagnosticsPopup(wxWindow *parent, wxWindow *toggle, std::function<void()> close)
+      : wxPopupTransientWindow(parent, wxBORDER_SIMPLE), toggle_(toggle), close_(std::move(close)) {}
+  bool ProcessLeftDown(wxMouseEvent &) override {
+    // Consume a toggle click before transient-popup dismissal can forward it
+    // to the button and reopen the popup on the same press.
+    if (toggle_->GetScreenRect().Contains(wxGetMousePosition())) {
+      close_();
+      return true;
+    }
+    return false;
+  }
 protected:
   void OnDismiss() override { Destroy(); }
+private:
+  wxWindow *toggle_;
+  std::function<void()> close_;
 };
 }
 void DmxPatchPanel::ShowDiagnostics() {
+  if (diagnosticsPopup_) {
+    diagnosticsPopup_->Dismiss(); diagnosticsPopup_->Destroy(); diagnosticsPopup_ = nullptr;
+    return;
+  }
   if (!snapshot_) return;
-  auto *popup = new DiagnosticsPopup(this);
+  auto *popup = new DiagnosticsPopup(this, warnings_, [this] { ShowDiagnostics(); });
+  diagnosticsPopup_ = popup;
   popup->SetName(_("Patch diagnostics"));
   auto *sizer = new wxBoxSizer(wxVERTICAL);
   sizer->Add(new wxStaticText(popup, wxID_ANY, _("Patch diagnostics")), 0, wxALL, FromDIP(6));

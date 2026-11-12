@@ -83,9 +83,9 @@ void DmxPatchCanvas::Paint(wxPaintEvent &) {
         text = (color.Red() * 299 + color.Green() * 587 + color.Blue() * 114 < 140000) ? *wxWHITE : *wxBLACK;
       }
       const wxRect rect(col * w, row * h, w, h);
+      const int radius = std::min(FromDIP(12), std::min(w, h) / 3);
       dc.SetBrush(wxBrush(color)); dc.SetPen(wxPen(border));
       if (start || end) {
-        const int radius = FromDIP(5);
         dc.DrawRoundedRectangle(rect, radius);
         // Square the lower corners and the top corner not marking a boundary.
         dc.SetPen(*wxTRANSPARENT_PEN);
@@ -111,7 +111,7 @@ void DmxPatchCanvas::Paint(wxPaintEvent &) {
       }
       if (end) {
         dc.SetPen(wxPen(text, FromDIP(2)));
-        dc.DrawLine(rect.GetRight() - 1, rect.y + FromDIP(5), rect.GetRight() - 1, rect.GetBottom());
+        dc.DrawLine(rect.GetRight() - 1, rect.y + radius, rect.GetRight() - 1, rect.GetBottom());
       }
       dc.SetTextForeground(text);
       const auto number = wxString::Format("%d", i + 1);
@@ -132,7 +132,7 @@ void DmxPatchCanvas::Paint(wxPaintEvent &) {
         dc.DrawText(FitLabel(dc, label, w - 2 * pad), rect.x + pad, rect.y + h - line - pad);
         if (start) {
           dc.SetPen(wxPen(text, FromDIP(2)));
-          dc.DrawLine(rect.x + 1, rect.y + FromDIP(5), rect.x + 1, rect.GetBottom());
+          dc.DrawLine(rect.x + 1, rect.y + radius, rect.x + 1, rect.GetBottom());
         }
       }
 

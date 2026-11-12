@@ -5,6 +5,14 @@ ViewportPatchWorkspace::ViewportPatchWorkspace(wxWindow *parent,
     std::function<void()> close, std::function<void(int)> resized)
     : wxPanel(parent), manager_(this), close_(std::move(close)), resized_(std::move(resized)) {
   manager_.SetDockSizeConstraint(1.0, 1.0);
+  Bind(wxEVT_SIZE, [this](wxSizeEvent &event) {
+    event.Skip();
+    if (!pendingHeight_ || !patch_ || !IsShownOnScreen()) return;
+    const int height = pendingHeight_;
+    pendingHeight_ = 0;
+    // Startup attachment can precede the outer AUI pane receiving its size.
+    CallAfter([this, height] { if (patch_) SetPatchHeight(height); });
+  });
   Bind(wxEVT_AUI_PANE_CLOSE, [this](wxAuiManagerEvent &event) {
     if (event.GetManager() != &manager_ || !event.GetPane() || event.GetPane()->name != "DmxPatch") {
       event.Skip(); return;
@@ -26,6 +34,7 @@ void ViewportPatchWorkspace::AttachPatch(wxWindow *patch, int height) {
   if (patch_ == patch) return;
   updating_ = true;
   patch_ = patch;
+  pendingHeight_ = IsShownOnScreen() ? 0 : height;
   patch->Reparent(this);
   manager_.AddPane(patch, wxAuiPaneInfo().Name("DmxPatch").Caption(_("DMX Patch"))
       .Bottom().Layer(0).BestSize(-1, std::max(FromDIP(100), height))
@@ -42,7 +51,7 @@ void ViewportPatchWorkspace::DetachPatch() {
   if (pane.IsMaximized()) manager_.RestorePane(pane);
   patch_->Unbind(wxEVT_SIZE, &ViewportPatchWorkspace::OnPatchSize, this);
   manager_.DetachPane(patch_);
-  patch_->Hide(); patch_ = nullptr;
+  patch_->Hide(); patch_ = nullptr; pendingHeight_ = 0;
   manager_.Update();
   updating_ = false;
 }
@@ -66,7 +75,7 @@ void ViewportPatchWorkspace::OnPatchSize(wxSizeEvent &event) {
   resizeQueued_ = true;
   CallAfter([this] {
     resizeQueued_ = false;
-    if (patch_ && !manager_.GetPane(patch_).IsMaximized() && resized_)
+    if (patch_ && !pendingHeight_ && IsShownOnScreen() && !manager_.GetPane(patch_).IsMaximized() && resized_)
       resized_(PatchHeight());
   });
 }

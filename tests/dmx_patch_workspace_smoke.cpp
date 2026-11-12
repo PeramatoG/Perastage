@@ -10,6 +10,8 @@
 #include <wx/checkbox.h>
 #include <wx/popupwin.h>
 #include <wx/listctrl.h>
+#include <wx/combobox.h>
+#include <wx/uiaction.h>
 #include "configmanager.h"
 #include "platform_locale.h"
 #include "mainwindow.h"
@@ -69,7 +71,7 @@ public:
     SetAppName("Perastage"); wxInitAllImageHandlers();
     auto &cfg = ConfigManager::Get(); cfg.Reset();
     if (argc >= 3) cfg.LoadUserConfig();
-    cfg.SetValue("ui_dmx_patch_visible", "0");
+    cfg.SetValue("ui_dmx_patch_visible", argc >= 3 ? "1" : "0");
     cfg.SetValue("layout_view_mode", "2d_layout_view");
     Require(cfg.SaveProject((scratch / "scene.pstg").string()), "Save fixture failed");
     frame_ = new MainWindow("DMX Patch workspace smoke", nullptr, metrics_); SetTopWindow(frame_);
@@ -90,7 +92,15 @@ public:
       std::cout << "Patch workspace stage " << stage_ << std::endl;
       switch (stage_++) {
       case 0:
-        Require(!FindPatch(*frame_), "Hidden patch was eagerly constructed");
+        if (argc < 3) Require(!FindPatch(*frame_), "Hidden patch was eagerly constructed");
+        else {
+          auto *initial = FindPatch(*frame_);
+          Require(initial && initial->IsShownOnScreen(), "Restored patch did not open on startup");
+          bool populated = false;
+          for (auto *child : initial->GetChildren())
+            if (auto *text = dynamic_cast<wxStaticText *>(child)) populated |= text->GetLabel().Contains("/512");
+          Require(populated, "Startup patch was not populated before interaction");
+        }
         Require(metrics_->viewer2DConstructions == 1 && metrics_->viewer3DConstructions == 0, "Lazy viewport startup regressed");
         legacy_ = manager->SavePerspective().ToStdString();
         {
@@ -115,7 +125,7 @@ public:
           cfg.GetScene().fixtures[fixture.uuid] = fixture;
           cfg.NotifyChange(ConfigManager::Change::Scene);
         }
-        cfg.MarkSaved(); Menu(ID_View_ToggleDmxPatch); break;
+        cfg.MarkSaved(); if (argc < 3) Menu(ID_View_ToggleDmxPatch); break;
       case 1: {
         patch_ = FindPatch(*frame_); Require(patch_ && patch_->IsShownOnScreen(), "Patch not visible");
         auto *workspace = dynamic_cast<ViewportPatchWorkspace *>(patch_->GetParent());
@@ -132,7 +142,7 @@ public:
         wxCheckBox *compatibility = nullptr;
         for (auto *child : patch_->GetChildren())
           if (auto *checkbox = dynamic_cast<wxCheckBox *>(child)) compatibility = checkbox;
-        Require(compatibility && !compatibility->GetValue(), "Compatibility must require explicit opt-in");
+        Require(compatibility && compatibility->GetValue(), "Declared offsets must be enabled by default");
         compatibility->SetValue(true);
         wxCommandEvent preview(wxEVT_CHECKBOX, compatibility->GetId());
         compatibility->GetEventHandler()->ProcessEvent(preview);
@@ -142,6 +152,19 @@ public:
             provisionalCounter |= text->GetLabel().Contains("Provisional:");
         Require(provisionalCounter && !cfg.IsDirty(), "Preview is not explicit/read-only");
         compatibility->SetValue(false); compatibility->GetEventHandler()->ProcessEvent(preview);
+        compatibility->SetValue(true); compatibility->GetEventHandler()->ProcessEvent(preview);
+        wxComboBox *universes = nullptr;
+        for (auto *child : patch_->GetChildren())
+          if (auto *combo = dynamic_cast<wxComboBox *>(child)) universes = combo;
+        Require(universes, "Universe selector unavailable");
+        universes->SetValue("2");
+        wxCommandEvent enter(wxEVT_TEXT_ENTER, universes->GetId());
+        universes->GetEventHandler()->ProcessEvent(enter); wxYield();
+        Require(universes->GetValue() == "2", "Empty universe text disappeared");
+        wxCommandEvent select(wxEVT_COMBOBOX, universes->GetId()); select.SetString("1");
+        universes->GetEventHandler()->ProcessEvent(select); wxYield();
+        cfg.NotifyChange(ConfigManager::Change::Scene); wxYield();
+        Require(universes->GetValue() == "1", "Selected universe text disappeared after refresh");
         workspace->SetPatchHeight(frame_->FromDIP(180));
         wxYield();
         Require(!cfg.IsDirty(), "Viewing/resizing patch dirtied project");
@@ -165,7 +188,12 @@ public:
           if (auto *candidate = dynamic_cast<wxListView *>(child)) list = candidate;
         Require(list && list->GetItemCount() == 2, "Conflict ranges were not grouped by fixture");
         Capture("dmx-patch-diagnostics.png");
-        popup->Dismiss(); popup->Destroy(); wxYield();
+        wxUIActionSimulator mouse;
+        const auto togglePoint = warnings->ClientToScreen(wxPoint(warnings->GetSize().x / 2, warnings->GetSize().y / 2));
+        mouse.MouseMove(togglePoint); mouse.MouseClick(); wxYield();
+        for (auto *child : patch_->GetChildren())
+          if (auto *candidate = dynamic_cast<wxPopupTransientWindow *>(child))
+            Require(!candidate->IsShownOnScreen(), "Second warning-button click reopened diagnostics");
         Menu(ID_View_Layout_Default); break;
       }
       case 2:

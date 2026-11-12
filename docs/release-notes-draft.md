@@ -6,7 +6,7 @@ RELEASE NOTES — WORK IN PROGRESS
 This is the living draft for the next Perastage release.
 
 Maintenance rules for Codex and contributors:
-- Added an optional read-only DMX Patch grid below the 2D/3D viewport, showing physical GDTF channels, fixture colors, overlap indicators and scrollable diagnostics without changing addressing, with compact adaptive columns, clear fixture boundaries, names shown once, and standard close/maximize controls. An explicit declared-offset preview distinguishes provisional channels from confirmed physical occupancy without altering addressing.
+- Added an optional read-only DMX Patch grid below the 2D/3D viewport, showing physical GDTF channels, fixture colors, overlap indicators and scrollable diagnostics without changing addressing, with compact adaptive columns, clear fixture boundaries, names shown once, and standard close/maximize controls. The declared-offset preview is enabled by default and distinguishes provisional channels from confirmed physical occupancy without altering addressing. The grid populates automatically on startup, keeps the universe number visible and closes diagnostics on a second click.
 - Update this file in the same pull request as each meaningful user-facing change, before merge.
 - Describe only implemented and adequately verified behavior; do not announce plans or unsupported capabilities.
 - A pull request may include its own new entry while under review; main contains only merged entries.

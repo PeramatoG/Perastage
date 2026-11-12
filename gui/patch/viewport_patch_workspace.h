@@ -22,5 +22,6 @@ private:
   wxWindow *patch_ = nullptr;
   std::function<void()> close_;
   std::function<void(int)> resized_;
+  int pendingHeight_ = 0;
   bool updating_ = false, resizeQueued_ = false;
 };
