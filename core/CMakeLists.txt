@@ -676,3 +676,9 @@ target_link_libraries(perastage_gdtf_resolution_resources
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE
     perastage_gdtf_resolution perastage_gdtf_resolution_resources)
+
+add_library(perastage_dmx_patch STATIC patch/dmx_patch_snapshot.cpp)
+target_compile_features(perastage_dmx_patch PUBLIC cxx_std_20)
+target_include_directories(perastage_dmx_patch PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models)
+target_link_libraries(perastage_dmx_patch PUBLIC perastage_mvr_core_support perastage_gdtf_read)
+target_link_libraries(${PROJECT_NAME} PRIVATE perastage_dmx_patch)

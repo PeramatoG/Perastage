@@ -45,11 +45,12 @@ TypedSelection BuildHoverSelection(const MvrScene &scene,
 
 // Builds the typed selection represented by clicking an item or its group.
 TypedSelection BuildClickSelection(const MvrScene &scene,
-                                   const std::string &clickedUuid) {
+                                   const std::string &clickedUuid,
+                                   const scene_grouping::InteractiveTransformPolicy &policy) {
   TypedSelection selection;
   AppendTypedUuid(scene, clickedUuid, selection);
   for (const auto &uuid :
-       scene_grouping::ExpandHoverForGroupHighlights(scene, clickedUuid)) {
+       scene_grouping::ExpandHoverForGroupHighlights(scene, clickedUuid, policy)) {
     AppendTypedUuid(scene, uuid, selection);
   }
   return selection;

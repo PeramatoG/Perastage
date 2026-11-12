@@ -17,6 +17,7 @@
  */
 #include "layer_identity.h"
 #include "fixturetablepanel.h"
+#include "fixturetable/fixture_table_highlight_event.h"
 #include "dataview_deferred_selection_guard.h"
 #include "dataview_sort_profiles.h"
 #include "addressdialog.h"
@@ -217,7 +218,7 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent,
   store->DecRef();
 
   table->SetAlternateRowColour(wxColour(40, 40, 40));
-  const wxColour selectionBackground(0, 255, 255);
+  const wxColour selectionBackground = gui::FixtureSelectionColor();
   const wxColour selectionForeground(0, 0, 0);
   store->SetSelectionColours(selectionBackground, selectionForeground);
   BindTableHoverEvents(table, this, &FixtureTablePanel::OnMouseMove,
@@ -483,6 +484,7 @@ void FixtureTablePanel::ReloadData() {
     Viewer3DPanel::Instance()->SetSelectedFixtures({});
 
   RunValidationHighlights(SceneDataUpdateType::kGeneral);
+  HighlightFixture(highlightedUuid, highlightedRelatedUuids, true);
 
   // Let wxDataViewListCtrl manage column headers and sorting
   if (LayerPanel::Instance())
@@ -1241,47 +1243,6 @@ bool FixtureTablePanel::IsActivePage() const {
   return nb && nb->GetPage(nb->GetSelection()) == this;
 }
 
-// Applies a primary hover highlight to one fixture row.
-void FixtureTablePanel::HighlightFixture(const std::string &uuid) {
-  HighlightFixture(uuid, {});
-}
-
-// Applies primary and related group-hover highlights to fixture rows.
-void FixtureTablePanel::HighlightFixture(
-    const std::string &uuid, const std::vector<std::string> &relatedUuids) {
-  if (uuid == highlightedUuid && relatedUuids == highlightedRelatedUuids)
-    return;
-
-  auto findRow = [&](const std::string &candidate) -> int {
-    if (candidate.empty())
-      return wxNOT_FOUND;
-    auto it = std::find(rowUuids.begin(), rowUuids.end(), candidate);
-    if (it == rowUuids.end())
-      return wxNOT_FOUND;
-    int row = static_cast<int>(std::distance(rowUuids.begin(), it));
-    if (row < 0 || row >= static_cast<int>(table->GetItemCount()))
-      return wxNOT_FOUND;
-    return row;
-  };
-
-  std::vector<bool> primaryRows(table->GetItemCount(), false);
-  std::vector<bool> secondaryRows(table->GetItemCount(), false);
-  const int currentRow = findRow(uuid);
-  if (currentRow != wxNOT_FOUND)
-    primaryRows[static_cast<size_t>(currentRow)] = true;
-  for (const auto &relatedUuid : relatedUuids) {
-    const int relatedRow = findRow(relatedUuid);
-    if (relatedRow != wxNOT_FOUND && relatedRow != currentRow)
-      secondaryRows[static_cast<size_t>(relatedRow)] = true;
-  }
-  store->SetHighlightRows(primaryRows, secondaryRows, wxColour(170, 220, 0),
-                          wxColour(110, 210, 150), wxColour(0, 0, 0));
-
-  highlightedUuid = uuid;
-  highlightedRelatedUuids = relatedUuids;
-  table->Refresh();
-}
-
 // Clears all current table row selections.
 void FixtureTablePanel::ClearSelection() {
   if (deferredSelectionGuard)
@@ -1455,21 +1416,6 @@ void FixtureTablePanel::OnLeftUp(wxMouseEvent &evt) { evt.Skip(); }
 void FixtureTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
   dragSelecting = false;
   startRow = wxNOT_FOUND;
-}
-
-// Updates hover tooltip state while the pointer moves over table cells.
-void FixtureTablePanel::OnMouseMove(wxMouseEvent &evt) {
-  UpdateHoverTooltip(NormalizeMousePositionForTable(table, evt));
-  evt.Skip();
-}
-
-// Clears hover tooltip state when the pointer leaves the table area.
-void FixtureTablePanel::OnMouseLeave(wxMouseEvent &evt) {
-  if (!activeHoverTooltip.IsEmpty()) {
-    SetTableAndChildTooltips(table, wxString());
-    activeHoverTooltip.clear();
-  }
-  evt.Skip();
 }
 
 // Shows contextual tooltip text for validation-marked table cells.

@@ -5,6 +5,7 @@
 #include "viewer2dpanel.h"
 #include "viewer2drenderpanel.h"
 #include "viewer3dpanel.h"
+#include "patch/viewport_patch_workspace.h"
 
 void MainWindow::Ensure3DViewport(bool commitAui) {
   if (startupSplashInitializationPending && startupMetrics_)
@@ -14,12 +15,14 @@ void MainWindow::Ensure3DViewport(bool commitAui) {
   if (startupSplashInitializationPending && startupMetrics_)
     ++startupMetrics_->viewer3DConstructions;
   int halfWidth = GetClientSize().GetWidth() / 2;
-  viewportPanel = new Viewer3DPanel(this);
+  viewport3DWorkspace = CreateDmxViewportWorkspace();
+  viewportPanel = new Viewer3DPanel(viewport3DWorkspace);
+  viewport3DWorkspace->SetViewport(viewportPanel);
   Viewer3DPanel::SetInstance(viewportPanel);
   if (startupSplashInitializationPending)
     viewportPanel->Bind(wxEVT_PAINT, &MainWindow::OnStartupScenePaint, this);
   viewportPanel->LoadCameraFromConfig();
-  auiManager->AddPane(viewportPanel, wxAuiPaneInfo()
+  auiManager->AddPane(viewport3DWorkspace, wxAuiPaneInfo()
                                          .Name("3DViewport")
                                          .Caption(_("3D Viewport"))
                                          .Center()
@@ -27,7 +30,7 @@ void MainWindow::Ensure3DViewport(bool commitAui) {
                                          .CaptionVisible(true)
                                          .PaneBorder(false)
                                          .BestSize(halfWidth, 600)
-                                         .MinSize(wxSize(200, 600))
+                                         .MinSize(wxSize(200, 180))
                                          .CloseButton(true)
                                          .MaximizeButton(true));
   if (commitAui) {
@@ -49,7 +52,9 @@ void MainWindow::Ensure2DViewport(bool commitAui) {
   if (startupSplashInitializationPending && startupMetrics_)
     ++startupMetrics_->viewer2DConstructions;
   int halfWidth = GetClientSize().GetWidth() / 2;
-  viewport2DPanel = new Viewer2DPanel(this);
+  viewport2DWorkspace = CreateDmxViewportWorkspace();
+  viewport2DPanel = new Viewer2DPanel(viewport2DWorkspace);
+  viewport2DWorkspace->SetViewport(viewport2DPanel);
   std::weak_ptr<int> lifetimeToken = cursorStatusCallbackLifetimeToken;
   viewport2DPanel->SetCursorWorldPositionCallback(
       [this,
@@ -64,7 +69,7 @@ void MainWindow::Ensure2DViewport(bool commitAui) {
       });
   Viewer2DPanel::SetInstance(viewport2DPanel);
   viewport2DPanel->LoadViewFromConfig();
-  auiManager->AddPane(viewport2DPanel, wxAuiPaneInfo()
+  auiManager->AddPane(viewport2DWorkspace, wxAuiPaneInfo()
                                            .Name("2DViewport")
                                            .Caption(_("2D Viewport"))
                                            .Center()
@@ -72,7 +77,7 @@ void MainWindow::Ensure2DViewport(bool commitAui) {
                                            .CaptionVisible(true)
                                            .PaneBorder(false)
                                            .BestSize(halfWidth, 600)
-                                           .MinSize(wxSize(200, 600))
+                                           .MinSize(wxSize(200, 180))
                                            .CloseButton(true)
                                            .MaximizeButton(true)
                                            .Hide());

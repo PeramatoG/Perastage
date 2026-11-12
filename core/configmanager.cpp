@@ -59,6 +59,8 @@ struct RestoredUserPreference {
 std::vector<RestoredUserPreference> CaptureUserInteractionPreferences(
     const ConfigManager &config) {
   return {
+      {"ui_dmx_patch_visible", config.GetValue("ui_dmx_patch_visible")},
+      {"ui_dmx_patch_height", config.GetValue("ui_dmx_patch_height")},
       {"ui_position_tool_compact_height", config.GetValue("ui_position_tool_compact_height")},
       {"ui_position_tool_sidebar_initialized", config.GetValue("ui_position_tool_sidebar_initialized")},
       {magnet_snap::kMagnetEnabledConfigKey,

@@ -422,6 +422,7 @@ EVT_MENU(ID_Edit_ReplaceFixtures, MainWindow::OnReplaceSelectedFixtures)
 EVT_MENU(ID_Edit_ReplaceTrusses, MainWindow::OnReplaceSelectedTrusses)
 EVT_MENU(ID_View_ToggleConsole, MainWindow::OnToggleConsole)
 EVT_MENU(ID_View_TogglePositionTool, MainWindow::OnTogglePositionTool)
+EVT_MENU(ID_View_ToggleDmxPatch, MainWindow::OnToggleDmxPatch)
 EVT_MENU(ID_View_ToggleFixtures, MainWindow::OnToggleFixtures)
 EVT_MENU(ID_View_ToggleViewport, MainWindow::OnToggleViewport)
 EVT_MENU(ID_View_ToggleViewport2D, MainWindow::OnToggleViewport2D)
@@ -1297,6 +1298,7 @@ void MainWindow::UpdateToolBarAvailability() {
 }
 
 void MainWindow::UpdateViewMenuChecks() {
+  SyncDmxPatchWorkspace();
   if (!auiManager || !GetMenuBar())
     return;
 

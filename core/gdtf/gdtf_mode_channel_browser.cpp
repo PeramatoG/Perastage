@@ -441,7 +441,9 @@ GdtfModeChannelDocument ReadGdtfModeChannelDocument(const std::string &descripti
         mode.channels.push_back(std::move(channel));
       } else if (addresses.instances.empty()) {
         // Keep unresolved source data inspectable without inventing physical addresses.
-        channel.offsets.clear();
+        // Retain parsed source bytes for inspection/explicit compatibility
+        // preview, but never advertise them as resolved physical offsets.
+        for (auto &offset : channel.offsets) offset.normalized.reset();
         mode.channels.push_back(std::move(channel));
       } else {
         for (const auto &instance : addresses.instances) {

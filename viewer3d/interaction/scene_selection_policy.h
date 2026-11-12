@@ -1,6 +1,7 @@
 #pragma once
 
 #include "selection_interaction_policy.h"
+#include "interactive_transform_policy.h"
 
 #include <string>
 
@@ -14,6 +15,7 @@ TypedSelection BuildHoverSelection(const MvrScene &scene,
 
 // Builds the typed selection represented by clicking an item or its group.
 TypedSelection BuildClickSelection(const MvrScene &scene,
-                                   const std::string &clickedUuid);
+                                   const std::string &clickedUuid,
+                                   const scene_grouping::InteractiveTransformPolicy &policy = {});
 
 } // namespace viewer3d::interaction
