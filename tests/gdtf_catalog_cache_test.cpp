@@ -14,7 +14,7 @@ const auto testDirectory = std::filesystem::temp_directory_path() /
     ("perastage-catalog-cache-" + std::to_string(
         std::chrono::steady_clock::now().time_since_epoch().count()));
 const std::string catalog =
-    R"({"timestamp":1700000000,"list":[{"rid":"123","manufacturer":"Acme","fixture":"Spot","filesize":2048}]})";
+    R"({"timestamp":1700000000,"list":[{"rid":"123","manufacturer":"Acme","fixture":"Spot","filesize":2048,"rating":"N/A","modes":[{"name":"Standard","dmxfootprint":12}]}]})";
 }
 
 // Keep catalog storage isolated from existing user settings and cached catalogs.
@@ -90,6 +90,9 @@ int main() {
   const auto stale = service.RefreshCatalogIfStale(refresh, "2026-10-08 11:00:00");
   assert(stale.snapshot && stale.metrics.refreshSucceeded && refreshes == 2);
   assert(stale.metrics.catalogUnchanged && stale.snapshot->listData == catalog);
+  assert(stale.parsedCatalog->entries[0].rating == 0);
+  assert(stale.parsedCatalog->entries[0].ratingText == "N/A");
+  assert(stale.parsedCatalog->entries[0].modes[0].footprint == 12);
   const auto failing = [&](std::string &) { ++refreshes; return false; };
   const auto fallback = service.RefreshCatalogIfStale(failing, "2026-10-08 12:00:00");
   assert(fallback.snapshot && fallback.staleFallback && refreshes == 3);
@@ -98,12 +101,14 @@ int main() {
   const auto forced = service.RefreshCatalogIfStale(refresh, "2026-10-08 11:00:01", 0);
   assert(forced.metrics.refreshSucceeded && refreshes == 4);
   const auto reformatted = service.RefreshCatalogIfStale([&](std::string &data) {
-    data = R"({ "list": [{"filesize":"2048","fixture":"Spot","manufacturer":"Acme","rid":123}], "timestamp":"1700000001" })";
+    data = R"({ "list": [{"filesize":"2048","fixture":"Spot","manufacturer":"Acme","rid":123,"rating":"N/A","modes":[{"name":"Standard","dmxfootprint":"12"}]}], "timestamp":"1700000001" })";
     return true;
   }, "2026-10-08 12:01:00", 0);
   assert(reformatted.metrics.catalogUnchanged && reformatted.snapshot->listData == catalog);
   assert(reformatted.snapshot->catalogTimestamp == "1700000001");
   assert(reformatted.parsedCatalog->catalogTimestamp == "1700000001");
+  assert(reformatted.parsedCatalog->entries[0].ratingText == "N/A");
+  assert(reformatted.parsedCatalog->entries[0].modes[0].name == "Standard");
   assert(service.GetParsedCatalogSnapshot()->snapshot.catalogTimestamp == "1700000001");
   const auto afterUnchanged = service.RefreshCatalogIfStale(refresh, "2026-10-08 12:59:00");
   assert(!afterUnchanged.metrics.refreshAttempted && refreshes == 4);

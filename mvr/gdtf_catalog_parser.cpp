@@ -1,6 +1,7 @@
 #include "gdtf_catalog_parser.h"
 
 #include "json.hpp"
+#include "../core/decimal_parse.h"
 
 #include <charconv>
 #include <array>
@@ -117,15 +118,31 @@ long long JsonToInteger(const Json &value) {
 
 // Converts the API's numeric or string rating to a floating-point value.
 float JsonToFloat(const Json &value) {
-  if (value.is_number())
-    return static_cast<float>(value.get<double>());
+  if (value.is_number()) {
+    const double number = value.get<double>();
+    if (!std::isfinite(number) ||
+        std::abs(number) > std::numeric_limits<float>::max())
+      return 0.0f;
+    return static_cast<float>(number);
+  }
   if (!value.is_string())
     return 0.0f;
-  try {
-    return std::stof(value.get<std::string>());
-  } catch (...) {
+  std::string_view text = value.get_ref<const std::string &>();
+  // Preserve leading ASCII whitespace and optional plus accepted by stof.
+  const auto first = text.find_first_not_of(" \t\n\r\f\v");
+  if (first == std::string_view::npos)
     return 0.0f;
+  text.remove_prefix(first);
+  if (text.front() == '+') {
+    text.remove_prefix(1);
+    if (text.empty() || text.front() == '-')
+      return 0.0f;
   }
+  float parsed = 0.0f;
+  std::size_t consumed = 0;
+  return perastage::numeric::ParseDecimalPrefix(text, parsed, consumed) &&
+                 consumed == text.size()
+             ? parsed : 0.0f;
 }
 
 // Returns the first present catalog field from a compatibility key list.

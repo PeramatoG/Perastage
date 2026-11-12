@@ -75,3 +75,51 @@ presentation, and orchestration ownership. Existing import-matching and GDTF
 Share security regressions protect the adjacent consumers and session contract.
 
 Catalog storage and legacy migration use the [persistent cache service](persistent_caches.md).
+
+## Rating parsing and exception verification
+
+Ratings use Core's `decimal_parse.h` finite decimal conversion with complete
+string consumption, classic locale, and the existing zero fallback. Leading
+ASCII whitespace and an optional plus remain accepted; trailing text (including
+whitespace), hex strings, non-finite strings, overflow and underflow to zero
+are unavailable ratings. Numeric JSON ratings are range-checked before float
+conversion. Original `ratingText` is retained independently of the numeric value.
+No rating/ranking rules or DMX selection rules change for valid decimal ratings.
+
+The CI workflows use GCC/libstdc++ on `ubuntu-latest`, MSVC on `windows-latest`,
+and Apple Clang/libc++ on `macos-26`; compatibility packaging also uses
+`macos-15`. Floating `from_chars` support depends on the standard library,
+not just C++20 mode. The existing Core helper explicitly supports older libc++
+without that overload, so catalog parsing reuses it on every platform rather
+than adding a library-version condition. Its streams keep their default
+non-throwing error mask and never change the global locale.
+
+A fresh cache is validated once by `RefreshCatalogIfStale`. A stale cache is
+validated and retained while a successful online response is independently
+validated; unchanged results retain cached records and renew the TTL, changed
+results replace them. Failed or unusable responses retain the validated cache.
+The MVR queue consumes the returned parsed entries without parsing again.
+The standalone browser opens a validated cache immediately, and its stale
+background refresh independently reloads the cache before fetching online data.
+Legacy migration additionally validates the copied file before publication.
+These separate reads/versions must not be mistaken for proof that all observed
+Windows exceptions came from one call site.
+
+To verify with Visual Studio 2022:
+
+1. Build Debug with symbols. In Debug > Windows > Exception Settings enable
+   **Thrown** for C++ exceptions (or add `std::invalid_argument`).
+2. With the previous revision, open GDTF Download Queue during MVR import using
+   a catalog containing many `"N/A"` ratings. On a break, inspect Call Stack:
+   confirm `std::stof`, `JsonToFloat`, `ParseCatalog`, and the cache or online
+   service caller before attributing the exception. Record other stacks too.
+3. Repeat on this revision with the same data. Run
+   `gdtf_catalog_browser_model_test` under the debugger as an offline check;
+   its 12,000 invalid/absent ratings must produce no conversion exceptions.
+4. Exercise fresh cache, stale cache with identical/different online content,
+   and failed refresh with cache fallback. Confirm search, valid-candidate
+   selection, mode selection and download still work. The deterministic cache
+   test covers these policies without contacting GDTF Share.
+5. If any exception remains, capture its Call Stack and investigate that origin
+   independently; the reported 20,686 Windows exceptions have no supplied stack
+   trace and cannot all be attributed to ratings from counts alone.

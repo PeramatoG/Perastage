@@ -30,6 +30,8 @@ Maintenance rules for Codex and contributors:
 
 ## MVR / GDTF
 
+- GDTF catalog loading handles unavailable and invalid ratings without repeated conversion exceptions, improving stability during profile resolution.
+
 - The GDTF download window now stays open after a completed MVR import queue until acknowledged. A preference can restore automatic closing.
 
 - Automatic GDTF matching better distinguishes suitable fixture models from ambiguous candidates. Matching DMX modes can be inferred from the imported mode name or unambiguous channel-count evidence, including after manual GDTF selection; uncertain matches retain the original profile for review.
