@@ -42,7 +42,10 @@ void DmxPatchPanel::ShowDiagnostics() {
     const auto &fixture = snapshot->fixtures.at(uuid);
     const auto row = list->InsertItem(list->GetItemCount(), Text(fixture.identifier + " " + fixture.name));
     list->SetItem(row, 1, warning);
-    list->SetItem(row, 2, detail + (detail.empty() ? wxString() : " | ") + Text(uuid));
+    wxString details = detail;
+    if (!details.empty()) details += " | ";
+    details += Text(uuid);
+    list->SetItem(row, 2, details);
   };
   for (const auto &issue : snapshot->diagnostics) {
     wxString details = Text(issue.detail);
