@@ -138,6 +138,7 @@ void CheckManualApplyAndIntegratedPersistence(ConfigManager &cfg,
       "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\">"
       "<polygon points=\"0,0 10,0 10,10 0,10\"/></svg>";
   tests::gdtf::BuildMinimalValidFixture().WithModelResource("authored")
+      .WithAdditionalDmxMode("Other mode", "Root")
       .WithArchiveEntry("models/svg/authored.svg", authoredSvg)
       .WithArchiveEntry("models/svg_side/authored.svg", authoredSvg)
       .WithArchiveEntry("models/svg_front/authored.svg", authoredSvg)

@@ -18,6 +18,8 @@
 #include "mvr_merge_analyzer.h"
 #include "mvr_source_structure_service.h"
 
+#include "filesystem_path_utils.h"
+
 #include "file_import_utils.h"
 #include "fixture_patch_address.h"
 #include "uuidutils.h"
@@ -62,15 +64,7 @@ std::string NormalizeFixtureTypeName(const std::string &typeName) {
 std::filesystem::path
 ResolveSceneResourcePath(const MvrScene &scene,
                          const std::string &resourcePath) {
-  if (resourcePath.empty())
-    return {};
-
-  std::filesystem::path path = std::filesystem::path(resourcePath);
-  if (path.is_absolute())
-    return path;
-  if (!scene.basePath.empty())
-    return std::filesystem::path(scene.basePath) / path;
-  return path;
+  return PathUtils::ResolveSceneResourcePath(resourcePath, PathUtils::PathFromUtf8(scene.basePath));
 }
 
 // Normalizes a resolved path token for case-insensitive identity comparisons.

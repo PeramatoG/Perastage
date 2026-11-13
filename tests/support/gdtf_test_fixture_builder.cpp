@@ -137,6 +137,13 @@ FixtureBuilder &FixtureBuilder::WithDmxMode(std::string name, std::string geomet
   return *this;
 }
 
+// Adds a valid mode for fixtures that exercise mode-specific behavior.
+FixtureBuilder &FixtureBuilder::WithAdditionalDmxMode(std::string name,
+                                                    std::string geometry) {
+  additionalModes.emplace_back(std::move(name), std::move(geometry));
+  return *this;
+}
+
 // Assigns the standard archive resource basename referenced by the model.
 FixtureBuilder &FixtureBuilder::WithModelResource(std::string fileBase) {
   modelFileBase = std::move(fileBase);
@@ -193,6 +200,13 @@ FixtureBuilder &FixtureBuilder::WithArchiveEntry(std::string path, std::string b
 
 // Builds the description.xml payload for the fixture.
 std::string FixtureBuilder::BuildDescriptionXml() const {
+  const auto buildMode = [](const std::string &name, const std::string &geometry) {
+    return "<DMXMode Name=\"" + name + "\" Geometry=\"" + geometry +
+        "\"><DMXChannels><DMXChannel Offset=\"1\" Geometry=\"Root\"><LogicalChannel Attribute=\"Dimmer\"><ChannelFunction Name=\"Dimmer\" Attribute=\"Dimmer\" Default=\"0/1\" DMXFrom=\"0/1\"/></LogicalChannel></DMXChannel></DMXChannels></DMXMode>";
+  };
+  std::string modes = buildMode(modeName, modeGeometry);
+  for (const auto &[name, geometry] : additionalModes)
+    modes += buildMode(name, geometry);
   const std::string category = categorySignals ? " FixtureTypeCategory=\"Conventional\"" : "";
   const std::string modelLength = FormatModelDimension(modelLengthMeters);
   const std::string modelWidth = FormatModelDimension(modelWidthMeters);
@@ -221,9 +235,7 @@ std::string FixtureBuilder::BuildDescriptionXml() const {
          (modelFileBase.empty() ? std::string{} : " File=\"" + modelFileBase + "\"") +
          "/></Models>\n"
          "    <Geometries><Geometry Name=\"Root\" Model=\"Body\"/></Geometries>\n"
-         "    <DMXModes><DMXMode Name=\"" +
-         modeName + "\" Geometry=\"" + modeGeometry +
-         "\"><DMXChannels><DMXChannel Offset=\"1\" Geometry=\"Root\"><LogicalChannel Attribute=\"Dimmer\"><ChannelFunction Name=\"Dimmer\" Attribute=\"Dimmer\" Default=\"0/1\" DMXFrom=\"0/1\"/></LogicalChannel></DMXChannel></DMXChannels></DMXMode></DMXModes>\n"
+         "    <DMXModes>" + modes + "</DMXModes>\n"
          + (perastageGeneratedSymbols
                 ? "    <Revisions><Revision Date=\"2026-01-01T00:00:00\" ModifiedBy=\"Perastage 1.5\" Text=\"Applied fixture SVG symbol views (top, side, front, bottom)\" UserID=\"0\"/></Revisions>\n"
                 : "") +

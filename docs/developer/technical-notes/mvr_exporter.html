@@ -55,12 +55,13 @@ and requested Symbol/Symdef preservation or flattening are <code>Info</code> and
 In particular, uppercase, braced, or otherwise noncanonical spelling represents
 the same UUID and is not a user warning.</p>
 <p>Meaningful identity replacement, cleared references, duplicate numeric fixture
-IDs, fallback or missing GDTFs, omitted resources or textures, placeholder or
+IDs, fallback for unbound fixtures, missing optional auxiliary GDTFs, omitted resources or textures, placeholder or
 empty geometry, rejected foreign metadata, omitted invalid DMX addresses, and
 an unavailable requested compatibility representation are user-visible
 <code>Warning</code> records. Structural validation, transform integrity, canonicalization,
 archive I/O, and hierarchy recursion failures are user-visible <code>Error</code> records
-and make the operation fail.</p>
+and make the operation fail. An unavailable assigned fixture GDTF is also a
+fatal <code>ResourceMissing</code> error; it is never replaced by another profile.</p>
 <p>Identity storage mismatches are evaluated using both sources. A malformed or
 missing field remains log-only when the other source preserves the effective
 identity; two different valid identities produce one <code>IdentityConflict</code>, while
@@ -104,6 +105,11 @@ properties or deleting the object.</p>
 <td>Shown</td>
 </tr>
 <tr>
+<td><code>ResourceMissing</code> for an assigned fixture GDTF</td>
+<td>Error</td>
+<td>Shown; export fails</td>
+</tr>
+<tr>
 <td><code>TransformInvalid</code>, <code>StructuralValidationFailed</code>, <code>CanonicalizationFailed</code>, <code>ArchiveIoFailed</code>, <code>HierarchyRecursion</code></td>
 <td>Error</td>
 <td>Shown; export fails</td>
@@ -113,7 +119,8 @@ properties or deleting the object.</p>
 temporary compatibility view built from non-Info structured records; callers
 must not infer policy by parsing its English text.</p>
 <h2 id="non-fatal-warnings">Non-fatal warnings</h2>
-<p>When <code>GeneralSceneDescription.xml</code> references a <code>fileName</code>/<code>GDTFSpec</code> entry that is missing from the archive source set, or the same archive path appears more than once, export continues and records a warning:</p>
+<p>Missing optional resources or duplicate archive paths can produce non-fatal warnings.
+Assigned fixture GDTFs are required resources and are excluded from this policy:</p>
 <ul>
 <li>Missing file warning: <code>Referenced file &#39;&lt;name&gt;&#39; is missing from the archive and will be omitted.</code></li>
 <li>Duplicate file warning: <code>Referenced file &#39;&lt;name&gt;&#39; appears multiple times; duplicates will be ignored.</code></li>

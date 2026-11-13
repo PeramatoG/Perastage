@@ -15,6 +15,7 @@ public:
   FixtureBuilder &WithFixtureIdentity(std::string name, std::string manufacturer,
                                       std::string fixtureTypeId);
   FixtureBuilder &WithDmxMode(std::string name, std::string geometry);
+  FixtureBuilder &WithAdditionalDmxMode(std::string name, std::string geometry);
   FixtureBuilder &WithModelResource(std::string fileBase);
   FixtureBuilder &WithModelDimensionsMeters(float length, float width, float height);
   FixtureBuilder &WithFixtureCategorySignals();
@@ -28,6 +29,7 @@ public:
 private:
   std::string modeName;
   std::string modeGeometry;
+  std::vector<std::pair<std::string, std::string>> additionalModes;
   std::string fixtureName;
   std::string manufacturer;
   std::string fixtureTypeId;

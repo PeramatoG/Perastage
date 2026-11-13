@@ -20,6 +20,7 @@
 #include "gdtf_description_reader.h"
 #include "gdtf/gdtf_mode_channel_browser.h"
 #include "uuidutils.h"
+#include "filesystem_path_utils.h"
 #include <algorithm>
 #include <array>
 #include <fstream>
@@ -133,7 +134,11 @@ std::filesystem::path CopyIntoScene(const std::filesystem::path &source,
     diagnostic = error ? error.message() : "An existing scene resource workspace is required.";
     return {};
   }
-  const auto directory = sceneRoot / "resolved-gdtf";
+  const auto directory = PathUtils::ResolveSceneResourcePath("resolved-gdtf", sceneRoot);
+  if (directory.empty()) {
+    diagnostic = "The selected resource directory escapes the scene workspace.";
+    return {};
+  }
   std::filesystem::create_directories(directory, error);
   if (error) {
     diagnostic = error.message();

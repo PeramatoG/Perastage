@@ -327,3 +327,57 @@ Windows short paths and macOS temporary-directory aliases. Stored recovery
 evidence strips both lexical and physical source-root prefixes; local diagnostics
 retain their full context. UserData consumers identify providers by name rather
 than their position.
+
+Safe representable content should save without a consent loop. Genuine unsupported
+standard content still blocks both serializers until an actual preservation
+owner exists. This is an unresolved workflow constraint, not the final product
+policy. No validation bypass, alternate project scene or lossy-save override is
+provided. The audit records the smallest proposed recovery design and acceptance
+conditions separately from implemented behavior.
+
+## Selected GDTF persistence
+
+The current fixture GDTF binding and selected mode are authoritative after an
+accepted replacement, regardless of manufacturer or source. Import retains
+external application-library selections in the import workspace before publishing
+the scene; downloaded and local selections already enter that workspace through
+`gdtf_resolution::CopyIntoScene`. Shared physical selections share a retained
+copy. The scene's resource lease, rather than the download worker or modal dialog,
+owns these bytes until canonical packaging has finished.
+
+Publication resource repair validates the exact current binding and intended mode
+before any fallback can run. An unavailable assigned definition or invalid intended
+mode yields an Error and stops preparation, preserving both fields and source
+evidence. A native fixture without an intended mode can still receive a declared
+mode; a fixture without any authoritative binding retains the existing dummy policy.
+
+Stored scene-relative references use `/`. `PathUtils::ResolveSceneResourcePath`
+accepts legacy `\` separators at the filesystem boundary, rejects traversal and
+ambiguous relative components, and checks canonical containment to reject symlink
+escapes. Native absolute references remain available for explicit external file
+selections. These filesystem references are distinct from the exporter's portable,
+root-level ZIP names. Resource collection reuses physical identities and does not
+recover a missing nested selection by choosing another file with the same basename.
+
+An unavailable assigned Fixture GDTF blocks canonical MVR publication with a
+resource error, preserving its reference and mode in the live scene. It cannot
+silently revert to the original imported profile or become a dummy. The existing
+fallback for a fixture with no current or original binding remains separate.
+Invalid/unreadable packages fail the existing preparation or archive-writing gates;
+transactional project/file publication retains the previous saved destination.
+Valid unchanged GDTFs retain their exact archive bytes through the existing
+canonicalizer's preservation path. Explicit physical-property derivatives continue
+through the normal mutation pipeline. PSTG uses this same canonical exporter,
+without a second scene serializer or network access on reload.
+
+`MvrGdtfReplacementPersistence` uses synthetic distinct definitions, three
+manufacturers, shared instances, two modes/footprints, removed staging workspaces,
+legacy separators, relocated projects and repeated save/reopen/export cycles.
+A separate `MvrGdtfReplacementProcessReload` phase opens the saved project in a
+fresh process and exports again, without application caches. Production-loader
+coverage also verifies that replacement geometry loads from scene-owned storage
+after the download workspace is deleted, including legacy separators.
+The lifecycle test checks embedded GDTF SHA-256 identity and retains scene objects, trusses,
+geometry, groups, UUIDs, transforms and patch data. Failure cases check that
+selected bindings and previous publications survive. Resolver and collection tests
+cover separator equivalence, containment and refusal to substitute missing files.

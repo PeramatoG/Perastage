@@ -1063,6 +1063,12 @@ bool MvrImporter::ImportFromStreamIntoResult(
     return false;
   ApplyApplicationDictionaryMappings(importResult, resources, readContext,
                                      options, progressCallback);
+  std::string retentionDiagnostic;
+  if (!resources.RetainSceneGdtfs(importResult.scene, retentionDiagnostic)) {
+    LogMessage(Logger::Level::Error, retentionDiagnostic);
+    reportProgress(retentionDiagnostic);
+    return false;
+  }
   ApplyApplicationSceneEnrichment(importResult, resources, progressCallback);
   LogApplicationGdtfResolutionSummary(importResult, resources, options);
   PersistManualFixtureCategories(importResult);

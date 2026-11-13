@@ -23,6 +23,7 @@
 
 #include "file_import_utils.h"
 #include "filesystem_path_utils.h"
+#include "archive_entry_path.h"
 
 #include <cctype>
 #include <filesystem>
@@ -60,15 +61,13 @@ bool IsSafeRelativePath(const fs::path &path) {
 // Builds a filesystem path for a scene resource reference.
 fs::path ResolveSceneResourcePath(const std::string &basePath,
                                   const std::string &resourcePath) {
-  fs::path path = PathUtils::PathFromUtf8(resourcePath);
-  if (path.is_absolute() || basePath.empty())
-    return path;
-  return PathUtils::PathFromUtf8(basePath) / path;
+  return PathUtils::ResolveSceneResourcePath(resourcePath, PathUtils::PathFromUtf8(basePath));
 }
 
 // Converts a path reference to the preferred project-relative destination path.
 fs::path PreferredProjectRelativePath(const std::string &resourcePath) {
-  const fs::path rawPath = PathUtils::PathFromUtf8(resourcePath);
+  const fs::path rawPath = PathUtils::PathFromUtf8(
+      perastage::archive::NormalizeEntrySeparators(resourcePath));
   if (IsSafeRelativePath(rawPath))
     return rawPath.lexically_normal();
 

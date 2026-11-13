@@ -116,7 +116,9 @@ std::string FindGdtfPath(const fs::path &basePath, const std::string &spec) {
   if (normalized.empty())
     return {};
   const fs::path relative = PathUtils::PathFromUtf8(normalized);
-  fs::path candidate = basePath.empty() ? relative : basePath / relative;
+  fs::path candidate = PathUtils::ResolveSceneResourcePath(normalized, basePath);
+  if (candidate.empty())
+    return {};
   std::error_code ec;
   if (ToLowerAscii(candidate.extension().string()) == ".gdtf") {
     const std::optional<fs::path> exact =
@@ -140,6 +142,8 @@ std::string FindGdtfPath(const fs::path &basePath, const std::string &spec) {
   const fs::path lookupDir = basePath.empty() ? fs::current_path(ec) : basePath;
 #endif
   if (ec || !fs::exists(lookupDir, ec) || ec)
+    return {};
+  if (relative.has_parent_path())
     return {};
   const std::string expectedStem =
       ToLowerAscii(Trim(relative.filename().stem().string()));
@@ -216,10 +220,9 @@ MvrImportResourceResolver::RemapArchivePath(const std::string &path) const {
 // Resolves an imported scene reference at the native filesystem boundary.
 fs::path
 MvrImportResourceResolver::ResolveScenePath(const std::string &path) const {
-  const fs::path native = PathUtils::PathFromUtf8(path);
-  return native.is_absolute() || sceneBasePath_.empty()
-             ? native
-             : sceneBasePath_ / native;
+  if (path.empty())
+    return sceneBasePath_;
+  return PathUtils::ResolveSceneResourcePath(path, sceneBasePath_);
 }
 
 // Makes a path scene-relative only when it remains inside the scene workspace.
@@ -228,17 +231,17 @@ MvrImportResourceResolver::MakeSceneRelative(const fs::path &path) const {
   if (path.empty())
     return {};
   if (sceneBasePath_.empty() || !path.is_absolute())
-    return PathUtils::PathToUtf8(path);
+    return PathUtils::PortablePathToUtf8(path);
   std::error_code ec;
   const fs::path base = NormalizedAbsolute(sceneBasePath_, ec);
   if (ec)
-    return PathUtils::PathToUtf8(path);
+    return PathUtils::PortablePathToUtf8(path);
   const fs::path candidate = NormalizedAbsolute(path, ec);
   if (ec || !IsWithin(candidate, base))
-    return PathUtils::PathToUtf8(path);
+    return PathUtils::PortablePathToUtf8(path);
   const fs::path relative = fs::relative(candidate, base, ec);
-  return ec || relative.empty() ? PathUtils::PathToUtf8(path)
-                                : PathUtils::PathToUtf8(relative);
+  return ec || relative.empty() ? PathUtils::PortablePathToUtf8(path)
+                                : PathUtils::PortablePathToUtf8(relative);
 }
 
 // Normalizes and resolves a fixture GDTF spec for scene storage.

@@ -524,11 +524,12 @@ int main(int argc, char **argv) {
   cfg.GetScene().fixtures.at(id).gdtfSpec =
       (dir / "missing-authored.gdtf").string();
   const auto copy = dir / "missing-resource-recovery.pstg";
-  assert(cfg.SaveProject(copy.string()));
-  cfg.Reset();
-  assert(cfg.LoadProject(copy.string()));
+  assert(!cfg.SaveProject(copy.string()));
+  assert(!fs::exists(copy));
+  assert(cfg.GetScene().fixtures.at(id).gdtfSpec ==
+         (dir / "missing-authored.gdtf").string());
   assert(cfg.GetScene().fixtures.at(id).instanceName == "Edited fixture");
-  assert(Read(target) == previous);
+  assert(cfg.IsDirty() && Read(target) == previous);
   cfg.GetScene() = goodScene;
   const auto directoryTarget = dir / "directory.pstg";
   fs::create_directory(directoryTarget);

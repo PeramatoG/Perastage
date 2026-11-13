@@ -20,8 +20,7 @@ MvrExportDiagnostic Block(const Truss &truss, const std::string &field,
       true, "Truss", truss.name, truss.uuid, field, detail};
 }
 std::filesystem::path Source(const MvrScene &scene, const Truss &truss) {
-  auto path = PathUtils::PathFromUtf8(truss.gdtfSpec);
-  return path.is_absolute() ? path : PathUtils::PathFromUtf8(scene.basePath) / path;
+  return PathUtils::ResolveSceneResourcePath(truss.gdtfSpec, PathUtils::PathFromUtf8(scene.basePath));
 }
 bool EqualBytes(const std::filesystem::path &source, const std::filesystem::path &output) {
   std::ifstream left(source, std::ios::binary), right(output, std::ios::binary);

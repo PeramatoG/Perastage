@@ -120,4 +120,13 @@ int main() {
   std::ofstream(workspace.Path() / "not-a-directory") << "file";
   assert(CopyIntoScene(source, workspace.Path() / "not-a-directory", diagnostic).empty());
   assert(!diagnostic.empty());
+  fs::create_directory(workspace.Path() / "linked-scene");
+  fs::create_directory(workspace.Path() / "outside");
+  std::error_code linkError;
+  fs::create_directory_symlink(workspace.Path() / "outside",
+      workspace.Path() / "linked-scene/resolved-gdtf", linkError);
+  if (!linkError) {
+    assert(CopyIntoScene(source, workspace.Path() / "linked-scene", diagnostic).empty());
+    assert(fs::is_empty(workspace.Path() / "outside"));
+  }
 }

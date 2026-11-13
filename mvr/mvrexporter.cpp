@@ -1391,7 +1391,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       gdtfRewriteRequests;
   std::unordered_map<std::string, std::string> trussArchiveByTypeKey;
   mvr_export_resources::ResourceCollection resourceCollection(
-      scene.basePath, environment.fixtureFallbackGdtfPath.value_or(fs::path{}),
+      scene.basePath,
       [&](MvrExportDiagnostic diagnostic) {
         AddDiagnostic(std::move(diagnostic));
       },
@@ -1430,9 +1430,9 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                                   const std::string &preferred,
                                   bool reuse = true,
                                   bool derivative = false,
-                                  bool fallback = true) {
+                                  bool required = true) {
     return resourceCollection.RegisterGdtfResource(
-        uuid, source, preferred, reuse, derivative, fallback);
+        uuid, source, preferred, reuse, derivative, required);
   };
   auto registerModelResource = [&](const std::string &source,
                                    const std::string &fallback) {
@@ -1632,6 +1632,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   int preservedOriginalFixtureGdtfRecoveries = 0;
   std::vector<std::string> dummyFallbackFixtureExamples;
 
+  bool fatalFixtureResourceFailure = false;
   auto exportFixture = [&](tinyxml2::XMLElement *parent, const Fixture &f) {
     std::string stableUuid = CanonicalizeUuid(f.uuid);
     const std::string seed = "mvr-export-fixture:" + f.uuid + ":" +
@@ -1724,40 +1725,14 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       if (!resolvedFixtureSource.empty()) {
         fixtureSourceGdtf = resolvedFixtureSource;
       } else if (!usedDummyFallbackForFixture) {
-        const std::string fallbackGdtf = fixtureFallbackGdtf;
-        if (!fallbackGdtf.empty()) {
-          AddDiagnostic({MvrExportDiagnosticCode::GdtfFallbackUsed,
-                         MvrExportDiagnosticSeverity::Warning,
-                         MvrExportDiagnosticImpact::DataSubstituted, true,
-                         "Fixture", fixtureExportName, f.uuid,
-                         SanitizeArchiveFileName(fixtureSourceGdtf,
-                                                 "fixture.gdtf"),
-                         "Fixture '" + fixtureExportName + "' (uuid=" + f.uuid +
-                  ") references missing GDTF '" +
-                  SanitizeArchiveFileName(fixtureSourceGdtf, "fixture.gdtf") +
-                  "'. Using fallback '" +
-                  fs::path(fallbackGdtf).filename().generic_string() +
-                  "' for MVR export."});
-          fixtureSourceGdtf = fallbackGdtf;
-          usedDummyFallbackForFixture = true;
-          if (dummyFallbackFixtureExamples.size() < 5)
-            dummyFallbackFixtureExamples.push_back(fixtureExportName +
-                                                   " (uuid=" + f.uuid + ")");
-        }
-        else {
-          AddDiagnostic({MvrExportDiagnosticCode::GdtfMissing,
-                         MvrExportDiagnosticSeverity::Warning,
-                         MvrExportDiagnosticImpact::DataOmitted, true,
-                         "Fixture", fixtureExportName, f.uuid,
-                         SanitizeArchiveFileName(fixtureSourceGdtf,
-                                                 "fixture.gdtf"),
-                         "Fixture '" + fixtureExportName + "' (uuid=" + f.uuid +
-                             ") references missing GDTF '" +
-                             SanitizeArchiveFileName(fixtureSourceGdtf,
-                                                     "fixture.gdtf") +
-                             "' and no fallback is available."});
-          fixtureSourceGdtf.clear();
-        }
+        AddDiagnostic({MvrExportDiagnosticCode::ResourceMissing,
+                       MvrExportDiagnosticSeverity::Error,
+                       MvrExportDiagnosticImpact::ExportFailed, true,
+                       "Fixture", fixtureExportName, f.uuid, fixtureSourceGdtf,
+                       "The assigned GDTF is unavailable. Restore the selected resource "
+                       "before saving or exporting; its reference and mode were retained."});
+        fatalFixtureResourceFailure = true;
+        return;
       }
     }
     if (usedDummyFallbackForFixture)
@@ -2522,8 +2497,10 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   Logger::Instance().Log(Logger::Level::Info,
                          fixtureGdtfExportDiagnostics.str());
 
+  if (fatalFixtureResourceFailure)
+    return false;
   resourceCollection.Finalize(referencedArchivePaths);
-  if (resourceCollection.HasFatalDependencyError())
+  if (resourceCollection.HasFatalResourceError())
     return false;
 
   mvr_export_resources::GdtfPreparationResult gdtfPreparation =

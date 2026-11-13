@@ -4,7 +4,8 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-resolver_files=(mvr/mvr_import_resource_resolver.h mvr/mvr_import_resource_resolver.cpp)
+resolver_files=(mvr/mvr_import_resource_resolver.h mvr/mvr_import_resource_resolver.cpp
+                mvr/mvr_import_resource_ownership.cpp)
 if rg -n '#include .*gui/|#include "(credentialstore|gdtfnet|logindialog|consolepanel)|wx(Dialog|Window|MessageBox)' "${resolver_files[@]}"; then
   echo "The MVR import resource resolver must remain GUI and download independent." >&2
   exit 1

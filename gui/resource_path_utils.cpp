@@ -100,7 +100,7 @@ std::string MakeSceneRelativeResourcePathOrOriginal(
     return resourcePath;
   }
 
-  return relative.lexically_normal().string();
+  return PathUtils::PortablePathToUtf8(relative.lexically_normal());
 }
 
 } // namespace gui

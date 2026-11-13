@@ -1,4 +1,5 @@
 #include "filesystem_path_utils.h"
+#include "archive_entry_path.h"
 
 #include <algorithm>
 #include <cwctype>
@@ -99,6 +100,50 @@ std::string PathToUtf8(const std::filesystem::path &path) {
 #endif
 }
 
+
+// Keeps stored resource spelling independent of host filesystem presentation.
+std::string PortablePathToUtf8(const std::filesystem::path &path) {
+  return perastage::archive::NormalizeEntrySeparators(PathToUtf8(path));
+}
+
+std::filesystem::path ResolveSceneResourcePath(const std::string &reference,
+                                              const std::filesystem::path &sceneRoot) {
+  namespace fs = std::filesystem;
+  if (reference.empty() || reference.find('\0') != std::string::npos)
+    return {};
+  const auto normalized = perastage::archive::NormalizeEntrySeparators(reference);
+  try {
+    const auto original = PathFromUtf8(reference);
+    const auto native = PathFromUtf8(normalized);
+    // Absolute references are native file selections, never archive entry names.
+    if (original.is_absolute())
+      return original;
+    if (normalized.find("//") != std::string::npos || normalized.back() == '/')
+      return {};
+    if (perastage::archive::IsUnsafeNormalizedEntryPath(normalized))
+      return {};
+    for (const auto &part : native) {
+      const auto text = PathToUtf8(part);
+      if (text.empty() || text == "." || text.back() == '.' || text.back() == ' ' ||
+          text.find_first_of("<>\"|?*") != std::string::npos ||
+          std::any_of(text.begin(), text.end(), [](unsigned char c) { return c < 32; }))
+        return {};
+    }
+    if (sceneRoot.empty())
+      return ResolveIdentityPath(native);
+    const auto base = ResolveIdentityPath(sceneRoot);
+    const auto candidate = ResolveIdentityPath(base / native);
+    auto item = candidate.begin();
+    for (const auto &part : base) {
+      if (item == candidate.end() ||
+          NormalizeIdentityText(part) != NormalizeIdentityText(*item++))
+        return {};
+    }
+    return candidate;
+  } catch (const std::exception &) {
+    return {};
+  }
+}
 
 // Builds an internal filesystem identity key for cache and deduplication lookups.
 std::string BuildFilesystemIdentityKey(const std::filesystem::path &path) {

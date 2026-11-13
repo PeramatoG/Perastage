@@ -280,11 +280,23 @@ static void WriteMinimalGdtfArchive(const fs::path &gdtfPath,
       .WriteArchive(gdtfPath);
 }
 
+void VerifyGdtfReplacementPersistence();
+void VerifyGdtfReplacementProcessReload();
 int main(int argc, char **argv) {
   wxInitializer initializer;
   assert(initializer.IsOk());
   if (argc > 1 && std::string(argv[1]) == "layer-uuid") {
     VerifyMvrLayerUuidIdentity();
+    return 0;
+  }
+
+  if (argc > 1 && std::string(argv[1]) == "replacement") {
+    VerifyGdtfReplacementPersistence();
+    return 0;
+  }
+
+  if (argc > 1 && std::string(argv[1]) == "replacement-restart") {
+    VerifyGdtfReplacementProcessReload();
     return 0;
   }
 
@@ -319,13 +331,15 @@ int main(int argc, char **argv) {
       << trussGeometry;
   std::ofstream(tempDir / "models" / "support_model.3ds") << "support";
 
-  const std::string longToken(320, "x"[0]);
+  const std::string longToken(128, "x"[0]);
   const fs::path longNamedGdtf =
       tempDir / ("VeryLongGeneratedName_" + longToken + ".gdtf");
   const fs::path duplicateLongNamedGdtf =
       tempDir / "C" / ("VeryLongGeneratedName_" + longToken + ".gdtf");
-  std::ofstream(longNamedGdtf) << "LONG";
-  std::ofstream(duplicateLongNamedGdtf) << "LONG2";
+  WriteMinimalGdtfArchive(longNamedGdtf, "Long " + longToken,
+                          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa8");
+  WriteMinimalGdtfArchive(duplicateLongNamedGdtf, "Long " + longToken,
+                          "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb9");
 
   scene.basePath = tempDir.generic_string();
   scene.provider = "ImportedApp";
@@ -408,7 +422,7 @@ int main(int argc, char **argv) {
   fSiblingResolved.uuid = "fx-sibling-resolved";
   fSiblingResolved.instanceName = "Sibling Resolved";
   fSiblingResolved.typeName = "SiblingOnly";
-  fSiblingResolved.gdtfSpec = "missing_import_folder/SiblingOnly.gdtf";
+  fSiblingResolved.gdtfSpec = "SiblingOnly.gdtf";
   fSiblingResolved.gdtfMode = "Default";
   fSiblingResolved.address = "22.1";
   scene.fixtures[fSiblingResolved.uuid] = fSiblingResolved;
@@ -617,6 +631,8 @@ int main(int argc, char **argv) {
 
   MvrExporter exporter;
   fs::path mvrPath = tempDir / "Test1.mvr";
+  assert(!exporter.ExportToFile(mvrPath.generic_string()));
+  scene.fixtures[missingProfileFixture.uuid].gdtfSpec = (tempDir / "A" / "Same.gdtf").generic_string();
   assert(exporter.ExportToFile(mvrPath.generic_string()));
   size_t generatedMalformedObjectWarnings = 0;
   size_t fixtureFallbackWarnings = 0;
@@ -644,7 +660,7 @@ int main(int argc, char **argv) {
     }
   }
   assert(generatedMalformedObjectWarnings == 1);
-  assert(fixtureFallbackWarnings == 2);
+  assert(fixtureFallbackWarnings == 1);
   assert(unresolvedPositionWarnings == 1);
 
   const auto mvrGeometryEntries = ReadArchiveTextEntries(mvrPath);

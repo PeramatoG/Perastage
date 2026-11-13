@@ -176,9 +176,17 @@ void RunFixtureNetworkCases(const fs::path &dir, const MvrScene &scene,
   assert(fixture_network::InspectReferences(unresolved.fixtures.at(multi), dir / "missing.gdtf").conflict ==
       fixture_network::Conflict::UnavailableGdtf);
   config.GetScene() = unresolved;
-  assert(config.SaveProject((dir / "missing-network-recovered.pstg").string()));
-  assert(config.LoadProject((dir / "missing-network-recovered.pstg").string()));
-  assert(config.GetScene().fixtures.at(multi).dmxAddresses->networks.empty());
+  // Failed publication must retain the selected binding, network data and prior save.
+  const auto previousProject = dir / "network-none.pstg";
+  const auto previousProjectBytes = Bytes(previousProject);
+  assert(!previousProjectBytes.empty());
+  assert(!config.SaveProject(previousProject.string()));
+  const auto &preserved = config.GetScene().fixtures.at(multi);
+  assert(preserved.gdtfSpec == unresolved.fixtures.at(multi).gdtfSpec);
+  assert(preserved.gdtfMode == unresolved.fixtures.at(multi).gdtfMode);
+  assert(preserved.originalMvrGdtfSpec == unresolved.fixtures.at(multi).originalMvrGdtfSpec);
+  assert(preserved.dmxAddresses == unresolved.fixtures.at(multi).dmxAddresses);
+  assert(Bytes(previousProject) == previousProjectBytes);
   assert(Bytes(retained) == originalBytes);
   auto duplicateDescription = tests::gdtf::BuildMinimalValidFixture().BuildDescriptionXml();
   duplicateDescription.insert(duplicateDescription.find("</Geometries>"),

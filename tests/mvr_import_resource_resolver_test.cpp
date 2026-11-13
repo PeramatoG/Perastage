@@ -12,6 +12,12 @@ namespace fs = std::filesystem;
 
 namespace {
 int dictionaryLookups = 0;
+
+void AssertSameFile(const std::string &actual, const fs::path &expected) {
+  std::error_code error;
+  assert(fs::equivalent(PathUtils::PathFromUtf8(actual), expected, error));
+  assert(!error);
+}
 }
 
 namespace mvr {
@@ -87,15 +93,12 @@ int main() {
   std::ofstream(support).put('\n');
 
   mvr::MvrImportResourceResolver resolver(root);
-  assert(resolver.ResolveGdtfPath(exactName) == PathUtils::PathToUtf8(exact));
-  assert(resolver.ResolveGdtfPath(
-             PathUtils::PathToUtf8(fs::path(u8"Fixture Ä"))) ==
-         PathUtils::PathToUtf8(exact));
-  assert(resolver.ResolveGdtfPath(
-             PathUtils::PathToUtf8(fs::path(u8"fixture Ä.GDTF"))) ==
-         PathUtils::PathToUtf8(exact));
-  assert(resolver.ResolveGdtfPath("Canonical Fixture") ==
-         PathUtils::PathToUtf8(canonical));
+  AssertSameFile(resolver.ResolveGdtfPath(exactName), exact);
+  AssertSameFile(resolver.ResolveGdtfPath(
+                     PathUtils::PathToUtf8(fs::path(u8"Fixture Ä"))), exact);
+  AssertSameFile(resolver.ResolveGdtfPath(
+                     PathUtils::PathToUtf8(fs::path(u8"fixture Ä.GDTF"))), exact);
+  AssertSameFile(resolver.ResolveGdtfPath("Canonical Fixture"), canonical);
   assert(resolver.ResolveGdtfPath("---.gdtf") !=
          PathUtils::PathToUtf8(unrelated));
   assert(!resolver.GdtfFileExists(resolver.ResolveGdtfPath("---.gdtf")));
@@ -106,13 +109,42 @@ int main() {
   assert(resolver.MakeSceneRelative(exact) == exactName);
   const fs::path unicodeModelPath = fs::path(u8"models/é.glb");
   assert(resolver.ResolveScenePath(PathUtils::PathToUtf8(unicodeModelPath)) ==
-         root / unicodeModelPath);
+         fs::weakly_canonical(root / unicodeModelPath));
   assert(!resolver.GdtfFileExists(
       resolver.ResolveGdtfPath("Missing Fixture .gdtf")));
   assert(resolver.NormalizeSupportGdtfSpec("Missing Fixture .gdtf") ==
          "Missing Fixture .gdtf");
   assert(resolver.NormalizeSupportGdtfSpec("Support Fixture .gdtf") ==
          "Support Fixture.gdtf");
+
+  fs::create_directories(root / "resolved-gdtf");
+  std::ofstream(root / "resolved-gdtf/fixture.gdtf").put('B');
+  const auto portable = resolver.ResolveScenePath("resolved-gdtf/fixture.gdtf");
+  assert(portable == resolver.ResolveScenePath("resolved-gdtf\\fixture.gdtf"));
+  assert(resolver.MakeSceneRelative(portable) == "resolved-gdtf/fixture.gdtf");
+  for (const auto &unsafe : {"../escape.gdtf", "..\\escape.gdtf", "a/../fixture.gdtf",
+                            "a\\..\\fixture.gdtf", "C:fixture.gdtf", "a//b.gdtf",
+                            "a/./b.gdtf", "a./b.gdtf", "a /b.gdtf"}) {
+    assert(resolver.ResolveScenePath(unsafe).empty());
+    assert(!resolver.GdtfFileExists(resolver.ResolveGdtfPath(unsafe)));
+  }
+  // Native temporary directories can contain symlink or short-name aliases.
+  const auto alias = root.parent_path() / "perastage-resource-root-alias";
+  std::error_code aliasError;
+  fs::remove(alias, aliasError);
+  fs::create_directory_symlink(root, alias, aliasError);
+  if (!aliasError) {
+    mvr::MvrImportResourceResolver aliasedResolver(alias);
+    AssertSameFile(aliasedResolver.ResolveGdtfPath(exactName), exact);
+    assert(aliasedResolver.MakeSceneRelative(exact) == exactName);
+    fs::remove(alias);
+  }
+
+  // A link must not turn a safe-looking scene reference into a workspace escape.
+  std::error_code linkError;
+  fs::create_directory_symlink(root.parent_path(), root / "escape", linkError);
+  if (!linkError)
+    assert(resolver.ResolveScenePath("escape/other.gdtf").empty());
 
   const std::vector<std::string> modes = {"Mode 16", "Standard", "Basic"};
   const auto count = [](const std::string &mode) {

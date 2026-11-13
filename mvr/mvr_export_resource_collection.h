@@ -94,7 +94,6 @@ bool ShouldCanonicalizeAsGdtf(const ResourceEntry &entry);
 class ResourceCollection {
 public:
   ResourceCollection(std::string sceneBasePath,
-                     std::filesystem::path fixtureFallbackGdtfPath,
                      DiagnosticSink diagnosticSink,
                      InformationalLogSink informationalLogSink);
   ~ResourceCollection();
@@ -110,7 +109,7 @@ public:
   std::string RegisterGdtfResource(
       const std::string &objectUuid, const std::string &rawGdtfPath,
       const std::string &preferredName, bool allowReuseBySource = true,
-      bool usePreferredDerivativeName = false, bool allowFallback = true);
+      bool usePreferredDerivativeName = false, bool required = true);
   std::string RegisterModelResource(const std::string &rawModelSource,
                                     const std::string &fallbackArchiveName);
   std::string RegisterPrimitiveModelResource(const std::string &modelRef,
@@ -127,7 +126,7 @@ public:
 
   const std::unordered_map<std::string, std::string> &
   GdtfArchiveByObjectUuid() const;
-  bool HasFatalDependencyError() const;
+  bool HasFatalResourceError() const;
 
   static std::string SanitizeArchiveFileName(const std::string &input,
                                              const std::string &fallback);
@@ -141,7 +140,6 @@ private:
       const std::string &rawSource) const;
 
   std::string m_sceneBasePath;
-  std::filesystem::path m_fixtureFallbackGdtfPath;
   DiagnosticSink m_diagnosticSink;
   InformationalLogSink m_informationalLogSink;
   ResourcePlan m_plan;
@@ -151,7 +149,7 @@ private:
   std::vector<std::filesystem::path> m_generatedPaths;
   std::vector<runtime_storage::SceneResourceLeasePtr> m_workspaceLeases;
   std::filesystem::path m_primitiveWorkspace;
-  bool m_dependencyRegistrationFailed{false};
+  bool m_resourceRegistrationFailed{false};
 };
 
 } // namespace mvr_export_resources

@@ -20,8 +20,8 @@ std::filesystem::path SourcePath(const MvrScene &scene,
   if (spec.empty())
     return {};
   std::error_code error;
-  const auto projectPath = spec.is_absolute() ? spec
-      : PathUtils::PathFromUtf8(scene.basePath) / spec;
+  const auto projectPath = PathUtils::ResolveSceneResourcePath(
+      fixture.gdtfSpec, PathUtils::PathFromUtf8(scene.basePath));
   if ((spec.is_absolute() || !scene.basePath.empty()) &&
       std::filesystem::is_regular_file(projectPath, error) && !error)
     return projectPath;

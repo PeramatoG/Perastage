@@ -419,8 +419,14 @@ Result Prepare(const MvrScene &sourceScene, const MvrExportOptions &options,
   mvr::publication::RepairSourceHierarchy(result.scene, result.diagnostics);
   mvr::publication::RepairSymbols(result.scene, result.diagnostics);
   mvr::PrepareSourceStructureEdits(result.scene);
+  const auto resourceFindingStart = result.diagnostics.size();
   mvr::publication::RepairResources(result.scene, fallbackGdtf,
                                     result.diagnostics);
+  if (std::any_of(result.diagnostics.begin() + resourceFindingStart,
+                  result.diagnostics.end(), [](const auto &d) {
+        return d.severity == MvrExportDiagnosticSeverity::Error;
+      }))
+    return result;
   mvr::publication::RepairSource(result.scene, result.diagnostics);
   mvr::publication::RepairSourceHierarchy(result.scene, result.diagnostics);
   const auto preservation = mvr::CheckStandardPreservation(result.scene);

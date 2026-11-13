@@ -1,5 +1,10 @@
 #include "../viewer3d/gdtfloader.h"
+#include "filesystem_path_utils.h"
+#include "gdtf_resolution_resources.h"
+#include "runtime_storage.h"
+#include "support/gdtf_test_fixture_builder.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -166,10 +171,44 @@ std::vector<GdtfObject> LoadMode(const std::string &path,
   return objects;
 }
 
+// Production geometry loading must follow the retained B resource after A was cached.
+void CheckRetainedReplacementRendering() {
+  namespace fs = std::filesystem;
+  runtime_storage::TemporaryWorkspace scene("replacement-render-scene");
+  const auto original = scene.Path() / "original.gdtf";
+  tests::gdtf::BuildMinimalValidFixture().WithDmxMode("Original", "Root")
+      .WithModelDimensionsMeters(0.1f, 0.1f, 0.1f).WriteArchive(original);
+  assert(NearlyEqual(GetMeshSize(LoadMode(PathUtils::PathToUtf8(original), "Original").front().mesh).x, 100.0f));
+  fs::path retained;
+  {
+    runtime_storage::TemporaryWorkspace downloads("replacement-render-download");
+    const auto replacement = downloads.Path() / "replacement.gdtf";
+    tests::gdtf::BuildMinimalValidFixture()
+        .WithFixtureIdentity("Replacement", "Independent maker", "70000000-0000-4000-8000-000000000001")
+        .WithDmxMode("Selected extended", "Root")
+        .WithModelResource("body").WithModelDimensionsMeters(0.7f, 0.2f, 0.3f)
+        .WithArchiveEntry("models/gltf/body.glb", BuildSharedGlb()).WriteArchive(replacement);
+    assert(gdtf_resolution::HasMode(gdtf_resolution::ReadProfile(replacement), "Selected extended"));
+    std::string diagnostic;
+    retained = gdtf_resolution::CopyIntoScene(replacement, scene.Path(), diagnostic);
+    assert(!retained.empty());
+  }
+  fs::remove(original);
+  auto reference = PathUtils::PortablePathToUtf8(fs::relative(retained, scene.Path()));
+  for (bool legacy : {false, true}) {
+    if (legacy) std::replace(reference.begin(), reference.end(), '/', '\\');
+    const auto resolved = PathUtils::ResolveSceneResourcePath(reference, scene.Path());
+    const auto objects = LoadMode(PathUtils::PathToUtf8(resolved), "Selected extended");
+    assert(objects.size() == 1);
+    const auto size = GetMeshSize(objects.front().mesh);
+    assert(NearlyEqual(size.x, 700.0f) && NearlyEqual(size.y, 200.0f) && NearlyEqual(size.z, 300.0f));
+  }
+}
 } // namespace
 
 // Proves file-backed model dimensions and mode load order are cache-independent.
 int main() {
+  CheckRetainedReplacementRendering();
   const std::string sameModePath = WriteGdtf("gdtf_model_cache_same_mode_");
   const std::string orderAbPath = WriteGdtf("gdtf_model_cache_order_ab_");
   const std::string orderBaPath = WriteGdtf("gdtf_model_cache_order_ba_");

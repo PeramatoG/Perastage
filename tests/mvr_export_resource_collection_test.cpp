@@ -117,7 +117,7 @@ int main() {
   std::vector<MvrExportDiagnostic> diagnostics;
   std::vector<std::string> logs;
   auto collection = std::make_unique<ResourceCollection>(
-      root.string(), fs::path{},
+      root.string(),
       [&](MvrExportDiagnostic diagnostic) {
         diagnostics.push_back(std::move(diagnostic));
       },
@@ -153,7 +153,7 @@ int main() {
   tests::gdtf::BuildMinimalValidFixture().WriteArchive(explicitFallback);
   std::vector<MvrExportDiagnostic> fallbackDiagnostics;
   ResourceCollection fallbackCollection(
-      root.string(), explicitFallback,
+      root.string(),
       [&](MvrExportDiagnostic diagnostic) {
         fallbackDiagnostics.push_back(std::move(diagnostic));
       },
@@ -163,44 +163,34 @@ int main() {
       "fallback.gdtf");
   const ResourcePlan fallbackPlan =
       fallbackCollection.Finalize({fallbackArchive});
-  const ResourceEntry *fallbackEntry =
-      FindEntry(fallbackPlan, fallbackArchive);
-  Expect(fallbackEntry &&
-             fallbackEntry->provenance ==
-                 ResourceProvenance::CompatibilityFallback &&
-             PathsReferToSameFile(fallbackEntry->sourcePath, explicitFallback),
-         "explicit fixture fallback was not retained with fallback provenance",
-         failures);
+  Expect(fallbackArchive.empty() && fallbackPlan.entries.empty(),
+         "an unavailable assigned resource was replaced by a dummy", failures);
   Expect(std::any_of(fallbackDiagnostics.begin(), fallbackDiagnostics.end(),
-                     [](const MvrExportDiagnostic &diagnostic) {
-                       return diagnostic.code ==
-                              MvrExportDiagnosticCode::GdtfFallbackUsed;
-                     }),
-         "explicit fixture fallback diagnostic was not emitted", failures);
+      [](const auto &diagnostic) {
+        return diagnostic.code == MvrExportDiagnosticCode::ResourceMissing &&
+               diagnostic.severity == MvrExportDiagnosticSeverity::Error;
+      }), "missing authoritative resource did not fail publication", failures);
+  Expect(fallbackCollection.HasFatalResourceError(),
+         "resource failure did not block archive publication", failures);
 
-  std::vector<MvrExportDiagnostic> neutralDiagnostics;
-  ResourceCollection neutralCollection(
-      root.string(), fs::path{},
-      [&](MvrExportDiagnostic diagnostic) {
-        neutralDiagnostics.push_back(std::move(diagnostic));
-      },
-      {});
-  const std::string neutralArchive = neutralCollection.RegisterGdtfResource(
-      "neutral-fixture", (root / "missing-neutral.gdtf").string(),
-      "neutral.gdtf");
-  const ResourcePlan neutralPlan = neutralCollection.Finalize({neutralArchive});
-  const ResourceEntry *neutralEntry = FindEntry(neutralPlan, neutralArchive);
-  Expect(neutralEntry &&
-             neutralEntry->provenance == ResourceProvenance::StandardPreserved &&
-             !PathsReferToSameFile(neutralEntry->sourcePath, explicitFallback),
-         "neutral collection discovered an implicit fixture fallback",
-         failures);
-  Expect(std::none_of(neutralDiagnostics.begin(), neutralDiagnostics.end(),
-                      [](const MvrExportDiagnostic &diagnostic) {
-                        return diagnostic.code ==
-                               MvrExportDiagnosticCode::GdtfFallbackUsed;
-                      }),
-         "neutral collection emitted an implicit fallback diagnostic", failures);
+  const auto nested = root / "resolved-gdtf" / "fixture.gdtf";
+  fs::create_directories(nested.parent_path());
+  tests::gdtf::BuildMinimalValidFixture().WriteArchive(nested);
+  ResourceCollection paths(root.string(), {}, {});
+  const auto portableSource = paths.ResolveSourcePath("resolved-gdtf/fixture.gdtf");
+  const auto legacySource = paths.ResolveSourcePath("resolved-gdtf\\fixture.gdtf");
+  Expect(!portableSource.empty() && portableSource == legacySource,
+         "Windows scene separators lost the selected nested GDTF", failures);
+  const auto portableArchive = paths.RegisterGdtfResource("first", "resolved-gdtf/fixture.gdtf", "selected.gdtf");
+  const auto legacyArchive = paths.RegisterGdtfResource("second", "resolved-gdtf\\fixture.gdtf", "selected.gdtf");
+  Expect(portableArchive == legacyArchive && paths.Finalize({portableArchive}).entries.size() == 1,
+         "legacy and portable references duplicated or substituted a shared resource", failures);
+  // A different directory's same-named file cannot establish selected identity.
+  tests::gdtf::BuildMinimalValidFixture().WithFixtureIdentity(
+      "Original A", "Other manufacturer", "11111111-1111-4111-8111-111111111111")
+      .WriteArchive(root / "fixture.gdtf");
+  Expect(paths.ResolveSourcePath("missing/fixture.gdtf").empty(),
+         "missing nested selection recovered an unrelated basename", failures);
 
   const ResourceEntry archiveGdtf{root / "source.gdtf", "fixture.gdtf",
                                   ResourceKind::Gdtf,
@@ -266,13 +256,13 @@ int main() {
       missingGltf,
       R"({"asset":{"version":"2.0"},"buffers":[{"byteLength":4,"uri":"missing.bin"}]})");
   ResourceCollection failedCollection(
-      root.string(), {},
+      root.string(),
       [&](MvrExportDiagnostic item) { diagnostics.push_back(std::move(item)); },
       {});
   Expect(failedCollection
                  .RegisterModelResource(missingGltf.string(), "missing.gltf")
                  .empty() &&
-             failedCollection.HasFatalDependencyError(),
+             failedCollection.HasFatalResourceError(),
          "missing model dependency must be fatal", failures);
   Expect(std::any_of(diagnostics.begin(), diagnostics.end(),
                      [](const MvrExportDiagnostic &diagnostic) {
@@ -371,7 +361,7 @@ int main() {
 
   std::vector<MvrExportDiagnostic> failureDiagnostics;
   auto failingCollection = std::make_unique<ResourceCollection>(
-      root.string(), fs::path{},
+      root.string(),
       [&](MvrExportDiagnostic diagnostic) {
         failureDiagnostics.push_back(std::move(diagnostic));
       },
