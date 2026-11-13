@@ -30,3 +30,13 @@ Guarda el proyecto `.pstg` para conservar los layouts. **Export template** crea 
 Selecciona un layout con contenido y elige **File → Print Layout...**. Elige un destino `.pdf` con permisos de escritura. El PDF utiliza el tamaño y la orientación del layout seleccionado e incluye sus elementos compatibles. Revisa el archivo antes de imprimir o compartir.
 
 Si faltan vistas, el resultado es incorrecto o falla la exportación, consulta [Resolución de problemas](troubleshooting.md#problemas-con-layouts-y-pdf).
+
+## Escala física y propiedades de la vista
+
+Haz doble clic en una vista 2D y abre **Propiedades de la vista**. **Libre / Variable** sigue siendo el modo predeterminado para vistas nuevas y archivos antiguos: permite encuadrar con zoom, desplazamiento y ajuste visual. La escala efectiva aproximada es informativa. El control **Frame scale** modifica el encuadre visual, no una escala física.
+
+Activa **Fija** para elegir 1:25, 1:50, 1:100, 1:200 o 1:500, o un denominador entre 0,01 y 10000000. Un metro ocupa 20 mm a 1:50 y 10 mm a 1:100. El centro usa metros y los ejes superior X/Y, frontal X/Z o lateral Y/Z; en lateral, la dirección horizontal de pantalla es −Y. Introduce el centro o encuadra en el editor y pulsa **Usar el centro del encuadre visual**. La previsualización del layout muestra el recorte fijo al aceptar.
+
+X/Y de página y ancho/alto del marco usan milímetros, con origen arriba a la izquierda; se conserva la precisión fraccionaria. Se admiten posiciones parcialmente fuera de página. El tamaño mínimo es 1 punto (0,353 mm) y el límite es 200000 puntos. Mover o redimensionar una vista fija conserva centro y escala, cambiando el área visible. El zoom del layout y los DPI solo afectan a la visualización. Volver a libre conserva la cámara anterior, filtros y presentación. **Cancel** descarta el borrador; **OK** confirma una operación con Deshacer/Rehacer y persistencia PSTG/PSLAYOUT.
+
+El menú contextual de la página permite A3/A4 y orientación sin escalar elementos. Las páginas con vistas fijas requieren PDF al 100 % y el mismo papel del layout; otro tamaño se rechaza con una explicación. Para usar otro papel, cambia primero el papel del layout. Las páginas libres conservan el ajuste uniforme de salida. Imprime el PDF a tamaño real/100 %: Perastage no controla el escalado del controlador. La escala física garantiza geometría, sin ampliar las garantías de tipografía o estilos existentes.

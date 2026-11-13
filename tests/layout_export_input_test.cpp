@@ -8,10 +8,12 @@
 #include <limits>
 class InputTestApp : public wxApp { public: bool OnInit() override {return true;} };
 wxIMPLEMENT_APP_NO_MAIN(InputTestApp);
+void TestPhysicalViewportPreview();
 int main(int argc,char **argv) {
   assert(wxEntryStart(argc,argv));assert(wxTheApp->CallOnInit());
   {
     wxInitAllImageHandlers();
+    TestPhysicalViewportPreview();
     layouts::LayoutTextDefinition text;text.frame={17,29,101,73};text.text="Plain text";
     auto data=layouttext::BuildLayoutTextExportData(text);
     assert(data.frame.x==17 && data.frame.y==29 && data.frame.width==101 && data.frame.height==73);

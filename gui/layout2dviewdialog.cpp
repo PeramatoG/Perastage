@@ -1,6 +1,9 @@
 #include "layout2dviewdialog.h"
 
 #include "configmanager.h"
+#include "layout_viewport_properties.h"
+#include "LayoutTemplateSerializer.h"
+#include "viewer2dstate.h"
 #include "editable_focus_utils.h"
 #include "layerpanel.h"
 #include "summarypanel.h"
@@ -36,6 +39,7 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent,
     : wxDialog(parent, wxID_ANY, "2D View Editor", wxDefaultPosition,
                wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER |
                                    wxMAXIMIZE_BOX | wxMINIMIZE_BOX) {
+  config = visibilityConfig;
   auto *mainSizer = new wxBoxSizer(wxVERTICAL);
   auto *contentSizer = new wxBoxSizer(wxHORIZONTAL);
 
@@ -70,6 +74,12 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent,
   scaleSizer->Add(scaleValueLabel, 0, wxALIGN_CENTER_VERTICAL);
   mainSizer->Add(scaleSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
 
+  auto *properties = new wxButton(this, wxID_ANY, _("Viewport properties"));
+  properties->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
+    if (viewportDraft && viewerPanel)
+      EditLayoutViewportProperties(this, *viewportDraft, viewerPanel->GetViewState());
+  });
+  mainSizer->Add(properties, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
   auto *buttonSizer = new wxStdDialogButtonSizer();
   auto *okButton = new wxButton(this, wxID_OK, _("OK"));
   auto *cancelButton = new wxButton(this, wxID_CANCEL, _("Cancel"));
@@ -146,6 +156,11 @@ void Layout2DViewDialog::OnShow(wxShowEvent &event) {
                                      scaleSlider->GetMax()));
   }
   UpdateScaleLabel();
+  if (!initialEditorView && viewportDraft && config && viewerPanel) {
+    auto initial = viewer2d::CaptureState(viewerPanel, *config);
+    initial.camera.zoom /= viewerPanel->GetLayoutEditOverlayScale();
+    initialEditorView = viewer2d::ToLayoutDefinition(initial, viewportDraft->frame);
+  }
   event.Skip();
 }
 
@@ -184,4 +199,30 @@ void Layout2DViewDialog::UpdateScaleLabel() {
     return;
   scaleValueLabel->SetLabel(
       wxString::Format(_("%d%%"), scaleSlider->GetValue()));
+}
+
+// Merges presentation properties without replacing the preserved free camera.
+void Layout2DViewDialog::ApplyViewportProperties(layouts::Layout2DViewDefinition &view) const {
+  if (!viewportDraft) return;
+  if (initialEditorView && layouts::SameViewportCaptureSettings(view, *initialEditorView)) {
+    view.camera = viewportDraft->camera;
+    view.renderOptions = viewportDraft->renderOptions;
+    view.layers = viewportDraft->layers;
+  }
+  view.frame = viewportDraft->frame;
+  view.frameResidual = viewportDraft->frameResidual;
+  view.scaleMode = viewportDraft->scaleMode;
+  view.physicalScale = viewportDraft->physicalScale;
+  view.drawFrame = viewportDraft->drawFrame;
+  if (view.scaleMode == layouts::ViewportScaleMode::Free && initialEditorView &&
+      (view.frame.width != initialEditorView->frame.width || view.frame.height != initialEditorView->frame.height)) {
+    view.camera.viewportWidth = view.frame.width;
+    view.camera.viewportHeight = view.frame.height;
+  }
+  if (viewportDraft->scaleMode == layouts::ViewportScaleMode::Fixed)
+  {
+    const auto orientation = view.camera.view;
+    view.camera = viewportDraft->camera;
+    view.camera.view = orientation;
+  }
 }

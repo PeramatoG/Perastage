@@ -65,7 +65,7 @@ struct Viewer2DExportResult {
 struct LayoutViewExportData {
   CommandBuffer buffer;
   Viewer2DViewState viewState;
-  layouts::Layout2DViewFrame frame;
+  layouts::ViewportFramePoints frame;
   int zIndex = 0;
   bool drawFrame = true;
   std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot;

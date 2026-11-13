@@ -675,3 +675,37 @@ alignment and italic skew in document points. B3.2 will address shared free-text
 typography; B3.1 introduces no parser, shaping or font changes. View capture,
 viewport state, stable cross-kind ordering and serialized Layout geometry remain
 owned by their existing modules.
+
+## Layout physical viewport mapping
+
+Core `layouts/PhysicalViewport.h` owns double-precision physical units,
+validation and visible bounds. `Layout2DViewDefinition` defaults to free scale;
+optional physical parameters survive mode switching without replacing the free
+camera. Scene units are meters and document units are points (72 per inch).
+Fixed mapping uses `1000 / denominator * 72 / 25.4` points per scene meter.
+Centers store the selected world axes: Top X/Y, Front X/Z, Side Y/Z. Side reverses the horizontal projection, consistently with the
+existing scene command camera. Page coordinates grow right/down from top left.
+
+Viewport frame precision is an isolated compatibility adapter: the existing
+integer frame plus bounded fractional point residuals resolves to double points.
+Integer gesture deltas preserve residuals. Other element types retain their
+existing representation. Numeric properties use millimeters at the GUI boundary;
+only document points are serialized. Core validates candidates before mutation
+publication; optional viewport metadata is omitted for untouched legacy views.
+Invalid new viewport metadata rejects its template transaction without publishing
+part of the candidate. PSTG metadata and history use the same serializer; no
+MVR/GDTF fields or resources carry physical viewport settings.
+
+Viewer2D's `layout_viewport_adapter.h` derives a temporary capture camera covering
+the entire physical crop, at the actual capture dimensions. This camera is never
+persisted over the free camera. Captured state carries the resolved physical
+bounds to the existing `BuildViewMapping` and command renderer. Preview's graphics
+backend and vector PDF share command traversal and uniform mapping; raster
+rounding is confined to display. Fixed view size changes invalidate capture
+content, including persistent caches. Resources remain existing symbol snapshots.
+
+PDF's page fit remains compatible for free layouts. A fixed viewport requires
+both document-to-output size ratios to be one; GUI and vector exporter reject
+mismatches before output publication. Changing Layout A3/A4 paper size records
+one ordinary history mutation without fitting content. Existing typography and
+paper-space styling limitations are outside this physical geometry contract.

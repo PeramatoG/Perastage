@@ -6,7 +6,7 @@ Layouts arrange scene views and supporting information on printable pages.
 
 1. Open **View → Layout Views → Layout Mode View**. Show the **Layouts** panel from **View** if needed.
 2. Select a layout, or use **Add** to create one. **Rename** and **Delete** manage pages; the last layout cannot be deleted.
-3. Use the layout's context menu to choose orientation.
+3. Use the layout's context menu to choose A3/A4 paper size and orientation. Changing paper keeps element positions, frame sizes and drawing scales unchanged.
 4. Add elements from the Layout toolbar:
 
 | Action | Content |
@@ -32,6 +32,38 @@ loss of mouse capture cancels the preview without changing the saved document.
 
 Save the `.pstg` project to keep your layouts. **Export template** creates a portable `.pslayout` package including referenced images. **Import template** accepts `.pslayout` and legacy `.json` templates.
 
+## Viewport scale and numeric frame properties
+
+Double-click a 2D view, then choose **Viewport properties**. Page X/Y, width and
+height use millimeters; the page origin is the top left. Fractional millimeters
+are retained in projects and templates. Frames can be partly outside the page;
+only the portion inside the page prints. Frame dimensions must be at least
+1 point (about 0.353 mm), with positions and dimensions bounded to 200000 points.
+
+**Free / Variable** is the default for new views, old projects and templates.
+Use the existing visual editor to zoom, pan and fit the scene. Resizing retains
+the established flexible workflow. The approximate effective free scale, when
+available, describes the stored camera and current frame; it is not a lock.
+The editor's **Frame scale** slider adjusts visual framing, not a physical ratio.
+
+Choose **Fixed** explicitly for an exact drawing scale. Select 1:25, 1:50,
+1:100, 1:200 or 1:500, or enter a custom denominator between 0.01 and 10000000.
+At 1:50, one scene meter occupies 20 mm on paper; at 1:100 it occupies 10 mm.
+The stored center uses scene meters: Top X/Y, Front X/Z, Side Y/Z. Side's
+horizontal display runs toward negative Y; the numeric center remains world Y.
+Change the center numerically, or pan/fit in the visual editor and choose
+**Use visual framing center** in the properties dialog. That button changes the
+center only. The visual editor remains a framing aid; the Layout preview shows
+the resolved fixed crop after accepting the edit.
+
+Fixed scale preserves object size and center when moving or resizing the frame;
+a larger frame reveals more scene. Layout editor zoom, display DPI and capture
+resolution affect screen rasterization, independently of paper geometry.
+Switch back to **Free / Variable** to use the preserved free camera. Filters,
+labels and presentation settings are retained. Property edits are drafts until
+the outer editor's **OK**; **Cancel** discards them. Accepted changes participate
+in Undo/Redo and PSTG/PSLAYOUT persistence.
+
 ## Export PDF
 
 Select a non-empty layout and choose **File → Print Layout...**. Choose a writable `.pdf` destination. The PDF uses the selected layout's page size and orientation and includes its supported elements. Review the exported file before printing or sharing.
@@ -54,7 +86,15 @@ shaping is not supported.
 
 ### Output paper size
 
-PDF printing uniformly fits the complete original Layout page to the output
+Pages containing a fixed viewport require **100% document-size output**: select
+the same paper size as the Layout. A different output paper size is rejected
+with an explanation, before writing a PDF. To use a different paper size,
+change the Layout paper first; existing fixed scales and element geometry stay
+unchanged, while the page boundary changes. Print the PDF at **Actual size /
+100%** in the printer driver; Perastage cannot control subsequent driver scaling.
+
+For pages containing only free-scale viewports, PDF printing uniformly fits the
+complete original Layout page to the output
 paper, anchored at the top left, with unused space at the right or bottom. 2D
 views, Legends, Event Tables, free text and images preserve their relative
 positions, proportions, overlap and clips. Changing paper does not refit the 2D
@@ -66,3 +106,8 @@ Images retain their document frames; print raster resolution follows final size
 at the existing 300 DPI target, subject to pixel limits. Alpha continues to flatten
 to white. Free text keeps its existing formatting and PDF typography; this page
 mapping correction does not establish free-text preview/PDF typography parity.
+
+Physical scale guarantees scene geometry placement, not typography parity for
+all existing presentation features. Existing paper-space text, outline and
+symbol styling limitations remain; annotations and broad typography changes
+belong to later milestones.

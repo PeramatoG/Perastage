@@ -34,6 +34,7 @@ public:
   bool RenameLayout(const std::string &currentName,
                     const std::string &newName);
   bool RemoveLayout(const std::string &name);
+  bool SetLayoutPageSize(const std::string &name, print::PageSize size);
   bool SetLayoutOrientation(const std::string &name, bool landscape);
   bool UpdateLayout2DView(const std::string &name,
                           const Layout2DViewDefinition &view, bool recordHistory = true);
@@ -63,7 +64,7 @@ public:
                             std::string *createdLayoutName,
                             std::string *error);
 
-  void LoadFromConfig(ConfigManager &cfg);
+  bool LoadFromConfig(ConfigManager &cfg);
   void RestoreFromHistory(const std::optional<std::string> &metadata);
   void SaveToConfig(ConfigManager &cfg) const;
   void PrepareImageResourcesForSave();

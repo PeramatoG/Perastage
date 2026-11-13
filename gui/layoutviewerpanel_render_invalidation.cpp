@@ -131,6 +131,16 @@ size_t LayoutViewerPanel::ComputeSceneContentHash() const {
 size_t LayoutViewerPanel::HashViewContent(
     const layouts::Layout2DViewDefinition &view) const {
   size_t seed = std::hash<int>{}(view.id);
+  HashCombine(seed, std::hash<int>{}(static_cast<int>(view.scaleMode)));
+  if (view.physicalScale) {
+    for (double v : {view.physicalScale->denominator, view.physicalScale->centerX,
+                     view.physicalScale->centerY}) HashCombine(seed, std::hash<double>{}(v));
+  }
+  if (view.scaleMode == layouts::ViewportScaleMode::Fixed) {
+    const auto f = layouts::ResolveViewportFrame(view);
+    HashCombine(seed, std::hash<double>{}(f.width));
+    HashCombine(seed, std::hash<double>{}(f.height));
+  }
   HashCombine(seed, std::hash<float>{}(view.camera.offsetPixelsX));
   HashCombine(seed, std::hash<float>{}(view.camera.offsetPixelsY));
   HashCombine(seed, std::hash<float>{}(view.camera.zoom));

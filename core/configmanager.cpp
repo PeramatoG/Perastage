@@ -552,19 +552,27 @@ void ConfigManager::SetSelectedGroupObjects(const std::vector<std::string> &uuid
 
 bool ConfigManager::LoadFromFile(const std::string &path) {
   RevisionGuard guard(*this);
+  const auto previousPreferences = preferencesStore;
   bool ok = preferencesStore.LoadFromFile(path);
   if (!ok)
     return false;
-  layouts::LayoutManager::Get().LoadFromConfig(*this);
+  if (!layouts::LayoutManager::Get().LoadFromConfig(*this)) {
+    preferencesStore = previousPreferences;
+    return false;
+  }
   return true;
 }
 
 // Loads project configuration directly from an owned in-memory payload.
 bool ConfigManager::LoadFromBuffer(const std::vector<std::uint8_t> &bytes) {
   RevisionGuard guard(*this);
+  const auto previousPreferences = preferencesStore;
   if (!preferencesStore.LoadFromBuffer(bytes))
     return false;
-  layouts::LayoutManager::Get().LoadFromConfig(*this);
+  if (!layouts::LayoutManager::Get().LoadFromConfig(*this)) {
+    preferencesStore = previousPreferences;
+    return false;
+  }
   return true;
 }
 

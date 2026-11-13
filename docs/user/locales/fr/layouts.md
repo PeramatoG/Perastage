@@ -30,3 +30,13 @@ Enregistrez le projet `.pstg` pour conserver les mises en page. **Export templat
 Sélectionnez une mise en page non vide et choisissez **File → Print Layout...**. Choisissez une destination `.pdf` accessible en écriture. Le PDF utilise le format et l’orientation sélectionnés et inclut les éléments pris en charge. Vérifiez le fichier avant impression ou partage.
 
 Pour les vues manquantes, sorties incorrectes ou erreurs d’export, consultez [Dépannage](troubleshooting.md#problèmes-de-mise-en-page-et-de-pdf).
+
+## Échelle physique et propriétés de la vue
+
+Double-cliquez sur une vue 2D puis ouvrez **Propriétés de la vue**. **Libre / Variable** reste le mode par défaut des nouvelles vues et anciens fichiers, avec zoom, déplacement et cadrage visuel. L’échelle effective approximative est informative. **Frame scale** règle le cadrage visuel, pas un rapport physique.
+
+Choisissez **Fixe** pour 1:25, 1:50, 1:100, 1:200, 1:500 ou un dénominateur personnalisé entre 0,01 et 10000000. Un mètre mesure 20 mm sur papier à 1:50 et 10 mm à 1:100. Le centre utilise des mètres et les axes dessus X/Y, face X/Z ou côté Y/Z ; en vue de côté, l’axe horizontal affiché est −Y. Saisissez le centre ou cadrez dans l’éditeur puis choisissez **Utiliser le centre du cadrage visuel**. L’aperçu du Layout montre le recadrage fixe après validation.
+
+Les positions X/Y et dimensions du cadre utilisent des millimètres, avec origine en haut à gauche et précision fractionnaire conservée. Les placements partiellement hors page restent permis. Le minimum est 1 point (0,353 mm), la limite 200000 points. Déplacer ou redimensionner un cadre fixe conserve échelle et centre et change la zone visible. Le zoom du Layout et les DPI n’affectent que l’affichage. Revenir au mode libre conserve la caméra précédente, les filtres et la présentation. **Cancel** abandonne le brouillon ; **OK** valide avec Annuler/Rétablir et sauvegarde PSTG/PSLAYOUT.
+
+Le menu contextuel de page propose A3/A4 et l’orientation sans redimensionner le contenu. Les vues fixes exigent un PDF à 100 % au même format que le Layout ; un autre format est refusé avec une explication. Pour changer de papier, modifiez d’abord celui du Layout. Les pages libres conservent l’ajustement uniforme. Imprimez le PDF à taille réelle/100 % : Perastage ne contrôle pas la mise à l’échelle du pilote. Le contrat physique porte sur la géométrie et n’élargit pas les garanties typographiques existantes.

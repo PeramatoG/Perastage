@@ -190,7 +190,9 @@ void TestUnknownSchemaVersionIsAccepted() {
 
 } // namespace
 
+void TestPhysicalViewportModel();
 int main() {
+  TestPhysicalViewportModel();
   TestFullRoundTrip();
   TestImportWithMissingFieldsUsesDefaults();
   TestImportWithCorruptTypes();

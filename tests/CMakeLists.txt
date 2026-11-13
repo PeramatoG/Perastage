@@ -1620,7 +1620,7 @@ target_link_libraries(active_dictionary_workflow_test PRIVATE
 add_test(NAME ActiveDictionaryWorkflow COMMAND active_dictionary_workflow_test)
 
 add_executable(layout_template_serializer_test
-               layout_template_serializer_test.cpp
+               layout_template_serializer_test.cpp layout_physical_viewport_model_test.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp)
 add_test(NAME LayoutTemplateSerializer COMMAND layout_template_serializer_test)
 
@@ -4880,7 +4880,7 @@ add_bash_policy_test(EventTableCompositionBoundary
     LABELS "architecture;layout;pdf")
 
 add_executable(layout_page_mapping_pdf_test
-    layout_page_mapping_pdf_test.cpp layout_legend_pdf_resources_stub.cpp
+    layout_page_mapping_pdf_test.cpp layout_physical_viewport_pdf_test.cpp layout_legend_pdf_resources_stub.cpp
     ../core/print/PageSetup.cpp
     ../viewer2d/pdf/layout_pdf_text_renderer.cpp
     ../viewer2d/pdf/layout_pdf_exporter.cpp
@@ -4910,6 +4910,8 @@ add_executable(page_output_mapping_test page_output_mapping_test.cpp ../core/pri
 target_include_directories(page_output_mapping_test PRIVATE ../core ../core/print)
 add_test(NAME PageOutputMapping COMMAND page_output_mapping_test)
 add_executable(layout_export_input_test layout_export_input_test.cpp
+    layout_physical_viewport_preview_test.cpp ../gui/layout_viewport_preview.cpp
+    ../viewer2d/viewer2dcommandrenderer.cpp
     layout_legend_pdf_resources_stub.cpp ../gui/layout_image_export.cpp ../gui/layouttextutils.cpp)
 target_include_directories(layout_export_input_test PRIVATE ../gui ../viewer2d ../core ../core/layouts
     ../core/print ../models ../viewer_common ../viewer3d ../third_party)
@@ -5014,3 +5016,6 @@ set_perastage_test_labels(MvrGdtfReplacementProcessReload LAYER standard-strict 
 
 # Directly cover the canonical publication repair boundary.
 target_sources(mvr_export_preparation_test PRIVATE support/gdtf_test_fixture_builder.cpp)
+
+add_bash_policy_test(LayoutPhysicalViewportBoundary
+    ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_physical_viewport_boundary.sh LABELS "architecture;layout;pdf")

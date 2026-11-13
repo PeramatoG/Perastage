@@ -134,6 +134,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/hoisttablepanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layerpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layout2dviewdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layout_viewport_properties.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layout_viewport_preview.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutlegendeditdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouteventtabledialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutimageutils.cpp

@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include "PhysicalViewport.h"
 #include "continuous_placement_type.h"
 #include "scene_grouping.h"
 #include "continuous_placement_state.h"
@@ -64,6 +65,7 @@ struct Viewer2DViewState {
   int viewportWidth = 0;
   int viewportHeight = 0;
   Viewer2DView view = Viewer2DView::Top;
+  std::optional<layouts::PhysicalViewportMapping> physicalMapping;
 };
 
 struct Viewer2DRenderOverrides {

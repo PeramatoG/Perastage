@@ -1,5 +1,11 @@
 # Perastage 1.8.0
 
+- Layout 2D viewports now offer optional fixed physical drawing scales alongside
+  the default free/variable workflow, numeric world centers and millimeter frame
+  properties. Fixed viewports keep their scale when moved or resized and require
+  document-size PDF output. Layout paper size can be selected as A3 or A4 without
+  resizing content; viewport settings support Undo/Redo, projects and templates.
+
 <!--
 RELEASE NOTES — WORK IN PROGRESS
 

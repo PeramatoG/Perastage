@@ -22,6 +22,7 @@
 #include "LayoutTemplatePackageService.h"
 #include "LayoutTemplateSerializer.h"
 #include "configmanager.h"
+#include "logger.h"
 #include "json.hpp"
 
 #include <algorithm>
@@ -199,6 +200,8 @@ bool LayoutManager::ApplyMutation(
       resources = std::move(previousResources);
       return false;
     }
+    for (const auto &layout : candidate.Items())
+      for (const auto &view : layout.view2dViews) ValidateViewport(view);
     const auto document = ToTemplateDocument(candidate.Items());
     if (document == ToTemplateDocument(layouts.Items())) {
       resources = std::move(previousResources);
@@ -236,6 +239,17 @@ bool LayoutManager::RenameLayout(
 bool LayoutManager::RemoveLayout(const std::string &name) {
   return ApplyMutation("delete layout", [&](LayoutCollection &candidate) {
     return candidate.RemoveLayout(name);
+  });
+}
+
+// Changes paper geometry without fitting, moving or scaling document content.
+bool LayoutManager::SetLayoutPageSize(const std::string &name, print::PageSize size) {
+  if (size != print::PageSize::A3 && size != print::PageSize::A4) return false;
+  return ApplyMutation("change layout paper size", [&](LayoutCollection &candidate) {
+    for (auto &layout : candidate.Items()) if (layout.name == name) {
+      layout.pageSetup.pageSize = size; return true;
+    }
+    return false;
   });
 }
 
@@ -409,7 +423,7 @@ bool LayoutManager::ImportLayoutTemplate(const std::string &filePath,
 }
 
 // Loads layout state from configuration and restores image resource tracking.
-void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
+bool LayoutManager::LoadFromConfig(ConfigManager &cfg) {
   auto loadDefaultsOrFallback = [&cfg, this]() {
     if (!LoadDefaultsForNewProject(cfg))
       SaveToConfig(cfg);
@@ -418,20 +432,25 @@ void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
   auto value = cfg.GetValue(kLayoutsConfigKey);
   if (!value.has_value()) {
     loadDefaultsOrFallback();
-    return;
+    return true;
   }
   nlohmann::json parsed;
   try {
     parsed = nlohmann::json::parse(*value);
   } catch (...) {
     loadDefaultsOrFallback();
-    return;
+    return true;
   }
   std::vector<LayoutDefinition> loaded;
   std::string parseError;
-  if (!FromTemplateDocument(parsed, loaded, &parseError)) {
+  LayoutTemplateImportReport report;
+  if (!FromTemplateDocument(parsed, loaded, &report, &parseError)) {
+    if (report.rejectedViewportMetadata) {
+      Logger::Instance().Log(Logger::Level::Error, "Rejected Layout viewport metadata: " + parseError);
+      return false;
+    }
     loadDefaultsOrFallback();
-    return;
+    return true;
   }
 
   for (auto &layout : loaded) {
@@ -444,6 +463,7 @@ void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
 
   layouts.Items() = std::move(loaded);
   PrepareImageResourcesForSave();
+  return true;
 }
 
 // Restores history metadata without loading defaults or rewriting its presence.

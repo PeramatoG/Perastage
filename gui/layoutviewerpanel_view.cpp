@@ -362,7 +362,7 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
     view->frame.x = frame.x;
     view->frame.y = frame.y;
   }
-  if (sizeChanged) {
+  if (sizeChanged && view->scaleMode == layouts::ViewportScaleMode::Free) {
     if (frame.width > 0) {
       view->camera.viewportWidth = frame.width;
     } else {

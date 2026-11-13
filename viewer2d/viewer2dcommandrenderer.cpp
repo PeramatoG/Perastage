@@ -48,6 +48,12 @@ Transform2D ComposeTransform(const Transform2D &a, const Transform2D &b) {
 
 bool ComputeViewBounds(const Viewer2DViewState &viewState,
                        Viewer2DViewBounds &bounds) {
+  if (viewState.physicalMapping) {
+    const auto &m = *viewState.physicalMapping;
+    bounds = {m.minX, m.minY, m.minX + m.width, m.minY + m.height, m.width, m.height};
+    return m.width > 0 && m.height > 0 && std::isfinite(m.width) && std::isfinite(m.height) &&
+           std::isfinite(m.minX) && std::isfinite(m.minY) && std::isfinite(m.pointsPerMeter) && m.pointsPerMeter > 0;
+  }
   if (viewState.viewportWidth <= 0 || viewState.viewportHeight <= 0)
     return false;
   if (!std::isfinite(viewState.zoom) || viewState.zoom <= 0.0f)
@@ -85,7 +91,8 @@ bool BuildViewMapping(const Viewer2DViewState &viewState, double targetWidth,
   if (!ComputeViewBounds(viewState, bounds))
     return false;
 
-  if (targetWidth <= 0.0 || targetHeight <= 0.0)
+  if (!std::isfinite(targetWidth) || !std::isfinite(targetHeight) ||
+      !std::isfinite(margin) || targetWidth <= 0.0 || targetHeight <= 0.0)
     return false;
 
   double drawW = targetWidth - margin * 2.0;

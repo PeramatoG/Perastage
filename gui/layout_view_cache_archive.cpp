@@ -226,6 +226,13 @@ nlohmann::json
 ViewDefinitionToHashJson(const layouts::Layout2DViewDefinition &view) {
   nlohmann::json json;
   json["id"] = view.id;
+  json["viewportMode"] = static_cast<int>(view.scaleMode);
+  if (view.physicalScale) json["physicalScale"] = {view.physicalScale->denominator,
+      view.physicalScale->centerX, view.physicalScale->centerY};
+  if (view.scaleMode == layouts::ViewportScaleMode::Fixed) {
+    const auto f = layouts::ResolveViewportFrame(view);
+    json["physicalFrame"] = {f.width, f.height};
+  }
   json["camera"] = {view.camera.offsetPixelsX,  view.camera.offsetPixelsY,
                     view.camera.zoom,           view.camera.viewportWidth,
                     view.camera.viewportHeight, view.camera.view};

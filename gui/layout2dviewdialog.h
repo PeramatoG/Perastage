@@ -1,6 +1,7 @@
 #pragma once
 
 #include <wx/dialog.h>
+#include "LayoutCollection.h"
 
 class Viewer2DPanel;
 class Viewer2DRenderPanel;
@@ -16,6 +17,8 @@ public:
                               ConfigManager *visibilityConfig = nullptr,
                               ConfigManager *colorConfig = nullptr);
 
+  void SetViewportDefinition(const layouts::Layout2DViewDefinition &view) { viewportDraft = view; }
+  void ApplyViewportProperties(layouts::Layout2DViewDefinition &view) const;
   Viewer2DPanel *GetViewerPanel() const { return viewerPanel; }
   Viewer2DRenderPanel *GetRenderPanel() const { return renderPanel; }
 
@@ -33,5 +36,8 @@ private:
   SummaryPanel *summaryPanel = nullptr;
   wxSlider *scaleSlider = nullptr;
   wxStaticText *scaleValueLabel = nullptr;
+  ConfigManager *config = nullptr;
+  std::optional<layouts::Layout2DViewDefinition> initialEditorView;
   bool initialShowSyncDone = false;
+  std::optional<layouts::Layout2DViewDefinition> viewportDraft;
 };

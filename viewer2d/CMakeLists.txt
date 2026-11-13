@@ -11,6 +11,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel_resource_sync.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas2d.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/font_metrics.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_view_mapping.h
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_exporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_legend_renderer.h
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_legend_renderer.cpp
@@ -24,6 +25,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/print_diagnostics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/viewer2d_render_frame_plan.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbolcache.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layout_viewport_adapter.h
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dcommandrenderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2doffscreenrenderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2d_ruler_overlay.cpp

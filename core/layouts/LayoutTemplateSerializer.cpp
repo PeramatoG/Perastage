@@ -108,12 +108,19 @@ nlohmann::json ToJson(const Layout2DViewDefinition &view) {
   const auto &camera = view.camera;
   const auto &options = view.renderOptions;
   const auto &layers = view.layers;
-  return {
+  nlohmann::json result = {
       {"id", view.id},
       {"zIndex", view.zIndex},
       {"frame",
        {{"x", frame.x}, {"y", frame.y}, {"width", frame.width}, {"height", frame.height}}},
       {"drawFrame", view.drawFrame},
+      {"viewport", {{"mode", view.scaleMode == ViewportScaleMode::Fixed ? "fixed" : "free"},
+                    {"physical", view.physicalScale ? nlohmann::json{
+                      {"denominator", view.physicalScale->denominator},
+                      {"centerX", view.physicalScale->centerX},
+                      {"centerY", view.physicalScale->centerY}} : nlohmann::json(nullptr)},
+                    {"frameResidual", {view.frameResidual.x, view.frameResidual.y,
+                       view.frameResidual.width, view.frameResidual.height}}}},
       {"camera",
        {{"offsetPixelsX", camera.offsetPixelsX},
         {"offsetPixelsY", camera.offsetPixelsY},
@@ -154,6 +161,11 @@ nlohmann::json ToJson(const Layout2DViewDefinition &view) {
        {{"hiddenLayers", layers.hiddenLayers},
         {"hiddenFixtureTypes", layers.hiddenFixtureTypes}}},
   };
+  if (view.scaleMode == ViewportScaleMode::Free && !view.physicalScale &&
+      view.frameResidual.x == 0 && view.frameResidual.y == 0 &&
+      view.frameResidual.width == 0 && view.frameResidual.height == 0)
+    result.erase("viewport");
+  return result;
 }
 
 nlohmann::json ToJson(const LayoutLegendDefinition &legend) {
@@ -434,9 +446,39 @@ bool ParseLayout2DView(const nlohmann::json &value, Layout2DViewDefinition &out,
   if (frameIt != value.end() && frameIt->is_object())
     ReadFrame(*frameIt, out.frame, ctx);
 
+  if (auto it = value.find("viewport"); it != value.end()) {
+    const auto &v = *it;
+    if (frameIt == value.end() || !frameIt->is_object())
+      throw std::invalid_argument("Viewport metadata requires a document frame.");
+    for (const auto *key : {"x", "y", "width", "height"})
+      if (!frameIt->at(key).is_number_integer())
+        throw std::invalid_argument("Viewport frame fields must be integer document points with fractional residuals.");
+    ValidateViewportFrame({frameIt->at("x").get<double>(), frameIt->at("y").get<double>(),
+        frameIt->at("width").get<double>(), frameIt->at("height").get<double>()});
+    const auto mode = v.at("mode").get<std::string>();
+    if (mode != "fixed" && mode != "free")
+      throw std::invalid_argument("Unsupported Layout viewport scale mode.");
+    out.scaleMode = mode == "fixed" ? ViewportScaleMode::Fixed : ViewportScaleMode::Free;
+    if (v.contains("physical") && !v.at("physical").is_null()) {
+      const auto &p = v.at("physical");
+      out.physicalScale = PhysicalViewport{p.at("denominator").get<double>(),
+          p.at("centerX").get<double>(), p.at("centerY").get<double>()};
+    }
+    if (v.contains("frameResidual")) {
+      const auto r = v.at("frameResidual").get<std::array<double,4>>();
+      out.frameResidual = {r[0], r[1], r[2], r[3]};
+    }
+    ValidateViewport(out);
+  }
   auto cameraIt = value.find("camera");
-  if (cameraIt != value.end() && cameraIt->is_object())
+  if (cameraIt != value.end() && cameraIt->is_object()) {
+    if (out.scaleMode == ViewportScaleMode::Fixed && cameraIt->contains("view")) {
+      const int orientation = cameraIt->at("view").get<int>();
+      if (orientation < 0 || orientation > 2)
+        throw std::invalid_argument("Fixed scale supports Top, Front and Side orientations.");
+    }
     ReadCamera(*cameraIt, out.camera, ctx);
+  }
 
   auto renderIt = value.find("renderOptions");
   if (renderIt != value.end() && renderIt->is_object())
@@ -692,6 +734,13 @@ void ParseElementArray(const nlohmann::json &layoutValue, const char *key,
 
 } // namespace
 
+bool SameViewportCaptureSettings(const Layout2DViewDefinition &a,
+                                 const Layout2DViewDefinition &b) {
+  const auto x = ToJson(a), y = ToJson(b);
+  return x.at("camera") == y.at("camera") &&
+         x.at("renderOptions") == y.at("renderOptions") && x.at("layers") == y.at("layers");
+}
+
 nlohmann::json ToJson(const LayoutDefinition &layout) {
   nlohmann::json data{{"name", layout.name},
                       {"pageSetup",
@@ -728,7 +777,7 @@ nlohmann::json ToJson(const LayoutDefinition &layout) {
   return data;
 }
 
-bool FromJson(const nlohmann::json &value, LayoutDefinition &out,
+static bool ParseLayoutJson(const nlohmann::json &value, LayoutDefinition &out,
               std::string *error) {
   try {
     if (!value.is_object()) {
@@ -822,6 +871,13 @@ bool FromJson(const nlohmann::json &value, LayoutDefinition &out,
   }
 }
 
+bool FromJson(const nlohmann::json &value, LayoutDefinition &out, std::string *error) {
+  LayoutDefinition candidate;
+  if (!ParseLayoutJson(value, candidate, error)) return false;
+  out = std::move(candidate);
+  return true;
+}
+
 nlohmann::json ToTemplateDocument(const std::vector<LayoutDefinition> &layouts) {
   nlohmann::json serializedLayouts = nlohmann::json::array();
   for (const auto &layout : layouts)
@@ -875,6 +931,14 @@ bool FromTemplateDocument(const nlohmann::json &value,
       LayoutDefinition layout;
       std::string layoutError;
       if (!FromJson(entry, layout, &layoutError)) {
+        if (entry.contains("view2dViews")) {
+          for (const auto &v : entry.at("view2dViews")) if (v.contains("viewport")) {
+            g_activeImportReport = previousReport;
+            if (error) *error = layoutError;
+            if (report) { report->errors.push_back(layoutError); report->rejectedViewportMetadata = true; }
+            return false;
+          }
+        }
         if (report != nullptr) {
           ++report->layouts.skipped;
           report->errors.push_back("layouts[" + std::to_string(idx) + "]: " +

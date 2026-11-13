@@ -57,7 +57,9 @@ std::string PageStream(const std::string &pdf) {
   return pdf.substr(begin,pdf.find("endstream",begin)-begin);
 }
 }
+void TestPhysicalViewportPdf();
 int main(int argc,char **argv) {
+  TestPhysicalViewportPdf();
   LayoutViewExportData view; view.frame={20,30,101,73}; view.viewState.viewportWidth=501; view.viewState.viewportHeight=307;
   LineCommand line; line.x0=-1; line.y0=-1; line.x1=1; line.y1=1;
   view.buffer.commands.emplace_back(line); view.buffer.metadata.push_back({true,false}); view.buffer.sources.push_back("fixture");
@@ -102,7 +104,7 @@ int main(int argc,char **argv) {
       if(referenceForms.empty()) referenceForms=forms; else assert(referenceForms==forms);
       assert(view.viewState.viewportWidth==501 && view.viewState.viewportHeight==307 && view.frame.width==101);
 
-      for(auto frame : {view.frame,legend.frame,table.frame,text.frame}) {
+      for(auto frame : std::vector<layouts::ViewportFramePoints>{view.frame,legend.frame,table.frame,text.frame}) {
         const Box expected{frame.x*scale,out.PageHeightPt()-(frame.y+frame.height)*scale,frame.width*scale,frame.height*scale};
         if(!Has(ink.rectangles,expected)) {
           std::cerr<<"Missing mapped frame "<<frame.width<<" at scale "<<scale<<": "<<expected.x<<','<<expected.y<<','<<expected.w<<','<<expected.h<<'\n';
@@ -127,7 +129,7 @@ int main(int argc,char **argv) {
       if(referencePoints.empty()) referencePoints=normalized;
       else { assert(normalized.size()==referencePoints.size()); for(size_t i=0;i<normalized.size();++i) { Near(normalized[i].first,referencePoints[i].first); Near(normalized[i].second,referencePoints[i].second); } }
       std::cout << "doc="<<doc.PageWidthPt()<<'x'<<doc.PageHeightPt()<<" out="<<out.PageWidthPt()<<'x'<<out.PageHeightPt()<<" scale="<<scale;
-      for(auto frame : {view.frame,legend.frame,table.frame,text.frame,image.frame})
+      for(auto frame : std::vector<layouts::ViewportFramePoints>{view.frame,legend.frame,table.frame,text.frame,image.frame})
         std::cout << " [" << frame.x*scale << ',' << out.PageHeightPt()-(frame.y+frame.height)*scale << ',' << frame.width*scale << ',' << frame.height*scale << ']';
       std::cout << '\n';
       auto invalidImage=image; invalidImage.pixels.clear();

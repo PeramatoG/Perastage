@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 09:31+0000\n"
+"POT-Creation-Date: 2026-11-13 15:12+0100\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: German\n"
@@ -130,7 +130,7 @@ msgid "Edit Address"
 msgstr "Adresse bearbeiten"
 
 #: gui/addressdialog.cpp:27 gui/fixturepatchdialog.cpp:39
-#: gui/patch/dmx_patch_panel.cpp:25
+#: gui/patch/dmx_patch_panel.cpp:26
 msgid "Universe:"
 msgstr "Universum:"
 
@@ -313,7 +313,7 @@ msgstr "Nur Verweise exportieren"
 #: gui/dictionaryeditdialog.cpp:260 gui/dictionaryeditdialog.cpp:293
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
 #: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:92
-#: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:75
+#: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:85
 #: gui/layouttextdialog.cpp:149 gui/preferencesdialog.cpp:87
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139
@@ -483,7 +483,7 @@ msgid "Mode"
 msgstr "Modus"
 
 #: gui/dictionaryeditdialog.cpp:519 gui/dictionaryeditdialog.cpp:2236
-#: gui/fixturetable/fixture_table_columns.cpp:21 gui/fixturetablepanel.cpp:849
+#: gui/fixturetable/fixture_table_columns.cpp:21 gui/fixturetablepanel.cpp:851
 msgid "Category"
 msgstr "Kategorie"
 
@@ -493,13 +493,13 @@ msgid "Type Color"
 msgstr "Typfarbe"
 
 #: gui/dictionaryeditdialog.cpp:599 gui/mainwindow_layout.cpp:328
-#: gui/mainwindow_menu_builders.cpp:81 gui/mainwindow_print.cpp:505
+#: gui/mainwindow_menu_builders.cpp:81 gui/mainwindow_print.cpp:515
 #: gui/riggingpanel.cpp:185 gui/summarypanel.cpp:139
 msgid "Fixtures"
 msgstr "Scheinwerfer"
 
 #: gui/dictionaryeditdialog.cpp:600 gui/mainwindow_layout.cpp:333
-#: gui/mainwindow_print.cpp:508 gui/riggingpanel.cpp:188
+#: gui/mainwindow_print.cpp:518 gui/riggingpanel.cpp:188
 #: gui/summarypanel.cpp:172
 msgid "Trusses"
 msgstr "Traversen"
@@ -527,7 +527,7 @@ msgid "Export..."
 msgstr "Exportieren…"
 
 #: gui/dictionaryeditdialog.cpp:610 gui/gdtf_download_queue_dialog.cpp:93
-#: gui/layout2dviewdialog.cpp:74 gui/mvr_export_result_dialog.cpp:97
+#: gui/layout2dviewdialog.cpp:84 gui/mvr_export_result_dialog.cpp:97
 #: gui/preferencesdialog.cpp:86 gui/scene_object_primitive_dialogs.cpp:138
 msgid "OK"
 msgstr "OK"
@@ -841,19 +841,19 @@ msgstr ""
 "\n"
 
 #: gui/dictionaryeditdialog.cpp:1521 gui/dictionaryeditdialog.cpp:2276
-#: gui/fixtureeditdialog.cpp:644 gui/fixturetablepanel.cpp:526
+#: gui/fixtureeditdialog.cpp:644 gui/fixturetablepanel.cpp:528
 #: gui/mainwindow_fixture_replace.cpp:227 gui/mainwindow_menu.cpp:998
 #: gui/mainwindow_menu.cpp:1021
 msgid "Select GDTF file"
 msgstr "GDTF-Datei auswählen"
 
 #: gui/dictionaryeditdialog.cpp:1537 gui/dictionaryeditdialog.cpp:2220
-#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:694
+#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:696
 msgid "Select DMX mode"
 msgstr "DMX-Modus auswählen"
 
 #: gui/dictionaryeditdialog.cpp:1537 gui/dictionaryeditdialog.cpp:2220
-#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:694
+#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:696
 msgid "DMX Mode"
 msgstr "DMX-Modus"
 
@@ -1117,7 +1117,7 @@ msgstr ""
 "Traversenverzeichnis auf Standardwerte zurückgesetzt.\n"
 "\n"
 
-#: gui/dictionaryeditdialog.cpp:2236 gui/fixturetablepanel.cpp:849
+#: gui/dictionaryeditdialog.cpp:2236 gui/fixturetablepanel.cpp:851
 msgid "Select category"
 msgstr "Kategorie auswählen"
 
@@ -1410,7 +1410,7 @@ msgstr "GDTF-Aktualisierung"
 msgid "Type"
 msgstr "Typ"
 
-#: gui/fixturetable/fixture_table_columns.cpp:13 gui/fixturetablepanel.cpp:743
+#: gui/fixturetable/fixture_table_columns.cpp:13 gui/fixturetablepanel.cpp:745
 #: gui/hoisttablepanel.cpp:465 gui/hoisttablepanel.cpp:786
 #: gui/layerpanel.cpp:86 gui/sceneobjecttablepanel.cpp:265
 #: gui/sceneobjecttablepanel.cpp:433 gui/trusstablepanel.cpp:300
@@ -1439,24 +1439,24 @@ msgstr "Kanalanzahl"
 msgid "Model file"
 msgstr "Modelldatei"
 
-#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:281
-#: gui/fixturetablepanel.cpp:315 gui/hoisttablepanel.cpp:467
+#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:282
+#: gui/fixturetablepanel.cpp:316 gui/hoisttablepanel.cpp:467
 #: gui/hoisttablepanel.cpp:500 gui/sceneobjecttablepanel.cpp:267
 #: gui/sceneobjecttablepanel.cpp:292 gui/trusstablepanel.cpp:301
 #: gui/trusstablepanel.cpp:334
 msgid "Pos X"
 msgstr "Pos X"
 
-#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:284
-#: gui/fixturetablepanel.cpp:318 gui/hoisttablepanel.cpp:468
+#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:285
+#: gui/fixturetablepanel.cpp:319 gui/hoisttablepanel.cpp:468
 #: gui/hoisttablepanel.cpp:501 gui/sceneobjecttablepanel.cpp:268
 #: gui/sceneobjecttablepanel.cpp:293 gui/trusstablepanel.cpp:301
 #: gui/trusstablepanel.cpp:335
 msgid "Pos Y"
 msgstr "Pos Y"
 
-#: gui/fixturetable/fixture_table_columns.cpp:18 gui/fixturetablepanel.cpp:287
-#: gui/fixturetablepanel.cpp:321 gui/hoisttablepanel.cpp:469
+#: gui/fixturetable/fixture_table_columns.cpp:18 gui/fixturetablepanel.cpp:288
+#: gui/fixturetablepanel.cpp:322 gui/hoisttablepanel.cpp:469
 #: gui/hoisttablepanel.cpp:502 gui/sceneobjecttablepanel.cpp:269
 #: gui/sceneobjecttablepanel.cpp:294 gui/trusstablepanel.cpp:301
 #: gui/trusstablepanel.cpp:336
@@ -1491,7 +1491,7 @@ msgstr "Gewicht (kg)"
 msgid "Color Filter"
 msgstr "Farbfilter"
 
-#: gui/fixturetablepanel.cpp:290 gui/fixturetablepanel.cpp:324
+#: gui/fixturetablepanel.cpp:291 gui/fixturetablepanel.cpp:325
 #: gui/hoisttablepanel.cpp:475 gui/hoisttablepanel.cpp:506
 #: gui/inspection/gdtf_inspector_details_panel.cpp:47
 #: gui/trusstablepanel.cpp:304 gui/trusstablepanel.cpp:340
@@ -1500,27 +1500,27 @@ msgstr "Farbfilter"
 msgid "Weight"
 msgstr "Gewicht"
 
-#: gui/fixturetablepanel.cpp:743 gui/hoisttablepanel.cpp:786
+#: gui/fixturetablepanel.cpp:745 gui/hoisttablepanel.cpp:786
 #: gui/sceneobjecttablepanel.cpp:433 gui/trusstablepanel.cpp:533
 msgid "Select layer"
 msgstr "Ebene auswählen"
 
-#: gui/fixturetablepanel.cpp:982 gui/hoisttablepanel.cpp:849
+#: gui/fixturetablepanel.cpp:984 gui/hoisttablepanel.cpp:849
 #: gui/sceneobjecttablepanel.cpp:499 gui/trusstablepanel.cpp:677
 msgid "Edit value:"
 msgstr "Wert bearbeiten:"
 
-#: gui/fixturetablepanel.cpp:1033 gui/fixturetablepanel.cpp:1038
+#: gui/fixturetablepanel.cpp:1035 gui/fixturetablepanel.cpp:1040
 #: gui/hoisttablepanel.cpp:897 gui/hoisttablepanel.cpp:902
 #: gui/sceneobjecttablepanel.cpp:545 gui/sceneobjecttablepanel.cpp:550
 #: gui/trusstablepanel.cpp:723 gui/trusstablepanel.cpp:728
 msgid "Invalid numeric value"
 msgstr "Ungültiger Zahlenwert"
 
-#: gui/fixturetablepanel.cpp:1033 gui/fixturetablepanel.cpp:1038
-#: gui/fixturetablepanel.cpp:1045 gui/fixturetablepanel.cpp:1051
-#: gui/fixturetablepanel.cpp:1059 gui/fixturetablepanel.cpp:1065
-#: gui/fixturetablepanel.cpp:1101 gui/fixturetablepanel.cpp:1108
+#: gui/fixturetablepanel.cpp:1035 gui/fixturetablepanel.cpp:1040
+#: gui/fixturetablepanel.cpp:1047 gui/fixturetablepanel.cpp:1053
+#: gui/fixturetablepanel.cpp:1061 gui/fixturetablepanel.cpp:1067
+#: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
 #: gui/gdtf_share_download_workflow.cpp:477
 #: gui/gdtf_share_download_workflow.cpp:481 gui/hoisttablepanel.cpp:897
 #: gui/hoisttablepanel.cpp:902 gui/hoisttablepanel.cpp:908
@@ -1545,15 +1545,15 @@ msgstr "Ungültiger Zahlenwert"
 msgid "Error"
 msgstr "Fehler"
 
-#: gui/fixturetablepanel.cpp:1045 gui/fixturetablepanel.cpp:1059
-#: gui/fixturetablepanel.cpp:1101 gui/fixturetablepanel.cpp:1108
+#: gui/fixturetablepanel.cpp:1047 gui/fixturetablepanel.cpp:1061
+#: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
 #: gui/hoisttablepanel.cpp:908 gui/hoisttablepanel.cpp:915
 #: gui/sceneobjecttablepanel.cpp:556 gui/sceneobjecttablepanel.cpp:563
 #: gui/trusstablepanel.cpp:734 gui/trusstablepanel.cpp:741
 msgid "Invalid value"
 msgstr "Ungültiger Wert"
 
-#: gui/fixturetablepanel.cpp:1051 gui/fixturetablepanel.cpp:1065
+#: gui/fixturetablepanel.cpp:1053 gui/fixturetablepanel.cpp:1067
 msgid "Channel out of range (1-512)"
 msgstr "Kanal außerhalb des Bereichs (1–512)"
 
@@ -1766,7 +1766,7 @@ msgid "Manufacturer"
 msgstr "Hersteller"
 
 #: gui/gdtf_catalog_details_panel.cpp:23 gui/gdtfsearchdialog.cpp:93
-#: gui/patch/dmx_patch_diagnostics.cpp:37
+#: gui/patch/dmx_patch_diagnostics.cpp:57
 msgid "Fixture"
 msgstr "Gerät"
 
@@ -1883,7 +1883,7 @@ msgstr "Status"
 msgid "Progress"
 msgstr "Fortschritt"
 
-#: gui/gdtf_download_queue_table.cpp:53 gui/patch/dmx_patch_diagnostics.cpp:39
+#: gui/gdtf_download_queue_table.cpp:53 gui/patch/dmx_patch_diagnostics.cpp:59
 #: gui/rider_fixture_resolution_dialog.cpp:115
 msgid "Details"
 msgstr "Details"
@@ -2837,18 +2837,85 @@ msgstr "Standardebene kann nicht umbenannt werden."
 msgid "Rename Layer"
 msgstr "Ebene umbenennen"
 
-#: gui/layout2dviewdialog.cpp:63
+#: gui/layout2dviewdialog.cpp:67
 msgid "Frame scale"
 msgstr "Rahmenskalierung"
 
-#: gui/layout2dviewdialog.cpp:65
+#: gui/layout2dviewdialog.cpp:69
 msgid "100%"
 msgstr "100%"
 
-#: gui/layout2dviewdialog.cpp:186
+#: gui/layout2dviewdialog.cpp:77 gui/layout_viewport_properties.cpp:34
+#: gui/layout_viewport_properties.cpp:128
+msgid "Viewport properties"
+msgstr "Ansichtseigenschaften"
+
+#: gui/layout2dviewdialog.cpp:201
 #, c-format
 msgid "%d%%"
 msgstr "%d%%"
+
+#: gui/layout_viewport_properties.cpp:43
+msgid "Free / Variable"
+msgstr "Frei / Variabel"
+
+#: gui/layout_viewport_properties.cpp:43
+msgid "Fixed"
+msgstr "Fest"
+
+#: gui/layout_viewport_properties.cpp:45
+msgid "Scale mode"
+msgstr "Maßstabsmodus"
+
+#: gui/layout_viewport_properties.cpp:56
+msgid "Drawing scale 1:"
+msgstr "Zeichnungsmaßstab 1:"
+
+#: gui/layout_viewport_properties.cpp:61
+msgid "Center horizontal (m)"
+msgstr "Mittelpunkt horizontal (m)"
+
+#: gui/layout_viewport_properties.cpp:62
+msgid "Center vertical (m)"
+msgstr "Mittelpunkt vertikal (m)"
+
+#: gui/layout_viewport_properties.cpp:66
+msgid "Page X (mm)"
+msgstr "Seitenposition X (mm)"
+
+#: gui/layout_viewport_properties.cpp:67
+msgid "Page Y (mm)"
+msgstr "Seitenposition Y (mm)"
+
+#: gui/layout_viewport_properties.cpp:68
+msgid "Frame width (mm)"
+msgstr "Rahmenbreite (mm)"
+
+#: gui/layout_viewport_properties.cpp:69
+msgid "Frame height (mm)"
+msgstr "Rahmenhöhe (mm)"
+
+#: gui/layout_viewport_properties.cpp:72
+msgid "Center axes: Top X/Y, Front X/Z, Side Y/Z. Page origin: top left."
+msgstr "Mittelpunktachsen: oben X/Y, vorne X/Z, seitlich Y/Z. Seitenursprung: oben links."
+
+#: gui/layout_viewport_properties.cpp:74
+msgid "Free scale: variable"
+msgstr "Freier Maßstab: variabel"
+
+#: gui/layout_viewport_properties.cpp:82
+#, c-format
+msgid "Effective free scale: approximately 1:%.4f"
+msgstr "Effektiver freier Maßstab: ungefähr 1:%.4f"
+
+#: gui/layout_viewport_properties.cpp:86
+msgid "Use visual framing center"
+msgstr "Mittelpunkt des sichtbaren Ausschnitts verwenden"
+
+#: gui/layout_viewport_properties.cpp:127
+#, c-format
+msgid "Invalid viewport properties: %s"
+msgstr "Ungültige Ansichtseigenschaften: %s"
 
 #: gui/layoutimageutils.cpp:81
 msgid "Invalid image"
@@ -2867,7 +2934,7 @@ msgid "Move Down"
 msgstr "Nach unten verschieben"
 
 #: gui/layoutpanel.cpp:35 gui/mainwindow_menu.cpp:369
-#: gui/mainwindow_print.cpp:76
+#: gui/mainwindow_print.cpp:78
 msgid "Layout"
 msgstr "Layout"
 
@@ -2875,7 +2942,7 @@ msgstr "Layout"
 msgid "Export template"
 msgstr "Layoutvorlage exportieren"
 
-#: gui/layoutpanel.cpp:48 gui/layoutpanel.cpp:400
+#: gui/layoutpanel.cpp:48 gui/layoutpanel.cpp:410
 msgid "Import template"
 msgstr "Layoutvorlage importieren"
 
@@ -2883,68 +2950,80 @@ msgstr "Layoutvorlage importieren"
 msgid "Orientation"
 msgstr "Ausrichtung"
 
-#: gui/layoutpanel.cpp:257 gui/layoutpanel.cpp:298
+#: gui/layoutpanel.cpp:254 gui/viewer2dprintdialog.cpp:36
+msgid "A3"
+msgstr "A3"
+
+#: gui/layoutpanel.cpp:254 gui/viewer2dprintdialog.cpp:38
+msgid "A4"
+msgstr "A4"
+
+#: gui/layoutpanel.cpp:261
+msgid "Paper size"
+msgstr "Papierformat"
+
+#: gui/layoutpanel.cpp:267 gui/layoutpanel.cpp:308
 msgid "Enter new layout name:"
 msgstr "Namen des neuen Layouts eingeben:"
 
-#: gui/layoutpanel.cpp:257 gui/layoutpanel.cpp:267 gui/layoutpanel.cpp:279
+#: gui/layoutpanel.cpp:267 gui/layoutpanel.cpp:277 gui/layoutpanel.cpp:289
 msgid "Add Layout"
 msgstr "Layout hinzufügen"
 
-#: gui/layoutpanel.cpp:267
+#: gui/layoutpanel.cpp:277
 msgid "Layout already exists."
 msgstr "Layout existiert bereits."
 
-#: gui/layoutpanel.cpp:279
+#: gui/layoutpanel.cpp:289
 msgid "Could not add layout."
 msgstr "Layout konnte nicht hinzugefügt werden."
 
-#: gui/layoutpanel.cpp:292 gui/layoutpanel.cpp:322
+#: gui/layoutpanel.cpp:302 gui/layoutpanel.cpp:332
 msgid "No layout is available."
 msgstr "Kein Layout verfügbar."
 
-#: gui/layoutpanel.cpp:292 gui/layoutpanel.cpp:298 gui/layoutpanel.cpp:309
+#: gui/layoutpanel.cpp:302 gui/layoutpanel.cpp:308 gui/layoutpanel.cpp:319
 msgid "Rename Layout"
 msgstr "Layout umbenennen"
 
-#: gui/layoutpanel.cpp:309
+#: gui/layoutpanel.cpp:319
 msgid "Layout name is not available."
 msgstr "Layoutname ist nicht verfügbar."
 
-#: gui/layoutpanel.cpp:322 gui/layoutpanel.cpp:328 gui/layoutpanel.cpp:335
+#: gui/layoutpanel.cpp:332 gui/layoutpanel.cpp:338 gui/layoutpanel.cpp:345
 msgid "Delete Layout"
 msgstr "Layout löschen"
 
-#: gui/layoutpanel.cpp:328
+#: gui/layoutpanel.cpp:338
 msgid "Cannot delete the last layout."
 msgstr "Das letzte Layout kann nicht gelöscht werden."
 
-#: gui/layoutpanel.cpp:335
+#: gui/layoutpanel.cpp:345
 msgid "Could not delete layout."
 msgstr "Layout konnte nicht gelöscht werden."
 
-#: gui/layoutpanel.cpp:357
+#: gui/layoutpanel.cpp:367
 msgid "No layout is available to export."
 msgstr "Kein Layout zum Exportieren verfügbar."
 
-#: gui/layoutpanel.cpp:357 gui/layoutpanel.cpp:363 gui/layoutpanel.cpp:376
-#: gui/layoutpanel.cpp:381
+#: gui/layoutpanel.cpp:367 gui/layoutpanel.cpp:373 gui/layoutpanel.cpp:386
+#: gui/layoutpanel.cpp:391
 msgid "Export layout package"
 msgstr "Layoutpaket exportieren"
 
-#: gui/layoutpanel.cpp:374
+#: gui/layoutpanel.cpp:384
 msgid "Could not export layout package.\n"
 msgstr "Layoutpaket konnte nicht exportiert werden.\n"
 
-#: gui/layoutpanel.cpp:380
+#: gui/layoutpanel.cpp:390
 msgid "Layout package exported successfully."
 msgstr "Layoutpaket erfolgreich exportiert."
 
-#: gui/layoutpanel.cpp:386
+#: gui/layoutpanel.cpp:396
 msgid "Import layout template"
 msgstr "Layoutvorlage importieren"
 
-#: gui/layoutpanel.cpp:398
+#: gui/layoutpanel.cpp:408
 msgid "Could not import layout template.\n"
 msgstr "Layoutvorlage konnte nicht importiert werden.\n"
 
@@ -3332,7 +3411,7 @@ msgstr ""
 
 #: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:483
 #: gui/mainwindow_startup_splash.cpp:123
-#: gui/services/fixture_symbol_preparation_service.cpp:509
+#: gui/services/fixture_symbol_preparation_service.cpp:647
 #: gui/viewer_load_status.cpp:26
 msgid "Ready"
 msgstr "Bereit"
@@ -3577,7 +3656,7 @@ msgstr "Datei konnte nicht kopiert werden."
 msgid "Object exported successfully."
 msgstr "Objekt erfolgreich exportiert."
 
-#: gui/mainwindow_io.cpp:906 gui/mainwindow_print.cpp:523
+#: gui/mainwindow_io.cpp:906 gui/mainwindow_print.cpp:533
 msgid "Select table"
 msgstr "Tabelle auswählen"
 
@@ -3586,12 +3665,12 @@ msgstr "Tabelle auswählen"
 msgid "Export CSV"
 msgstr "CSV exportieren"
 
-#: gui/mainwindow_layout.cpp:338 gui/mainwindow_print.cpp:511
+#: gui/mainwindow_layout.cpp:338 gui/mainwindow_print.cpp:521
 #: gui/riggingpanel.cpp:191 gui/summarypanel.cpp:182
 msgid "Hoists"
 msgstr "Kettenzüge"
 
-#: gui/mainwindow_layout.cpp:343 gui/mainwindow_print.cpp:514
+#: gui/mainwindow_layout.cpp:343 gui/mainwindow_print.cpp:524
 #: gui/summarypanel.cpp:199
 msgid "Objects"
 msgstr "Objekte"
@@ -3629,11 +3708,11 @@ msgstr "X: -- m  Y: -- m  Z: -- m"
 msgid "Version %s"
 msgstr "Version %s"
 
-#: gui/mainwindow_layout.cpp:1149
+#: gui/mainwindow_layout.cpp:1150
 msgid "Layout view update skipped: target view not found."
 msgstr "Layoutansicht nicht aktualisiert: Zielansicht nicht gefunden."
 
-#: gui/mainwindow_layout.cpp:1179
+#: gui/mainwindow_layout.cpp:1182
 msgid "Layout view update failed."
 msgstr "Aktualisierung der Layoutansicht fehlgeschlagen."
 
@@ -3677,7 +3756,7 @@ msgstr "MVR exportieren"
 msgid "Export the project to MVR"
 msgstr "Projekt als MVR exportieren"
 
-#: gui/mainwindow_menu.cpp:182 gui/mainwindow_print.cpp:81
+#: gui/mainwindow_menu.cpp:182 gui/mainwindow_print.cpp:83
 msgid "Print"
 msgstr "Drucken"
 
@@ -4187,8 +4266,8 @@ msgstr "Layoutmodus-Ansicht"
 msgid "Position Tool"
 msgstr "Positionswerkzeug"
 
-#: gui/mainwindow_menu_builders.cpp:80 gui/patch/dmx_patch_panel.cpp:22
-#: gui/patch/dmx_patch_panel.cpp:34 gui/patch/viewport_patch_workspace.cpp:30
+#: gui/mainwindow_menu_builders.cpp:80 gui/patch/dmx_patch_panel.cpp:23
+#: gui/patch/dmx_patch_panel.cpp:36 gui/patch/viewport_patch_workspace.cpp:39
 msgid "DMX Patch"
 msgstr "DMX Patch"
 
@@ -4292,96 +4371,96 @@ msgstr "&Werkzeuge"
 msgid "&Help"
 msgstr "&Hilfe"
 
-#: gui/mainwindow_print.cpp:77
+#: gui/mainwindow_print.cpp:79
 msgid "2D View"
 msgstr "2D-Ansicht"
 
-#: gui/mainwindow_print.cpp:78
+#: gui/mainwindow_print.cpp:80
 msgid "Table"
 msgstr "Tabelle"
 
-#: gui/mainwindow_print.cpp:80
+#: gui/mainwindow_print.cpp:82
 msgid "Select what to print:"
 msgstr "Druckinhalt auswählen:"
 
-#: gui/mainwindow_print.cpp:101 gui/mainwindow_print.cpp:248
+#: gui/mainwindow_print.cpp:103 gui/mainwindow_print.cpp:250
 msgid "2D viewport is not available."
 msgstr "2D-Ansicht ist nicht verfügbar."
 
-#: gui/mainwindow_print.cpp:101 gui/mainwindow_print.cpp:131
-#: gui/mainwindow_print.cpp:161 gui/mainwindow_print.cpp:199
-#: gui/mainwindow_print.cpp:203
+#: gui/mainwindow_print.cpp:103 gui/mainwindow_print.cpp:133
+#: gui/mainwindow_print.cpp:163 gui/mainwindow_print.cpp:201
+#: gui/mainwindow_print.cpp:205
 msgid "Print Viewer 2D"
 msgstr "2D-Ansicht drucken"
 
-#: gui/mainwindow_print.cpp:121
+#: gui/mainwindow_print.cpp:123
 msgid "Save 2D view as"
 msgstr "2D-Ansicht speichern unter"
 
-#: gui/mainwindow_print.cpp:130
+#: gui/mainwindow_print.cpp:132
 msgid "Please choose a destination file for the 2D view."
 msgstr "Zieldatei für die 2D-Ansicht auswählen."
 
-#: gui/mainwindow_print.cpp:144
+#: gui/mainwindow_print.cpp:146
 msgid "Printing 2D view..."
 msgstr "2D-Ansicht wird gedruckt…"
 
-#: gui/mainwindow_print.cpp:160
+#: gui/mainwindow_print.cpp:162
 msgid "Unable to capture the 2D view for printing."
 msgstr "2D-Ansicht konnte nicht zum Drucken erfasst werden."
 
-#: gui/mainwindow_print.cpp:196
+#: gui/mainwindow_print.cpp:198
 #, c-format
 msgid "Failed to generate PDF plan: %s"
 msgstr "PDF-Plan konnte nicht erzeugt werden: %s"
 
-#: gui/mainwindow_print.cpp:198 gui/mainwindow_print.cpp:413
+#: gui/mainwindow_print.cpp:200 gui/mainwindow_print.cpp:418
 msgid "Print failed. Please review the error and try again."
 msgstr "Drucken fehlgeschlagen. Bitte Fehler prüfen und erneut versuchen."
 
-#: gui/mainwindow_print.cpp:202
+#: gui/mainwindow_print.cpp:204
 #, c-format
 msgid "2D view saved to %s"
 msgstr "2D-Ansicht in %s gespeichert"
 
-#: gui/mainwindow_print.cpp:217
+#: gui/mainwindow_print.cpp:219
 msgid "No layout is selected."
 msgstr "Kein Layout ausgewählt."
 
-#: gui/mainwindow_print.cpp:217 gui/mainwindow_print.cpp:230
-#: gui/mainwindow_print.cpp:240 gui/mainwindow_print.cpp:248
-#: gui/mainwindow_print.cpp:281 gui/mainwindow_print.cpp:297
-#: gui/mainwindow_print.cpp:414 gui/mainwindow_print.cpp:426
+#: gui/mainwindow_print.cpp:219 gui/mainwindow_print.cpp:232
+#: gui/mainwindow_print.cpp:242 gui/mainwindow_print.cpp:250
+#: gui/mainwindow_print.cpp:283 gui/mainwindow_print.cpp:302
+#: gui/mainwindow_print.cpp:419 gui/mainwindow_print.cpp:431
 msgid "Print Layout"
 msgstr "Layout drucken"
 
-#: gui/mainwindow_print.cpp:230
+#: gui/mainwindow_print.cpp:232
 msgid "Selected layout is not available."
 msgstr "Ausgewähltes Layout ist nicht verfügbar."
 
-#: gui/mainwindow_print.cpp:239
+#: gui/mainwindow_print.cpp:241
 msgid "The selected layout is empty."
 msgstr "Ausgewähltes Layout ist leer."
 
-#: gui/mainwindow_print.cpp:271
+#: gui/mainwindow_print.cpp:273
 msgid "Save layout as"
 msgstr "Layout speichern unter"
 
-#: gui/mainwindow_print.cpp:280
+#: gui/mainwindow_print.cpp:282
 msgid "Please choose a destination file for the layout."
 msgstr "Zieldatei für das Layout auswählen."
 
-#: gui/mainwindow_print.cpp:296 gui/mainwindow_print.cpp:410
+#: gui/mainwindow_print.cpp:301 gui/mainwindow_print.cpp:415
 #, c-format
 msgid "Failed to generate layout PDF: %s"
 msgstr "Layout-PDF konnte nicht erzeugt werden: %s"
 
-#: gui/mainwindow_print.cpp:418
+#: gui/mainwindow_print.cpp:423
 #, c-format
 msgid "Layout saved to %s"
 msgstr "Layout in %s gespeichert"
 
-#: gui/mainwindow_print.cpp:420
+#: gui/mainwindow_print.cpp:425
 #, c-format
 msgid ""
 "\n"
@@ -4396,11 +4475,11 @@ msgstr ""
 "Perastage-Symbole: %zu\n"
 "Ersatzdarstellungen: %zu"
 
-#: gui/mainwindow_print.cpp:492
+#: gui/mainwindow_print.cpp:502
 msgid "Printing layout..."
 msgstr "Layout wird gedruckt…"
 
-#: gui/mainwindow_print.cpp:523
+#: gui/mainwindow_print.cpp:533
 msgid "Print Table"
 msgstr "Tabelle drucken"
 
@@ -4696,7 +4775,7 @@ msgstr "GDTF Share"
 
 #
 #: gui/mvr_gdtf_resolution_dialog.cpp:37 gui/mvr_gdtf_resolution_dialog.cpp:53
-#: gui/patch/dmx_patch_canvas.cpp:176
+#: gui/patch/dmx_patch_canvas.cpp:189
 msgid "Unresolved"
 msgstr "Nicht aufgelöst"
 
@@ -5069,25 +5148,25 @@ msgstr "Aktiv auf "
 msgid "%zu discovered, %zu incoming joined, %zu outgoing joined"
 msgstr "%zu gefunden, %zu eingehende Beitritte, %zu ausgehende Beitritte"
 
-#: gui/patch/dmx_patch_canvas.cpp:130
+#: gui/patch/dmx_patch_canvas.cpp:144
 msgid " Fine"
 msgstr " fein"
 
-#: gui/patch/dmx_patch_canvas.cpp:131
+#: gui/patch/dmx_patch_canvas.cpp:145
 #, c-format
 msgid " Byte %d"
 msgstr " Byte %d"
 
-#: gui/patch/dmx_patch_canvas.cpp:163
+#: gui/patch/dmx_patch_canvas.cpp:176
 #, c-format
 msgid "Universe %s | Channel %d"
 msgstr "Universum %s | Kanal %d"
 
-#: gui/patch/dmx_patch_canvas.cpp:165 gui/patch/dmx_patch_diagnostics.cpp:76
+#: gui/patch/dmx_patch_canvas.cpp:178 gui/patch/dmx_patch_diagnostics.cpp:96
 msgid "Overlapping fixtures"
 msgstr "Überlappende Geräte"
 
-#: gui/patch/dmx_patch_canvas.cpp:168
+#: gui/patch/dmx_patch_canvas.cpp:181
 #, c-format
 msgid ""
 "\n"
@@ -5096,109 +5175,123 @@ msgid ""
 "GDTF break %d / MVR break %d | Offset %d | Byte %d\n"
 "Attribute: %s\n"
 "Functions: %s"
-msgstr "\n%s - %s\nUUID: %s\nGDTF-Break %d / MVR-Break %d | Offset %d | Byte %d\nAttribut: %s\nFunktionen: %s"
+msgstr ""
+"\n"
+"%s - %s\n"
+"UUID: %s\n"
+"GDTF-Break %d / MVR-Break %d | Offset %d | Byte %d\n"
+"Attribut: %s\n"
+"Funktionen: %s"
 
-#: gui/patch/dmx_patch_canvas.cpp:171
+#: gui/patch/dmx_patch_canvas.cpp:184
 #, c-format
 msgid "Fixture purpose: %s"
 msgstr "Gerätezweck: %s"
 
-#: gui/patch/dmx_patch_canvas.cpp:175
+#: gui/patch/dmx_patch_canvas.cpp:188
 #, c-format
 msgid "PROVISIONAL: %s | Declared offset %d | GDTF break: %s"
 msgstr "VORLÄUFIG: %s | Deklarierter Offset %d | GDTF-Break: %s"
 
-#: gui/patch/dmx_patch_canvas.cpp:177
+#: gui/patch/dmx_patch_canvas.cpp:190
 msgid ""
 "Declared-offset compatibility preview; this is not a resolved physical patch "
 "assignment."
-msgstr "Kompatibilitätsvorschau deklarierter Offsets; keine aufgelöste physische Patch-Zuweisung."
+msgstr ""
+"Kompatibilitätsvorschau deklarierter Offsets; keine aufgelöste physische "
+"Patch-Zuweisung."
 
-#: gui/patch/dmx_patch_diagnostics.cpp:14
+#: gui/patch/dmx_patch_diagnostics.cpp:16
 msgid "Missing patch assignment"
 msgstr "Patch-Zuweisung fehlt"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:15
+#: gui/patch/dmx_patch_diagnostics.cpp:17
 msgid "Invalid or unsupported DMX address"
 msgstr "Ungültige oder nicht unterstützte DMX-Adresse"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:16
+#: gui/patch/dmx_patch_diagnostics.cpp:18
 msgid "Invalid or ambiguous DMX break"
 msgstr "Ungültiger oder mehrdeutiger DMX-Break"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:17
+#: gui/patch/dmx_patch_diagnostics.cpp:19
 msgid "GDTF definition or DMX mode unavailable"
 msgstr "GDTF-Definition oder DMX-Modus nicht verfügbar"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:18
+#: gui/patch/dmx_patch_diagnostics.cpp:20
 msgid "Physical channel or geometry reference unresolved"
 msgstr "Physischer Kanal oder Geometriereferenz nicht aufgelöst"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:19
+#: gui/patch/dmx_patch_diagnostics.cpp:21
 msgid "Physical channels exceed 512; excess channels are not displayed"
-msgstr "Physische Kanäle überschreiten 512; überschüssige Kanäle werden nicht dargestellt"
+msgstr ""
+"Physische Kanäle überschreiten 512; überschüssige Kanäle werden nicht "
+"dargestellt"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:33
-#: gui/patch/dmx_patch_diagnostics.cpp:35 gui/patch/dmx_patch_panel.cpp:39
+#: gui/patch/dmx_patch_diagnostics.cpp:53
+#: gui/patch/dmx_patch_diagnostics.cpp:55 gui/patch/dmx_patch_panel.cpp:41
 msgid "Patch diagnostics"
 msgstr "Patch-Diagnosen"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:38
+#: gui/patch/dmx_patch_diagnostics.cpp:58
 msgid "Warning"
 msgstr "Warnung"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:54
+#: gui/patch/dmx_patch_diagnostics.cpp:74
 #, c-format
 msgid "Offsets: %s | GDTF break: %s | Geometry: %s"
 msgstr "Offsets: %s | GDTF-Break: %s | Geometrie: %s"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:57
+#: gui/patch/dmx_patch_diagnostics.cpp:77
 #, c-format
 msgid "MVR break %s has no start address"
 msgstr "MVR-Break %s hat keine Startadresse"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:74
+#: gui/patch/dmx_patch_diagnostics.cpp:94
 #, c-format
 msgid "Universe %s, channels %d-%d"
 msgstr "Universum %s, Kanäle %d-%d"
 
-#: gui/patch/dmx_patch_panel.cpp:27
+#: gui/patch/dmx_patch_panel.cpp:28
 msgid "DMX universe"
 msgstr "DMX-Universum"
 
-#: gui/patch/dmx_patch_panel.cpp:28 gui/patch/dmx_patch_panel.cpp:70
+#: gui/patch/dmx_patch_panel.cpp:29 gui/patch/dmx_patch_panel.cpp:102
 msgid "Choose a patched universe or enter any positive universe number."
-msgstr "Wählen Sie ein belegtes Universum oder geben Sie eine positive Universumsnummer ein."
+msgstr ""
+"Wählen Sie ein belegtes Universum oder geben Sie eine positive "
+"Universumsnummer ein."
 
-#: gui/patch/dmx_patch_panel.cpp:30
+#: gui/patch/dmx_patch_panel.cpp:31
 msgid "Declared offsets"
 msgstr "Deklarierte Offsets"
 
-#: gui/patch/dmx_patch_panel.cpp:31
+#: gui/patch/dmx_patch_panel.cpp:33
 msgid ""
 "Explicit provisional preview for unresolved GDTF channels; does not change "
 "the patch."
-msgstr "Explizite vorläufige Vorschau unaufgelöster GDTF-Kanäle; verändert den Patch nicht."
+msgstr ""
+"Explizite vorläufige Vorschau unaufgelöster GDTF-Kanäle; verändert den Patch "
+"nicht."
 
-#: gui/patch/dmx_patch_panel.cpp:40
+#: gui/patch/dmx_patch_panel.cpp:42
 msgid "Show patch diagnostics"
 msgstr "Patch-Diagnosen anzeigen"
 
-#: gui/patch/dmx_patch_panel.cpp:66
+#: gui/patch/dmx_patch_panel.cpp:98
 msgid "Enter a positive universe number."
 msgstr "Geben Sie eine positive Universumsnummer ein."
 
-#: gui/patch/dmx_patch_panel.cpp:116
+#: gui/patch/dmx_patch_panel.cpp:153
 #, c-format
 msgid "Occupied: %d/512 | Conflicts: %d"
 msgstr "Belegt: %d/512 | Konflikte: %d"
 
-#: gui/patch/dmx_patch_panel.cpp:118
+#: gui/patch/dmx_patch_panel.cpp:155
 #, c-format
 msgid "Occupied: %d/512 | Provisional: %d | Conflicts: %d"
 msgstr "Belegt: %d/512 | Vorläufig: %d | Konflikte: %d"
 
-#: gui/patch/dmx_patch_panel.cpp:122
+#: gui/patch/dmx_patch_panel.cpp:159
 #, c-format
 msgid "Show patch diagnostics (%d)"
 msgstr "Patch-Diagnosen anzeigen (%d)"
@@ -6167,31 +6260,31 @@ msgstr "Scheinwerfertyp auswählen:"
 msgid "Add from file..."
 msgstr "Aus Datei hinzufügen…"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:534
+#: gui/services/fixture_symbol_preparation_service.cpp:672
 msgid "fixture resource"
 msgstr "Scheinwerferressource"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:537
+#: gui/services/fixture_symbol_preparation_service.cpp:675
 msgid "Preparing"
 msgstr "Vorbereitung"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:541
+#: gui/services/fixture_symbol_preparation_service.cpp:679
 msgid "Capturing fixture views"
 msgstr "Scheinwerferansichten werden erfasst"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:544
+#: gui/services/fixture_symbol_preparation_service.cpp:682
 msgid "Processing"
 msgstr "Verarbeitung"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:547
+#: gui/services/fixture_symbol_preparation_service.cpp:685
 msgid "Publishing"
 msgstr "Veröffentlichung"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:550
+#: gui/services/fixture_symbol_preparation_service.cpp:688
 msgid "Refreshing"
 msgstr "Aktualisierung"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:554
+#: gui/services/fixture_symbol_preparation_service.cpp:692
 #, c-format
 msgid "Preparing fixture symbols: %s - %s - %zu pending"
 msgstr "Scheinwerfersymbole werden vorbereitet: %s - %s - %zu ausstehend"
@@ -6307,14 +6400,6 @@ msgstr "Offline-Hilfedateien fehlen. Verwenden Sie die Online-Dokumentation."
 #: gui/viewer2dprintdialog.cpp:34
 msgid "Page size"
 msgstr "Seitengröße"
-
-#: gui/viewer2dprintdialog.cpp:36
-msgid "A3"
-msgstr "A3"
-
-#: gui/viewer2dprintdialog.cpp:38
-msgid "A4"
-msgstr "A4"
 
 #: gui/viewer2dprintdialog.cpp:46
 msgid "Portrait"

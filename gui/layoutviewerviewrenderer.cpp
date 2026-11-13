@@ -1,4 +1,5 @@
 #include "layoutviewerviewrenderer.h"
+#include "layout_viewport_preview.h"
 
 #include <algorithm>
 #include <cmath>
@@ -441,9 +442,12 @@ wxImage RenderLayoutViewCommandBufferToImage(
   std::unordered_map<SvgLookupKey, std::optional<PerastageSvgSymbolData>, SvgLookupHasher>
       svgCache;
   std::unordered_map<std::string, std::string> resolvedModelKeyCache;
-  RenderCommandBuffer(dc, buffer, mapping, symbols, svgCache,
-                      resolvedModelKeyCache, nullptr, Transform2D::Identity(),
-                      CanvasTransform{}, false);
+  if (viewState.physicalMapping)
+    RenderPhysicalViewportPreview(dc, buffer, mapping, symbols);
+  else
+    RenderCommandBuffer(dc, buffer, mapping, symbols, svgCache,
+                        resolvedModelKeyCache, nullptr, Transform2D::Identity(),
+                        CanvasTransform{}, false);
 
   memoryDc.SelectObject(wxNullBitmap);
   return bitmap.ConvertToImage();

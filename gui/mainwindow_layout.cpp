@@ -1034,6 +1034,7 @@ void MainWindow::BeginLayout2DViewEdit() {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
 
   Layout2DViewDialog dialog(this, &cfg, &cfg);
+  dialog.SetViewportDefinition(*view);
   layout2DViewEditPanel = dialog.GetViewerPanel();
   layout2DViewEditRenderPanel = dialog.GetRenderPanel();
   if (layout2DViewEditPanel) {
@@ -1164,6 +1165,8 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
 
   layouts::Layout2DViewDefinition updatedView =
       viewer2d::ToLayoutDefinition(current, frame);
+  if (auto *dialog = dynamic_cast<Layout2DViewDialog *>(editPanel ? editPanel->GetParent() : nullptr))
+    dialog->ApplyViewportProperties(updatedView);
   updatedView.id = viewId;
   if (matchedView) {
     updatedView.zIndex = matchedView->zIndex;
