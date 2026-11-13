@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-13 18:59+0100\n"
+"POT-Creation-Date: 2026-11-13 21:40+0100\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: German\n"
@@ -313,7 +313,7 @@ msgstr "Nur Verweise exportieren"
 #: gui/dictionaryeditdialog.cpp:260 gui/dictionaryeditdialog.cpp:293
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
 #: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:92
-#: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:85
+#: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:98
 #: gui/layouttextdialog.cpp:149 gui/preferencesdialog.cpp:87
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139
@@ -527,7 +527,7 @@ msgid "Export..."
 msgstr "Exportieren…"
 
 #: gui/dictionaryeditdialog.cpp:610 gui/gdtf_download_queue_dialog.cpp:93
-#: gui/layout2dviewdialog.cpp:84 gui/mvr_export_result_dialog.cpp:97
+#: gui/layout2dviewdialog.cpp:97 gui/mvr_export_result_dialog.cpp:97
 #: gui/preferencesdialog.cpp:86 gui/scene_object_primitive_dialogs.cpp:138
 msgid "OK"
 msgstr "OK"
@@ -2837,85 +2837,88 @@ msgstr "Standardebene kann nicht umbenannt werden."
 msgid "Rename Layer"
 msgstr "Ebene umbenennen"
 
-#: gui/layout2dviewdialog.cpp:67
+#: gui/layout2dviewdialog.cpp:69
 msgid "Visual framing"
 msgstr "Visueller Ausschnitt"
 
-#: gui/layout2dviewdialog.cpp:69
+#: gui/layout2dviewdialog.cpp:71
 msgid "100%"
 msgstr "100%"
 
-#: gui/layout2dviewdialog.cpp:77 gui/layout_viewport_properties.cpp:34
-#: gui/layout_viewport_properties.cpp:128
+#: gui/layout2dviewdialog.cpp:79 gui/layout2dviewdialog.cpp:124
+#: gui/layout_viewport_properties.cpp:35 gui/layout_viewport_properties.cpp:124
 msgid "Viewport properties"
 msgstr "Ansichtseigenschaften"
 
-#: gui/layout2dviewdialog.cpp:201
+#: gui/layout2dviewdialog.cpp:123 gui/layout_viewport_properties.cpp:123
+#, c-format
+msgid "Invalid viewport properties: %s"
+msgstr "Ungültige Ansichtseigenschaften: %s"
+
+#: gui/layout2dviewdialog.cpp:224
+#, c-format
+msgid "1:%s"
+msgstr "1:%s"
+
+#: gui/layout2dviewdialog.cpp:226
 #, c-format
 msgid "%d%%"
 msgstr "%d%%"
 
-#: gui/layout_viewport_properties.cpp:43
+#: gui/layout_viewport_properties.cpp:44
 msgid "Free / Variable"
 msgstr "Frei / Variabel"
 
-#: gui/layout_viewport_properties.cpp:43
+#: gui/layout_viewport_properties.cpp:44
 msgid "Fixed"
 msgstr "Fest"
 
-#: gui/layout_viewport_properties.cpp:45
+#: gui/layout_viewport_properties.cpp:46
 msgid "Scale mode"
 msgstr "Maßstabsmodus"
 
-#: gui/layout_viewport_properties.cpp:56
+#: gui/layout_viewport_properties.cpp:57
 msgid "Drawing scale 1:"
 msgstr "Zeichnungsmaßstab 1:"
 
-#: gui/layout_viewport_properties.cpp:61
+#: gui/layout_viewport_properties.cpp:62
 msgid "Center horizontal (m)"
 msgstr "Mittelpunkt horizontal (m)"
 
-#: gui/layout_viewport_properties.cpp:62
+#: gui/layout_viewport_properties.cpp:63
 msgid "Center vertical (m)"
 msgstr "Mittelpunkt vertikal (m)"
 
-#: gui/layout_viewport_properties.cpp:66
+#: gui/layout_viewport_properties.cpp:67
 msgid "Page X (mm)"
 msgstr "Seitenposition X (mm)"
 
-#: gui/layout_viewport_properties.cpp:67
+#: gui/layout_viewport_properties.cpp:68
 msgid "Page Y (mm)"
 msgstr "Seitenposition Y (mm)"
 
-#: gui/layout_viewport_properties.cpp:68
+#: gui/layout_viewport_properties.cpp:69
 msgid "Frame width (mm)"
 msgstr "Rahmenbreite (mm)"
 
-#: gui/layout_viewport_properties.cpp:69
+#: gui/layout_viewport_properties.cpp:70
 msgid "Frame height (mm)"
 msgstr "Rahmenhöhe (mm)"
 
-#: gui/layout_viewport_properties.cpp:72
+#: gui/layout_viewport_properties.cpp:77
 msgid "Center axes: Top X/Y, Front X/Z, Side Y/Z. Page origin: top left."
-msgstr "Mittelpunktachsen: oben X/Y, vorne X/Z, seitlich Y/Z. Seitenursprung: oben links."
+msgstr ""
+"Mittelpunktachsen: oben X/Y, vorne X/Z, seitlich Y/Z. Seitenursprung: oben "
+"links."
 
-#: gui/layout_viewport_properties.cpp:74
+#: gui/layout_viewport_properties.cpp:79
 msgid "Free scale: variable"
 msgstr "Freier Maßstab: variabel"
 
-#: gui/layout_viewport_properties.cpp:82
+#: gui/layout_viewport_properties.cpp:87
 #, c-format
 msgid "Effective free scale: approximately 1:%.4f"
 msgstr "Effektiver freier Maßstab: ungefähr 1:%.4f"
-
-#: gui/layout_viewport_properties.cpp:86
-msgid "Use visual framing center"
-msgstr "Mittelpunkt des sichtbaren Ausschnitts verwenden"
-
-#: gui/layout_viewport_properties.cpp:127
-#, c-format
-msgid "Invalid viewport properties: %s"
-msgstr "Ungültige Ansichtseigenschaften: %s"
 
 #: gui/layoutimageutils.cpp:81
 msgid "Invalid image"
@@ -6516,23 +6519,23 @@ msgstr "Alle auswählen"
 msgid "Spanish"
 msgstr "Español"
 
-#: viewer2d/viewer2dpanel.cpp:3564
+#: viewer2d/viewer2dpanel.cpp:3567
 msgid "Gap measure: "
 msgstr "Abstandsmessung: "
 
-#: viewer2d/viewer2dpanel.cpp:3565
+#: viewer2d/viewer2dpanel.cpp:3568
 msgid "Measure: "
 msgstr "Messung: "
 
-#: viewer2d/viewer2dpanel.cpp:3637 viewer3d/viewer3dpanel.cpp:2255
+#: viewer2d/viewer2dpanel.cpp:3640 viewer3d/viewer3dpanel.cpp:2255
 msgid "Convert to Truss"
 msgstr "In Traverse konvertieren"
 
-#: viewer2d/viewer2dpanel.cpp:3723 viewer3d/viewer3dpanel.cpp:2272
+#: viewer2d/viewer2dpanel.cpp:3726 viewer3d/viewer3dpanel.cpp:2272
 msgid "No position"
 msgstr "Keine Position"
 
-#: viewer2d/viewer2dpanel.cpp:3734 viewer3d/viewer3dpanel.cpp:2283
+#: viewer2d/viewer2dpanel.cpp:3737 viewer3d/viewer3dpanel.cpp:2283
 msgid "Select by position"
 msgstr "Nach Position auswählen"
 
@@ -6639,6 +6642,9 @@ msgstr "Darstellungsstil"
 #: viewer3d/viewer3dpanel.cpp:2288
 msgid "Export image..."
 msgstr "Bild exportieren…"
+
+#~ msgid "Use visual framing center"
+#~ msgstr "Mittelpunkt des sichtbaren Ausschnitts verwenden"
 
 #~ msgid "Frame scale"
 #~ msgstr "Rahmenskalierung"

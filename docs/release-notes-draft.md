@@ -5,6 +5,12 @@
   properties. Fixed viewports keep their scale when moved or resized and require
   document-size PDF output. Layout paper size can be selected as A3 or A4 without
   resizing content; viewport settings support Undo/Redo, projects and templates.
+  The fixed-scale editor shows the actual crop in its red frame with zoom locked
+  and pan available. Millimeter properties display without unnecessary decimals
+  while retaining stored precision.
+- Fixed oversized strokes in fixed-scale Layout previews and restored thin,
+  correctly rendered Legend fallback fixture symbols before optimized symbols
+  have been generated.
 
 <!--
 RELEASE NOTES — WORK IN PROGRESS
@@ -103,7 +109,7 @@ full MVR/GDTF conformance, or interoperability with every third-party applicatio
 - Layout page operations and element edits now participate reliably in project Undo/Redo. Selection-only actions, unchanged edits, and cancelled moves or resizes no longer create unwanted history entries; image resources are retained across undo and redo.
 
 <!--
-Further work may include physical drawing scales, annotations, dimensions,
+Further work may include annotations, dimensions,
 reusable label styles, and shared typography for free text, legends and tables.
 Do not list these as delivered until implemented and verified.
 -->

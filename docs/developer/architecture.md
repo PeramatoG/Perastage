@@ -692,7 +692,8 @@ Integer gesture deltas preserve residuals. Display and hit testing resolve those
 residuals before editor zoom; rounding happens only at the screen boundary.
 Other element types retain their
 existing representation. Numeric properties use millimeters at the GUI boundary;
-only document points are serialized. Core validates candidates before mutation
+millimeters display without decimals and unchanged controls preserve their original
+double values individually. Only document points are serialized. Core validates candidates before mutation
 publication; optional viewport metadata is omitted for untouched legacy views.
 Invalid new viewport metadata rejects its template transaction without publishing
 part of the candidate. PSTG metadata and history use the same serializer; no
@@ -725,3 +726,20 @@ normal revisions. The existing scoped Viewer2D state restores workspace values.
 Passive camera notifications cannot publish modal drafts; only OK commits the
 validated Layout candidate. This also preserves metadata when changing view
 orientation and cancelling the editor.
+
+The fixed modal editor uses `layout_physical_editor.h` to resolve both its red
+border and camera zoom from the same physical crop and framebuffer dimensions.
+Mouse-wheel, fit and Alt+arrow zoom are blocked locally; pan deltas update the
+world center relative to an original double anchor. The free camera is retained
+across mode transitions. Resize changes display magnification, not the crop.
+
+Captured `CanvasStroke` widths are device pixels, not scene meters.
+`paper_stroke_mapping.h` cancels geometry magnification and retains the existing
+PDF stroke contract (0.5625 paper points per captured pixel) in fixed previews.
+Glyph outline radii keep their existing scene-unit typography contract. Command
+metadata controls stroke/fill participation, including fill-only mesh triangles.
+Legend fallback geometry fits its cell independently of its one-point captured
+outlines, matching the pre-November 4 behavior. Both preview and PDF use that
+paper-space stroke conversion; optimized SVG resources remain unchanged. The
+platform raster contract advances to v2 so reopening a project discards cached
+images produced with the incorrect stroke widths.

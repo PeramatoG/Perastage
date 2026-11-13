@@ -273,3 +273,8 @@ select every occupying fixture; group expansion uses the configured interactive
 transform policy. The main window publishes through the existing selection-only
 refresh path, including selection history, without repatching or rebuilding
 occupancy. These mouse modifiers add no global accelerators or navigation keys.
+
+In the modal 2D View Editor, a fixed physical viewport locks mouse-wheel zoom,
+`Z` fit and `Alt`+arrow zoom. Plain arrows and drag pan remain available and
+update its world center. Editable-widget focus keeps its existing priority.
+Free/variable mode retains the existing shortcuts and restores its free camera.

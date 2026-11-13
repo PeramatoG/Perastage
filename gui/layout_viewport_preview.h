@@ -19,4 +19,5 @@
 #include "viewer2dcommandrenderer.h"
 class wxGCDC;
 void RenderPhysicalViewportPreview(wxGCDC &dc, const CommandBuffer &buffer,
-    const viewer2d::Viewer2DRenderMapping &mapping, const SymbolDefinitionSnapshot *symbols);
+    const viewer2d::Viewer2DRenderMapping &mapping, const SymbolDefinitionSnapshot *symbols,
+    double paperToOutput = 1.0);

@@ -29,6 +29,8 @@ private:
   void OnCharHook(wxKeyEvent &event);
   void OnScaleChanged(wxCommandEvent &event);
   void UpdateScaleLabel();
+  void SyncPhysicalCenter();
+  void UpdateEditorScaleMode();
 
   Viewer2DPanel *viewerPanel = nullptr;
   Viewer2DRenderPanel *renderPanel = nullptr;
@@ -37,6 +39,8 @@ private:
   wxSlider *scaleSlider = nullptr;
   wxStaticText *scaleValueLabel = nullptr;
   ConfigManager *config = nullptr;
+  std::optional<layouts::Layout2DViewCameraState> freeEditorCamera;
+  float freeEditorOverlayScale = 1;
   std::optional<layouts::Layout2DViewDefinition> initialEditorView;
   bool initialShowSyncDone = false;
   std::optional<layouts::Layout2DViewDefinition> viewportDraft;

@@ -25,6 +25,7 @@
 #pragma once
 
 #include "PhysicalViewport.h"
+#include "layout_physical_editor.h"
 #include "continuous_placement_type.h"
 #include "scene_grouping.h"
 #include "continuous_placement_state.h"
@@ -175,6 +176,11 @@ public:
   void SetLayoutEditOverlay(std::optional<float> aspectRatio,
                             std::optional<wxSize> viewportSize = std::nullopt);
   void SetLayoutEditOverlayScale(float scale);
+  void SetLayoutPhysicalViewport(const layouts::PhysicalViewport &physical,
+                                const layouts::ViewportFramePoints &frame);
+  void ClearLayoutPhysicalViewport();
+  bool IsLayoutPhysicalZoomLocked() const { return m_physicalEditor.has_value(); }
+  std::optional<layouts::PhysicalViewport> GetLayoutPhysicalViewport() const;
   float GetLayoutEditOverlayScale() const { return m_layoutEditScale; }
   std::optional<wxSize> GetLayoutEditOverlaySize() const;
 
@@ -386,6 +392,14 @@ private:
   float m_offsetX = 0.0f;
   float m_offsetY = 0.0f;
   float m_zoom = 1.0f;
+  struct PhysicalEditorState {
+    layouts::PhysicalViewport physical;
+    layouts::ViewportFramePoints frame;
+    float referenceX, referenceY;
+    Viewer2DView orientation;
+  };
+  std::optional<PhysicalEditorState> m_physicalEditor;
+  void UpdateLayoutPhysicalCamera(int width, int height);
   bool m_mouseInside = false;
   bool m_hasHover = false;
   bool m_interactiveLabelMode = false;

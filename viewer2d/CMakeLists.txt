@@ -44,6 +44,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel_presentation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel_rendering.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel_layout_editor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel_helpers.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel_mouse_capture.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpdfexporter.cpp

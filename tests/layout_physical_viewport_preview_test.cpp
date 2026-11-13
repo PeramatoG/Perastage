@@ -17,6 +17,7 @@
  */
 #include "layout_viewport_preview.h"
 #include "layout_viewport_adapter.h"
+#include "layout_physical_editor.h"
 #include "layout_viewport_properties.h"
 #include <wx/choice.h>
 #include <wx/combobox.h>
@@ -34,7 +35,7 @@ void TestViewportPropertiesControls() {
   layouts::Layout2DViewDefinition draft; draft.id=7; draft.frame={17,29,101,73};
   draft.camera.zoom=2.3f;
   Viewer2DViewState visual; visual.viewportWidth=800; visual.viewportHeight=600;
-  auto schedule = [](bool accept, int mode, bool changeValues) {
+  auto schedule = [](bool accept, int mode, bool changeValues, bool moveOnly = false) {
     wxTheApp->CallAfter([=] {
       wxDialog *dialog=nullptr;
       for (auto *window : wxTopLevelWindows)
@@ -52,11 +53,14 @@ void TestViewportPropertiesControls() {
       choice->SetSelection(mode);
       wxCommandEvent selected(wxEVT_CHOICE,choice->GetId());
       choice->GetEventHandler()->ProcessEvent(selected);
+      for (size_t i=2; i<fields.size(); ++i)
+        assert(fields[i]->GetValue().Find('.') == wxNOT_FOUND);
       if (changeValues) {
         denominator->SetValue("100");
         const std::array<const char *,6> values={"12","-9","7","11","123.456789","88.901234"};
         for(size_t i=0;i<values.size();++i) fields[i]->SetValue(values[i]);
       }
+      if (moveOnly) fields[2]->SetValue("8");
       wxCommandEvent event(wxEVT_BUTTON,accept ? wxID_OK : wxID_CANCEL);
       dialog->GetEventHandler()->ProcessEvent(event);
     });
@@ -72,9 +76,17 @@ void TestViewportPropertiesControls() {
   const auto f=layouts::ResolveViewportFrame(draft);
   assert(std::abs(f.width*25.4/72-123.456789)<1e-9);
   const auto residual=draft.frameResidual;
+  draft.physicalScale->centerX=12.123456789123;
+  draft.physicalScale->centerY=-9.987654321987;
+  const auto precise=*draft.physicalScale;
   schedule(true,1,false);
   assert(EditLayoutViewportProperties(nullptr,draft,visual));
   assert(draft.frameResidual.width==residual.width && draft.frameResidual.height==residual.height);
+  assert(draft.physicalScale->centerX==precise.centerX && draft.physicalScale->centerY==precise.centerY);
+  schedule(true,1,false,true);
+  assert(EditLayoutViewportProperties(nullptr,draft,visual));
+  assert(layouts::ResolveViewportFrame(draft).width==f.width);
+  assert(layouts::ResolveViewportFrame(draft).height==f.height);
   schedule(true,0,false);
   assert(EditLayoutViewportProperties(nullptr,draft,visual));
   assert(draft.scaleMode==layouts::ViewportScaleMode::Free && draft.physicalScale->denominator==100);
@@ -85,6 +97,23 @@ void TestViewportPropertiesControls() {
 // Measures the actual GUI graphics backend under raster scaling/DPI changes.
 void TestPhysicalViewportPreview() {
   TestViewportPropertiesControls();
+  const layouts::PhysicalViewport physical{50,12.123456789,-3.987654321};
+  const layouts::ViewportFramePoints frame{0,0,312.3456,197.6543};
+  for (auto size : {wxSize(800,600),wxSize(1600,1200),wxSize(600,900)}) {
+    const auto geometry=viewer2d::ResolvePhysicalEditorGeometry(
+        physical,frame,size.x,size.y,viewer2d::kViewer2DPixelsPerMeter);
+    const auto world=layouts::ResolvePhysicalViewport(physical,frame.width,frame.height);
+    assert(std::abs(geometry.width/geometry.zoom/viewer2d::kViewer2DPixelsPerMeter-world.width)<1e-10);
+    assert(std::abs(geometry.height/geometry.zoom/viewer2d::kViewer2DPixelsPerMeter-world.height)<1e-10);
+  }
+  for (int orientation : {0,1,2}) {
+    const auto unchanged=viewer2d::ResolvePhysicalEditorPan(physical,0,0,orientation,viewer2d::kViewer2DPixelsPerMeter);
+    assert(unchanged.centerX==physical.centerX && unchanged.centerY==physical.centerY);
+    const auto pan=viewer2d::ResolvePhysicalEditorPan(physical,25,-50,orientation,viewer2d::kViewer2DPixelsPerMeter);
+    assert(pan.denominator==50);
+    assert(std::abs(pan.centerX-physical.centerX+layouts::ViewportHorizontalSign(orientation))<1e-12);
+    assert(pan.centerY==physical.centerY+2);
+  }
   for (double denominator : {50.0, 100.0}) for (double deviceScale : {1.0, 1.5, 2.0, 4.0}) {
     layouts::Layout2DViewDefinition v; v.frame={0,0,300,200};
     v.scaleMode=layouts::ViewportScaleMode::Fixed;
@@ -95,20 +124,33 @@ void TestPhysicalViewportPreview() {
     assert(viewer2d::BuildViewMapping(state,width,height,0,mapping));
     CommandBuffer buffer;
     LineCommand line; line.x0=0; line.y0=0; line.x1=1; line.y1=0;
-    line.stroke.width=0.02f;
+    line.stroke.width=1; // Production grid/ruler/mesh strokes are captured pixels.
     buffer.commands.emplace_back(line);
+    buffer.metadata.push_back({true,false});
+    PolygonCommand triangle; triangle.points={-1,-1,-0.5f,-1,-1,-0.5f};
+    triangle.hasFill=true; triangle.fill.color={0,1,0,1}; triangle.stroke.width=1000;
+    buffer.commands.emplace_back(triangle); buffer.metadata.push_back({false,true});
     wxBitmap bitmap(width,height,32);
     wxMemoryDC memory; memory.SelectObject(bitmap);
     memory.SetBackground(*wxWHITE_BRUSH); memory.Clear();
-    { wxGCDC graphics(memory); RenderPhysicalViewportPreview(graphics,buffer,mapping,nullptr); }
+    { wxGCDC graphics(memory); RenderPhysicalViewportPreview(graphics,buffer,mapping,nullptr,deviceScale); }
     memory.SelectObject(wxNullBitmap);
     const auto image=bitmap.ConvertToImage(); assert(image.IsOk());
-    int left=width,right=-1;
+    const int outsideX=static_cast<int>(width/2-1.1*mapping.scale);
+    const int outsideY=static_cast<int>(height/2+0.75*mapping.scale);
+    assert(image.GetRed(outsideX,outsideY)==255 && image.GetGreen(outsideX,outsideY)==255);
+    int left=width,right=-1, top=height,bottom=-1;
     for(int y=height/2-3; y<=height/2+3; ++y) for(int x=0;x<width;++x)
       if(image.GetRed(x,y)<240) { left=std::min(left,x); right=std::max(right,x); }
     assert(right>=left);
     const double expected=1000/denominator*72/25.4*deviceScale;
-    // Pixel coverage includes the authored 0.02 m stroke's end caps.
+    for(int y=0;y<height;++y)
+      if(image.GetRed(width/2+static_cast<int>(expected/2),y)<240) {
+        top=std::min(top,y); bottom=std::max(bottom,y);
+      }
+    // Ink thickness stays in paper points as the drawing denominator changes.
+    assert(bottom-top+1 <= std::ceil(0.5625*deviceScale)+2);
+    // Raster antialias coverage is bounded independently of world scale.
     const double tolerance = 2 + expected * 0.01;
     assert(std::abs(left-width/2)<tolerance);
     assert(std::abs(right-width/2-expected)<tolerance);

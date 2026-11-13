@@ -27,6 +27,7 @@
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
 #include <array>
+#include <wx/numformatter.h>
 
 // Presents paper geometry separately from scene framing and workspace zoom.
 bool EditLayoutViewportProperties(wxWindow *parent,
@@ -51,11 +52,11 @@ bool EditLayoutViewportProperties(wxWindow *parent,
     physical.centerY = (bounds.minY + bounds.maxY) / 2;
   }
   auto *denominator = new wxComboBox(&dialog, wxID_ANY,
-      wxString::FromDouble(physical.denominator, 8));
+      wxNumberFormatter::ToString(physical.denominator, 8, wxNumberFormatter::Style_NoTrailingZeroes));
   for (const auto *v : {"25", "50", "100", "200", "500"}) denominator->Append(v);
   row(_("Drawing scale 1:"), denominator);
-  auto text = [&](const wxString &label, double value) {
-    auto *field = new wxTextCtrl(&dialog, wxID_ANY, wxString::FromDouble(value, 10));
+  auto text = [&](const wxString &label, double value, int precision = 3) {
+    auto *field = new wxTextCtrl(&dialog, wxID_ANY, wxNumberFormatter::ToString(value, precision, wxNumberFormatter::Style_NoTrailingZeroes));
     row(label, field); return field;
   };
   auto *cx = text(_("Center horizontal (m)"), physical.centerX);
@@ -63,10 +64,14 @@ bool EditLayoutViewportProperties(wxWindow *parent,
   const auto f = layouts::ResolveViewportFrame(draft);
   constexpr double mmPerPoint = 25.4 / 72.0;
   std::array<wxTextCtrl *,4> frame = {
-    text(_("Page X (mm)"), f.x * mmPerPoint),
-    text(_("Page Y (mm)"), f.y * mmPerPoint),
-    text(_("Frame width (mm)"), f.width * mmPerPoint),
-    text(_("Frame height (mm)"), f.height * mmPerPoint)};
+    text(_("Page X (mm)"), f.x * mmPerPoint, 0),
+    text(_("Page Y (mm)"), f.y * mmPerPoint, 0),
+    text(_("Frame width (mm)"), f.width * mmPerPoint, 0),
+    text(_("Frame height (mm)"), f.height * mmPerPoint, 0)};
+  const wxString originalDenominator = denominator->GetValue();
+  const wxString originalX = cx->GetValue(), originalY = cy->GetValue();
+  std::array<wxString,4> originalFrame;
+  for (size_t i=0; i<frame.size(); ++i) originalFrame[i] = frame[i]->GetValue();
   box->Add(grid, 1, wxEXPAND | wxALL, 12);
   auto *axes = new wxStaticText(&dialog, wxID_ANY,
       _("Center axes: Top X/Y, Front X/Z, Side Y/Z. Page origin: top left."));
@@ -83,17 +88,10 @@ bool EditLayoutViewportProperties(wxWindow *parent,
         1000.0 * 72.0 / 25.4 / pointsPerMeter));
   }
   box->Add(effective, 0, wxLEFT | wxRIGHT | wxBOTTOM, 12);
-  auto *recenter = new wxButton(&dialog, wxID_ANY, _("Use visual framing center"));
-  recenter->Enable(hasBounds);
-  recenter->Bind(wxEVT_BUTTON, [=](wxCommandEvent &) {
-    cx->SetValue(wxString::FromDouble(layouts::ViewportHorizontalSign(static_cast<int>(visualState.view)) * (bounds.minX + bounds.maxX) / 2, 10));
-    cy->SetValue(wxString::FromDouble((bounds.minY + bounds.maxY) / 2, 10));
-  });
-  box->Add(recenter, 0, wxLEFT | wxRIGHT | wxBOTTOM, 12);
   auto enable = [=]() {
     bool fixed = mode->GetSelection() == 1;
     denominator->Enable(fixed); cx->Enable(fixed); cy->Enable(fixed);
-    recenter->Enable(fixed && hasBounds); effective->Show(!fixed);
+    effective->Show(!fixed);
   };
   mode->Bind(wxEVT_CHOICE, [=, &dialog](wxCommandEvent &) { enable(); dialog.Layout(); });
   enable();
@@ -107,20 +105,18 @@ bool EditLayoutViewportProperties(wxWindow *parent,
                  cx->GetValue().ToDouble(&x) && cy->GetValue().ToDouble(&y);
     for (size_t i = 0; i < n.size(); ++i) valid = frame[i]->GetValue().ToDouble(&n[i]) && valid;
     try {
-      if (denominator->GetValue() == wxString::FromDouble(physical.denominator, 8)) d = physical.denominator;
-      if (cx->GetValue() == wxString::FromDouble(physical.centerX, 10)) x = physical.centerX;
-      if (cy->GetValue() == wxString::FromDouble(physical.centerY, 10)) y = physical.centerY;
+      if (denominator->GetValue() == originalDenominator) d = physical.denominator;
+      if (cx->GetValue() == originalX) x = physical.centerX;
+      if (cy->GetValue() == originalY) y = physical.centerY;
       if (!valid) throw std::invalid_argument("Enter finite numeric values for scale, center and frame.");
       candidate.scaleMode = mode->GetSelection() == 1 ? layouts::ViewportScaleMode::Fixed : layouts::ViewportScaleMode::Free;
       if (candidate.scaleMode == layouts::ViewportScaleMode::Fixed || draft.physicalScale)
         candidate.physicalScale = layouts::PhysicalViewport{d, x, y};
       // Preserve the exact stored doubles on an unchanged edit.
-      bool changed = false;
       const std::array<double,4> old = {f.x, f.y, f.width, f.height};
       for (size_t i = 0; i < n.size(); ++i)
-        changed = changed || std::abs(n[i] - old[i] * mmPerPoint) > 1e-9;
-      if (changed) layouts::SetViewportFrame(candidate,
-          {n[0]/mmPerPoint, n[1]/mmPerPoint, n[2]/mmPerPoint, n[3]/mmPerPoint});
+        n[i] = frame[i]->GetValue() == originalFrame[i] ? old[i] : n[i]/mmPerPoint;
+      layouts::SetViewportFrame(candidate, {n[0], n[1], n[2], n[3]});
       layouts::ValidateViewport(candidate);
       draft = candidate; dialog.EndModal(wxID_OK);
     } catch (const std::exception &e) {

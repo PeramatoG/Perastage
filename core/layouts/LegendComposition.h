@@ -16,7 +16,7 @@ struct LegendSymbolGeometry {
   SymbolGeometryKind kind = SymbolGeometryKind::Missing;
   std::size_t reference = 0; // Caller-owned immutable resolved view, not SVG bytes.
   Rect bounds;
-  double strokeScale = 1; // Source stroke units to resource units.
+  double strokeScale = 1; // Captured stroke pixels to paper points.
 };
 struct LegendCompositionRow {
   std::string id;

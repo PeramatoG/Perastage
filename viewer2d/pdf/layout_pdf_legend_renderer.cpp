@@ -1,4 +1,5 @@
 #include "layout_pdf_legend_renderer.h"
+#include "paper_stroke_mapping.h"
 #include "layout_pdf_page_mapping.h"
 
 #include <algorithm>
@@ -99,7 +100,7 @@ LegendPdfRenderResult RenderLegendPdf(std::ostringstream &out,
       mapping.offsetY = frameTop - placement.draw.y - placement.draw.height;
       mapping.drawHeight = placement.draw.height;
       mapping.flipY = false;
-      out << renderCommands(resolved.commands->localCommands, mapping, placement.geometry.strokeScale);
+      out << renderCommands(resolved.commands->localCommands, mapping, viewer2d::PaperStrokeScale(placement.scale, 1.0, placement.geometry.strokeScale));
       ++result.symbols.fallbackSymbolInstances;
     }
     out << "Q\n";

@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layout_viewport_preview.h"
+#include "paper_stroke_mapping.h"
 #include "document_text_renderer.h"
 #include "typography/font_resources.h"
 #include "typography/glyph_outline.h"
@@ -34,9 +35,12 @@ wxColour Color(const CanvasColor &v) {
 // remain owned by Viewer2DCommandRenderer, as in vector output.
 class PreviewBackend final : public viewer2d::IViewer2DCommandBackend {
 public:
-  explicit PreviewBackend(wxGraphicsContext &gc) : gc_(gc) {}
+  PreviewBackend(wxGraphicsContext &gc, double strokeScale) : gc_(gc), strokeScale_(strokeScale) {}
   void Stroke(const CanvasStroke &s, double width, const CanvasFill *f = nullptr) {
-    gc_.SetPen(gc_.CreatePen(wxGraphicsPenInfo(Color(s.color)).Width(std::max(0.1, width))));
+    if (width > 0)
+      gc_.SetPen(gc_.CreatePen(wxGraphicsPenInfo(Color(s.color)).Width(width * strokeScale_)
+          .Cap(wxCAP_ROUND).Join(wxJOIN_ROUND)));
+    else gc_.SetPen(*wxTRANSPARENT_PEN);
     gc_.SetBrush(f ? wxBrush(Color(f->color)) : *wxTRANSPARENT_BRUSH);
   }
   void DrawLine(const viewer2d::Viewer2DRenderPoint &a, const viewer2d::Viewer2DRenderPoint &b,
@@ -51,7 +55,7 @@ public:
     for (size_t i = 1; i < p.size(); ++i) path.AddLineToPoint(p[i].x, p[i].y);
     if (closed) path.CloseSubpath();
     if (f) gc_.FillPath(path);
-    gc_.StrokePath(path);
+    if (width > 0) gc_.StrokePath(path);
   }
   void DrawPolyline(const std::vector<viewer2d::Viewer2DRenderPoint> &p,
       const CanvasStroke &s, double width) override { Path(p, s, width, nullptr, false); }
@@ -59,7 +63,10 @@ public:
       const CanvasStroke &s, const CanvasFill *f, double width) override { Path(p, s, width, f, true); }
   void DrawCircle(const viewer2d::Viewer2DRenderPoint &p, double radius,
       const CanvasStroke &s, const CanvasFill *f, double width) override {
-    Stroke(s, width, f); gc_.DrawEllipse(p.x-radius, p.y-radius, 2*radius, 2*radius);
+    Stroke(s, width, f);
+    auto path = gc_.CreatePath(); path.AddEllipse(p.x-radius, p.y-radius, 2*radius, 2*radius);
+    if (f) gc_.FillPath(path);
+    if (width > 0) gc_.StrokePath(path);
   }
   void DrawText(const viewer2d::Viewer2DRenderText &t) override {
     if (t.fontSizePx <= 0) return;
@@ -112,12 +119,13 @@ public:
   }
 private:
   wxGraphicsContext &gc_;
+  double strokeScale_;
 };
 }
 void RenderPhysicalViewportPreview(wxGCDC &dc, const CommandBuffer &buffer,
-    const viewer2d::Viewer2DRenderMapping &mapping, const SymbolDefinitionSnapshot *symbols) {
+    const viewer2d::Viewer2DRenderMapping &mapping, const SymbolDefinitionSnapshot *symbols, double paperToOutput) {
   if (auto *gc = dc.GetGraphicsContext()) {
-    PreviewBackend backend(*gc);
+    PreviewBackend backend(*gc, viewer2d::PaperStrokeScale(mapping.scale, paperToOutput));
     viewer2d::Viewer2DCommandRenderer renderer(mapping, backend, symbols);
     renderer.Render(buffer);
   }

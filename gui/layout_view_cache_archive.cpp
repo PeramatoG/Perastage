@@ -57,14 +57,15 @@ constexpr size_t kMaxPersistentCacheBytes = 8 * 1024 * 1024;
 constexpr size_t kMaxPersistentRasterBytes = 16 * 1024 * 1024;
 constexpr size_t kMaxPersistentRasterEntryBytes = 8 * 1024 * 1024;
 
+// Raster v2 invalidates cached previews made with geometry-scaled stroke widths.
 // Returns the platform-scoped raster rendering contract.
 std::string PersistentRasterEnvironmentContract() {
 #if defined(_WIN32)
-  return "windows-wx-3-v1";
+  return "windows-wx-3-v2";
 #elif defined(__APPLE__)
-  return "macos-wx-3-v1";
+  return "macos-wx-3-v2";
 #else
-  return "linux-wx-3-v1";
+  return "linux-wx-3-v2";
 #endif
 }
 

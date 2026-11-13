@@ -23,5 +23,12 @@ assert 'viewportState_.FrameRect' in Path('gui/layoutviewerpanel_viewport_geomet
 policy = Path('gui/ui_print_build_defaults.h').read_text()
 assert not any(token in policy for token in ('#include <wx', 'OpenGL', 'ConfigManager', 'NDEBUG'))
 assert 'detail::ApplyPrintBuildDefaults' in Path('gui/ui_feature_flags.cpp').read_text()
+navigation = Path('viewer2d/viewer2dpanel_layout_editor.cpp').read_text()
+assert 'if (IsLayoutPhysicalZoomLocked()) return;' in navigation
+assert 'IsLayoutPhysicalZoomLocked() && altDown && key != NavigationKey::Unsupported' in navigation
+assert 'ResolvePhysicalEditorGeometry' in navigation
+assert 'ResolvePhysicalEditorGeometry' in Path('viewer2d/viewer2dpanel_rendering.cpp').read_text()
+assert '-wx-3-v1' not in Path('gui/layout_view_cache_archive.cpp').read_text()
+assert 'Use visual framing center' not in Path('gui/layout_viewport_properties.cpp').read_text()
 print('Layout physical viewport boundary passed.')
 PY

@@ -443,7 +443,8 @@ wxImage RenderLayoutViewCommandBufferToImage(
       svgCache;
   std::unordered_map<std::string, std::string> resolvedModelKeyCache;
   if (viewState.physicalMapping)
-    RenderPhysicalViewportPreview(dc, buffer, mapping, symbols);
+    RenderPhysicalViewportPreview(dc, buffer, mapping, symbols,
+        mapping.scale / viewState.physicalMapping->pointsPerMeter);
   else
     RenderCommandBuffer(dc, buffer, mapping, symbols, svgCache,
                         resolvedModelKeyCache, nullptr, Transform2D::Identity(),

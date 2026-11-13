@@ -101,10 +101,14 @@ void TestPhysicalViewportPdf() {
     std::istringstream stream(pdf.substr(begin+8,pdf.find("endstream",begin)-begin-8));
     std::vector<std::pair<double,double>> points;
     std::string row;
+    bool paperStroke=false;
     while(std::getline(stream,row)) {
+      std::istringstream stroke(row); double width; std::string strokeOp;
+      if (stroke>>width>>strokeOp && strokeOp=="w" && std::abs(width-0.5625)<1e-6) paperStroke=true;
       std::istringstream tokens(row); double x,y; std::string op;
       if(tokens>>x>>y>>op && (op=="m" || op=="l")) points.emplace_back(x,y);
     }
+    assert(paperStroke && "Captured pixel strokes must keep their paper-point width.");
     assert(points.size()>=4);
     assert(std::abs(points[3].second-points[2].second-expected)<0.00001);
     assert(std::abs(points[0].second-(opts.pageHeightPt-data.frame.y-data.frame.height/2))<0.00001);

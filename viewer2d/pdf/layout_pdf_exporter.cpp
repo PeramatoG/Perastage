@@ -18,6 +18,7 @@
 
 #include "viewer2dpdfexporter.h"
 #include "layout_pdf_view_mapping.h"
+#include "paper_stroke_mapping.h"
 
 #include <algorithm>
 #include <array>
@@ -57,8 +58,6 @@
 namespace {
 using namespace layout_pdf_internal;
 
-constexpr double kPdfPointsPerPixel = 72.0 / 96.0;
-constexpr double kPdfStrokeWidthScreenMatchFactor = 0.75;
 constexpr double kSymbolBBoxPaddingPt = 0.25;
 
 // Returns whether label-order tracing diagnostics are enabled through the environment.
@@ -393,7 +392,7 @@ Viewer2DExportResult ExportViewer2DToPdf(
   // slight reduction so printed lines better match the perceived on-screen
   // weight.
   const double strokeScale =
-      (kPdfPointsPerPixel * kPdfStrokeWidthScreenMatchFactor) / scale;
+      viewer2d::PaperStrokeScale(scale);
 
   struct CommandGroup {
     std::vector<CanvasCommand> commands;
@@ -828,8 +827,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     // slight reduction so printed lines better match the perceived on-screen
     // weight.
     const double strokeScale =
-        (kPdfPointsPerPixel * kPdfStrokeWidthScreenMatchFactor) /
-        viewMapping.scale;
+        viewer2d::PaperStrokeScale(viewMapping.scale);
     layoutGroups.push_back({std::move(mainCommands),
                             mapping,
                             static_cast<double>(view.frame.x),
