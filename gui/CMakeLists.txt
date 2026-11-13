@@ -47,6 +47,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/project_mutation_host.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mouse_capture_ownership.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui_feature_flags.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui_print_build_defaults.h
     ${CMAKE_CURRENT_SOURCE_DIR}/wx_text_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionaryeditdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionary_editor_state.h

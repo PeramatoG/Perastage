@@ -20,5 +20,8 @@ assert 'ScopedPreferenceDraft preferenceDraft' in editor
 for filename in ('gui/layoutviewerpanel_view.cpp', 'gui/layoutviewerpanel_render_invalidation.cpp'):
     assert 'GetFrameRect(layouts::ResolveViewportFrame(view)' in Path(filename).read_text()
 assert 'viewportState_.FrameRect' in Path('gui/layoutviewerpanel_viewport_geometry.cpp').read_text()
+policy = Path('gui/ui_print_build_defaults.h').read_text()
+assert not any(token in policy for token in ('#include <wx', 'OpenGL', 'ConfigManager', 'NDEBUG'))
+assert 'detail::ApplyPrintBuildDefaults' in Path('gui/ui_feature_flags.cpp').read_text()
 print('Layout physical viewport boundary passed.')
 PY

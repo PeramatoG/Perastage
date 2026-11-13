@@ -712,7 +712,9 @@ PDF's page fit remains compatible for free layouts. A fixed viewport requires
 both document-to-output size ratios to be one; GUI and vector exporter reject
 mismatches before output publication. The centralized print build-default adapter
 retains the document paper for fixed Layouts when Release hides the print dialog;
-its existing A4 defaults remain unchanged for free layouts. Changing Layout A3/A4 paper size records
+its existing A4 defaults remain unchanged for free layouts. Its adjacent pure
+print-default policy takes an explicit build-profile input, so Debug tests cover
+both policies while retaining their assertions and the CI compiler-flag contract. Changing Layout A3/A4 paper size records
 one ordinary history mutation without fitting content. Existing typography and
 paper-space styling limitations are outside this physical geometry contract.
 
