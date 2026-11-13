@@ -7,7 +7,8 @@
   resizing content; viewport settings support Undo/Redo, projects and templates.
   The fixed-scale editor shows the actual crop in its red frame with zoom locked
   and pan available. Millimeter properties display without unnecessary decimals
-  while retaining stored precision.
+  while retaining stored precision. Viewport property changes preview immediately;
+  Cancel restores the previous properties and framing, and OK keeps the draft.
 - Fixed oversized strokes in fixed-scale Layout previews and restored thin,
   correctly rendered Legend fallback fixture symbols before optimized symbols
   have been generated.

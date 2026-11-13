@@ -740,6 +740,14 @@ outlines, matching the pre-November 4 behavior. Both preview and PDF use that
 paper-space stroke conversion; optimized SVG resources remain unchanged. The
 platform raster contract advances to v2 so reopening a project discards cached
 images produced with the incorrect stroke widths.</p>
+<p>Viewport properties resolve each edit against an immutable entry snapshot and
+preview only Core-validated candidates through the modal editor adapter. Partial
+numeric input keeps the last valid preview. Cancel and window-close restore the
+original draft and free framing; OK retains the candidate without publishing a
+project mutation until the outer editor accepts it. Unchanged numeric controls
+preserve their original fractional point residuals bit-for-bit, even when the
+preview adapter temporarily updates the enclosing draft. No intermediate preview
+creates history entries or replaces the preserved free camera.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

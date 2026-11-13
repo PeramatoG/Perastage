@@ -39,6 +39,8 @@ Activa **Fija** para elegir 1:25, 1:50, 1:100, 1:200 o 1:500, o un denominador e
 
 Los milímetros se muestran sin decimales. Se pueden introducir fracciones y los campos sin modificar conservan toda su precisión interna.
 
+Los cambios válidos en **Propiedades de la vista** se previsualizan inmediatamente en el editor, incluidos el modo, la escala, el centro y el tamaño del marco. Mientras se escribe un número incompleto o no válido, se mantiene la última previsualización válida. **Cancel** o cerrar el diálogo restaura las propiedades y el encuadre anteriores; **OK** conserva los cambios en el borrador del editor.
+
 X/Y de página y ancho/alto del marco usan milímetros, con origen arriba a la izquierda; se conserva la precisión fraccionaria. Se admiten posiciones parcialmente fuera de página. El tamaño mínimo es 1 punto (0,353 mm) y el límite es 200000 puntos. Mover o redimensionar una vista fija conserva centro y escala, cambiando el área visible. El zoom del layout y los DPI solo afectan a la visualización. Volver a libre conserva la cámara anterior, filtros y presentación. **Cancel** descarta el borrador; **OK** confirma una operación con Deshacer/Rehacer y persistencia PSTG/PSLAYOUT.
 
 El menú contextual de la página permite A3/A4 y orientación sin escalar elementos. Las páginas con vistas fijas requieren PDF al 100 % y el mismo papel del layout; otro tamaño se rechaza con una explicación. Para usar otro papel, cambia primero el papel del layout. Las páginas libres conservan el ajuste uniforme de salida. Imprime el PDF a tamaño real/100 %: Perastage no controla el escalado del controlador. La escala física garantiza geometría, sin ampliar las garantías de tipografía o estilos existentes.

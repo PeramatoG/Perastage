@@ -65,8 +65,11 @@ void TestViewportPropertiesControls() {
       dialog->GetEventHandler()->ProcessEvent(event);
     });
   };
+  int initialFreePreviews=0;
   schedule(false,1,true);
-  assert(!EditLayoutViewportProperties(nullptr,draft,visual));
+  assert(!EditLayoutViewportProperties(nullptr,draft,visual,
+      [&](const layouts::Layout2DViewDefinition &candidate) { ++initialFreePreviews; draft=candidate; }));
+  assert(initialFreePreviews>0);
   assert(draft.scaleMode==layouts::ViewportScaleMode::Free && !draft.physicalScale && draft.frame.width==101);
   schedule(true,1,true);
   assert(EditLayoutViewportProperties(nullptr,draft,visual));
@@ -94,9 +97,90 @@ void TestViewportPropertiesControls() {
 }
 }
 
+namespace {
+// Preview adapters may temporarily mutate the enclosing editor draft. Every
+// candidate must still resolve against the entry snapshot, and Cancel restores it.
+void TestLiveViewportProperties() {
+  for (int exit : {wxID_OK, wxID_CANCEL, wxID_CLOSE}) {
+    layouts::Layout2DViewDefinition draft; draft.id=37; draft.frame={17,29,101,73};
+    draft.scaleMode=layouts::ViewportScaleMode::Fixed;
+    draft.physicalScale=layouts::PhysicalViewport{50,1.123456789,-2.987654321};
+    draft.frameResidual={0.123,-0.234,0.345,-0.456};
+    draft.camera.zoom=2.3f;
+    const auto original=draft;
+    Viewer2DViewState visual; visual.viewportWidth=800; visual.viewportHeight=600;
+    int previews=0;
+    wxTheApp->CallAfter([&] {
+      wxDialog *dialog=nullptr;
+      for (auto *window : wxTopLevelWindows)
+        if ((dialog=dynamic_cast<wxDialog *>(window))) break;
+      assert(dialog);
+      wxChoice *mode=nullptr; wxComboBox *denominator=nullptr;
+      std::vector<wxTextCtrl *> fields;
+      for (auto *child : dialog->GetChildren()) {
+        if (auto *v=dynamic_cast<wxComboBox *>(child)) { denominator=v; continue; }
+        if (auto *v=dynamic_cast<wxChoice *>(child)) mode=v;
+        if (auto *v=dynamic_cast<wxTextCtrl *>(child)) fields.push_back(v);
+      }
+      assert(mode && denominator && fields.size()==6);
+      auto selectMode = [&](int selection) {
+        mode->SetSelection(selection);
+        wxCommandEvent event(wxEVT_CHOICE,mode->GetId());
+        mode->GetEventHandler()->ProcessEvent(event);
+      };
+      selectMode(0);
+      assert(previews>0 && draft.scaleMode==layouts::ViewportScaleMode::Free);
+      selectMode(1);
+      denominator->SetValue("100");
+      assert(draft.physicalScale->denominator==100);
+      assert(draft.physicalScale->centerX==original.physicalScale->centerX);
+      const int validCount=previews;
+      denominator->SetValue(""); // Ordinary intermediate typing is not published.
+      fields[0]->SetValue("-");
+      assert(previews==validCount && draft.physicalScale->denominator==100);
+      denominator->SetValue("200");
+      assert(previews==validCount);
+      fields[0]->SetValue("12.3456789");
+      assert(draft.physicalScale->denominator==200 && draft.physicalScale->centerX==12.3456789);
+      fields[4]->SetValue("0");
+      const int invalidFrameCount=previews;
+      fields[4]->SetValue("-1");
+      assert(previews==invalidFrameCount);
+      fields[4]->SetValue("123.456789");
+      assert(previews>invalidFrameCount);
+      assert(std::abs(layouts::ResolveViewportFrame(draft).width*25.4/72-123.456789)<1e-9);
+      // Editing one rounded field must not round any of the other stored fields.
+      assert(draft.frameResidual.x==original.frameResidual.x);
+      assert(draft.frameResidual.height==original.frameResidual.height);
+      if (exit==wxID_CLOSE) dialog->Close();
+      else {
+        wxCommandEvent event(wxEVT_BUTTON,exit);
+        dialog->GetEventHandler()->ProcessEvent(event);
+      }
+    });
+    const bool accepted=EditLayoutViewportProperties(nullptr,draft,visual,
+        [&](const layouts::Layout2DViewDefinition &candidate) { ++previews; draft=candidate; });
+    assert(accepted==(exit==wxID_OK) && previews>0);
+    assert(draft.id==37 && draft.camera.zoom==2.3f);
+    if (accepted) {
+      assert(draft.physicalScale->denominator==200 && draft.physicalScale->centerX==12.3456789);
+    } else {
+      assert(draft.scaleMode==original.scaleMode);
+      assert(draft.physicalScale->denominator==50);
+      assert(draft.physicalScale->centerX==original.physicalScale->centerX);
+      assert(draft.physicalScale->centerY==original.physicalScale->centerY);
+      assert(draft.frame.width==101 && draft.frame.height==73);
+      assert(draft.frameResidual.width==original.frameResidual.width);
+      assert(draft.frameResidual.height==original.frameResidual.height);
+    }
+  }
+}
+}
+
 // Measures the actual GUI graphics backend under raster scaling/DPI changes.
 void TestPhysicalViewportPreview() {
   TestViewportPropertiesControls();
+  TestLiveViewportProperties();
   const layouts::PhysicalViewport physical{50,12.123456789,-3.987654321};
   const layouts::ViewportFramePoints frame{0,0,312.3456,197.6543};
   for (auto size : {wxSize(800,600),wxSize(1600,1200),wxSize(600,900)}) {

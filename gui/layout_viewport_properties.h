@@ -17,8 +17,11 @@
  */
 #pragma once
 #include "LayoutCollection.h"
+#include <functional>
 class wxWindow;
 struct Viewer2DViewState;
-// Edits a private candidate; cancellation and invalid input never publish it.
+// Valid candidates may be previewed without publishing a document mutation.
+// Cancellation restores the original draft and previews it again.
 bool EditLayoutViewportProperties(wxWindow *parent,
-    layouts::Layout2DViewDefinition &draft, const Viewer2DViewState &visualState);
+    layouts::Layout2DViewDefinition &draft, const Viewer2DViewState &visualState,
+    const std::function<void(const layouts::Layout2DViewDefinition &)> &preview = {});

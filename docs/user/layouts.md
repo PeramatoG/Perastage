@@ -63,7 +63,11 @@ Fixed scale preserves object size and center when moving or resizing the frame;
 a larger frame reveals more scene. Layout editor zoom, display DPI and capture
 resolution affect screen rasterization, independently of paper geometry.
 Switch back to **Free / Variable** to use the preserved free camera. Filters,
-labels and presentation settings are retained. Property edits are drafts until
+labels and presentation settings are retained. Valid changes in **Viewport properties**
+preview immediately in the editor, including scale mode, drawing scale, center
+and frame size. Incomplete or invalid numbers keep the last valid preview.
+**Cancel** (or closing the properties dialog) restores the previous properties
+and framing; **OK** keeps the changes in the editor draft. Property edits are drafts until
 the outer editor's **OK**; **Cancel** discards them. Accepted changes participate
 in Undo/Redo and PSTG/PSLAYOUT persistence.
 

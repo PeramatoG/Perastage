@@ -24,6 +24,7 @@ public:
 
 private:
   void OnOk(wxCommandEvent &event);
+  void OnViewportProperties(wxCommandEvent &event);
   void OnCancel(wxCommandEvent &event);
   void OnShow(wxShowEvent &event);
   void OnCharHook(wxKeyEvent &event);

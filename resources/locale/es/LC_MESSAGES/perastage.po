@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-13 21:40+0100\n"
+"POT-Creation-Date: 2026-11-13 23:45+0100\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -310,7 +310,7 @@ msgstr "Exportar solo referencias"
 #: gui/dictionaryeditdialog.cpp:260 gui/dictionaryeditdialog.cpp:293
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
 #: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:92
-#: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:98
+#: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:84
 #: gui/layouttextdialog.cpp:149 gui/preferencesdialog.cpp:87
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139
@@ -524,7 +524,7 @@ msgid "Export..."
 msgstr "Exportar..."
 
 #: gui/dictionaryeditdialog.cpp:610 gui/gdtf_download_queue_dialog.cpp:93
-#: gui/layout2dviewdialog.cpp:97 gui/mvr_export_result_dialog.cpp:97
+#: gui/layout2dviewdialog.cpp:83 gui/mvr_export_result_dialog.cpp:97
 #: gui/preferencesdialog.cpp:86 gui/scene_object_primitive_dialogs.cpp:138
 msgid "OK"
 msgstr "Aceptar"
@@ -2840,77 +2840,77 @@ msgstr "Encuadre visual"
 msgid "100%"
 msgstr "100%"
 
-#: gui/layout2dviewdialog.cpp:79 gui/layout2dviewdialog.cpp:124
-#: gui/layout_viewport_properties.cpp:35 gui/layout_viewport_properties.cpp:124
+#: gui/layout2dviewdialog.cpp:79 gui/layout2dviewdialog.cpp:110
+#: gui/layout_viewport_properties.cpp:37 gui/layout_viewport_properties.cpp:168
 msgid "Viewport properties"
 msgstr "Propiedades de la vista"
 
-#: gui/layout2dviewdialog.cpp:123 gui/layout_viewport_properties.cpp:123
+#: gui/layout2dviewdialog.cpp:109 gui/layout_viewport_properties.cpp:167
 #, c-format
 msgid "Invalid viewport properties: %s"
 msgstr "Propiedades de vista no válidas: %s"
 
-#: gui/layout2dviewdialog.cpp:224
+#: gui/layout2dviewdialog.cpp:210
 #, c-format
 msgid "1:%s"
 msgstr "1:%s"
 
-#: gui/layout2dviewdialog.cpp:226
+#: gui/layout2dviewdialog.cpp:212
 #, c-format
 msgid "%d%%"
 msgstr "%d%%"
 
-#: gui/layout_viewport_properties.cpp:44
+#: gui/layout_viewport_properties.cpp:46
 msgid "Free / Variable"
 msgstr "Libre / Variable"
 
-#: gui/layout_viewport_properties.cpp:44
+#: gui/layout_viewport_properties.cpp:46
 msgid "Fixed"
 msgstr "Fija"
 
-#: gui/layout_viewport_properties.cpp:46
+#: gui/layout_viewport_properties.cpp:48
 msgid "Scale mode"
 msgstr "Modo de escala"
 
-#: gui/layout_viewport_properties.cpp:57
+#: gui/layout_viewport_properties.cpp:59
 msgid "Drawing scale 1:"
 msgstr "Escala de dibujo 1:"
 
-#: gui/layout_viewport_properties.cpp:62
+#: gui/layout_viewport_properties.cpp:64
 msgid "Center horizontal (m)"
 msgstr "Centro horizontal (m)"
 
-#: gui/layout_viewport_properties.cpp:63
+#: gui/layout_viewport_properties.cpp:65
 msgid "Center vertical (m)"
 msgstr "Centro vertical (m)"
 
-#: gui/layout_viewport_properties.cpp:67
+#: gui/layout_viewport_properties.cpp:69
 msgid "Page X (mm)"
 msgstr "X en página (mm)"
 
-#: gui/layout_viewport_properties.cpp:68
+#: gui/layout_viewport_properties.cpp:70
 msgid "Page Y (mm)"
 msgstr "Y en página (mm)"
 
-#: gui/layout_viewport_properties.cpp:69
+#: gui/layout_viewport_properties.cpp:71
 msgid "Frame width (mm)"
 msgstr "Ancho del marco (mm)"
 
-#: gui/layout_viewport_properties.cpp:70
+#: gui/layout_viewport_properties.cpp:72
 msgid "Frame height (mm)"
 msgstr "Alto del marco (mm)"
 
-#: gui/layout_viewport_properties.cpp:77
+#: gui/layout_viewport_properties.cpp:79
 msgid "Center axes: Top X/Y, Front X/Z, Side Y/Z. Page origin: top left."
 msgstr ""
 "Ejes del centro: superior X/Y, frontal X/Z, lateral Y/Z. Origen de página: "
 "arriba a la izquierda."
 
-#: gui/layout_viewport_properties.cpp:79
+#: gui/layout_viewport_properties.cpp:81
 msgid "Free scale: variable"
 msgstr "Escala libre: variable"
 
-#: gui/layout_viewport_properties.cpp:87
+#: gui/layout_viewport_properties.cpp:89 gui/layout_viewport_properties.cpp:143
 #, c-format
 msgid "Effective free scale: approximately 1:%.4f"
 msgstr "Escala libre efectiva: aproximadamente 1:%.4f"
