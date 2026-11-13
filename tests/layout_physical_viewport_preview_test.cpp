@@ -45,10 +45,12 @@ void TestPhysicalViewportPreview() {
     const auto image=bitmap.ConvertToImage(); assert(image.IsOk());
     int left=width,right=-1;
     for(int y=height/2-3; y<=height/2+3; ++y) for(int x=0;x<width;++x)
-      if(image.GetRed(x,y)<128) { left=std::min(left,x); right=std::max(right,x); }
+      if(image.GetRed(x,y)<240) { left=std::min(left,x); right=std::max(right,x); }
     assert(right>=left);
     const double expected=1000/denominator*72/25.4*deviceScale;
-    assert(std::abs(left-width/2)<2);
-    assert(std::abs(right-width/2-expected)<2);
+    // Pixel coverage includes the authored 0.02 m stroke's end caps.
+    const double tolerance = 2 + expected * 0.01;
+    assert(std::abs(left-width/2)<tolerance);
+    assert(std::abs(right-width/2-expected)<tolerance);
   }
 }
