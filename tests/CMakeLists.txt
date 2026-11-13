@@ -5020,3 +5020,22 @@ target_sources(mvr_export_preparation_test PRIVATE support/gdtf_test_fixture_bui
 
 add_bash_policy_test(LayoutPhysicalViewportBoundary
     ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_physical_viewport_boundary.sh LABELS "architecture;layout;pdf")
+
+# Exercise both print UI profiles within the Debug CI matrix.
+foreach(profile IN ITEMS Debug Release)
+    add_executable(layout_physical_print_defaults_${profile}_test
+        layout_physical_print_defaults_test.cpp ../gui/ui_feature_flags.cpp ../core/print/PageSetup.cpp)
+    target_include_directories(layout_physical_print_defaults_${profile}_test PRIVATE
+        ../gui ../core/print ../core/layouts)
+    if(profile STREQUAL "Release")
+        target_compile_definitions(layout_physical_print_defaults_${profile}_test PRIVATE NDEBUG PERASTAGE_EXPECT_RELEASE=1)
+    else()
+        target_compile_definitions(layout_physical_print_defaults_${profile}_test PRIVATE PERASTAGE_EXPECT_RELEASE=0)
+        if(MSVC)
+            target_compile_options(layout_physical_print_defaults_${profile}_test PRIVATE /UNDEBUG)
+        else()
+            target_compile_options(layout_physical_print_defaults_${profile}_test PRIVATE -UNDEBUG)
+        endif()
+    endif()
+    add_test(NAME LayoutPhysicalPrintDefaults${profile} COMMAND layout_physical_print_defaults_${profile}_test)
+endforeach()

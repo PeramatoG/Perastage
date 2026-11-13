@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-13 18:44+0100\n"
+"POT-Creation-Date: 2026-11-13 18:59+0100\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: German\n"
@@ -493,13 +493,13 @@ msgid "Type Color"
 msgstr "Typfarbe"
 
 #: gui/dictionaryeditdialog.cpp:599 gui/mainwindow_layout.cpp:329
-#: gui/mainwindow_menu_builders.cpp:81 gui/mainwindow_print.cpp:515
+#: gui/mainwindow_menu_builders.cpp:81 gui/mainwindow_print.cpp:517
 #: gui/riggingpanel.cpp:185 gui/summarypanel.cpp:139
 msgid "Fixtures"
 msgstr "Scheinwerfer"
 
 #: gui/dictionaryeditdialog.cpp:600 gui/mainwindow_layout.cpp:334
-#: gui/mainwindow_print.cpp:518 gui/riggingpanel.cpp:188
+#: gui/mainwindow_print.cpp:520 gui/riggingpanel.cpp:188
 #: gui/summarypanel.cpp:172
 msgid "Trusses"
 msgstr "Traversen"
@@ -3656,7 +3656,7 @@ msgstr "Datei konnte nicht kopiert werden."
 msgid "Object exported successfully."
 msgstr "Objekt erfolgreich exportiert."
 
-#: gui/mainwindow_io.cpp:906 gui/mainwindow_print.cpp:533
+#: gui/mainwindow_io.cpp:906 gui/mainwindow_print.cpp:535
 msgid "Select table"
 msgstr "Tabelle auswählen"
 
@@ -3665,12 +3665,12 @@ msgstr "Tabelle auswählen"
 msgid "Export CSV"
 msgstr "CSV exportieren"
 
-#: gui/mainwindow_layout.cpp:339 gui/mainwindow_print.cpp:521
+#: gui/mainwindow_layout.cpp:339 gui/mainwindow_print.cpp:523
 #: gui/riggingpanel.cpp:191 gui/summarypanel.cpp:182
 msgid "Hoists"
 msgstr "Kettenzüge"
 
-#: gui/mainwindow_layout.cpp:344 gui/mainwindow_print.cpp:524
+#: gui/mainwindow_layout.cpp:344 gui/mainwindow_print.cpp:526
 #: gui/summarypanel.cpp:199
 msgid "Objects"
 msgstr "Objekte"
@@ -4383,7 +4383,7 @@ msgstr "Tabelle"
 msgid "Select what to print:"
 msgstr "Druckinhalt auswählen:"
 
-#: gui/mainwindow_print.cpp:103 gui/mainwindow_print.cpp:250
+#: gui/mainwindow_print.cpp:103 gui/mainwindow_print.cpp:252
 msgid "2D viewport is not available."
 msgstr "2D-Ansicht ist nicht verfügbar."
 
@@ -4414,7 +4414,7 @@ msgstr "2D-Ansicht konnte nicht zum Drucken erfasst werden."
 msgid "Failed to generate PDF plan: %s"
 msgstr "PDF-Plan konnte nicht erzeugt werden: %s"
 
-#: gui/mainwindow_print.cpp:200 gui/mainwindow_print.cpp:418
+#: gui/mainwindow_print.cpp:200 gui/mainwindow_print.cpp:420
 msgid "Print failed. Please review the error and try again."
 msgstr "Drucken fehlgeschlagen. Bitte Fehler prüfen und erneut versuchen."
 
@@ -4428,9 +4428,9 @@ msgid "No layout is selected."
 msgstr "Kein Layout ausgewählt."
 
 #: gui/mainwindow_print.cpp:219 gui/mainwindow_print.cpp:232
-#: gui/mainwindow_print.cpp:242 gui/mainwindow_print.cpp:250
-#: gui/mainwindow_print.cpp:283 gui/mainwindow_print.cpp:302
-#: gui/mainwindow_print.cpp:419 gui/mainwindow_print.cpp:431
+#: gui/mainwindow_print.cpp:244 gui/mainwindow_print.cpp:252
+#: gui/mainwindow_print.cpp:286 gui/mainwindow_print.cpp:304
+#: gui/mainwindow_print.cpp:421 gui/mainwindow_print.cpp:433
 msgid "Print Layout"
 msgstr "Layout drucken"
 
@@ -4438,29 +4438,29 @@ msgstr "Layout drucken"
 msgid "Selected layout is not available."
 msgstr "Ausgewähltes Layout ist nicht verfügbar."
 
-#: gui/mainwindow_print.cpp:241
+#: gui/mainwindow_print.cpp:243
 msgid "The selected layout is empty."
 msgstr "Ausgewähltes Layout ist leer."
 
-#: gui/mainwindow_print.cpp:273
+#: gui/mainwindow_print.cpp:276
 msgid "Save layout as"
 msgstr "Layout speichern unter"
 
-#: gui/mainwindow_print.cpp:282
+#: gui/mainwindow_print.cpp:285
 msgid "Please choose a destination file for the layout."
 msgstr "Zieldatei für das Layout auswählen."
 
-#: gui/mainwindow_print.cpp:301 gui/mainwindow_print.cpp:415
+#: gui/mainwindow_print.cpp:303 gui/mainwindow_print.cpp:417
 #, c-format
 msgid "Failed to generate layout PDF: %s"
 msgstr "Layout-PDF konnte nicht erzeugt werden: %s"
 
-#: gui/mainwindow_print.cpp:423
+#: gui/mainwindow_print.cpp:425
 #, c-format
 msgid "Layout saved to %s"
 msgstr "Layout in %s gespeichert"
 
-#: gui/mainwindow_print.cpp:425
+#: gui/mainwindow_print.cpp:427
 #, c-format
 msgid ""
 "\n"
@@ -4475,11 +4475,11 @@ msgstr ""
 "Perastage-Symbole: %zu\n"
 "Ersatzdarstellungen: %zu"
 
-#: gui/mainwindow_print.cpp:502
+#: gui/mainwindow_print.cpp:504
 msgid "Printing layout..."
 msgstr "Layout wird gedruckt…"
 
-#: gui/mainwindow_print.cpp:533
+#: gui/mainwindow_print.cpp:535
 msgid "Print Table"
 msgstr "Tabelle drucken"
 

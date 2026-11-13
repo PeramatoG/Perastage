@@ -60,4 +60,11 @@ void ApplyBuildDefaultsToViewer2DPrintSettings(
   settings.detailedFootprints = false;
 }
 
+// Keeps Release defaults from silently fitting a fixed-scale A3 Layout to A4.
+void ApplyBuildDefaultsToViewer2DPrintSettings(
+    print::Viewer2DPrintSettings &settings, const print::PageSetup &physicalDocument) {
+  ApplyBuildDefaultsToViewer2DPrintSettings(settings);
+  if (!kIsDebugBuild) settings.pageSize = physicalDocument.pageSize;
+}
+
 } // namespace ui

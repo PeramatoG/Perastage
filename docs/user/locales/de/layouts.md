@@ -33,7 +33,7 @@ Bei fehlenden Ansichten, falscher Ausgabe oder Exportfehlern siehe [Fehlerbehebu
 
 ## Physischer Maßstab und Ansichtseigenschaften
 
-Doppelklicken Sie auf eine 2D-Ansicht und öffnen Sie **Ansichtseigenschaften**. **Frei / Variabel** bleibt der Standard für neue Ansichten und alte Dateien. Zoom, Verschieben und visuelles Einpassen bleiben verfügbar. Der ungefähre effektive Maßstab dient nur zur Information. **Visual framing** verändert den visuellen Ausschnitt, keinen physischen Maßstab.
+Doppelklicken Sie auf eine 2D-Ansicht und öffnen Sie **Ansichtseigenschaften**. **Frei / Variabel** bleibt der Standard für neue Ansichten und alte Dateien. Zoom, Verschieben und visuelles Einpassen bleiben verfügbar. Der ungefähre effektive Maßstab dient nur zur Information. **Visueller Ausschnitt** verändert den visuellen Ausschnitt, keinen physischen Maßstab.
 
 Wählen Sie **Fest** für 1:25, 1:50, 1:100, 1:200, 1:500 oder einen eigenen Nenner zwischen 0,01 und 10000000. Ein Meter belegt bei 1:50 genau 20 mm, bei 1:100 genau 10 mm auf Papier. Der Mittelpunkt verwendet Meter und die Achsen oben X/Y, vorne X/Z, seitlich Y/Z; die seitliche horizontale Anzeige läuft in Richtung −Y. Geben Sie den Mittelpunkt ein oder richten Sie den visuellen Editor aus und wählen Sie **Mittelpunkt des sichtbaren Ausschnitts verwenden**. Die Layout-Vorschau zeigt nach Bestätigung den festen Ausschnitt.
 

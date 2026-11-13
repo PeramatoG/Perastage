@@ -233,6 +233,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
                  this);
     return;
   }
+  const bool hasFixedScale = std::any_of(layout->view2dViews.begin(), layout->view2dViews.end(),
+      [](const auto &v) { return v.scaleMode == layouts::ViewportScaleMode::Fixed; });
   const bool layoutIsEmpty =
       layout->view2dViews.empty() && layout->legendViews.empty() &&
       layout->eventTables.empty() && layout->textViews.empty() &&
@@ -266,7 +268,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
     settings = settingsDialog.GetSettings();
   }
   settings.landscape = layout->pageSetup.landscape;
-  ui::ApplyBuildDefaultsToViewer2DPrintSettings(settings);
+  if (hasFixedScale) ui::ApplyBuildDefaultsToViewer2DPrintSettings(settings, layout->pageSetup);
+  else ui::ApplyBuildDefaultsToViewer2DPrintSettings(settings);
   settings.includeGrid = true;
   // Layout printing is derived: do not publish print preferences as project edits.
 
@@ -293,8 +296,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   const double layoutPageH = layout->pageSetup.PageHeightPt();
   layouts::composition::PageOutputMapping pageMapping;
   try {
-    layouts::ValidatePhysicalOutput(std::any_of(layout->view2dViews.begin(), layout->view2dViews.end(),
-        [](const auto &v) { return v.scaleMode == layouts::ViewportScaleMode::Fixed; }),
+    layouts::ValidatePhysicalOutput(hasFixedScale,
         outputPageW / layoutPageW, outputPageH / layoutPageH);
     pageMapping = layouts::composition::PageFitForSizes(layoutPageW, layoutPageH, outputPageW, outputPageH);
   } catch (const std::invalid_argument &error) {
