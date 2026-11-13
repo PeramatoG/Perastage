@@ -88,6 +88,7 @@ int main() {
   fs::create_directories(root);
   const fs::path gdtfPath = root / "fixture.gdtf";
   tests::gdtf::BuildMinimalValidFixture()
+      .WithDmxMode("Mode", "Root")
       .WithFixtureIdentity("Fixture", "Test",
                            tests::gdtf::FixtureBuilder::kMinimalFixtureTypeId)
       .WriteArchive(gdtfPath);
