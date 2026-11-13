@@ -20,9 +20,11 @@
 #include "viewer2dpanel.h"
 #include "viewer2dcommandrenderer.h"
 #include <algorithm>
+#include <limits>
 namespace viewer2d {
 inline void AttachPhysicalMapping(const layouts::Layout2DViewDefinition &v,
                                   Viewer2DViewState &state) {
+  state.physicalMapping.reset();
   if (v.scaleMode != layouts::ViewportScaleMode::Fixed) return;
   layouts::ValidateViewport(v);
   const auto f = layouts::ResolveViewportFrame(v);
@@ -37,8 +39,15 @@ inline void PreparePhysicalCapture(const layouts::Layout2DViewDefinition &v,
   const auto m = layouts::ResolvePhysicalViewport(*v.physicalScale, f.width, f.height, v.camera.view);
   camera.viewportWidth = width;
   camera.viewportHeight = height;
-  camera.zoom = static_cast<float>(std::min(width / m.width, height / m.height) /
-                                  kViewer2DPixelsPerMeter);
+  // Capture still uses a float camera. Expand its frustum to cover rounding
+  // of offsets/projection at large world coordinates; final clipping uses the
+  // unexpanded double-precision physical mapping.
+  const double padding = 8.0 * std::numeric_limits<float>::epsilon() *
+      std::max({1.0, std::abs(v.physicalScale->centerX),
+                std::abs(v.physicalScale->centerY), m.width, m.height});
+  const double zoom = std::min(width / (m.width + 2 * padding),
+                              height / (m.height + 2 * padding)) / kViewer2DPixelsPerMeter;
+  camera.zoom = std::nextafter(static_cast<float>(zoom), 0.0f);
   camera.offsetPixelsX = static_cast<float>(-layouts::ViewportHorizontalSign(v.camera.view) * v.physicalScale->centerX * kViewer2DPixelsPerMeter);
   camera.offsetPixelsY = static_cast<float>(-v.physicalScale->centerY * kViewer2DPixelsPerMeter);
 }

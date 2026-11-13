@@ -13,5 +13,12 @@ assert 'PreparePhysicalCapture' in Path('gui/layout_2d_view_rasterizer.cpp').rea
 assert 'Viewer2DCommandRenderer renderer' in Path('gui/layout_viewport_preview.cpp').read_text()
 assert 'ValidatePhysicalOutput' in Path('viewer2d/pdf/layout_pdf_view_mapping.h').read_text()
 assert 'ViewportScaleMode scaleMode = ViewportScaleMode::Free' in Path('core/layouts/LayoutCollection.h').read_text()
+editor = Path('gui/mainwindow_layout.cpp').read_text()
+passive = editor.split('void MainWindow::PersistLayout2DViewState()')[1].split('// Restores the selected layout')[0]
+assert 'UpdateLayout2DView' not in passive
+assert 'ScopedPreferenceDraft preferenceDraft' in editor
+for filename in ('gui/layoutviewerpanel_view.cpp', 'gui/layoutviewerpanel_render_invalidation.cpp'):
+    assert 'GetFrameRect(layouts::ResolveViewportFrame(view)' in Path(filename).read_text()
+assert 'viewportState_.FrameRect' in Path('gui/layoutviewerpanel_viewport_geometry.cpp').read_text()
 print('Layout physical viewport boundary passed.')
 PY

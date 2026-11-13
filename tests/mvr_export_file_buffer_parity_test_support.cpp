@@ -1,6 +1,8 @@
 #include "mvr_export_file_buffer_parity_test_support.h"
 
 #include "configmanager.h"
+#include "LayoutManager.h"
+#include "LayoutTemplateSerializer.h"
 #include "layer.h"
 #include "mvrexporter.h"
 #include "wx_path_utils.h"
@@ -10,6 +12,7 @@
 #include <wx/zipstrm.h>
 
 #include <cassert>
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -63,4 +66,32 @@ void VerifyMvrExportFileBufferParity(ConfigManager &config,
   const auto fileEntries = ReadEntries(fileInput);
   wxMemoryInputStream bufferInput(buffer.data(), buffer.size());
   assert(fileEntries == ReadEntries(bufferInput));
+
+  // Layout physical settings are native presentation metadata. Exercise the
+  // production PSTG path and prove they do not enter canonical scene.mvr.
+  layouts::LayoutDefinition page; page.name="Physical parity";
+  layouts::Layout2DViewDefinition view; view.id=42;
+  layouts::SetViewportFrame(view,{17.123,29.456,101.234,73.345});
+  view.scaleMode=layouts::ViewportScaleMode::Fixed;
+  view.physicalScale=layouts::PhysicalViewport{50,2,-3};
+  page.view2dViews.push_back(view);
+  view.id=43; view.physicalScale=layouts::PhysicalViewport{100,-8,9};
+  page.view2dViews.push_back(view);
+  assert(layouts::LayoutManager::Get().AddLayout(page));
+  assert(exporter.ExportToBuffer(buffer));
+  wxMemoryInputStream withLayout(buffer.data(),buffer.size());
+  assert(fileEntries==ReadEntries(withLayout));
+  const auto nativePath=directory/"physical-parity.pstg";
+  assert(config.SaveProject(nativePath.generic_string()));
+  wxFileInputStream native(WxPathUtils::WxStringFromFilesystemPath(nativePath));
+  const auto nativeEntries=ReadEntries(native);
+  const auto &sceneBytes=nativeEntries.at("scene.mvr");
+  wxMemoryInputStream nativeScene(sceneBytes.data(),sceneBytes.size());
+  assert(fileEntries==ReadEntries(nativeScene));
+  config.Reset();
+  assert(config.LoadProject(nativePath.generic_string()));
+  const auto &pages=layouts::LayoutManager::Get().GetLayouts().Items();
+  const auto restored=std::find_if(pages.begin(),pages.end(),[&](const auto &p) { return p.name==page.name; });
+  assert(restored!=pages.end() && layouts::ToJson(*restored)==layouts::ToJson(page));
+
 }

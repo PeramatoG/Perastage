@@ -33,7 +33,7 @@ Pour les vues manquantes, sorties incorrectes ou erreurs d’export, consultez [
 
 ## Échelle physique et propriétés de la vue
 
-Double-cliquez sur une vue 2D puis ouvrez **Propriétés de la vue**. **Libre / Variable** reste le mode par défaut des nouvelles vues et anciens fichiers, avec zoom, déplacement et cadrage visuel. L’échelle effective approximative est informative. **Frame scale** règle le cadrage visuel, pas un rapport physique.
+Double-cliquez sur une vue 2D puis ouvrez **Propriétés de la vue**. **Libre / Variable** reste le mode par défaut des nouvelles vues et anciens fichiers, avec zoom, déplacement et cadrage visuel. L’échelle effective approximative est informative. **Visual framing** règle le cadrage visuel, pas un rapport physique.
 
 Choisissez **Fixe** pour 1:25, 1:50, 1:100, 1:200, 1:500 ou un dénominateur personnalisé entre 0,01 et 10000000. Un mètre mesure 20 mm sur papier à 1:50 et 10 mm à 1:100. Le centre utilise des mètres et les axes dessus X/Y, face X/Z ou côté Y/Z ; en vue de côté, l’axe horizontal affiché est −Y. Saisissez le centre ou cadrez dans l’éditeur puis choisissez **Utiliser le centre du cadrage visuel**. L’aperçu du Layout montre le recadrage fixe après validation.
 

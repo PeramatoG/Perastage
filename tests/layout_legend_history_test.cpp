@@ -1,4 +1,5 @@
 #include "configmanager.h"
+#include "preference_draft.h"
 #include "LayoutManager.h"
 #include "LayoutTemplateSerializer.h"
 #include "LayoutTemplatePackageService.h"
@@ -46,6 +47,26 @@ int main() {
     cfg.SetValue("unrelated-edit-during-capture","retained");
   }
   assert(cfg.IsDirty() && cfg.GetValue("unrelated-edit-during-capture")=="retained");
+  cfg.Reset(); cfg.MarkSaved(); cfg.ClearHistory();
+  const auto beforeModal=stateDocument();
+  auto ownsViewerKey=[](std::string_view key) {
+    return viewer2d::IsViewer2DUserPreferenceConfigKey(key) || key == "view_hidden_fixture_types";
+  };
+  {
+    ScopedPreferenceDraft draft(&cfg,ownsViewerKey);
+    viewer2d::ScopedViewer2DState modal(nullptr,nullptr,cfg,captureState,nullptr,nullptr,true);
+    cfg.SetFloat("view2d_view",2);
+    cfg.SetFloat("grid_show",0);
+    cfg.SetHiddenFixtureTypes({"temporary"});
+    assert(!cfg.IsDirty() && !cfg.CanUndo());
+  }
+  assert(!cfg.IsDirty() && !cfg.CanUndo() && stateDocument()==beforeModal);
+  {
+    ScopedPreferenceDraft draft(&cfg,ownsViewerKey);
+    viewer2d::ScopedViewer2DState modal(nullptr,nullptr,cfg,captureState,nullptr,nullptr,true);
+    cfg.SetValue("unrelated-modal-edit","retained");
+  }
+  assert(cfg.IsDirty() && cfg.GetValue("unrelated-modal-edit")=="retained");
   cfg.Reset();
   auto source = BuildSharedLayoutLegendItems();
   assert(source.size() == 1 && source[0].typeName == "No fixtures" && source[0].count == 0);

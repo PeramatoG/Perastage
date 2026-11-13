@@ -39,6 +39,18 @@ void TestPhysicalViewportPdf() {
   using namespace layouts;
   const auto dir=std::filesystem::temp_directory_path()/ ("physical-pdf-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(dir);
+  // The float GL camera must cover the exact crop even when its center cannot
+  // represent sub-meter offsets at large coordinates.
+  for (double center : {-1e7, 1e7}) for (int orientation : {0,1,2}) {
+    Layout2DViewDefinition v; v.frame={0,0,1,1}; v.camera.view=orientation;
+    v.scaleMode=ViewportScaleMode::Fixed; v.physicalScale=PhysicalViewport{0.01,center,center};
+    auto camera=v.camera; viewer2d::PreparePhysicalCapture(v,camera,800,600);
+    const auto required=ResolvePhysicalViewport(*v.physicalScale,1,1,orientation);
+    const float halfW=800*.5f/(25*camera.zoom), halfH=600*.5f/(25*camera.zoom);
+    const float panX=camera.offsetPixelsX/25, panY=camera.offsetPixelsY/25;
+    assert(double(-halfW-panX)<=required.minX && double(halfW-panX)>=required.minX+required.width);
+    assert(double(-halfH-panY)<=required.minY && double(halfH-panY)>=required.minY+required.height);
+  }
   for(double denominator : {25.0,50.0,100.0,200.0,500.0,73.25}) for (int orientation : {0,1,2}) {
     Layout2DViewDefinition v; SetViewportFrame(v, {20.123,30.456,300.234,200.678});
     v.camera.view=orientation; v.camera.zoom=1000;
@@ -47,6 +59,10 @@ void TestPhysicalViewportPdf() {
     LayoutViewExportData data; data.frame=ResolveViewportFrame(v); data.drawFrame=false;
     data.viewState.viewportWidth=800; data.viewState.viewportHeight=600;
     viewer2d::AttachPhysicalMapping(v,data.viewState);
+    auto switched=data.viewState;
+    auto freeView=v; freeView.scaleMode=ViewportScaleMode::Free;
+    viewer2d::AttachPhysicalMapping(freeView,switched);
+    assert(!switched.physicalMapping && switched.zoom==data.viewState.zoom);
     const double sign=ViewportHorizontalSign(orientation);
     LineCommand line; line.x0=2*sign; line.y0=3; line.x1=3*sign; line.y1=3;
     data.buffer.commands.emplace_back(line); data.buffer.metadata.push_back({true,false}); data.buffer.sources.push_back("physical-line");

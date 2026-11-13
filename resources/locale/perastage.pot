@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.42\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-13 15:12+0100\n"
+"POT-Creation-Date: 2026-11-13 18:44+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -439,13 +439,13 @@ msgstr ""
 msgid "Type Color"
 msgstr ""
 
-#: gui/dictionaryeditdialog.cpp:599 gui/mainwindow_layout.cpp:328
+#: gui/dictionaryeditdialog.cpp:599 gui/mainwindow_layout.cpp:329
 #: gui/mainwindow_menu_builders.cpp:81 gui/mainwindow_print.cpp:515
 #: gui/riggingpanel.cpp:185 gui/summarypanel.cpp:139
 msgid "Fixtures"
 msgstr ""
 
-#: gui/dictionaryeditdialog.cpp:600 gui/mainwindow_layout.cpp:333
+#: gui/dictionaryeditdialog.cpp:600 gui/mainwindow_layout.cpp:334
 #: gui/mainwindow_print.cpp:518 gui/riggingpanel.cpp:188
 #: gui/summarypanel.cpp:172
 msgid "Trusses"
@@ -2361,7 +2361,7 @@ msgid "Source: none"
 msgstr ""
 
 #: gui/inspection/inspector_workspace_panel.cpp:527
-#: gui/mainwindow_layout.cpp:421 gui/mainwindow_menu_builders.cpp:87
+#: gui/mainwindow_layout.cpp:422 gui/mainwindow_menu_builders.cpp:87
 #: gui/summarypanel.cpp:112
 msgid "Summary"
 msgstr ""
@@ -2433,7 +2433,7 @@ msgstr ""
 #: gui/inspection/inspector_workspace_panel.cpp:1082
 #: gui/inspection/inspector_workspace_panel.cpp:1458
 #: gui/inspection/inspector_workspace_panel.cpp:1466
-#: gui/mainwindow_layout.cpp:451 gui/mainwindow_menu.cpp:235
+#: gui/mainwindow_layout.cpp:452 gui/mainwindow_menu.cpp:235
 #: gui/mainwindow_menu_builders.cpp:71
 msgid "MVR / GDTF Inspector"
 msgstr ""
@@ -2642,7 +2642,7 @@ msgid "Rename Layer"
 msgstr ""
 
 #: gui/layout2dviewdialog.cpp:67
-msgid "Frame scale"
+msgid "Visual framing"
 msgstr ""
 
 #: gui/layout2dviewdialog.cpp:69
@@ -3193,7 +3193,7 @@ msgstr ""
 msgid "Choose two points on the truss line, or press Esc to cancel."
 msgstr ""
 
-#: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:483
+#: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:484
 #: gui/mainwindow_startup_splash.cpp:123
 #: gui/services/fixture_symbol_preparation_service.cpp:647
 #: gui/viewer_load_status.cpp:26
@@ -3442,54 +3442,54 @@ msgstr ""
 msgid "Export CSV"
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:338 gui/mainwindow_print.cpp:521
+#: gui/mainwindow_layout.cpp:339 gui/mainwindow_print.cpp:521
 #: gui/riggingpanel.cpp:191 gui/summarypanel.cpp:182
 msgid "Hoists"
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:343 gui/mainwindow_print.cpp:524
+#: gui/mainwindow_layout.cpp:344 gui/mainwindow_print.cpp:524
 #: gui/summarypanel.cpp:199
 msgid "Objects"
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:351
+#: gui/mainwindow_layout.cpp:352
 msgid "Data Views"
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:365 gui/mainwindow_menu_builders.cpp:78
+#: gui/mainwindow_layout.cpp:366 gui/mainwindow_menu_builders.cpp:78
 msgid "Console"
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:378 gui/mainwindow_menu_builders.cpp:85
+#: gui/mainwindow_layout.cpp:379 gui/mainwindow_menu_builders.cpp:85
 msgid "Layers"
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:392 gui/mainwindow_menu_builders.cpp:86
+#: gui/mainwindow_layout.cpp:393 gui/mainwindow_menu_builders.cpp:86
 msgid "Layouts"
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:406
+#: gui/mainwindow_layout.cpp:407
 msgid "Layout Viewer"
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:435 gui/mainwindow_menu_builders.cpp:88
+#: gui/mainwindow_layout.cpp:436 gui/mainwindow_menu_builders.cpp:88
 msgid "Rigging"
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:484
+#: gui/mainwindow_layout.cpp:485
 msgid "X: -- m  Y: -- m  Z: -- m"
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:486
+#: gui/mainwindow_layout.cpp:487
 #, c-format
 msgid "Version %s"
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:1150
+#: gui/mainwindow_layout.cpp:1154
 msgid "Layout view update skipped: target view not found."
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:1182
+#: gui/mainwindow_layout.cpp:1186
 msgid "Layout view update failed."
 msgstr ""
 

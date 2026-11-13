@@ -16,6 +16,10 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layout_viewport_preview.h"
+#include "document_text_renderer.h"
+#include "typography/font_resources.h"
+#include "typography/glyph_outline.h"
+#include "projectutils.h"
 #include <wx/wx.h>
 #include <wx/dcgraph.h>
 #include <wx/graphics.h>
@@ -59,6 +63,32 @@ public:
   }
   void DrawText(const viewer2d::Viewer2DRenderText &t) override {
     if (t.fontSizePx <= 0) return;
+    auto outline = t.style.glyphOutline;
+    if (!outline && t.style.fontFamily.starts_with("perastage-sans")) {
+      // Persisted command caches retain font identity and positioned glyphs.
+      // Recover only their contours through the existing bundled font service.
+      static const auto fonts = [] {
+        std::array<typography::TtfFontMetrics, 2> result;
+        for (int bold = 0; bold < 2; ++bold)
+          typography::LoadTtfFontMetrics(typography::BundledFontPath(
+              ProjectUtils::GetResourceRoot(), bold != 0), result[bold]);
+        return result;
+      }();
+      const auto encoded = typography::EncodeWinAnsi(t.text);
+      if (!encoded.empty()) outline = typography::ReadGlyphOutline(
+          fonts[t.style.fontFamily == "perastage-sans-bold"],
+          static_cast<unsigned char>(encoded.front()));
+    }
+    if (outline) {
+      const auto path = gui::BuildDocumentGlyphPath(gc_, *outline, t.anchor.x, t.anchor.y, t.fontSizePx);
+      gc_.SetBrush(wxBrush(Color(t.style.color)));
+      if (t.outlineWidthPx > 0) {
+        gc_.SetPen(gc_.CreatePen(wxGraphicsPenInfo(Color(t.style.outlineColor)).Width(2*t.outlineWidthPx)));
+        gc_.StrokePath(path);
+      }
+      gc_.FillPath(path, wxWINDING_RULE);
+      return;
+    }
     auto font = gc_.CreateFont(t.fontSizePx, wxString::FromUTF8(t.style.fontFamily),
                               wxFONTFLAG_DEFAULT, Color(t.style.color));
     gc_.SetFont(font);
@@ -71,6 +101,13 @@ public:
     if (t.style.vAlign == CanvasTextStyle::VerticalAlign::Baseline) y -= h-descent;
     if (t.style.vAlign == CanvasTextStyle::VerticalAlign::Middle) y -= h/2;
     if (t.style.vAlign == CanvasTextStyle::VerticalAlign::Bottom) y -= h;
+    if (t.outlineWidthPx > 0) {
+      gc_.SetFont(gc_.CreateFont(t.fontSizePx, wxString::FromUTF8(t.style.fontFamily),
+                               wxFONTFLAG_DEFAULT, Color(t.style.outlineColor)));
+      for (int dx : {-1,0,1}) for (int dy : {-1,0,1})
+        if (dx || dy) gc_.DrawText(value, x + dx*t.outlineWidthPx, y + dy*t.outlineWidthPx);
+      gc_.SetFont(font);
+    }
     gc_.DrawText(value, x, y);
   }
 private:

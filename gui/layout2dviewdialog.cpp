@@ -64,7 +64,7 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent,
   mainSizer->Add(contentSizer, 1, wxEXPAND);
 
   auto *scaleSizer = new wxBoxSizer(wxHORIZONTAL);
-  auto *scaleLabel = new wxStaticText(this, wxID_ANY, _("Frame scale"));
+  auto *scaleLabel = new wxStaticText(this, wxID_ANY, _("Visual framing"));
   scaleSlider = new wxSlider(this, wxID_ANY, 100, 25, 300);
   scaleValueLabel = new wxStaticText(this, wxID_ANY, _("100%"));
   scaleSlider->Bind(wxEVT_SLIDER, &Layout2DViewDialog::OnScaleChanged, this);

@@ -17,6 +17,7 @@
  */
 #include "layer_identity.h"
 #include "configmanager.h"
+#include "preference_draft.h"
 #include "model_detail_policy.h"
 #include "symbols/project_fixture_symbol_migration.h"
 #include "projectutils.h"
@@ -330,7 +331,7 @@ void ConfigManager::SetValue(const std::string &key, const std::string &value) {
   if (prev == next)
     return;
   NotifyChange(Change::Preferences);
-  if (!suppressRevision)
+  if (!suppressRevision && !ScopedPreferenceDraft::Owns(this, key))
     projectSession.Touch();
 }
 
@@ -346,7 +347,7 @@ bool ConfigManager::HasKey(const std::string &key) const {
 void ConfigManager::RemoveKey(const std::string &key) {
   const bool had = preferencesStore.HasKey(key);
   preferencesStore.RemoveKey(key);
-  if (had && !suppressRevision)
+  if (had && !suppressRevision && !ScopedPreferenceDraft::Owns(this, key))
     projectSession.Touch();
 }
 
@@ -371,7 +372,7 @@ float ConfigManager::GetFloat(const std::string &name) const {
 void ConfigManager::SetFloat(const std::string &name, float v) {
   auto prev = preferencesStore.GetValue(name);
   preferencesStore.SetFloat(name, v);
-  if (!suppressRevision && prev != preferencesStore.GetValue(name))
+  if (!suppressRevision && !ScopedPreferenceDraft::Owns(this, name) && prev != preferencesStore.GetValue(name))
     projectSession.Touch();
 }
 

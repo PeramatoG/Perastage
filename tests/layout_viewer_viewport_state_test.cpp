@@ -73,6 +73,11 @@ void TestGeometry() {
                          {10.0, 20.0, 100.0, 50.0}, frame));
   assert(frame.x == -70 && frame.y == 20 && frame.width == 200 &&
          frame.height == 100);
+  state.SetZoom(10.0);
+  const auto precisePage=state.PageRect({1000,800},600,400);
+  assert(state.FrameRect({1000,800},600,400,{10.49,20.49,100.49,50.49},frame));
+  assert(frame.x==precisePage.x+105 && frame.y==precisePage.y+205);
+  assert(frame.width==1005 && frame.height==505);
   assert(!state.FrameRect({1000, 800}, 600.0, 400.0,
                           {0.0, 0.0, 0.0, 10.0}, frame));
 }

@@ -17,14 +17,74 @@
  */
 #include "layout_viewport_preview.h"
 #include "layout_viewport_adapter.h"
+#include "layout_viewport_properties.h"
+#include <wx/choice.h>
+#include <wx/combobox.h>
+#include <wx/dialog.h>
+#include <wx/textctrl.h>
 #include <wx/wx.h>
 #include <wx/dcgraph.h>
 #include <wx/dcmemory.h>
 #include <cassert>
 #include <cmath>
 
+namespace {
+// Exercises the real modal controls, including Cancel and lossless unchanged OK.
+void TestViewportPropertiesControls() {
+  layouts::Layout2DViewDefinition draft; draft.id=7; draft.frame={17,29,101,73};
+  draft.camera.zoom=2.3f;
+  Viewer2DViewState visual; visual.viewportWidth=800; visual.viewportHeight=600;
+  auto schedule = [](bool accept, int mode, bool changeValues) {
+    wxTheApp->CallAfter([=] {
+      wxDialog *dialog=nullptr;
+      for (auto *window : wxTopLevelWindows)
+        if ((dialog=dynamic_cast<wxDialog *>(window))) break;
+      assert(dialog);
+      std::vector<wxTextCtrl *> fields;
+      wxChoice *choice=nullptr; wxComboBox *denominator=nullptr;
+      for (auto *child : dialog->GetChildren()) {
+        // GTK's wxComboBox inherits wxChoice; keep the two controls distinct.
+        if (auto *v=dynamic_cast<wxComboBox *>(child)) { denominator=v; continue; }
+        if (auto *v=dynamic_cast<wxChoice *>(child)) choice=v;
+        if (auto *v=dynamic_cast<wxTextCtrl *>(child)) fields.push_back(v);
+      }
+      assert(choice && denominator && fields.size()==6);
+      choice->SetSelection(mode);
+      wxCommandEvent selected(wxEVT_CHOICE,choice->GetId());
+      choice->GetEventHandler()->ProcessEvent(selected);
+      if (changeValues) {
+        denominator->SetValue("100");
+        const std::array<const char *,6> values={"12","-9","7","11","123.456789","88.901234"};
+        for(size_t i=0;i<values.size();++i) fields[i]->SetValue(values[i]);
+      }
+      wxCommandEvent event(wxEVT_BUTTON,accept ? wxID_OK : wxID_CANCEL);
+      dialog->GetEventHandler()->ProcessEvent(event);
+    });
+  };
+  schedule(false,1,true);
+  assert(!EditLayoutViewportProperties(nullptr,draft,visual));
+  assert(draft.scaleMode==layouts::ViewportScaleMode::Free && !draft.physicalScale && draft.frame.width==101);
+  schedule(true,1,true);
+  assert(EditLayoutViewportProperties(nullptr,draft,visual));
+  assert(draft.scaleMode==layouts::ViewportScaleMode::Fixed && draft.physicalScale->denominator==100);
+  assert(draft.physicalScale->centerX==12 && draft.physicalScale->centerY==-9);
+  assert(draft.camera.zoom==2.3f && draft.id==7);
+  const auto f=layouts::ResolveViewportFrame(draft);
+  assert(std::abs(f.width*25.4/72-123.456789)<1e-9);
+  const auto residual=draft.frameResidual;
+  schedule(true,1,false);
+  assert(EditLayoutViewportProperties(nullptr,draft,visual));
+  assert(draft.frameResidual.width==residual.width && draft.frameResidual.height==residual.height);
+  schedule(true,0,false);
+  assert(EditLayoutViewportProperties(nullptr,draft,visual));
+  assert(draft.scaleMode==layouts::ViewportScaleMode::Free && draft.physicalScale->denominator==100);
+  assert(draft.camera.zoom==2.3f);
+}
+}
+
 // Measures the actual GUI graphics backend under raster scaling/DPI changes.
 void TestPhysicalViewportPreview() {
+  TestViewportPropertiesControls();
   for (double denominator : {50.0, 100.0}) for (double deviceScale : {1.0, 1.5, 2.0, 4.0}) {
     layouts::Layout2DViewDefinition v; v.frame={0,0,300,200};
     v.scaleMode=layouts::ViewportScaleMode::Fixed;

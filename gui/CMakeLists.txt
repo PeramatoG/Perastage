@@ -157,6 +157,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel_legend.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel_text.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel_view.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel_viewport_geometry.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel_helpers.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layout_render_status_notifier.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layout_render_profiler.cpp

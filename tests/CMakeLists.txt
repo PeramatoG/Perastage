@@ -4910,7 +4910,8 @@ add_executable(page_output_mapping_test page_output_mapping_test.cpp ../core/pri
 target_include_directories(page_output_mapping_test PRIVATE ../core ../core/print)
 add_test(NAME PageOutputMapping COMMAND page_output_mapping_test)
 add_executable(layout_export_input_test layout_export_input_test.cpp
-    layout_physical_viewport_preview_test.cpp ../gui/layout_viewport_preview.cpp
+    layout_physical_viewport_preview_test.cpp ../gui/layout_viewport_properties.cpp
+    ../gui/layout_viewport_preview.cpp ../gui/document_text_renderer.cpp
     ../viewer2d/viewer2dcommandrenderer.cpp
     layout_legend_pdf_resources_stub.cpp ../gui/layout_image_export.cpp ../gui/layouttextutils.cpp)
 target_include_directories(layout_export_input_test PRIVATE ../gui ../viewer2d ../core ../core/layouts

@@ -235,7 +235,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(
       InvalidateViewCacheForSceneContent(cache);
     }
     wxRect frameRect;
-    if (!GetFrameRect(view.frame, frameRect)) {
+    if (!GetFrameRect(layouts::ResolveViewportFrame(view), frameRect)) {
       if (cache.texture != 0) {
         markDirty(cache.renderDirty);
         ClearCachedTexture(cache);
@@ -244,7 +244,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(
       }
       continue;
     }
-    const wxSize renderSize = GetFrameSizeForZoom(view.frame, renderZoom);
+    const wxSize renderSize = GetFrameSizeForZoom(layouts::ResolveViewportFrame(view), renderZoom);
     if (cache.texture == 0 ||
         ShouldRebuildCacheForRenderZoom(cache.renderZoom, renderZoom) ||
         renderSize != cache.textureSize) {

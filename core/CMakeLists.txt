@@ -10,7 +10,7 @@ target_compile_features(perastage_project_archive_publication PUBLIC cxx_std_20)
 target_link_libraries(${PROJECT_NAME} PRIVATE perastage_project_archive_publication)
 
 add_library(perastage_legend_composition STATIC
-    layouts/PhysicalViewport.h layouts/PageOutputMapping.h layouts/EventTableComposition.h layouts/EventTableComposition.cpp
+    preference_draft.h layouts/PhysicalViewport.h layouts/PageOutputMapping.h layouts/EventTableComposition.h layouts/EventTableComposition.cpp
     layouts/DocumentComposition.h layouts/LegendComposition.h
     layouts/LegendComposition.cpp layouts/LegendContent.h layouts/LegendContent.cpp)
 target_include_directories(perastage_legend_composition PUBLIC

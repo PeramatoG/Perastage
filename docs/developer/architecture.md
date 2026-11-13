@@ -688,7 +688,9 @@ existing scene command camera. Page coordinates grow right/down from top left.
 
 Viewport frame precision is an isolated compatibility adapter: the existing
 integer frame plus bounded fractional point residuals resolves to double points.
-Integer gesture deltas preserve residuals. Other element types retain their
+Integer gesture deltas preserve residuals. Display and hit testing resolve those
+residuals before editor zoom; rounding happens only at the screen boundary.
+Other element types retain their
 existing representation. Numeric properties use millimeters at the GUI boundary;
 only document points are serialized. Core validates candidates before mutation
 publication; optional viewport metadata is omitted for untouched legacy views.
@@ -697,7 +699,9 @@ part of the candidate. PSTG metadata and history use the same serializer; no
 MVR/GDTF fields or resources carry physical viewport settings.
 
 Viewer2D's `layout_viewport_adapter.h` derives a temporary capture camera covering
-the entire physical crop, at the actual capture dimensions. This camera is never
+the entire physical crop, at the actual capture dimensions, with a conservative
+float-camera rounding margin at large coordinates. Final mapping/clipping uses
+the original double-precision bounds. This camera is never
 persisted over the free camera. Captured state carries the resolved physical
 bounds to the existing `BuildViewMapping` and command renderer. Preview's graphics
 backend and vector PDF share command traversal and uniform mapping; raster
@@ -709,3 +713,11 @@ both document-to-output size ratios to be one; GUI and vector exporter reject
 mismatches before output publication. Changing Layout A3/A4 paper size records
 one ordinary history mutation without fitting content. Existing typography and
 paper-space styling limitations are outside this physical geometry contract.
+
+The modal viewport editor uses `ScopedPreferenceDraft` for the existing Viewer2D
+preference ownership registry and hidden fixture types. Only those temporary keys
+skip dirty publication; scene/history mutations and unrelated preferences retain
+normal revisions. The existing scoped Viewer2D state restores workspace values.
+Passive camera notifications cannot publish modal drafts; only OK commits the
+validated Layout candidate. This also preserves metadata when changing view
+orientation and cancelling the editor.

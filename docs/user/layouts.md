@@ -44,7 +44,7 @@ only the portion inside the page prints. Frame dimensions must be at least
 Use the existing visual editor to zoom, pan and fit the scene. Resizing retains
 the established flexible workflow. The approximate effective free scale, when
 available, describes the stored camera and current frame; it is not a lock.
-The editor's **Frame scale** slider adjusts visual framing, not a physical ratio.
+The editor's **Visual framing** slider adjusts visual framing, not a physical ratio.
 
 Choose **Fixed** explicitly for an exact drawing scale. Select 1:25, 1:50,
 1:100, 1:200 or 1:500, or enter a custom denominator between 0.01 and 10000000.
