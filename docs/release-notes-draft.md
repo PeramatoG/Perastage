@@ -9,9 +9,13 @@
   and pan available. Millimeter properties display without unnecessary decimals
   while retaining stored precision. Viewport property changes preview immediately;
   Cancel restores the previous properties and framing, and OK keeps the draft.
+  Numeric arrow buttons allow incremental adjustments without losing fractional
+  precision, and a visible fixed-scale notice explains the zoom lock. Page position
+  stays on the Layout page; properties focus on viewport scale, center and size.
 - Fixed oversized strokes in fixed-scale Layout previews and restored thin,
   correctly rendered Legend fallback fixture symbols before optimized symbols
-  have been generated.
+  have been generated. Corrected upside-down Layout 2D command-buffer previews,
+  keeping scene geometry and labels aligned with the editor’s red-frame crop.
 
 <!--
 RELEASE NOTES — WORK IN PROGRESS

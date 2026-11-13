@@ -741,8 +741,12 @@ metadata controls stroke/fill participation, including fill-only mesh triangles.
 Legend fallback geometry fits its cell independently of its one-point captured
 outlines, matching the pre-November 4 behavior. Both preview and PDF use that
 paper-space stroke conversion; optimized SVG resources remain unchanged. The
-platform raster contract advances to v2 so reopening a project discards cached
-images produced with the incorrect stroke widths.
+platform raster contract advances to v3 so reopening a project discards cached
+images produced with incorrect strokes or inverted row ordering.
+`layout_view_texture_pixels.h` converts wx top-row-first images to the bottom-row-first
+GL readback contract used exclusively by Layout 2D view textures. Their quad
+samples v=1 at the top; other element texture conventions are unchanged.
+Asymmetric scene/glyph tests cover the final texture row sampling.
 
 Viewport properties resolve each edit against an immutable entry snapshot and
 preview only Core-validated candidates through the modal editor adapter. Partial
@@ -752,3 +756,11 @@ project mutation until the outer editor accepts it. Unchanged numeric controls
 preserve their original fractional point residuals bit-for-bit, even when the
 preview adapter temporarily updates the enclosing draft. No intermediate preview
 creates history entries or replaces the preserved free camera.
+
+Numeric viewport entries pair text controls with native step arrows. Their GUI
+adapter retains an exact value independently of display rounding and anchors
+opposite steps to avoid drift. Paper fields step by 1 mm, centers by 0.01 m and
+denominators by 1; Core candidate validation remains authoritative. The editor
+shows a persistent ratio/zoom-lock notice in fixed mode. Free mode disables the
+numeric scale/center arrows alongside their fields. Page placement remains a
+Layout-page operation; properties edit dimensions while preserving X/Y exactly.

@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layout_view_cache_archive.h"
+#include "layout_view_texture_pixels.h"
 #include "filesystem_path_utils.h"
 #include "layoutviewerpanel.h"
 
@@ -57,15 +58,15 @@ constexpr size_t kMaxPersistentCacheBytes = 8 * 1024 * 1024;
 constexpr size_t kMaxPersistentRasterBytes = 16 * 1024 * 1024;
 constexpr size_t kMaxPersistentRasterEntryBytes = 8 * 1024 * 1024;
 
-// Raster v2 invalidates cached previews made with geometry-scaled stroke widths.
+// Raster v3 also invalidates command-buffer previews uploaded upside down.
 // Returns the platform-scoped raster rendering contract.
 std::string PersistentRasterEnvironmentContract() {
 #if defined(_WIN32)
-  return "windows-wx-3-v2";
+  return "windows-wx-3-v3";
 #elif defined(__APPLE__)
-  return "macos-wx-3-v2";
+  return "macos-wx-3-v3";
 #else
-  return "linux-wx-3-v2";
+  return "linux-wx-3-v3";
 #endif
 }
 
@@ -874,24 +875,9 @@ bool RenderCommandBufferCacheToRgba(const wxSize &renderSize,
       renderSize, buffer, renderViewState, symbols);
   if (!image.IsOk())
     return false;
-  if (!image.HasAlpha())
-    image.InitAlpha();
-
   width = image.GetWidth();
   height = image.GetHeight();
-  const unsigned char *rgb = image.GetData();
-  const unsigned char *alpha = image.GetAlpha();
-  if (!rgb || width <= 0 || height <= 0)
-    return false;
-
-  pixels.resize(static_cast<size_t>(width) * static_cast<size_t>(height) * 4);
-  for (int i = 0; i < width * height; ++i) {
-    pixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
-    pixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
-    pixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
-    pixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
-  }
-  return true;
+  return CopyLayoutViewTexturePixels(image, pixels);
 }
 
 } // namespace gui::layoutcache

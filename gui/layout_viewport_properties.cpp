@@ -16,6 +16,9 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layout_viewport_properties.h"
+#include "layout_viewport_numeric_input.h"
+#include <memory>
+#include <vector>
 #include "viewer2dpanel.h"
 #include "viewer2dcommandrenderer.h"
 #include <wx/button.h>
@@ -34,11 +37,13 @@ bool EditLayoutViewportProperties(wxWindow *parent,
     layouts::Layout2DViewDefinition &draft, const Viewer2DViewState &visualState,
     const std::function<void(const layouts::Layout2DViewDefinition &)> &preview) {
   const auto original = draft;
+  // Controllers outlive the dialog-owned controls and their event bindings.
+  std::vector<std::unique_ptr<LayoutViewportNumericInput>> numbers;
   wxDialog dialog(parent, wxID_ANY, _("Viewport properties"));
   auto *box = new wxBoxSizer(wxVERTICAL);
   auto *grid = new wxFlexGridSizer(2, 8, 8);
   grid->AddGrowableCol(1);
-  auto row = [&](const wxString &label, wxWindow *control) {
+  auto row = [&](const wxString &label, auto *control) {
     grid->Add(new wxStaticText(&dialog, wxID_ANY, label), 0, wxALIGN_CENTER_VERTICAL);
     grid->Add(control, 1, wxEXPAND);
   };
@@ -56,27 +61,27 @@ bool EditLayoutViewportProperties(wxWindow *parent,
   auto *denominator = new wxComboBox(&dialog, wxID_ANY,
       wxNumberFormatter::ToString(physical.denominator, 8, wxNumberFormatter::Style_NoTrailingZeroes));
   for (const auto *v : {"25", "50", "100", "200", "500"}) denominator->Append(v);
-  row(_("Drawing scale 1:"), denominator);
-  auto text = [&](const wxString &label, double value, int precision = 3) {
-    auto *field = new wxTextCtrl(&dialog, wxID_ANY, wxNumberFormatter::ToString(value, precision, wxNumberFormatter::Style_NoTrailingZeroes));
-    row(label, field); return field;
+  auto numericRow = [&](const wxString &label, auto *field, double value,
+                        double step, int digits, double minimum, double maximum) {
+    numbers.push_back(std::make_unique<LayoutViewportNumericInput>(
+        *field, *field, value, step, digits, minimum, maximum, label));
+    row(label, numbers.back()->Row());
   };
-  auto *cx = text(_("Center horizontal (m)"), physical.centerX);
-  auto *cy = text(_("Center vertical (m)"), physical.centerY);
+  numericRow(_("Drawing scale 1:"), denominator, physical.denominator, 1, 8, 0.01, 1e7);
+  auto text = [&](const wxString &label, double value, double step, int precision, double minimum, double maximum) {
+    auto *field = new wxTextCtrl(&dialog, wxID_ANY, wxNumberFormatter::ToString(value, precision, wxNumberFormatter::Style_NoTrailingZeroes));
+    numericRow(label, field, value, step, precision, minimum, maximum); return field;
+  };
+  auto *cx = text(_("Center horizontal (m)"), physical.centerX, 0.01, 3, -1e7, 1e7);
+  auto *cy = text(_("Center vertical (m)"), physical.centerY, 0.01, 3, -1e7, 1e7);
   const auto f = layouts::ResolveViewportFrame(original);
   constexpr double mmPerPoint = 25.4 / 72.0;
-  std::array<wxTextCtrl *,4> frame = {
-    text(_("Page X (mm)"), f.x * mmPerPoint, 0),
-    text(_("Page Y (mm)"), f.y * mmPerPoint, 0),
-    text(_("Frame width (mm)"), f.width * mmPerPoint, 0),
-    text(_("Frame height (mm)"), f.height * mmPerPoint, 0)};
-  const wxString originalDenominator = denominator->GetValue();
-  const wxString originalX = cx->GetValue(), originalY = cy->GetValue();
-  std::array<wxString,4> originalFrame;
-  for (size_t i=0; i<frame.size(); ++i) originalFrame[i] = frame[i]->GetValue();
+  std::array<wxTextCtrl *,2> frame = {
+    text(_("Frame width (mm)"), f.width * mmPerPoint, 1, 0, mmPerPoint, 200000*mmPerPoint),
+    text(_("Frame height (mm)"), f.height * mmPerPoint, 1, 0, mmPerPoint, 200000*mmPerPoint)};
   box->Add(grid, 1, wxEXPAND | wxALL, 12);
   auto *axes = new wxStaticText(&dialog, wxID_ANY,
-      _("Center axes: Top X/Y, Front X/Z, Side Y/Z. Page origin: top left."));
+      _("Center axes: Top X/Y, Front X/Z, Side Y/Z."));
   box->Add(axes, 0, wxALL, 12);
   auto *effective = new wxStaticText(&dialog, wxID_ANY, _("Free scale: variable"));
   Viewer2DViewState freeState;
@@ -90,9 +95,10 @@ bool EditLayoutViewportProperties(wxWindow *parent,
         1000.0 * 72.0 / 25.4 / pointsPerMeter));
   }
   box->Add(effective, 0, wxLEFT | wxRIGHT | wxBOTTOM, 12);
-  auto enable = [=]() {
+  auto enable = [&]() {
     bool fixed = mode->GetSelection() == 1;
     denominator->Enable(fixed); cx->Enable(fixed); cy->Enable(fixed);
+    for (size_t i=0; i<3; ++i) numbers[i]->Enable(fixed);
     effective->Show(!fixed);
   };
   enable();
@@ -101,34 +107,24 @@ bool EditLayoutViewportProperties(wxWindow *parent,
   auto readCandidate = [&]() {
     auto candidate = original;
     double d, x, y;
-    std::array<double,4> n{};
-    bool valid = denominator->GetValue().ToDouble(&d) &&
-                 cx->GetValue().ToDouble(&x) && cy->GetValue().ToDouble(&y);
-    for (size_t i = 0; i < n.size(); ++i) valid = frame[i]->GetValue().ToDouble(&n[i]) && valid;
-    if (denominator->GetValue() == originalDenominator) d = physical.denominator;
-    if (cx->GetValue() == originalX) x = physical.centerX;
-    if (cy->GetValue() == originalY) y = physical.centerY;
+    std::array<double,2> n{};
+    bool valid = numbers[0]->Read(d) && numbers[1]->Read(x) && numbers[2]->Read(y);
+    for (size_t i = 0; i < n.size(); ++i) valid = numbers[i+3]->Read(n[i]) && valid;
     if (!valid) throw std::invalid_argument("Enter finite numeric values for scale, center and frame.");
     candidate.scaleMode = mode->GetSelection() == 1 ? layouts::ViewportScaleMode::Fixed : layouts::ViewportScaleMode::Free;
     if (candidate.scaleMode == layouts::ViewportScaleMode::Fixed || original.physicalScale)
       candidate.physicalScale = layouts::PhysicalViewport{d, x, y};
     // Preserve the exact stored doubles on an unchanged edit.
-    const std::array<double,4> old = {f.x, f.y, f.width, f.height};
+    const std::array<double,2> old = {f.width, f.height};
     for (size_t i = 0; i < n.size(); ++i)
-      n[i] = frame[i]->GetValue() == originalFrame[i] ? old[i] : n[i]/mmPerPoint;
+      n[i] = numbers[i+3]->IsUnchanged() ? old[i] : n[i]/mmPerPoint;
     auto parsedFrame = original;
-    layouts::SetViewportFrame(parsedFrame, {n[0], n[1], n[2], n[3]});
+    layouts::SetViewportFrame(parsedFrame, {f.x, f.y, n[0], n[1]});
     // Keep unchanged residuals bit-for-bit, including JSON-authored fractions.
-    if (frame[0]->GetValue() != originalFrame[0]) {
-      candidate.frame.x=parsedFrame.frame.x; candidate.frameResidual.x=parsedFrame.frameResidual.x;
-    }
-    if (frame[1]->GetValue() != originalFrame[1]) {
-      candidate.frame.y=parsedFrame.frame.y; candidate.frameResidual.y=parsedFrame.frameResidual.y;
-    }
-    if (frame[2]->GetValue() != originalFrame[2]) {
+    if (!numbers[3]->IsUnchanged()) {
       candidate.frame.width=parsedFrame.frame.width; candidate.frameResidual.width=parsedFrame.frameResidual.width;
     }
-    if (frame[3]->GetValue() != originalFrame[3]) {
+    if (!numbers[4]->IsUnchanged()) {
       candidate.frame.height=parsedFrame.frame.height; candidate.frameResidual.height=parsedFrame.frameResidual.height;
     }
     layouts::ValidateViewport(candidate);
@@ -148,11 +144,13 @@ bool EditLayoutViewportProperties(wxWindow *parent,
       // Incomplete typing keeps the last valid preview; OK reports diagnostics.
     }
   };
-  for (auto *field : frame)
-    field->Bind(wxEVT_TEXT, [&](wxCommandEvent &) { previewValues(); });
-  cx->Bind(wxEVT_TEXT, [&](wxCommandEvent &) { previewValues(); });
-  cy->Bind(wxEVT_TEXT, [&](wxCommandEvent &) { previewValues(); });
-  denominator->Bind(wxEVT_TEXT, [&](wxCommandEvent &) { previewValues(); });
+  for (size_t i=0; i<frame.size(); ++i)
+    frame[i]->Bind(wxEVT_TEXT, [&, i](wxCommandEvent &) {
+      numbers[i+3]->OnTextEdited(); previewValues();
+    });
+  cx->Bind(wxEVT_TEXT, [&](wxCommandEvent &) { numbers[1]->OnTextEdited(); previewValues(); });
+  cy->Bind(wxEVT_TEXT, [&](wxCommandEvent &) { numbers[2]->OnTextEdited(); previewValues(); });
+  denominator->Bind(wxEVT_TEXT, [&](wxCommandEvent &) { numbers[0]->OnTextEdited(); previewValues(); });
   denominator->Bind(wxEVT_COMBOBOX, [&](wxCommandEvent &) { previewValues(); });
   mode->Bind(wxEVT_CHOICE, [&](wxCommandEvent &) {
     enable(); dialog.Layout(); previewValues();

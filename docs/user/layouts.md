@@ -34,10 +34,14 @@ Save the `.pstg` project to keep your layouts. **Export template** creates a por
 
 ## Viewport scale and numeric frame properties
 
-Double-click a 2D view, then choose **Viewport properties**. Page X/Y, width and
-height use millimeters; the page origin is the top left. Millimeters display
+Double-click a 2D view, then choose **Viewport properties**. Frame width and
+height use millimeters. Move the element on the Layout page to change its
+position. Millimeters display
 without decimal places. You can enter fractional values; unchanged fields retain
-their full stored precision in projects and templates. Frames can be partly outside the page;
+their full stored precision in projects and templates. Arrow buttons adjust
+frame dimensions by 1 mm, world centers by 0.01 m and the scale
+denominator by 1. They retain fractional values internally; typing custom values
+and choosing a common scale remain available. Frames can be partly outside the page;
 only the portion inside the page prints. Frame dimensions must be at least
 1 point (about 0.353 mm), with positions and dimensions bounded to 200000 points.
 
@@ -53,7 +57,8 @@ At 1:50, one scene meter occupies 20 mm on paper; at 1:100 it occupies 10 mm.
 The stored center uses scene meters: Top X/Y, Front X/Z, Side Y/Z. Side's
 horizontal display runs toward negative Y; the numeric center remains world Y.
 Change the center numerically or pan directly in the visual editor. In fixed
-mode the red rectangle shows the actual crop at the selected scale. Zoom, fit
+mode the red rectangle shows the actual crop at the selected scale. A visible
+notice identifies the fixed ratio and explains why zoom is locked. Zoom, fit
 and the Visual framing slider are locked; dragging and arrow keys move the
 center without changing scale. Resizing the editor fits the displayed rectangle
 to the window while preserving the world area inside it. Switching back to free

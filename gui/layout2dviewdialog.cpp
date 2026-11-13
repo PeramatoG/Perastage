@@ -76,6 +76,11 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent,
   scaleSizer->Add(scaleValueLabel, 0, wxALIGN_CENTER_VERTICAL);
   mainSizer->Add(scaleSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
 
+  fixedScaleNotice = new wxStaticText(this, wxID_ANY, wxEmptyString);
+  fixedScaleNotice->SetFont(fixedScaleNotice->GetFont().Bold());
+  mainSizer->Add(fixedScaleNotice, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
+  fixedScaleNotice->Hide();
+
   auto *properties = new wxButton(this, wxID_ANY, _("Viewport properties"));
   properties->Bind(wxEVT_BUTTON, &Layout2DViewDialog::OnViewportProperties, this);
   mainSizer->Add(properties, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
@@ -210,6 +215,14 @@ void Layout2DViewDialog::UpdateScaleLabel() {
     scaleValueLabel->SetLabel(wxString::Format(_("1:%s"), wxNumberFormatter::ToString(
         viewportDraft->physicalScale->denominator, 8, wxNumberFormatter::Style_NoTrailingZeroes)));
   else scaleValueLabel->SetLabel(wxString::Format(_("%d%%"), scaleSlider->GetValue()));
+  const bool fixed = viewportDraft && viewportDraft->scaleMode == layouts::ViewportScaleMode::Fixed && viewportDraft->physicalScale;
+  if (fixed) fixedScaleNotice->SetLabel(wxString::Format(
+      _("Fixed scale 1:%s. Zoom is locked; pan to adjust framing."),
+      wxNumberFormatter::ToString(viewportDraft->physicalScale->denominator, 8,
+                                  wxNumberFormatter::Style_NoTrailingZeroes)));
+  if (fixed) fixedScaleNotice->Wrap(FromDIP(900));
+  fixedScaleNotice->Show(fixed);
+  Layout();
 }
 
 // Merges presentation properties without replacing the preserved free camera.

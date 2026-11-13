@@ -115,10 +115,14 @@ not add history. A completed move or resize records one change; <strong>Escape</
 loss of mouse capture cancels the preview without changing the saved document.</p>
 <p>Save the <code>.pstg</code> project to keep your layouts. <strong>Export template</strong> creates a portable <code>.pslayout</code> package including referenced images. <strong>Import template</strong> accepts <code>.pslayout</code> and legacy <code>.json</code> templates.</p>
 <h2 id="viewport-scale-and-numeric-frame-properties">Viewport scale and numeric frame properties</h2>
-<p>Double-click a 2D view, then choose <strong>Viewport properties</strong>. Page X/Y, width and
-height use millimeters; the page origin is the top left. Millimeters display
+<p>Double-click a 2D view, then choose <strong>Viewport properties</strong>. Frame width and
+height use millimeters. Move the element on the Layout page to change its
+position. Millimeters display
 without decimal places. You can enter fractional values; unchanged fields retain
-their full stored precision in projects and templates. Frames can be partly outside the page;
+their full stored precision in projects and templates. Arrow buttons adjust
+frame dimensions by 1 mm, world centers by 0.01 m and the scale
+denominator by 1. They retain fractional values internally; typing custom values
+and choosing a common scale remain available. Frames can be partly outside the page;
 only the portion inside the page prints. Frame dimensions must be at least
 1 point (about 0.353 mm), with positions and dimensions bounded to 200000 points.</p>
 <p><strong>Free / Variable</strong> is the default for new views, old projects and templates.
@@ -132,7 +136,8 @@ At 1:50, one scene meter occupies 20 mm on paper; at 1:100 it occupies 10 mm.
 The stored center uses scene meters: Top X/Y, Front X/Z, Side Y/Z. Side&#39;s
 horizontal display runs toward negative Y; the numeric center remains world Y.
 Change the center numerically or pan directly in the visual editor. In fixed
-mode the red rectangle shows the actual crop at the selected scale. Zoom, fit
+mode the red rectangle shows the actual crop at the selected scale. A visible
+notice identifies the fixed ratio and explains why zoom is locked. Zoom, fit
 and the Visual framing slider are locked; dragging and arrow keys move the
 center without changing scale. Resizing the editor fits the displayed rectangle
 to the window while preserving the world area inside it. Switching back to free

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.42\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-13 23:45+0100\n"
+"POT-Creation-Date: 2026-11-14 00:17+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -291,7 +291,7 @@ msgstr ""
 #: gui/dictionaryeditdialog.cpp:260 gui/dictionaryeditdialog.cpp:293
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
 #: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:92
-#: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:84
+#: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:89
 #: gui/layouttextdialog.cpp:149 gui/preferencesdialog.cpp:87
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139
@@ -474,7 +474,7 @@ msgid "Export..."
 msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:610 gui/gdtf_download_queue_dialog.cpp:93
-#: gui/layout2dviewdialog.cpp:83 gui/mvr_export_result_dialog.cpp:97
+#: gui/layout2dviewdialog.cpp:88 gui/mvr_export_result_dialog.cpp:97
 #: gui/preferencesdialog.cpp:86 gui/scene_object_primitive_dialogs.cpp:138
 msgid "OK"
 msgstr ""
@@ -2649,75 +2649,72 @@ msgstr ""
 msgid "100%"
 msgstr ""
 
-#: gui/layout2dviewdialog.cpp:79 gui/layout2dviewdialog.cpp:110
-#: gui/layout_viewport_properties.cpp:37 gui/layout_viewport_properties.cpp:168
+#: gui/layout2dviewdialog.cpp:84 gui/layout2dviewdialog.cpp:115
+#: gui/layout_viewport_properties.cpp:42 gui/layout_viewport_properties.cpp:166
 msgid "Viewport properties"
 msgstr ""
 
-#: gui/layout2dviewdialog.cpp:109 gui/layout_viewport_properties.cpp:167
+#: gui/layout2dviewdialog.cpp:114 gui/layout_viewport_properties.cpp:165
 #, c-format
 msgid "Invalid viewport properties: %s"
 msgstr ""
 
-#: gui/layout2dviewdialog.cpp:210
+#: gui/layout2dviewdialog.cpp:215
 #, c-format
 msgid "1:%s"
 msgstr ""
 
-#: gui/layout2dviewdialog.cpp:212
+#: gui/layout2dviewdialog.cpp:217
 #, c-format
 msgid "%d%%"
 msgstr ""
 
-#: gui/layout_viewport_properties.cpp:46
+#: gui/layout2dviewdialog.cpp:220
+#, c-format
+msgid "Fixed scale 1:%s. Zoom is locked; pan to adjust framing."
+msgstr ""
+
+#: gui/layout_viewport_properties.cpp:51
 msgid "Free / Variable"
 msgstr ""
 
-#: gui/layout_viewport_properties.cpp:46
+#: gui/layout_viewport_properties.cpp:51
 msgid "Fixed"
 msgstr ""
 
-#: gui/layout_viewport_properties.cpp:48
+#: gui/layout_viewport_properties.cpp:53
 msgid "Scale mode"
 msgstr ""
 
-#: gui/layout_viewport_properties.cpp:59
+#: gui/layout_viewport_properties.cpp:70
 msgid "Drawing scale 1:"
 msgstr ""
 
-#: gui/layout_viewport_properties.cpp:64
+#: gui/layout_viewport_properties.cpp:75
 msgid "Center horizontal (m)"
 msgstr ""
 
-#: gui/layout_viewport_properties.cpp:65
+#: gui/layout_viewport_properties.cpp:76
 msgid "Center vertical (m)"
 msgstr ""
 
-#: gui/layout_viewport_properties.cpp:69
-msgid "Page X (mm)"
-msgstr ""
-
-#: gui/layout_viewport_properties.cpp:70
-msgid "Page Y (mm)"
-msgstr ""
-
-#: gui/layout_viewport_properties.cpp:71
+#: gui/layout_viewport_properties.cpp:80
 msgid "Frame width (mm)"
 msgstr ""
 
-#: gui/layout_viewport_properties.cpp:72
+#: gui/layout_viewport_properties.cpp:81
 msgid "Frame height (mm)"
 msgstr ""
 
-#: gui/layout_viewport_properties.cpp:79
-msgid "Center axes: Top X/Y, Front X/Z, Side Y/Z. Page origin: top left."
+#: gui/layout_viewport_properties.cpp:84
+msgid "Center axes: Top X/Y, Front X/Z, Side Y/Z."
 msgstr ""
 
-#: gui/layout_viewport_properties.cpp:81
+#: gui/layout_viewport_properties.cpp:86
 msgid "Free scale: variable"
 msgstr ""
 
-#: gui/layout_viewport_properties.cpp:89 gui/layout_viewport_properties.cpp:143
+#: gui/layout_viewport_properties.cpp:94 gui/layout_viewport_properties.cpp:139
 #, c-format
 msgid "Effective free scale: approximately 1:%.4f"
 msgstr ""

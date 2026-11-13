@@ -19,6 +19,8 @@
 #include "layout_viewport_adapter.h"
 #include "layout_physical_editor.h"
 #include "layout_viewport_properties.h"
+#include "layout_view_texture_pixels.h"
+#include <wx/spinbutt.h>
 #include <wx/choice.h>
 #include <wx/combobox.h>
 #include <wx/dialog.h>
@@ -35,7 +37,7 @@ void TestViewportPropertiesControls() {
   layouts::Layout2DViewDefinition draft; draft.id=7; draft.frame={17,29,101,73};
   draft.camera.zoom=2.3f;
   Viewer2DViewState visual; visual.viewportWidth=800; visual.viewportHeight=600;
-  auto schedule = [](bool accept, int mode, bool changeValues, bool moveOnly = false) {
+  auto schedule = [](bool accept, int mode, bool changeValues, bool resizeOnly = false) {
     wxTheApp->CallAfter([=] {
       wxDialog *dialog=nullptr;
       for (auto *window : wxTopLevelWindows)
@@ -49,7 +51,7 @@ void TestViewportPropertiesControls() {
         if (auto *v=dynamic_cast<wxChoice *>(child)) choice=v;
         if (auto *v=dynamic_cast<wxTextCtrl *>(child)) fields.push_back(v);
       }
-      assert(choice && denominator && fields.size()==6);
+      assert(choice && denominator && fields.size()==4);
       choice->SetSelection(mode);
       wxCommandEvent selected(wxEVT_CHOICE,choice->GetId());
       choice->GetEventHandler()->ProcessEvent(selected);
@@ -57,10 +59,10 @@ void TestViewportPropertiesControls() {
         assert(fields[i]->GetValue().Find('.') == wxNOT_FOUND);
       if (changeValues) {
         denominator->SetValue("100");
-        const std::array<const char *,6> values={"12","-9","7","11","123.456789","88.901234"};
+        const std::array<const char *,4> values={"12","-9","123.456789","88.901234"};
         for(size_t i=0;i<values.size();++i) fields[i]->SetValue(values[i]);
       }
-      if (moveOnly) fields[2]->SetValue("8");
+      if (resizeOnly) fields[2]->SetValue("124");
       wxCommandEvent event(wxEVT_BUTTON,accept ? wxID_OK : wxID_CANCEL);
       dialog->GetEventHandler()->ProcessEvent(event);
     });
@@ -88,7 +90,7 @@ void TestViewportPropertiesControls() {
   assert(draft.physicalScale->centerX==precise.centerX && draft.physicalScale->centerY==precise.centerY);
   schedule(true,1,false,true);
   assert(EditLayoutViewportProperties(nullptr,draft,visual));
-  assert(layouts::ResolveViewportFrame(draft).width==f.width);
+  assert(std::abs(layouts::ResolveViewportFrame(draft).width*25.4/72-124)<1e-9);
   assert(layouts::ResolveViewportFrame(draft).height==f.height);
   schedule(true,0,false);
   assert(EditLayoutViewportProperties(nullptr,draft,visual));
@@ -122,7 +124,7 @@ void TestLiveViewportProperties() {
         if (auto *v=dynamic_cast<wxChoice *>(child)) mode=v;
         if (auto *v=dynamic_cast<wxTextCtrl *>(child)) fields.push_back(v);
       }
-      assert(mode && denominator && fields.size()==6);
+      assert(mode && denominator && fields.size()==4);
       auto selectMode = [&](int selection) {
         mode->SetSelection(selection);
         wxCommandEvent event(wxEVT_CHOICE,mode->GetId());
@@ -142,11 +144,11 @@ void TestLiveViewportProperties() {
       assert(previews==validCount);
       fields[0]->SetValue("12.3456789");
       assert(draft.physicalScale->denominator==200 && draft.physicalScale->centerX==12.3456789);
-      fields[4]->SetValue("0");
+      fields[2]->SetValue("0");
       const int invalidFrameCount=previews;
-      fields[4]->SetValue("-1");
+      fields[2]->SetValue("-1");
       assert(previews==invalidFrameCount);
-      fields[4]->SetValue("123.456789");
+      fields[2]->SetValue("123.456789");
       assert(previews>invalidFrameCount);
       assert(std::abs(layouts::ResolveViewportFrame(draft).width*25.4/72-123.456789)<1e-9);
       // Editing one rounded field must not round any of the other stored fields.
@@ -177,10 +179,96 @@ void TestLiveViewportProperties() {
 }
 }
 
+namespace {
+void TestViewportNumericArrows() {
+  for (int exit : {wxID_OK,wxID_CANCEL}) {
+    layouts::Layout2DViewDefinition draft; draft.id=45;
+    layouts::SetViewportFrame(draft,{17.123,29.234,301.345,273.456});
+    draft.scaleMode=layouts::ViewportScaleMode::Fixed;
+    draft.physicalScale=layouts::PhysicalViewport{50,1.123456789,-2.987654321};
+    const auto original=draft;
+    const auto originalFrame=layouts::ResolveViewportFrame(original);
+    Viewer2DViewState visual; visual.viewportWidth=800; visual.viewportHeight=600;
+    int previews=0;
+    wxTheApp->CallAfter([&] {
+      wxDialog *dialog=nullptr;
+      for (auto *window : wxTopLevelWindows)
+        if ((dialog=dynamic_cast<wxDialog *>(window))) break;
+      assert(dialog);
+      wxChoice *mode=nullptr; wxComboBox *denominator=nullptr;
+      std::vector<wxTextCtrl *> fields; std::vector<wxSpinButton *> arrows;
+      for (auto *child : dialog->GetChildren()) {
+        if (auto *v=dynamic_cast<wxComboBox *>(child)) { denominator=v; continue; }
+        if (auto *v=dynamic_cast<wxChoice *>(child)) mode=v;
+        if (auto *v=dynamic_cast<wxTextCtrl *>(child)) fields.push_back(v);
+        if (auto *v=dynamic_cast<wxSpinButton *>(child)) arrows.push_back(v);
+      }
+      assert(mode && denominator && fields.size()==4 && arrows.size()==5);
+      auto select = [&](int selection) {
+        mode->SetSelection(selection);
+        wxCommandEvent event(wxEVT_CHOICE,mode->GetId());
+        mode->GetEventHandler()->ProcessEvent(event);
+      };
+      auto step = [&](size_t index,bool up) {
+        wxSpinEvent event(up ? wxEVT_SPIN_UP : wxEVT_SPIN_DOWN,arrows[index]->GetId());
+        event.SetEventObject(arrows[index]);
+        arrows[index]->GetEventHandler()->ProcessEvent(event);
+      };
+      select(0);
+      for(size_t i=0;i<5;++i) assert(arrows[i]->IsEnabled()==(i>=3));
+      select(1);
+      step(0,true); assert(draft.physicalScale->denominator==51);
+      step(0,false); assert(draft.physicalScale->denominator==50);
+      step(1,true);
+      assert(std::abs(draft.physicalScale->centerX-original.physicalScale->centerX-0.01)<1e-12);
+      step(1,false); assert(draft.physicalScale->centerX==original.physicalScale->centerX);
+      step(3,true);
+      assert(std::abs((layouts::ResolveViewportFrame(draft).width-originalFrame.width)*25.4/72-1)<1e-12);
+      assert(fields[2]->GetValue().Find('.')==wxNOT_FOUND);
+      step(3,false); assert(draft.frameResidual.width==original.frameResidual.width);
+      step(4,false);
+      assert(std::abs((layouts::ResolveViewportFrame(draft).height-originalFrame.height)*25.4/72+1)<1e-12);
+      step(4,true); assert(draft.frameResidual.height==original.frameResidual.height);
+      assert(draft.frame.x==original.frame.x && draft.frame.y==original.frame.y);
+      assert(draft.frameResidual.x==original.frameResidual.x && draft.frameResidual.y==original.frameResidual.y);
+      fields[2]->SetValue("123.456789"); step(3,true);
+      assert(std::abs(layouts::ResolveViewportFrame(draft).width*25.4/72-124.456789)<1e-9);
+      step(3,false);
+      assert(std::abs(layouts::ResolveViewportFrame(draft).width*25.4/72-123.456789)<1e-9);
+      fields[2]->SetValue(""); fields[2]->SetValue("123");
+      assert(std::abs(layouts::ResolveViewportFrame(draft).width*25.4/72-123)<1e-12);
+      fields[0]->SetValue("1.234567891234"); step(1,true);
+      assert(std::abs(draft.physicalScale->centerX-1.244567891234)<1e-14);
+      step(1,false); assert(draft.physicalScale->centerX==1.234567891234);
+      fields[0]->SetValue("-"); const int validCount=previews;
+      step(1,true); assert(previews==validCount && fields[0]->GetValue()=="-");
+      fields[0]->SetValue("0.5");
+      denominator->SetValue("0.01"); step(0,false);
+      assert(draft.physicalScale->denominator==0.01);
+      step(0,true); assert(draft.physicalScale->denominator==1.01);
+      fields[2]->SetValue("1"); step(3,false);
+      assert(std::abs(layouts::ResolveViewportFrame(draft).width-1)<1e-12);
+      wxCommandEvent event(wxEVT_BUTTON,exit);
+      dialog->GetEventHandler()->ProcessEvent(event);
+    });
+    const bool accepted=EditLayoutViewportProperties(nullptr,draft,visual,
+        [&](const layouts::Layout2DViewDefinition &candidate) { ++previews; draft=candidate; });
+    assert(accepted==(exit==wxID_OK) && previews>0);
+    if (accepted) assert(draft.physicalScale->centerX==0.5 && draft.physicalScale->denominator==1.01);
+    else {
+      assert(draft.physicalScale->centerX==original.physicalScale->centerX);
+      assert(draft.physicalScale->denominator==50);
+      assert(draft.frameResidual.width==original.frameResidual.width);
+    }
+  }
+}
+}
+
 // Measures the actual GUI graphics backend under raster scaling/DPI changes.
 void TestPhysicalViewportPreview() {
   TestViewportPropertiesControls();
   TestLiveViewportProperties();
+  TestViewportNumericArrows();
   const layouts::PhysicalViewport physical{50,12.123456789,-3.987654321};
   const layouts::ViewportFramePoints frame{0,0,312.3456,197.6543};
   for (auto size : {wxSize(800,600),wxSize(1600,1200),wxSize(600,900)}) {
@@ -214,12 +302,25 @@ void TestPhysicalViewportPreview() {
     PolygonCommand triangle; triangle.points={-1,-1,-0.5f,-1,-1,-0.5f};
     triangle.hasFill=true; triangle.fill.color={0,1,0,1}; triangle.stroke.width=1000;
     buffer.commands.emplace_back(triangle); buffer.metadata.push_back({false,true});
+    TextCommand glyph; glyph.x=-1; glyph.y=0.5f; glyph.text="F";
+    glyph.style.fontFamily="perastage-sans-bold"; glyph.style.fontSize=0.3f;
+    buffer.commands.emplace_back(glyph); buffer.metadata.push_back({false,true});
     wxBitmap bitmap(width,height,32);
     wxMemoryDC memory; memory.SelectObject(bitmap);
     memory.SetBackground(*wxWHITE_BRUSH); memory.Clear();
     { wxGCDC graphics(memory); RenderPhysicalViewportPreview(graphics,buffer,mapping,nullptr,deviceScale); }
     memory.SelectObject(wxNullBitmap);
     const auto image=bitmap.ConvertToImage(); assert(image.IsOk());
+    // Production wx-image -> GL-texture conversion with asymmetric geometry
+    // and an upright glyph. DrawView samples its top at v=1.
+    std::vector<unsigned char> texture;
+    assert(gui::layoutcache::CopyLayoutViewTexturePixels(image,texture));
+    for (int y=0; y<height; ++y) for (int x=0; x<width; ++x) {
+      const size_t sampled=(static_cast<size_t>(height-1-y)*width+x)*4;
+      assert(texture[sampled]==image.GetRed(x,y));
+      assert(texture[sampled+1]==image.GetGreen(x,y));
+      assert(texture[sampled+2]==image.GetBlue(x,y));
+    }
     const int outsideX=static_cast<int>(width/2-1.1*mapping.scale);
     const int outsideY=static_cast<int>(height/2+0.75*mapping.scale);
     assert(image.GetRed(outsideX,outsideY)==255 && image.GetGreen(outsideX,outsideY)==255);

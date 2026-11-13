@@ -39,6 +39,7 @@ private:
   SummaryPanel *summaryPanel = nullptr;
   wxSlider *scaleSlider = nullptr;
   wxStaticText *scaleValueLabel = nullptr;
+  wxStaticText *fixedScaleNotice = nullptr;
   ConfigManager *config = nullptr;
   std::optional<layouts::Layout2DViewCameraState> freeEditorCamera;
   float freeEditorOverlayScale = 1;
