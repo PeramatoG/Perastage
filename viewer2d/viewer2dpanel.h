@@ -70,6 +70,7 @@ struct Viewer2DViewState {
 };
 
 struct Viewer2DRenderOverrides {
+  std::optional<layouts::PhysicalViewportMapping> physicalViewport;
   std::optional<bool> darkMode;
   std::optional<bool> showGrid;
   std::optional<bool> showRuler;

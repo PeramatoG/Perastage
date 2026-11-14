@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layoutviewerpanel.h"
+#include "layout_view_raster_policy.h"
 
 #include <functional>
 
@@ -387,4 +388,26 @@ void LayoutViewerPanel::RefreshAfterFixtureLabelUpdate() {
 // Invalidates render data after fixture symbol changes.
 void LayoutViewerPanel::RefreshAfterFixtureSymbolUpdate() {
   RefreshAfterSceneContentUpdate();
+}
+
+// Fixed viewports use the ordinary scene renderer when their saved raster no
+// longer matches. A valid saved raster still skips all scene preparation.
+bool LayoutViewerPanel::NeedsViewSceneCapture() const {
+  for (const auto &view : currentLayout.view2dViews) {
+    const auto it=viewCaches_.find(view.id);
+    if (it==viewCaches_.end() || !it->second.renderDirty) continue;
+    const auto &cache=it->second;
+    gui::layoutraster::Layout2DViewRasterRequest request;
+    request.view=&view; request.renderZoom=GetRenderZoom();
+    request.renderSize=GetFrameSizeForZoom(layouts::ResolveViewportFrame(view),request.renderZoom);
+    request.contentHash=HashViewContent(view);
+    gui::layoutraster::Layout2DViewRasterCacheInput input;
+    input.restoredFromPersistentCache=cache.restoredFromPersistentCache;
+    input.persistentRgba=&cache.persistentRgba;
+    input.persistentRgbaSize=cache.persistentRgbaSize;
+    input.persistentRgbaRenderZoom=cache.persistentRgbaRenderZoom;
+    input.persistentRgbaContentHash=cache.persistentRgbaContentHash;
+    if (gui::layoutraster::NeedsLiveViewportScene(request,input)) return true;
+  }
+  return false;
 }

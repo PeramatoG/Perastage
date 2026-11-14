@@ -37,6 +37,8 @@ Doppelklicken Sie auf eine 2D-Ansicht und öffnen Sie **Ansichtseigenschaften**.
 
 Wählen Sie **Fest** für 1:25, 1:50, 1:100, 1:200, 1:500 oder einen eigenen Nenner zwischen 0,01 und 10000000. Ein Meter belegt bei 1:50 genau 20 mm, bei 1:100 genau 10 mm auf Papier. Der Mittelpunkt verwendet Meter und die Achsen oben X/Y, vorne X/Z, seitlich Y/Z; die seitliche horizontale Anzeige läuft in Richtung −Y. Geben Sie den Mittelpunkt ein oder verschieben Sie die Ansicht direkt im Editor. Im festen Modus zeigt der rote Rahmen den tatsächlichen Ausschnitt im gewählten Maßstab. Zoom, Einpassen und Ausschnittregler sind gesperrt; Ziehen und Pfeiltasten ändern nur den Mittelpunkt. Der freie Modus stellt den vorherigen Ausschnitt wieder her.
 
+Beim Wechsel von frei zu fest bleibt der aktuelle Mittelpunkt erhalten, auch wenn ein früherer fester Mittelpunkt gespeichert war. Beide Modi verwenden für die Layout-Vorschau denselben üblichen 2D-Szenenrenderer und dieselben Symbole.
+
 Millimeter werden ohne Dezimalstellen angezeigt. Eingegebene Bruchteile und die interne Genauigkeit unveränderter Felder bleiben erhalten.
 
 Die Pfeile ändern die Rahmengröße um jeweils 1 mm, den Mittelpunkt um 0,01 m und den Maßstabsnenner um 1; interne Bruchteile bleiben erhalten. Manuelle Eingabe und gängige Maßstäbe bleiben verfügbar. Im festen Modus zeigt ein sichtbarer Hinweis den Maßstab und erklärt die Zoomsperre.

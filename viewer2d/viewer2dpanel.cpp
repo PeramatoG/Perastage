@@ -74,6 +74,7 @@
 #include "ui_render_size.h"
 #include "units/units.h"
 #include "viewer2d_coordinate_math.h"
+#include "layout_view_projection.h"
 #include "viewer2d_ruler_overlay.h"
 #include "viewer2d_support_selection.h"
 #include "viewer2dpanel.h"
@@ -1244,8 +1245,9 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  const auto projectionBounds = viewer2d::ComputeOrthographicBounds(
-      {w, h, m_zoom, m_offsetX, m_offsetY, m_view});
+  const auto projectionBounds = viewer2d::ResolveLayoutProjectionBounds(
+      {w, h, m_zoom, m_offsetX, m_offsetY, m_view},
+      m_renderOverrides ? m_renderOverrides->physicalViewport : std::nullopt);
   if (!projectionBounds)
     return;
   glOrtho(projectionBounds->left, projectionBounds->right,

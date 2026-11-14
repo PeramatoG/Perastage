@@ -64,6 +64,12 @@ public:
     else if (!text.ToDouble(&value)) return false;
     return std::isfinite(value);
   }
+  void SetPreciseValue(double value) {
+    anchor_ = value; steps_ = 0; manualEdit_ = false;
+    steppedValue_ = value;
+    steppedText_ = wxNumberFormatter::ToString(value, digits_, wxNumberFormatter::Style_NoTrailingZeroes);
+    stepping_ = true; entry_.SetValue(steppedText_); stepping_ = false;
+  }
   void OnTextEdited() {
     if (!stepping_) { steppedValue_.reset(); manualEdit_ = true; }
   }

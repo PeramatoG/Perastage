@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-14 00:17+0100\n"
+"POT-Creation-Date: 2026-11-14 08:45+0100\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -2780,11 +2780,11 @@ msgid "100%"
 msgstr "100%"
 
 #: gui/layout2dviewdialog.cpp:84 gui/layout2dviewdialog.cpp:115
-#: gui/layout_viewport_properties.cpp:42 gui/layout_viewport_properties.cpp:166
+#: gui/layout_viewport_properties.cpp:43 gui/layout_viewport_properties.cpp:189
 msgid "Viewport properties"
 msgstr "视口属性"
 
-#: gui/layout2dviewdialog.cpp:114 gui/layout_viewport_properties.cpp:165
+#: gui/layout2dviewdialog.cpp:114 gui/layout_viewport_properties.cpp:188
 #, c-format
 msgid "Invalid viewport properties: %s"
 msgstr "视口属性无效：%s"
@@ -2804,47 +2804,48 @@ msgstr "%d%%"
 msgid "Fixed scale 1:%s. Zoom is locked; pan to adjust framing."
 msgstr "固定比例 1:%s。缩放已锁定；平移视图以调整取景。"
 
-#: gui/layout_viewport_properties.cpp:51
+#: gui/layout_viewport_properties.cpp:52
 msgid "Free / Variable"
 msgstr "自由 / 可变"
 
-#: gui/layout_viewport_properties.cpp:51
+#: gui/layout_viewport_properties.cpp:52
 msgid "Fixed"
 msgstr "固定"
 
-#: gui/layout_viewport_properties.cpp:53
+#: gui/layout_viewport_properties.cpp:54
 msgid "Scale mode"
 msgstr "比例模式"
 
-#: gui/layout_viewport_properties.cpp:70
+#: gui/layout_viewport_properties.cpp:81
 msgid "Drawing scale 1:"
 msgstr "绘图比例 1:"
 
-#: gui/layout_viewport_properties.cpp:75
+#: gui/layout_viewport_properties.cpp:86
 msgid "Center horizontal (m)"
 msgstr "水平中心 (m)"
 
-#: gui/layout_viewport_properties.cpp:76
+#: gui/layout_viewport_properties.cpp:87
 msgid "Center vertical (m)"
 msgstr "垂直中心 (m)"
 
-#: gui/layout_viewport_properties.cpp:80
+#: gui/layout_viewport_properties.cpp:91
 msgid "Frame width (mm)"
 msgstr "边框宽度 (mm)"
 
-#: gui/layout_viewport_properties.cpp:81
+#: gui/layout_viewport_properties.cpp:92
 msgid "Frame height (mm)"
 msgstr "边框高度 (mm)"
 
-#: gui/layout_viewport_properties.cpp:84
+#: gui/layout_viewport_properties.cpp:95
 msgid "Center axes: Top X/Y, Front X/Z, Side Y/Z."
 msgstr "中心坐标轴：俯视 X/Y，前视 X/Z，侧视 Y/Z。"
 
-#: gui/layout_viewport_properties.cpp:86
+#: gui/layout_viewport_properties.cpp:97
 msgid "Free scale: variable"
 msgstr "自由比例：可变"
 
-#: gui/layout_viewport_properties.cpp:94 gui/layout_viewport_properties.cpp:139
+#: gui/layout_viewport_properties.cpp:100
+#: gui/layout_viewport_properties.cpp:150
 #, c-format
 msgid "Effective free scale: approximately 1:%.4f"
 msgstr "有效自由比例：约为 1:%.4f"
@@ -6311,23 +6312,23 @@ msgstr "全选"
 msgid "Spanish"
 msgstr "西班牙语"
 
-#: viewer2d/viewer2dpanel.cpp:3567
+#: viewer2d/viewer2dpanel.cpp:3569
 msgid "Gap measure: "
 msgstr "测量工具"
 
-#: viewer2d/viewer2dpanel.cpp:3568
+#: viewer2d/viewer2dpanel.cpp:3570
 msgid "Measure: "
 msgstr "测量工具"
 
-#: viewer2d/viewer2dpanel.cpp:3640 viewer3d/viewer3dpanel.cpp:2255
+#: viewer2d/viewer2dpanel.cpp:3642 viewer3d/viewer3dpanel.cpp:2255
 msgid "Convert to Truss"
 msgstr "转换为电动葫芦"
 
-#: viewer2d/viewer2dpanel.cpp:3726 viewer3d/viewer3dpanel.cpp:2272
+#: viewer2d/viewer2dpanel.cpp:3728 viewer3d/viewer3dpanel.cpp:2272
 msgid "No position"
 msgstr "位置"
 
-#: viewer2d/viewer2dpanel.cpp:3737 viewer3d/viewer3dpanel.cpp:2283
+#: viewer2d/viewer2dpanel.cpp:3739 viewer3d/viewer3dpanel.cpp:2283
 msgid "Select by position"
 msgstr "选择"
 

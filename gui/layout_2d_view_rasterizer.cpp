@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layout_2d_view_rasterizer.h"
+#include "layout_view_raster_policy.h"
 
 #include <cmath>
 #include <optional>
@@ -27,44 +28,6 @@
 
 namespace gui::layoutraster {
 namespace {
-
-// Returns the expected byte count for an RGBA raster of the given size.
-size_t GetExpectedRgbaBytes(const wxSize &size) {
-  if (size.GetWidth() <= 0 || size.GetHeight() <= 0)
-    return 0;
-  return static_cast<size_t>(size.GetWidth()) *
-         static_cast<size_t>(size.GetHeight()) * 4;
-}
-
-// Checks whether the persistent RGBA cache exactly matches this raster request.
-bool HasMatchingPersistentRaster(const Layout2DViewRasterRequest &request,
-                                 const Layout2DViewRasterCacheInput &cacheInput,
-                                 std::string &diagnostic) {
-  if (!cacheInput.persistentRgba) {
-    diagnostic = "missing persistent raster data";
-    return false;
-  }
-  const size_t expectedBytes = GetExpectedRgbaBytes(request.renderSize);
-  if (cacheInput.persistentRgbaSize != request.renderSize) {
-    diagnostic = "persistent raster rejected due to size mismatch";
-    return false;
-  }
-  if (cacheInput.persistentRgbaContentHash != request.contentHash) {
-    diagnostic = "persistent raster rejected due to content hash mismatch";
-    return false;
-  }
-  if (std::abs(cacheInput.persistentRgbaRenderZoom - request.renderZoom) >=
-      0.000001) {
-    diagnostic = "persistent raster rejected due to zoom mismatch";
-    return false;
-  }
-  if (cacheInput.persistentRgba->size() != expectedBytes) {
-    diagnostic = "persistent raster rejected due to invalid RGBA byte count";
-    return false;
-  }
-  diagnostic.clear();
-  return true;
-}
 
 // Restores temporary capture-panel overrides when rasterization leaves scope.
 struct ScopedCapturePanelRestore {
@@ -127,9 +90,9 @@ Layout2DViewRasterResult Layout2DViewRasterizer::Rasterize(
   Viewer2DViewState mappedState;
   if (cacheInput.viewState) {
     mappedState = *cacheInput.viewState;
-    viewer2d::AttachPhysicalMapping(*request.view, mappedState);
   }
-  if (cacheInput.restoredFromPersistentCache || request.view->scaleMode == layouts::ViewportScaleMode::Fixed) {
+  viewer2d::AttachPhysicalMapping(*request.view, mappedState);
+  if (UseCommandBufferRaster(request, cacheInput)) {
     if (!cacheInput.buffer || !cacheInput.viewState) {
       result.rejectedRestoredPersistentCache = true;
       result.failureReason =
@@ -197,6 +160,7 @@ Layout2DViewRasterResult Layout2DViewRasterizer::Rasterize(
       previousOverrides.value_or(Viewer2DRenderOverrides{});
   previewOverrides.drawFixtureLabels = true;
   previewOverrides.symbolCaptureRenderProfile = false;
+  previewOverrides.physicalViewport = mappedState.physicalMapping;
   capturePanel_->SetRenderOverrides(previewOverrides);
   capturePanel_->SetPreferPerastageSvgSymbolsForLayouts(true);
 

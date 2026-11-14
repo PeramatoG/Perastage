@@ -20,6 +20,8 @@
 #include "layout_physical_editor.h"
 #include "layout_viewport_properties.h"
 #include "layout_view_texture_pixels.h"
+#include "layout_view_raster_policy.h"
+#include "layout_view_projection.h"
 #include <wx/spinbutt.h>
 #include <wx/choice.h>
 #include <wx/combobox.h>
@@ -135,7 +137,7 @@ void TestLiveViewportProperties() {
       selectMode(1);
       denominator->SetValue("100");
       assert(draft.physicalScale->denominator==100);
-      assert(draft.physicalScale->centerX==original.physicalScale->centerX);
+      assert(draft.physicalScale->centerX==0); // Current restored free camera.
       const int validCount=previews;
       denominator->SetValue(""); // Ordinary intermediate typing is not published.
       fields[0]->SetValue("-");
@@ -217,6 +219,8 @@ void TestViewportNumericArrows() {
       select(0);
       for(size_t i=0;i<5;++i) assert(arrows[i]->IsEnabled()==(i>=3));
       select(1);
+      assert(draft.physicalScale->centerX==0);
+      fields[0]->SetValue("1.123456789");
       step(0,true); assert(draft.physicalScale->denominator==51);
       step(0,false); assert(draft.physicalScale->denominator==50);
       step(1,true);
@@ -264,11 +268,103 @@ void TestViewportNumericArrows() {
 }
 }
 
+namespace {
+void TestScaleModeKeepsFreeCenter() {
+  for(int orientation : {0,1,2}) for(bool accept : {false,true}) {
+    layouts::Layout2DViewDefinition draft; draft.frame={17,29,300,200};
+    draft.scaleMode=layouts::ViewportScaleMode::Free;
+    draft.physicalScale=layouts::PhysicalViewport{200,99,-88}; // Remembered fixed framing.
+    Viewer2DViewState visual; visual.viewportWidth=800; visual.viewportHeight=600;
+    visual.view=static_cast<Viewer2DView>(orientation);
+    visual.offsetPixelsX=-250; visual.offsetPixelsY=75;
+    const double centerX=layouts::ViewportHorizontalSign(orientation)*10, centerY=-3;
+    wxTheApp->CallAfter([&] {
+      for(auto *window:wxTopLevelWindows) if(auto *dialog=dynamic_cast<wxDialog *>(window)) {
+        wxCommandEvent event(wxEVT_BUTTON,wxID_OK);
+        dialog->GetEventHandler()->ProcessEvent(event); break;
+      }
+    });
+    assert(EditLayoutViewportProperties(nullptr,draft,visual));
+    assert(draft.scaleMode==layouts::ViewportScaleMode::Free);
+    assert(draft.physicalScale->centerX==99 && draft.physicalScale->centerY==-88);
+    wxTheApp->CallAfter([&] {
+      wxDialog *dialog=nullptr;
+      for(auto *window:wxTopLevelWindows)
+        if((dialog=dynamic_cast<wxDialog *>(window))) break;
+      assert(dialog);
+      wxChoice *mode=nullptr; std::vector<wxTextCtrl *> fields;
+      for(auto *child:dialog->GetChildren()) {
+        if(dynamic_cast<wxComboBox *>(child)) continue;
+        if(auto *v=dynamic_cast<wxChoice *>(child)) mode=v;
+        if(auto *v=dynamic_cast<wxTextCtrl *>(child)) fields.push_back(v);
+      }
+      assert(mode && fields.size()==4);
+      auto select=[&](int selection) {
+        mode->SetSelection(selection);
+        wxCommandEvent event(wxEVT_CHOICE,mode->GetId());
+        mode->GetEventHandler()->ProcessEvent(event);
+      };
+      select(1);
+      assert(draft.physicalScale->centerX==centerX && draft.physicalScale->centerY==centerY);
+      assert(draft.physicalScale->denominator==200);
+      fields[0]->SetValue("17.25"); fields[1]->SetValue("-8.5");
+      select(0); select(1);
+      assert(draft.physicalScale->centerX==centerX && draft.physicalScale->centerY==centerY);
+      wxCommandEvent end(wxEVT_BUTTON,accept ? wxID_OK : wxID_CANCEL);
+      dialog->GetEventHandler()->ProcessEvent(end);
+    });
+    assert(EditLayoutViewportProperties(nullptr,draft,visual,
+        [&](const layouts::Layout2DViewDefinition &candidate){ draft=candidate; })==accept);
+    if(accept) assert(draft.physicalScale->centerX==centerX && draft.physicalScale->centerY==centerY);
+    else assert(draft.physicalScale->centerX==99 && draft.scaleMode==layouts::ViewportScaleMode::Free);
+  }
+}
+void TestNativePhysicalPreviewContract() {
+  using namespace gui::layoutraster;
+  layouts::Layout2DViewDefinition view; view.frame={0,0,300,200};
+  view.scaleMode=layouts::ViewportScaleMode::Fixed;
+  view.physicalScale=layouts::PhysicalViewport{50,12.123456789,-3.987654321};
+  Layout2DViewRasterRequest request; request.view=&view; request.renderSize={300,200}; request.contentHash=5;
+  Layout2DViewRasterCacheInput cache; cache.restoredFromPersistentCache=true;
+  std::vector<unsigned char> saved(300*200*4,255);
+  cache.persistentRgba=&saved; cache.persistentRgbaSize={300,200};
+  cache.persistentRgbaRenderZoom=1; cache.persistentRgbaContentHash=5;
+  assert(!NeedsLiveViewportScene(request,cache) && !UseCommandBufferRaster(request,cache));
+  request.renderSize={600,400};
+  assert(NeedsLiveViewportScene(request,cache) && !UseCommandBufferRaster(request,cache));
+  view.scaleMode=layouts::ViewportScaleMode::Free;
+  assert(!NeedsLiveViewportScene(request,cache) && UseCommandBufferRaster(request,cache));
+  cache.restoredFromPersistentCache=false;
+  assert(NeedsLiveViewportScene(request,cache) && !UseCommandBufferRaster(request,cache));
+  for(int orientation:{0,1,2}) for(double denominator:{50.0,100.0})
+    for(auto size:{wxSize(300,200),wxSize(600,400),wxSize(801,599)}) {
+      const auto physical=layouts::ResolvePhysicalViewport({denominator,12.123456789,-3.987654321},300,200,orientation);
+      const viewer2d::CoordinateTransform camera{size.x,size.y,999,1234,-5678,static_cast<Viewer2DView>(orientation)};
+      const auto projection=viewer2d::ResolveLayoutProjectionBounds(camera,physical);
+      assert(projection);
+      Viewer2DViewState state; state.physicalMapping=physical;
+      viewer2d::Viewer2DRenderMapping mapping;
+      assert(viewer2d::BuildViewMapping(state,size.x,size.y,0,mapping));
+      const double x=physical.minX+physical.width/2, y=physical.minY+physical.height/2;
+      const double px=(x-projection->left)/(projection->right-projection->left)*size.x;
+      const double py=size.y-(y-projection->bottom)/(projection->top-projection->bottom)*size.y;
+      assert(std::abs(px-size.x/2.0)<1e-9 && std::abs(py-size.y/2.0)<1e-9);
+      assert(std::abs(size.x/(projection->right-projection->left)-mapping.scale)<1e-9);
+      assert(std::abs(size.y/(projection->top-projection->bottom)-mapping.scale)<1e-9);
+      const auto legacy=viewer2d::ComputeOrthographicBounds(camera);
+      const auto resolved=viewer2d::ResolveLayoutProjectionBounds(camera,std::nullopt);
+      assert(legacy && resolved && legacy->left==resolved->left && legacy->top==resolved->top);
+    }
+}
+}
+
 // Measures the actual GUI graphics backend under raster scaling/DPI changes.
 void TestPhysicalViewportPreview() {
   TestViewportPropertiesControls();
   TestLiveViewportProperties();
   TestViewportNumericArrows();
+  TestScaleModeKeepsFreeCenter();
+  TestNativePhysicalPreviewContract();
   const layouts::PhysicalViewport physical{50,12.123456789,-3.987654321};
   const layouts::ViewportFramePoints frame{0,0,312.3456,197.6543};
   for (auto size : {wxSize(800,600),wxSize(1600,1200),wxSize(600,900)}) {

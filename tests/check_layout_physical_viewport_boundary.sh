@@ -29,9 +29,16 @@ assert 'IsLayoutPhysicalZoomLocked() && altDown && key != NavigationKey::Unsuppo
 assert 'ResolvePhysicalEditorGeometry' in navigation
 assert 'ResolvePhysicalEditorGeometry' in Path('viewer2d/viewer2dpanel_rendering.cpp').read_text()
 cache = Path('gui/layout_view_cache_archive.cpp').read_text()
-assert cache.count('-wx-3-v3') == 3
+assert cache.count('-wx-3-v4') == 3
 assert 'return CopyLayoutViewTexturePixels(image, pixels);' in cache
 assert 'glTexCoord2f(0.0f, 1.0f);' in Path('gui/layoutviewerpanel_view.cpp').read_text()
 assert 'Use visual framing center' not in Path('gui/layout_viewport_properties.cpp').read_text()
+raster = Path('gui/layout_2d_view_rasterizer.cpp').read_text()
+assert 'if (UseCommandBufferRaster(request, cacheInput))' in raster
+assert 'previewOverrides.physicalViewport = mappedState.physicalMapping;' in raster
+assert 'ResolveLayoutProjectionBounds' in Path('viewer2d/viewer2dpanel.cpp').read_text()
+policy = Path('gui/layout_view_raster_policy.h').read_text()
+assert 'ViewportScaleMode::Free' in policy and 'HasMatchingPersistentRaster' in policy
+assert 'const bool needsViewSceneCapture = NeedsViewSceneCapture();' in Path('gui/layoutviewerpanel.cpp').read_text()
 print('Layout physical viewport boundary passed.')
 PY

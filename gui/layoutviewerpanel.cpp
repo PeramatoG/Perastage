@@ -1874,14 +1874,7 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
                       std::min(processedRenderItems, safeTotal), safeTotal));
     };
 
-    bool needsViewSceneCapture = false;
-    for (const auto &view : currentLayout.view2dViews) {
-      const auto cacheIt = viewCaches_.find(view.id);
-      if (cacheIt != viewCaches_.end() && cacheIt->second.renderDirty) {
-        needsViewSceneCapture = needsViewSceneCapture ||
-                                !cacheIt->second.restoredFromPersistentCache;
-      }
-    }
+    const bool needsViewSceneCapture = NeedsViewSceneCapture();
     bool needsLegendProcessing = false;
     bool needsLegendSymbolCapture = false;
     size_t legendSymbolsMissingCount = 0;

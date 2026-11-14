@@ -51,7 +51,9 @@ the established flexible workflow. The approximate effective free scale, when
 available, describes the stored camera and current frame; it is not a lock.
 The editor's **Visual framing** slider adjusts visual framing, not a physical ratio.
 
-Choose **Fixed** explicitly for an exact drawing scale. Select 1:25, 1:50,
+Choose **Fixed** explicitly for an exact drawing scale. Switching from free
+keeps the current view center, including when a previous fixed center was saved.
+Select 1:25, 1:50,
 1:100, 1:200 or 1:500, or enter a custom denominator between 0.01 and 10000000.
 At 1:50, one scene meter occupies 20 mm on paper; at 1:100 it occupies 10 mm.
 The stored center uses scene meters: Top X/Y, Front X/Z, Side Y/Z. Side's
@@ -62,7 +64,8 @@ notice identifies the fixed ratio and explains why zoom is locked. Zoom, fit
 and the Visual framing slider are locked; dragging and arrow keys move the
 center without changing scale. Resizing the editor fits the displayed rectangle
 to the window while preserving the world area inside it. Switching back to free
-mode restores the previous free framing.
+mode restores the previous free framing. Both modes use the ordinary 2D scene
+renderer for the Layout preview, preserving the same scene drawing and symbols.
 
 Fixed scale preserves object size and center when moving or resizing the frame;
 a larger frame reveals more scene. Layout editor zoom, display DPI and capture

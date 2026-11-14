@@ -37,6 +37,8 @@ Haz doble clic en una vista 2D y abre **Propiedades de la vista**. **Libre / Var
 
 Activa **Fija** para elegir 1:25, 1:50, 1:100, 1:200 o 1:500, o un denominador entre 0,01 y 10000000. Un metro ocupa 20 mm a 1:50 y 10 mm a 1:100. El centro usa metros y los ejes superior X/Y, frontal X/Z o lateral Y/Z; en lateral, la dirección horizontal de pantalla es −Y. Introduce el centro o desplaza directamente la vista en el editor. En modo fijo, el marco rojo muestra el recorte real a la escala elegida. El zoom, el ajuste automático y el control de encuadre quedan bloqueados; arrastrar o usar las flechas cambia el centro sin alterar la escala. Al volver a libre se recupera el encuadre anterior.
 
+Al pasar de libre a fija se conserva el centro actual de la vista, aunque hubiera un centro fijo guardado anteriormente. Ambos modos usan el visor 2D habitual para la previsualización del Layout, manteniendo el mismo dibujo de la escena y los símbolos.
+
 Los milímetros se muestran sin decimales. Se pueden introducir fracciones y los campos sin modificar conservan toda su precisión interna.
 
 Las flechas ajustan el tamaño del marco en pasos de 1 mm, el centro en pasos de 0,01 m y el denominador de escala de uno en uno, conservando las fracciones internas. También puedes escribir valores personalizados o elegir una escala común. En modo fijo, un aviso visible muestra la escala y explica que el zoom está bloqueado.

@@ -37,6 +37,8 @@ Double-cliquez sur une vue 2D puis ouvrez **Propriétés de la vue**. **Libre / 
 
 Choisissez **Fixe** pour 1:25, 1:50, 1:100, 1:200, 1:500 ou un dénominateur personnalisé entre 0,01 et 10000000. Un mètre mesure 20 mm sur papier à 1:50 et 10 mm à 1:100. Le centre utilise des mètres et les axes dessus X/Y, face X/Z ou côté Y/Z ; en vue de côté, l’axe horizontal affiché est −Y. Saisissez le centre ou déplacez directement la vue dans l’éditeur. En mode fixe, le rectangle rouge montre le recadrage réel à l’échelle choisie. Le zoom, l’ajustement automatique et le curseur de cadrage sont verrouillés ; le déplacement et les flèches changent le centre sans modifier l’échelle. Le mode libre restaure le cadrage précédent.
 
+Le passage du mode libre au mode fixe conserve le centre actuel, même si un ancien centre fixe était enregistré. Les deux modes utilisent le rendu 2D habituel pour l’aperçu du Layout, avec le même dessin de la scène et des symboles.
+
 Les millimètres sont affichés sans décimales. Les fractions saisies et la précision interne des champs inchangés sont conservées.
 
 Les flèches ajustent les dimensions du cadre par pas de 1 mm, le centre par pas de 0,01 m et le dénominateur de l’échelle par pas de 1, en conservant les fractions internes. La saisie manuelle et les échelles courantes restent disponibles. En mode fixe, un indicateur visible affiche le rapport et explique le verrouillage du zoom.

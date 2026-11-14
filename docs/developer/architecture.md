@@ -704,9 +704,12 @@ the entire physical crop, at the actual capture dimensions, with a conservative
 float-camera rounding margin at large coordinates. Final mapping/clipping uses
 the original double-precision bounds. This camera is never
 persisted over the free camera. Captured state carries the resolved physical
-bounds to the existing `BuildViewMapping` and command renderer. Preview's graphics
-backend and vector PDF share command traversal and uniform mapping; raster
-rounding is confined to display. Fixed view size changes invalidate capture
+bounds to the existing `BuildViewMapping` and command renderer for vector PDF.
+Interactive free and fixed Layout previews both use the existing native 2D scene
+renderer, retaining its depth handling and fixture presentation. A temporary
+physical projection override resolves double bounds through `layout_view_projection.h`;
+its uniform mapping agrees with vector PDF independently of the captured float
+camera. Raster rounding is confined to display. Fixed view size changes invalidate capture
 content, including persistent caches. Resources remain existing symbol snapshots.
 
 PDF's page fit remains compatible for free layouts. A fixed viewport requires
@@ -734,15 +737,18 @@ world center relative to an original double anchor. The free camera is retained
 across mode transitions. Resize changes display magnification, not the crop.
 
 Captured `CanvasStroke` widths are device pixels, not scene meters.
-`paper_stroke_mapping.h` cancels geometry magnification and retains the existing
-PDF stroke contract (0.5625 paper points per captured pixel) in fixed previews.
+`paper_stroke_mapping.h` cancels geometry magnification for vector output and
+command-cache preview utilities, retaining the existing PDF stroke contract
+(0.5625 paper points per captured pixel). Native scene previews keep the
+ordinary viewer device-pixel stroke convention.
 Glyph outline radii keep their existing scene-unit typography contract. Command
 metadata controls stroke/fill participation, including fill-only mesh triangles.
 Legend fallback geometry fits its cell independently of its one-point captured
 outlines, matching the pre-November 4 behavior. Both preview and PDF use that
 paper-space stroke conversion; optimized SVG resources remain unchanged. The
-platform raster contract advances to v3 so reopening a project discards cached
-images produced with incorrect strokes or inverted row ordering.
+platform raster contract advances to v4 so reopening a project discards cached
+images produced with incorrect strokes, inverted row ordering or the older fixed
+command-buffer preview presentation.
 `layout_view_texture_pixels.h` converts wx top-row-first images to the bottom-row-first
 GL readback contract used exclusively by Layout 2D view textures. Their quad
 samples v=1 at the top; other element texture conventions are unchanged.
@@ -764,3 +770,17 @@ denominators by 1; Core candidate validation remains authoritative. The editor
 shows a persistent ratio/zoom-lock notice in fixed mode. Free mode disables the
 numeric scale/center arrows alongside their fields. Page placement remains a
 Layout-page operation; properties edit dimensions while preserving X/Y exactly.
+
+Entering fixed mode in Viewport properties anchors the current free camera center
+rather than remembered fixed metadata. The denominator is retained. Free/fixed
+transitions batch center updates before preview, preserve exact center doubles
+and keep the existing cancellation boundary.
+
+`layout_view_raster_policy.h` shares raster-cache validation between preflight and
+rasterization. A matching persisted raster avoids scene preparation in both
+modes. Fixed cache misses use native scene rendering, including after resize or
+reopen; legacy free command replay remains compatible. The preflight query is
+owned by the adjacent render-invalidation adapter rather than the panel hotspot.
+The ordinary native scene presentation is retained; vector output continues to
+use existing command buffers and symbol snapshots with the same physical crop.
+Existing paper-space typography/presentation limitations remain deferred.

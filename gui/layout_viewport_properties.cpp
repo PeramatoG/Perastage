@@ -37,6 +37,7 @@ bool EditLayoutViewportProperties(wxWindow *parent,
     layouts::Layout2DViewDefinition &draft, const Viewer2DViewState &visualState,
     const std::function<void(const layouts::Layout2DViewDefinition &)> &preview) {
   const auto original = draft;
+  auto rememberedFixed = original.physicalScale;
   // Controllers outlive the dialog-owned controls and their event bindings.
   std::vector<std::unique_ptr<LayoutViewportNumericInput>> numbers;
   wxDialog dialog(parent, wxID_ANY, _("Viewport properties"));
@@ -52,11 +53,21 @@ bool EditLayoutViewportProperties(wxWindow *parent,
   mode->SetSelection(original.scaleMode == layouts::ViewportScaleMode::Fixed ? 1 : 0);
   row(_("Scale mode"), mode);
   auto physical = original.physicalScale.value_or(layouts::PhysicalViewport{});
-  viewer2d::Viewer2DViewBounds bounds;
-  const bool hasBounds = viewer2d::ComputeViewBounds(visualState, bounds);
-  if (!original.physicalScale && hasBounds) {
-    physical.centerX = layouts::ViewportHorizontalSign(static_cast<int>(visualState.view)) * (bounds.minX + bounds.maxX) / 2;
-    physical.centerY = (bounds.minY + bounds.maxY) / 2;
+  Viewer2DViewState freeState = visualState;
+  freeState.physicalMapping.reset();
+  if (original.scaleMode == layouts::ViewportScaleMode::Fixed) {
+    freeState.zoom = original.camera.zoom;
+    freeState.offsetPixelsX = original.camera.offsetPixelsX;
+    freeState.offsetPixelsY = original.camera.offsetPixelsY;
+  }
+  viewer2d::Viewer2DViewBounds freeBounds;
+  const bool hasFreeBounds = viewer2d::ComputeViewBounds(freeState, freeBounds);
+  const double freeCenterX = hasFreeBounds
+      ? layouts::ViewportHorizontalSign(static_cast<int>(visualState.view)) * (freeBounds.minX+freeBounds.maxX)/2
+      : physical.centerX;
+  const double freeCenterY = hasFreeBounds ? (freeBounds.minY+freeBounds.maxY)/2 : physical.centerY;
+  if (original.scaleMode == layouts::ViewportScaleMode::Free) {
+    physical.centerX = freeCenterX; physical.centerY = freeCenterY;
   }
   auto *denominator = new wxComboBox(&dialog, wxID_ANY,
       wxNumberFormatter::ToString(physical.denominator, 8, wxNumberFormatter::Style_NoTrailingZeroes));
@@ -84,11 +95,6 @@ bool EditLayoutViewportProperties(wxWindow *parent,
       _("Center axes: Top X/Y, Front X/Z, Side Y/Z."));
   box->Add(axes, 0, wxALL, 12);
   auto *effective = new wxStaticText(&dialog, wxID_ANY, _("Free scale: variable"));
-  Viewer2DViewState freeState;
-  freeState.zoom = original.camera.zoom;
-  freeState.offsetPixelsX = original.camera.offsetPixelsX; freeState.offsetPixelsY = original.camera.offsetPixelsY;
-  freeState.viewportWidth = original.camera.viewportWidth; freeState.viewportHeight = original.camera.viewportHeight;
-  viewer2d::Viewer2DViewBounds freeBounds;
   if (viewer2d::ComputeViewBounds(freeState, freeBounds) && f.width > 0 && f.height > 0) {
     const double pointsPerMeter = std::min(f.width / freeBounds.width, f.height / freeBounds.height);
     effective->SetLabel(wxString::Format(_("Effective free scale: approximately 1:%.4f"),
@@ -106,14 +112,16 @@ bool EditLayoutViewportProperties(wxWindow *parent,
   dialog.SetSizerAndFit(box);
   auto readCandidate = [&]() {
     auto candidate = original;
-    double d, x, y;
+    candidate.scaleMode = mode->GetSelection() == 1 ? layouts::ViewportScaleMode::Fixed : layouts::ViewportScaleMode::Free;
+    double d=0, x=0, y=0;
     std::array<double,2> n{};
-    bool valid = numbers[0]->Read(d) && numbers[1]->Read(x) && numbers[2]->Read(y);
+    bool valid = true;
+    if (candidate.scaleMode == layouts::ViewportScaleMode::Fixed) {
+      valid = numbers[0]->Read(d) && numbers[1]->Read(x) && numbers[2]->Read(y);
+      if (valid) candidate.physicalScale = layouts::PhysicalViewport{d,x,y};
+    } else candidate.physicalScale = rememberedFixed;
     for (size_t i = 0; i < n.size(); ++i) valid = numbers[i+3]->Read(n[i]) && valid;
     if (!valid) throw std::invalid_argument("Enter finite numeric values for scale, center and frame.");
-    candidate.scaleMode = mode->GetSelection() == 1 ? layouts::ViewportScaleMode::Fixed : layouts::ViewportScaleMode::Free;
-    if (candidate.scaleMode == layouts::ViewportScaleMode::Fixed || original.physicalScale)
-      candidate.physicalScale = layouts::PhysicalViewport{d, x, y};
     // Preserve the exact stored doubles on an unchanged edit.
     const std::array<double,2> old = {f.width, f.height};
     for (size_t i = 0; i < n.size(); ++i)
@@ -130,9 +138,12 @@ bool EditLayoutViewportProperties(wxWindow *parent,
     layouts::ValidateViewport(candidate);
     return candidate;
   };
+  bool updatingControls = false;
   auto previewValues = [&]() {
+    if (updatingControls) return;
     try {
       const auto candidate = readCandidate();
+      if (candidate.scaleMode == layouts::ViewportScaleMode::Fixed) rememberedFixed = candidate.physicalScale;
       if (viewer2d::ComputeViewBounds(freeState, freeBounds)) {
         const auto geometry = layouts::ResolveViewportFrame(candidate);
         const double ppm = std::min(geometry.width/freeBounds.width, geometry.height/freeBounds.height);
@@ -152,7 +163,19 @@ bool EditLayoutViewportProperties(wxWindow *parent,
   cy->Bind(wxEVT_TEXT, [&](wxCommandEvent &) { numbers[2]->OnTextEdited(); previewValues(); });
   denominator->Bind(wxEVT_TEXT, [&](wxCommandEvent &) { numbers[0]->OnTextEdited(); previewValues(); });
   denominator->Bind(wxEVT_COMBOBOX, [&](wxCommandEvent &) { previewValues(); });
+  int previousMode = mode->GetSelection();
   mode->Bind(wxEVT_CHOICE, [&](wxCommandEvent &) {
+    if (previousMode != mode->GetSelection()) {
+      // The free camera is restored whenever free mode is selected. Entering
+      // fixed mode anchors that current framing, not remembered fixed metadata.
+      updatingControls = true;
+      if (mode->GetSelection() == 0)
+        numbers[0]->SetPreciseValue(rememberedFixed.value_or(physical).denominator);
+      numbers[1]->SetPreciseValue(freeCenterX);
+      numbers[2]->SetPreciseValue(freeCenterY);
+      updatingControls = false;
+    }
+    previousMode = mode->GetSelection();
     enable(); dialog.Layout(); previewValues();
   });
   dialog.Bind(wxEVT_BUTTON, [&](wxCommandEvent &) {

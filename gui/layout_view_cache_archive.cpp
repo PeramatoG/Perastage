@@ -58,15 +58,15 @@ constexpr size_t kMaxPersistentCacheBytes = 8 * 1024 * 1024;
 constexpr size_t kMaxPersistentRasterBytes = 16 * 1024 * 1024;
 constexpr size_t kMaxPersistentRasterEntryBytes = 8 * 1024 * 1024;
 
-// Raster v3 also invalidates command-buffer previews uploaded upside down.
+// Raster v4 uses the native scene renderer for fixed physical viewports.
 // Returns the platform-scoped raster rendering contract.
 std::string PersistentRasterEnvironmentContract() {
 #if defined(_WIN32)
-  return "windows-wx-3-v3";
+  return "windows-wx-3-v4";
 #elif defined(__APPLE__)
-  return "macos-wx-3-v3";
+  return "macos-wx-3-v4";
 #else
-  return "linux-wx-3-v3";
+  return "linux-wx-3-v4";
 #endif
 }
 

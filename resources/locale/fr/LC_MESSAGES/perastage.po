@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-14 00:17+0100\n"
+"POT-Creation-Date: 2026-11-14 08:45+0100\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: French\n"
@@ -2848,11 +2848,11 @@ msgid "100%"
 msgstr "100%"
 
 #: gui/layout2dviewdialog.cpp:84 gui/layout2dviewdialog.cpp:115
-#: gui/layout_viewport_properties.cpp:42 gui/layout_viewport_properties.cpp:166
+#: gui/layout_viewport_properties.cpp:43 gui/layout_viewport_properties.cpp:189
 msgid "Viewport properties"
 msgstr "Propriétés de la vue"
 
-#: gui/layout2dviewdialog.cpp:114 gui/layout_viewport_properties.cpp:165
+#: gui/layout2dviewdialog.cpp:114 gui/layout_viewport_properties.cpp:188
 #, c-format
 msgid "Invalid viewport properties: %s"
 msgstr "Propriétés de vue non valides : %s"
@@ -2873,47 +2873,48 @@ msgid "Fixed scale 1:%s. Zoom is locked; pan to adjust framing."
 msgstr ""
 "Échelle fixe 1:%s. Zoom verrouillé ; déplacez la vue pour ajuster le cadrage."
 
-#: gui/layout_viewport_properties.cpp:51
+#: gui/layout_viewport_properties.cpp:52
 msgid "Free / Variable"
 msgstr "Libre / Variable"
 
-#: gui/layout_viewport_properties.cpp:51
+#: gui/layout_viewport_properties.cpp:52
 msgid "Fixed"
 msgstr "Fixe"
 
-#: gui/layout_viewport_properties.cpp:53
+#: gui/layout_viewport_properties.cpp:54
 msgid "Scale mode"
 msgstr "Mode d’échelle"
 
-#: gui/layout_viewport_properties.cpp:70
+#: gui/layout_viewport_properties.cpp:81
 msgid "Drawing scale 1:"
 msgstr "Échelle du dessin 1:"
 
-#: gui/layout_viewport_properties.cpp:75
+#: gui/layout_viewport_properties.cpp:86
 msgid "Center horizontal (m)"
 msgstr "Centre horizontal (m)"
 
-#: gui/layout_viewport_properties.cpp:76
+#: gui/layout_viewport_properties.cpp:87
 msgid "Center vertical (m)"
 msgstr "Centre vertical (m)"
 
-#: gui/layout_viewport_properties.cpp:80
+#: gui/layout_viewport_properties.cpp:91
 msgid "Frame width (mm)"
 msgstr "Largeur du cadre (mm)"
 
-#: gui/layout_viewport_properties.cpp:81
+#: gui/layout_viewport_properties.cpp:92
 msgid "Frame height (mm)"
 msgstr "Hauteur du cadre (mm)"
 
-#: gui/layout_viewport_properties.cpp:84
+#: gui/layout_viewport_properties.cpp:95
 msgid "Center axes: Top X/Y, Front X/Z, Side Y/Z."
 msgstr "Axes du centre : dessus X/Y, face X/Z, côté Y/Z."
 
-#: gui/layout_viewport_properties.cpp:86
+#: gui/layout_viewport_properties.cpp:97
 msgid "Free scale: variable"
 msgstr "Échelle libre : variable"
 
-#: gui/layout_viewport_properties.cpp:94 gui/layout_viewport_properties.cpp:139
+#: gui/layout_viewport_properties.cpp:100
+#: gui/layout_viewport_properties.cpp:150
 #, c-format
 msgid "Effective free scale: approximately 1:%.4f"
 msgstr "Échelle libre effective : environ 1:%.4f"
@@ -6520,23 +6521,23 @@ msgstr "Tout sélectionner"
 msgid "Spanish"
 msgstr "Español"
 
-#: viewer2d/viewer2dpanel.cpp:3567
+#: viewer2d/viewer2dpanel.cpp:3569
 msgid "Gap measure: "
 msgstr "Mesure d’écart : "
 
-#: viewer2d/viewer2dpanel.cpp:3568
+#: viewer2d/viewer2dpanel.cpp:3570
 msgid "Measure: "
 msgstr "Mesure : "
 
-#: viewer2d/viewer2dpanel.cpp:3640 viewer3d/viewer3dpanel.cpp:2255
+#: viewer2d/viewer2dpanel.cpp:3642 viewer3d/viewer3dpanel.cpp:2255
 msgid "Convert to Truss"
 msgstr "Convertir en structure"
 
-#: viewer2d/viewer2dpanel.cpp:3726 viewer3d/viewer3dpanel.cpp:2272
+#: viewer2d/viewer2dpanel.cpp:3728 viewer3d/viewer3dpanel.cpp:2272
 msgid "No position"
 msgstr "Aucune position"
 
-#: viewer2d/viewer2dpanel.cpp:3737 viewer3d/viewer3dpanel.cpp:2283
+#: viewer2d/viewer2dpanel.cpp:3739 viewer3d/viewer3dpanel.cpp:2283
 msgid "Select by position"
 msgstr "Sélectionner par position"
 

@@ -261,6 +261,7 @@ private:
   void ClearCachedTexture(ImageCache &cache);
   bool HasDirtyRenderCaches() const;
   bool NeedsRenderRebuild() const;
+  bool NeedsViewSceneCapture() const;
   bool ShouldDeferMissingElementTexture(bool cacheRenderDirty,
                                         unsigned int texture,
                                         const wxSize &textureSize,
