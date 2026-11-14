@@ -106,3 +106,19 @@ nested groups, missing resources, invalid transforms and dimension-box rejection
 The existing batch, grouping and MVR interchange regressions remain relevant.
 `SceneAlignmentBoundary` guards the GUI-independent geometry/command boundary.
 These CTest tests run through the existing platform CI matrix.
+
+## Native toolbar evidence
+
+Linux wxWidgets application smoke test with three real GDTF primitive fixtures,
+including different dimensions and two rotated instances. Selection chronology was
+fixture 2, fixture 1, fixture 3, despite the fixture table displaying 1, 2, 3.
+First-selected Top in XY produced a shared maximum Y of -475 mm; repeating it
+created no extra Undo entry. One Undo restored original bounds and Redo restored
+the aligned result. Switching to the 2D workspace retained fixture 2 as reference;
+Bottom produced a shared minimum Y of -725 mm. X/Z, rotations and scales stayed
+unchanged. Canonical GUI MVR export and headless reread retained UUIDs, physical
+models, modes, DMX and transformed matrices.
+
+![Shared toolbar and selected aligned fixtures in the 3D workspace](evidence/scene-alignment-3d.png)
+
+![Shared toolbar and selected aligned fixtures in the 2D workspace](evidence/scene-alignment-2d.png)

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-14 12:00+0100\n"
+"POT-Creation-Date: 2026-11-14 15:22+0100\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: French\n"
@@ -1288,7 +1288,7 @@ msgstr "Droite"
 msgid "Anchor"
 msgstr "Ancrage"
 
-#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:102
+#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:112
 msgid "Alignment"
 msgstr "Alignement"
 
@@ -3278,59 +3278,59 @@ msgstr "Finalisation du chargement du projet…"
 msgid "Loading tables..."
 msgstr "Chargement des tables…"
 
-#: gui/mainwindow_alignment.cpp:65
+#: gui/mainwindow_alignment.cpp:58
 msgid "Extents"
 msgstr "Étendue"
 
-#: gui/mainwindow_alignment.cpp:65
+#: gui/mainwindow_alignment.cpp:58
 msgid "First selected"
 msgstr "Premier sélectionné"
 
-#: gui/mainwindow_alignment.cpp:65
+#: gui/mainwindow_alignment.cpp:58
 msgid "Last selected"
 msgstr "Dernier sélectionné"
 
-#: gui/mainwindow_alignment.cpp:66
+#: gui/mainwindow_alignment.cpp:59
 msgid "Alignment reference"
 msgstr "Référence d’alignement"
 
-#: gui/mainwindow_alignment.cpp:70
+#: gui/mainwindow_alignment.cpp:63
 msgid "Alignment work plane: XY (Top), XZ (Front), YZ (Side)"
 msgstr "Plan d’alignement : XY (Dessus), XZ (Face), YZ (Côté)"
 
-#: gui/mainwindow_alignment.cpp:72
+#: gui/mainwindow_alignment.cpp:71
 msgid "Align Top"
 msgstr "Aligner en haut"
 
-#: gui/mainwindow_alignment.cpp:72
+#: gui/mainwindow_alignment.cpp:71
 msgid "Align Bottom"
 msgstr "Aligner en bas"
 
-#: gui/mainwindow_alignment.cpp:72
+#: gui/mainwindow_alignment.cpp:71
 msgid "Align Left"
 msgstr "Aligner à gauche"
 
-#: gui/mainwindow_alignment.cpp:72
+#: gui/mainwindow_alignment.cpp:71
 msgid "Align Right"
 msgstr "Aligner à droite"
 
-#: gui/mainwindow_alignment.cpp:73
+#: gui/mainwindow_alignment.cpp:72
 msgid "Center Horizontally"
 msgstr "Centrer horizontalement"
 
-#: gui/mainwindow_alignment.cpp:73
+#: gui/mainwindow_alignment.cpp:72
 msgid "Center Vertically"
 msgstr "Centrer verticalement"
 
-#: gui/mainwindow_alignment.cpp:96
+#: gui/mainwindow_alignment.cpp:106
 msgid "Alignment failed. See diagnostics for details."
 msgstr "Échec de l’alignement. Consultez les diagnostics pour plus de détails."
 
-#: gui/mainwindow_alignment.cpp:98
+#: gui/mainwindow_alignment.cpp:108
 msgid "Selection aligned."
 msgstr "Sélection alignée."
 
-#: gui/mainwindow_alignment.cpp:98
+#: gui/mainwindow_alignment.cpp:108
 msgid "Selection is already aligned."
 msgstr "La sélection est déjà alignée."
 

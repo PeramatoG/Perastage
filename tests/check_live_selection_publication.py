@@ -56,18 +56,29 @@ def main() -> None:
         "gui/mainwindow_selection_refresh.cpp",
         "void MainWindow::RefreshAfterToolSelectionUpdate(",
     )
+    atomic = function_body(
+        "core/configmanager.cpp", "void ConfigManager::SetSceneSelection(",
+    )
+    assert "config_.SetSceneSelection(selection_);" in active
+    assert "config.SetSceneSelection(selection);" in selection
+    assert "NotifyChange(Change::Selection);" in atomic
+    assert "SetSelectedGroupObjects({})" not in atomic, (
+        "Synchronization must not clear and re-add directly selected groups"
+    )
     for category, setter, panel in [
         ("fixtures", "SetSelectedFixtures", "fixturePanel"),
         ("trusses", "SetSelectedTrusses", "trussPanel"),
         ("supports", "SetSelectedSupports", "hoistPanel"),
         ("sceneObjects", "SetSelectedSceneObjects", "sceneObjPanel"),
     ]:
-        assert f"config_.{setter}(selection_.{category});" in active, category
-        assert f"config.{setter}(selection.{category});" in selection, category
+        assert f"selectionState.{setter}(selection.{category});" in atomic, category
         assert f"{panel}->SelectByUuid(selection.{category}, false);" in selection, (
             f"{category} must update table rows without recursive selection events"
         )
         assert f"appendSelection(selection.{category});" in selection, category
+
+    assert "selectionState.SetSelectedGroupObjects(selection.groupObjects);" in atomic
+    assert "appendSelection(selection.groupObjects);" in selection
 
     for publication in [
         "viewportPanel->SetSelectedFixtures(mergedSelection);",
@@ -82,6 +93,9 @@ def main() -> None:
         "NotifySceneVisualContentChanged", "PushUndo", "CommitMutation",
         "MarkDirty", "SetDirty", "GetScene",
     ]:
+        assert forbidden not in atomic, (
+            f"Atomic selection membership must not perform {forbidden}"
+        )
         assert forbidden not in selection, (
             f"Selection-only publication must not perform {forbidden}"
         )

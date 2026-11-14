@@ -22,9 +22,11 @@
 #include "scene_alignment_bounds.h"
 #include "selection_movement_settings.h"
 #include "diagnostics/DiagnosticLogger.h"
-#include "projectutils.h"
 #include <wx/aui/auibar.h>
 #include <wx/choice.h>
+#include <memory>
+#include <optional>
+#include <tuple>
 
 namespace {
 // Vector glyphs keep edge and center anchors readable at native display DPI.
@@ -60,17 +62,30 @@ void MainWindow::CreateAlignmentToolBar() {
   for (const char *name : {"XY","XZ","YZ"}) plane->Append(wxString::FromUTF8(name));
   plane->SetSelection(0); plane->SetToolTip(_("Alignment work plane: XY (Top), XZ (Front), YZ (Side)"));
   bar->AddControl(plane); bar->AddSeparator();
+  struct Availability {
+    using Key = std::tuple<size_t,size_t,bool,bool,bool,bool>;
+    std::optional<Key> key;
+    bool enabled = false;
+  };
+  const auto availability = std::make_shared<Availability>();
   const wxString labels[] = {_("Align Top"),_("Align Bottom"),_("Align Left"),_("Align Right"),
                               _("Center Horizontally"),_("Center Vertically")};
   for (int index = 0; index < 6; ++index) {
     const int id = wxWindow::NewControlId();
     const auto operation = static_cast<alignment::Operation>(index);
     bar->AddTool(id,labels[index],AlignmentIcon(operation),labels[index]);
-    Bind(wxEVT_UPDATE_UI,[this](wxUpdateUIEvent &event) {
+    Bind(wxEVT_UPDATE_UI,[this,availability](wxUpdateUIEvent &event) {
       auto &cfg = guiConfigServices->LegacyConfigManager();
-      const auto targets = alignment::ResolveTargets(cfg.GetScene(),cfg.GetOrderedSelection(),
-          selection_movement_settings::LoadInteractiveTransformPolicy(cfg));
-      event.Enable(!layoutModeActive && targets.diagnostic.empty() && targets.items.size() >= 2);
+      const auto policy = selection_movement_settings::LoadInteractiveTransformPolicy(cfg);
+      const Availability::Key key{cfg.GetRenderRevision(),cfg.GetSelectionRevision(),
+          policy.promoteFixturesToGroup,policy.promoteTrussesToGroup,
+          policy.promoteSupportsToGroup,policy.promoteSceneObjectsToGroup};
+      if (availability->key != key) {
+        const auto targets = alignment::ResolveTargets(cfg.GetScene(),cfg.GetOrderedSelection(),policy);
+        availability->enabled = targets.diagnostic.empty() && targets.items.size() >= 2;
+        availability->key = key;
+      }
+      event.Enable(!layoutModeActive && availability->enabled);
     },id);
     Bind(wxEVT_TOOL,[this,reference,plane,operation](wxCommandEvent &) {
       auto &cfg = guiConfigServices->LegacyConfigManager();

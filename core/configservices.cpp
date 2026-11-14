@@ -1467,11 +1467,16 @@ void SelectionState::Prune(const MvrScene &scene) {
     std::erase_if(values, [&](const std::string &uuid) { return !table.contains(uuid); });
     return values;
   };
-  SetSelectedFixtures(retain(selectedFixtures,scene.fixtures));
-  SetSelectedTrusses(retain(selectedTrusses,scene.trusses));
-  SetSelectedSupports(retain(selectedSupports,scene.supports));
-  SetSelectedSceneObjects(retain(selectedSceneObjects,scene.sceneObjects));
-  SetSelectedGroupObjects(retain(selectedGroupObjects,scene.groupObjects));
+  const auto fixtures = retain(selectedFixtures,scene.fixtures);
+  const auto trusses = retain(selectedTrusses,scene.trusses);
+  const auto supports = retain(selectedSupports,scene.supports);
+  const auto objects = retain(selectedSceneObjects,scene.sceneObjects);
+  const auto groups = retain(selectedGroupObjects,scene.groupObjects);
+  if (fixtures != selectedFixtures) SetSelectedFixtures(fixtures);
+  if (trusses != selectedTrusses) SetSelectedTrusses(trusses);
+  if (supports != selectedSupports) SetSelectedSupports(supports);
+  if (objects != selectedSceneObjects) SetSelectedSceneObjects(objects);
+  if (groups != selectedGroupObjects) SetSelectedGroupObjects(groups);
 }
 
 // Restores runtime chronology while keeping authoritative typed membership.
