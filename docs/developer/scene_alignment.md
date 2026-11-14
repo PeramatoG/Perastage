@@ -82,7 +82,9 @@ command's float addition before publication. Significant unrepresentable movemen
 at extreme coordinates abort rather than falsely reporting successful alignment.
 The reusable rectangle API accepts an explicit tolerance for document adapters.
 The toolbar uses standard 16 px monochrome SVG bundles on the default toolbar
-row. Reference and plane controls are independent radio groups. A one-time
+row. Explicit disabled SVG variants use the Layout toolbar gray (#4A4A4A,
+0.95 opacity), assigned through `SetDisabledBitmap` rather than automatic
+grayscale conversion. Reference and plane controls are independent radio groups. A one-time
 preference migration removes the original forced second-row default while
 preserving subsequent user docking. Control changes do not dirty the project.
 In 2D, `WorkPlaneForView` follows the active viewport's Top/Front/Side orientation;

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.43\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-14 18:30+0100\n"
+"POT-Creation-Date: 2026-11-14 18:51+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1159,7 +1159,7 @@ msgstr ""
 msgid "Anchor"
 msgstr ""
 
-#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:151
+#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:160
 msgid "Alignment"
 msgstr ""
 
@@ -3072,63 +3072,63 @@ msgstr ""
 msgid "Loading tables..."
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:72
+#: gui/mainwindow_alignment.cpp:78
 msgid "Extents"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:72
+#: gui/mainwindow_alignment.cpp:78
 msgid "First selected"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:72
+#: gui/mainwindow_alignment.cpp:78
 msgid "Last selected"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:87
+#: gui/mainwindow_alignment.cpp:94
 msgid "XY work plane (Top)"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:87
+#: gui/mainwindow_alignment.cpp:94
 msgid "XZ work plane (Front)"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:87
+#: gui/mainwindow_alignment.cpp:94
 msgid "YZ work plane (Side)"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:109
+#: gui/mainwindow_alignment.cpp:117
 msgid "Align Top"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:109
+#: gui/mainwindow_alignment.cpp:117
 msgid "Align Bottom"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:109
+#: gui/mainwindow_alignment.cpp:117
 msgid "Align Left"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:109
+#: gui/mainwindow_alignment.cpp:117
 msgid "Align Right"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:110
+#: gui/mainwindow_alignment.cpp:118
 msgid "Center Horizontally"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:110
+#: gui/mainwindow_alignment.cpp:118
 msgid "Center Vertically"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:145
+#: gui/mainwindow_alignment.cpp:154
 msgid "Alignment failed. See diagnostics for details."
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:147
+#: gui/mainwindow_alignment.cpp:156
 msgid "Selection aligned."
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:147
+#: gui/mainwindow_alignment.cpp:156
 msgid "Selection is already aligned."
 msgstr ""
 

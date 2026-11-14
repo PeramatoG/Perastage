@@ -41,6 +41,12 @@ wxBitmapBundle AlignmentIcon(const char *name) {
   const auto bundle = wxBitmapBundle::FromSVGFile(path.string(),wxSize(16,16));
   return bundle.IsOk() ? bundle : wxArtProvider::GetBitmapBundle(wxART_MISSING_IMAGE,wxART_TOOLBAR,wxSize(16,16));
 }
+// Supply the same explicit disabled artwork as the Layout toolbars.
+void SetAlignmentDisabledIcon(wxAuiToolBar *bar, int id, const char *name) {
+  if (auto *item = bar->FindTool(id))
+    item->SetDisabledBitmap(AlignmentIcon((std::string(name) + "-disabled").c_str())
+                                .GetBitmap(wxSize(16,16)));
+}
 struct AlignmentControls {
   alignment::Reference reference = alignment::Reference::Extents;
   bool use2D = false;
@@ -74,6 +80,7 @@ void MainWindow::CreateAlignmentToolBar() {
   for (int index = 0; index < 3; ++index) {
     const int id = wxWindow::NewControlId();
     bar->AddTool(id,references[index],AlignmentIcon(referenceIcons[index]),references[index],wxITEM_RADIO);
+    SetAlignmentDisabledIcon(bar,id,referenceIcons[index]);
     bar->ToggleTool(id,index == 0);
     Bind(wxEVT_TOOL,[controls,index](wxCommandEvent &) {
       controls->reference = static_cast<alignment::Reference>(index);
@@ -89,6 +96,7 @@ void MainWindow::CreateAlignmentToolBar() {
   for (int index = 0; index < 3; ++index) {
     const int id = wxWindow::NewControlId();
     bar->AddTool(id,planes[index],AlignmentIcon(planeIcons[index]),planes[index],wxITEM_RADIO);
+    SetAlignmentDisabledIcon(bar,id,planeIcons[index]);
     bar->ToggleTool(id,index == 0);
     Bind(wxEVT_TOOL,[this,index](wxCommandEvent &) {
       if (viewportPanel) viewportPanel->SetSceneWorkPlane(static_cast<alignment::Plane>(index));
@@ -114,6 +122,7 @@ void MainWindow::CreateAlignmentToolBar() {
     const int id = wxWindow::NewControlId();
     const auto operation = static_cast<alignment::Operation>(index);
     bar->AddTool(id,labels[index],AlignmentIcon(operationIcons[index]),labels[index]);
+    SetAlignmentDisabledIcon(bar,id,operationIcons[index]);
     Bind(wxEVT_UPDATE_UI,[this,availability](wxUpdateUIEvent &event) {
       auto &cfg = guiConfigServices->LegacyConfigManager();
       const auto policy = selection_movement_settings::LoadInteractiveTransformPolicy(cfg);
