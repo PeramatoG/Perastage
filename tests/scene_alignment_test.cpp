@@ -138,6 +138,29 @@ void Commands() {
   assert(side.left == -8 && side.right == -2 && side.bottom == 3 && side.top == 9);
   assert(WorldDelta(10,Plane::YZ,Operation::Left)[1] == -10);
 }
+void CoordinatePrecision() {
+  MvrScene scene;
+  Fixture fixture; fixture.uuid="f"; fixture.transform.o={1e12f,0,0}; scene.fixtures["f"]=fixture;
+  Truss truss; truss.uuid="t"; truss.transform.o=fixture.transform.o; scene.trusses["t"]=truss;
+  scene_grouping::ObjectSelection selection{{"f"},{"t"},{},{},{}};
+  Host host; ExecutionContext context{scene,selection,host};
+  auto bounds=[](const MvrScene &s,const Target &target,std::string &) -> std::optional<Bounds> {
+    const auto m=scene_grouping::GetTargetWorldTransform(s,target);
+    const double half=target.type==MvrNodeType::Fixture ? 100 : 200;
+    return Bounds{{m.o[0]-half,-10,-10},{m.o[0]+half,10,10}};
+  };
+  const std::vector<Target> targets{{MvrNodeType::Fixture,"f"},{MvrNodeType::Truss,"t"}};
+  const auto impossible=Execute(context,targets,Reference::First,Operation::Left,Plane::XY,{},bounds);
+  assert(!impossible.Success() && host.entries==0);
+  assert(scene.trusses.at("t").transform.o==truss.transform.o);
+  scene.fixtures["f"].transform.o[0]=100000;
+  scene.trusses["t"].transform.o[0]=110000;
+  assert(Execute(context,targets,Reference::First,Operation::Left,Plane::XY,{},bounds).Success());
+  assert(host.entries==1);
+  assert(!Execute(context,targets,Reference::First,Operation::Left,Plane::XY,{},bounds).mutation.sceneChanged);
+  assert(host.entries==1);
+}
+
 void Groups() {
   MvrScene scene;
   Fixture f; f.uuid="f"; scene.fixtures["f"]=f;
@@ -180,4 +203,4 @@ void Groups() {
 
 }
 }
-int main() { Arithmetic(); Chronology(); Commands(); Groups(); }
+int main() { Arithmetic(); Chronology(); Commands(); CoordinatePrecision(); Groups(); }

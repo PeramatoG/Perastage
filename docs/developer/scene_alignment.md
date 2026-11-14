@@ -77,6 +77,10 @@ PR; it would require a separately named explicit policy.
 ## Work planes
 
 All calculation uses scene millimeters, independent of UI units and zoom.
+Scene alignment uses a 0.01 mm anchor tolerance and predicts the transform
+command's float addition before publication. Significant unrepresentable movements
+at extreme coordinates abort rather than falsely reporting successful alignment.
+The reusable rectangle API accepts an explicit tolerance for document adapters.
 The visible selector is authoritative and defaults safely to XY, including in
 perspective. It never follows camera yaw. Choose XY for Top, XZ for Front, YZ for
 Side; changing viewport orientation does not silently override the selector.

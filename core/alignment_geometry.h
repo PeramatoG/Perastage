@@ -37,7 +37,7 @@ struct Plan {
 };
 // Pure document/scene-independent arithmetic. Input order defines first/last.
 Plan Calculate(const std::vector<Rectangle> &rectangles, Reference reference,
-               Operation operation);
+               Operation operation, double tolerance = 0.0001);
 bool Valid(const Bounds &bounds);
 Rectangle Project(const Bounds &bounds, Plane plane);
 std::array<double, 3> WorldDelta(double offset, Plane plane, Operation operation);

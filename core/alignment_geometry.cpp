@@ -68,8 +68,11 @@ std::array<double, 3> WorldDelta(double offset, Plane plane, Operation operation
   return delta;
 }
 Plan Calculate(const std::vector<Rectangle> &rectangles, Reference reference,
-               Operation operation) {
+               Operation operation, double tolerance) {
   Plan plan;
+  if (!std::isfinite(tolerance) || tolerance < 0) {
+    plan.diagnostic = "Invalid alignment tolerance."; return plan;
+  }
   if (rectangles.size() < 2) {
     plan.diagnostic = "Select at least two distinct effective transform targets.";
     return plan;
@@ -103,7 +106,7 @@ Plan Calculate(const std::vector<Rectangle> &rectangles, Reference reference,
       return plan;
     }
     plan.offsets.push_back(offset);
-    plan.changed |= std::abs(offset) > 0.0001;
+    plan.changed |= std::abs(offset) > tolerance;
   }
   plan.valid = true;
   return plan;

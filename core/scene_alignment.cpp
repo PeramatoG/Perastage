@@ -114,17 +114,34 @@ perastage::command::Result Execute(
         return reject("Physical bounds unavailable for " + target.uuid + ": " + diagnostic);
       rectangles.push_back(Project(*bounds, plane));
     }
-    const auto plan = Calculate(rectangles, reference, operation);
+    constexpr double sceneToleranceMm = 0.01;
+    const auto plan = Calculate(rectangles, reference, operation, sceneToleranceMm);
     if (!plan.valid) return reject(plan.diagnostic);
     if (!plan.changed) return result;
     std::vector<std::string> kinds, uuids, components, axes, modes, spaces;
     std::vector<double> values;
+    auto predicted = rectangles;
     for (size_t i = 0; i < targets.items.size(); ++i) {
       const auto delta = WorldDelta(plan.offsets[i], plane, operation);
+      const auto origin = scene_grouping::GetTargetWorldTransform(context.scene,targets.items[i]).o;
       for (int axis = 0; axis < 3; ++axis) {
-        if (std::abs(delta[axis]) <= 0.0001) continue;
+        if (std::abs(delta[axis]) <= sceneToleranceMm) continue;
         if (!std::isfinite(delta[axis]) || std::abs(delta[axis]) > std::numeric_limits<float>::max())
           return reject("Translation exceeds scene matrix precision.");
+        // Predict the same float addition performed by the transform command.
+        // Reject significant precision loss rather than publishing a false alignment.
+        const float after = origin[axis] + static_cast<float>(delta[axis]);
+        const double actualDelta = static_cast<double>(after) - origin[axis];
+        if (!std::isfinite(after) || std::abs(actualDelta-delta[axis]) > sceneToleranceMm)
+          return reject("Alignment cannot be represented accurately at these scene coordinates.");
+        const auto projection = WorkPlane(plane);
+        if (axis == projection.horizontal) {
+          predicted[i].left += actualDelta*projection.horizontalSign;
+          predicted[i].right += actualDelta*projection.horizontalSign;
+        } else {
+          predicted[i].bottom += actualDelta*projection.verticalSign;
+          predicted[i].top += actualDelta*projection.verticalSign;
+        }
         kinds.emplace_back(Kind(targets.items[i].type));
         uuids.push_back(targets.items[i].uuid);
         components.emplace_back("position"); axes.emplace_back(1, "xyz"[axis]);
@@ -132,6 +149,8 @@ perastage::command::Result Execute(
       }
     }
     if (values.empty()) return result;
+    if (Calculate(predicted,reference,operation,sceneToleranceMm).changed)
+      return reject("Alignment anchors exceed scene coordinate precision.");
     return transform::ExecuteBatch({transform::kBatchCommandId,
         {{"target_kinds", kinds}, {"target_uuids", uuids}, {"component_kinds", components},
          {"axes", axes}, {"values", values}, {"modes", modes}, {"spaces", spaces}}}, context, "align scene objects");
