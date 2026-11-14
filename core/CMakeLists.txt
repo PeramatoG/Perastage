@@ -682,3 +682,13 @@ target_compile_features(perastage_dmx_patch PUBLIC cxx_std_20)
 target_include_directories(perastage_dmx_patch PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models)
 target_link_libraries(perastage_dmx_patch PUBLIC perastage_mvr_core_support perastage_gdtf_read)
 target_link_libraries(${PROJECT_NAME} PRIVATE perastage_dmx_patch)
+add_library(perastage_scene_alignment STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/alignment_geometry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/scene_alignment.cpp)
+target_compile_features(perastage_scene_alignment PUBLIC cxx_std_20)
+target_include_directories(perastage_scene_alignment PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models)
+target_link_libraries(perastage_scene_alignment PUBLIC perastage_command_transform)
+target_link_libraries(${PROJECT_NAME} PRIVATE perastage_scene_alignment)
+target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/scene_alignment_bounds.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/selection_state.cpp)

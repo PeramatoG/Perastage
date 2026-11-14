@@ -374,7 +374,6 @@ static void LogFileModelCacheLookup(const std::string& archiveFilename,
 #endif
 }
 
-
 // Builds a stable cache key for a generated primitive mesh.
 static std::string BuildPrimitiveMeshCacheKey(const GdtfModelInfo& modelInfo)
 {
@@ -1394,6 +1393,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                     haveMesh = true;
             }
 
+            node3d.physicalBounds = haveMesh;
             if (!haveMesh && (modelInfo.length > 0.0f || modelInfo.width > 0.0f || modelInfo.height > 0.0f)) {
                 if (BuildDimensionFallbackMesh(modelInfo, mesh)) {
                     haveMesh = true;

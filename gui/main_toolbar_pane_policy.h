@@ -5,8 +5,8 @@
 
 namespace gui {
 
-inline constexpr std::array<std::string_view, 5> kAlwaysVisibleToolbarPanes = {
+inline constexpr std::array<std::string_view, 6> kAlwaysVisibleToolbarPanes = {
     "FileToolbar", "EditToolbar", "LayoutViewsToolbar", "ToolsToolbar",
-    "LayoutToolbar"};
+    "LayoutToolbar", "AlignmentToolbar"};
 
 } // namespace gui

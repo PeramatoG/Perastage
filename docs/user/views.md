@@ -41,3 +41,25 @@ Open **Edit Fixture Labels...** in the 2D View settings panel. Choose **Project 
 Each field supports visibility, normal/bold PerastageSans, fractional scene-metre sizes, color, a symbol-bound anchor, alignment and numeric X/Y offsets. Each field has an independent outline switch, color and thickness in scene metres; preview and viewer use a continuous vector halo around the bundled font fill, while PDF traces the embedded glyph. New styles default to a 0.004 m radius. On screen this maps to a one-framebuffer-pixel halo, independent of zoom; larger values proportionally increase its screen weight. The editor preview uses the same pixel policy, including high-DPI conversion. PDF keeps the authored physical radius in scene metres. Saved thickness values are retained. Fixture names keep the traditional break after every two space-delimited words, including after moving or styling the Name field; this compatibility rule is currently fixed. Screen fill uses the same font rasterization as traditional labels so thin letters keep a comparable fill/halo balance when zooming out. Changing only an ink property preserves the displayed position and the full stored offset precision. Positive Y moves upward. Drag the selected text in the preview to position it; Escape cancels the gesture. The preview scale stays fixed while editing; changing view/scope, resizing or resetting refits the preview. White/dark backgrounds affect only the preview, with display-only light contours on dark backgrounds. **Apply** updates the visible 2D viewport while the dialog stays open and commits one Undo step; **OK** applies and closes; **Cancel** discards edits since the last Apply. **Reset to Default** clears the current scope's overrides: selected fixtures inherit project defaults, while project defaults return to the existing legacy configuration. Apply the reset to keep it.
 
 Opening the editor does not modify settings. Unedited legacy fields retain their existing renderer and saved sizes/positions. The preview adapts their values approximately; editing a field explicitly opts it into shared composition. New composition uses the bundled Noto Sans regular/bold fonts in both 2D and Layout PDF, with fixed scene sizes independent of screen DPI and zoom. It supports English and Western European WinAnsi characters. Unsupported text is visibly marked `[unsupported text]` in both targets; the original fixture attribute is retained. Change that attribute to obtain a complete label. Arbitrary system fonts and viewport-specific styles are not offered.
+
+## Align scene objects
+
+Use the shared **Alignment** toolbar in the 2D or 3D scene workspace. Select at
+least two effective scene targets in a viewer or in the scene tables. Choose
+**Extents**, **First selected** or **Last selected**, then click **Align Top**,
+**Align Bottom**, **Align Left**, **Align Right**, **Center Horizontally** or
+**Center Vertically**. First/last refers to selection order across object types;
+the reference stays fixed. Removing and selecting an object again makes it newest.
+Bulk additions use stable UUID order, while table sorting preserves prior order.
+
+Choose the visible work plane: **XY** for Top, **XZ** for Front or **YZ** for Side.
+The initial plane is XY, including in perspective; camera changes do not change
+it. Side left/right follows the mirrored Y view. The third coordinate, rotation
+and scale stay unchanged. Alignment uses physical geometric edges, including
+rotated and differently sized models. Groups follow the same movement preferences
+as dragging; a group and its selected children are never moved twice.
+
+One changed alignment is one Undo step. Repeating an already satisfied operation
+creates no history. Missing physical geometry cancels the entire operation; see
+diagnostics for the affected UUID/resource. Dummy hoists without physical geometry
+cannot be aligned by extents. Layout alignment is not included.

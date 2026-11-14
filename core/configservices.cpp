@@ -550,6 +550,7 @@ const std::vector<std::string> &SelectionState::GetSelectedFixtures() const {
 }
 
 void SelectionState::SetSelectedFixtures(const std::vector<std::string> &uuids) {
+  orderedSelection.Reconcile(MvrNodeType::Fixture, uuids);
   selectedFixtures = uuids;
 }
 
@@ -558,6 +559,7 @@ const std::vector<std::string> &SelectionState::GetSelectedTrusses() const {
 }
 
 void SelectionState::SetSelectedTrusses(const std::vector<std::string> &uuids) {
+  orderedSelection.Reconcile(MvrNodeType::Truss, uuids);
   selectedTrusses = uuids;
 }
 
@@ -566,6 +568,7 @@ const std::vector<std::string> &SelectionState::GetSelectedSupports() const {
 }
 
 void SelectionState::SetSelectedSupports(const std::vector<std::string> &uuids) {
+  orderedSelection.Reconcile(MvrNodeType::Support, uuids);
   selectedSupports = uuids;
 }
 
@@ -575,6 +578,7 @@ const std::vector<std::string> &SelectionState::GetSelectedSceneObjects() const 
 
 void SelectionState::SetSelectedSceneObjects(
     const std::vector<std::string> &uuids) {
+  orderedSelection.Reconcile(MvrNodeType::SceneObject, uuids);
   selectedSceneObjects = uuids;
 }
 
@@ -583,10 +587,12 @@ const std::vector<std::string> &SelectionState::GetSelectedGroupObjects() const 
 }
 
 void SelectionState::SetSelectedGroupObjects(const std::vector<std::string> &uuids) {
+  orderedSelection.Reconcile(MvrNodeType::GroupObject, uuids);
   selectedGroupObjects = uuids;
 }
 
 void SelectionState::Clear() {
+  orderedSelection.Clear();
   selectedFixtures.clear();
   selectedTrusses.clear();
   selectedSupports.clear();

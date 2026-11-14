@@ -104,6 +104,7 @@
 
 // Builds and registers the main application toolbars.
 void MainWindow::CreateToolBars() {
+  CreateAlignmentToolBar();
   const long toolbarStyle = (wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
   fileToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
                                  wxDefaultSize, toolbarStyle);
@@ -1123,7 +1124,6 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
 
   auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
   std::string layerName = cfg.GetCurrentLayer();
-
 
   std::vector<std::string> addedTrussUuids;
   addedTrussUuids.reserve(static_cast<size_t>(qty));

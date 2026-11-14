@@ -5035,3 +5035,22 @@ foreach(profile IN ITEMS Debug Release)
     endif()
     add_test(NAME LayoutPhysicalPrintDefaults${profile} COMMAND layout_physical_print_defaults_${profile}_test)
 endforeach()
+add_executable(scene_alignment_test scene_alignment_test.cpp)
+target_link_libraries(scene_alignment_test PRIVATE perastage_scene_alignment perastage_mvr_scene_model)
+add_test(NAME SceneAlignment COMMAND scene_alignment_test)
+set_perastage_test_labels(SceneAlignment LAYER unit DOMAINS command geometry)
+
+add_executable(scene_alignment_bounds_test scene_alignment_bounds_test.cpp
+    support/gdtf_test_fixture_builder.cpp build_info_stub.cpp consolepanel_stub.cpp
+    ../core/scene_alignment_bounds.cpp ../core/geometry_bounds_resolver.cpp
+    ../core/runtime_storage.cpp ../core/logger.cpp ${PERASTAGE_TEST_GDTFLOADER_OBJECTS})
+target_include_directories(scene_alignment_bounds_test PRIVATE
+    . ../core ../viewer3d ../models ../gui ../third_party)
+target_link_libraries(scene_alignment_bounds_test PRIVATE perastage_scene_alignment
+    perastage_mvr_scene_model perastage_test_gdtf_archive_reader
+    perastage_gdtf_publication_resources perastage_test_path_utils perastage_test_diagnostics
+    perastage_test_active_dictionary_storage ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME SceneAlignmentPhysicalBounds COMMAND scene_alignment_bounds_test ${CMAKE_SOURCE_DIR})
+set_library_env(SceneAlignmentPhysicalBounds)
+set_perastage_test_labels(SceneAlignmentPhysicalBounds LAYER integration DOMAINS command geometry)
+add_bash_policy_test(SceneAlignmentBoundary ${CMAKE_SOURCE_DIR}/tests/check_scene_alignment_boundary.sh)
