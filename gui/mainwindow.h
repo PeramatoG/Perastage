@@ -133,6 +133,7 @@ public:
 private:
   void SetupLayout();   // Set up main window layout
   void CreateMenuBar(); // Create menus
+  void CreateAlignmentToolBar();
   void CreateToolBars(); // Create toolbars
   void UpdateToolBarAvailability();
   void UpdateCursorWorldPositionInStatusBar(

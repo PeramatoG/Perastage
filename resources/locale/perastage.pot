@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Perastage 1.7.42\n"
+"Project-Id-Version: Perastage 1.7.43\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-14 10:57+0100\n"
+"POT-Creation-Date: 2026-11-14 20:28+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -749,8 +749,8 @@ msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:1521 gui/dictionaryeditdialog.cpp:2276
 #: gui/fixtureeditdialog.cpp:644 gui/fixturetablepanel.cpp:528
-#: gui/mainwindow_fixture_replace.cpp:227 gui/mainwindow_menu.cpp:998
-#: gui/mainwindow_menu.cpp:1021
+#: gui/mainwindow_fixture_replace.cpp:227 gui/mainwindow_menu.cpp:999
+#: gui/mainwindow_menu.cpp:1022
 msgid "Select GDTF file"
 msgstr ""
 
@@ -765,7 +765,7 @@ msgid "DMX Mode"
 msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:1556 gui/dictionaryeditdialog.cpp:2307
-#: gui/mainwindow_menu.cpp:1054 gui/mainwindow_menu.cpp:1073
+#: gui/mainwindow_menu.cpp:1055 gui/mainwindow_menu.cpp:1074
 #: gui/mainwindow_truss_replace.cpp:115
 msgid "Select Truss file"
 msgstr ""
@@ -1159,7 +1159,7 @@ msgstr ""
 msgid "Anchor"
 msgstr ""
 
-#: gui/fixture_label_editor.cpp:61
+#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:185
 msgid "Alignment"
 msgstr ""
 
@@ -1398,7 +1398,7 @@ msgstr ""
 #: gui/mainwindow_io.cpp:545 gui/mainwindow_io.cpp:680
 #: gui/mainwindow_io.cpp:690 gui/mainwindow_io.cpp:740
 #: gui/mainwindow_io.cpp:826 gui/mainwindow_io.cpp:867
-#: gui/mainwindow_io.cpp:885 gui/mainwindow_menu.cpp:1100
+#: gui/mainwindow_io.cpp:885 gui/mainwindow_menu.cpp:1101
 #: gui/project_save_ui.cpp:55 gui/ridertextdialog.cpp:218
 #: gui/ridertextdialog.cpp:224 gui/ridertextdialog.cpp:233
 #: gui/ridertextdialog.cpp:245 gui/ridertextdialog.cpp:319
@@ -3072,6 +3072,74 @@ msgstr ""
 msgid "Loading tables..."
 msgstr ""
 
+#: gui/mainwindow_alignment.cpp:80
+msgid "Extents"
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:80
+msgid "First selected"
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:80
+msgid "Last selected"
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:96
+msgid "XY work plane (Top)"
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:96
+msgid "XZ work plane (Front)"
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:96
+msgid "YZ work plane (Side)"
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:113
+msgid "Align using geometric bounds"
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:113
+msgid "Align using insertion points"
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:135
+msgid "Align Top"
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:135
+msgid "Align Bottom"
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:135
+msgid "Align Left"
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:135
+msgid "Align Right"
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:136
+msgid "Center Horizontally"
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:136
+msgid "Center Vertically"
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:172
+msgid "Alignment failed. See diagnostics for details."
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:174
+msgid "Selection aligned."
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:174
+msgid "Selection is already aligned."
+msgstr ""
+
 #: gui/mainwindow_conversion.cpp:34
 msgid "Please select fixtures to convert first."
 msgstr ""
@@ -3484,11 +3552,11 @@ msgstr ""
 msgid "Version %s"
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:1154
+#: gui/mainwindow_layout.cpp:1176
 msgid "Layout view update skipped: target view not found."
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:1186
+#: gui/mainwindow_layout.cpp:1208
 msgid "Layout view update failed."
 msgstr ""
 
@@ -3770,57 +3838,57 @@ msgstr ""
 msgid "Add image to layout"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:383 gui/mainwindow_menu.cpp:386
+#: gui/mainwindow_menu.cpp:384 gui/mainwindow_menu.cpp:387
 msgid "creating a new project"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:386
+#: gui/mainwindow_menu.cpp:387
 msgid "New Project"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:416
+#: gui/mainwindow_menu.cpp:417
 msgid "Could not resolve writable user library path."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:417 gui/mainwindow_menu.cpp:429
+#: gui/mainwindow_menu.cpp:418 gui/mainwindow_menu.cpp:430
 #: gui/mainwindow_menu_builders.cpp:99
 msgid "Open user library folder"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:428
+#: gui/mainwindow_menu.cpp:429
 msgid "Could not open the user library folder."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:456
+#: gui/mainwindow_menu.cpp:457
 msgid "No hoists available for weight distribution."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:457 gui/mainwindow_menu.cpp:468
-#: gui/mainwindow_menu.cpp:489
+#: gui/mainwindow_menu.cpp:458 gui/mainwindow_menu.cpp:469
+#: gui/mainwindow_menu.cpp:490
 msgid "Distribute hoist weights"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:462
+#: gui/mainwindow_menu.cpp:463
 msgid "All positions"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:467
+#: gui/mainwindow_menu.cpp:468
 msgid "Select hang position(s) to distribute hoist weights."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:488
+#: gui/mainwindow_menu.cpp:489
 msgid "No hoists found for the selected position."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:619
+#: gui/mainwindow_menu.cpp:620
 msgid "exiting"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:619
+#: gui/mainwindow_menu.cpp:620
 msgid "Exit"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:716
+#: gui/mainwindow_menu.cpp:717
 #, c-format
 msgid ""
 "Could not create the logs folder.\n"
@@ -3828,12 +3896,12 @@ msgid ""
 "%s"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:718 gui/mainwindow_menu.cpp:736
-#: gui/mainwindow_menu.cpp:752 gui/mainwindow_menu.cpp:761
+#: gui/mainwindow_menu.cpp:719 gui/mainwindow_menu.cpp:737
+#: gui/mainwindow_menu.cpp:753 gui/mainwindow_menu.cpp:762
 msgid "Perastage Diagnostics"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:734
+#: gui/mainwindow_menu.cpp:735
 #, c-format
 msgid ""
 "Could not open the logs folder.\n"
@@ -3841,7 +3909,7 @@ msgid ""
 "%s"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:750
+#: gui/mainwindow_menu.cpp:751
 #, c-format
 msgid ""
 "Could not export the diagnostic report.\n"
@@ -3849,7 +3917,7 @@ msgid ""
 "%s"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:759
+#: gui/mainwindow_menu.cpp:760
 #, c-format
 msgid ""
 "Diagnostic report exported successfully.\n"
@@ -3857,21 +3925,21 @@ msgid ""
 "%s"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:780 gui/update/update_notification_dialog.cpp:30
+#: gui/mainwindow_menu.cpp:781 gui/update/update_notification_dialog.cpp:30
 msgid "Perastage Updates"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:782
+#: gui/mainwindow_menu.cpp:783
 msgid ""
 "Could not check for updates.\n"
 "\n"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:785
+#: gui/mainwindow_menu.cpp:786
 msgid "Please verify your network connection and try again."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:794
+#: gui/mainwindow_menu.cpp:795
 #, c-format
 msgid ""
 "Current version: %s\n"
@@ -3879,11 +3947,11 @@ msgid ""
 "\n"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:798
+#: gui/mainwindow_menu.cpp:799
 msgid "You are up to date."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1098 gui/mainwindow_truss_replace.cpp:145
+#: gui/mainwindow_menu.cpp:1099 gui/mainwindow_truss_replace.cpp:145
 msgid ""
 "Unsupported or unreadable truss file. Supported formats are GDTF, GTruss, "
 "GLB, and 3DS."
@@ -6121,15 +6189,15 @@ msgstr ""
 msgid "Measure: "
 msgstr ""
 
-#: viewer2d/viewer2dpanel.cpp:3642 viewer3d/viewer3dpanel.cpp:2255
+#: viewer2d/viewer2dpanel.cpp:3642 viewer3d/viewer3dpanel.cpp:2256
 msgid "Convert to Truss"
 msgstr ""
 
-#: viewer2d/viewer2dpanel.cpp:3728 viewer3d/viewer3dpanel.cpp:2272
+#: viewer2d/viewer2dpanel.cpp:3728 viewer3d/viewer3dpanel.cpp:2273
 msgid "No position"
 msgstr ""
 
-#: viewer2d/viewer2dpanel.cpp:3739 viewer3d/viewer3dpanel.cpp:2283
+#: viewer2d/viewer2dpanel.cpp:3739 viewer3d/viewer3dpanel.cpp:2284
 msgid "Select by position"
 msgstr ""
 
@@ -6202,37 +6270,37 @@ msgstr ""
 msgid "ID: %d"
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1351
+#: viewer3d/viewer3dpanel.cpp:1352
 msgid "Cannot export while the 3D viewer is hidden."
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1351 viewer3d/viewer3dpanel.cpp:1356
-#: viewer3d/viewer3dpanel.cpp:1368 viewer3d/viewer3dpanel.cpp:1373
-#: viewer3d/viewer3dpanel.cpp:1416 viewer3d/viewer3dpanel.cpp:1465
+#: viewer3d/viewer3dpanel.cpp:1352 viewer3d/viewer3dpanel.cpp:1357
+#: viewer3d/viewer3dpanel.cpp:1369 viewer3d/viewer3dpanel.cpp:1374
+#: viewer3d/viewer3dpanel.cpp:1417 viewer3d/viewer3dpanel.cpp:1466
 msgid "Export image"
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1368 viewer3d/viewer3dpanel.cpp:1373
+#: viewer3d/viewer3dpanel.cpp:1369 viewer3d/viewer3dpanel.cpp:1374
 msgid "OpenGL is not initialized yet."
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1415
+#: viewer3d/viewer3dpanel.cpp:1416
 msgid "Failed to create an offscreen framebuffer for export."
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1465
+#: viewer3d/viewer3dpanel.cpp:1466
 msgid "Failed to save PNG image."
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1719
+#: viewer3d/viewer3dpanel.cpp:1720
 #, c-format
 msgid "Measure: %s"
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:2286
+#: viewer3d/viewer3dpanel.cpp:2287
 msgid "Render style"
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:2288
+#: viewer3d/viewer3dpanel.cpp:2289
 msgid "Export image..."
 msgstr ""

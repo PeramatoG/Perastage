@@ -15,6 +15,7 @@
 
 namespace startup { struct Metrics; }
 #include "mvrscene.h"
+#include "ordered_scene_selection.h"
 #include "project_cache_validation.h"
 #include "project_archive_resource.h"
 #include "project_save_diagnostic.h"
@@ -72,6 +73,7 @@ private:
 
 class SelectionState {
 public:
+  const std::vector<scene_grouping::SceneTransformTarget> &GetOrderedSelection() const { return orderedSelection.Items(); }
   const std::vector<std::string> &GetSelectedFixtures() const;
   void SetSelectedFixtures(const std::vector<std::string> &uuids);
   const std::vector<std::string> &GetSelectedTrusses() const;
@@ -82,9 +84,12 @@ public:
   const std::vector<std::string> &GetSelectedGroupObjects() const;
   void SetSelectedGroupObjects(const std::vector<std::string> &uuids);
   void SetSelectedSceneObjects(const std::vector<std::string> &uuids);
+  void RestoreOrderedSelection(const std::vector<scene_grouping::SceneTransformTarget> &ordered);
+  void Prune(const MvrScene &scene);
   void Clear();
 
 private:
+  OrderedSceneSelection orderedSelection;
   std::vector<std::string> selectedFixtures;
   std::vector<std::string> selectedTrusses;
   std::vector<std::string> selectedSupports;
@@ -110,6 +115,7 @@ public:
     std::string currentLayer;
     symbols::ProjectFixtureSymbolStore fixtureSymbols;
     std::optional<layouts::LayoutImageResourceRegistry> layoutImageResources;
+    std::vector<scene_grouping::SceneTransformTarget> selectionOrder;
   };
 
   void PushUndoState(const MvrScene &scene, const SelectionState &selection,

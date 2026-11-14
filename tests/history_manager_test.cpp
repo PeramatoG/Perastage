@@ -199,5 +199,19 @@ int main() {
     assert(clipboardSelection.GetSelectedFixtures() ==
            std::vector<std::string>{uuid});
   }
+  // History preserves mixed-type first/last reference identity through Undo/Redo.
+  HistoryManager orderedHistory;
+  MvrScene orderedScene;
+  SelectionState orderedSelection;
+  orderedSelection.SetSelectedTrusses({"truss"});
+  orderedSelection.SetSelectedFixtures({"fixture"});
+  orderedHistory.PushUndoState(orderedScene,orderedSelection,"alignment");
+  orderedSelection.Clear();
+  orderedSelection.SetSelectedFixtures({"fixture"});
+  orderedSelection.SetSelectedTrusses({"truss"});
+  orderedHistory.Undo(orderedScene,orderedSelection);
+  assert(orderedSelection.GetOrderedSelection().front().uuid == "truss");
+  orderedHistory.Redo(orderedScene,orderedSelection);
+  assert(orderedSelection.GetOrderedSelection().front().uuid == "fixture");
   return 0;
 }

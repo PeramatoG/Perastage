@@ -371,6 +371,7 @@ void MainWindow::CreateToolBars() {
                                          .CloseButton(false)
                                          .Top());
 
+  CreateAlignmentToolBar();
   UpdateToolBarAvailability();
 }
 
@@ -1123,7 +1124,6 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
 
   auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
   std::string layerName = cfg.GetCurrentLayer();
-
 
   std::vector<std::string> addedTrussUuids;
   addedTrussUuids.reserve(static_cast<size_t>(qty));

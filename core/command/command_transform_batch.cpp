@@ -14,7 +14,8 @@
 namespace perastage::command::transform {
 
 // Previews ordered exact-target transforms and publishes one complete mutation.
-Result ExecuteBatch(const Request &request, ExecutionContext &context) {
+Result ExecuteBatch(const Request &request, ExecutionContext &context,
+                    const std::string &undoLabel) {
   Result result;
   result.request = request;
   std::vector<detail::BatchRow> rows;
@@ -48,7 +49,7 @@ Result ExecuteBatch(const Request &request, ExecutionContext &context) {
     context.scene = std::move(preview);
     MutationSummary changes;
     changes.sceneChanged = true;
-    result.mutation = transaction.Commit(changes, "batch transform");
+    result.mutation = transaction.Commit(changes, undoLabel);
   } catch (const std::exception &error) {
     transaction.Rollback();
     result.outcome = Outcome::ExecutionError;

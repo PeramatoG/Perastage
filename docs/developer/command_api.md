@@ -315,3 +315,12 @@ before publishing a replacement through the project transaction. Inspection Core
 remains read-only; OSC and MCP should adapt the same semantic boundary rather
 than launch dialogs. See [MVR GDTF resolution](technical-notes/mvr_gdtf_download_queue.md)
 for the remaining integration blockers.
+
+## Scene alignment application API
+
+`alignment::Execute` accepts an execution context, ordered typed identities,
+reference mode, operation, work plane, interactive group policy and bounded
+physical-bounds provider. It resolves effective targets and prepares one
+`scene.transform.batch` request; the existing batch command owns publication.
+See [Scene alignment](scene_alignment.md). This PR adds no Console grammar or
+CLI allowlist entry.

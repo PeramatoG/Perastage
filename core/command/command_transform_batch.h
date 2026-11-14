@@ -6,6 +6,7 @@
 namespace perastage::command::transform {
 
 // Executes aligned explicit-target component lists as one atomic mutation.
-Result ExecuteBatch(const Request &request, ExecutionContext &context);
+Result ExecuteBatch(const Request &request, ExecutionContext &context,
+                    const std::string &undoLabel = "batch transform");
 
 } // namespace perastage::command::transform

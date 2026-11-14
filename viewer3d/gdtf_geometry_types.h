@@ -44,6 +44,7 @@ struct GdtfNode3D {
     Matrix worldTransform = Matrix{};
     bool isLens = false;
     bool hasMesh = false;
+    bool physicalBounds = false; // File/primitive geometry, excluding dimension fallback boxes.
     Mesh mesh;
     std::string modelName;
     std::string modelFile;

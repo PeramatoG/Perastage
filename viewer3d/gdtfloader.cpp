@@ -374,7 +374,6 @@ static void LogFileModelCacheLookup(const std::string& archiveFilename,
 #endif
 }
 
-
 // Builds a stable cache key for a generated primitive mesh.
 static std::string BuildPrimitiveMeshCacheKey(const GdtfModelInfo& modelInfo)
 {
@@ -1389,9 +1388,15 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                 }
             }
 
+            node3d.physicalBounds = haveMesh;
             if (!haveMesh && IsPrimitiveTypeDefined(modelInfo.primitiveType)) {
-                if (GetCachedPrimitiveMesh(modelInfo, primitiveMeshCache, mesh))
+                if (GetCachedPrimitiveMesh(modelInfo, primitiveMeshCache, mesh)) {
                     haveMesh = true;
+                    // Renderer defaults are not authored physical dimensions.
+                    node3d.physicalBounds = std::isfinite(modelInfo.length) &&
+                        std::isfinite(modelInfo.width) && std::isfinite(modelInfo.height) &&
+                        modelInfo.length > 0 && modelInfo.width > 0 && modelInfo.height > 0;
+                }
             }
 
             if (!haveMesh && (modelInfo.length > 0.0f || modelInfo.width > 0.0f || modelInfo.height > 0.0f)) {

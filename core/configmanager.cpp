@@ -64,6 +64,7 @@ std::vector<RestoredUserPreference> CaptureUserInteractionPreferences(
       {"ui_dmx_patch_height", config.GetValue("ui_dmx_patch_height")},
       {"ui_position_tool_compact_height", config.GetValue("ui_position_tool_compact_height")},
       {"ui_position_tool_sidebar_initialized", config.GetValue("ui_position_tool_sidebar_initialized")},
+      {"ui_alignment_inline_toolbar", config.GetValue("ui_alignment_inline_toolbar")},
       {magnet_snap::kMagnetEnabledConfigKey,
        config.GetValue(magnet_snap::kMagnetEnabledConfigKey)},
       {selection_movement_settings::kAxisConstrainedMovementConfigKey,
@@ -546,6 +547,20 @@ const std::vector<std::string> &ConfigManager::GetSelectedGroupObjects() const {
 void ConfigManager::SetSelectedGroupObjects(const std::vector<std::string> &uuids) {
   if (selectionState.GetSelectedGroupObjects() == uuids) return;
   selectionState.SetSelectedGroupObjects(uuids);
+  NotifyChange(Change::Selection);
+}
+
+// Shared synchronization replaces membership atomically without clearing direct groups.
+void ConfigManager::SetSceneSelection(const scene_grouping::ObjectSelection &selection) {
+  const bool changed = GetSelectedFixtures() != selection.fixtures ||
+      GetSelectedTrusses() != selection.trusses || GetSelectedSupports() != selection.supports ||
+      GetSelectedSceneObjects() != selection.sceneObjects || GetSelectedGroupObjects() != selection.groupObjects;
+  if (!changed) return;
+  selectionState.SetSelectedFixtures(selection.fixtures);
+  selectionState.SetSelectedTrusses(selection.trusses);
+  selectionState.SetSelectedSupports(selection.supports);
+  selectionState.SetSelectedSceneObjects(selection.sceneObjects);
+  selectionState.SetSelectedGroupObjects(selection.groupObjects);
   NotifyChange(Change::Selection);
 }
 

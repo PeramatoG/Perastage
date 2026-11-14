@@ -1,3 +1,4 @@
+#include "resource_path_resolution.h"
 #include "performance_metrics.h"
 #include "resource_sync_system.h"
 #include "filesystem_path_utils.h"
@@ -1265,4 +1266,10 @@ bool ResourceSyncSystem::InvalidatePhysicalAsset(
     state.fixtureRegistrySignatureByUuid.clear();
   }
   return invalidated;
+}
+
+// CPU consumers use the same scene/library resolver as render resource loading.
+std::string viewer3d::resources::ResolveSceneResourcePath(
+    const std::string &base, const std::string &reference) {
+  return ResolveGdtfPath(base, reference);
 }

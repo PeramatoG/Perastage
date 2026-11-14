@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-14 10:49+0100\n"
+"POT-Creation-Date: 2026-11-14 20:28+0100\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -839,8 +839,8 @@ msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:1521 gui/dictionaryeditdialog.cpp:2276
 #: gui/fixtureeditdialog.cpp:644 gui/fixturetablepanel.cpp:528
-#: gui/mainwindow_fixture_replace.cpp:227 gui/mainwindow_menu.cpp:998
-#: gui/mainwindow_menu.cpp:1021
+#: gui/mainwindow_fixture_replace.cpp:227 gui/mainwindow_menu.cpp:999
+#: gui/mainwindow_menu.cpp:1022
 msgid "Select GDTF file"
 msgstr "Seleccione el archivo GDTF"
 
@@ -855,7 +855,7 @@ msgid "DMX Mode"
 msgstr "Modo DMX"
 
 #: gui/dictionaryeditdialog.cpp:1556 gui/dictionaryeditdialog.cpp:2307
-#: gui/mainwindow_menu.cpp:1054 gui/mainwindow_menu.cpp:1073
+#: gui/mainwindow_menu.cpp:1055 gui/mainwindow_menu.cpp:1074
 #: gui/mainwindow_truss_replace.cpp:115
 msgid "Select Truss file"
 msgstr "Seleccionar archivo de armadura"
@@ -1288,7 +1288,7 @@ msgstr "Derecha"
 msgid "Anchor"
 msgstr "Anclaje"
 
-#: gui/fixture_label_editor.cpp:61
+#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:185
 msgid "Alignment"
 msgstr "Alineación"
 
@@ -1538,7 +1538,7 @@ msgstr "Valor numérico no válido"
 #: gui/mainwindow_io.cpp:545 gui/mainwindow_io.cpp:680
 #: gui/mainwindow_io.cpp:690 gui/mainwindow_io.cpp:740
 #: gui/mainwindow_io.cpp:826 gui/mainwindow_io.cpp:867
-#: gui/mainwindow_io.cpp:885 gui/mainwindow_menu.cpp:1100
+#: gui/mainwindow_io.cpp:885 gui/mainwindow_menu.cpp:1101
 #: gui/project_save_ui.cpp:55 gui/ridertextdialog.cpp:218
 #: gui/ridertextdialog.cpp:224 gui/ridertextdialog.cpp:233
 #: gui/ridertextdialog.cpp:245 gui/ridertextdialog.cpp:319
@@ -3270,6 +3270,74 @@ msgstr "Finalizando la carga del proyecto..."
 msgid "Loading tables..."
 msgstr "Cargando tablas..."
 
+#: gui/mainwindow_alignment.cpp:80
+msgid "Extents"
+msgstr "Extremos"
+
+#: gui/mainwindow_alignment.cpp:80
+msgid "First selected"
+msgstr "Primero seleccionado"
+
+#: gui/mainwindow_alignment.cpp:80
+msgid "Last selected"
+msgstr "Último seleccionado"
+
+#: gui/mainwindow_alignment.cpp:96
+msgid "XY work plane (Top)"
+msgstr "Plano de trabajo XY (Superior)"
+
+#: gui/mainwindow_alignment.cpp:96
+msgid "XZ work plane (Front)"
+msgstr "Plano de trabajo XZ (Frontal)"
+
+#: gui/mainwindow_alignment.cpp:96
+msgid "YZ work plane (Side)"
+msgstr "Plano de trabajo YZ (Lateral)"
+
+#: gui/mainwindow_alignment.cpp:113
+msgid "Align using geometric bounds"
+msgstr "Alinear usando límites geométricos"
+
+#: gui/mainwindow_alignment.cpp:113
+msgid "Align using insertion points"
+msgstr "Alinear usando puntos de inserción"
+
+#: gui/mainwindow_alignment.cpp:135
+msgid "Align Top"
+msgstr "Alinear arriba"
+
+#: gui/mainwindow_alignment.cpp:135
+msgid "Align Bottom"
+msgstr "Alinear abajo"
+
+#: gui/mainwindow_alignment.cpp:135
+msgid "Align Left"
+msgstr "Alinear a la izquierda"
+
+#: gui/mainwindow_alignment.cpp:135
+msgid "Align Right"
+msgstr "Alinear a la derecha"
+
+#: gui/mainwindow_alignment.cpp:136
+msgid "Center Horizontally"
+msgstr "Centrar horizontalmente"
+
+#: gui/mainwindow_alignment.cpp:136
+msgid "Center Vertically"
+msgstr "Centrar verticalmente"
+
+#: gui/mainwindow_alignment.cpp:172
+msgid "Alignment failed. See diagnostics for details."
+msgstr "No se pudo alinear. Consulte el diagnóstico para más detalles."
+
+#: gui/mainwindow_alignment.cpp:174
+msgid "Selection aligned."
+msgstr "Selección alineada."
+
+#: gui/mainwindow_alignment.cpp:174
+msgid "Selection is already aligned."
+msgstr "La selección ya está alineada."
+
 #: gui/mainwindow_conversion.cpp:34
 msgid "Please select fixtures to convert first."
 msgstr "Seleccione los accesorios para convertir primero."
@@ -3702,13 +3770,13 @@ msgstr "X: -- m Y: -- m Z: -- m"
 msgid "Version %s"
 msgstr "Versión %s"
 
-#: gui/mainwindow_layout.cpp:1154
+#: gui/mainwindow_layout.cpp:1176
 msgid "Layout view update skipped: target view not found."
 msgstr ""
 "Se omitió la actualización de la vista de diseño: no se encontró la vista de "
 "destino."
 
-#: gui/mainwindow_layout.cpp:1186
+#: gui/mainwindow_layout.cpp:1208
 msgid "Layout view update failed."
 msgstr "Error al actualizar la vista de diseño."
 
@@ -3992,59 +4060,59 @@ msgstr "Añadir imagen"
 msgid "Add image to layout"
 msgstr "Añadir una imagen al layout"
 
-#: gui/mainwindow_menu.cpp:383 gui/mainwindow_menu.cpp:386
+#: gui/mainwindow_menu.cpp:384 gui/mainwindow_menu.cpp:387
 msgid "creating a new project"
 msgstr "crear un proyecto nuevo"
 
-#: gui/mainwindow_menu.cpp:386
+#: gui/mainwindow_menu.cpp:387
 msgid "New Project"
 msgstr "Proyecto nuevo"
 
-#: gui/mainwindow_menu.cpp:416
+#: gui/mainwindow_menu.cpp:417
 msgid "Could not resolve writable user library path."
 msgstr "No se pudo resolver la ruta de escritura de la biblioteca del usuario."
 
-#: gui/mainwindow_menu.cpp:417 gui/mainwindow_menu.cpp:429
+#: gui/mainwindow_menu.cpp:418 gui/mainwindow_menu.cpp:430
 #: gui/mainwindow_menu_builders.cpp:99
 msgid "Open user library folder"
 msgstr "Abrir la carpeta de la biblioteca de usuario"
 
-#: gui/mainwindow_menu.cpp:428
+#: gui/mainwindow_menu.cpp:429
 msgid "Could not open the user library folder."
 msgstr "No se pudo abrir la carpeta de la biblioteca del usuario."
 
-#: gui/mainwindow_menu.cpp:456
+#: gui/mainwindow_menu.cpp:457
 msgid "No hoists available for weight distribution."
 msgstr "No hay polipastos disponibles para la distribución del peso."
 
-#: gui/mainwindow_menu.cpp:457 gui/mainwindow_menu.cpp:468
-#: gui/mainwindow_menu.cpp:489
+#: gui/mainwindow_menu.cpp:458 gui/mainwindow_menu.cpp:469
+#: gui/mainwindow_menu.cpp:490
 msgid "Distribute hoist weights"
 msgstr "Distribuir los pesos del polipasto"
 
-#: gui/mainwindow_menu.cpp:462
+#: gui/mainwindow_menu.cpp:463
 msgid "All positions"
 msgstr "Todas las posiciones"
 
-#: gui/mainwindow_menu.cpp:467
+#: gui/mainwindow_menu.cpp:468
 msgid "Select hang position(s) to distribute hoist weights."
 msgstr ""
 "Seleccione las posiciones de suspensión para distribuir los pesos del "
 "polipasto."
 
-#: gui/mainwindow_menu.cpp:488
+#: gui/mainwindow_menu.cpp:489
 msgid "No hoists found for the selected position."
 msgstr "No se encontraron polipastos para la posición seleccionada."
 
-#: gui/mainwindow_menu.cpp:619
+#: gui/mainwindow_menu.cpp:620
 msgid "exiting"
 msgstr "salir"
 
-#: gui/mainwindow_menu.cpp:619
+#: gui/mainwindow_menu.cpp:620
 msgid "Exit"
 msgstr "Salir"
 
-#: gui/mainwindow_menu.cpp:716
+#: gui/mainwindow_menu.cpp:717
 #, c-format
 msgid ""
 "Could not create the logs folder.\n"
@@ -4055,12 +4123,12 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:718 gui/mainwindow_menu.cpp:736
-#: gui/mainwindow_menu.cpp:752 gui/mainwindow_menu.cpp:761
+#: gui/mainwindow_menu.cpp:719 gui/mainwindow_menu.cpp:737
+#: gui/mainwindow_menu.cpp:753 gui/mainwindow_menu.cpp:762
 msgid "Perastage Diagnostics"
 msgstr "Diagnóstico de Perastage"
 
-#: gui/mainwindow_menu.cpp:734
+#: gui/mainwindow_menu.cpp:735
 #, c-format
 msgid ""
 "Could not open the logs folder.\n"
@@ -4071,7 +4139,7 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:750
+#: gui/mainwindow_menu.cpp:751
 #, c-format
 msgid ""
 "Could not export the diagnostic report.\n"
@@ -4082,7 +4150,7 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:759
+#: gui/mainwindow_menu.cpp:760
 #, c-format
 msgid ""
 "Diagnostic report exported successfully.\n"
@@ -4093,11 +4161,11 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:780 gui/update/update_notification_dialog.cpp:30
+#: gui/mainwindow_menu.cpp:781 gui/update/update_notification_dialog.cpp:30
 msgid "Perastage Updates"
 msgstr "Actualizaciones de Perastage"
 
-#: gui/mainwindow_menu.cpp:782
+#: gui/mainwindow_menu.cpp:783
 msgid ""
 "Could not check for updates.\n"
 "\n"
@@ -4105,11 +4173,11 @@ msgstr ""
 "No se pudieron buscar actualizaciones.\n"
 "\n"
 
-#: gui/mainwindow_menu.cpp:785
+#: gui/mainwindow_menu.cpp:786
 msgid "Please verify your network connection and try again."
 msgstr "Verifique su conexión de red e inténtelo nuevamente."
 
-#: gui/mainwindow_menu.cpp:794
+#: gui/mainwindow_menu.cpp:795
 #, c-format
 msgid ""
 "Current version: %s\n"
@@ -4120,11 +4188,11 @@ msgstr ""
 "Última versión: %s\n"
 "\n"
 
-#: gui/mainwindow_menu.cpp:798
+#: gui/mainwindow_menu.cpp:799
 msgid "You are up to date."
 msgstr "Estás al día."
 
-#: gui/mainwindow_menu.cpp:1098 gui/mainwindow_truss_replace.cpp:145
+#: gui/mainwindow_menu.cpp:1099 gui/mainwindow_truss_replace.cpp:145
 msgid ""
 "Unsupported or unreadable truss file. Supported formats are GDTF, GTruss, "
 "GLB, and 3DS."
@@ -6528,15 +6596,15 @@ msgstr "Medida de brecha:"
 msgid "Measure: "
 msgstr "Medida:"
 
-#: viewer2d/viewer2dpanel.cpp:3642 viewer3d/viewer3dpanel.cpp:2255
+#: viewer2d/viewer2dpanel.cpp:3642 viewer3d/viewer3dpanel.cpp:2256
 msgid "Convert to Truss"
 msgstr "Convertir a armadura"
 
-#: viewer2d/viewer2dpanel.cpp:3728 viewer3d/viewer3dpanel.cpp:2272
+#: viewer2d/viewer2dpanel.cpp:3728 viewer3d/viewer3dpanel.cpp:2273
 msgid "No position"
 msgstr "Sin posición"
 
-#: viewer2d/viewer2dpanel.cpp:3739 viewer3d/viewer3dpanel.cpp:2283
+#: viewer2d/viewer2dpanel.cpp:3739 viewer3d/viewer3dpanel.cpp:2284
 msgid "Select by position"
 msgstr "Seleccionar por posición"
 
@@ -6609,40 +6677,46 @@ msgstr "Editar etiquetas de aparatos..."
 msgid "ID: %d"
 msgstr "Identificación: %d"
 
-#: viewer3d/viewer3dpanel.cpp:1351
+#: viewer3d/viewer3dpanel.cpp:1352
 msgid "Cannot export while the 3D viewer is hidden."
 msgstr "No se puede exportar mientras el visor 3D está oculto."
 
-#: viewer3d/viewer3dpanel.cpp:1351 viewer3d/viewer3dpanel.cpp:1356
-#: viewer3d/viewer3dpanel.cpp:1368 viewer3d/viewer3dpanel.cpp:1373
-#: viewer3d/viewer3dpanel.cpp:1416 viewer3d/viewer3dpanel.cpp:1465
+#: viewer3d/viewer3dpanel.cpp:1352 viewer3d/viewer3dpanel.cpp:1357
+#: viewer3d/viewer3dpanel.cpp:1369 viewer3d/viewer3dpanel.cpp:1374
+#: viewer3d/viewer3dpanel.cpp:1417 viewer3d/viewer3dpanel.cpp:1466
 msgid "Export image"
 msgstr "Exportar imagen"
 
-#: viewer3d/viewer3dpanel.cpp:1368 viewer3d/viewer3dpanel.cpp:1373
+#: viewer3d/viewer3dpanel.cpp:1369 viewer3d/viewer3dpanel.cpp:1374
 msgid "OpenGL is not initialized yet."
 msgstr "OpenGL aún no se ha inicializado."
 
-#: viewer3d/viewer3dpanel.cpp:1415
+#: viewer3d/viewer3dpanel.cpp:1416
 msgid "Failed to create an offscreen framebuffer for export."
 msgstr "No se pudo crear un framebuffer fuera de la pantalla para exportar."
 
-#: viewer3d/viewer3dpanel.cpp:1465
+#: viewer3d/viewer3dpanel.cpp:1466
 msgid "Failed to save PNG image."
 msgstr "No se pudo guardar la imagen PNG."
 
-#: viewer3d/viewer3dpanel.cpp:1719
+#: viewer3d/viewer3dpanel.cpp:1720
 #, c-format
 msgid "Measure: %s"
 msgstr "Medida: %s"
 
-#: viewer3d/viewer3dpanel.cpp:2286
+#: viewer3d/viewer3dpanel.cpp:2287
 msgid "Render style"
 msgstr "Estilo de renderizado"
 
-#: viewer3d/viewer3dpanel.cpp:2288
+#: viewer3d/viewer3dpanel.cpp:2289
 msgid "Export image..."
 msgstr "Exportar imagen..."
+
+#~ msgid "Alignment reference"
+#~ msgstr "Referencia de alineación"
+
+#~ msgid "Alignment work plane: XY (Top), XZ (Front), YZ (Side)"
+#~ msgstr "Plano de alineación: XY (Superior), XZ (Frontal), YZ (Lateral)"
 
 #~ msgid "Page X (mm)"
 #~ msgstr "X en página (mm)"

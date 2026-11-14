@@ -789,3 +789,6 @@ owned by the adjacent render-invalidation adapter rather than the panel hotspot.
 The ordinary native scene presentation is retained; vector output continues to
 use existing command buffers and symbol snapshots with the same physical crop.
 Existing paper-space typography/presentation limitations remain deferred.
+Scene alignment shares neutral rectangle arithmetic, typed chronological scene
+selection, physical CPU bounds and transactional transforms. See
+[Scene alignment](scene_alignment.md) for ownership, bounds and work-plane policy.
