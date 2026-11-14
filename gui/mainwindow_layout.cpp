@@ -537,6 +537,21 @@ void MainWindow::ApplyCanonicalPaneDocking() {
 void MainWindow::EnforceMainToolbarVisibility() {
   if (!auiManager)
     return;
+  auto &preferences = guiConfigServices->Preferences();
+  if (!preferences.GetValue("ui_alignment_inline_toolbar")) {
+    auto &alignment = auiManager->GetPane("AlignmentToolbar");
+    int position = 0;
+    for (const auto name : gui::kAlwaysVisibleToolbarPanes) {
+      if (name == "AlignmentToolbar") continue;
+      const auto &pane = auiManager->GetPane(std::string(name));
+      if (pane.IsOk() && pane.window) position += pane.window->GetBestSize().x;
+    }
+    if (alignment.IsOk()) alignment.Top().Row(0).Position(position);
+    auto &config = guiConfigServices->LegacyConfigManager();
+    const auto dirty = config.CaptureDirtyState();
+    preferences.SetValue("ui_alignment_inline_toolbar","1");
+    config.RestoreDirtyState(dirty);
+  }
   for (const std::string_view name : gui::kAlwaysVisibleToolbarPanes) {
     auto &pane = auiManager->GetPane(std::string(name));
     if (pane.IsOk()) {

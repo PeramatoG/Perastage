@@ -52,12 +52,22 @@ least two effective scene targets in a viewer or in the scene tables. Choose
 the reference stays fixed. Removing and selecting an object again makes it newest.
 Bulk additions use stable UUID order, while table sorting preserves prior order.
 
-Choose the visible work plane: **XY** for Top, **XZ** for Front or **YZ** for Side.
-The initial plane is XY, including in perspective; camera changes do not change
-it. Side left/right follows the mirrored Y view. The third coordinate, rotation
-and scale stay unchanged. Alignment uses physical geometric edges, including
-rotated and differently sized models. Groups follow the same movement preferences
-as dragging; a group and its selected children are never moved twice.
+The reference and plane controls are exclusive icon buttons: one reference and
+one plane remain active. Hover an icon for its tooltip. In 2D, the plane follows
+the viewport automatically: **XY** for Top, **XZ** for Front and **YZ** for Side.
+In 3D, choose **XY**, **XZ** or **YZ**; this plane is shared by alignment and
+selection dragging. Standard Top/Front/Side views select the corresponding plane;
+orbiting in perspective retains the chosen plane. XY is the initial 3D plane.
+The third coordinate, rotation and scale stay unchanged during alignment.
+Side left/right follows the mirrored Y view. Axis Lock chooses an axis within
+the selected plane; Local Axes projects local directions onto that plane.
+Free dragging intersects the pointer ray with the plane through the selection.
+An edge-on plane cannot be dragged freely; orbit or choose a matching view.
+Magnet is an exception: snapping can move outside the selected plane to reach
+a nearby element. Continuous placement
+and fixture distribution retain their existing movement behavior.
+Groups follow the same movement preferences as dragging; a group and its selected
+children are never moved twice.
 
 One changed alignment is one Undo step. Repeating an already satisfied operation
 creates no history. Missing physical geometry cancels the entire operation; see

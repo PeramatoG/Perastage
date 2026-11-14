@@ -1,3 +1,4 @@
+#include "interaction/selection_work_plane.h"
 /*
  * This file is part of Perastage.
  * Copyright (C) 2025 Luisma Peramato
@@ -2780,10 +2781,14 @@ bool Viewer3DPanel::PrepareSelectionDrag(const wxPoint &mousePos) {
 std::array<float, 3> Viewer3DPanel::GetSelectionDragAxisVector(
     viewer3d::SelectionDragAxis axis) const {
     const auto worldAxis = AxisVectorFromSelectionDragAxis(axis);
+    const auto constrain = [this](const auto &direction) {
+      return m_continuousPlacementSession.IsActive() ? direction :
+          viewer3d::ProjectDragAxisToPlane(direction,m_sceneWorkPlane);
+    };
     if (m_transformSpace != transform_space::TransformSpace::Local ||
       axis == viewer3d::SelectionDragAxis::None ||
       m_selectionDragSession.Uuids().empty()) {
-        return worldAxis;
+        return constrain(worldAxis);
     }
     const scene_grouping::ObjectSelection selection{
         .fixtures = m_selectionDragSession.Selection().fixtures,
@@ -2795,11 +2800,11 @@ std::array<float, 3> Viewer3DPanel::GetSelectionDragAxisVector(
       selection_movement_settings::LoadInteractiveTransformPolicy(
           ConfigManager::Get()));
     if (targets.empty())
-        return worldAxis;
+        return constrain(worldAxis);
     const Matrix transform = scene_grouping::GetTargetWorldTransform(
         ConfigManager::Get().GetScene(), targets.front());
-    return transform_space::TransformDirection(
-        transform_space::ExtractOrientation(transform), worldAxis);
+    return constrain(transform_space::TransformDirection(
+        transform_space::ExtractOrientation(transform), worldAxis));
 }
 
 // Projects the active drag axes into screen space for axis-constrained
@@ -2930,9 +2935,11 @@ Viewer3DPanel::ProjectMouseToSelectionDragViewPlane(
     const std::array<double, 3> rayDir{farPoint[0] - nearPoint[0],
                                       farPoint[1] - nearPoint[1],
                                       farPoint[2] - nearPoint[2]};
-    const std::array<double, 3> planeNormal{centerFar[0] - centerNear[0],
+    std::array<double, 3> planeNormal{centerFar[0] - centerNear[0],
                                            centerFar[1] - centerNear[1],
                                            centerFar[2] - centerNear[2]};
+    if (!m_continuousPlacementSession.IsActive())
+        planeNormal = viewer3d::WorkPlaneNormal(m_sceneWorkPlane);
   const std::array<double, 3> planePoint{planePointMeters[0],
                                          planePointMeters[1],
                                          planePointMeters[2]};
@@ -3906,6 +3913,7 @@ bool Viewer3DPanel::FrameSceneToFit() {
 
 // Applies a standard orthographic-style orientation to the 3D camera.
 void Viewer3DPanel::SetStandardView(Viewer2DView view) {
+    m_sceneWorkPlane = viewer3d::WorkPlaneForView(view);
     switch (view) {
         case Viewer2DView::Top:
             m_camera.SetOrientation(0.0f, 89.0f);

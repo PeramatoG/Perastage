@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.43\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-14 15:22+0100\n"
+"POT-Creation-Date: 2026-11-14 18:30+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1159,7 +1159,7 @@ msgstr ""
 msgid "Anchor"
 msgstr ""
 
-#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:112
+#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:151
 msgid "Alignment"
 msgstr ""
 
@@ -3072,59 +3072,63 @@ msgstr ""
 msgid "Loading tables..."
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:58
+#: gui/mainwindow_alignment.cpp:72
 msgid "Extents"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:58
+#: gui/mainwindow_alignment.cpp:72
 msgid "First selected"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:58
+#: gui/mainwindow_alignment.cpp:72
 msgid "Last selected"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:59
-msgid "Alignment reference"
+#: gui/mainwindow_alignment.cpp:87
+msgid "XY work plane (Top)"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:63
-msgid "Alignment work plane: XY (Top), XZ (Front), YZ (Side)"
+#: gui/mainwindow_alignment.cpp:87
+msgid "XZ work plane (Front)"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:71
+#: gui/mainwindow_alignment.cpp:87
+msgid "YZ work plane (Side)"
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:109
 msgid "Align Top"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:71
+#: gui/mainwindow_alignment.cpp:109
 msgid "Align Bottom"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:71
+#: gui/mainwindow_alignment.cpp:109
 msgid "Align Left"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:71
+#: gui/mainwindow_alignment.cpp:109
 msgid "Align Right"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:72
+#: gui/mainwindow_alignment.cpp:110
 msgid "Center Horizontally"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:72
+#: gui/mainwindow_alignment.cpp:110
 msgid "Center Vertically"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:106
+#: gui/mainwindow_alignment.cpp:145
 msgid "Alignment failed. See diagnostics for details."
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:108
+#: gui/mainwindow_alignment.cpp:147
 msgid "Selection aligned."
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:108
+#: gui/mainwindow_alignment.cpp:147
 msgid "Selection is already aligned."
 msgstr ""
 
@@ -3540,11 +3544,11 @@ msgstr ""
 msgid "Version %s"
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:1154
+#: gui/mainwindow_layout.cpp:1169
 msgid "Layout view update skipped: target view not found."
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:1186
+#: gui/mainwindow_layout.cpp:1201
 msgid "Layout view update failed."
 msgstr ""
 
@@ -6177,15 +6181,15 @@ msgstr ""
 msgid "Measure: "
 msgstr ""
 
-#: viewer2d/viewer2dpanel.cpp:3642 viewer3d/viewer3dpanel.cpp:2255
+#: viewer2d/viewer2dpanel.cpp:3642 viewer3d/viewer3dpanel.cpp:2256
 msgid "Convert to Truss"
 msgstr ""
 
-#: viewer2d/viewer2dpanel.cpp:3728 viewer3d/viewer3dpanel.cpp:2272
+#: viewer2d/viewer2dpanel.cpp:3728 viewer3d/viewer3dpanel.cpp:2273
 msgid "No position"
 msgstr ""
 
-#: viewer2d/viewer2dpanel.cpp:3739 viewer3d/viewer3dpanel.cpp:2283
+#: viewer2d/viewer2dpanel.cpp:3739 viewer3d/viewer3dpanel.cpp:2284
 msgid "Select by position"
 msgstr ""
 
@@ -6258,37 +6262,37 @@ msgstr ""
 msgid "ID: %d"
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1351
+#: viewer3d/viewer3dpanel.cpp:1352
 msgid "Cannot export while the 3D viewer is hidden."
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1351 viewer3d/viewer3dpanel.cpp:1356
-#: viewer3d/viewer3dpanel.cpp:1368 viewer3d/viewer3dpanel.cpp:1373
-#: viewer3d/viewer3dpanel.cpp:1416 viewer3d/viewer3dpanel.cpp:1465
+#: viewer3d/viewer3dpanel.cpp:1352 viewer3d/viewer3dpanel.cpp:1357
+#: viewer3d/viewer3dpanel.cpp:1369 viewer3d/viewer3dpanel.cpp:1374
+#: viewer3d/viewer3dpanel.cpp:1417 viewer3d/viewer3dpanel.cpp:1466
 msgid "Export image"
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1368 viewer3d/viewer3dpanel.cpp:1373
+#: viewer3d/viewer3dpanel.cpp:1369 viewer3d/viewer3dpanel.cpp:1374
 msgid "OpenGL is not initialized yet."
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1415
+#: viewer3d/viewer3dpanel.cpp:1416
 msgid "Failed to create an offscreen framebuffer for export."
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1465
+#: viewer3d/viewer3dpanel.cpp:1466
 msgid "Failed to save PNG image."
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1719
+#: viewer3d/viewer3dpanel.cpp:1720
 #, c-format
 msgid "Measure: %s"
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:2286
+#: viewer3d/viewer3dpanel.cpp:2287
 msgid "Render style"
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:2288
+#: viewer3d/viewer3dpanel.cpp:2289
 msgid "Export image..."
 msgstr ""

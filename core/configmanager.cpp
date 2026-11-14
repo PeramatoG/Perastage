@@ -64,6 +64,7 @@ std::vector<RestoredUserPreference> CaptureUserInteractionPreferences(
       {"ui_dmx_patch_height", config.GetValue("ui_dmx_patch_height")},
       {"ui_position_tool_compact_height", config.GetValue("ui_position_tool_compact_height")},
       {"ui_position_tool_sidebar_initialized", config.GetValue("ui_position_tool_sidebar_initialized")},
+      {"ui_alignment_inline_toolbar", config.GetValue("ui_alignment_inline_toolbar")},
       {magnet_snap::kMagnetEnabledConfigKey,
        config.GetValue(magnet_snap::kMagnetEnabledConfigKey)},
       {selection_movement_settings::kAxisConstrainedMovementConfigKey,

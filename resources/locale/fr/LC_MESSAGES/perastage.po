@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-14 15:22+0100\n"
+"POT-Creation-Date: 2026-11-14 18:30+0100\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: French\n"
@@ -1288,7 +1288,7 @@ msgstr "Droite"
 msgid "Anchor"
 msgstr "Ancrage"
 
-#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:112
+#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:151
 msgid "Alignment"
 msgstr "Alignement"
 
@@ -3278,59 +3278,63 @@ msgstr "Finalisation du chargement du projet…"
 msgid "Loading tables..."
 msgstr "Chargement des tables…"
 
-#: gui/mainwindow_alignment.cpp:58
+#: gui/mainwindow_alignment.cpp:72
 msgid "Extents"
 msgstr "Étendue"
 
-#: gui/mainwindow_alignment.cpp:58
+#: gui/mainwindow_alignment.cpp:72
 msgid "First selected"
 msgstr "Premier sélectionné"
 
-#: gui/mainwindow_alignment.cpp:58
+#: gui/mainwindow_alignment.cpp:72
 msgid "Last selected"
 msgstr "Dernier sélectionné"
 
-#: gui/mainwindow_alignment.cpp:59
-msgid "Alignment reference"
-msgstr "Référence d’alignement"
+#: gui/mainwindow_alignment.cpp:87
+msgid "XY work plane (Top)"
+msgstr "Plan de travail XY (Dessus)"
 
-#: gui/mainwindow_alignment.cpp:63
-msgid "Alignment work plane: XY (Top), XZ (Front), YZ (Side)"
-msgstr "Plan d’alignement : XY (Dessus), XZ (Face), YZ (Côté)"
+#: gui/mainwindow_alignment.cpp:87
+msgid "XZ work plane (Front)"
+msgstr "Plan de travail XZ (Face)"
 
-#: gui/mainwindow_alignment.cpp:71
+#: gui/mainwindow_alignment.cpp:87
+msgid "YZ work plane (Side)"
+msgstr "Plan de travail YZ (Côté)"
+
+#: gui/mainwindow_alignment.cpp:109
 msgid "Align Top"
 msgstr "Aligner en haut"
 
-#: gui/mainwindow_alignment.cpp:71
+#: gui/mainwindow_alignment.cpp:109
 msgid "Align Bottom"
 msgstr "Aligner en bas"
 
-#: gui/mainwindow_alignment.cpp:71
+#: gui/mainwindow_alignment.cpp:109
 msgid "Align Left"
 msgstr "Aligner à gauche"
 
-#: gui/mainwindow_alignment.cpp:71
+#: gui/mainwindow_alignment.cpp:109
 msgid "Align Right"
 msgstr "Aligner à droite"
 
-#: gui/mainwindow_alignment.cpp:72
+#: gui/mainwindow_alignment.cpp:110
 msgid "Center Horizontally"
 msgstr "Centrer horizontalement"
 
-#: gui/mainwindow_alignment.cpp:72
+#: gui/mainwindow_alignment.cpp:110
 msgid "Center Vertically"
 msgstr "Centrer verticalement"
 
-#: gui/mainwindow_alignment.cpp:106
+#: gui/mainwindow_alignment.cpp:145
 msgid "Alignment failed. See diagnostics for details."
 msgstr "Échec de l’alignement. Consultez les diagnostics pour plus de détails."
 
-#: gui/mainwindow_alignment.cpp:108
+#: gui/mainwindow_alignment.cpp:147
 msgid "Selection aligned."
 msgstr "Sélection alignée."
 
-#: gui/mainwindow_alignment.cpp:108
+#: gui/mainwindow_alignment.cpp:147
 msgid "Selection is already aligned."
 msgstr "La sélection est déjà alignée."
 
@@ -3762,11 +3766,11 @@ msgstr "X : -- m  Y : -- m  Z : -- m"
 msgid "Version %s"
 msgstr "Version %s"
 
-#: gui/mainwindow_layout.cpp:1154
+#: gui/mainwindow_layout.cpp:1169
 msgid "Layout view update skipped: target view not found."
 msgstr "Mise à jour de la vue de mise en page ignorée : vue cible introuvable."
 
-#: gui/mainwindow_layout.cpp:1186
+#: gui/mainwindow_layout.cpp:1201
 msgid "Layout view update failed."
 msgstr "Échec de la mise à jour de la vue de mise en page."
 
@@ -6585,15 +6589,15 @@ msgstr "Mesure d’écart : "
 msgid "Measure: "
 msgstr "Mesure : "
 
-#: viewer2d/viewer2dpanel.cpp:3642 viewer3d/viewer3dpanel.cpp:2255
+#: viewer2d/viewer2dpanel.cpp:3642 viewer3d/viewer3dpanel.cpp:2256
 msgid "Convert to Truss"
 msgstr "Convertir en structure"
 
-#: viewer2d/viewer2dpanel.cpp:3728 viewer3d/viewer3dpanel.cpp:2272
+#: viewer2d/viewer2dpanel.cpp:3728 viewer3d/viewer3dpanel.cpp:2273
 msgid "No position"
 msgstr "Aucune position"
 
-#: viewer2d/viewer2dpanel.cpp:3739 viewer3d/viewer3dpanel.cpp:2283
+#: viewer2d/viewer2dpanel.cpp:3739 viewer3d/viewer3dpanel.cpp:2284
 msgid "Select by position"
 msgstr "Sélectionner par position"
 
@@ -6666,40 +6670,46 @@ msgstr "Modifier les étiquettes des projecteurs..."
 msgid "ID: %d"
 msgstr "ID : %d"
 
-#: viewer3d/viewer3dpanel.cpp:1351
+#: viewer3d/viewer3dpanel.cpp:1352
 msgid "Cannot export while the 3D viewer is hidden."
 msgstr "Impossible d’exporter lorsque la vue 3D est masquée."
 
-#: viewer3d/viewer3dpanel.cpp:1351 viewer3d/viewer3dpanel.cpp:1356
-#: viewer3d/viewer3dpanel.cpp:1368 viewer3d/viewer3dpanel.cpp:1373
-#: viewer3d/viewer3dpanel.cpp:1416 viewer3d/viewer3dpanel.cpp:1465
+#: viewer3d/viewer3dpanel.cpp:1352 viewer3d/viewer3dpanel.cpp:1357
+#: viewer3d/viewer3dpanel.cpp:1369 viewer3d/viewer3dpanel.cpp:1374
+#: viewer3d/viewer3dpanel.cpp:1417 viewer3d/viewer3dpanel.cpp:1466
 msgid "Export image"
 msgstr "Exporter l’image"
 
-#: viewer3d/viewer3dpanel.cpp:1368 viewer3d/viewer3dpanel.cpp:1373
+#: viewer3d/viewer3dpanel.cpp:1369 viewer3d/viewer3dpanel.cpp:1374
 msgid "OpenGL is not initialized yet."
 msgstr "OpenGL n’est pas encore initialisé."
 
-#: viewer3d/viewer3dpanel.cpp:1415
+#: viewer3d/viewer3dpanel.cpp:1416
 msgid "Failed to create an offscreen framebuffer for export."
 msgstr "Impossible de créer un framebuffer hors écran pour l’export."
 
-#: viewer3d/viewer3dpanel.cpp:1465
+#: viewer3d/viewer3dpanel.cpp:1466
 msgid "Failed to save PNG image."
 msgstr "Impossible d’enregistrer l’image PNG."
 
-#: viewer3d/viewer3dpanel.cpp:1719
+#: viewer3d/viewer3dpanel.cpp:1720
 #, c-format
 msgid "Measure: %s"
 msgstr "Mesure : %s"
 
-#: viewer3d/viewer3dpanel.cpp:2286
+#: viewer3d/viewer3dpanel.cpp:2287
 msgid "Render style"
 msgstr "Style de rendu"
 
-#: viewer3d/viewer3dpanel.cpp:2288
+#: viewer3d/viewer3dpanel.cpp:2289
 msgid "Export image..."
 msgstr "Exporter l’image…"
+
+#~ msgid "Alignment reference"
+#~ msgstr "Référence d’alignement"
+
+#~ msgid "Alignment work plane: XY (Top), XZ (Front), YZ (Side)"
+#~ msgstr "Plan d’alignement : XY (Dessus), XZ (Face), YZ (Côté)"
 
 #~ msgid "Page X (mm)"
 #~ msgstr "X sur la page (mm)"

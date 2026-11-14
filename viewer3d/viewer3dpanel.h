@@ -25,6 +25,7 @@
 #pragma once
 
 #include "continuous_placement_type.h"
+#include "alignment_geometry.h"
 #include "../gui/mouse_capture_ownership.h"
 #include "../gui/viewer_load_status.h"
 #include "scene_grouping.h"
@@ -102,6 +103,8 @@ public:
     bool HasPendingScenePreparation() const {
         return m_controller.IsResourceSyncPending() || m_controller.GetResourceLoadProgress().Pending();
     }
+    alignment::Plane GetSceneWorkPlane() const { return m_sceneWorkPlane; }
+    void SetSceneWorkPlane(alignment::Plane plane) { m_sceneWorkPlane = plane; }
     void SetStandardView(Viewer2DView view);
     bool FrameSceneToFit();
     bool ResetCameraToIsometric();
@@ -163,6 +166,7 @@ public:
 
 private:
     wxGLContext* m_glContext;
+    alignment::Plane m_sceneWorkPlane = alignment::Plane::XY;
     Viewer3DCamera m_camera;
 
     // Mouse interaction state

@@ -23,27 +23,32 @@
 #include "selection_movement_settings.h"
 #include "diagnostics/DiagnosticLogger.h"
 #include <wx/aui/auibar.h>
-#include <wx/choice.h>
+#include "projectutils.h"
+#include "viewer2dpanel.h"
+#include "viewer3dpanel.h"
+#include "interaction/selection_work_plane.h"
+#include <wx/artprov.h>
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <tuple>
 
 namespace {
-// Vector glyphs keep edge and center anchors readable at native display DPI.
-wxBitmapBundle AlignmentIcon(alignment::Operation operation) {
-  using O = alignment::Operation;
-  const bool horizontal = operation == O::Left || operation == O::Right || operation == O::CenterHorizontal;
-  const int anchor = operation == O::Left || operation == O::Top ? 4 :
-                     operation == O::Right || operation == O::Bottom ? 20 : 12;
-  const int x0 = anchor == 4 ? 5 : anchor == 20 ? 11 : 8;
-  const int x1 = anchor == 4 ? 5 : anchor == 20 ? 7 : 6;
-  const std::string svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\">"
-      "<g stroke=\"#285082\" stroke-width=\"2\" fill=\"#739bc8\"" +
-      std::string(horizontal ? "" : " transform=\"matrix(0 1 1 0 0 0)\"") + ">"
-      "<path fill=\"none\" d=\"M" + std::to_string(anchor) + " 2v20\"/>"
-      "<rect x=\"" + std::to_string(x0) + "\" y=\"5\" width=\"8\" height=\"5\"/>"
-      "<rect x=\"" + std::to_string(x1) + "\" y=\"14\" width=\"12\" height=\"5\"/></g></svg>";
-  return wxBitmapBundle::FromSVG(svg.c_str(),wxSize(24,24));
+// Load monochrome vector assets at the standard toolbar size.
+wxBitmapBundle AlignmentIcon(const char *name) {
+  const auto path = ProjectUtils::ResolveResourcePath(
+      std::filesystem::path("icons") / "outline" / (std::string(name) + ".svg"));
+  const auto bundle = wxBitmapBundle::FromSVGFile(path.string(),wxSize(16,16));
+  return bundle.IsOk() ? bundle : wxArtProvider::GetBitmapBundle(wxART_MISSING_IMAGE,wxART_TOOLBAR,wxSize(16,16));
+}
+struct AlignmentControls {
+  alignment::Reference reference = alignment::Reference::Extents;
+  bool use2D = false;
+};
+bool ContainsFocus(wxWindow *panel) {
+  for (auto *focus = wxWindow::FindFocus(); focus; focus = focus->GetParent())
+    if (focus == panel) return true;
+  return false;
 }
 scene_grouping::ObjectSelection Selection(const ConfigManager &cfg) {
   return {cfg.GetSelectedFixtures(),cfg.GetSelectedTrusses(),cfg.GetSelectedSupports(),cfg.GetSelectedSceneObjects(),cfg.GetSelectedGroupObjects()};
@@ -53,15 +58,48 @@ scene_grouping::ObjectSelection Selection(const ConfigManager &cfg) {
 void MainWindow::CreateAlignmentToolBar() {
   auto *bar = new wxAuiToolBar(this,wxID_ANY,wxDefaultPosition,wxDefaultSize,
                               wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
-  bar->SetToolBitmapSize(wxSize(24,24));
-  auto *reference = new wxChoice(bar,wxID_ANY);
-  reference->Append(_("Extents")); reference->Append(_("First selected")); reference->Append(_("Last selected"));
-  reference->SetSelection(0); reference->SetToolTip(_("Alignment reference"));
-  bar->AddControl(reference);
-  auto *plane = new wxChoice(bar,wxID_ANY);
-  for (const char *name : {"XY","XZ","YZ"}) plane->Append(wxString::FromUTF8(name));
-  plane->SetSelection(0); plane->SetToolTip(_("Alignment work plane: XY (Top), XZ (Front), YZ (Side)"));
-  bar->AddControl(plane); bar->AddSeparator();
+  bar->SetToolBitmapSize(wxSize(16,16));
+  const auto controls = std::make_shared<AlignmentControls>();
+  const auto currentPlane = [this,controls]() {
+    const bool shown2D = viewport2DPanel && viewport2DPanel->IsShownOnScreen();
+    const bool shown3D = viewportPanel && viewportPanel->IsShownOnScreen();
+    if (shown2D && (!shown3D || ContainsFocus(viewport2DPanel))) controls->use2D = true;
+    else if (!shown2D || (shown3D && ContainsFocus(viewportPanel))) controls->use2D = false;
+    if (controls->use2D && shown2D)
+      return viewer3d::WorkPlaneForView(viewport2DPanel->GetView());
+    return viewportPanel ? viewportPanel->GetSceneWorkPlane() : alignment::Plane::XY;
+  };
+  const wxString references[] = {_("Extents"),_("First selected"),_("Last selected")};
+  const char *referenceIcons[] = {"alignment-extents","alignment-first","alignment-last"};
+  for (int index = 0; index < 3; ++index) {
+    const int id = wxWindow::NewControlId();
+    bar->AddTool(id,references[index],AlignmentIcon(referenceIcons[index]),references[index],wxITEM_RADIO);
+    bar->ToggleTool(id,index == 0);
+    Bind(wxEVT_TOOL,[controls,index](wxCommandEvent &) {
+      controls->reference = static_cast<alignment::Reference>(index);
+    },id);
+    Bind(wxEVT_UPDATE_UI,[this,controls,index](wxUpdateUIEvent &event) {
+      event.Enable(!layoutModeActive);
+      event.Check(controls->reference == static_cast<alignment::Reference>(index));
+    },id);
+  }
+  bar->AddSeparator();
+  const wxString planes[] = {_("XY work plane (Top)"),_("XZ work plane (Front)"),_("YZ work plane (Side)")};
+  const char *planeIcons[] = {"work-plane-xy","work-plane-xz","work-plane-yz"};
+  for (int index = 0; index < 3; ++index) {
+    const int id = wxWindow::NewControlId();
+    bar->AddTool(id,planes[index],AlignmentIcon(planeIcons[index]),planes[index],wxITEM_RADIO);
+    bar->ToggleTool(id,index == 0);
+    Bind(wxEVT_TOOL,[this,index](wxCommandEvent &) {
+      if (viewportPanel) viewportPanel->SetSceneWorkPlane(static_cast<alignment::Plane>(index));
+    },id);
+    Bind(wxEVT_UPDATE_UI,[this,controls,currentPlane,index](wxUpdateUIEvent &event) {
+      const auto plane = currentPlane();
+      event.Enable(!layoutModeActive && !controls->use2D && viewportPanel);
+      event.Check(plane == static_cast<alignment::Plane>(index));
+    },id);
+  }
+  bar->AddSeparator();
   struct Availability {
     using Key = std::tuple<size_t,size_t,bool,bool,bool,bool>;
     std::optional<Key> key;
@@ -70,10 +108,12 @@ void MainWindow::CreateAlignmentToolBar() {
   const auto availability = std::make_shared<Availability>();
   const wxString labels[] = {_("Align Top"),_("Align Bottom"),_("Align Left"),_("Align Right"),
                               _("Center Horizontally"),_("Center Vertically")};
+  const char *operationIcons[] = {"alignment-top","alignment-bottom","alignment-left","alignment-right",
+                                  "alignment-center-horizontal","alignment-center-vertical"};
   for (int index = 0; index < 6; ++index) {
     const int id = wxWindow::NewControlId();
     const auto operation = static_cast<alignment::Operation>(index);
-    bar->AddTool(id,labels[index],AlignmentIcon(operation),labels[index]);
+    bar->AddTool(id,labels[index],AlignmentIcon(operationIcons[index]),labels[index]);
     Bind(wxEVT_UPDATE_UI,[this,availability](wxUpdateUIEvent &event) {
       auto &cfg = guiConfigServices->LegacyConfigManager();
       const auto policy = selection_movement_settings::LoadInteractiveTransformPolicy(cfg);
@@ -87,15 +127,14 @@ void MainWindow::CreateAlignmentToolBar() {
       }
       event.Enable(!layoutModeActive && availability->enabled);
     },id);
-    Bind(wxEVT_TOOL,[this,reference,plane,operation](wxCommandEvent &) {
+    Bind(wxEVT_TOOL,[this,controls,currentPlane,operation](wxCommandEvent &) {
       auto &cfg = guiConfigServices->LegacyConfigManager();
       const auto chronology = cfg.GetOrderedSelection();
       auto selection = Selection(cfg);
       GuiProjectMutationHost host(cfg);
       perastage::command::ExecutionContext context{cfg.GetScene(),selection,host};
       const auto result = alignment::Execute(context,chronology,
-          static_cast<alignment::Reference>(reference->GetSelection()),operation,
-          static_cast<alignment::Plane>(plane->GetSelection()),
+          controls->reference,operation,currentPlane(),
           selection_movement_settings::LoadInteractiveTransformPolicy(cfg),alignment::SceneBounds);
       for (const auto &diagnostic : result.diagnostics) {
         using S = perastage::command::DiagnosticSeverity;
@@ -110,5 +149,5 @@ void MainWindow::CreateAlignmentToolBar() {
   }
   bar->Realize();
   auiManager->AddPane(bar,wxAuiPaneInfo().Name("AlignmentToolbar").Caption(_("Alignment"))
-      .ToolbarPane().CloseButton(false).Top().Row(1));
+      .ToolbarPane().CloseButton(false).Top().Row(0).Position(10000));
 }

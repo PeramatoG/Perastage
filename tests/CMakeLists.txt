@@ -5055,3 +5055,10 @@ add_test(NAME SceneAlignmentPhysicalBounds COMMAND scene_alignment_bounds_test $
 set_library_env(SceneAlignmentPhysicalBounds)
 set_perastage_test_labels(SceneAlignmentPhysicalBounds LAYER standard-strict DOMAINS integration command geometry)
 add_bash_policy_test(SceneAlignmentBoundary ${CMAKE_SOURCE_DIR}/tests/check_scene_alignment_boundary.sh LABELS standard-strict architecture command)
+
+add_executable(scene_work_plane_test scene_work_plane_test.cpp
+    ../viewer3d/interaction/selection_drag_math.cpp)
+target_include_directories(scene_work_plane_test PRIVATE ../viewer3d)
+target_link_libraries(scene_work_plane_test PRIVATE perastage_scene_alignment)
+add_test(NAME SceneWorkPlane COMMAND scene_work_plane_test)
+set_perastage_test_labels(SceneWorkPlane LAYER standard-strict DOMAINS unit geometry gui)

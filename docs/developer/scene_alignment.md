@@ -81,9 +81,19 @@ Scene alignment uses a 0.01 mm anchor tolerance and predicts the transform
 command's float addition before publication. Significant unrepresentable movements
 at extreme coordinates abort rather than falsely reporting successful alignment.
 The reusable rectangle API accepts an explicit tolerance for document adapters.
-The visible selector is authoritative and defaults safely to XY, including in
-perspective. It never follows camera yaw. Choose XY for Top, XZ for Front, YZ for
-Side; changing viewport orientation does not silently override the selector.
+The toolbar uses standard 16 px monochrome SVG bundles on the default toolbar
+row. Reference and plane controls are independent radio groups. A one-time
+preference migration removes the original forced second-row default while
+preserving subsequent user docking. Control changes do not dirty the project.
+In 2D, `WorkPlaneForView` follows the active viewport's Top/Front/Side orientation;
+plane buttons show that plane and are disabled. In 3D, `Viewer3DPanel` owns runtime
+`m_sceneWorkPlane`, initially XY. The toolbar and selection drag projector use the
+same state. Standard views update it; camera orbit does not derive a plane from yaw.
+Free selection dragging intersects the mouse ray with the selected world plane
+through the current anchor. Axis Lock uses world/local directions projected onto
+that plane. Degenerate axes and parallel rays produce no movement. Magnet is deliberately exempt from the plane constraint: its existing full
+translation/attachment behavior can reach a nearby element outside the plane. Continuous placement retains its
+existing camera-plane/axis behavior; fixture distribution is unchanged.
 
 | Plane | Screen horizontal | Screen vertical | Unchanged axis |
 | --- | --- | --- | --- |
