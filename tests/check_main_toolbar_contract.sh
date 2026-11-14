@@ -82,3 +82,18 @@ if [[ "$availability_body" == *"DeleteTool("* ||
 fi
 
 echo "OK: main toolbar tools remain registered while availability changes."
+
+# Alignment must be appended after the existing bars with a bounded dock position.
+"${PERASTAGE_TEST_PYTHON:-python3}" - "$repo_root" <<'PYTEST'
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+menu = (root/'gui/mainwindow_menu.cpp').read_text()
+body = menu[menu.index('void MainWindow::CreateToolBars()'):menu.index('void MainWindow::CreateMenuBar()')]
+assert body.index('CreateAlignmentToolBar();') > body.index('layoutToolBar =')
+alignment = (root/'gui/mainwindow_alignment.cpp').read_text()
+assert 'Position(10000)' not in alignment
+assert 'GetClientSize().x' in alignment
+layout = (root/'gui/mainwindow_layout.cpp').read_text()
+assert 'alignment.dock_pos >= GetClientSize().x' in layout
+PYTEST

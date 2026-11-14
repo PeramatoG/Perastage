@@ -86,7 +86,10 @@ row. Explicit disabled SVG variants use the Layout toolbar gray (#4A4A4A,
 0.95 opacity), assigned through `SetDisabledBitmap` rather than automatic
 grayscale conversion. Reference and plane controls are independent radio groups. A one-time
 preference migration removes the original forced second-row default while
-preserving subsequent user docking. Control changes do not dirty the project.
+preserving subsequent user docking. The toolbar is constructed after the other
+primary bars, with a measured default position instead of an offscreen sentinel.
+Saved offscreen top-dock positions are repaired on workspace restoration; narrow
+windows use a second row when the combined toolbar widths do not fit. Control changes do not dirty the project.
 In 2D, `WorkPlaneForView` follows the active viewport's Top/Front/Side orientation;
 plane buttons show that plane and are disabled. In 3D, `Viewer3DPanel` owns runtime
 `m_sceneWorkPlane`, initially XY. The toolbar and selection drag projector use the
@@ -130,6 +133,11 @@ the aligned result. Switching to the 2D workspace retained fixture 2 as referenc
 Bottom produced a shared minimum Y of -725 mm. X/Z, rotations and scales stayed
 unchanged. Canonical GUI MVR export and headless reread retained UUIDs, physical
 models, modes, DMX and transformed matrices.
+
+A native restart regression also opened a saved project with the legacy alignment
+dock position of 10000 and the inline-migration preference already set. The
+complete toolbar recovered on the main row in 2D and remained visible after
+switching to 3D.
 
 ![Shared toolbar and selected aligned fixtures in the 3D workspace](evidence/scene-alignment-3d.png)
 

@@ -104,7 +104,6 @@
 
 // Builds and registers the main application toolbars.
 void MainWindow::CreateToolBars() {
-  CreateAlignmentToolBar();
   const long toolbarStyle = (wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
   fileToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
                                  wxDefaultSize, toolbarStyle);
@@ -372,6 +371,7 @@ void MainWindow::CreateToolBars() {
                                          .CloseButton(false)
                                          .Top());
 
+  CreateAlignmentToolBar();
   UpdateToolBarAvailability();
 }
 

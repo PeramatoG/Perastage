@@ -533,20 +533,25 @@ void MainWindow::ApplyCanonicalPaneDocking() {
   });
 }
 
-// Keeps every primary toolbar visible without changing its dock position.
+// Keeps primary toolbars visible and repairs legacy offscreen alignment docking.
 void MainWindow::EnforceMainToolbarVisibility() {
   if (!auiManager)
     return;
   auto &preferences = guiConfigServices->Preferences();
-  if (!preferences.GetValue("ui_alignment_inline_toolbar")) {
-    auto &alignment = auiManager->GetPane("AlignmentToolbar");
+  auto &alignment = auiManager->GetPane("AlignmentToolbar");
+  const bool offscreen = alignment.IsOk() && !alignment.IsFloating() &&
+      alignment.dock_direction == wxAUI_DOCK_TOP && alignment.dock_pos >= GetClientSize().x;
+  if (!preferences.GetValue("ui_alignment_inline_toolbar") || offscreen) {
     int position = 0;
     for (const auto name : gui::kAlwaysVisibleToolbarPanes) {
       if (name == "AlignmentToolbar") continue;
       const auto &pane = auiManager->GetPane(std::string(name));
       if (pane.IsOk() && pane.window) position += pane.window->GetBestSize().x;
     }
-    if (alignment.IsOk()) alignment.Top().Row(0).Position(position);
+    if (alignment.IsOk() && alignment.window) {
+      const bool fits = position + alignment.window->GetBestSize().x <= GetClientSize().x;
+      alignment.Top().Row(fits ? 0 : 1).Position(fits ? position : 0);
+    }
     auto &config = guiConfigServices->LegacyConfigManager();
     const auto dirty = config.CaptureDirtyState();
     preferences.SetValue("ui_alignment_inline_toolbar","1");

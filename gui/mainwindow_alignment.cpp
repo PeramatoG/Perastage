@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "main_toolbar_pane_policy.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "project_mutation_host.h"
@@ -157,6 +158,13 @@ void MainWindow::CreateAlignmentToolBar() {
     },id);
   }
   bar->Realize();
+  int position = 0;
+  for (const auto name : gui::kAlwaysVisibleToolbarPanes) {
+    if (name == "AlignmentToolbar") continue;
+    const auto &pane = auiManager->GetPane(std::string(name));
+    if (pane.IsOk() && pane.window) position += pane.window->GetBestSize().x;
+  }
+  const bool fits = position + bar->GetBestSize().x <= GetClientSize().x;
   auiManager->AddPane(bar,wxAuiPaneInfo().Name("AlignmentToolbar").Caption(_("Alignment"))
-      .ToolbarPane().CloseButton(false).Top().Row(0).Position(10000));
+      .ToolbarPane().CloseButton(false).Top().Row(fits ? 0 : 1).Position(fits ? position : 0));
 }
