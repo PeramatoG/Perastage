@@ -42,6 +42,8 @@
 #include "layouttextutils.h"
 #include "layout_image_export.h"
 #include "layouts/PageOutputMapping.h"
+#include "layout_viewport_adapter.h"
+#include "ui_render_size.h"
 #include "logger.h"
 #include "layoutlegenditems.h"
 #include "Viewer2DPrintSettings.h"
@@ -231,6 +233,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
                  this);
     return;
   }
+  const bool hasFixedScale = std::any_of(layout->view2dViews.begin(), layout->view2dViews.end(),
+      [](const auto &v) { return v.scaleMode == layouts::ViewportScaleMode::Fixed; });
   const bool layoutIsEmpty =
       layout->view2dViews.empty() && layout->legendViews.empty() &&
       layout->eventTables.empty() && layout->textViews.empty() &&
@@ -264,7 +268,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
     settings = settingsDialog.GetSettings();
   }
   settings.landscape = layout->pageSetup.landscape;
-  ui::ApplyBuildDefaultsToViewer2DPrintSettings(settings);
+  if (hasFixedScale) ui::ApplyBuildDefaultsToViewer2DPrintSettings(settings, layout->pageSetup);
+  else ui::ApplyBuildDefaultsToViewer2DPrintSettings(settings);
   settings.includeGrid = true;
   // Layout printing is derived: do not publish print preferences as project edits.
 
@@ -291,6 +296,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   const double layoutPageH = layout->pageSetup.PageHeightPt();
   layouts::composition::PageOutputMapping pageMapping;
   try {
+    layouts::ValidatePhysicalOutput(hasFixedScale,
+        outputPageW / layoutPageW, outputPageH / layoutPageH);
     pageMapping = layouts::composition::PageFitForSizes(layoutPageW, layoutPageH, outputPageW, outputPageH);
   } catch (const std::invalid_argument &error) {
     wxMessageBox(wxString::Format(_("Failed to generate layout PDF: %s"), wxString::FromUTF8(error.what())),
@@ -446,10 +453,10 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
         viewer2d::ApplyEditorRenderOptions(layoutState, *cfgPtr);
         layoutState.renderOptions.darkMode = false;
 
-        const int fallbackViewportWidth = view.camera.viewportWidth > 0
+        const int fallbackViewportWidth = view.scaleMode == layouts::ViewportScaleMode::Fixed ? 1600 : view.camera.viewportWidth > 0
                                               ? view.camera.viewportWidth
                                               : view.frame.width;
-        const int fallbackViewportHeight = view.camera.viewportHeight > 0
+        const int fallbackViewportHeight = view.scaleMode == layouts::ViewportScaleMode::Fixed ? 1200 : view.camera.viewportHeight > 0
                                                ? view.camera.viewportHeight
                                                : view.frame.height;
         const int viewportWidth =
@@ -463,6 +470,10 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
           offscreenRenderer->PrepareForCapture();
         }
 
+        const auto framebuffer = ResolveRenderSize(capturePanel);
+        viewer2d::PreparePhysicalCapture(view, layoutState.camera,
+            framebuffer.IsValid() ? framebuffer.width : viewportWidth,
+            framebuffer.IsValid() ? framebuffer.height : viewportHeight);
         auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
             capturePanel, nullptr, *cfgPtr, layoutState, nullptr, nullptr,
             false);
@@ -472,12 +483,13 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
              stateGuard](CommandBuffer buffer, Viewer2DViewState state) {
               LayoutViewExportData data;
               data.buffer = std::move(buffer);
+              viewer2d::AttachPhysicalMapping(view, state);
               data.viewState = state;
               if (data.viewState.viewportWidth <= 0)
                 data.viewState.viewportWidth = viewportWidth;
               if (data.viewState.viewportHeight <= 0)
                 data.viewState.viewportHeight = viewportHeight;
-              data.frame = view.frame;
+              data.frame = layouts::ResolveViewportFrame(view);
               data.zIndex = view.zIndex;
               data.drawFrame = view.drawFrame;
               if (capturePanel)

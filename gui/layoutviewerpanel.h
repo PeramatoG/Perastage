@@ -225,6 +225,10 @@ private:
   bool TryCompletePendingFitToViewport();
   void SchedulePendingFitToViewport();
   wxRect GetPageRect() const;
+  layouts::ViewportFramePoints GetDisplayedFrame(gui::layoutselection::LayoutElementRef element,
+      const layouts::Layout2DViewFrame &fallback) const;
+  bool GetFrameRect(const layouts::ViewportFramePoints &frame, wxRect &rect) const;
+  wxSize GetFrameSizeForZoom(const layouts::ViewportFramePoints &frame, double zoom) const;
   bool GetFrameRect(const layouts::Layout2DViewFrame &frame,
                     wxRect &rect) const;
   wxSize GetFrameSizeForZoom(const layouts::Layout2DViewFrame &frame,
@@ -257,6 +261,7 @@ private:
   void ClearCachedTexture(ImageCache &cache);
   bool HasDirtyRenderCaches() const;
   bool NeedsRenderRebuild() const;
+  bool NeedsViewSceneCapture() const;
   bool ShouldDeferMissingElementTexture(bool cacheRenderDirty,
                                         unsigned int texture,
                                         const wxSize &textureSize,

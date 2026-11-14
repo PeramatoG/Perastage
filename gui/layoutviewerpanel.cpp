@@ -81,7 +81,6 @@
 
 namespace {
 using gui::layoutviewport::kMaxRenderBytes;
-using gui::layoutviewport::kMaxRenderDimension;
 using gui::layoutviewport::kMaxRenderPixels;
 using gui::layoutviewport::kMinZoom;
 using gui::layoutviewport::kZoomStep;
@@ -147,7 +146,11 @@ double GetLayoutSafeMaxZoom(const layouts::LayoutDefinition &layout) {
     for (const auto &entry : collection)
       frameSizes.push_back({entry.frame.width, entry.frame.height});
   };
-  appendFrames(layout.view2dViews);
+  for (const auto &view : layout.view2dViews) {
+    const auto frame = layouts::ResolveViewportFrame(view);
+    frameSizes.push_back({static_cast<int>(std::ceil(frame.width)),
+                          static_cast<int>(std::ceil(frame.height))});
+  }
   appendFrames(layout.legendViews);
   appendFrames(layout.eventTables);
   appendFrames(layout.textViews);
@@ -1072,7 +1075,7 @@ void LayoutViewerPanel::DrawDeferredResizeOverlay() {
     return;
 
   wxRect frameRect;
-  if (!GetFrameRect(*interactionSession_.DeferredResize(), frameRect))
+  if (!GetFrameRect(GetDisplayedFrame(selectionState_.Current(), *interactionSession_.DeferredResize()), frameRect))
     return;
 
   glColor4ub(160, 160, 160, 110);
@@ -1241,7 +1244,7 @@ void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
   layouts::Layout2DViewFrame selectedFrame;
   wxRect frameRect;
   if (GetSelectedFrame(selectedFrame) &&
-      GetFrameRect(selectedFrame, frameRect)) {
+      GetFrameRect(GetDisplayedFrame(selectionState_.Current(), selectedFrame), frameRect)) {
     const FrameDragMode mode = gui::layoutinteraction::HitTestFrame(
         pointer, {frameRect.GetX(), frameRect.GetY(), frameRect.GetWidth(),
                   frameRect.GetHeight()});
@@ -1292,7 +1295,7 @@ void LayoutViewerPanel::OnLeftDClick(wxMouseEvent &event) {
   layouts::Layout2DViewFrame selectedFrame;
   wxRect frameRect;
   if (GetSelectedFrame(selectedFrame) &&
-      GetFrameRect(selectedFrame, frameRect) && frameRect.Contains(pos)) {
+      GetFrameRect(GetDisplayedFrame(selectionState_.Current(), selectedFrame), frameRect) && frameRect.Contains(pos)) {
     if (selectionState_.Current().kind == LayoutElementKind::View2D) {
       EmitEditViewRequest();
       return;
@@ -1395,7 +1398,7 @@ void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
   layouts::Layout2DViewFrame selectedFrame;
   wxRect frameRect;
   if (GetSelectedFrame(selectedFrame) &&
-      GetFrameRect(selectedFrame, frameRect)) {
+      GetFrameRect(GetDisplayedFrame(selectionState_.Current(), selectedFrame), frameRect)) {
     interactionSession_.UpdateHoverMode(gui::layoutinteraction::HitTestFrame(
         pointer, {frameRect.GetX(), frameRect.GetY(), frameRect.GetWidth(),
                   frameRect.GetHeight()}));
@@ -1543,7 +1546,7 @@ void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
   layouts::Layout2DViewFrame selectedFrame;
   wxRect frameRect;
   if (!(GetSelectedFrame(selectedFrame) &&
-        GetFrameRect(selectedFrame, frameRect) && frameRect.Contains(pos))) {
+        GetFrameRect(GetDisplayedFrame(selectionState_.Current(), selectedFrame), frameRect) && frameRect.Contains(pos))) {
     event.Skip();
     return;
   }
@@ -1715,49 +1718,15 @@ wxRect LayoutViewerPanel::GetPageRect() const {
   return wxRect(rect.x, rect.y, rect.width, rect.height);
 }
 
-// Adapts pure frame geometry to the wx rectangle used for hit testing.
-bool LayoutViewerPanel::GetFrameRect(const layouts::Layout2DViewFrame &frame,
-                                     wxRect &rect) const {
-  const wxSize size = layoutviewerpanel::GetLogicalClientSize(this);
-  gui::layoutviewport::Rect viewportRect;
-  if (!viewportState_.FrameRect(
-          {size.GetWidth(), size.GetHeight()},
-          currentLayout.pageSetup.PageWidthPt(),
-          currentLayout.pageSetup.PageHeightPt(),
-          {static_cast<double>(frame.x), static_cast<double>(frame.y),
-           static_cast<double>(frame.width), static_cast<double>(frame.height)},
-          viewportRect))
-    return false;
-  rect = wxRect(viewportRect.x, viewportRect.y, viewportRect.width,
-                viewportRect.height);
-  return true;
+// Keeps integer frames as a compatibility adapter for existing elements.
+bool LayoutViewerPanel::GetFrameRect(const layouts::Layout2DViewFrame &frame, wxRect &rect) const {
+  return GetFrameRect(static_cast<layouts::ViewportFramePoints>(frame), rect);
 }
 
-// Calculates a raster frame size for the requested cache zoom.
-wxSize
-LayoutViewerPanel::GetFrameSizeForZoom(const layouts::Layout2DViewFrame &frame,
-                                       double targetZoom) const {
-  if (frame.width <= 0 || frame.height <= 0 || targetZoom <= 0.0)
-    return wxSize(0, 0);
-  const double scaledWidthValue = frame.width * targetZoom;
-  const double scaledHeightValue = frame.height * targetZoom;
-  if (scaledWidthValue > kMaxRenderDimension ||
-      scaledHeightValue > kMaxRenderDimension)
-    return wxSize(0, 0);
-  const int scaledWidth = static_cast<int>(std::lround(scaledWidthValue));
-  const int scaledHeight = static_cast<int>(std::lround(scaledHeightValue));
-  if (scaledWidth <= 0 || scaledHeight <= 0)
-    return wxSize(0, 0);
-  if (scaledWidth > kMaxRenderDimension || scaledHeight > kMaxRenderDimension)
-    return wxSize(0, 0);
-  if (static_cast<size_t>(scaledWidth) >
-      kMaxRenderPixels / static_cast<size_t>(scaledHeight))
-    return wxSize(0, 0);
-  const size_t pixelCount =
-      static_cast<size_t>(scaledWidth) * static_cast<size_t>(scaledHeight);
-  if (pixelCount > kMaxRenderPixels || pixelCount > kMaxRenderBytes / 4)
-    return wxSize(0, 0);
-  return wxSize(scaledWidth, scaledHeight);
+// Keeps raster rounding at the screen boundary instead of in document units.
+wxSize LayoutViewerPanel::GetFrameSizeForZoom(const layouts::Layout2DViewFrame &frame,
+                                             double zoom) const {
+  return GetFrameSizeForZoom(static_cast<layouts::ViewportFramePoints>(frame), zoom);
 }
 
 // Quantizes the current visual zoom into a stable raster-cache LOD bucket.
@@ -1905,14 +1874,7 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
                       std::min(processedRenderItems, safeTotal), safeTotal));
     };
 
-    bool needsViewSceneCapture = false;
-    for (const auto &view : currentLayout.view2dViews) {
-      const auto cacheIt = viewCaches_.find(view.id);
-      if (cacheIt != viewCaches_.end() && cacheIt->second.renderDirty) {
-        needsViewSceneCapture = needsViewSceneCapture ||
-                                !cacheIt->second.restoredFromPersistentCache;
-      }
-    }
+    const bool needsViewSceneCapture = NeedsViewSceneCapture();
     bool needsLegendProcessing = false;
     bool needsLegendSymbolCapture = false;
     size_t legendSymbolsMissingCount = 0;
@@ -2028,7 +1990,7 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       }
       cache.renderDirty = false;
       wxRect frameRect;
-      if (!GetFrameRect(view.frame, frameRect)) {
+      if (!GetFrameRect(layouts::ResolveViewportFrame(view), frameRect)) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
@@ -2039,7 +2001,7 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
 
-      const wxSize renderSize = GetFrameSizeForZoom(view.frame, renderZoom);
+      const wxSize renderSize = GetFrameSizeForZoom(layouts::ResolveViewportFrame(view), renderZoom);
       if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
@@ -3103,7 +3065,7 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
     if (!GetElementFrame(it->element, frame))
       continue;
     wxRect frameRect;
-    if (!GetFrameRect(frame, frameRect) || !frameRect.Contains(pos))
+    if (!GetFrameRect(GetDisplayedFrame(it->element, frame), frameRect) || !frameRect.Contains(pos))
       continue;
     if (selectionState_.Matches(it->element))
       return true;

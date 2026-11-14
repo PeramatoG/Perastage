@@ -24,6 +24,9 @@
 #include <vector>
 
 namespace layouts {
+// Compares only visual editor inputs, excluding frame and physical properties.
+bool SameViewportCaptureSettings(const Layout2DViewDefinition &a,
+                                 const Layout2DViewDefinition &b);
 
 constexpr int kLayoutTemplateSchemaVersion = 1;
 
@@ -38,6 +41,7 @@ struct LayoutTemplateImportReport {
     int skipped = 0;
   } layouts;
 
+  bool rejectedViewportMetadata = false;
   ElementStats view2dViews;
   ElementStats legendViews;
   ElementStats eventTables;

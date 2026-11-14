@@ -19,6 +19,7 @@
 
 namespace print {
 struct Viewer2DPrintSettings;
+struct PageSetup;
 }
 
 namespace ui {
@@ -35,5 +36,8 @@ enum class FeatureFlag {
 bool IsFeatureEnabled(FeatureFlag flag);
 void ApplyBuildDefaultsToViewer2DPrintSettings(
     print::Viewer2DPrintSettings &settings);
+// Fixed Layouts retain document paper when Release hides print options.
+void ApplyBuildDefaultsToViewer2DPrintSettings(
+    print::Viewer2DPrintSettings &settings, const print::PageSetup &physicalDocument);
 
 } // namespace ui

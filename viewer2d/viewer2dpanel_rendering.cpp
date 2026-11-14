@@ -23,6 +23,7 @@
 #include "render/viewer2d_render_frame_plan.h"
 #include "viewer2d_ruler_overlay.h"
 #include "viewer2dpanel.h"
+#include "viewer2dcommandrenderer.h"
 
 #include <cmath>
 #include <optional>
@@ -90,7 +91,7 @@ void Viewer2DPanel::DrawLayoutEditOverlay(int width, int height) {
   if (!m_layoutEditAspect)
     return;
 
-  const auto geometry = viewer2d::render::ComputeLayoutEditOverlayGeometry(
+  auto geometry = viewer2d::render::ComputeLayoutEditOverlayGeometry(
       {static_cast<float>(width), static_cast<float>(height),
        *m_layoutEditAspect, m_layoutEditScale,
        m_layoutEditBaseSize
@@ -99,6 +100,12 @@ void Viewer2DPanel::DrawLayoutEditOverlay(int width, int height) {
        m_layoutEditBaseSize
            ? std::optional<float>(m_layoutEditBaseSize->GetHeight())
            : std::nullopt});
+  if (m_physicalEditor && geometry) {
+    const auto fixed = viewer2d::ResolvePhysicalEditorGeometry(
+        m_physicalEditor->physical, m_physicalEditor->frame, width, height, viewer2d::kViewer2DPixelsPerMeter);
+    geometry->left=fixed.left; geometry->bottom=fixed.bottom;
+    geometry->width=fixed.width; geometry->height=fixed.height;
+  }
   if (!geometry)
     return;
 

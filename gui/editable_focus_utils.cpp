@@ -3,6 +3,7 @@
 #include <wx/combobox.h>
 #include <wx/grid.h>
 #include <wx/spinctrl.h>
+#include <wx/spinbutt.h>
 #include <wx/textentry.h>
 #include <wx/window.h>
 
@@ -21,7 +22,8 @@ bool IsEditableInputWindow(const wxWindow *window) {
     return textEntry->IsEditable();
 
   if (dynamic_cast<const wxSpinCtrl *>(window) ||
-      dynamic_cast<const wxSpinCtrlDouble *>(window)) {
+      dynamic_cast<const wxSpinCtrlDouble *>(window) ||
+      dynamic_cast<const wxSpinButton *>(window)) {
     return true;
   }
 

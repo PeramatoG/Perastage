@@ -1,4 +1,5 @@
 #include "layoutlegendrenderer.h"
+#include "paper_stroke_mapping.h"
 #include "projectutils.h"
 #include "logger.h"
 #include "typography/font_resources.h"
@@ -117,7 +118,7 @@ public:
     if (!drawStrokes_ || width * strokeScale_ <= 0)
       return gc_->CreatePen(*wxTRANSPARENT_PEN);
     return gc_->CreatePen(wxGraphicsPenInfo(ToWxColor(stroke.color))
-        .Width(width * strokeScale_).Cap(wxCAP_BUTT).Join(wxJOIN_MITER));
+        .Width(width * strokeScale_).Cap(wxCAP_ROUND).Join(wxJOIN_ROUND));
   }
 
   wxBrush MakeFillBrush(const CanvasFill *fill) const {
@@ -516,7 +517,7 @@ wxImage RenderLegendImage(const wxSize &size, const wxSize &logicalSize,
       mapping.offsetX = placement.commandOriginX * renderZoom + bounds.x * scale;
       mapping.offsetY = placement.draw.y * renderZoom;
       mapping.drawHeight = placement.draw.height * renderZoom;
-      backend.SetStrokeScale(placement.geometry.strokeScale);
+      backend.SetStrokeScale(viewer2d::PaperStrokeScale(placement.scale, 1.0, placement.geometry.strokeScale));
       RenderLegendCommandBuffer(resolved.commands->localCommands,
           Transform2D::Identity(), symbols, backend, mapping);
     }

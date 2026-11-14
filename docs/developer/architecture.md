@@ -675,3 +675,117 @@ alignment and italic skew in document points. B3.2 will address shared free-text
 typography; B3.1 introduces no parser, shaping or font changes. View capture,
 viewport state, stable cross-kind ordering and serialized Layout geometry remain
 owned by their existing modules.
+
+## Layout physical viewport mapping
+
+Core `layouts/PhysicalViewport.h` owns double-precision physical units,
+validation and visible bounds. `Layout2DViewDefinition` defaults to free scale;
+optional physical parameters survive mode switching with independent free zoom
+and capture settings. The latest user center is carried in both directions.
+Scene units are meters and document units are points (72 per inch).
+Fixed mapping uses `1000 / denominator * 72 / 25.4` points per scene meter.
+Centers store the selected world axes: Top X/Y, Front X/Z, Side Y/Z. Side reverses the horizontal projection, consistently with the
+existing scene command camera. Page coordinates grow right/down from top left.
+
+Viewport frame precision is an isolated compatibility adapter: the existing
+integer frame plus bounded fractional point residuals resolves to double points.
+Integer gesture deltas preserve residuals. Display and hit testing resolve those
+residuals before editor zoom; rounding happens only at the screen boundary.
+Other element types retain their
+existing representation. Numeric properties use millimeters at the GUI boundary;
+millimeters display without decimals and unchanged controls preserve their original
+double values individually. Only document points are serialized. Core validates candidates before mutation
+publication; optional viewport metadata is omitted for untouched legacy views.
+Invalid new viewport metadata rejects its template transaction without publishing
+part of the candidate. PSTG metadata and history use the same serializer; no
+MVR/GDTF fields or resources carry physical viewport settings.
+
+Viewer2D's `layout_viewport_adapter.h` derives a temporary capture camera covering
+the entire physical crop, at the actual capture dimensions, with a conservative
+float-camera rounding margin at large coordinates. Final mapping/clipping uses
+the original double-precision bounds. This camera is never
+persisted over the free camera. Captured state carries the resolved physical
+bounds to the existing `BuildViewMapping` and command renderer for vector PDF.
+Interactive free and fixed Layout previews both use the existing native 2D scene
+renderer, retaining its depth handling and fixture presentation. A temporary
+physical projection override resolves double bounds through `layout_view_projection.h`;
+its uniform mapping agrees with vector PDF independently of the captured float
+camera. Raster rounding is confined to display. Fixed view size changes invalidate capture
+content, including persistent caches. Resources remain existing symbol snapshots.
+
+PDF's page fit remains compatible for free layouts. A fixed viewport requires
+both document-to-output size ratios to be one; GUI and vector exporter reject
+mismatches before output publication. The centralized print build-default adapter
+retains the document paper for fixed Layouts when Release hides the print dialog;
+its existing A4 defaults remain unchanged for free layouts. Its adjacent pure
+print-default policy takes an explicit build-profile input, so Debug tests cover
+both policies while retaining their assertions and the CI compiler-flag contract. Changing Layout A3/A4 paper size records
+one ordinary history mutation without fitting content. Existing typography and
+paper-space styling limitations are outside this physical geometry contract.
+
+The modal viewport editor uses `ScopedPreferenceDraft` for the existing Viewer2D
+preference ownership registry and hidden fixture types. Only those temporary keys
+skip dirty publication; scene/history mutations and unrelated preferences retain
+normal revisions. The existing scoped Viewer2D state restores workspace values.
+Passive camera notifications cannot publish modal drafts; only OK commits the
+validated Layout candidate. This also preserves metadata when changing view
+orientation and cancelling the editor.
+
+The fixed modal editor uses `layout_physical_editor.h` to resolve both its red
+border and camera zoom from the same physical crop and framebuffer dimensions.
+Mouse-wheel, fit and Alt+arrow zoom are blocked locally; pan deltas update the
+world center relative to an original double anchor. The free camera is retained
+across mode transitions. Resize changes display magnification, not the crop.
+
+Captured `CanvasStroke` widths are device pixels, not scene meters.
+`paper_stroke_mapping.h` cancels geometry magnification for vector output and
+command-cache preview utilities, retaining the existing PDF stroke contract
+(0.5625 paper points per captured pixel). Native scene previews keep the
+ordinary viewer device-pixel stroke convention.
+Glyph outline radii keep their existing scene-unit typography contract. Command
+metadata controls stroke/fill participation, including fill-only mesh triangles.
+Legend fallback geometry fits its cell independently of its one-point captured
+outlines, matching the pre-November 4 behavior. Both preview and PDF use that
+paper-space stroke conversion; optimized SVG resources remain unchanged. The
+platform raster contract advances to v4 so reopening a project discards cached
+images produced with incorrect strokes, inverted row ordering or the older fixed
+command-buffer preview presentation.
+`layout_view_texture_pixels.h` converts wx top-row-first images to the bottom-row-first
+GL readback contract used exclusively by Layout 2D view textures. Their quad
+samples v=1 at the top; other element texture conventions are unchanged.
+Asymmetric scene/glyph tests cover the final texture row sampling.
+
+Viewport properties resolve each edit against an immutable entry snapshot and
+preview only Core-validated candidates through the modal editor adapter. Partial
+numeric input keeps the last valid preview. Cancel and window-close restore the
+original draft and free framing; OK retains the candidate without publishing a
+project mutation until the outer editor accepts it. Unchanged numeric controls
+preserve their original fractional point residuals bit-for-bit, even when the
+preview adapter temporarily updates the enclosing draft. No intermediate preview
+creates history entries or changes the workspace camera. Free zoom is retained
+while the draft center follows the latest framing.
+
+Numeric viewport entries pair text controls with native step arrows. Their GUI
+adapter retains an exact value independently of display rounding and anchors
+opposite steps to avoid drift. Paper fields step by 1 mm, centers by 0.01 m and
+denominators by 1; Core candidate validation remains authoritative. The editor
+shows a persistent ratio/zoom-lock notice in fixed mode. Free mode disables the
+numeric scale/center arrows alongside their fields. Page placement remains a
+Layout-page operation; properties edit dimensions while preserving X/Y exactly.
+
+Both directions of a scale-mode transition retain the latest user-defined
+center, including fixed-mode pan and numeric edits. `ViewportScaleTransition.h`
+recenters the legacy free camera without replacing its zoom or capture dimensions;
+the GUI restores that free zoom using the candidate camera offsets. Fixed entry
+uses the current center rather than stale remembered metadata. Inactive fixed
+parameters stay untouched on an unchanged free edit. Transitions keep the existing
+preview/cancellation boundary and batch control updates before rendering.
+
+`layout_view_raster_policy.h` shares raster-cache validation between preflight and
+rasterization. A matching persisted raster avoids scene preparation in both
+modes. Fixed cache misses use native scene rendering, including after resize or
+reopen; legacy free command replay remains compatible. The preflight query is
+owned by the adjacent render-invalidation adapter rather than the panel hotspot.
+The ordinary native scene presentation is retained; vector output continues to
+use existing command buffers and symbol snapshots with the same physical crop.
+Existing paper-space typography/presentation limitations remain deferred.

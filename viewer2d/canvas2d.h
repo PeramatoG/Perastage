@@ -37,8 +37,8 @@ struct CanvasColor {
 // Basic line style description shared by commands that involve strokes.
 struct CanvasStroke {
   CanvasColor color{};
-  float width = 1.0f; // Width in logical scene units (raster backends convert to
-                      // device pixels while vector exporters keep logical units).
+  float width = 1.0f; // Captured device pixels (as passed to glLineWidth).
+                      // Paper renderers resolve this separately from world geometry.
 };
 
 // Fill style used by polygons, rectangles and circles.

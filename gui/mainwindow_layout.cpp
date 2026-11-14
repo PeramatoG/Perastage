@@ -37,6 +37,7 @@
 #include "hoisttablepanel.h"
 #include "inspection/inspector_workspace_panel.h"
 #include "layout2dviewdialog.h"
+#include "preference_draft.h"
 #include "layoutimageutils.h"
 #include "layoutpanel.h"
 #include "layoutviewerpanel.h"
@@ -1034,6 +1035,7 @@ void MainWindow::BeginLayout2DViewEdit() {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
 
   Layout2DViewDialog dialog(this, &cfg, &cfg);
+  dialog.SetViewportDefinition(*view);
   layout2DViewEditPanel = dialog.GetViewerPanel();
   layout2DViewEditRenderPanel = dialog.GetRenderPanel();
   if (layout2DViewEditPanel) {
@@ -1056,6 +1058,9 @@ void MainWindow::BeginLayout2DViewEdit() {
   Viewer2DPanel::SetInstance(layout2DViewEditPanel);
   Viewer2DRenderPanel::SetInstance(layout2DViewEditRenderPanel);
 
+  ScopedPreferenceDraft preferenceDraft(&cfg, [](std::string_view key) {
+    return viewer2d::IsViewer2DUserPreferenceConfigKey(key) || key == "view_hidden_fixture_types";
+  });
   viewer2d::Viewer2DState state = viewer2d::FromLayoutDefinition(*view);
   viewer2d::ApplyEditorRenderOptions(state, cfg);
   layout2DViewStateGuard = std::make_unique<viewer2d::ScopedViewer2DState>(
@@ -1164,6 +1169,8 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
 
   layouts::Layout2DViewDefinition updatedView =
       viewer2d::ToLayoutDefinition(current, frame);
+  if (auto *dialog = dynamic_cast<Layout2DViewDialog *>(editPanel ? editPanel->GetParent() : nullptr))
+    dialog->ApplyViewportProperties(updatedView);
   updatedView.id = viewId;
   if (matchedView) {
     updatedView.zIndex = matchedView->zIndex;
@@ -1214,51 +1221,8 @@ void MainWindow::OnLayout2DViewCancel(wxCommandEvent &WXUNUSED(event)) {
   UpdateViewMenuChecks();
 }
 
-void MainWindow::PersistLayout2DViewState() {
-  if (activeLayoutName.empty())
-    return;
-  if (!layout2DViewEditing)
-    return;
-  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  Viewer2DPanel *activePanel =
-      (layout2DViewEditing && layout2DViewEditPanel) ? layout2DViewEditPanel
-                                                     : viewport2DPanel;
-  if (!activePanel)
-    return;
-  layouts::Layout2DViewFrame frame{};
-  const layouts::LayoutDefinition *layout = nullptr;
-  for (const auto &entry : layouts::LayoutManager::Get().GetLayouts().Items()) {
-    if (entry.name == activeLayoutName) {
-      layout = &entry;
-      break;
-    }
-  }
-  int viewId = 0;
-  const layouts::Layout2DViewDefinition *editableView = nullptr;
-  if (layout2DViewEditing && layout2DViewEditingId > 0) {
-    viewId = layout2DViewEditingId;
-  } else if (layoutViewerPanel) {
-    editableView = layoutViewerPanel->GetEditableView();
-    if (editableView)
-      viewId = editableView->id;
-  }
-  const layouts::Layout2DViewDefinition *matchedView =
-      FindLayout2DViewById(layout, viewId);
-  if (matchedView) {
-    frame = matchedView->frame;
-  } else if (editableView) {
-    frame = editableView->frame;
-  }
-  layouts::Layout2DViewDefinition view =
-      viewer2d::CaptureLayoutDefinition(activePanel, cfg, frame);
-  view.id = viewId;
-  if (matchedView) {
-    view.zIndex = matchedView->zIndex;
-  } else if (editableView) {
-    view.zIndex = editableView->zIndex;
-  }
-  layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName, view, false);
-}
+// Legacy notification hook: modal view changes publish only through OK.
+void MainWindow::PersistLayout2DViewState() {}
 
 // Restores the selected layout 2D view into the active 2D viewport while preserving startup clean-state semantics.
 void MainWindow::RestoreLayout2DViewState(int viewId) {

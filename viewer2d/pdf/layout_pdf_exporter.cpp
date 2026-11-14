@@ -17,6 +17,8 @@
  */
 
 #include "viewer2dpdfexporter.h"
+#include "layout_pdf_view_mapping.h"
+#include "paper_stroke_mapping.h"
 
 #include <algorithm>
 #include <array>
@@ -56,8 +58,6 @@
 namespace {
 using namespace layout_pdf_internal;
 
-constexpr double kPdfPointsPerPixel = 72.0 / 96.0;
-constexpr double kPdfStrokeWidthScreenMatchFactor = 0.75;
 constexpr double kSymbolBBoxPaddingPt = 0.25;
 
 // Returns whether label-order tracing diagnostics are enabled through the environment.
@@ -392,7 +392,7 @@ Viewer2DExportResult ExportViewer2DToPdf(
   // slight reduction so printed lines better match the perceived on-screen
   // weight.
   const double strokeScale =
-      (kPdfPointsPerPixel * kPdfStrokeWidthScreenMatchFactor) / scale;
+      viewer2d::PaperStrokeScale(scale);
 
   struct CommandGroup {
     std::vector<CanvasCommand> commands;
@@ -805,33 +805,9 @@ Viewer2DExportResult ExportLayoutToPdf(
 
   for (size_t idx = 0; idx < views.size(); ++idx) {
     const auto &view = views[idx];
-    if (view.buffer.commands.empty()) {
-      result.message = "Unable to capture one or more layout views.";
-      return result;
-    }
-
-    if (view.viewState.viewportWidth <= 0 ||
-        view.viewState.viewportHeight <= 0) {
-      result.message = "The 2D viewport is not ready for layout export.";
-      return result;
-    }
-
-    if (!std::isfinite(view.viewState.zoom) || view.viewState.zoom <= 0.0f) {
-      result.message = "Invalid zoom value provided for layout export.";
-      return result;
-    }
-
-    if (view.frame.width <= 0 || view.frame.height <= 0) {
-      result.message = "Layout frame dimensions are invalid for export.";
-      return result;
-    }
-
     viewer2d::Viewer2DRenderMapping viewMapping;
-    if (!viewer2d::BuildViewMapping(view.viewState, view.frame.width,
-                                    view.frame.height, 0.0, viewMapping)) {
-      result.message = "Layout view dimensions are invalid for export.";
-      return result;
-    }
+    result.message = viewer2d::pdf::BuildLayoutViewMapping(view, options, viewMapping);
+    if (!result.message.empty()) return result;
 
     const double frameOriginY =
         pageH - view.frame.y - static_cast<double>(view.frame.height);
@@ -851,8 +827,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     // slight reduction so printed lines better match the perceived on-screen
     // weight.
     const double strokeScale =
-        (kPdfPointsPerPixel * kPdfStrokeWidthScreenMatchFactor) /
-        viewMapping.scale;
+        viewer2d::PaperStrokeScale(viewMapping.scale);
     layoutGroups.push_back({std::move(mainCommands),
                             mapping,
                             static_cast<double>(view.frame.x),

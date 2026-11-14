@@ -1,5 +1,26 @@
 # Perastage 1.8.0
 
+- Layout 2D viewports now offer optional fixed physical drawing scales alongside
+  the default free/variable workflow, numeric world centers and millimeter frame
+  properties. Fixed viewports keep their scale when moved or resized and require
+  document-size PDF output. Layout paper size can be selected as A3 or A4 without
+  resizing content; viewport settings support Undo/Redo, projects and templates.
+  The fixed-scale editor shows the actual crop in its red frame with zoom locked
+  and pan available. Millimeter properties display without unnecessary decimals
+  while retaining stored precision. Viewport property changes preview immediately;
+  Cancel restores the previous properties and framing, and OK keeps the draft.
+  Numeric arrow buttons allow incremental adjustments without losing fractional
+  precision, and a visible fixed-scale notice explains the zoom lock. Page position
+  stays on the Layout page; properties focus on viewport scale, center and size.
+  Switching modes in either direction keeps the latest view center, including
+  framing adjusted while fixed; unlocking restores the previous free zoom. Both modes now use
+  the ordinary 2D renderer for Layout previews, preserving scene and symbol
+  appearance while fixed views retain their precise physical projection.
+- Fixed oversized strokes in fixed-scale Layout previews and restored thin,
+  correctly rendered Legend fallback fixture symbols before optimized symbols
+  have been generated. Corrected upside-down Layout 2D command-buffer previews,
+  keeping scene geometry and labels aligned with the editor’s red-frame crop.
+
 <!--
 RELEASE NOTES — WORK IN PROGRESS
 
@@ -97,7 +118,7 @@ full MVR/GDTF conformance, or interoperability with every third-party applicatio
 - Layout page operations and element edits now participate reliably in project Undo/Redo. Selection-only actions, unchanged edits, and cancelled moves or resizes no longer create unwanted history entries; image resources are retained across undo and redo.
 
 <!--
-Further work may include physical drawing scales, annotations, dimensions,
+Further work may include annotations, dimensions,
 reusable label styles, and shared typography for free text, legends and tables.
 Do not list these as delivered until implemented and verified.
 -->

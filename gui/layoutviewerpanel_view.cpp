@@ -362,7 +362,7 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
     view->frame.x = frame.x;
     view->frame.y = frame.y;
   }
-  if (sizeChanged) {
+  if (sizeChanged && view->scaleMode == layouts::ViewportScaleMode::Free) {
     if (frame.width > 0) {
       view->camera.viewportWidth = frame.width;
     } else {
@@ -397,7 +397,7 @@ void LayoutViewerPanel::DrawViewElement(
   const size_t viewContentHash = HashViewContent(view);
   const double renderZoom = GetRenderZoom();
   const wxSize requestedRenderSize =
-      GetFrameSizeForZoom(view.frame, renderZoom);
+      GetFrameSizeForZoom(layouts::ResolveViewportFrame(view), renderZoom);
   const bool persistentRasterMatches =
       !cache.persistentRgba.empty() &&
       cache.persistentRgbaContentHash == viewContentHash &&
@@ -460,12 +460,12 @@ void LayoutViewerPanel::DrawViewElement(
   }
 
   wxRect frameRect;
-  if (!GetFrameRect(view.frame, frameRect))
+  if (!GetFrameRect(layouts::ResolveViewportFrame(view), frameRect))
     return;
   const int frameRight = frameRect.GetLeft() + frameRect.GetWidth();
   const int frameBottom = frameRect.GetTop() + frameRect.GetHeight();
 
-  const wxSize renderSize = GetFrameSizeForZoom(view.frame, cache.renderZoom);
+  const wxSize renderSize = GetFrameSizeForZoom(layouts::ResolveViewportFrame(view), cache.renderZoom);
   if (ShouldDeferMissingElementTexture(cache.renderDirty, cache.texture,
                                        cache.textureSize, renderSize)) {
     return;

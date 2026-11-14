@@ -38,9 +38,53 @@ static void SamePlan(const LegendCompositionPlan &a, const LegendCompositionPlan
     assert(a.symbols[i].draw.y == b.symbols[i].draw.y && a.symbols[i].scale == b.symbols[i].scale);
   }
 }
+// Small uncached fixture meshes must keep thin device-pixel outlines when
+// their metre-space geometry is fitted into a paper-space legend cell.
+static void TestFallbackStrokes() {
+  layouts::LegendResolvedItem item;
+  item.typeName=item.displayName="Small fallback"; item.symbolKey="fallback-only";
+  SymbolDefinitionSnapshot snapshot;
+  SymbolDefinition symbol; symbol.symbolId=1;
+  symbol.key={item.symbolKey,SymbolViewKind::Bottom,1};
+  symbol.bounds={{-0.02f,-0.02f},{0.02f,0.02f}};
+  RectangleCommand rectangle; rectangle.x=-0.02f; rectangle.y=-0.02f; rectangle.w=rectangle.h=0.04f;
+  rectangle.stroke.width=1; rectangle.hasFill=false;
+  symbol.localCommands.commands.emplace_back(rectangle);
+  symbol.localCommands.metadata.push_back({true,false});
+  snapshot.emplace(1,symbol);
+  layouts::LayoutLegendDefinition legend;
+  for(double zoom : {1.0,2.0,4.0}) {
+    LegendCompositionPlan plan;
+    const auto image=gui::RenderLegendImage({int(300*zoom),int(100*zoom)},
+        {300,100},zoom,{item},legend,&snapshot,&plan);
+    assert(image.IsOk() && plan.symbols.size()==1);
+    const auto &draw=plan.symbols[0].draw;
+    const int centerX=int(plan.symbols[0].commandOriginX*zoom);
+    const int centerY=int((draw.y+draw.height/2)*zoom);
+    assert(centerX>=2 && centerX+2<image.GetWidth());
+    assert(centerY>=2 && centerY+2<image.GetHeight());
+    for(int y=centerY-2;y<=centerY+2;++y)
+      for(int x=centerX-2;x<=centerX+2;++x) assert(image.GetRed(x,y)>240);
+    std::ostringstream stream;
+    LayoutLegendExportData output; output.frame={0,0,300,100}; output.items={item};
+    layout_pdf_internal::LegacyFontPair fonts;
+    layout_pdf_internal::PdfFontCatalog catalog{&fonts.regular,&fonts.bold,&fonts.regular,&fonts.bold};
+    const typography::FontPair bundled(PERASTAGE_TEST_RESOURCE_DIR);
+    fonts.regular.metrics=bundled.regular; fonts.bold.metrics=bundled.bold;
+    int calls=0;
+    layout_pdf_internal::RenderLegendPdf(stream,output,&snapshot,100,zoom,zoom,catalog,
+        layout_pdf_internal::FloatFormatter{6},{},
+        [&](const CommandBuffer &, const layout_pdf_internal::Mapping &mapping, double strokeScale) {
+          assert(std::abs(mapping.scale*strokeScale-1)<1e-12); ++calls;
+          return std::string{};
+        });
+    assert(calls==1);
+  }
+}
 int main(int argc, char **argv) {
   assert(wxEntryStart(argc, argv)); assert(wxTheApp->CallOnInit());
   {
+    TestFallbackStrokes();
     const typography::FontPair bundled(PERASTAGE_TEST_RESOURCE_DIR);
     layout_pdf_internal::LegacyFontPair legacy;
     layout_pdf_internal::PdfFontCatalog catalog{&legacy.regular,&legacy.bold};

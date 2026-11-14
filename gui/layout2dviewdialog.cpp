@@ -1,6 +1,9 @@
 #include "layout2dviewdialog.h"
 
 #include "configmanager.h"
+#include "layout_viewport_properties.h"
+#include "LayoutTemplateSerializer.h"
+#include "viewer2dstate.h"
 #include "editable_focus_utils.h"
 #include "layerpanel.h"
 #include "summarypanel.h"
@@ -12,6 +15,8 @@
 #include <functional>
 #include <memory>
 #include <wx/button.h>
+#include <wx/msgdlg.h>
+#include <wx/numformatter.h>
 #include <wx/slider.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
@@ -36,6 +41,7 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent,
     : wxDialog(parent, wxID_ANY, "2D View Editor", wxDefaultPosition,
                wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER |
                                    wxMAXIMIZE_BOX | wxMINIMIZE_BOX) {
+  config = visibilityConfig;
   auto *mainSizer = new wxBoxSizer(wxVERTICAL);
   auto *contentSizer = new wxBoxSizer(wxHORIZONTAL);
 
@@ -60,7 +66,7 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent,
   mainSizer->Add(contentSizer, 1, wxEXPAND);
 
   auto *scaleSizer = new wxBoxSizer(wxHORIZONTAL);
-  auto *scaleLabel = new wxStaticText(this, wxID_ANY, _("Frame scale"));
+  auto *scaleLabel = new wxStaticText(this, wxID_ANY, _("Visual framing"));
   scaleSlider = new wxSlider(this, wxID_ANY, 100, 25, 300);
   scaleValueLabel = new wxStaticText(this, wxID_ANY, _("100%"));
   scaleSlider->Bind(wxEVT_SLIDER, &Layout2DViewDialog::OnScaleChanged, this);
@@ -70,6 +76,14 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent,
   scaleSizer->Add(scaleValueLabel, 0, wxALIGN_CENTER_VERTICAL);
   mainSizer->Add(scaleSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
 
+  fixedScaleNotice = new wxStaticText(this, wxID_ANY, wxEmptyString);
+  fixedScaleNotice->SetFont(fixedScaleNotice->GetFont().Bold());
+  mainSizer->Add(fixedScaleNotice, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
+  fixedScaleNotice->Hide();
+
+  auto *properties = new wxButton(this, wxID_ANY, _("Viewport properties"));
+  properties->Bind(wxEVT_BUTTON, &Layout2DViewDialog::OnViewportProperties, this);
+  mainSizer->Add(properties, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
   auto *buttonSizer = new wxStdDialogButtonSizer();
   auto *okButton = new wxButton(this, wxID_OK, _("OK"));
   auto *cancelButton = new wxButton(this, wxID_CANCEL, _("Cancel"));
@@ -93,6 +107,14 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent,
 
 // Accepts the edited layout 2D view state.
 void Layout2DViewDialog::OnOk(wxCommandEvent &event) {
+  SyncPhysicalCenter();
+  try {
+    if (viewportDraft) layouts::ValidateViewport(*viewportDraft);
+  } catch (const std::exception &e) {
+    wxMessageBox(wxString::Format(_("Invalid viewport properties: %s"), wxString::FromUTF8(e.what())),
+        _("Viewport properties"), wxOK | wxICON_ERROR, this);
+    return;
+  }
   EndModal(wxID_OK);
   event.Skip();
 }
@@ -146,6 +168,12 @@ void Layout2DViewDialog::OnShow(wxShowEvent &event) {
                                      scaleSlider->GetMax()));
   }
   UpdateScaleLabel();
+  if (!initialEditorView && viewportDraft && config && viewerPanel) {
+    auto initial = viewer2d::CaptureState(viewerPanel, *config);
+    initial.camera.zoom /= viewerPanel->GetLayoutEditOverlayScale();
+    initialEditorView = viewer2d::ToLayoutDefinition(initial, viewportDraft->frame);
+    UpdateEditorScaleMode();
+  }
   event.Skip();
 }
 
@@ -156,8 +184,9 @@ void Layout2DViewDialog::OnCharHook(wxKeyEvent &event) {
     return;
   }
 
-  if (IsFitViewShortcut(event) && viewerPanel->FitViewToScene())
-    return;
+  if (IsFitViewShortcut(event)) {
+    if (viewerPanel->IsLayoutPhysicalZoomLocked() || viewerPanel->FitViewToScene()) return;
+  }
 
   if (viewerPanel->TryHandleViewportNavigationKey(event.GetKeyCode(),
                                                  event.AltDown())) {
@@ -182,6 +211,123 @@ void Layout2DViewDialog::OnScaleChanged(wxCommandEvent &event) {
 void Layout2DViewDialog::UpdateScaleLabel() {
   if (!scaleValueLabel || !scaleSlider)
     return;
-  scaleValueLabel->SetLabel(
-      wxString::Format(_("%d%%"), scaleSlider->GetValue()));
+  if (viewportDraft && viewportDraft->scaleMode == layouts::ViewportScaleMode::Fixed && viewportDraft->physicalScale)
+    scaleValueLabel->SetLabel(wxString::Format(_("1:%s"), wxNumberFormatter::ToString(
+        viewportDraft->physicalScale->denominator, 8, wxNumberFormatter::Style_NoTrailingZeroes)));
+  else scaleValueLabel->SetLabel(wxString::Format(_("%d%%"), scaleSlider->GetValue()));
+  const bool fixed = viewportDraft && viewportDraft->scaleMode == layouts::ViewportScaleMode::Fixed && viewportDraft->physicalScale;
+  if (fixed) fixedScaleNotice->SetLabel(wxString::Format(
+      _("Fixed scale 1:%s. Zoom is locked; pan to adjust framing."),
+      wxNumberFormatter::ToString(viewportDraft->physicalScale->denominator, 8,
+                                  wxNumberFormatter::Style_NoTrailingZeroes)));
+  if (fixed) fixedScaleNotice->Wrap(FromDIP(900));
+  fixedScaleNotice->Show(fixed);
+  Layout();
+}
+
+// Merges presentation properties while keeping the independent free zoom.
+void Layout2DViewDialog::ApplyViewportProperties(layouts::Layout2DViewDefinition &view) const {
+  if (!viewportDraft) return;
+  const auto editedOrientation = view.camera.view;
+  auto comparable = view;
+  if (initialEditorView && viewportDraft->scaleMode == layouts::ViewportScaleMode::Fixed)
+    comparable.camera = initialEditorView->camera;
+  if (initialEditorView && layouts::SameViewportCaptureSettings(comparable, *initialEditorView)) {
+    view.camera = viewportDraft->camera;
+    view.renderOptions = viewportDraft->renderOptions;
+    view.layers = viewportDraft->layers;
+  }
+  view.frame = viewportDraft->frame;
+  view.frameResidual = viewportDraft->frameResidual;
+  view.scaleMode = viewportDraft->scaleMode;
+  view.physicalScale = viewportDraft->physicalScale;
+  view.drawFrame = viewportDraft->drawFrame;
+  if (view.scaleMode == layouts::ViewportScaleMode::Free && initialEditorView &&
+      (view.frame.width != initialEditorView->frame.width || view.frame.height != initialEditorView->frame.height)) {
+    view.camera.viewportWidth = view.frame.width;
+    view.camera.viewportHeight = view.frame.height;
+  }
+  if (viewportDraft->scaleMode == layouts::ViewportScaleMode::Fixed)
+  {
+    view.camera = viewportDraft->camera;
+    view.camera.view = editedOrientation;
+  }
+}
+
+void Layout2DViewDialog::SyncPhysicalCenter() {
+  if (viewportDraft && viewerPanel)
+    if (const auto physical = viewerPanel->GetLayoutPhysicalViewport())
+      viewportDraft->physicalScale = physical;
+}
+
+void Layout2DViewDialog::UpdateEditorScaleMode() {
+  if (!viewportDraft || !viewerPanel) return;
+  const bool fixed = viewportDraft->scaleMode == layouts::ViewportScaleMode::Fixed;
+  if (fixed) {
+    if (!viewerPanel->IsLayoutPhysicalZoomLocked()) {
+      const auto state = viewerPanel->GetViewState();
+      auto camera = viewportDraft->camera;
+      camera.zoom = state.zoom;
+      camera.offsetPixelsX = state.offsetPixelsX; camera.offsetPixelsY = state.offsetPixelsY;
+      freeEditorCamera = camera;
+      freeEditorOverlayScale = viewerPanel->GetLayoutEditOverlayScale();
+    }
+    viewerPanel->SetLayoutPhysicalViewport(*viewportDraft->physicalScale,
+        layouts::ResolveViewportFrame(*viewportDraft));
+  } else {
+    float overlayScale = viewerPanel->GetLayoutEditOverlayScale();
+    if (viewerPanel->IsLayoutPhysicalZoomLocked()) {
+      const auto orientation = viewerPanel->GetViewState().view;
+      viewerPanel->ClearLayoutPhysicalViewport();
+      overlayScale = freeEditorOverlayScale;
+      if (freeEditorCamera)
+        viewerPanel->ApplyViewState(viewportDraft->camera.offsetPixelsX, viewportDraft->camera.offsetPixelsY,
+                                   freeEditorCamera->zoom, orientation, viewerPanel->GetRenderMode());
+    }
+    const auto frame = layouts::ResolveViewportFrame(*viewportDraft);
+    viewerPanel->SetLayoutEditOverlay(static_cast<float>(frame.width/frame.height),
+        wxSize(static_cast<int>(std::lround(frame.width)), static_cast<int>(std::lround(frame.height))));
+    viewerPanel->SetLayoutEditOverlayScale(overlayScale);
+    scaleSlider->SetValue(static_cast<int>(std::lround(overlayScale*100)));
+  }
+  scaleSlider->Enable(!fixed);
+  UpdateScaleLabel();
+  viewerPanel->Refresh();
+}
+
+void Layout2DViewDialog::OnViewportProperties(wxCommandEvent &) {
+  if (!viewportDraft || !viewerPanel) return;
+  SyncPhysicalCenter();
+  if (!viewerPanel->IsLayoutPhysicalZoomLocked() && config) {
+    auto free = viewer2d::CaptureState(viewerPanel, *config);
+    free.camera.zoom /= viewerPanel->GetLayoutEditOverlayScale();
+    auto definition = viewer2d::ToLayoutDefinition(free, viewportDraft->frame);
+    auto cameraComparison = initialEditorView.value_or(definition);
+    cameraComparison.camera = definition.camera;
+    if (!initialEditorView || !layouts::SameViewportCaptureSettings(cameraComparison, *initialEditorView))
+      viewportDraft->camera = definition.camera;
+  }
+  const auto originalVisual = viewerPanel->GetViewState();
+  const auto originalOverlayScale = viewerPanel->GetLayoutEditOverlayScale();
+  const auto originalFreeCamera = freeEditorCamera;
+  const auto originalFreeScale = freeEditorOverlayScale;
+  const bool accepted = EditLayoutViewportProperties(this, *viewportDraft, originalVisual,
+      [this](const layouts::Layout2DViewDefinition &candidate) {
+        viewportDraft = candidate;
+        UpdateEditorScaleMode();
+      });
+  if (!accepted) {
+    // The properties dialog has already restored the draft and its scale mode.
+    // Restore the exact free framing and the saved mode-switching camera too.
+    if (!viewerPanel->IsLayoutPhysicalZoomLocked()) {
+      viewerPanel->ApplyViewState(originalVisual.offsetPixelsX, originalVisual.offsetPixelsY,
+          originalVisual.zoom, originalVisual.view, viewerPanel->GetRenderMode());
+      viewerPanel->SetLayoutEditOverlayScale(originalOverlayScale);
+      scaleSlider->SetValue(static_cast<int>(std::lround(originalOverlayScale*100)));
+    }
+    freeEditorCamera = originalFreeCamera;
+    freeEditorOverlayScale = originalFreeScale;
+    UpdateScaleLabel();
+    viewerPanel->Refresh();
+  }
 }

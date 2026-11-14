@@ -47,6 +47,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/project_mutation_host.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mouse_capture_ownership.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui_feature_flags.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui_print_build_defaults.h
     ${CMAKE_CURRENT_SOURCE_DIR}/wx_text_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionaryeditdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionary_editor_state.h
@@ -134,6 +135,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/hoisttablepanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layerpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layout2dviewdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layout_viewport_properties.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layout_viewport_preview.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutlegendeditdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouteventtabledialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutimageutils.cpp
@@ -155,6 +158,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel_legend.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel_text.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel_view.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel_viewport_geometry.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel_helpers.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layout_render_status_notifier.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layout_render_profiler.cpp

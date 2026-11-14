@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "PageSetup.h"
+#include "PhysicalViewport.h"
 
 namespace layouts {
 
@@ -31,6 +32,7 @@ struct Layout2DViewFrame {
   int y = 0;
   int width = 0;
   int height = 0;
+  operator ViewportFramePoints() const { return {double(x), double(y), double(width), double(height)}; }
 };
 
 struct Layout2DViewCameraState {
@@ -78,10 +80,44 @@ struct Layout2DViewDefinition {
   int zIndex = 0;
   Layout2DViewFrame frame;
   bool drawFrame = true;
+  // Fractional point residuals isolate precision from the shared integer frame
+  // adapter used by the five existing element interaction paths.
+  ViewportFramePoints frameResidual;
+  ViewportScaleMode scaleMode = ViewportScaleMode::Free;
+  std::optional<PhysicalViewport> physicalScale;
   Layout2DViewCameraState camera;
   Layout2DViewRenderOptions renderOptions;
   Layout2DViewLayers layers;
 };
+
+inline ViewportFramePoints ResolveViewportFrame(const Layout2DViewDefinition &v) {
+  return {v.frame.x + v.frameResidual.x, v.frame.y + v.frameResidual.y,
+          v.frame.width + v.frameResidual.width, v.frame.height + v.frameResidual.height};
+}
+inline void SetViewportFrame(Layout2DViewDefinition &v, ViewportFramePoints f) {
+  ValidateViewportFrame(f);
+  v.frame = {static_cast<int>(std::round(f.x)), static_cast<int>(std::round(f.y)),
+             static_cast<int>(std::round(f.width)), static_cast<int>(std::round(f.height))};
+  v.frameResidual = {f.x-v.frame.x, f.y-v.frame.y,
+                      f.width-v.frame.width, f.height-v.frame.height};
+}
+inline void ValidateViewport(const Layout2DViewDefinition &v) {
+  if (v.scaleMode != ViewportScaleMode::Free && v.scaleMode != ViewportScaleMode::Fixed)
+    throw std::invalid_argument("Unsupported Layout viewport scale mode.");
+  if (v.physicalScale) ValidatePhysicalViewport(*v.physicalScale);
+  if (v.scaleMode == ViewportScaleMode::Fixed) {
+    if (!v.physicalScale) throw std::invalid_argument("Fixed viewport is missing its drawing scale.");
+    if (v.camera.view < 0 || v.camera.view > 2)
+      throw std::invalid_argument("Fixed scale supports Top, Front and Side orientations. Select one of these views.");
+    ValidateViewportFrame(ResolveViewportFrame(v));
+  }
+  const auto &r = v.frameResidual;
+  if (r.x != 0 || r.y != 0 || r.width != 0 || r.height != 0)
+    ValidateViewportFrame(ResolveViewportFrame(v));
+  for (double n : {r.x, r.y, r.width, r.height})
+    if (!std::isfinite(n) || std::abs(n) > 0.5)
+      throw std::invalid_argument("Invalid fractional frame point residual.");
+}
 
 struct LayoutLegendDefinition {
   struct ItemSettings {

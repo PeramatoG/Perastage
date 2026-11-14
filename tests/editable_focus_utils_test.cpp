@@ -7,6 +7,7 @@
 #include <wx/init.h>
 #include <wx/panel.h>
 #include <wx/spinctrl.h>
+#include <wx/spinbutt.h>
 #include <wx/textctrl.h>
 
 #include <iostream>
@@ -130,6 +131,11 @@ int main() {
   const CheckContext base{.frame = &frame, .panel = &panel};
 
   passed &= CheckEditableFocus("null", false, base);
+  wxSpinButton arrows(&panel,wxID_ANY);
+  CheckContext arrowContext=base;
+  arrowContext.window=&arrows;
+  passed &= CheckEditableFocus("numeric-step-arrows",true,arrowContext);
+
 
   wxTextCtrl textCtrl(&panel, wxID_ANY);
   passed &= CheckEditableFocus(

@@ -23,6 +23,8 @@
 #include <wx/log.h>
 
 #include "configmanager.h"
+#include "ui_render_size.h"
+#include "layout_viewport_adapter.h"
 #include "guiconfigservices.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dpanel.h"
@@ -73,10 +75,10 @@ Layout2DViewCaptureScheduleResult ScheduleLayout2DViewCaptureIfNeeded(
     return result;
   }
 
-  const int fallbackViewportWidth = request.view->camera.viewportWidth > 0
+  const int fallbackViewportWidth = request.view->scaleMode == layouts::ViewportScaleMode::Fixed ? 1600 : request.view->camera.viewportWidth > 0
                                         ? request.view->camera.viewportWidth
                                         : request.view->frame.width;
-  const int fallbackViewportHeight = request.view->camera.viewportHeight > 0
+  const int fallbackViewportHeight = request.view->scaleMode == layouts::ViewportScaleMode::Fixed ? 1200 : request.view->camera.viewportHeight > 0
                                          ? request.view->camera.viewportHeight
                                          : request.view->frame.height;
   if (fallbackViewportWidth <= 0 || fallbackViewportHeight <= 0) {
@@ -94,7 +96,6 @@ Layout2DViewCaptureScheduleResult ScheduleLayout2DViewCaptureIfNeeded(
   viewer2d::Viewer2DState layoutState =
       viewer2d::FromLayoutDefinition(*request.view);
   layoutState.renderOptions.darkMode = false;
-  callbacks.storeRenderState(layoutState);
 
   if (request.offscreenRenderer) {
     request.offscreenRenderer->SetViewportSize(
@@ -107,15 +108,21 @@ Layout2DViewCaptureScheduleResult ScheduleLayout2DViewCaptureIfNeeded(
                request.view->id);
   }
 
+  const auto framebuffer = ResolveRenderSize(request.capturePanel);
+  viewer2d::PreparePhysicalCapture(*request.view, layoutState.camera,
+      framebuffer.IsValid() ? framebuffer.width : fallbackViewportWidth,
+      framebuffer.IsValid() ? framebuffer.height : fallbackViewportHeight);
+  callbacks.storeRenderState(layoutState);
   auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
       request.capturePanel, nullptr, cfg, layoutState, nullptr, nullptr, false);
   Viewer2DPanel *capturePanel = request.capturePanel;
   const size_t captureContentHash = request.contentHash;
   const int captureVersion = request.viewRenderVersion;
   capturePanel->CaptureFrameNow(
-      [callbacks, stateGuard, capturePanel, fallbackViewportWidth,
+      [view = *request.view, callbacks, stateGuard, capturePanel, fallbackViewportWidth,
        fallbackViewportHeight, captureContentHash,
        captureVersion](CommandBuffer buffer, Viewer2DViewState state) {
+        viewer2d::AttachPhysicalMapping(view, state);
         std::shared_ptr<const SymbolDefinitionSnapshot> symbols;
         if (capturePanel)
           symbols = capturePanel->GetBottomSymbolCacheSnapshot();

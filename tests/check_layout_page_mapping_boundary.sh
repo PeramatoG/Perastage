@@ -5,7 +5,7 @@ run_test_python - <<'PY'
 from pathlib import Path
 orchestrator = Path('gui/mainwindow_print.cpp').read_text().split('void MainWindow::OnPrintLayout')[1].split('void MainWindow::OnPrintTable')[0]
 assert 'lround' not in orchestrator and 'settings.SaveToConfig' not in orchestrator
-assert 'data.frame = view.frame;' in orchestrator
+assert 'data.frame = layouts::ResolveViewportFrame(view);' in orchestrator
 text = Path('gui/layouttextutils.cpp').read_text().split('LayoutTextExportData BuildLayoutTextExportData')[1].split('wxImage RenderTextImage')[0]
 assert 'scaleX' not in text and 'scaleY' not in text and 'data.frame = text.frame;' in text
 image = Path('gui/layout_image_export.cpp').read_text()

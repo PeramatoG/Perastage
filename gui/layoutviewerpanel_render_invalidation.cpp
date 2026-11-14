@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layoutviewerpanel.h"
+#include "layout_view_raster_policy.h"
 
 #include <functional>
 
@@ -131,6 +132,16 @@ size_t LayoutViewerPanel::ComputeSceneContentHash() const {
 size_t LayoutViewerPanel::HashViewContent(
     const layouts::Layout2DViewDefinition &view) const {
   size_t seed = std::hash<int>{}(view.id);
+  HashCombine(seed, std::hash<int>{}(static_cast<int>(view.scaleMode)));
+  if (view.physicalScale) {
+    for (double v : {view.physicalScale->denominator, view.physicalScale->centerX,
+                     view.physicalScale->centerY}) HashCombine(seed, std::hash<double>{}(v));
+  }
+  if (view.scaleMode == layouts::ViewportScaleMode::Fixed) {
+    const auto f = layouts::ResolveViewportFrame(view);
+    HashCombine(seed, std::hash<double>{}(f.width));
+    HashCombine(seed, std::hash<double>{}(f.height));
+  }
   HashCombine(seed, std::hash<float>{}(view.camera.offsetPixelsX));
   HashCombine(seed, std::hash<float>{}(view.camera.offsetPixelsY));
   HashCombine(seed, std::hash<float>{}(view.camera.zoom));
@@ -225,7 +236,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(
       InvalidateViewCacheForSceneContent(cache);
     }
     wxRect frameRect;
-    if (!GetFrameRect(view.frame, frameRect)) {
+    if (!GetFrameRect(layouts::ResolveViewportFrame(view), frameRect)) {
       if (cache.texture != 0) {
         markDirty(cache.renderDirty);
         ClearCachedTexture(cache);
@@ -234,7 +245,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(
       }
       continue;
     }
-    const wxSize renderSize = GetFrameSizeForZoom(view.frame, renderZoom);
+    const wxSize renderSize = GetFrameSizeForZoom(layouts::ResolveViewportFrame(view), renderZoom);
     if (cache.texture == 0 ||
         ShouldRebuildCacheForRenderZoom(cache.renderZoom, renderZoom) ||
         renderSize != cache.textureSize) {
@@ -377,4 +388,26 @@ void LayoutViewerPanel::RefreshAfterFixtureLabelUpdate() {
 // Invalidates render data after fixture symbol changes.
 void LayoutViewerPanel::RefreshAfterFixtureSymbolUpdate() {
   RefreshAfterSceneContentUpdate();
+}
+
+// Fixed viewports use the ordinary scene renderer when their saved raster no
+// longer matches. A valid saved raster still skips all scene preparation.
+bool LayoutViewerPanel::NeedsViewSceneCapture() const {
+  for (const auto &view : currentLayout.view2dViews) {
+    const auto it=viewCaches_.find(view.id);
+    if (it==viewCaches_.end() || !it->second.renderDirty) continue;
+    const auto &cache=it->second;
+    gui::layoutraster::Layout2DViewRasterRequest request;
+    request.view=&view; request.renderZoom=GetRenderZoom();
+    request.renderSize=GetFrameSizeForZoom(layouts::ResolveViewportFrame(view),request.renderZoom);
+    request.contentHash=HashViewContent(view);
+    gui::layoutraster::Layout2DViewRasterCacheInput input;
+    input.restoredFromPersistentCache=cache.restoredFromPersistentCache;
+    input.persistentRgba=&cache.persistentRgba;
+    input.persistentRgbaSize=cache.persistentRgbaSize;
+    input.persistentRgbaRenderZoom=cache.persistentRgbaRenderZoom;
+    input.persistentRgbaContentHash=cache.persistentRgbaContentHash;
+    if (gui::layoutraster::NeedsLiveViewportScene(request,input)) return true;
+  }
+  return false;
 }

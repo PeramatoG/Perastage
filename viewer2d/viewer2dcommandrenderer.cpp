@@ -48,6 +48,12 @@ Transform2D ComposeTransform(const Transform2D &a, const Transform2D &b) {
 
 bool ComputeViewBounds(const Viewer2DViewState &viewState,
                        Viewer2DViewBounds &bounds) {
+  if (viewState.physicalMapping) {
+    const auto &m = *viewState.physicalMapping;
+    bounds = {m.minX, m.minY, m.minX + m.width, m.minY + m.height, m.width, m.height};
+    return m.width > 0 && m.height > 0 && std::isfinite(m.width) && std::isfinite(m.height) &&
+           std::isfinite(m.minX) && std::isfinite(m.minY) && std::isfinite(m.pointsPerMeter) && m.pointsPerMeter > 0;
+  }
   if (viewState.viewportWidth <= 0 || viewState.viewportHeight <= 0)
     return false;
   if (!std::isfinite(viewState.zoom) || viewState.zoom <= 0.0f)
@@ -85,7 +91,8 @@ bool BuildViewMapping(const Viewer2DViewState &viewState, double targetWidth,
   if (!ComputeViewBounds(viewState, bounds))
     return false;
 
-  if (targetWidth <= 0.0 || targetHeight <= 0.0)
+  if (!std::isfinite(targetWidth) || !std::isfinite(targetHeight) ||
+      !std::isfinite(margin) || targetWidth <= 0.0 || targetHeight <= 0.0)
     return false;
 
   double drawW = targetWidth - margin * 2.0;
@@ -124,8 +131,9 @@ void Viewer2DCommandRenderer::RenderInternal(const CommandBuffer &buffer,
   CanvasTransform currentTransform{};
   std::vector<CanvasTransform> stack;
 
+  bool hasStroke = true, hasFill = true;
   auto strokeWidth = [&](float width) {
-    return width * mapping_.scale;
+    return hasStroke ? width * mapping_.scale : 0.0;
   };
 
   auto mapPoint = [&](float x, float y) {
@@ -151,13 +159,17 @@ void Viewer2DCommandRenderer::RenderInternal(const CommandBuffer &buffer,
     RenderInternal(it->second.localCommands, combined);
   };
 
-  for (const auto &cmd : buffer.commands) {
+  for (size_t index = 0; index < buffer.commands.size(); ++index) {
+    const auto &cmd = buffer.commands[index];
+    hasStroke = index >= buffer.metadata.size() || buffer.metadata[index].hasStroke;
+    hasFill = index >= buffer.metadata.size() || buffer.metadata[index].hasFill;
     if (const auto *line = std::get_if<LineCommand>(&cmd)) {
+      if (!hasStroke) continue;
       Viewer2DRenderPoint p0 = mapPoint(line->x0, line->y0);
       Viewer2DRenderPoint p1 = mapPoint(line->x1, line->y1);
       backend_.DrawLine(p0, p1, line->stroke, strokeWidth(line->stroke.width));
     } else if (const auto *polyline = std::get_if<PolylineCommand>(&cmd)) {
-      if (polyline->points.size() < 4)
+      if (!hasStroke || polyline->points.size() < 4)
         continue;
       std::vector<Viewer2DRenderPoint> points;
       points.reserve(polyline->points.size() / 2);
@@ -175,7 +187,7 @@ void Viewer2DCommandRenderer::RenderInternal(const CommandBuffer &buffer,
       for (size_t i = 0; i + 1 < poly->points.size(); i += 2) {
         points.push_back(mapPoint(poly->points[i], poly->points[i + 1]));
       }
-      const CanvasFill *fill = poly->hasFill ? &poly->fill : nullptr;
+      const CanvasFill *fill = hasFill && poly->hasFill ? &poly->fill : nullptr;
       backend_.DrawPolygon(points, poly->stroke, fill,
                            strokeWidth(poly->stroke.width));
     } else if (const auto *rect = std::get_if<RectangleCommand>(&cmd)) {
@@ -187,7 +199,7 @@ void Viewer2DCommandRenderer::RenderInternal(const CommandBuffer &buffer,
       for (size_t i = 0; i + 1 < pts.size(); i += 2) {
         points.push_back(mapPoint(pts[i], pts[i + 1]));
       }
-      const CanvasFill *fill = rect->hasFill ? &rect->fill : nullptr;
+      const CanvasFill *fill = hasFill && rect->hasFill ? &rect->fill : nullptr;
       backend_.DrawPolygon(points, rect->stroke, fill,
                            strokeWidth(rect->stroke.width));
     } else if (const auto *circle = std::get_if<CircleCommand>(&cmd)) {
@@ -199,7 +211,7 @@ void Viewer2DCommandRenderer::RenderInternal(const CommandBuffer &buffer,
       float scale = (sx + sy) * 0.5f;
       double radius = circle->radius * scale * currentTransform.scale *
                       mapping_.scale;
-      const CanvasFill *fill = circle->hasFill ? &circle->fill : nullptr;
+      const CanvasFill *fill = hasFill && circle->hasFill ? &circle->fill : nullptr;
       backend_.DrawCircle(center, radius, circle->stroke, fill,
                           strokeWidth(circle->stroke.width));
     } else if (const auto *text = std::get_if<TextCommand>(&cmd)) {

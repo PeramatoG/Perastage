@@ -76,7 +76,7 @@ LegendCompositionResources ResolveLegendComposition(
         geometry.bounds = SvgBounds(*symbol.svg);
       } else if (symbol.commands) {
         geometry.kind = SymbolGeometryKind::Commands;
-        geometry.strokeScale = 1 / kViewer2DPixelsPerMeter;
+        geometry.strokeScale = 1; // Captured stroke pixels become paper points.
         const auto &b = symbol.commands->bounds;
         geometry.bounds = {b.min.x, b.min.y, b.max.x - b.min.x, b.max.y - b.min.y};
       }

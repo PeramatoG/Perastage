@@ -74,6 +74,7 @@
 #include "ui_render_size.h"
 #include "units/units.h"
 #include "viewer2d_coordinate_math.h"
+#include "layout_view_projection.h"
 #include "viewer2d_ruler_overlay.h"
 #include "viewer2d_support_selection.h"
 #include "viewer2dpanel.h"
@@ -842,6 +843,7 @@ void Viewer2DPanel::ApplyViewState(float offsetX, float offsetY, float zoom,
 }
 
 bool Viewer2DPanel::FitViewToScene() {
+  if (IsLayoutPhysicalZoomLocked()) return false;
   int width = 0;
   int height = 0;
   GetClientSize(&width, &height);
@@ -904,6 +906,7 @@ void Viewer2DPanel::CaptureFrameNow(
 
 void Viewer2DPanel::SetLayoutEditOverlay(std::optional<float> aspectRatio,
                                          std::optional<wxSize> viewportSize) {
+  ClearLayoutPhysicalViewport();
   m_layoutEditAspect = aspectRatio;
   m_layoutEditViewportSize.reset();
   if (viewportSize && viewportSize->GetWidth() > 0 &&
@@ -918,7 +921,7 @@ void Viewer2DPanel::SetLayoutEditOverlay(std::optional<float> aspectRatio,
 }
 
 void Viewer2DPanel::SetLayoutEditOverlayScale(float scale) {
-  if (!m_layoutEditAspect)
+  if (!m_layoutEditAspect || IsLayoutPhysicalZoomLocked())
     return;
   m_layoutEditScale = std::clamp(scale, 0.1f, 10.0f);
   RequestRepaint();
@@ -1237,12 +1240,14 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   } else {
     glstate::ApplyKnownBaseOnscreenState(w, h);
   }
+  UpdateLayoutPhysicalCamera(w, h);
   const RenderSize viewportSize{w, h, "RenderInternal(active-framebuffer-px)"};
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  const auto projectionBounds = viewer2d::ComputeOrthographicBounds(
-      {w, h, m_zoom, m_offsetX, m_offsetY, m_view});
+  const auto projectionBounds = viewer2d::ResolveLayoutProjectionBounds(
+      {w, h, m_zoom, m_offsetX, m_offsetY, m_view},
+      m_renderOverrides ? m_renderOverrides->physicalViewport : std::nullopt);
   if (!projectionBounds)
     return;
   glOrtho(projectionBounds->left, projectionBounds->right,
@@ -3969,67 +3974,6 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     if (hoistActive)
       ScheduleHoverLabelRefresh(pos);
   }
-}
-
-void Viewer2DPanel::OnMouseWheel(wxMouseEvent &event) {
-  m_hasLastMousePos = true;
-  MarkInteractionActivity();
-
-  int rotation = event.GetWheelRotation();
-  int deltaWheel = event.GetWheelDelta();
-  float steps = 0.0f;
-  if (deltaWheel != 0)
-    steps = static_cast<float>(rotation) / static_cast<float>(deltaWheel);
-  const auto navigation =
-      viewer2d::interaction::Viewer2DNavigationPolicy::ApplyWheelZoom(
-          {m_offsetX, m_offsetY, m_zoom}, steps);
-  m_zoom = navigation.view.zoom;
-  m_runtimeState.MarkViewMotion();
-  m_placementViewRevision.Invalidate();
-  if (m_placementSession.IsActive())
-    AlignContinuousElementToPointer(event.GetPosition());
-  if (m_persistViewState)
-    SaveViewToConfig();
-  RequestRepaint();
-}
-
-// Applies keyboard pan and zoom navigation to the 2D viewport.
-bool Viewer2DPanel::TryHandleViewportNavigationKey(int keyCode, bool altDown) {
-  using NavigationKey = viewer2d::interaction::NavigationKey;
-  NavigationKey key = NavigationKey::Unsupported;
-  switch (keyCode) {
-  case WXK_LEFT:
-    key = NavigationKey::Left;
-    break;
-  case WXK_RIGHT:
-    key = NavigationKey::Right;
-    break;
-  case WXK_UP:
-    key = NavigationKey::Up;
-    break;
-  case WXK_DOWN:
-    key = NavigationKey::Down;
-    break;
-  default:
-    break;
-  }
-
-  const auto navigation =
-      viewer2d::interaction::Viewer2DNavigationPolicy::ApplyKeyboard(
-          {m_offsetX, m_offsetY, m_zoom}, key, altDown);
-  if (!navigation.handled)
-    return false;
-  m_offsetX = navigation.view.offsetX;
-  m_offsetY = navigation.view.offsetY;
-  m_zoom = navigation.view.zoom;
-  m_placementViewRevision.Invalidate();
-  if (m_placementSession.IsActive() && m_hasLastMousePos)
-    AlignContinuousElementToPointer(m_lastMousePos);
-  InvalidatePickCache();
-  if (m_persistViewState)
-    SaveViewToConfig();
-  RequestRepaint();
-  return true;
 }
 
 // Handles local keyboard shortcuts when the 2D viewport owns focus.

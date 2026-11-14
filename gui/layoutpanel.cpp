@@ -249,6 +249,16 @@ void LayoutPanel::OnContextMenu(wxDataViewEvent &evt) {
       },
       landscapeId);
 
+  auto *paper = new wxMenu();
+  for (auto size : {print::PageSize::A4, print::PageSize::A3}) {
+    auto *item = paper->AppendRadioItem(wxID_ANY, size == print::PageSize::A3 ? _("A3") : _("A4"));
+    item->Check(target->pageSetup.pageSize == size);
+    menu.Bind(wxEVT_MENU, [this, layoutName, size](wxCommandEvent &) {
+      if (layouts::LayoutManager::Get().SetLayoutPageSize(layoutName, size))
+        EmitLayoutSelected(layoutName);
+    }, item->GetId());
+  }
+  menu.AppendSubMenu(paper, _("Paper size"));
   PopupMenu(&menu);
 }
 

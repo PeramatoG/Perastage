@@ -74,7 +74,7 @@
 <ol>
 <li>Open <strong>View → Layout Views → Layout Mode View</strong>. Show the <strong>Layouts</strong> panel from <strong>View</strong> if needed.</li>
 <li>Select a layout, or use <strong>Add</strong> to create one. <strong>Rename</strong> and <strong>Delete</strong> manage pages; the last layout cannot be deleted.</li>
-<li>Use the layout&#39;s context menu to choose orientation.</li>
+<li>Use the layout&#39;s context menu to choose A3/A4 paper size and orientation. Changing paper keeps element positions, frame sizes and drawing scales unchanged.</li>
 <li>Add elements from the Layout toolbar:</li>
 </ol>
 <table>
@@ -114,6 +114,49 @@ Undo/Redo history with element editing. Selection clicks and unchanged edits do
 not add history. A completed move or resize records one change; <strong>Escape</strong> or
 loss of mouse capture cancels the preview without changing the saved document.</p>
 <p>Save the <code>.pstg</code> project to keep your layouts. <strong>Export template</strong> creates a portable <code>.pslayout</code> package including referenced images. <strong>Import template</strong> accepts <code>.pslayout</code> and legacy <code>.json</code> templates.</p>
+<h2 id="viewport-scale-and-numeric-frame-properties">Viewport scale and numeric frame properties</h2>
+<p>Double-click a 2D view, then choose <strong>Viewport properties</strong>. Frame width and
+height use millimeters. Move the element on the Layout page to change its
+position. Millimeters display
+without decimal places. You can enter fractional values; unchanged fields retain
+their full stored precision in projects and templates. Arrow buttons adjust
+frame dimensions by 1 mm, world centers by 0.01 m and the scale
+denominator by 1. They retain fractional values internally; typing custom values
+and choosing a common scale remain available. Frames can be partly outside the page;
+only the portion inside the page prints. Frame dimensions must be at least
+1 point (about 0.353 mm), with positions and dimensions bounded to 200000 points.</p>
+<p><strong>Free / Variable</strong> is the default for new views, old projects and templates.
+Use the existing visual editor to zoom, pan and fit the scene. Resizing retains
+the established flexible workflow. The approximate effective free scale, when
+available, describes the stored camera and current frame; it is not a lock.
+The editor&#39;s <strong>Visual framing</strong> slider adjusts visual framing, not a physical ratio.</p>
+<p>Choose <strong>Fixed</strong> explicitly for an exact drawing scale. Switching modes
+keeps the current view center in both directions. Panning or numeric center edits
+in fixed mode remain in place when the scale lock is released.
+Select 1:25, 1:50,
+1:100, 1:200 or 1:500, or enter a custom denominator between 0.01 and 10000000.
+At 1:50, one scene meter occupies 20 mm on paper; at 1:100 it occupies 10 mm.
+The stored center uses scene meters: Top X/Y, Front X/Z, Side Y/Z. Side&#39;s
+horizontal display runs toward negative Y; the numeric center remains world Y.
+Change the center numerically or pan directly in the visual editor. In fixed
+mode the red rectangle shows the actual crop at the selected scale. A visible
+notice identifies the fixed ratio and explains why zoom is locked. Zoom, fit
+and the Visual framing slider are locked; dragging and arrow keys move the
+center without changing scale. Resizing the editor fits the displayed rectangle
+to the window while preserving the world area inside it. Switching back to free
+mode restores the previous free zoom while retaining the latest view center. Both modes use the ordinary 2D scene
+renderer for the Layout preview, preserving the same scene drawing and symbols.</p>
+<p>Fixed scale preserves object size and center when moving or resizing the frame;
+a larger frame reveals more scene. Layout editor zoom, display DPI and capture
+resolution affect screen rasterization, independently of paper geometry.
+Switch back to <strong>Free / Variable</strong> to use the preserved free zoom at the latest center. Filters,
+labels and presentation settings are retained. Valid changes in <strong>Viewport properties</strong>
+preview immediately in the editor, including scale mode, drawing scale, center
+and frame size. Incomplete or invalid numbers keep the last valid preview.
+<strong>Cancel</strong> (or closing the properties dialog) restores the previous properties
+and framing; <strong>OK</strong> keeps the changes in the editor draft. Property edits are drafts until
+the outer editor&#39;s <strong>OK</strong>; <strong>Cancel</strong> discards them. Accepted changes participate
+in Undo/Redo and PSTG/PSLAYOUT persistence.</p>
 <h2 id="export-pdf">Export PDF</h2>
 <p>Select a non-empty layout and choose <strong>File → Print Layout...</strong>. Choose a writable <code>.pdf</code> destination. The PDF uses the selected layout&#39;s page size and orientation and includes its supported elements. Review the exported file before printing or sharing.</p>
 <p>For missing views, incorrect output or export errors, see <a href="troubleshooting.html#layout-and-pdf-problems">Troubleshooting</a>.</p>
@@ -128,7 +171,14 @@ value remains editable and is saved unchanged. Unsupported glyphs are omitted
 consistently in both outputs and recorded in technical diagnostics; full Unicode
 shaping is not supported.</p>
 <h3 id="output-paper-size">Output paper size</h3>
-<p>PDF printing uniformly fits the complete original Layout page to the output
+<p>Pages containing a fixed viewport require <strong>100% document-size output</strong>: select
+the same paper size as the Layout. A different output paper size is rejected
+with an explanation, before writing a PDF. To use a different paper size,
+change the Layout paper first; existing fixed scales and element geometry stay
+unchanged, while the page boundary changes. Print the PDF at <strong>Actual size /
+100%</strong> in the printer driver; Perastage cannot control subsequent driver scaling.</p>
+<p>For pages containing only free-scale viewports, PDF printing uniformly fits the
+complete original Layout page to the output
 paper, anchored at the top left, with unused space at the right or bottom. 2D
 views, Legends, Event Tables, free text and images preserve their relative
 positions, proportions, overlap and clips. Changing paper does not refit the 2D
@@ -139,6 +189,10 @@ mark the project dirty.</p>
 at the existing 300 DPI target, subject to pixel limits. Alpha continues to flatten
 to white. Free text keeps its existing formatting and PDF typography; this page
 mapping correction does not establish free-text preview/PDF typography parity.</p>
+<p>Physical scale guarantees scene geometry placement, not typography parity for
+all existing presentation features. Existing paper-space text, outline and
+symbol styling limitations remain; annotations and broad typography changes
+belong to later milestones.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

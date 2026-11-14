@@ -16,54 +16,18 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layout_2d_view_rasterizer.h"
+#include "layout_view_raster_policy.h"
 
 #include <cmath>
 #include <optional>
 
 #include "LayoutCollection.h"
+#include "layout_viewport_adapter.h"
 #include "layout_view_cache_archive.h"
 #include "viewer2doffscreenrenderer.h"
 
 namespace gui::layoutraster {
 namespace {
-
-// Returns the expected byte count for an RGBA raster of the given size.
-size_t GetExpectedRgbaBytes(const wxSize &size) {
-  if (size.GetWidth() <= 0 || size.GetHeight() <= 0)
-    return 0;
-  return static_cast<size_t>(size.GetWidth()) *
-         static_cast<size_t>(size.GetHeight()) * 4;
-}
-
-// Checks whether the persistent RGBA cache exactly matches this raster request.
-bool HasMatchingPersistentRaster(const Layout2DViewRasterRequest &request,
-                                 const Layout2DViewRasterCacheInput &cacheInput,
-                                 std::string &diagnostic) {
-  if (!cacheInput.persistentRgba) {
-    diagnostic = "missing persistent raster data";
-    return false;
-  }
-  const size_t expectedBytes = GetExpectedRgbaBytes(request.renderSize);
-  if (cacheInput.persistentRgbaSize != request.renderSize) {
-    diagnostic = "persistent raster rejected due to size mismatch";
-    return false;
-  }
-  if (cacheInput.persistentRgbaContentHash != request.contentHash) {
-    diagnostic = "persistent raster rejected due to content hash mismatch";
-    return false;
-  }
-  if (std::abs(cacheInput.persistentRgbaRenderZoom - request.renderZoom) >=
-      0.000001) {
-    diagnostic = "persistent raster rejected due to zoom mismatch";
-    return false;
-  }
-  if (cacheInput.persistentRgba->size() != expectedBytes) {
-    diagnostic = "persistent raster rejected due to invalid RGBA byte count";
-    return false;
-  }
-  diagnostic.clear();
-  return true;
-}
 
 // Restores temporary capture-panel overrides when rasterization leaves scope.
 struct ScopedCapturePanelRestore {
@@ -123,7 +87,12 @@ Layout2DViewRasterResult Layout2DViewRasterizer::Rasterize(
     return result;
   }
 
-  if (cacheInput.restoredFromPersistentCache) {
+  Viewer2DViewState mappedState;
+  if (cacheInput.viewState) {
+    mappedState = *cacheInput.viewState;
+  }
+  viewer2d::AttachPhysicalMapping(*request.view, mappedState);
+  if (UseCommandBufferRaster(request, cacheInput)) {
     if (!cacheInput.buffer || !cacheInput.viewState) {
       result.rejectedRestoredPersistentCache = true;
       result.failureReason =
@@ -135,7 +104,7 @@ Layout2DViewRasterResult Layout2DViewRasterizer::Rasterize(
           Layout2DViewRasterFailureReason::EmptyCommandBuffer;
       result.diagnosticMessage = "empty command buffer";
     } else if (gui::layoutcache::RenderCommandBufferCacheToRgba(
-                   request.renderSize, *cacheInput.buffer, *cacheInput.viewState,
+                   request.renderSize, *cacheInput.buffer, mappedState,
                    cacheInput.symbols, request.renderZoom, result.rgbaPixels,
                    result.width, result.height)) {
       result.success = true;
@@ -176,6 +145,8 @@ Layout2DViewRasterResult Layout2DViewRasterizer::Rasterize(
   renderState.camera.viewportWidth = request.renderSize.GetWidth();
   renderState.camera.viewportHeight = request.renderSize.GetHeight();
 
+  viewer2d::PreparePhysicalCapture(*request.view, renderState.camera,
+      request.renderSize.GetWidth(), request.renderSize.GetHeight());
   viewer2d::ScopedViewer2DState stateGuard(capturePanel_, nullptr, config_,
                                            renderState, nullptr, nullptr,
                                            false);
@@ -189,6 +160,7 @@ Layout2DViewRasterResult Layout2DViewRasterizer::Rasterize(
       previousOverrides.value_or(Viewer2DRenderOverrides{});
   previewOverrides.drawFixtureLabels = true;
   previewOverrides.symbolCaptureRenderProfile = false;
+  previewOverrides.physicalViewport = mappedState.physicalMapping;
   capturePanel_->SetRenderOverrides(previewOverrides);
   capturePanel_->SetPreferPerastageSvgSymbolsForLayouts(true);
 

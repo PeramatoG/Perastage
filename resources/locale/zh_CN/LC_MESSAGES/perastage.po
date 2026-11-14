@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 09:31+0000\n"
+"POT-Creation-Date: 2026-11-14 10:49+0100\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -120,7 +120,7 @@ msgid "Edit Address"
 msgstr "编辑地址"
 
 #: gui/addressdialog.cpp:27 gui/fixturepatchdialog.cpp:39
-#: gui/patch/dmx_patch_panel.cpp:25
+#: gui/patch/dmx_patch_panel.cpp:26
 msgid "Universe:"
 msgstr "DMX 域："
 
@@ -302,7 +302,7 @@ msgstr "仅导出参考"
 #: gui/dictionaryeditdialog.cpp:260 gui/dictionaryeditdialog.cpp:293
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
 #: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:92
-#: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:75
+#: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:89
 #: gui/layouttextdialog.cpp:149 gui/preferencesdialog.cpp:87
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139
@@ -470,7 +470,7 @@ msgid "Mode"
 msgstr "模式"
 
 #: gui/dictionaryeditdialog.cpp:519 gui/dictionaryeditdialog.cpp:2236
-#: gui/fixturetable/fixture_table_columns.cpp:21 gui/fixturetablepanel.cpp:849
+#: gui/fixturetable/fixture_table_columns.cpp:21 gui/fixturetablepanel.cpp:851
 msgid "Category"
 msgstr "类别"
 
@@ -479,14 +479,14 @@ msgstr "类别"
 msgid "Type Color"
 msgstr "类型颜色"
 
-#: gui/dictionaryeditdialog.cpp:599 gui/mainwindow_layout.cpp:328
-#: gui/mainwindow_menu_builders.cpp:81 gui/mainwindow_print.cpp:505
+#: gui/dictionaryeditdialog.cpp:599 gui/mainwindow_layout.cpp:329
+#: gui/mainwindow_menu_builders.cpp:81 gui/mainwindow_print.cpp:517
 #: gui/riggingpanel.cpp:185 gui/summarypanel.cpp:139
 msgid "Fixtures"
 msgstr "灯具"
 
-#: gui/dictionaryeditdialog.cpp:600 gui/mainwindow_layout.cpp:333
-#: gui/mainwindow_print.cpp:508 gui/riggingpanel.cpp:188
+#: gui/dictionaryeditdialog.cpp:600 gui/mainwindow_layout.cpp:334
+#: gui/mainwindow_print.cpp:520 gui/riggingpanel.cpp:188
 #: gui/summarypanel.cpp:172
 msgid "Trusses"
 msgstr "桁架"
@@ -514,7 +514,7 @@ msgid "Export..."
 msgstr "导出 MVR..."
 
 #: gui/dictionaryeditdialog.cpp:610 gui/gdtf_download_queue_dialog.cpp:93
-#: gui/layout2dviewdialog.cpp:74 gui/mvr_export_result_dialog.cpp:97
+#: gui/layout2dviewdialog.cpp:88 gui/mvr_export_result_dialog.cpp:97
 #: gui/preferencesdialog.cpp:86 gui/scene_object_primitive_dialogs.cpp:138
 msgid "OK"
 msgstr "确定"
@@ -819,19 +819,19 @@ msgstr ""
 "\n"
 
 #: gui/dictionaryeditdialog.cpp:1521 gui/dictionaryeditdialog.cpp:2276
-#: gui/fixtureeditdialog.cpp:644 gui/fixturetablepanel.cpp:526
+#: gui/fixtureeditdialog.cpp:644 gui/fixturetablepanel.cpp:528
 #: gui/mainwindow_fixture_replace.cpp:227 gui/mainwindow_menu.cpp:998
 #: gui/mainwindow_menu.cpp:1021
 msgid "Select GDTF file"
 msgstr "选择 GDTF 文件"
 
 #: gui/dictionaryeditdialog.cpp:1537 gui/dictionaryeditdialog.cpp:2220
-#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:694
+#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:696
 msgid "Select DMX mode"
 msgstr "选择 DMX 模式"
 
 #: gui/dictionaryeditdialog.cpp:1537 gui/dictionaryeditdialog.cpp:2220
-#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:694
+#: gui/dictionaryeditdialog.cpp:2296 gui/fixturetablepanel.cpp:696
 msgid "DMX Mode"
 msgstr "DMX 模式"
 
@@ -1092,7 +1092,7 @@ msgstr ""
 "桁架字典恢复为默认值.\n"
 "\n"
 
-#: gui/dictionaryeditdialog.cpp:2236 gui/fixturetablepanel.cpp:849
+#: gui/dictionaryeditdialog.cpp:2236 gui/fixturetablepanel.cpp:851
 msgid "Select category"
 msgstr "选择类别"
 
@@ -1382,7 +1382,7 @@ msgstr "GDTF 更新"
 msgid "Type"
 msgstr "类型"
 
-#: gui/fixturetable/fixture_table_columns.cpp:13 gui/fixturetablepanel.cpp:743
+#: gui/fixturetable/fixture_table_columns.cpp:13 gui/fixturetablepanel.cpp:745
 #: gui/hoisttablepanel.cpp:465 gui/hoisttablepanel.cpp:786
 #: gui/layerpanel.cpp:86 gui/sceneobjecttablepanel.cpp:265
 #: gui/sceneobjecttablepanel.cpp:433 gui/trusstablepanel.cpp:300
@@ -1411,24 +1411,24 @@ msgstr "通道数"
 msgid "Model file"
 msgstr "模型文件"
 
-#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:281
-#: gui/fixturetablepanel.cpp:315 gui/hoisttablepanel.cpp:467
+#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:282
+#: gui/fixturetablepanel.cpp:316 gui/hoisttablepanel.cpp:467
 #: gui/hoisttablepanel.cpp:500 gui/sceneobjecttablepanel.cpp:267
 #: gui/sceneobjecttablepanel.cpp:292 gui/trusstablepanel.cpp:301
 #: gui/trusstablepanel.cpp:334
 msgid "Pos X"
 msgstr "位置 X"
 
-#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:284
-#: gui/fixturetablepanel.cpp:318 gui/hoisttablepanel.cpp:468
+#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:285
+#: gui/fixturetablepanel.cpp:319 gui/hoisttablepanel.cpp:468
 #: gui/hoisttablepanel.cpp:501 gui/sceneobjecttablepanel.cpp:268
 #: gui/sceneobjecttablepanel.cpp:293 gui/trusstablepanel.cpp:301
 #: gui/trusstablepanel.cpp:335
 msgid "Pos Y"
 msgstr "位置 Y"
 
-#: gui/fixturetable/fixture_table_columns.cpp:18 gui/fixturetablepanel.cpp:287
-#: gui/fixturetablepanel.cpp:321 gui/hoisttablepanel.cpp:469
+#: gui/fixturetable/fixture_table_columns.cpp:18 gui/fixturetablepanel.cpp:288
+#: gui/fixturetablepanel.cpp:322 gui/hoisttablepanel.cpp:469
 #: gui/hoisttablepanel.cpp:502 gui/sceneobjecttablepanel.cpp:269
 #: gui/sceneobjecttablepanel.cpp:294 gui/trusstablepanel.cpp:301
 #: gui/trusstablepanel.cpp:336
@@ -1463,7 +1463,7 @@ msgstr "重量 (kg)"
 msgid "Color Filter"
 msgstr "滤色片"
 
-#: gui/fixturetablepanel.cpp:290 gui/fixturetablepanel.cpp:324
+#: gui/fixturetablepanel.cpp:291 gui/fixturetablepanel.cpp:325
 #: gui/hoisttablepanel.cpp:475 gui/hoisttablepanel.cpp:506
 #: gui/inspection/gdtf_inspector_details_panel.cpp:47
 #: gui/trusstablepanel.cpp:304 gui/trusstablepanel.cpp:340
@@ -1472,27 +1472,27 @@ msgstr "滤色片"
 msgid "Weight"
 msgstr "重量"
 
-#: gui/fixturetablepanel.cpp:743 gui/hoisttablepanel.cpp:786
+#: gui/fixturetablepanel.cpp:745 gui/hoisttablepanel.cpp:786
 #: gui/sceneobjecttablepanel.cpp:433 gui/trusstablepanel.cpp:533
 msgid "Select layer"
 msgstr "选择图层"
 
-#: gui/fixturetablepanel.cpp:982 gui/hoisttablepanel.cpp:849
+#: gui/fixturetablepanel.cpp:984 gui/hoisttablepanel.cpp:849
 #: gui/sceneobjecttablepanel.cpp:499 gui/trusstablepanel.cpp:677
 msgid "Edit value:"
 msgstr "编辑值："
 
-#: gui/fixturetablepanel.cpp:1033 gui/fixturetablepanel.cpp:1038
+#: gui/fixturetablepanel.cpp:1035 gui/fixturetablepanel.cpp:1040
 #: gui/hoisttablepanel.cpp:897 gui/hoisttablepanel.cpp:902
 #: gui/sceneobjecttablepanel.cpp:545 gui/sceneobjecttablepanel.cpp:550
 #: gui/trusstablepanel.cpp:723 gui/trusstablepanel.cpp:728
 msgid "Invalid numeric value"
 msgstr "无效的数值"
 
-#: gui/fixturetablepanel.cpp:1033 gui/fixturetablepanel.cpp:1038
-#: gui/fixturetablepanel.cpp:1045 gui/fixturetablepanel.cpp:1051
-#: gui/fixturetablepanel.cpp:1059 gui/fixturetablepanel.cpp:1065
-#: gui/fixturetablepanel.cpp:1101 gui/fixturetablepanel.cpp:1108
+#: gui/fixturetablepanel.cpp:1035 gui/fixturetablepanel.cpp:1040
+#: gui/fixturetablepanel.cpp:1047 gui/fixturetablepanel.cpp:1053
+#: gui/fixturetablepanel.cpp:1061 gui/fixturetablepanel.cpp:1067
+#: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
 #: gui/gdtf_share_download_workflow.cpp:477
 #: gui/gdtf_share_download_workflow.cpp:481 gui/hoisttablepanel.cpp:897
 #: gui/hoisttablepanel.cpp:902 gui/hoisttablepanel.cpp:908
@@ -1517,15 +1517,15 @@ msgstr "无效的数值"
 msgid "Error"
 msgstr "错误"
 
-#: gui/fixturetablepanel.cpp:1045 gui/fixturetablepanel.cpp:1059
-#: gui/fixturetablepanel.cpp:1101 gui/fixturetablepanel.cpp:1108
+#: gui/fixturetablepanel.cpp:1047 gui/fixturetablepanel.cpp:1061
+#: gui/fixturetablepanel.cpp:1103 gui/fixturetablepanel.cpp:1110
 #: gui/hoisttablepanel.cpp:908 gui/hoisttablepanel.cpp:915
 #: gui/sceneobjecttablepanel.cpp:556 gui/sceneobjecttablepanel.cpp:563
 #: gui/trusstablepanel.cpp:734 gui/trusstablepanel.cpp:741
 msgid "Invalid value"
 msgstr "无效值"
 
-#: gui/fixturetablepanel.cpp:1051 gui/fixturetablepanel.cpp:1065
+#: gui/fixturetablepanel.cpp:1053 gui/fixturetablepanel.cpp:1067
 msgid "Channel out of range (1-512)"
 msgstr "通道超出范围（1-512）"
 
@@ -1735,7 +1735,7 @@ msgid "Manufacturer"
 msgstr "制造商"
 
 #: gui/gdtf_catalog_details_panel.cpp:23 gui/gdtfsearchdialog.cpp:93
-#: gui/patch/dmx_patch_diagnostics.cpp:37
+#: gui/patch/dmx_patch_diagnostics.cpp:57
 msgid "Fixture"
 msgstr "灯具"
 
@@ -1851,7 +1851,7 @@ msgstr "状态"
 msgid "Progress"
 msgstr "进度"
 
-#: gui/gdtf_download_queue_table.cpp:53 gui/patch/dmx_patch_diagnostics.cpp:39
+#: gui/gdtf_download_queue_table.cpp:53 gui/patch/dmx_patch_diagnostics.cpp:59
 #: gui/rider_fixture_resolution_dialog.cpp:115
 msgid "Details"
 msgstr "详细信息"
@@ -2489,7 +2489,7 @@ msgid "Source: none"
 msgstr "来源：无"
 
 #: gui/inspection/inspector_workspace_panel.cpp:527
-#: gui/mainwindow_layout.cpp:421 gui/mainwindow_menu_builders.cpp:87
+#: gui/mainwindow_layout.cpp:422 gui/mainwindow_menu_builders.cpp:87
 #: gui/summarypanel.cpp:112
 msgid "Summary"
 msgstr "摘要"
@@ -2563,7 +2563,7 @@ msgstr "由于意外错误，无法检查当前项目。"
 #: gui/inspection/inspector_workspace_panel.cpp:1082
 #: gui/inspection/inspector_workspace_panel.cpp:1458
 #: gui/inspection/inspector_workspace_panel.cpp:1466
-#: gui/mainwindow_layout.cpp:451 gui/mainwindow_menu.cpp:235
+#: gui/mainwindow_layout.cpp:452 gui/mainwindow_menu.cpp:235
 #: gui/mainwindow_menu_builders.cpp:71
 msgid "MVR / GDTF Inspector"
 msgstr "MVR / GDTF 检查器"
@@ -2771,18 +2771,84 @@ msgstr "无法重命名默认图层。"
 msgid "Rename Layer"
 msgstr "重命名图层"
 
-#: gui/layout2dviewdialog.cpp:63
-msgid "Frame scale"
-msgstr "框架规模"
+#: gui/layout2dviewdialog.cpp:69
+msgid "Visual framing"
+msgstr "可视取景"
 
-#: gui/layout2dviewdialog.cpp:65
+#: gui/layout2dviewdialog.cpp:71
 msgid "100%"
 msgstr "100%"
 
-#: gui/layout2dviewdialog.cpp:186
+#: gui/layout2dviewdialog.cpp:84 gui/layout2dviewdialog.cpp:115
+#: gui/layout_viewport_properties.cpp:45 gui/layout_viewport_properties.cpp:197
+msgid "Viewport properties"
+msgstr "视口属性"
+
+#: gui/layout2dviewdialog.cpp:114 gui/layout_viewport_properties.cpp:196
+#, c-format
+msgid "Invalid viewport properties: %s"
+msgstr "视口属性无效：%s"
+
+#: gui/layout2dviewdialog.cpp:215
+#, c-format
+msgid "1:%s"
+msgstr "1:%s"
+
+#: gui/layout2dviewdialog.cpp:217
 #, c-format
 msgid "%d%%"
 msgstr "%d%%"
+
+#: gui/layout2dviewdialog.cpp:220
+#, c-format
+msgid "Fixed scale 1:%s. Zoom is locked; pan to adjust framing."
+msgstr "固定比例 1:%s。缩放已锁定；平移视图以调整取景。"
+
+#: gui/layout_viewport_properties.cpp:54
+msgid "Free / Variable"
+msgstr "自由 / 可变"
+
+#: gui/layout_viewport_properties.cpp:54
+msgid "Fixed"
+msgstr "固定"
+
+#: gui/layout_viewport_properties.cpp:56
+msgid "Scale mode"
+msgstr "比例模式"
+
+#: gui/layout_viewport_properties.cpp:83
+msgid "Drawing scale 1:"
+msgstr "绘图比例 1:"
+
+#: gui/layout_viewport_properties.cpp:88
+msgid "Center horizontal (m)"
+msgstr "水平中心 (m)"
+
+#: gui/layout_viewport_properties.cpp:89
+msgid "Center vertical (m)"
+msgstr "垂直中心 (m)"
+
+#: gui/layout_viewport_properties.cpp:93
+msgid "Frame width (mm)"
+msgstr "边框宽度 (mm)"
+
+#: gui/layout_viewport_properties.cpp:94
+msgid "Frame height (mm)"
+msgstr "边框高度 (mm)"
+
+#: gui/layout_viewport_properties.cpp:97
+msgid "Center axes: Top X/Y, Front X/Z, Side Y/Z."
+msgstr "中心坐标轴：俯视 X/Y，前视 X/Z，侧视 Y/Z。"
+
+#: gui/layout_viewport_properties.cpp:99
+msgid "Free scale: variable"
+msgstr "自由比例：可变"
+
+#: gui/layout_viewport_properties.cpp:102
+#: gui/layout_viewport_properties.cpp:157
+#, c-format
+msgid "Effective free scale: approximately 1:%.4f"
+msgstr "有效自由比例：约为 1:%.4f"
 
 #: gui/layoutimageutils.cpp:81
 msgid "Invalid image"
@@ -2801,7 +2867,7 @@ msgid "Move Down"
 msgstr "下移"
 
 #: gui/layoutpanel.cpp:35 gui/mainwindow_menu.cpp:369
-#: gui/mainwindow_print.cpp:76
+#: gui/mainwindow_print.cpp:78
 msgid "Layout"
 msgstr "布局"
 
@@ -2809,7 +2875,7 @@ msgstr "布局"
 msgid "Export template"
 msgstr "导出模板"
 
-#: gui/layoutpanel.cpp:48 gui/layoutpanel.cpp:400
+#: gui/layoutpanel.cpp:48 gui/layoutpanel.cpp:410
 msgid "Import template"
 msgstr "导入模板"
 
@@ -2817,68 +2883,80 @@ msgstr "导入模板"
 msgid "Orientation"
 msgstr "在线文档"
 
-#: gui/layoutpanel.cpp:257 gui/layoutpanel.cpp:298
+#: gui/layoutpanel.cpp:254 gui/viewer2dprintdialog.cpp:36
+msgid "A3"
+msgstr "A3"
+
+#: gui/layoutpanel.cpp:254 gui/viewer2dprintdialog.cpp:38
+msgid "A4"
+msgstr "A4"
+
+#: gui/layoutpanel.cpp:261
+msgid "Paper size"
+msgstr "纸张尺寸"
+
+#: gui/layoutpanel.cpp:267 gui/layoutpanel.cpp:308
 msgid "Enter new layout name:"
 msgstr "输入新布局名称："
 
-#: gui/layoutpanel.cpp:257 gui/layoutpanel.cpp:267 gui/layoutpanel.cpp:279
+#: gui/layoutpanel.cpp:267 gui/layoutpanel.cpp:277 gui/layoutpanel.cpp:289
 msgid "Add Layout"
 msgstr "布局"
 
-#: gui/layoutpanel.cpp:267
+#: gui/layoutpanel.cpp:277
 msgid "Layout already exists."
 msgstr "图层已存在。"
 
-#: gui/layoutpanel.cpp:279
+#: gui/layoutpanel.cpp:289
 msgid "Could not add layout."
 msgstr "无法添加布局。"
 
-#: gui/layoutpanel.cpp:292 gui/layoutpanel.cpp:322
+#: gui/layoutpanel.cpp:302 gui/layoutpanel.cpp:332
 msgid "No layout is available."
 msgstr "所选布局不可用。"
 
-#: gui/layoutpanel.cpp:292 gui/layoutpanel.cpp:298 gui/layoutpanel.cpp:309
+#: gui/layoutpanel.cpp:302 gui/layoutpanel.cpp:308 gui/layoutpanel.cpp:319
 msgid "Rename Layout"
 msgstr "重命名图层"
 
-#: gui/layoutpanel.cpp:309
+#: gui/layoutpanel.cpp:319
 msgid "Layout name is not available."
 msgstr "所选布局不可用。"
 
-#: gui/layoutpanel.cpp:322 gui/layoutpanel.cpp:328 gui/layoutpanel.cpp:335
+#: gui/layoutpanel.cpp:332 gui/layoutpanel.cpp:338 gui/layoutpanel.cpp:345
 msgid "Delete Layout"
 msgstr "删除图层"
 
-#: gui/layoutpanel.cpp:328
+#: gui/layoutpanel.cpp:338
 msgid "Cannot delete the last layout."
 msgstr "无法删除默认图层。"
 
-#: gui/layoutpanel.cpp:335
+#: gui/layoutpanel.cpp:345
 msgid "Could not delete layout."
 msgstr "无法删除默认图层。"
 
-#: gui/layoutpanel.cpp:357
+#: gui/layoutpanel.cpp:367
 msgid "No layout is available to export."
 msgstr "未选择布局。"
 
-#: gui/layoutpanel.cpp:357 gui/layoutpanel.cpp:363 gui/layoutpanel.cpp:376
-#: gui/layoutpanel.cpp:381
+#: gui/layoutpanel.cpp:367 gui/layoutpanel.cpp:373 gui/layoutpanel.cpp:386
+#: gui/layoutpanel.cpp:391
 msgid "Export layout package"
 msgstr "导出布局包"
 
-#: gui/layoutpanel.cpp:374
+#: gui/layoutpanel.cpp:384
 msgid "Could not export layout package.\n"
 msgstr "无法导出布局包.\n"
 
-#: gui/layoutpanel.cpp:380
+#: gui/layoutpanel.cpp:390
 msgid "Layout package exported successfully."
 msgstr "布局包导出成功。"
 
-#: gui/layoutpanel.cpp:386
+#: gui/layoutpanel.cpp:396
 msgid "Import layout template"
 msgstr "导入布局模板"
 
-#: gui/layoutpanel.cpp:398
+#: gui/layoutpanel.cpp:408
 msgid "Could not import layout template.\n"
 msgstr "无法导入布局模板.\n"
 
@@ -3246,9 +3324,9 @@ msgstr "在选择端点之前激活 2D 或 3D 场景视口。"
 msgid "Choose two points on the truss line, or press Esc to cancel."
 msgstr "选择桁架线上的两个点，或按 Esc 键取消。"
 
-#: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:483
+#: gui/mainwindow_fixture_distribution.cpp:252 gui/mainwindow_layout.cpp:484
 #: gui/mainwindow_startup_splash.cpp:123
-#: gui/services/fixture_symbol_preparation_service.cpp:509
+#: gui/services/fixture_symbol_preparation_service.cpp:647
 #: gui/viewer_load_status.cpp:26
 msgid "Ready"
 msgstr "就绪"
@@ -3489,7 +3567,7 @@ msgstr "导入 Rider 失败。"
 msgid "Object exported successfully."
 msgstr "对象导出成功。"
 
-#: gui/mainwindow_io.cpp:906 gui/mainwindow_print.cpp:523
+#: gui/mainwindow_io.cpp:906 gui/mainwindow_print.cpp:535
 msgid "Select table"
 msgstr "选择表格"
 
@@ -3498,54 +3576,54 @@ msgstr "选择表格"
 msgid "Export CSV"
 msgstr "导出 CSV..."
 
-#: gui/mainwindow_layout.cpp:338 gui/mainwindow_print.cpp:511
+#: gui/mainwindow_layout.cpp:339 gui/mainwindow_print.cpp:523
 #: gui/riggingpanel.cpp:191 gui/summarypanel.cpp:182
 msgid "Hoists"
 msgstr "电动葫芦"
 
-#: gui/mainwindow_layout.cpp:343 gui/mainwindow_print.cpp:514
+#: gui/mainwindow_layout.cpp:344 gui/mainwindow_print.cpp:526
 #: gui/summarypanel.cpp:199
 msgid "Objects"
 msgstr "对象"
 
-#: gui/mainwindow_layout.cpp:351
+#: gui/mainwindow_layout.cpp:352
 msgid "Data Views"
 msgstr "布局视图"
 
-#: gui/mainwindow_layout.cpp:365 gui/mainwindow_menu_builders.cpp:78
+#: gui/mainwindow_layout.cpp:366 gui/mainwindow_menu_builders.cpp:78
 msgid "Console"
 msgstr "控制台"
 
-#: gui/mainwindow_layout.cpp:378 gui/mainwindow_menu_builders.cpp:85
+#: gui/mainwindow_layout.cpp:379 gui/mainwindow_menu_builders.cpp:85
 msgid "Layers"
 msgstr "图层"
 
-#: gui/mainwindow_layout.cpp:392 gui/mainwindow_menu_builders.cpp:86
+#: gui/mainwindow_layout.cpp:393 gui/mainwindow_menu_builders.cpp:86
 msgid "Layouts"
 msgstr "布局"
 
-#: gui/mainwindow_layout.cpp:406
+#: gui/mainwindow_layout.cpp:407
 msgid "Layout Viewer"
 msgstr "布局视图"
 
-#: gui/mainwindow_layout.cpp:435 gui/mainwindow_menu_builders.cpp:88
+#: gui/mainwindow_layout.cpp:436 gui/mainwindow_menu_builders.cpp:88
 msgid "Rigging"
 msgstr "吊挂"
 
-#: gui/mainwindow_layout.cpp:484
+#: gui/mainwindow_layout.cpp:485
 msgid "X: -- m  Y: -- m  Z: -- m"
 msgstr "X: -- 米 Y: -- 米 Z: -- 米"
 
-#: gui/mainwindow_layout.cpp:486
+#: gui/mainwindow_layout.cpp:487
 #, c-format
 msgid "Version %s"
 msgstr "版本 %s"
 
-#: gui/mainwindow_layout.cpp:1149
+#: gui/mainwindow_layout.cpp:1154
 msgid "Layout view update skipped: target view not found."
 msgstr "布局视图更新已跳过：未找到目标视图。"
 
-#: gui/mainwindow_layout.cpp:1179
+#: gui/mainwindow_layout.cpp:1186
 msgid "Layout view update failed."
 msgstr "布局视图更新失败。"
 
@@ -3589,7 +3667,7 @@ msgstr "导出 MVR"
 msgid "Export the project to MVR"
 msgstr "将项目导出为 MVR"
 
-#: gui/mainwindow_menu.cpp:182 gui/mainwindow_print.cpp:81
+#: gui/mainwindow_menu.cpp:182 gui/mainwindow_print.cpp:83
 msgid "Print"
 msgstr "打印"
 
@@ -4096,8 +4174,8 @@ msgstr "布局模式视图"
 msgid "Position Tool"
 msgstr "位置工具"
 
-#: gui/mainwindow_menu_builders.cpp:80 gui/patch/dmx_patch_panel.cpp:22
-#: gui/patch/dmx_patch_panel.cpp:34 gui/patch/viewport_patch_workspace.cpp:30
+#: gui/mainwindow_menu_builders.cpp:80 gui/patch/dmx_patch_panel.cpp:23
+#: gui/patch/dmx_patch_panel.cpp:36 gui/patch/viewport_patch_workspace.cpp:39
 msgid "DMX Patch"
 msgstr "DMX Patch"
 
@@ -4201,96 +4279,96 @@ msgstr "工具(&T)"
 msgid "&Help"
 msgstr "帮助(&H)"
 
-#: gui/mainwindow_print.cpp:77
+#: gui/mainwindow_print.cpp:79
 msgid "2D View"
 msgstr "2D 视图"
 
-#: gui/mainwindow_print.cpp:78
+#: gui/mainwindow_print.cpp:80
 msgid "Table"
 msgstr "表格"
 
-#: gui/mainwindow_print.cpp:80
+#: gui/mainwindow_print.cpp:82
 msgid "Select what to print:"
 msgstr "选择要打印的内容："
 
-#: gui/mainwindow_print.cpp:101 gui/mainwindow_print.cpp:248
+#: gui/mainwindow_print.cpp:103 gui/mainwindow_print.cpp:252
 msgid "2D viewport is not available."
 msgstr "2D 视口不可用。"
 
-#: gui/mainwindow_print.cpp:101 gui/mainwindow_print.cpp:131
-#: gui/mainwindow_print.cpp:161 gui/mainwindow_print.cpp:199
-#: gui/mainwindow_print.cpp:203
+#: gui/mainwindow_print.cpp:103 gui/mainwindow_print.cpp:133
+#: gui/mainwindow_print.cpp:163 gui/mainwindow_print.cpp:201
+#: gui/mainwindow_print.cpp:205
 msgid "Print Viewer 2D"
 msgstr "打印 2D 查看器"
 
-#: gui/mainwindow_print.cpp:121
+#: gui/mainwindow_print.cpp:123
 msgid "Save 2D view as"
 msgstr "将 2D 视图另存为"
 
-#: gui/mainwindow_print.cpp:130
+#: gui/mainwindow_print.cpp:132
 msgid "Please choose a destination file for the 2D view."
 msgstr "请选择 2D 视图的目标文件。"
 
-#: gui/mainwindow_print.cpp:144
+#: gui/mainwindow_print.cpp:146
 msgid "Printing 2D view..."
 msgstr "正在打印 2D 视图..."
 
-#: gui/mainwindow_print.cpp:160
+#: gui/mainwindow_print.cpp:162
 msgid "Unable to capture the 2D view for printing."
 msgstr "无法捕获用于打印的 2D 视图。"
 
-#: gui/mainwindow_print.cpp:196
+#: gui/mainwindow_print.cpp:198
 #, c-format
 msgid "Failed to generate PDF plan: %s"
 msgstr "生成 PDF 平面图失败：%s"
 
-#: gui/mainwindow_print.cpp:198 gui/mainwindow_print.cpp:413
+#: gui/mainwindow_print.cpp:200 gui/mainwindow_print.cpp:420
 msgid "Print failed. Please review the error and try again."
 msgstr "打印失败。请检查错误后重试。"
 
-#: gui/mainwindow_print.cpp:202
+#: gui/mainwindow_print.cpp:204
 #, c-format
 msgid "2D view saved to %s"
 msgstr "2D 视图已保存到 %s"
 
-#: gui/mainwindow_print.cpp:217
+#: gui/mainwindow_print.cpp:219
 msgid "No layout is selected."
 msgstr "未选择布局。"
 
-#: gui/mainwindow_print.cpp:217 gui/mainwindow_print.cpp:230
-#: gui/mainwindow_print.cpp:240 gui/mainwindow_print.cpp:248
-#: gui/mainwindow_print.cpp:281 gui/mainwindow_print.cpp:297
-#: gui/mainwindow_print.cpp:414 gui/mainwindow_print.cpp:426
+#: gui/mainwindow_print.cpp:219 gui/mainwindow_print.cpp:232
+#: gui/mainwindow_print.cpp:244 gui/mainwindow_print.cpp:252
+#: gui/mainwindow_print.cpp:286 gui/mainwindow_print.cpp:304
+#: gui/mainwindow_print.cpp:421 gui/mainwindow_print.cpp:433
 msgid "Print Layout"
 msgstr "打印布局"
 
-#: gui/mainwindow_print.cpp:230
+#: gui/mainwindow_print.cpp:232
 msgid "Selected layout is not available."
 msgstr "所选布局不可用。"
 
-#: gui/mainwindow_print.cpp:239
+#: gui/mainwindow_print.cpp:243
 msgid "The selected layout is empty."
 msgstr "所选布局为空。"
 
-#: gui/mainwindow_print.cpp:271
+#: gui/mainwindow_print.cpp:276
 msgid "Save layout as"
 msgstr "将布局另存为"
 
-#: gui/mainwindow_print.cpp:280
+#: gui/mainwindow_print.cpp:285
 msgid "Please choose a destination file for the layout."
 msgstr "请选择布局的目标文件。"
 
-#: gui/mainwindow_print.cpp:296 gui/mainwindow_print.cpp:410
+#: gui/mainwindow_print.cpp:303 gui/mainwindow_print.cpp:417
 #, c-format
 msgid "Failed to generate layout PDF: %s"
 msgstr "生成布局 PDF 失败：%s"
 
-#: gui/mainwindow_print.cpp:418
+#: gui/mainwindow_print.cpp:425
 #, c-format
 msgid "Layout saved to %s"
 msgstr "布局已保存到 %s"
 
-#: gui/mainwindow_print.cpp:420
+#: gui/mainwindow_print.cpp:427
 #, c-format
 msgid ""
 "\n"
@@ -4305,11 +4383,11 @@ msgstr ""
 "Perastage symbols：%zu\n"
 "渲染后备：%zu"
 
-#: gui/mainwindow_print.cpp:492
+#: gui/mainwindow_print.cpp:504
 msgid "Printing layout..."
 msgstr "正在打印布局..."
 
-#: gui/mainwindow_print.cpp:523
+#: gui/mainwindow_print.cpp:535
 msgid "Print Table"
 msgstr "打印表格"
 
@@ -4579,7 +4657,7 @@ msgstr "登录 GDTF Share"
 
 #
 #: gui/mvr_gdtf_resolution_dialog.cpp:37 gui/mvr_gdtf_resolution_dialog.cpp:53
-#: gui/patch/dmx_patch_canvas.cpp:176
+#: gui/patch/dmx_patch_canvas.cpp:189
 msgid "Unresolved"
 msgstr "未解析"
 
@@ -4933,25 +5011,25 @@ msgstr "运行于"
 msgid "%zu discovered, %zu incoming joined, %zu outgoing joined"
 msgstr "%zu 已发现，%zu 传入加入，%zu 传出加入"
 
-#: gui/patch/dmx_patch_canvas.cpp:130
+#: gui/patch/dmx_patch_canvas.cpp:144
 msgid " Fine"
 msgstr " 精细"
 
-#: gui/patch/dmx_patch_canvas.cpp:131
+#: gui/patch/dmx_patch_canvas.cpp:145
 #, c-format
 msgid " Byte %d"
 msgstr " 字节 %d"
 
-#: gui/patch/dmx_patch_canvas.cpp:163
+#: gui/patch/dmx_patch_canvas.cpp:176
 #, c-format
 msgid "Universe %s | Channel %d"
 msgstr "Universe %s | 通道 %d"
 
-#: gui/patch/dmx_patch_canvas.cpp:165 gui/patch/dmx_patch_diagnostics.cpp:76
+#: gui/patch/dmx_patch_canvas.cpp:178 gui/patch/dmx_patch_diagnostics.cpp:96
 msgid "Overlapping fixtures"
 msgstr "灯具重叠"
 
-#: gui/patch/dmx_patch_canvas.cpp:168
+#: gui/patch/dmx_patch_canvas.cpp:181
 #, c-format
 msgid ""
 "\n"
@@ -4960,109 +5038,115 @@ msgid ""
 "GDTF break %d / MVR break %d | Offset %d | Byte %d\n"
 "Attribute: %s\n"
 "Functions: %s"
-msgstr "\n%s - %s\nUUID：%s\nGDTF Break %d / MVR Break %d | 偏移 %d | 字节 %d\n属性：%s\n功能：%s"
+msgstr ""
+"\n"
+"%s - %s\n"
+"UUID：%s\n"
+"GDTF Break %d / MVR Break %d | 偏移 %d | 字节 %d\n"
+"属性：%s\n"
+"功能：%s"
 
-#: gui/patch/dmx_patch_canvas.cpp:171
+#: gui/patch/dmx_patch_canvas.cpp:184
 #, c-format
 msgid "Fixture purpose: %s"
 msgstr "灯具用途：%s"
 
-#: gui/patch/dmx_patch_canvas.cpp:175
+#: gui/patch/dmx_patch_canvas.cpp:188
 #, c-format
 msgid "PROVISIONAL: %s | Declared offset %d | GDTF break: %s"
 msgstr "暂定：%s | 声明偏移 %d | GDTF Break：%s"
 
-#: gui/patch/dmx_patch_canvas.cpp:177
+#: gui/patch/dmx_patch_canvas.cpp:190
 msgid ""
 "Declared-offset compatibility preview; this is not a resolved physical patch "
 "assignment."
 msgstr "声明偏移的兼容性预览；并非已解析的物理 Patch 分配。"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:14
+#: gui/patch/dmx_patch_diagnostics.cpp:16
 msgid "Missing patch assignment"
 msgstr "缺少 Patch 分配"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:15
+#: gui/patch/dmx_patch_diagnostics.cpp:17
 msgid "Invalid or unsupported DMX address"
 msgstr "DMX 地址无效或不受支持"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:16
+#: gui/patch/dmx_patch_diagnostics.cpp:18
 msgid "Invalid or ambiguous DMX break"
 msgstr "DMX Break 无效或有歧义"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:17
+#: gui/patch/dmx_patch_diagnostics.cpp:19
 msgid "GDTF definition or DMX mode unavailable"
 msgstr "GDTF 定义或 DMX 模式不可用"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:18
+#: gui/patch/dmx_patch_diagnostics.cpp:20
 msgid "Physical channel or geometry reference unresolved"
 msgstr "物理通道或几何引用无法解析"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:19
+#: gui/patch/dmx_patch_diagnostics.cpp:21
 msgid "Physical channels exceed 512; excess channels are not displayed"
 msgstr "物理通道超过 512；不显示超出的通道"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:33
-#: gui/patch/dmx_patch_diagnostics.cpp:35 gui/patch/dmx_patch_panel.cpp:39
+#: gui/patch/dmx_patch_diagnostics.cpp:53
+#: gui/patch/dmx_patch_diagnostics.cpp:55 gui/patch/dmx_patch_panel.cpp:41
 msgid "Patch diagnostics"
 msgstr "Patch 诊断"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:38
+#: gui/patch/dmx_patch_diagnostics.cpp:58
 msgid "Warning"
 msgstr "警告"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:54
+#: gui/patch/dmx_patch_diagnostics.cpp:74
 #, c-format
 msgid "Offsets: %s | GDTF break: %s | Geometry: %s"
 msgstr "偏移：%s | GDTF Break：%s | 几何：%s"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:57
+#: gui/patch/dmx_patch_diagnostics.cpp:77
 #, c-format
 msgid "MVR break %s has no start address"
 msgstr "MVR Break %s 未分配起始地址"
 
-#: gui/patch/dmx_patch_diagnostics.cpp:74
+#: gui/patch/dmx_patch_diagnostics.cpp:94
 #, c-format
 msgid "Universe %s, channels %d-%d"
 msgstr "Universe %s，通道 %d-%d"
 
-#: gui/patch/dmx_patch_panel.cpp:27
+#: gui/patch/dmx_patch_panel.cpp:28
 msgid "DMX universe"
 msgstr "DMX Universe"
 
-#: gui/patch/dmx_patch_panel.cpp:28 gui/patch/dmx_patch_panel.cpp:70
+#: gui/patch/dmx_patch_panel.cpp:29 gui/patch/dmx_patch_panel.cpp:102
 msgid "Choose a patched universe or enter any positive universe number."
 msgstr "选择已分配的 Universe，或输入正整数 Universe 编号。"
 
-#: gui/patch/dmx_patch_panel.cpp:30
+#: gui/patch/dmx_patch_panel.cpp:31
 msgid "Declared offsets"
 msgstr "声明偏移"
 
-#: gui/patch/dmx_patch_panel.cpp:31
+#: gui/patch/dmx_patch_panel.cpp:33
 msgid ""
 "Explicit provisional preview for unresolved GDTF channels; does not change "
 "the patch."
 msgstr "显式预览未解析的 GDTF 通道；不会更改 Patch。"
 
-#: gui/patch/dmx_patch_panel.cpp:40
+#: gui/patch/dmx_patch_panel.cpp:42
 msgid "Show patch diagnostics"
 msgstr "显示 Patch 诊断"
 
-#: gui/patch/dmx_patch_panel.cpp:66
+#: gui/patch/dmx_patch_panel.cpp:98
 msgid "Enter a positive universe number."
 msgstr "请输入正整数 Universe 编号。"
 
-#: gui/patch/dmx_patch_panel.cpp:116
+#: gui/patch/dmx_patch_panel.cpp:153
 #, c-format
 msgid "Occupied: %d/512 | Conflicts: %d"
 msgstr "已占用：%d/512 | 冲突：%d"
 
-#: gui/patch/dmx_patch_panel.cpp:118
+#: gui/patch/dmx_patch_panel.cpp:155
 #, c-format
 msgid "Occupied: %d/512 | Provisional: %d | Conflicts: %d"
 msgstr "已占用：%d/512 | 暂定：%d | 冲突：%d"
 
-#: gui/patch/dmx_patch_panel.cpp:122
+#: gui/patch/dmx_patch_panel.cpp:159
 #, c-format
 msgid "Show patch diagnostics (%d)"
 msgstr "显示 Patch 诊断（%d）"
@@ -5979,31 +6063,31 @@ msgstr "选择灯具类型："
 msgid "Add from file..."
 msgstr "从文件添加..."
 
-#: gui/services/fixture_symbol_preparation_service.cpp:534
+#: gui/services/fixture_symbol_preparation_service.cpp:672
 msgid "fixture resource"
 msgstr "灯具资源"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:537
+#: gui/services/fixture_symbol_preparation_service.cpp:675
 msgid "Preparing"
 msgstr "正在准备"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:541
+#: gui/services/fixture_symbol_preparation_service.cpp:679
 msgid "Capturing fixture views"
 msgstr "正在捕获灯具视图"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:544
+#: gui/services/fixture_symbol_preparation_service.cpp:682
 msgid "Processing"
 msgstr "正在处理"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:547
+#: gui/services/fixture_symbol_preparation_service.cpp:685
 msgid "Publishing"
 msgstr "正在发布"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:550
+#: gui/services/fixture_symbol_preparation_service.cpp:688
 msgid "Refreshing"
 msgstr "正在刷新"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:554
+#: gui/services/fixture_symbol_preparation_service.cpp:692
 #, c-format
 msgid "Preparing fixture symbols: %s - %s - %zu pending"
 msgstr "正在准备灯具符号：%s - %s - %zu 个待处理"
@@ -6118,14 +6202,6 @@ msgstr "缺少离线帮助文件。请使用在线文档。"
 msgid "Page size"
 msgstr "页面尺寸"
 
-#: gui/viewer2dprintdialog.cpp:36
-msgid "A3"
-msgstr "A3"
-
-#: gui/viewer2dprintdialog.cpp:38
-msgid "A4"
-msgstr "A4"
-
 #: gui/viewer2dprintdialog.cpp:46
 msgid "Portrait"
 msgstr "肖像"
@@ -6236,23 +6312,23 @@ msgstr "全选"
 msgid "Spanish"
 msgstr "西班牙语"
 
-#: viewer2d/viewer2dpanel.cpp:3564
+#: viewer2d/viewer2dpanel.cpp:3569
 msgid "Gap measure: "
 msgstr "测量工具"
 
-#: viewer2d/viewer2dpanel.cpp:3565
+#: viewer2d/viewer2dpanel.cpp:3570
 msgid "Measure: "
 msgstr "测量工具"
 
-#: viewer2d/viewer2dpanel.cpp:3637 viewer3d/viewer3dpanel.cpp:2255
+#: viewer2d/viewer2dpanel.cpp:3642 viewer3d/viewer3dpanel.cpp:2255
 msgid "Convert to Truss"
 msgstr "转换为电动葫芦"
 
-#: viewer2d/viewer2dpanel.cpp:3723 viewer3d/viewer3dpanel.cpp:2272
+#: viewer2d/viewer2dpanel.cpp:3728 viewer3d/viewer3dpanel.cpp:2272
 msgid "No position"
 msgstr "位置"
 
-#: viewer2d/viewer2dpanel.cpp:3734 viewer3d/viewer3dpanel.cpp:2283
+#: viewer2d/viewer2dpanel.cpp:3739 viewer3d/viewer3dpanel.cpp:2283
 msgid "Select by position"
 msgstr "选择"
 
@@ -6359,6 +6435,18 @@ msgstr "渲染模式"
 #: viewer3d/viewer3dpanel.cpp:2288
 msgid "Export image..."
 msgstr "导出灯具..."
+
+#~ msgid "Page X (mm)"
+#~ msgstr "页面 X (mm)"
+
+#~ msgid "Page Y (mm)"
+#~ msgstr "页面 Y (mm)"
+
+#~ msgid "Use visual framing center"
+#~ msgstr "使用可视取景中心"
+
+#~ msgid "Frame scale"
+#~ msgstr "框架规模"
 
 #~ msgid "16 columns"
 #~ msgstr "16 列"

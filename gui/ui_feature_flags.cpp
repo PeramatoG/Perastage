@@ -17,7 +17,7 @@
  */
 #include "ui_feature_flags.h"
 
-#include "Viewer2DPrintSettings.h"
+#include "ui_print_build_defaults.h"
 
 namespace {
 
@@ -52,12 +52,13 @@ bool IsFeatureEnabled(FeatureFlag flag) {
 // Applies build-profile defaults to 2D print settings before showing dialogs/exporting.
 void ApplyBuildDefaultsToViewer2DPrintSettings(
     print::Viewer2DPrintSettings &settings) {
-  if (kIsDebugBuild)
-    return;
+  detail::ApplyPrintBuildDefaults(settings, kIsDebugBuild);
+}
 
-  settings.pageSize = print::PageSize::A4;
-  settings.includeGrid = true;
-  settings.detailedFootprints = false;
+// Keeps Release defaults from silently fitting a fixed-scale A3 Layout to A4.
+void ApplyBuildDefaultsToViewer2DPrintSettings(
+    print::Viewer2DPrintSettings &settings, const print::PageSetup &physicalDocument) {
+  detail::ApplyPrintBuildDefaults(settings, kIsDebugBuild, &physicalDocument);
 }
 
 } // namespace ui
