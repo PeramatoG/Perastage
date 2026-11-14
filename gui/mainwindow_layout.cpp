@@ -540,7 +540,9 @@ void MainWindow::EnforceMainToolbarVisibility() {
   auto &preferences = guiConfigServices->Preferences();
   auto &alignment = auiManager->GetPane("AlignmentToolbar");
   const bool offscreen = alignment.IsOk() && !alignment.IsFloating() &&
-      alignment.dock_direction == wxAUI_DOCK_TOP && alignment.dock_pos >= GetClientSize().x;
+      alignment.dock_direction == wxAUI_DOCK_TOP &&
+      (alignment.dock_pos >= GetClientSize().x ||
+       (alignment.window && alignment.dock_pos + alignment.window->GetBestSize().x > GetClientSize().x));
   if (!preferences.GetValue("ui_alignment_inline_toolbar") || offscreen) {
     int position = 0;
     for (const auto name : gui::kAlwaysVisibleToolbarPanes) {

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.43\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-14 20:13+0100\n"
+"POT-Creation-Date: 2026-11-14 20:28+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1159,7 +1159,7 @@ msgstr ""
 msgid "Anchor"
 msgstr ""
 
-#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:168
+#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:185
 msgid "Alignment"
 msgstr ""
 
@@ -3072,63 +3072,71 @@ msgstr ""
 msgid "Loading tables..."
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:79
+#: gui/mainwindow_alignment.cpp:80
 msgid "Extents"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:79
+#: gui/mainwindow_alignment.cpp:80
 msgid "First selected"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:79
+#: gui/mainwindow_alignment.cpp:80
 msgid "Last selected"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:95
+#: gui/mainwindow_alignment.cpp:96
 msgid "XY work plane (Top)"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:95
+#: gui/mainwindow_alignment.cpp:96
 msgid "XZ work plane (Front)"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:95
+#: gui/mainwindow_alignment.cpp:96
 msgid "YZ work plane (Side)"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:118
+#: gui/mainwindow_alignment.cpp:113
+msgid "Align using geometric bounds"
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:113
+msgid "Align using insertion points"
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:135
 msgid "Align Top"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:118
+#: gui/mainwindow_alignment.cpp:135
 msgid "Align Bottom"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:118
+#: gui/mainwindow_alignment.cpp:135
 msgid "Align Left"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:118
+#: gui/mainwindow_alignment.cpp:135
 msgid "Align Right"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:119
+#: gui/mainwindow_alignment.cpp:136
 msgid "Center Horizontally"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:119
+#: gui/mainwindow_alignment.cpp:136
 msgid "Center Vertically"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:155
+#: gui/mainwindow_alignment.cpp:172
 msgid "Alignment failed. See diagnostics for details."
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:157
+#: gui/mainwindow_alignment.cpp:174
 msgid "Selection aligned."
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:157
+#: gui/mainwindow_alignment.cpp:174
 msgid "Selection is already aligned."
 msgstr ""
 
@@ -3544,11 +3552,11 @@ msgstr ""
 msgid "Version %s"
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:1174
+#: gui/mainwindow_layout.cpp:1176
 msgid "Layout view update skipped: target view not found."
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:1206
+#: gui/mainwindow_layout.cpp:1208
 msgid "Layout view update failed."
 msgstr ""
 

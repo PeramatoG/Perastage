@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-14 20:13+0100\n"
+"POT-Creation-Date: 2026-11-14 20:28+0100\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: French\n"
@@ -1288,7 +1288,7 @@ msgstr "Droite"
 msgid "Anchor"
 msgstr "Ancrage"
 
-#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:168
+#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:185
 msgid "Alignment"
 msgstr "Alignement"
 
@@ -3278,63 +3278,71 @@ msgstr "Finalisation du chargement du projet…"
 msgid "Loading tables..."
 msgstr "Chargement des tables…"
 
-#: gui/mainwindow_alignment.cpp:79
+#: gui/mainwindow_alignment.cpp:80
 msgid "Extents"
 msgstr "Étendue"
 
-#: gui/mainwindow_alignment.cpp:79
+#: gui/mainwindow_alignment.cpp:80
 msgid "First selected"
 msgstr "Premier sélectionné"
 
-#: gui/mainwindow_alignment.cpp:79
+#: gui/mainwindow_alignment.cpp:80
 msgid "Last selected"
 msgstr "Dernier sélectionné"
 
-#: gui/mainwindow_alignment.cpp:95
+#: gui/mainwindow_alignment.cpp:96
 msgid "XY work plane (Top)"
 msgstr "Plan de travail XY (Dessus)"
 
-#: gui/mainwindow_alignment.cpp:95
+#: gui/mainwindow_alignment.cpp:96
 msgid "XZ work plane (Front)"
 msgstr "Plan de travail XZ (Face)"
 
-#: gui/mainwindow_alignment.cpp:95
+#: gui/mainwindow_alignment.cpp:96
 msgid "YZ work plane (Side)"
 msgstr "Plan de travail YZ (Côté)"
 
-#: gui/mainwindow_alignment.cpp:118
+#: gui/mainwindow_alignment.cpp:113
+msgid "Align using geometric bounds"
+msgstr "Aligner selon les limites géométriques"
+
+#: gui/mainwindow_alignment.cpp:113
+msgid "Align using insertion points"
+msgstr "Aligner selon les points d’insertion"
+
+#: gui/mainwindow_alignment.cpp:135
 msgid "Align Top"
 msgstr "Aligner en haut"
 
-#: gui/mainwindow_alignment.cpp:118
+#: gui/mainwindow_alignment.cpp:135
 msgid "Align Bottom"
 msgstr "Aligner en bas"
 
-#: gui/mainwindow_alignment.cpp:118
+#: gui/mainwindow_alignment.cpp:135
 msgid "Align Left"
 msgstr "Aligner à gauche"
 
-#: gui/mainwindow_alignment.cpp:118
+#: gui/mainwindow_alignment.cpp:135
 msgid "Align Right"
 msgstr "Aligner à droite"
 
-#: gui/mainwindow_alignment.cpp:119
+#: gui/mainwindow_alignment.cpp:136
 msgid "Center Horizontally"
 msgstr "Centrer horizontalement"
 
-#: gui/mainwindow_alignment.cpp:119
+#: gui/mainwindow_alignment.cpp:136
 msgid "Center Vertically"
 msgstr "Centrer verticalement"
 
-#: gui/mainwindow_alignment.cpp:155
+#: gui/mainwindow_alignment.cpp:172
 msgid "Alignment failed. See diagnostics for details."
 msgstr "Échec de l’alignement. Consultez les diagnostics pour plus de détails."
 
-#: gui/mainwindow_alignment.cpp:157
+#: gui/mainwindow_alignment.cpp:174
 msgid "Selection aligned."
 msgstr "Sélection alignée."
 
-#: gui/mainwindow_alignment.cpp:157
+#: gui/mainwindow_alignment.cpp:174
 msgid "Selection is already aligned."
 msgstr "La sélection est déjà alignée."
 
@@ -3766,11 +3774,11 @@ msgstr "X : -- m  Y : -- m  Z : -- m"
 msgid "Version %s"
 msgstr "Version %s"
 
-#: gui/mainwindow_layout.cpp:1174
+#: gui/mainwindow_layout.cpp:1176
 msgid "Layout view update skipped: target view not found."
 msgstr "Mise à jour de la vue de mise en page ignorée : vue cible introuvable."
 
-#: gui/mainwindow_layout.cpp:1206
+#: gui/mainwindow_layout.cpp:1208
 msgid "Layout view update failed."
 msgstr "Échec de la mise à jour de la vue de mise en page."
 

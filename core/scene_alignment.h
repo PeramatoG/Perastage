@@ -22,6 +22,8 @@
 #include <optional>
 
 namespace alignment {
+// Explicit anchor policy; insertion points never act as a physical-bounds fallback.
+enum class Anchor { GeometricBounds, InsertionPoint };
 using Target = scene_grouping::SceneTransformTarget;
 using BoundsProvider = std::function<std::optional<Bounds>(const MvrScene &, const Target &, std::string &)>;
 struct Targets {
@@ -31,10 +33,10 @@ struct Targets {
 // Normalizes with the shared interactive policy, retaining first occurrence order.
 Targets ResolveTargets(const MvrScene &scene, const std::vector<Target> &ordered,
                        const scene_grouping::InteractiveTransformPolicy &policy);
-// Captures geometry, validates the whole plan, then delegates atomic publication.
+// Captures the selected anchors, validates the plan, then delegates atomic publication.
 perastage::command::Result Execute(
     perastage::command::ExecutionContext &context, const std::vector<Target> &ordered,
     Reference reference, Operation operation, Plane plane,
     const scene_grouping::InteractiveTransformPolicy &policy,
-    const BoundsProvider &bounds);
+    const BoundsProvider &bounds, Anchor anchor = Anchor::GeometricBounds);
 } // namespace alignment

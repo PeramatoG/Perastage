@@ -69,7 +69,17 @@ and fixture distribution retain their existing movement behavior.
 Groups follow the same movement preferences as dragging; a group and its selected
 children are never moved twice.
 
+Choose **Align using geometric bounds** (default) to align physical edges and
+centers, or **Align using insertion points** to align object world origins. These
+two icon buttons are mutually exclusive and work with every reference and plane.
+With First/Last references and insertion points, Left/Right/Center horizontally
+produce the same result, as do Top/Bottom/Center vertically.
+With Extents, edge operations use the minimum/maximum selected point coordinate
+and center operations use their midpoint. A promoted group uses its own world
+origin, moving its descendants together. Insertion-point alignment needs no model
+geometry; it is an explicit choice, never an automatic fallback for missing bounds.
+
 One changed alignment is one Undo step. Repeating an already satisfied operation
-creates no history. Missing physical geometry cancels the entire operation; see
-diagnostics for the affected UUID/resource. Dummy hoists without physical geometry
+creates no history. In geometric-bounds mode, missing physical geometry cancels
+the entire operation; see diagnostics for the affected UUID/resource. Dummy hoists without physical geometry
 cannot be aligned by extents. Layout alignment is not included.

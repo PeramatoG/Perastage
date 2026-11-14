@@ -50,6 +50,7 @@ void SetAlignmentDisabledIcon(wxAuiToolBar *bar, int id, const char *name) {
 }
 struct AlignmentControls {
   alignment::Reference reference = alignment::Reference::Extents;
+  alignment::Anchor anchor = alignment::Anchor::GeometricBounds;
   bool use2D = false;
 };
 bool ContainsFocus(wxWindow *panel) {
@@ -109,6 +110,22 @@ void MainWindow::CreateAlignmentToolBar() {
     },id);
   }
   bar->AddSeparator();
+  const wxString anchors[] = {_("Align using geometric bounds"),_("Align using insertion points")};
+  const char *anchorIcons[] = {"alignment-bounds","alignment-insertion"};
+  for (int index = 0; index < 2; ++index) {
+    const int id = wxWindow::NewControlId();
+    bar->AddTool(id,anchors[index],AlignmentIcon(anchorIcons[index]),anchors[index],wxITEM_RADIO);
+    SetAlignmentDisabledIcon(bar,id,anchorIcons[index]);
+    bar->ToggleTool(id,index == 0);
+    Bind(wxEVT_TOOL,[controls,index](wxCommandEvent &) {
+      controls->anchor = static_cast<alignment::Anchor>(index);
+    },id);
+    Bind(wxEVT_UPDATE_UI,[this,controls,index](wxUpdateUIEvent &event) {
+      event.Enable(!layoutModeActive);
+      event.Check(controls->anchor == static_cast<alignment::Anchor>(index));
+    },id);
+  }
+  bar->AddSeparator();
   struct Availability {
     using Key = std::tuple<size_t,size_t,bool,bool,bool,bool>;
     std::optional<Key> key;
@@ -145,7 +162,7 @@ void MainWindow::CreateAlignmentToolBar() {
       perastage::command::ExecutionContext context{cfg.GetScene(),selection,host};
       const auto result = alignment::Execute(context,chronology,
           controls->reference,operation,currentPlane(),
-          selection_movement_settings::LoadInteractiveTransformPolicy(cfg),alignment::SceneBounds);
+          selection_movement_settings::LoadInteractiveTransformPolicy(cfg),alignment::SceneBounds,controls->anchor);
       for (const auto &diagnostic : result.diagnostics) {
         using S = perastage::command::DiagnosticSeverity;
         if (diagnostic.severity == S::Error) diagnostics::DiagnosticLogger::Error(diagnostic.message);

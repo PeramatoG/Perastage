@@ -92,7 +92,7 @@ Targets ResolveTargets(const MvrScene &scene, const std::vector<Target> &ordered
 perastage::command::Result Execute(
     perastage::command::ExecutionContext &context, const std::vector<Target> &ordered,
     Reference reference, Operation operation, Plane plane,
-    const scene_grouping::InteractiveTransformPolicy &policy, const BoundsProvider &provider) {
+    const scene_grouping::InteractiveTransformPolicy &policy, const BoundsProvider &provider, Anchor anchor) {
   using namespace perastage::command;
   Result result;
   result.request = Request{"scene.align", {}};
@@ -109,9 +109,17 @@ perastage::command::Result Execute(
     std::vector<Rectangle> rectangles;
     for (const auto &target : targets.items) {
       std::string diagnostic;
-      const auto bounds = provider(context.scene, target, diagnostic);
+      std::optional<Bounds> bounds;
+      if (anchor == Anchor::InsertionPoint) {
+        const auto origin = scene_grouping::GetTargetWorldTransform(context.scene,target).o;
+        const std::array<double,3> point{origin[0],origin[1],origin[2]};
+        bounds = Bounds{point,point};
+      } else if (anchor == Anchor::GeometricBounds) {
+        bounds = provider(context.scene, target, diagnostic);
+      } else return reject("Unknown alignment anchor policy.");
       if (!bounds || !Valid(*bounds))
-        return reject("Physical bounds unavailable for " + target.uuid + ": " + diagnostic);
+        return reject(std::string(anchor == Anchor::InsertionPoint ? "Insertion point invalid for " :
+                                  "Physical bounds unavailable for ") + target.uuid + ": " + diagnostic);
       rectangles.push_back(Project(*bounds, plane));
     }
     constexpr double sceneToleranceMm = 0.01;

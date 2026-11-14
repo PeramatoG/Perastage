@@ -85,7 +85,7 @@ void Chronology() {
   assert(order.Items()[3].uuid == "f");
   order.Clear(); assert(order.Items().empty());
 }
-void Commands() {
+void Commands(Anchor anchor) {
   for (auto plane : {Plane::XY,Plane::XZ,Plane::YZ}) {
     for (auto ref : {Reference::Extents,Reference::First,Reference::Last}) {
       for (auto op : {Operation::Top,Operation::Bottom,Operation::Left,Operation::Right,
@@ -98,11 +98,13 @@ void Commands() {
         scene_grouping::ObjectSelection selection{{"a"},{"b"},{},{}};
         Host host; ExecutionContext context{scene,selection,host};
         const std::vector<Target> order{{MvrNodeType::Truss,"b"},{MvrNodeType::Fixture,"a"}};
-        auto provider = [](const MvrScene &s,const Target &t,std::string &) -> std::optional<Bounds> {
+        int boundsCalls = 0;
+        auto provider = [&boundsCalls](const MvrScene &s,const Target &t,std::string &) -> std::optional<Bounds> {
+          ++boundsCalls;
           const auto m = scene_grouping::GetTargetWorldTransform(s,t);
           return Bounds{{m.o[0]-10,m.o[1]-20,m.o[2]-30},{m.o[0]+40,m.o[1]+70,m.o[2]+90}};
         };
-        const auto result = Execute(context,order,ref,op,plane,{},provider);
+        const auto result = Execute(context,order,ref,op,plane,{},provider,anchor);
         assert(result.Success() && result.mutation.sceneChanged && host.entries == 1);
         const auto afterA = scene.fixtures.at("a").transform;
         const auto afterB = scene.trusses.at("b").transform;
@@ -115,7 +117,7 @@ void Commands() {
         }
         if (ref == Reference::First) assert(afterB.o == b.transform.o);
         if (ref == Reference::Last) assert(afterA.o == a.transform.o);
-        assert(!Execute(context,order,ref,op,plane,{},provider).mutation.sceneChanged);
+        assert(!Execute(context,order,ref,op,plane,{},provider,anchor).mutation.sceneChanged);
         assert(host.entries == 1 && selection.fixtures == std::vector<std::string>{"a"});
         // Undo/Redo snapshots restore exact matrices, using the batch publication boundary.
         const MvrScene redo = scene; scene = host.before;
@@ -129,14 +131,39 @@ void Commands() {
         assert(!Execute(context,order,ref,op,plane,{},missing).Success());
         assert(scene.fixtures.at("a").transform.o == beforeFailure.fixtures.at("a").transform.o);
         scene = host.before;
-        assert(!Execute(context,order,ref,op,plane,{},provider).Success());
+        assert(!Execute(context,order,ref,op,plane,{},provider,anchor).Success());
         assert(scene.fixtures.at("a").transform.o == a.transform.o && host.entries == 1);
+        if (anchor == Anchor::InsertionPoint) assert(boundsCalls == 0);
       }
     }
   }
   const auto side = Project({{1,2,3},{4,8,9}},Plane::YZ);
   assert(side.left == -8 && side.right == -2 && side.bottom == 3 && side.top == 9);
   assert(WorldDelta(10,Plane::YZ,Operation::Left)[1] == -10);
+}
+void AnchorPolicies() {
+  MvrScene scene;
+  Fixture a; a.uuid="a"; a.transform.o={100,200,300}; scene.fixtures["a"]=a;
+  Truss b; b.uuid="b"; b.transform.o={500,600,700}; scene.trusses["b"]=b;
+  scene_grouping::ObjectSelection selection{{"a"},{"b"},{},{},{}};
+  Host host; ExecutionContext context{scene,selection,host};
+  const std::vector<Target> order{{MvrNodeType::Fixture,"a"},{MvrNodeType::Truss,"b"}};
+  auto bounds=[](const MvrScene &s,const Target &t,std::string &) -> std::optional<Bounds> {
+    const auto o=scene_grouping::GetTargetWorldTransform(s,t).o;
+    const double half=t.type==MvrNodeType::Fixture ? 10 : 50;
+    return Bounds{{o[0]-half,o[1]-half,o[2]-half},{o[0]+half,o[1]+half,o[2]+half}};
+  };
+  assert(Execute(context,order,Reference::First,Operation::Left,Plane::XY,{},bounds).Success());
+  assert(scene.trusses.at("b").transform.o[0]==140); // Different physical widths.
+  scene.fixtures["a"]=a; scene.trusses["b"]=b;
+  // No provider is required, even when physical resources are unavailable.
+  assert(Execute(context,order,Reference::First,Operation::Left,Plane::XY,{}, {},Anchor::InsertionPoint).Success());
+  assert(scene.trusses.at("b").transform.o[0]==100);
+  const auto entries=host.entries;
+  scene.trusses["b"].transform.o[0]=std::numeric_limits<float>::quiet_NaN();
+  const auto invalid=Execute(context,order,Reference::First,Operation::Left,Plane::XY,{}, {},Anchor::InsertionPoint);
+  assert(!invalid.Success() && host.entries==entries);
+  assert(scene.fixtures.at("a").transform.o==a.transform.o);
 }
 void CoordinatePrecision() {
   MvrScene scene;
@@ -161,7 +188,7 @@ void CoordinatePrecision() {
   assert(host.entries==1);
 }
 
-void Groups() {
+void Groups(Anchor anchor) {
   MvrScene scene;
   Fixture f; f.uuid="f"; scene.fixtures["f"]=f;
   Truss t; t.uuid="t"; t.parentGroupUuid="g"; scene.trusses["t"]=t;
@@ -189,7 +216,7 @@ void Groups() {
     return Bounds{{m.o[0]-10,m.o[1]-10,m.o[2]-10},{m.o[0]+10,m.o[1]+10,m.o[2]+10}};
   };
   const auto moved = Execute(context,{{MvrNodeType::GroupObject,"g"},{MvrNodeType::Truss,"t"},
-                                     {MvrNodeType::Fixture,"f"}},Reference::Last,Operation::Left,Plane::XY,{},bounds);
+                                     {MvrNodeType::Fixture,"f"}},Reference::Last,Operation::Left,Plane::XY,{},bounds,anchor);
   assert(moved.Success() && host.entries == 1);
   assert(scene.groupObjects.at("g").transform.o[0] == 0);
   assert(scene.trusses.at("t").transform.o[0] == 0);
@@ -203,4 +230,5 @@ void Groups() {
 
 }
 }
-int main() { Arithmetic(); Chronology(); Commands(); CoordinatePrecision(); Groups(); }
+int main() { Arithmetic(); Chronology(); Commands(Anchor::GeometricBounds); Commands(Anchor::InsertionPoint); AnchorPolicies();
+  CoordinatePrecision(); Groups(Anchor::GeometricBounds); Groups(Anchor::InsertionPoint); }

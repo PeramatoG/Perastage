@@ -47,7 +47,7 @@ Maintenance rules for Codex and contributors:
 
 - New dockable **Position Tool**, shown below Summary by default in 2D and 3D, supports precise absolute coordinates and incremental axis arrows, mixed-value multi-selection, group positioning, Undo/Redo and 2D insertion-point indicators.
 - Manual single-fixture patch edits preserve valid start addresses when the primary footprint exceeds a universe. Red Channel warnings explain compatibility and overlaps without changing AutoPatch or secondary DMX breaks.
-- Shared scene Alignment toolbar in 2D and 3D, with geometric edges and centers, exclusive reference/plane icon buttons, group-aware movement and one-step Undo. The 2D plane follows the view; 3D alignment and dragging share the selected XY/XZ/YZ plane. Disabled alignment icons now match the existing Layout toolbar artwork. Alignment controls remain visible after restoring saved workspaces, with a second row when the window is too narrow.
+- Shared scene Alignment toolbar in 2D and 3D, with geometric edges and centers or explicitly selected insertion points, exclusive anchor/reference/plane icon buttons, group-aware movement and one-step Undo. The 2D plane follows the view; 3D alignment and dragging share the selected XY/XZ/YZ plane. Disabled alignment icons now match the existing Layout toolbar artwork. Alignment controls remain visible after restoring saved workspaces, with a second row when the window is too narrow.
 
 - More reliable MVR import and export, with improved preservation of standard scene data, assignments, references, and transforms.
 - Smarter GDTF matching and DMX mode selection during MVR import, with clearer manual choices.
