@@ -35,3 +35,11 @@ Les unités suivent **Preferences → Units** : mètres avec trois décimales ou
 Le déplacement groupé suit les [préférences de sélection et déplacement](preferences.md#sélection-et-déplacement). Vérifiez la position finale dans les deux vues et utilisez Undo si nécessaire.
 
 Consultez [Raccourcis et barre de commandes](shortcuts-and-command-bar.md) pour les entrées clavier, souris et Console. Pour les pages imprimables, utilisez [Mises en page et PDF](layouts.md).
+
+## Aligner les objets de scène
+
+Utilisez la barre **Alignement** dans l’espace 2D ou 3D. Sélectionnez au moins deux cibles effectives dans les vues ou les tableaux. Choisissez **Étendue**, **Premier sélectionné** ou **Dernier sélectionné**, puis **Aligner en haut**, **Aligner en bas**, **Aligner à gauche**, **Aligner à droite**, **Centrer horizontalement** ou **Centrer verticalement**. La référence premier/dernier suit l’ordre de sélection entre types et reste fixe. Retirer puis sélectionner à nouveau un objet le place en dernier. Les ajouts groupés suivent l’ordre stable des UUID ; trier les tableaux conserve l’ordre précédent.
+
+Le plan visible est explicite : **XY** pour Dessus, **XZ** pour Face et **YZ** pour Côté. Le plan initial est XY, même en perspective ; déplacer la caméra ne le change pas. En vue de côté, gauche/droite suit la projection inversée de Y. La troisième coordonnée, la rotation et l’échelle sont conservées. Les bords géométriques physiques sont utilisés, y compris pour des tailles et rotations différentes. Les groupes suivent les préférences de déplacement ; un groupe et ses descendants sélectionnés ne sont jamais déplacés deux fois.
+
+Un alignement modifié crée une étape Annuler ; le répéter sans changement ne crée pas d’historique. Une géométrie physique manquante annule toute l’opération ; les diagnostics identifient l’UUID/la ressource. Les palans fictifs sans géométrie physique ne peuvent pas être alignés par étendue. L’alignement Layout n’est pas inclus.

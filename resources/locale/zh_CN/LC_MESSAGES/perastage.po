@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-14 10:49+0100\n"
+"POT-Creation-Date: 2026-11-14 12:00+0100\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -76,7 +76,7 @@ msgstr ""
 msgid "About Perastage"
 msgstr "关于 Perastage"
 
-#: gui/addfixturedialog.cpp:24 gui/mainwindow_menu.cpp:324
+#: gui/addfixturedialog.cpp:24 gui/mainwindow_menu.cpp:325
 msgid "Add Fixture"
 msgstr "添加灯具"
 
@@ -128,7 +128,7 @@ msgstr "DMX 域："
 msgid "Channel:"
 msgstr "通道："
 
-#: gui/addsceneobjectdialog.cpp:11 gui/mainwindow_menu.cpp:331
+#: gui/addsceneobjectdialog.cpp:11 gui/mainwindow_menu.cpp:332
 msgid "Add Scene Object"
 msgstr "添加场景对象"
 
@@ -141,7 +141,7 @@ msgstr "数量："
 msgid "Insertion point %s"
 msgstr "插入点 %s"
 
-#: gui/addtrussdialog.cpp:71 gui/mainwindow_menu.cpp:327
+#: gui/addtrussdialog.cpp:71 gui/mainwindow_menu.cpp:328
 msgid "Add Truss"
 msgstr "添加桁架"
 
@@ -191,7 +191,7 @@ msgstr ""
 
 #: gui/dictionary_export_conflict_dialog.cpp:29
 #: gui/dictionaryeditdialog.cpp:515 gui/dictionaryeditdialog.cpp:571
-#: gui/inspection/inspector_workspace_panel.cpp:122 gui/mainwindow_menu.cpp:189
+#: gui/inspection/inspector_workspace_panel.cpp:122 gui/mainwindow_menu.cpp:190
 msgid "File"
 msgstr "文件"
 
@@ -536,7 +536,7 @@ msgstr "%s 字典页面有未保存的表编辑。在 %s 之前保存它们？"
 msgid "Unsaved dictionary edits"
 msgstr "未保存的词典编辑"
 
-#: gui/dictionaryeditdialog.cpp:874 gui/mainwindow_menu.cpp:170
+#: gui/dictionaryeditdialog.cpp:874 gui/mainwindow_menu.cpp:171
 msgid "Save"
 msgstr "保存"
 
@@ -820,8 +820,8 @@ msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:1521 gui/dictionaryeditdialog.cpp:2276
 #: gui/fixtureeditdialog.cpp:644 gui/fixturetablepanel.cpp:528
-#: gui/mainwindow_fixture_replace.cpp:227 gui/mainwindow_menu.cpp:998
-#: gui/mainwindow_menu.cpp:1021
+#: gui/mainwindow_fixture_replace.cpp:227 gui/mainwindow_menu.cpp:999
+#: gui/mainwindow_menu.cpp:1022
 msgid "Select GDTF file"
 msgstr "选择 GDTF 文件"
 
@@ -836,7 +836,7 @@ msgid "DMX Mode"
 msgstr "DMX 模式"
 
 #: gui/dictionaryeditdialog.cpp:1556 gui/dictionaryeditdialog.cpp:2307
-#: gui/mainwindow_menu.cpp:1054 gui/mainwindow_menu.cpp:1073
+#: gui/mainwindow_menu.cpp:1055 gui/mainwindow_menu.cpp:1074
 #: gui/mainwindow_truss_replace.cpp:115
 msgid "Select Truss file"
 msgstr "选择桁架文件"
@@ -1262,7 +1262,7 @@ msgstr "右"
 msgid "Anchor"
 msgstr "锚点"
 
-#: gui/fixture_label_editor.cpp:61
+#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:102
 msgid "Alignment"
 msgstr "对齐"
 
@@ -1505,7 +1505,7 @@ msgstr "无效的数值"
 #: gui/mainwindow_io.cpp:545 gui/mainwindow_io.cpp:680
 #: gui/mainwindow_io.cpp:690 gui/mainwindow_io.cpp:740
 #: gui/mainwindow_io.cpp:826 gui/mainwindow_io.cpp:867
-#: gui/mainwindow_io.cpp:885 gui/mainwindow_menu.cpp:1100
+#: gui/mainwindow_io.cpp:885 gui/mainwindow_menu.cpp:1101
 #: gui/project_save_ui.cpp:55 gui/ridertextdialog.cpp:218
 #: gui/ridertextdialog.cpp:224 gui/ridertextdialog.cpp:233
 #: gui/ridertextdialog.cpp:245 gui/ridertextdialog.cpp:319
@@ -2563,7 +2563,7 @@ msgstr "由于意外错误，无法检查当前项目。"
 #: gui/inspection/inspector_workspace_panel.cpp:1082
 #: gui/inspection/inspector_workspace_panel.cpp:1458
 #: gui/inspection/inspector_workspace_panel.cpp:1466
-#: gui/mainwindow_layout.cpp:452 gui/mainwindow_menu.cpp:235
+#: gui/mainwindow_layout.cpp:452 gui/mainwindow_menu.cpp:236
 #: gui/mainwindow_menu_builders.cpp:71
 msgid "MVR / GDTF Inspector"
 msgstr "MVR / GDTF 检查器"
@@ -2866,7 +2866,7 @@ msgstr "向上移动"
 msgid "Move Down"
 msgstr "下移"
 
-#: gui/layoutpanel.cpp:35 gui/mainwindow_menu.cpp:369
+#: gui/layoutpanel.cpp:35 gui/mainwindow_menu.cpp:370
 #: gui/mainwindow_print.cpp:78
 msgid "Layout"
 msgstr "布局"
@@ -3044,7 +3044,7 @@ msgid "Choose how Perastage should import the selected MVR file."
 msgstr "选择 Perastage 导入所选 MVR 文件的方式。"
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:152
-#: gui/mainwindow_menu.cpp:176
+#: gui/mainwindow_menu.cpp:177
 msgid "Import MVR"
 msgstr "导入 MVR"
 
@@ -3203,6 +3203,62 @@ msgstr "正在完成项目加载..."
 #: gui/mainwindow.cpp:1618
 msgid "Loading tables..."
 msgstr "正在加载表格..."
+
+#: gui/mainwindow_alignment.cpp:65
+msgid "Extents"
+msgstr "整体边界"
+
+#: gui/mainwindow_alignment.cpp:65
+msgid "First selected"
+msgstr "首先选中"
+
+#: gui/mainwindow_alignment.cpp:65
+msgid "Last selected"
+msgstr "最后选中"
+
+#: gui/mainwindow_alignment.cpp:66
+msgid "Alignment reference"
+msgstr "对齐参照"
+
+#: gui/mainwindow_alignment.cpp:70
+msgid "Alignment work plane: XY (Top), XZ (Front), YZ (Side)"
+msgstr "对齐工作平面：XY（顶视）、XZ（前视）、YZ（侧视）"
+
+#: gui/mainwindow_alignment.cpp:72
+msgid "Align Top"
+msgstr "顶端对齐"
+
+#: gui/mainwindow_alignment.cpp:72
+msgid "Align Bottom"
+msgstr "底端对齐"
+
+#: gui/mainwindow_alignment.cpp:72
+msgid "Align Left"
+msgstr "左对齐"
+
+#: gui/mainwindow_alignment.cpp:72
+msgid "Align Right"
+msgstr "右对齐"
+
+#: gui/mainwindow_alignment.cpp:73
+msgid "Center Horizontally"
+msgstr "水平居中"
+
+#: gui/mainwindow_alignment.cpp:73
+msgid "Center Vertically"
+msgstr "垂直居中"
+
+#: gui/mainwindow_alignment.cpp:96
+msgid "Alignment failed. See diagnostics for details."
+msgstr "对齐失败。请查看诊断信息了解详情。"
+
+#: gui/mainwindow_alignment.cpp:98
+msgid "Selection aligned."
+msgstr "选中对象已对齐。"
+
+#: gui/mainwindow_alignment.cpp:98
+msgid "Selection is already aligned."
+msgstr "选中对象已处于对齐状态。"
 
 #: gui/mainwindow_conversion.cpp:34
 msgid "Please select fixtures to convert first."
@@ -3627,335 +3683,335 @@ msgstr "布局视图更新已跳过：未找到目标视图。"
 msgid "Layout view update failed."
 msgstr "布局视图更新失败。"
 
-#: gui/mainwindow_menu.cpp:164
+#: gui/mainwindow_menu.cpp:165
 msgid "New"
 msgstr "新建"
 
-#: gui/mainwindow_menu.cpp:166
+#: gui/mainwindow_menu.cpp:167
 msgid "Create a new project"
 msgstr "创建新项目"
 
-#: gui/mainwindow_menu.cpp:167
+#: gui/mainwindow_menu.cpp:168
 msgid "Open"
 msgstr "打开"
 
-#: gui/mainwindow_menu.cpp:169
+#: gui/mainwindow_menu.cpp:170
 msgid "Open an existing project"
 msgstr "打开现有项目"
 
-#: gui/mainwindow_menu.cpp:172
+#: gui/mainwindow_menu.cpp:173
 msgid "Save the current project"
 msgstr "保存当前项目"
 
-#: gui/mainwindow_menu.cpp:173
+#: gui/mainwindow_menu.cpp:174
 msgid "Save As"
 msgstr "另存为"
 
-#: gui/mainwindow_menu.cpp:175
+#: gui/mainwindow_menu.cpp:176
 msgid "Save the current project with a new name"
 msgstr "以新名称保存当前项目"
 
-#: gui/mainwindow_menu.cpp:178
+#: gui/mainwindow_menu.cpp:179
 msgid "Import an MVR file"
 msgstr "导入 MVR 文件"
 
-#: gui/mainwindow_menu.cpp:179
+#: gui/mainwindow_menu.cpp:180
 msgid "Export MVR"
 msgstr "导出 MVR"
 
-#: gui/mainwindow_menu.cpp:181
+#: gui/mainwindow_menu.cpp:182
 msgid "Export the project to MVR"
 msgstr "将项目导出为 MVR"
 
-#: gui/mainwindow_menu.cpp:182 gui/mainwindow_print.cpp:83
+#: gui/mainwindow_menu.cpp:183 gui/mainwindow_print.cpp:83
 msgid "Print"
 msgstr "打印"
 
-#: gui/mainwindow_menu.cpp:184
+#: gui/mainwindow_menu.cpp:185
 msgid "Choose what to print"
 msgstr "选择要打印的内容"
 
-#: gui/mainwindow_menu.cpp:197
+#: gui/mainwindow_menu.cpp:198
 msgid "Undo"
 msgstr "撤销"
 
-#: gui/mainwindow_menu.cpp:199
+#: gui/mainwindow_menu.cpp:200
 msgid "Undo last action"
 msgstr "撤销上一步操作"
 
-#: gui/mainwindow_menu.cpp:200
+#: gui/mainwindow_menu.cpp:201
 msgid "Redo"
 msgstr "重做"
 
-#: gui/mainwindow_menu.cpp:202
+#: gui/mainwindow_menu.cpp:203
 msgid "Redo last undone action"
 msgstr "重做上次撤销的操作"
 
-#: gui/mainwindow_menu.cpp:204
+#: gui/mainwindow_menu.cpp:205
 msgid "Cut"
 msgstr "数量"
 
-#: gui/mainwindow_menu.cpp:206
+#: gui/mainwindow_menu.cpp:207
 msgid "Cut selected scene elements"
 msgstr "剪切选定的场景元素"
 
-#: gui/mainwindow_menu.cpp:207
+#: gui/mainwindow_menu.cpp:208
 msgid "Copy"
 msgstr "复制"
 
-#: gui/mainwindow_menu.cpp:209
+#: gui/mainwindow_menu.cpp:210
 msgid "Copy selected scene elements"
 msgstr "复制选定的场景元素"
 
-#: gui/mainwindow_menu.cpp:210
+#: gui/mainwindow_menu.cpp:211
 msgid "Paste"
 msgstr "粘贴"
 
-#: gui/mainwindow_menu.cpp:212
+#: gui/mainwindow_menu.cpp:213
 msgid "Paste copied scene elements"
 msgstr "粘贴复制的场景元素"
 
-#: gui/mainwindow_menu.cpp:216
+#: gui/mainwindow_menu.cpp:217
 msgid "Edit"
 msgstr "编辑"
 
-#: gui/mainwindow_menu.cpp:224 gui/mainwindow_menu_builders.cpp:68
+#: gui/mainwindow_menu.cpp:225 gui/mainwindow_menu_builders.cpp:68
 msgid "3D Layout View"
 msgstr "3D 布局视图"
 
-#: gui/mainwindow_menu.cpp:226
+#: gui/mainwindow_menu.cpp:227
 msgid "Switch to 3D Layout View"
 msgstr "切换到 3D 布局视图"
 
-#: gui/mainwindow_menu.cpp:228 gui/mainwindow_menu_builders.cpp:69
+#: gui/mainwindow_menu.cpp:229 gui/mainwindow_menu_builders.cpp:69
 msgid "2D Layout View"
 msgstr "2D 布局视图"
 
-#: gui/mainwindow_menu.cpp:230
+#: gui/mainwindow_menu.cpp:231
 msgid "Switch to 2D Layout View"
 msgstr "切换到 2D 布局视图"
 
-#: gui/mainwindow_menu.cpp:232
+#: gui/mainwindow_menu.cpp:233
 msgid "Layout Mode"
 msgstr "布局模式"
 
-#: gui/mainwindow_menu.cpp:234
+#: gui/mainwindow_menu.cpp:235
 msgid "Switch to Layout Mode View"
 msgstr "切换到布局模式视图"
 
-#: gui/mainwindow_menu.cpp:237
+#: gui/mainwindow_menu.cpp:238
 msgid "Switch to MVR / GDTF Inspector"
 msgstr "切换到 MVR / GDTF 检查器"
 
-#: gui/mainwindow_menu.cpp:240
+#: gui/mainwindow_menu.cpp:241
 msgid "Top View"
 msgstr "顶视图"
 
-#: gui/mainwindow_menu.cpp:242
+#: gui/mainwindow_menu.cpp:243
 msgid "Apply top view to active viewport"
 msgstr "将顶视图应用到活动视口"
 
-#: gui/mainwindow_menu.cpp:244
+#: gui/mainwindow_menu.cpp:245
 msgid "Front View"
 msgstr "前视图"
 
-#: gui/mainwindow_menu.cpp:246
+#: gui/mainwindow_menu.cpp:247
 msgid "Apply front view to active viewport"
 msgstr "将前视图应用到活动视口"
 
-#: gui/mainwindow_menu.cpp:248
+#: gui/mainwindow_menu.cpp:249
 msgid "Side View"
 msgstr "侧视图"
 
-#: gui/mainwindow_menu.cpp:250
+#: gui/mainwindow_menu.cpp:251
 msgid "Apply side view to active viewport"
 msgstr "将侧视图应用到活动视口"
 
-#: gui/mainwindow_menu.cpp:253
+#: gui/mainwindow_menu.cpp:254
 msgid "Select Tool"
 msgstr "选择工具"
 
-#: gui/mainwindow_menu.cpp:255
+#: gui/mainwindow_menu.cpp:256
 msgid "Switch to standard selection mode"
 msgstr "切换到标准选择模式"
 
-#: gui/mainwindow_menu.cpp:257
+#: gui/mainwindow_menu.cpp:258
 msgid "Measure Tool"
 msgstr "测量工具"
 
-#: gui/mainwindow_menu.cpp:259
+#: gui/mainwindow_menu.cpp:260
 msgid "Toggle center-to-center measure tool"
 msgstr "切换中心到中心测量工具"
 
-#: gui/mainwindow_menu.cpp:261
+#: gui/mainwindow_menu.cpp:262
 msgid "Gap Measure Tool"
 msgstr "测量工具"
 
-#: gui/mainwindow_menu.cpp:263
+#: gui/mainwindow_menu.cpp:264
 msgid "Toggle edge-to-edge gap measure tool"
 msgstr "切换中心到中心测量工具"
 
-#: gui/mainwindow_menu.cpp:265
+#: gui/mainwindow_menu.cpp:266
 msgid "Axis Lock"
 msgstr "轴向锁定"
 
-#: gui/mainwindow_menu.cpp:266
+#: gui/mainwindow_menu.cpp:267
 msgid "Toggle axis-constrained selection movement"
 msgstr "切换受轴约束的选择移动"
 
-#: gui/mainwindow_menu.cpp:269
+#: gui/mainwindow_menu.cpp:270
 msgid "Drag Move"
 msgstr "拖动移动"
 
-#: gui/mainwindow_menu.cpp:270
+#: gui/mainwindow_menu.cpp:271
 msgid "Toggle left-click selection dragging"
 msgstr "切换鼠标左键拖动选择"
 
-#: gui/mainwindow_menu.cpp:273
+#: gui/mainwindow_menu.cpp:274
 msgid "Local Axes"
 msgstr "本地轴"
 
-#: gui/mainwindow_menu.cpp:275
+#: gui/mainwindow_menu.cpp:276
 msgid "Use local axes for viewport transforms"
 msgstr "视口变换使用本地轴"
 
-#: gui/mainwindow_menu.cpp:278
+#: gui/mainwindow_menu.cpp:279
 msgid "Magnet"
 msgstr "磁吸"
 
-#: gui/mainwindow_menu.cpp:279
+#: gui/mainwindow_menu.cpp:280
 msgid "Toggle Magnet snapping while dragging"
 msgstr "切换拖动时的磁吸对齐"
 
-#: gui/mainwindow_menu.cpp:283
+#: gui/mainwindow_menu.cpp:284
 msgid "Cross-table Actions"
 msgstr "跨表操作"
 
-#: gui/mainwindow_menu.cpp:285
+#: gui/mainwindow_menu.cpp:286
 msgid "Toggle viewport actions across all tables"
 msgstr "2D 视口不可用。"
 
-#: gui/mainwindow_menu.cpp:316 gui/mainwindow_menu_builders.cpp:89
+#: gui/mainwindow_menu.cpp:317 gui/mainwindow_menu_builders.cpp:89
 msgid "Layout Views"
 msgstr "布局视图"
 
-#: gui/mainwindow_menu.cpp:326
+#: gui/mainwindow_menu.cpp:327
 msgid "Insert a new fixture"
 msgstr "插入新灯具"
 
-#: gui/mainwindow_menu.cpp:329
+#: gui/mainwindow_menu.cpp:330
 msgid "Insert a new truss"
 msgstr "插入新桁架"
 
-#: gui/mainwindow_menu.cpp:332
+#: gui/mainwindow_menu.cpp:333
 msgid "Insert a new scene object"
 msgstr "插入新场景对象"
 
-#: gui/mainwindow_menu.cpp:334 gui/mainwindow_menu.cpp:336
+#: gui/mainwindow_menu.cpp:335 gui/mainwindow_menu.cpp:337
 #: mvr/mvrimporter.cpp:320
 msgid "Download GDTF"
 msgstr "下载 GDTF"
 
-#: gui/mainwindow_menu.cpp:337 gui/mainwindow_menu.cpp:339
+#: gui/mainwindow_menu.cpp:338 gui/mainwindow_menu.cpp:340
 #: gui/ridertextdialog.cpp:77
 msgid "Create from text"
 msgstr "从文本创建"
 
-#: gui/mainwindow_menu.cpp:343
+#: gui/mainwindow_menu.cpp:344
 msgid "Tools"
 msgstr "工具"
 
-#: gui/mainwindow_menu.cpp:352
+#: gui/mainwindow_menu.cpp:353
 msgid "Add 2D View"
 msgstr "添加 2D 视图"
 
-#: gui/mainwindow_menu.cpp:353
+#: gui/mainwindow_menu.cpp:354
 msgid "Add 2D View to Layout"
 msgstr "向布局添加 2D 视图"
 
-#: gui/mainwindow_menu.cpp:354
+#: gui/mainwindow_menu.cpp:355
 msgid "Add Legend"
 msgstr "添加图例"
 
-#: gui/mainwindow_menu.cpp:356
+#: gui/mainwindow_menu.cpp:357
 msgid "Add fixture legend to layout"
 msgstr "向布局添加灯具图例"
 
-#: gui/mainwindow_menu.cpp:358
+#: gui/mainwindow_menu.cpp:359
 msgid "Add Event Table"
 msgstr "添加事件表"
 
-#: gui/mainwindow_menu.cpp:359
+#: gui/mainwindow_menu.cpp:360
 msgid "Add event table to layout"
 msgstr "向布局添加事件表"
 
-#: gui/mainwindow_menu.cpp:360
+#: gui/mainwindow_menu.cpp:361
 msgid "Add Text"
 msgstr "添加文本"
 
-#: gui/mainwindow_menu.cpp:362
+#: gui/mainwindow_menu.cpp:363
 msgid "Add text box to layout"
 msgstr "向布局添加文本框"
 
-#: gui/mainwindow_menu.cpp:363
+#: gui/mainwindow_menu.cpp:364
 msgid "Add Image"
 msgstr "添加图像"
 
-#: gui/mainwindow_menu.cpp:365
+#: gui/mainwindow_menu.cpp:366
 msgid "Add image to layout"
 msgstr "向布局添加图像"
 
-#: gui/mainwindow_menu.cpp:383 gui/mainwindow_menu.cpp:386
+#: gui/mainwindow_menu.cpp:384 gui/mainwindow_menu.cpp:387
 msgid "creating a new project"
 msgstr "创建新项目"
 
-#: gui/mainwindow_menu.cpp:386
+#: gui/mainwindow_menu.cpp:387
 msgid "New Project"
 msgstr "新建项目"
 
-#: gui/mainwindow_menu.cpp:416
+#: gui/mainwindow_menu.cpp:417
 msgid "Could not resolve writable user library path."
 msgstr "无法解析可写用户库路径。"
 
-#: gui/mainwindow_menu.cpp:417 gui/mainwindow_menu.cpp:429
+#: gui/mainwindow_menu.cpp:418 gui/mainwindow_menu.cpp:430
 #: gui/mainwindow_menu_builders.cpp:99
 msgid "Open user library folder"
 msgstr "打开用户库文件夹"
 
-#: gui/mainwindow_menu.cpp:428
+#: gui/mainwindow_menu.cpp:429
 msgid "Could not open the user library folder."
 msgstr "打开用户库文件夹"
 
-#: gui/mainwindow_menu.cpp:456
+#: gui/mainwindow_menu.cpp:457
 msgid "No hoists available for weight distribution."
 msgstr "没有可用于重量分配的起重机。"
 
-#: gui/mainwindow_menu.cpp:457 gui/mainwindow_menu.cpp:468
-#: gui/mainwindow_menu.cpp:489
+#: gui/mainwindow_menu.cpp:458 gui/mainwindow_menu.cpp:469
+#: gui/mainwindow_menu.cpp:490
 msgid "Distribute hoist weights"
 msgstr "分配电动葫芦负载..."
 
-#: gui/mainwindow_menu.cpp:462
+#: gui/mainwindow_menu.cpp:463
 msgid "All positions"
 msgstr "所有位置"
 
-#: gui/mainwindow_menu.cpp:467
+#: gui/mainwindow_menu.cpp:468
 msgid "Select hang position(s) to distribute hoist weights."
 msgstr "选择悬挂位置以分配提升重量。"
 
-#: gui/mainwindow_menu.cpp:488
+#: gui/mainwindow_menu.cpp:489
 msgid "No hoists found for the selected position."
 msgstr "设置所选对象的 X 坐标。"
 
-#: gui/mainwindow_menu.cpp:619
+#: gui/mainwindow_menu.cpp:620
 msgid "exiting"
 msgstr "退出"
 
-#: gui/mainwindow_menu.cpp:619
+#: gui/mainwindow_menu.cpp:620
 msgid "Exit"
 msgstr "退出"
 
-#: gui/mainwindow_menu.cpp:716
+#: gui/mainwindow_menu.cpp:717
 #, c-format
 msgid ""
 "Could not create the logs folder.\n"
@@ -3966,12 +4022,12 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:718 gui/mainwindow_menu.cpp:736
-#: gui/mainwindow_menu.cpp:752 gui/mainwindow_menu.cpp:761
+#: gui/mainwindow_menu.cpp:719 gui/mainwindow_menu.cpp:737
+#: gui/mainwindow_menu.cpp:753 gui/mainwindow_menu.cpp:762
 msgid "Perastage Diagnostics"
 msgstr "后期诊断"
 
-#: gui/mainwindow_menu.cpp:734
+#: gui/mainwindow_menu.cpp:735
 #, c-format
 msgid ""
 "Could not open the logs folder.\n"
@@ -3982,7 +4038,7 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:750
+#: gui/mainwindow_menu.cpp:751
 #, c-format
 msgid ""
 "Could not export the diagnostic report.\n"
@@ -3993,7 +4049,7 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:759
+#: gui/mainwindow_menu.cpp:760
 #, c-format
 msgid ""
 "Diagnostic report exported successfully.\n"
@@ -4004,11 +4060,11 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:780 gui/update/update_notification_dialog.cpp:30
+#: gui/mainwindow_menu.cpp:781 gui/update/update_notification_dialog.cpp:30
 msgid "Perastage Updates"
 msgstr "后期更新"
 
-#: gui/mainwindow_menu.cpp:782
+#: gui/mainwindow_menu.cpp:783
 msgid ""
 "Could not check for updates.\n"
 "\n"
@@ -4016,11 +4072,11 @@ msgstr ""
 "无法检查更新。\n"
 "\n"
 
-#: gui/mainwindow_menu.cpp:785
+#: gui/mainwindow_menu.cpp:786
 msgid "Please verify your network connection and try again."
 msgstr "请验证您的网络连接并重试。"
 
-#: gui/mainwindow_menu.cpp:794
+#: gui/mainwindow_menu.cpp:795
 #, c-format
 msgid ""
 "Current version: %s\n"
@@ -4031,11 +4087,11 @@ msgstr ""
 "最新版本：%s\n"
 "\n"
 
-#: gui/mainwindow_menu.cpp:798
+#: gui/mainwindow_menu.cpp:799
 msgid "You are up to date."
 msgstr "你是最新的。"
 
-#: gui/mainwindow_menu.cpp:1098 gui/mainwindow_truss_replace.cpp:145
+#: gui/mainwindow_menu.cpp:1099 gui/mainwindow_truss_replace.cpp:145
 msgid ""
 "Unsupported or unreadable truss file. Supported formats are GDTF, GTruss, "
 "GLB, and 3DS."

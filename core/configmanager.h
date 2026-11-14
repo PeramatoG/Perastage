@@ -98,7 +98,11 @@ public:
     const std::vector<std::string>& GetSelectedSceneObjects() const;
     const std::vector<std::string>& GetSelectedGroupObjects() const;
     void SetSelectedGroupObjects(const std::vector<std::string>& uuids);
-    const std::vector<scene_grouping::SceneTransformTarget>& GetOrderedSelection() { selectionState.Prune(GetScene()); return selectionState.GetOrderedSelection(); }
+    void SetSceneSelection(const scene_grouping::ObjectSelection &selection);
+    const std::vector<scene_grouping::SceneTransformTarget>& GetOrderedSelection() {
+        selectionState.Prune(GetScene());
+        return selectionState.GetOrderedSelection();
+    }
     void SetSelectedSceneObjects(const std::vector<std::string>& uuids);
 
     void RegisterVariable(const std::string& name, const std::string& type,

@@ -25,32 +25,23 @@
 #include "projectutils.h"
 #include <wx/aui/auibar.h>
 #include <wx/choice.h>
-#include <wx/dcmemory.h>
-#include <wx/graphics.h>
 
 namespace {
-// Conventional edge/center glyphs drawn once in logical toolbar pixels.
+// Vector glyphs keep edge and center anchors readable at native display DPI.
 wxBitmapBundle AlignmentIcon(alignment::Operation operation) {
-  wxBitmap bitmap(24,24,32);
-  wxMemoryDC dc(bitmap);
-  dc.SetBackground(*wxWHITE_BRUSH); dc.Clear();
-  dc.SetPen(wxPen(wxColour(40,80,130),2));
-  dc.SetBrush(wxBrush(wxColour(115,155,200)));
   using O = alignment::Operation;
   const bool horizontal = operation == O::Left || operation == O::Right || operation == O::CenterHorizontal;
   const int anchor = operation == O::Left || operation == O::Top ? 4 :
                      operation == O::Right || operation == O::Bottom ? 20 : 12;
-  if (horizontal) {
-    dc.DrawLine(anchor,2,anchor,22);
-    dc.DrawRectangle(operation == O::Left ? 5 : operation == O::Right ? 11 : 8,5,8,5);
-    dc.DrawRectangle(operation == O::Left ? 5 : operation == O::Right ? 7 : 6,14,12,5);
-  } else {
-    dc.DrawLine(2,anchor,22,anchor);
-    dc.DrawRectangle(5,operation == O::Top ? 5 : operation == O::Bottom ? 11 : 8,5,8);
-    dc.DrawRectangle(14,operation == O::Top ? 5 : operation == O::Bottom ? 7 : 6,5,12);
-  }
-  dc.SelectObject(wxNullBitmap);
-  return wxBitmapBundle::FromBitmap(bitmap);
+  const int x0 = anchor == 4 ? 5 : anchor == 20 ? 11 : 8;
+  const int x1 = anchor == 4 ? 5 : anchor == 20 ? 7 : 6;
+  const std::string svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\">"
+      "<g stroke=\"#285082\" stroke-width=\"2\" fill=\"#739bc8\"" +
+      std::string(horizontal ? "" : " transform=\"matrix(0 1 1 0 0 0)\"") + ">"
+      "<path fill=\"none\" d=\"M" + std::to_string(anchor) + " 2v20\"/>"
+      "<rect x=\"" + std::to_string(x0) + "\" y=\"5\" width=\"8\" height=\"5\"/>"
+      "<rect x=\"" + std::to_string(x1) + "\" y=\"14\" width=\"12\" height=\"5\"/></g></svg>";
+  return wxBitmapBundle::FromSVG(svg.c_str(),wxSize(24,24));
 }
 scene_grouping::ObjectSelection Selection(const ConfigManager &cfg) {
   return {cfg.GetSelectedFixtures(),cfg.GetSelectedTrusses(),cfg.GetSelectedSupports(),cfg.GetSelectedSceneObjects(),cfg.GetSelectedGroupObjects()};
@@ -66,7 +57,7 @@ void MainWindow::CreateAlignmentToolBar() {
   reference->SetSelection(0); reference->SetToolTip(_("Alignment reference"));
   bar->AddControl(reference);
   auto *plane = new wxChoice(bar,wxID_ANY);
-  plane->Append("XY"); plane->Append("XZ"); plane->Append("YZ");
+  for (const char *name : {"XY","XZ","YZ"}) plane->Append(wxString::FromUTF8(name));
   plane->SetSelection(0); plane->SetToolTip(_("Alignment work plane: XY (Top), XZ (Front), YZ (Side)"));
   bar->AddControl(plane); bar->AddSeparator();
   const wxString labels[] = {_("Align Top"),_("Align Bottom"),_("Align Left"),_("Align Right"),
@@ -83,16 +74,20 @@ void MainWindow::CreateAlignmentToolBar() {
     },id);
     Bind(wxEVT_TOOL,[this,reference,plane,operation](wxCommandEvent &) {
       auto &cfg = guiConfigServices->LegacyConfigManager();
-      auto selection = Selection(cfg);
       const auto chronology = cfg.GetOrderedSelection();
+      auto selection = Selection(cfg);
       GuiProjectMutationHost host(cfg);
       perastage::command::ExecutionContext context{cfg.GetScene(),selection,host};
       const auto result = alignment::Execute(context,chronology,
           static_cast<alignment::Reference>(reference->GetSelection()),operation,
           static_cast<alignment::Plane>(plane->GetSelection()),
           selection_movement_settings::LoadInteractiveTransformPolicy(cfg),alignment::SceneBounds);
-      for (const auto &diagnostic : result.diagnostics)
-        diagnostics::DiagnosticLogger::Warning(diagnostic.message);
+      for (const auto &diagnostic : result.diagnostics) {
+        using S = perastage::command::DiagnosticSeverity;
+        if (diagnostic.severity == S::Error) diagnostics::DiagnosticLogger::Error(diagnostic.message);
+        else if (diagnostic.severity == S::Warning) diagnostics::DiagnosticLogger::Warning(diagnostic.message);
+        else diagnostics::DiagnosticLogger::Info(diagnostic.message);
+      }
       if (!result.Success()) { SetStatusText(_("Alignment failed. See diagnostics for details.")); return; }
       if (result.mutation.sceneChanged) RefreshAfterToolSceneUpdate(selection);
       SetStatusText(result.mutation.sceneChanged ? _("Selection aligned.") : _("Selection is already aligned."));

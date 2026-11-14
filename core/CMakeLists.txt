@@ -690,5 +690,4 @@ target_include_directories(perastage_scene_alignment PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models)
 target_link_libraries(perastage_scene_alignment PUBLIC perastage_command_transform)
 target_link_libraries(${PROJECT_NAME} PRIVATE perastage_scene_alignment)
-target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/scene_alignment_bounds.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/selection_state.cpp)
+target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/scene_alignment_bounds.cpp)

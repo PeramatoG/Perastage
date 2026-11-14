@@ -1388,12 +1388,17 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                 }
             }
 
+            node3d.physicalBounds = haveMesh;
             if (!haveMesh && IsPrimitiveTypeDefined(modelInfo.primitiveType)) {
-                if (GetCachedPrimitiveMesh(modelInfo, primitiveMeshCache, mesh))
+                if (GetCachedPrimitiveMesh(modelInfo, primitiveMeshCache, mesh)) {
                     haveMesh = true;
+                    // Renderer defaults are not authored physical dimensions.
+                    node3d.physicalBounds = std::isfinite(modelInfo.length) &&
+                        std::isfinite(modelInfo.width) && std::isfinite(modelInfo.height) &&
+                        modelInfo.length > 0 && modelInfo.width > 0 && modelInfo.height > 0;
+                }
             }
 
-            node3d.physicalBounds = haveMesh;
             if (!haveMesh && (modelInfo.length > 0.0f || modelInfo.width > 0.0f || modelInfo.height > 0.0f)) {
                 if (BuildDimensionFallbackMesh(modelInfo, mesh)) {
                     haveMesh = true;

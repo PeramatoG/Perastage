@@ -18,7 +18,7 @@
 #include "scene_alignment_bounds.h"
 #include "geometry_bounds_resolver.h"
 #include "filesystem_path_utils.h"
-#include "gdtfloader.h"
+#include "../viewer3d/gdtfloader.h"
 #include "matrixutils.h"
 #include "support/archive_entry_test_utils.h"
 #include "support/gdtf_test_fixture_builder.h"
@@ -47,7 +47,7 @@ int main(int argc,char **argv) {
   tests::gdtf::BuildMinimalValidFixture().WithModelDimensionsMeters(1,2,3).WriteArchive(gdtf);
   MvrScene scene; scene.basePath = root.string();
   Fixture f; f.uuid="fixture"; f.gdtfSpec=gdtf.string(); f.gdtfMode="Default";
-  f.transform=MatrixUtils::EulerToMatrix(0,0,90); f.transform.o={100,200,300};
+  f.transform=MatrixUtils::EulerToMatrix(90,0,0); f.transform.o={100,200,300};
   scene.fixtures[f.uuid]=f;
   std::string diagnostic;
   const auto measured = alignment::SceneBounds(scene,{MvrNodeType::Fixture,f.uuid},diagnostic);
@@ -98,6 +98,14 @@ int main(int argc,char **argv) {
     "</FixtureType></GDTF>";
   assert(tests::archive::WriteStoredZipWithRawNames(fallback,{{"description.xml",xml}},diagnostic));
   scene.fixtures[f.uuid].gdtfSpec=fallback.string();
+  assert(!alignment::SceneBounds(scene,{MvrNodeType::Fixture,f.uuid},diagnostic));
+  const auto incomplete=root/"incomplete_primitive.gdtf";
+  const std::string incompleteXml="<GDTF DataVersion=\"1.2\"><FixtureType Name=\"Unknown\"><Models>"
+    "<Model Name=\"Body\" PrimitiveType=\"Cube\" Length=\"1\" Width=\"0\" Height=\"3\"/>"
+    "</Models><Geometries><Geometry Name=\"Root\" Model=\"Body\"/></Geometries>"
+    "</FixtureType></GDTF>";
+  assert(tests::archive::WriteStoredZipWithRawNames(incomplete,{{"description.xml",incompleteXml}},diagnostic));
+  scene.fixtures[f.uuid].gdtfSpec=incomplete.string();
   assert(!alignment::SceneBounds(scene,{MvrNodeType::Fixture,f.uuid},diagnostic));
   scene.sceneObjects[object.uuid].transform.u[1]=std::numeric_limits<float>::quiet_NaN();
   assert(!alignment::SceneBounds(scene,{MvrNodeType::SceneObject,object.uuid},diagnostic));

@@ -5,7 +5,7 @@
 
 // Creates an application mutation publisher backed by the active project.
 GuiProjectMutationHost::GuiProjectMutationHost(ConfigManager &config)
-    : config_(config) {}
+    : config_(config), selectionOrderBefore_(config.GetOrderedSelection()) {}
 
 // Publishes the exact pre-command scene and selection as one Undo entry.
 perastage::command::MutationPublication GuiProjectMutationHost::CommitMutation(
@@ -18,6 +18,7 @@ perastage::command::MutationPublication GuiProjectMutationHost::CommitMutation(
   selection.SetSelectedSupports(selectionBefore.supports);
   selection.SetSelectedSceneObjects(selectionBefore.sceneObjects);
   selection.SetSelectedGroupObjects(selectionBefore.groupObjects);
+  selection.RestoreOrderedSelection(selectionOrderBefore_);
   config_.PushUndoSnapshot(
       sceneBefore, selection,
       config_.GetValue(project_identity::kFixtureLabelOverridesConfigKey),

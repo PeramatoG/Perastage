@@ -31,17 +31,19 @@ surviving identities never move, removal deletes the identity, and a later addit
 appends it. Thus sorted table/viewer refreshes do not replace chronology. A batch of
 new identities in one setter uses ascending UUID order. Calls replacing several
 categories use their explicit call order (the existing shared adapters call fixture,
-truss, support, scene object). This policy makes no claim to individual click
+truss, support, scene object, group). This policy makes no claim to individual click
 chronology within a rectangle/range selection. Explicit neutral replacement through
 `OrderedSceneSelection::Replace` honors caller order, removes duplicates, and does
 not reconstruct history from maps. No metadata, dirty state or Undo entry is added
-for chronology. Project replacement clears the selection through existing Reset/load
+for chronology. Existing Undo snapshots retain order so history restoration does not
+change first/last reference identity. Shared command publication uses atomic
+`SetSceneSelection` membership synchronization to avoid clearing/re-adding groups. Project replacement clears the selection through existing Reset/load
 paths; the ordered-query boundary prunes deleted UUIDs before use.
 
 Normalization preserves the earliest chronological occurrence of each surviving
 effective target. A group selected with a descendant or several leaves promoted to
 one group produces one target. Suppressed descendants inherit their surviving
-root's identity using the same promotion resolver. Missing identities or unresolved
+group identity using the same interactive target resolver. Missing identities or unresolved
 promotion abort with deterministic diagnostics. Reference selection happens after
 normalization, so first/last references stay fixed. Explicit group identities are
 accepted by the neutral adapter; existing GUI group highlighting/promotion continues
@@ -63,7 +65,8 @@ the full matrix. SceneObject and Support geometry-instance matrices are composed
 with the node world matrix. Group bounds union descendants' world bounds; cycles,
 missing children and multiply owned geometry abort instead of double counting.
 
-Only actual loaded meshes or authored GDTF primitives qualify. GDTF dimension-box
+Only actual loaded meshes or authored GDTF primitives with complete positive
+dimensions qualify. GDTF dimension-box
 fallbacks are explicitly marked nonphysical without changing rendering behavior.
 Missing resources, absent/empty geometry and non-finite values fail the operation;
 there is no implicit insertion-point or invented-size fallback. AABB projection is

@@ -621,6 +621,7 @@ void HistoryManager::PushUndoState(
                 layerState ? layerState->GetCurrentLayer() : std::string{},
                 fixtureSymbols ? *fixtureSymbols : symbols::ProjectFixtureSymbolStore{},
                 layoutImageResources ? std::optional(*layoutImageResources) : std::nullopt};
+  snap.selectionOrder = selection.GetOrderedSelection();
   undoStack.push_back(std::move(snap));
   if (undoStack.size() > maxHistory)
     undoStack.erase(undoStack.begin());
@@ -656,6 +657,7 @@ std::string HistoryManager::Undo(
                        fixtureSymbols ? *fixtureSymbols : symbols::ProjectFixtureSymbolStore{},
                        layoutImageResources ? std::optional(*layoutImageResources)
                                             : snap.layoutImageResources});
+  redoStack.back().selectionOrder = selection.GetOrderedSelection();
   scene = snap.scene;
   if (layoutImageResources && snap.layoutImageResources)
     *layoutImageResources = *snap.layoutImageResources;
@@ -670,6 +672,7 @@ std::string HistoryManager::Undo(
   selection.SetSelectedSupports(snap.selSupports);
   selection.SetSelectedSceneObjects(snap.selSceneObjects);
   selection.SetSelectedGroupObjects(snap.selGroupObjects);
+  selection.RestoreOrderedSelection(snap.selectionOrder);
   if (layerState) {
     layerState->SetHiddenLayers(snap.hiddenLayers);
     if (!snap.currentLayer.empty())
@@ -704,6 +707,7 @@ std::string HistoryManager::Redo(
                        fixtureSymbols ? *fixtureSymbols : symbols::ProjectFixtureSymbolStore{},
                        layoutImageResources ? std::optional(*layoutImageResources)
                                             : snap.layoutImageResources});
+  undoStack.back().selectionOrder = selection.GetOrderedSelection();
   scene = snap.scene;
   if (layoutImageResources && snap.layoutImageResources)
     *layoutImageResources = *snap.layoutImageResources;
@@ -718,6 +722,7 @@ std::string HistoryManager::Redo(
   selection.SetSelectedSupports(snap.selSupports);
   selection.SetSelectedSceneObjects(snap.selSceneObjects);
   selection.SetSelectedGroupObjects(snap.selGroupObjects);
+  selection.RestoreOrderedSelection(snap.selectionOrder);
   if (layerState) {
     layerState->SetHiddenLayers(snap.hiddenLayers);
     if (!snap.currentLayer.empty())
@@ -1453,4 +1458,29 @@ void ProjectSession::ResetDirty() {
   ++renderRevision;
   revision = 0;
   savedRevision = 0;
+}
+
+
+// Deletion/project replacement never leaves stale alignment reference identities.
+void SelectionState::Prune(const MvrScene &scene) {
+  auto retain = [](auto values, const auto &table) {
+    std::erase_if(values, [&](const std::string &uuid) { return !table.contains(uuid); });
+    return values;
+  };
+  SetSelectedFixtures(retain(selectedFixtures,scene.fixtures));
+  SetSelectedTrusses(retain(selectedTrusses,scene.trusses));
+  SetSelectedSupports(retain(selectedSupports,scene.supports));
+  SetSelectedSceneObjects(retain(selectedSceneObjects,scene.sceneObjects));
+  SetSelectedGroupObjects(retain(selectedGroupObjects,scene.groupObjects));
+}
+
+// Restores runtime chronology while keeping authoritative typed membership.
+void SelectionState::RestoreOrderedSelection(
+    const std::vector<scene_grouping::SceneTransformTarget> &ordered) {
+  orderedSelection.Replace(ordered);
+  orderedSelection.Reconcile(MvrNodeType::Fixture, selectedFixtures);
+  orderedSelection.Reconcile(MvrNodeType::Truss, selectedTrusses);
+  orderedSelection.Reconcile(MvrNodeType::Support, selectedSupports);
+  orderedSelection.Reconcile(MvrNodeType::SceneObject, selectedSceneObjects);
+  orderedSelection.Reconcile(MvrNodeType::GroupObject, selectedGroupObjects);
 }

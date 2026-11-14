@@ -20,7 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include <set>
+#include <map>
 
 namespace alignment {
 namespace {
@@ -53,29 +53,35 @@ Targets ResolveTargets(const MvrScene &scene, const std::vector<Target> &ordered
                        const scene_grouping::InteractiveTransformPolicy &policy) {
   Targets result;
   const auto effective = scene_grouping::BuildInteractiveTransformTargets(scene, Selection(ordered), policy);
+  std::map<std::pair<MvrNodeType,std::string>,const Target *> byIdentity;
+  for (const auto &target : effective) byIdentity[{target.type,target.uuid}] = &target;
   for (const auto &identity : ordered) {
     const auto exact = scene_grouping::BuildExactTransformTargets(scene, Selection({identity}));
     if (exact.size() != 1) {
       result.diagnostic = "Selected object is missing: " + identity.uuid;
       result.items.clear(); return result;
     }
-    // Full-set suppression may remove a leaf selected alongside its promoted root.
-    // Resolve that identity through the same policy with promotion enabled for it.
-    auto single = scene_grouping::BuildInteractiveTransformTargets(scene, Selection({identity}), policy);
-    auto match = std::find_if(effective.begin(), effective.end(), [&](const Target &t) {
-      return !single.empty() && Same(t, single.front());
-    });
-    if (match == effective.end()) {
-      auto promote = policy;
-      promote.promoteFixturesToGroup = promote.promoteTrussesToGroup = true;
-      promote.promoteSupportsToGroup = promote.promoteSceneObjectsToGroup = true;
-      single = scene_grouping::BuildInteractiveTransformTargets(scene, Selection({identity}), promote);
-      match = std::find_if(effective.begin(), effective.end(), [&](const Target &t) {
-        return !single.empty() && Same(t, single.front());
-      });
+    // Ask the same resolver which surviving target covers this identity. This
+    // handles explicit nested groups as well as leaves suppressed by promotion.
+    const Target *match = nullptr;
+    const auto single = scene_grouping::BuildInteractiveTransformTargets(scene, Selection({identity}), policy);
+    if (single.size() == 1) {
+      const auto found = byIdentity.find({single.front().type,single.front().uuid});
+      if (found != byIdentity.end()) match = found->second;
     }
-    if (match == effective.end()) {
-      result.diagnostic = "Selection promotion is ambiguous: " + identity.uuid;
+    if (!match) for (const auto &candidate : effective) {
+      const auto pair = scene_grouping::BuildInteractiveTransformTargets(
+          scene, Selection({identity,candidate}), policy);
+      if (pair.size() == 1 && Same(pair.front(),candidate)) {
+        if (match && !Same(*match,candidate)) {
+          result.diagnostic = "Selection promotion is ambiguous: " + identity.uuid;
+          result.items.clear(); return result;
+        }
+        match = &candidate;
+      }
+    }
+    if (!match) {
+      result.diagnostic = "Selection promotion is unresolved: " + identity.uuid;
       result.items.clear(); return result;
     }
     if (std::none_of(result.items.begin(), result.items.end(), [&](const Target &t) { return Same(t,*match); }))
@@ -128,7 +134,7 @@ perastage::command::Result Execute(
     if (values.empty()) return result;
     return transform::ExecuteBatch({transform::kBatchCommandId,
         {{"target_kinds", kinds}, {"target_uuids", uuids}, {"component_kinds", components},
-         {"axes", axes}, {"values", values}, {"modes", modes}, {"spaces", spaces}}}, context);
+         {"axes", axes}, {"values", values}, {"modes", modes}, {"spaces", spaces}}}, context, "align scene objects");
   } catch (const std::exception &e) { return reject(e.what()); }
 }
 } // namespace alignment

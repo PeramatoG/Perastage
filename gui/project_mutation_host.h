@@ -16,4 +16,5 @@ public:
 
 private:
   ConfigManager &config_;
+  std::vector<scene_grouping::SceneTransformTarget> selectionOrderBefore_;
 };

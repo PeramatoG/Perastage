@@ -154,6 +154,30 @@ void Groups() {
                                                 {MvrNodeType::Fixture,"f"}},{});
   assert(explicitGroup.items.size()==2);
   assert(!ResolveTargets(scene,{{MvrNodeType::Fixture,"deleted"}},{}).diagnostic.empty());
+  scene.trusses["t"].transform.o = {100,200,300};
+  scene.trusses["u"].transform.o = {300,400,500};
+  scene.trusses["t"].hasLocalTransform = scene.trusses["u"].hasLocalTransform = true;
+  scene.trusses["u"].localTransform.o = {200,200,200};
+  scene.groupObjects["g"].transform.o = {100,200,300};
+  scene_grouping::ObjectSelection selection{{"f"},{"t","u"},{},{},{"g"}};
+  Host host; ExecutionContext context{scene,selection,host};
+  auto bounds = [](const MvrScene &s,const Target &target,std::string &) -> std::optional<Bounds> {
+    const auto m = scene_grouping::GetTargetWorldTransform(s,target);
+    return Bounds{{m.o[0]-10,m.o[1]-10,m.o[2]-10},{m.o[0]+10,m.o[1]+10,m.o[2]+10}};
+  };
+  const auto moved = Execute(context,{{MvrNodeType::GroupObject,"g"},{MvrNodeType::Truss,"t"},
+                                     {MvrNodeType::Fixture,"f"}},Reference::Last,Operation::Left,Plane::XY,{},bounds);
+  assert(moved.Success() && host.entries == 1);
+  assert(scene.groupObjects.at("g").transform.o[0] == 0);
+  assert(scene.trusses.at("t").transform.o[0] == 0);
+  assert(scene.trusses.at("u").transform.o[0] == 200);
+  assert(scene.fixtures.at("f").transform.o[0] == 0);
+  GroupObject outer; outer.uuid="outer"; outer.children={{MvrNodeType::GroupObject,"g"}};
+  scene.groupObjects["g"].parentGroupUuid="outer"; scene.groupObjects["outer"]=outer;
+  const auto nested=ResolveTargets(scene,{{MvrNodeType::GroupObject,"g"},{MvrNodeType::Fixture,"f"},
+                                        {MvrNodeType::GroupObject,"outer"}},{});
+  assert(nested.diagnostic.empty() && nested.items.size()==2 && nested.items.front().uuid=="outer");
+
 }
 }
 int main() { Arithmetic(); Chronology(); Commands(); Groups(); }

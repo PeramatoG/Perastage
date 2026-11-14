@@ -28,11 +28,7 @@ void MainWindow::RefreshAfterToolSceneUpdate(
 void MainWindow::RefreshAfterToolSelectionUpdate(
     const scene_grouping::ObjectSelection &selection) {
   ConfigManager &config = GetDefaultGuiConfigServices().LegacyConfigManager();
-  config.SetSelectedFixtures(selection.fixtures);
-  config.SetSelectedTrusses(selection.trusses);
-  config.SetSelectedSupports(selection.supports);
-  config.SetSelectedSceneObjects(selection.sceneObjects);
-  config.SetSelectedGroupObjects(selection.groupObjects);
+  config.SetSceneSelection(selection);
 
   if (fixturePanel)
     fixturePanel->SelectByUuid(selection.fixtures, false);

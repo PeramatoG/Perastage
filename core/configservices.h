@@ -84,6 +84,7 @@ public:
   const std::vector<std::string> &GetSelectedGroupObjects() const;
   void SetSelectedGroupObjects(const std::vector<std::string> &uuids);
   void SetSelectedSceneObjects(const std::vector<std::string> &uuids);
+  void RestoreOrderedSelection(const std::vector<scene_grouping::SceneTransformTarget> &ordered);
   void Prune(const MvrScene &scene);
   void Clear();
 
@@ -114,6 +115,7 @@ public:
     std::string currentLayer;
     symbols::ProjectFixtureSymbolStore fixtureSymbols;
     std::optional<layouts::LayoutImageResourceRegistry> layoutImageResources;
+    std::vector<scene_grouping::SceneTransformTarget> selectionOrder;
   };
 
   void PushUndoState(const MvrScene &scene, const SelectionState &selection,

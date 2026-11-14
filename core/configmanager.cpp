@@ -549,6 +549,20 @@ void ConfigManager::SetSelectedGroupObjects(const std::vector<std::string> &uuid
   NotifyChange(Change::Selection);
 }
 
+// Shared synchronization replaces membership atomically without clearing direct groups.
+void ConfigManager::SetSceneSelection(const scene_grouping::ObjectSelection &selection) {
+  const bool changed = GetSelectedFixtures() != selection.fixtures ||
+      GetSelectedTrusses() != selection.trusses || GetSelectedSupports() != selection.supports ||
+      GetSelectedSceneObjects() != selection.sceneObjects || GetSelectedGroupObjects() != selection.groupObjects;
+  if (!changed) return;
+  selectionState.SetSelectedFixtures(selection.fixtures);
+  selectionState.SetSelectedTrusses(selection.trusses);
+  selectionState.SetSelectedSupports(selection.supports);
+  selectionState.SetSelectedSceneObjects(selection.sceneObjects);
+  selectionState.SetSelectedGroupObjects(selection.groupObjects);
+  NotifyChange(Change::Selection);
+}
+
 // -- Persistence --
 
 bool ConfigManager::LoadFromFile(const std::string &path) {

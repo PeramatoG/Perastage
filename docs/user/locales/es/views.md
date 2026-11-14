@@ -35,3 +35,11 @@ Las unidades siguen **Preferences → Units**: metros con tres decimales o el fo
 El movimiento agrupado sigue las [preferencias de selección y movimiento](preferences.md#selección-y-movimiento). Revisa la posición final en ambas vistas y utiliza Undo si es necesario.
 
 Consulta [Atajos y barra de comandos](shortcuts-and-command-bar.md) para teclado, ratón y Console. Para páginas imprimibles, utiliza [Layouts y PDF](layouts.md).
+
+## Alinear objetos de escena
+
+Use la barra **Alineación** del espacio 2D o 3D. Seleccione al menos dos destinos efectivos en los visores o las tablas. Elija **Extremos**, **Primero seleccionado** o **Último seleccionado** y pulse **Alinear arriba**, **Alinear abajo**, **Alinear a la izquierda**, **Alinear a la derecha**, **Centrar horizontalmente** o **Centrar verticalmente**. La referencia primero/último sigue el orden de selección entre tipos y permanece fija. Quitar y volver a seleccionar un objeto lo convierte en el más reciente. Las selecciones masivas nuevas siguen el orden estable de UUID; ordenar las tablas conserva el orden anterior.
+
+El plano visible es explícito: **XY** para Superior, **XZ** para Frontal y **YZ** para Lateral. El valor inicial es XY, también en perspectiva, y no cambia al mover la cámara. En Lateral, izquierda/derecha sigue el eje Y reflejado. Se conservan la tercera coordenada, la rotación y la escala. La alineación usa bordes geométricos físicos, incluso con tamaños o rotaciones distintos. Los grupos siguen las preferencias de movimiento; un grupo y sus descendientes seleccionados nunca se mueven dos veces.
+
+Cada alineación con cambios crea un paso de Deshacer; repetirla sin cambios no crea historial. Si falta geometría física, se cancela toda la operación: el diagnóstico identifica el UUID/recurso. Los motores ficticios sin geometría física no admiten alineación por extremos. La alineación de Layout no está incluida.
