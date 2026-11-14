@@ -680,8 +680,9 @@ owned by their existing modules.
 
 Core `layouts/PhysicalViewport.h` owns double-precision physical units,
 validation and visible bounds. `Layout2DViewDefinition` defaults to free scale;
-optional physical parameters survive mode switching without replacing the free
-camera. Scene units are meters and document units are points (72 per inch).
+optional physical parameters survive mode switching with independent free zoom
+and capture settings. The latest user center is carried in both directions.
+Scene units are meters and document units are points (72 per inch).
 Fixed mapping uses `1000 / denominator * 72 / 25.4` points per scene meter.
 Centers store the selected world axes: Top X/Y, Front X/Z, Side Y/Z. Side reverses the horizontal projection, consistently with the
 existing scene command camera. Page coordinates grow right/down from top left.
@@ -761,7 +762,8 @@ original draft and free framing; OK retains the candidate without publishing a
 project mutation until the outer editor accepts it. Unchanged numeric controls
 preserve their original fractional point residuals bit-for-bit, even when the
 preview adapter temporarily updates the enclosing draft. No intermediate preview
-creates history entries or replaces the preserved free camera.
+creates history entries or changes the workspace camera. Free zoom is retained
+while the draft center follows the latest framing.
 
 Numeric viewport entries pair text controls with native step arrows. Their GUI
 adapter retains an exact value independently of display rounding and anchors
@@ -771,10 +773,13 @@ shows a persistent ratio/zoom-lock notice in fixed mode. Free mode disables the
 numeric scale/center arrows alongside their fields. Page placement remains a
 Layout-page operation; properties edit dimensions while preserving X/Y exactly.
 
-Entering fixed mode in Viewport properties anchors the current free camera center
-rather than remembered fixed metadata. The denominator is retained. Free/fixed
-transitions batch center updates before preview, preserve exact center doubles
-and keep the existing cancellation boundary.
+Both directions of a scale-mode transition retain the latest user-defined
+center, including fixed-mode pan and numeric edits. `ViewportScaleTransition.h`
+recenters the legacy free camera without replacing its zoom or capture dimensions;
+the GUI restores that free zoom using the candidate camera offsets. Fixed entry
+uses the current center rather than stale remembered metadata. Inactive fixed
+parameters stay untouched on an unchanged free edit. Transitions keep the existing
+preview/cancellation boundary and batch control updates before rendering.
 
 `layout_view_raster_policy.h` shares raster-cache validation between preflight and
 rasterization. A matching persisted raster avoids scene preparation in both

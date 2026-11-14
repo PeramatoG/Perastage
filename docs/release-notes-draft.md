@@ -12,7 +12,8 @@
   Numeric arrow buttons allow incremental adjustments without losing fractional
   precision, and a visible fixed-scale notice explains the zoom lock. Page position
   stays on the Layout page; properties focus on viewport scale, center and size.
-  Switching from free to fixed keeps the current view center. Both modes now use
+  Switching modes in either direction keeps the latest view center, including
+  framing adjusted while fixed; unlocking restores the previous free zoom. Both modes now use
   the ordinary 2D renderer for Layout previews, preserving scene and symbol
   appearance while fixed views retain their precise physical projection.
 - Fixed oversized strokes in fixed-scale Layout previews and restored thin,

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-14 08:45+0100\n"
+"POT-Creation-Date: 2026-11-14 10:49+0100\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: German\n"
@@ -2846,11 +2846,11 @@ msgid "100%"
 msgstr "100%"
 
 #: gui/layout2dviewdialog.cpp:84 gui/layout2dviewdialog.cpp:115
-#: gui/layout_viewport_properties.cpp:43 gui/layout_viewport_properties.cpp:189
+#: gui/layout_viewport_properties.cpp:45 gui/layout_viewport_properties.cpp:197
 msgid "Viewport properties"
 msgstr "Ansichtseigenschaften"
 
-#: gui/layout2dviewdialog.cpp:114 gui/layout_viewport_properties.cpp:188
+#: gui/layout2dviewdialog.cpp:114 gui/layout_viewport_properties.cpp:196
 #, c-format
 msgid "Invalid viewport properties: %s"
 msgstr "Ungültige Ansichtseigenschaften: %s"
@@ -2872,48 +2872,48 @@ msgstr ""
 "Fester Maßstab 1:%s. Zoom gesperrt; verschieben Sie die Ansicht zum "
 "Ausrichten."
 
-#: gui/layout_viewport_properties.cpp:52
+#: gui/layout_viewport_properties.cpp:54
 msgid "Free / Variable"
 msgstr "Frei / Variabel"
 
-#: gui/layout_viewport_properties.cpp:52
+#: gui/layout_viewport_properties.cpp:54
 msgid "Fixed"
 msgstr "Fest"
 
-#: gui/layout_viewport_properties.cpp:54
+#: gui/layout_viewport_properties.cpp:56
 msgid "Scale mode"
 msgstr "Maßstabsmodus"
 
-#: gui/layout_viewport_properties.cpp:81
+#: gui/layout_viewport_properties.cpp:83
 msgid "Drawing scale 1:"
 msgstr "Zeichnungsmaßstab 1:"
 
-#: gui/layout_viewport_properties.cpp:86
+#: gui/layout_viewport_properties.cpp:88
 msgid "Center horizontal (m)"
 msgstr "Mittelpunkt horizontal (m)"
 
-#: gui/layout_viewport_properties.cpp:87
+#: gui/layout_viewport_properties.cpp:89
 msgid "Center vertical (m)"
 msgstr "Mittelpunkt vertikal (m)"
 
-#: gui/layout_viewport_properties.cpp:91
+#: gui/layout_viewport_properties.cpp:93
 msgid "Frame width (mm)"
 msgstr "Rahmenbreite (mm)"
 
-#: gui/layout_viewport_properties.cpp:92
+#: gui/layout_viewport_properties.cpp:94
 msgid "Frame height (mm)"
 msgstr "Rahmenhöhe (mm)"
 
-#: gui/layout_viewport_properties.cpp:95
+#: gui/layout_viewport_properties.cpp:97
 msgid "Center axes: Top X/Y, Front X/Z, Side Y/Z."
 msgstr "Mittelpunktachsen: oben X/Y, vorne X/Z, seitlich Y/Z."
 
-#: gui/layout_viewport_properties.cpp:97
+#: gui/layout_viewport_properties.cpp:99
 msgid "Free scale: variable"
 msgstr "Freier Maßstab: variabel"
 
-#: gui/layout_viewport_properties.cpp:100
-#: gui/layout_viewport_properties.cpp:150
+#: gui/layout_viewport_properties.cpp:102
+#: gui/layout_viewport_properties.cpp:157
 #, c-format
 msgid "Effective free scale: approximately 1:%.4f"
 msgstr "Effektiver freier Maßstab: ungefähr 1:%.4f"

@@ -225,7 +225,7 @@ void Layout2DViewDialog::UpdateScaleLabel() {
   Layout();
 }
 
-// Merges presentation properties without replacing the preserved free camera.
+// Merges presentation properties while keeping the independent free zoom.
 void Layout2DViewDialog::ApplyViewportProperties(layouts::Layout2DViewDefinition &view) const {
   if (!viewportDraft) return;
   const auto editedOrientation = view.camera.view;
@@ -281,7 +281,7 @@ void Layout2DViewDialog::UpdateEditorScaleMode() {
       viewerPanel->ClearLayoutPhysicalViewport();
       overlayScale = freeEditorOverlayScale;
       if (freeEditorCamera)
-        viewerPanel->ApplyViewState(freeEditorCamera->offsetPixelsX, freeEditorCamera->offsetPixelsY,
+        viewerPanel->ApplyViewState(viewportDraft->camera.offsetPixelsX, viewportDraft->camera.offsetPixelsY,
                                    freeEditorCamera->zoom, orientation, viewerPanel->GetRenderMode());
     }
     const auto frame = layouts::ResolveViewportFrame(*viewportDraft);

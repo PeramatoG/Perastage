@@ -19,6 +19,7 @@
 #include "layout_viewport_adapter.h"
 #include "layout_physical_editor.h"
 #include "layout_viewport_properties.h"
+#include "ViewportScaleTransition.h"
 #include "layout_view_texture_pixels.h"
 #include "layout_view_raster_policy.h"
 #include "layout_view_projection.h"
@@ -32,6 +33,7 @@
 #include <wx/dcmemory.h>
 #include <cassert>
 #include <cmath>
+#include <limits>
 
 namespace {
 // Exercises the real modal controls, including Cancel and lossless unchanged OK.
@@ -137,7 +139,7 @@ void TestLiveViewportProperties() {
       selectMode(1);
       denominator->SetValue("100");
       assert(draft.physicalScale->denominator==100);
-      assert(draft.physicalScale->centerX==0); // Current restored free camera.
+      assert(draft.physicalScale->centerX==original.physicalScale->centerX); // Latest user framing.
       const int validCount=previews;
       denominator->SetValue(""); // Ordinary intermediate typing is not published.
       fields[0]->SetValue("-");
@@ -219,7 +221,7 @@ void TestViewportNumericArrows() {
       select(0);
       for(size_t i=0;i<5;++i) assert(arrows[i]->IsEnabled()==(i>=3));
       select(1);
-      assert(draft.physicalScale->centerX==0);
+      assert(draft.physicalScale->centerX==original.physicalScale->centerX);
       fields[0]->SetValue("1.123456789");
       step(0,true); assert(draft.physicalScale->denominator==51);
       step(0,false); assert(draft.physicalScale->denominator==50);
@@ -308,15 +310,95 @@ void TestScaleModeKeepsFreeCenter() {
       assert(draft.physicalScale->centerX==centerX && draft.physicalScale->centerY==centerY);
       assert(draft.physicalScale->denominator==200);
       fields[0]->SetValue("17.25"); fields[1]->SetValue("-8.5");
-      select(0); select(1);
-      assert(draft.physicalScale->centerX==centerX && draft.physicalScale->centerY==centerY);
+      select(0);
+      assert(draft.scaleMode==layouts::ViewportScaleMode::Free);
+      assert(draft.camera.offsetPixelsX==static_cast<float>(-layouts::ViewportHorizontalSign(orientation)*17.25*25));
+      assert(draft.camera.offsetPixelsY==212.5f);
+      select(1);
+      assert(draft.physicalScale->centerX==17.25 && draft.physicalScale->centerY==-8.5);
       wxCommandEvent end(wxEVT_BUTTON,accept ? wxID_OK : wxID_CANCEL);
       dialog->GetEventHandler()->ProcessEvent(end);
     });
     assert(EditLayoutViewportProperties(nullptr,draft,visual,
         [&](const layouts::Layout2DViewDefinition &candidate){ draft=candidate; })==accept);
-    if(accept) assert(draft.physicalScale->centerX==centerX && draft.physicalScale->centerY==centerY);
+    if(accept) assert(draft.physicalScale->centerX==17.25 && draft.physicalScale->centerY==-8.5);
     else assert(draft.physicalScale->centerX==99 && draft.scaleMode==layouts::ViewportScaleMode::Free);
+  }
+}
+void TestFixedPanSurvivesUnlock() {
+  for(int orientation : {0,1,2}) for(bool accept : {false,true}) {
+    layouts::Layout2DViewDefinition draft; draft.id=49; draft.frame={17,29,300,200};
+    draft.scaleMode=layouts::ViewportScaleMode::Fixed;
+    draft.physicalScale=viewer2d::ResolvePhysicalEditorPan({50,2,-3},25,-50,orientation,25);
+    draft.camera.offsetPixelsX=999; draft.camera.offsetPixelsY=-999;
+    draft.camera.zoom=1.2345f; draft.camera.viewportWidth=800; draft.camera.viewportHeight=600;
+    draft.camera.view=orientation; draft.renderOptions.showGrid=false;
+    const auto original=draft;
+    Viewer2DViewState visual; visual.viewportWidth=800; visual.viewportHeight=600;
+    visual.view=static_cast<Viewer2DView>(orientation);
+    visual.offsetPixelsX=static_cast<float>(-layouts::ViewportHorizontalSign(orientation)*draft.physicalScale->centerX*25);
+    visual.offsetPixelsY=static_cast<float>(-draft.physicalScale->centerY*25);
+    wxTheApp->CallAfter([&] {
+      wxDialog *dialog=nullptr;
+      for(auto *window:wxTopLevelWindows)
+        if((dialog=dynamic_cast<wxDialog *>(window))) break;
+      assert(dialog);
+      wxChoice *mode=nullptr; std::vector<wxTextCtrl *> fields;
+      for(auto *child:dialog->GetChildren()) {
+        if(dynamic_cast<wxComboBox *>(child)) continue;
+        if(auto *v=dynamic_cast<wxChoice *>(child)) mode=v;
+        if(auto *v=dynamic_cast<wxTextCtrl *>(child)) fields.push_back(v);
+      }
+      assert(mode && fields.size()==4);
+      auto select=[&](int selection) {
+        mode->SetSelection(selection);
+        wxCommandEvent event(wxEVT_CHOICE,mode->GetId());
+        mode->GetEventHandler()->ProcessEvent(event);
+      };
+      auto checkFreeCenter=[&](double x,double y) {
+        assert(draft.scaleMode==layouts::ViewportScaleMode::Free);
+        assert(draft.camera.zoom==original.camera.zoom);
+        assert(draft.camera.viewportWidth==800 && draft.camera.viewportHeight==600);
+        assert(draft.camera.view==orientation);
+        Viewer2DViewState free;
+        free.zoom=draft.camera.zoom; free.viewportWidth=800; free.viewportHeight=600;
+        free.offsetPixelsX=draft.camera.offsetPixelsX; free.offsetPixelsY=draft.camera.offsetPixelsY;
+        viewer2d::Viewer2DViewBounds bounds;
+        assert(viewer2d::ComputeViewBounds(free,bounds));
+        assert(std::abs((bounds.minX+bounds.maxX)/2-layouts::ViewportHorizontalSign(orientation)*x)<1e-10);
+        assert(std::abs((bounds.minY+bounds.maxY)/2-y)<1e-10);
+      };
+      select(0);
+      checkFreeCenter(original.physicalScale->centerX,original.physicalScale->centerY);
+      select(1);
+      assert(draft.physicalScale->centerX==original.physicalScale->centerX);
+      fields[0]->SetValue("12.75"); fields[1]->SetValue("-8.25");
+      select(0); checkFreeCenter(12.75,-8.25);
+      select(1);
+      assert(draft.physicalScale->centerX==12.75 && draft.physicalScale->centerY==-8.25);
+      select(0); checkFreeCenter(12.75,-8.25);
+      assert(draft.id==49 && !draft.renderOptions.showGrid && draft.frame.x==17 && draft.frame.y==29);
+      wxCommandEvent end(wxEVT_BUTTON,accept ? wxID_OK : wxID_CANCEL);
+      dialog->GetEventHandler()->ProcessEvent(end);
+    });
+    assert(EditLayoutViewportProperties(nullptr,draft,visual,
+        [&](const layouts::Layout2DViewDefinition &candidate){draft=candidate;})==accept);
+    if(accept) {
+      assert(draft.scaleMode==layouts::ViewportScaleMode::Free);
+      assert(draft.camera.offsetPixelsX==static_cast<float>(-layouts::ViewportHorizontalSign(orientation)*12.75*25));
+      assert(draft.camera.offsetPixelsY==206.25f && draft.camera.zoom==original.camera.zoom);
+    } else {
+      assert(draft.scaleMode==layouts::ViewportScaleMode::Fixed);
+      assert(draft.camera.offsetPixelsX==999 && draft.camera.offsetPixelsY==-999);
+      assert(draft.physicalScale->centerX==original.physicalScale->centerX);
+    }
+  }
+  layouts::Layout2DViewCameraState camera; camera.zoom=2.5f; camera.viewportWidth=801;
+  for(double invalid : {0.0,-1.0,std::numeric_limits<double>::infinity()}) {
+    bool rejected=false;
+    try { layouts::RecenterViewportCamera(camera,{50,2,3},0,invalid); }
+    catch(const std::invalid_argument &) { rejected=true; }
+    assert(rejected && camera.zoom==2.5f && camera.viewportWidth==801);
   }
 }
 void TestNativePhysicalPreviewContract() {
@@ -364,6 +446,7 @@ void TestPhysicalViewportPreview() {
   TestLiveViewportProperties();
   TestViewportNumericArrows();
   TestScaleModeKeepsFreeCenter();
+  TestFixedPanSurvivesUnlock();
   TestNativePhysicalPreviewContract();
   const layouts::PhysicalViewport physical{50,12.123456789,-3.987654321};
   const layouts::ViewportFramePoints frame{0,0,312.3456,197.6543};

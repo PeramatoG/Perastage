@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layout_viewport_properties.h"
+#include "ViewportScaleTransition.h"
 #include "layout_viewport_numeric_input.h"
 #include <memory>
 #include <vector>
@@ -38,6 +39,7 @@ bool EditLayoutViewportProperties(wxWindow *parent,
     const std::function<void(const layouts::Layout2DViewDefinition &)> &preview) {
   const auto original = draft;
   auto rememberedFixed = original.physicalScale;
+  bool carryCenterToFree = false;
   // Controllers outlive the dialog-owned controls and their event bindings.
   std::vector<std::unique_ptr<LayoutViewportNumericInput>> numbers;
   wxDialog dialog(parent, wxID_ANY, _("Viewport properties"));
@@ -119,7 +121,12 @@ bool EditLayoutViewportProperties(wxWindow *parent,
     if (candidate.scaleMode == layouts::ViewportScaleMode::Fixed) {
       valid = numbers[0]->Read(d) && numbers[1]->Read(x) && numbers[2]->Read(y);
       if (valid) candidate.physicalScale = layouts::PhysicalViewport{d,x,y};
-    } else candidate.physicalScale = rememberedFixed;
+    } else {
+      candidate.physicalScale = rememberedFixed;
+      if (carryCenterToFree && rememberedFixed)
+        candidate.camera = layouts::RecenterViewportCamera(original.camera, *rememberedFixed,
+            static_cast<int>(visualState.view), viewer2d::kViewer2DPixelsPerMeter);
+    }
     for (size_t i = 0; i < n.size(); ++i) valid = numbers[i+3]->Read(n[i]) && valid;
     if (!valid) throw std::invalid_argument("Enter finite numeric values for scale, center and frame.");
     // Preserve the exact stored doubles on an unchanged edit.
@@ -165,14 +172,15 @@ bool EditLayoutViewportProperties(wxWindow *parent,
   denominator->Bind(wxEVT_COMBOBOX, [&](wxCommandEvent &) { previewValues(); });
   int previousMode = mode->GetSelection();
   mode->Bind(wxEVT_CHOICE, [&](wxCommandEvent &) {
-    if (previousMode != mode->GetSelection()) {
-      // The free camera is restored whenever free mode is selected. Entering
-      // fixed mode anchors that current framing, not remembered fixed metadata.
+    if (previousMode == 1 && mode->GetSelection() == 0) {
+      // Keep the latest fixed framing, including pan and numeric edits. Only
+      // the free zoom is restored when the mode lock is released.
+      carryCenterToFree = true;
+      const auto center = rememberedFixed.value_or(physical);
       updatingControls = true;
-      if (mode->GetSelection() == 0)
-        numbers[0]->SetPreciseValue(rememberedFixed.value_or(physical).denominator);
-      numbers[1]->SetPreciseValue(freeCenterX);
-      numbers[2]->SetPreciseValue(freeCenterY);
+      numbers[0]->SetPreciseValue(center.denominator);
+      numbers[1]->SetPreciseValue(center.centerX);
+      numbers[2]->SetPreciseValue(center.centerY);
       updatingControls = false;
     }
     previousMode = mode->GetSelection();

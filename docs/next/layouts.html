@@ -130,8 +130,9 @@ Use the existing visual editor to zoom, pan and fit the scene. Resizing retains
 the established flexible workflow. The approximate effective free scale, when
 available, describes the stored camera and current frame; it is not a lock.
 The editor&#39;s <strong>Visual framing</strong> slider adjusts visual framing, not a physical ratio.</p>
-<p>Choose <strong>Fixed</strong> explicitly for an exact drawing scale. Switching from free
-keeps the current view center, including when a previous fixed center was saved.
+<p>Choose <strong>Fixed</strong> explicitly for an exact drawing scale. Switching modes
+keeps the current view center in both directions. Panning or numeric center edits
+in fixed mode remain in place when the scale lock is released.
 Select 1:25, 1:50,
 1:100, 1:200 or 1:500, or enter a custom denominator between 0.01 and 10000000.
 At 1:50, one scene meter occupies 20 mm on paper; at 1:100 it occupies 10 mm.
@@ -143,12 +144,12 @@ notice identifies the fixed ratio and explains why zoom is locked. Zoom, fit
 and the Visual framing slider are locked; dragging and arrow keys move the
 center without changing scale. Resizing the editor fits the displayed rectangle
 to the window while preserving the world area inside it. Switching back to free
-mode restores the previous free framing. Both modes use the ordinary 2D scene
+mode restores the previous free zoom while retaining the latest view center. Both modes use the ordinary 2D scene
 renderer for the Layout preview, preserving the same scene drawing and symbols.</p>
 <p>Fixed scale preserves object size and center when moving or resizing the frame;
 a larger frame reveals more scene. Layout editor zoom, display DPI and capture
 resolution affect screen rasterization, independently of paper geometry.
-Switch back to <strong>Free / Variable</strong> to use the preserved free camera. Filters,
+Switch back to <strong>Free / Variable</strong> to use the preserved free zoom at the latest center. Filters,
 labels and presentation settings are retained. Valid changes in <strong>Viewport properties</strong>
 preview immediately in the editor, including scale mode, drawing scale, center
 and frame size. Incomplete or invalid numbers keep the last valid preview.
