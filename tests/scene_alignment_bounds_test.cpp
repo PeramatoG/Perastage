@@ -25,6 +25,7 @@
 #include <cassert>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <wx/filename.h>
 
 // This test supplies only a path lookup. All geometry uses production CPU loaders.
@@ -80,6 +81,13 @@ int main(int argc,char **argv) {
   GroupObject nested; nested.uuid="nested"; nested.children={{MvrNodeType::Fixture,f.uuid}};
   GroupObject group; group.uuid="group";
   group.children={{MvrNodeType::GroupObject,nested.uuid},{MvrNodeType::SceneObject,object.uuid}};
+  nested.parentGroupUuid=group.uuid;
+  scene.fixtures[f.uuid].parentGroupUuid=nested.uuid;
+  scene.fixtures[f.uuid].localTransform=f.transform;
+  scene.fixtures[f.uuid].hasLocalTransform=true;
+  scene.sceneObjects[object.uuid].parentGroupUuid=group.uuid;
+  scene.sceneObjects[object.uuid].localTransform=object.transform;
+  scene.sceneObjects[object.uuid].hasLocalTransform=true;
   scene.groupObjects[nested.uuid]=nested; scene.groupObjects[group.uuid]=group;
   const auto groupBounds=alignment::SceneBounds(scene,{MvrNodeType::GroupObject,group.uuid},diagnostic);
   assert(groupBounds);

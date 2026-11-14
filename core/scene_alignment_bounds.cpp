@@ -22,6 +22,8 @@
 #include "matrixutils.h"
 #include "resources/resource_path_resolution.h"
 #include <algorithm>
+#include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <limits>
 #include <map>
@@ -57,8 +59,10 @@ std::optional<Bounds> Fixture(const MvrScene &scene, const std::string &spec,
   if (ec) { diagnostic = "GDTF resource is unavailable: " + spec; return {}; }
   const auto time = std::filesystem::last_write_time(path, ec);
   if (ec) { diagnostic = "GDTF resource version is unavailable: " + spec; return {}; }
+  using PortableFileTicks = std::chrono::duration<std::int64_t,std::nano>;
+  const auto ticks = std::chrono::duration_cast<PortableFileTicks>(time.time_since_epoch()).count();
   const auto key = PathUtils::BuildFilesystemIdentityKey(path) + "|" + mode + "|" +
-      std::to_string(size) + "|" + std::to_string(time.time_since_epoch().count());
+      std::to_string(size) + "|" + std::to_string(ticks);
   // Bounded derived cache; canonical GDTF ownership remains in the existing loader.
   static std::map<std::string, Bounds> cache;
   if (const auto found = cache.find(key); found != cache.end()) return found->second;
@@ -146,8 +150,27 @@ std::optional<Bounds> Resolve(const MvrScene &scene, const Target &target,
   case MvrNodeType::GroupObject: {
     Bounds result = Empty();
     const auto &group = scene.groupObjects.at(target.uuid);
+    for (const auto *axis : {&group.transform.u,&group.transform.v,&group.transform.w,&group.transform.o})
+      for (auto value : *axis) if (!std::isfinite(value)) {
+        diagnostic = "Non-finite group world transform: " + target.uuid; return {};
+      }
     if (group.children.empty()) { diagnostic = "Group has no physical descendants."; return {}; }
     for (const auto &child : group.children) {
+      // Reject inconsistent ownership before two effective groups could move
+      // the same physical descendant. This validates the existing hierarchy.
+      auto parent = [&]() -> std::string {
+        switch (child.type) {
+        case MvrNodeType::Fixture: return scene.fixtures.at(child.uuid).parentGroupUuid;
+        case MvrNodeType::Truss: return scene.trusses.at(child.uuid).parentGroupUuid;
+        case MvrNodeType::Support: return scene.supports.at(child.uuid).parentGroupUuid;
+        case MvrNodeType::SceneObject: return scene.sceneObjects.at(child.uuid).parentGroupUuid;
+        case MvrNodeType::GroupObject: return scene.groupObjects.at(child.uuid).parentGroupUuid;
+        }
+        return {};
+      };
+      if (parent() != target.uuid) {
+        diagnostic = "Inconsistent group child ownership: " + child.uuid; return {};
+      }
       const auto bounds = Resolve(scene, {child.type,child.uuid}, visiting, diagnostic);
       if (!bounds || !Valid(*bounds)) return {};
       Include(result,*bounds);
