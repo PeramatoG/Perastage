@@ -7,7 +7,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/culling/visibilitysystem.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfloader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/selection_drag_math.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/interaction/context_menu_model.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/navigation_interaction_policy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/selection_drag_activation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/selection_drag_session.cpp

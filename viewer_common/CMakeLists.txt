@@ -1,4 +1,5 @@
 target_sources(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/context_menu_model.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gl_canvas_config.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gl_context_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gl_framebuffer_capture_target.cpp

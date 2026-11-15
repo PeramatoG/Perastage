@@ -3891,9 +3891,9 @@ add_test(NAME Viewer3DSceneSelectionPolicy
 
 add_executable(viewer3d_context_menu_model_test
                viewer3d_context_menu_model_test.cpp
-               ../viewer3d/interaction/context_menu_model.cpp)
+               ../viewer_common/context_menu_model.cpp)
 target_include_directories(viewer3d_context_menu_model_test PRIVATE
-                           ../viewer3d/interaction)
+                           ../viewer_common)
 add_test(NAME Viewer3DContextMenuModel COMMAND viewer3d_context_menu_model_test)
 
 add_executable(project_fixture_gdtf_consolidator_test
@@ -5102,3 +5102,8 @@ if(UNIX AND NOT APPLE AND PERASTAGE_XVFB_RUN)
     set_perastage_test_labels(NativeLayoutAlignmentSmoke LAYER standard-strict DOMAINS layout gui project)
     set_library_env(NativeLayoutAlignmentSmoke)
 endif()
+
+add_bash_policy_test(ViewportContextMenuBoundary
+    ${CMAKE_CURRENT_SOURCE_DIR}/check_viewport_context_menu_boundary.sh
+    LABELS "standard-strict;architecture;gui;viewer2d;viewer3d")
+set_perastage_test_labels(Viewer3DContextMenuModel LAYER unit DOMAINS viewer2d viewer3d gui)

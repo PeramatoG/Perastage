@@ -57,6 +57,7 @@ void Viewer3DPanel::OnMouseWheel(wxMouseEvent &event) {
 
 // Handles keyboard shortcuts for viewport tools and camera actions.
 void Viewer3DPanel::OnKeyDown(wxKeyEvent &event) {
+  if (event.GetKeyCode() == WXK_ESCAPE) m_contextClick.Cancel();
   viewer3d::diagnostics::Logf("Key interaction start key=%d shift=%d alt=%d",
                               event.GetKeyCode(), event.ShiftDown() ? 1 : 0,
                               event.AltDown() ? 1 : 0);

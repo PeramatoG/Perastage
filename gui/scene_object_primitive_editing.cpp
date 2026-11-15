@@ -142,6 +142,11 @@ Matrix ResolveEditableTransform(const SceneObject &object,
 
 } // namespace
 
+bool CanEditPrimitiveObject(const SceneObject &object) {
+  return IsScreenObject(object) || IsPipeObject(object) ||
+         ResolvePrimitiveTarget(object).kind != PrimitiveKind::None;
+}
+
 // Opens the matching primitive edit dialog and applies accepted geometry changes.
 bool EditPrimitiveObjectByUuid(wxWindow *parent, ConfigManager &cfg,
                                const std::string &uuid) {

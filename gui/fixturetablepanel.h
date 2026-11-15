@@ -76,6 +76,7 @@ public:
                       bool notifySelectionChanged = true);
     bool IsActivePage() const;
     void DeleteSelected(bool pushUndoState = true);
+    void EditByUuid(const std::string& uuid);
     void UpdatePositionValues(const std::vector<std::string>& uuids);
     void ApplyPositionValueUpdates(const std::vector<PositionValueUpdate>& updates);
     wxDataViewListCtrl* GetTableCtrl() const { return table; }

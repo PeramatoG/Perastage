@@ -1,5 +1,11 @@
 # Perastage 1.8.0
 
+- Right-click scene elements in 2D and 3D to open their existing editors, select
+  similar elements, focus the Position Tool or apply supported selection commands.
+  Existing multi-selection is preserved. Fixed missing 3D menus after mouse
+  capture loss; drags no longer open menus. Quick fixture patch edits now validate
+  DMX assignments and support atomic Undo/Redo.
+
 - Fixture labels now use the same bundled font, letter positions and line layout
   in the 2D viewer, label editor and PDF, including unedited inherited fields.
   Existing numeric settings remain stored unchanged; labels that previously used

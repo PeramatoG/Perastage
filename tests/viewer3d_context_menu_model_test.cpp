@@ -1,117 +1,97 @@
+/* This file is part of Perastage. License: GPL-3.0-or-later. */
 #include "context_menu_model.h"
-
+#include <algorithm>
 #include <cassert>
-#include <set>
-#include <string>
 
+using namespace viewport_context;
 namespace {
-
-using viewer3d::context_menu::Build;
-using viewer3d::context_menu::Input;
-using viewer3d::context_menu::Model;
-using viewer3d::context_menu::SelectableObject;
-using viewer3d::context_menu::SelectionPage;
-
-// Verifies the general menu actions and runtime labels in every model.
-void AssertValidModel(const Model &model) {
-  assert(model.renderStyleAvailable);
-  assert(model.exportImageAvailable);
-  if (model.selectionAvailable) {
-    assert(!model.selectAllLabel.empty());
-    assert(!model.typeSubmenuLabel.empty());
+bool Has(const Model &model, Action action) {
+  return std::find(model.actions.begin(), model.actions.end(), action) != model.actions.end();
+}
+Input FixtureInput() {
+  Input input;
+  input.hit = {Kind::Fixture, "fixture-a"};
+  input.capabilities = {true, true, true, true, true, true, true, true, true, true, true, true};
+  return input;
+}
+void TestClickedIdentityAndChronology() {
+  auto input = FixtureInput();
+  auto model = Build(input);
+  assert(model.replaceSelection);
+  assert(model.selection == std::vector<Target>{input.hit});
+  assert(Has(model, Action::EditFixture) && Has(model, Action::EditPatch));
+  assert(!Has(model, Action::EditTruss) && !Has(model, Action::EditPrimitive));
+  input.selection = {{Kind::Truss, "truss-b"}, input.hit, {Kind::Fixture, "fixture-c"}};
+  model = Build(input);
+  assert(!model.replaceSelection);
+  assert(model.selection == input.selection);
+  assert(Has(model, Action::Group) && Has(model, Action::Copy) && Has(model, Action::Delete));
+  assert(Build(input).actions == model.actions);
+  // A promoted group carries all clicked members while retaining the hit UUID.
+  input.selection.clear();
+  input.clickedSelection = {input.hit, {Kind::Truss, "group-sibling"}};
+  model = Build(input);
+  assert(model.replaceSelection && model.selection == input.clickedSelection);
+  input.selection = input.clickedSelection;
+  assert(!Build(input).replaceSelection);
+}
+void TestCategoriesAndCapabilities() {
+  auto input = FixtureInput();
+  for (const auto kind : {Kind::Truss, Kind::Support, Kind::SceneObject, Kind::Group}) {
+    input.hit = {kind, "clicked"};
+    const auto model = Build(input);
+    assert(model.replaceSelection && model.selection.front().uuid == "clicked");
+    assert(Has(model, Action::EditTruss) == (kind == Kind::Truss));
+    assert(Has(model, Action::EditPrimitive) == (kind == Kind::SceneObject));
+    assert(Has(model, Action::ConvertToTruss) == (kind == Kind::SceneObject));
+    assert(Has(model, Action::PositionTool));
+    assert(!Has(model, Action::EditFixture));
   }
-  for (const std::string &label : model.typesOrModels)
-    assert(!label.empty());
-  for (const std::string &label : model.positions)
-    assert(!label.empty());
+  input.hit = {Kind::SceneObject, "non-primitive"};
+  input.capabilities.editPrimitive = false;
+  input.capabilities.convertToTruss = false;
+  input.capabilities.ungroup = false;
+  const auto model = Build(input);
+  assert(!Has(model, Action::EditPrimitive));
+  assert(!Has(model, Action::ConvertToTruss));
+  assert(!Has(model, Action::Ungroup));
 }
-
-// Verifies states where fixture or truss selection actions are unavailable.
-void TestUnavailableSelectionStates() {
+void TestEmptyAndInteractions() {
   Input input;
-  input.pickingAvailable = true;
-  Model model = Build(input);
-  assert(!model.selectionAvailable);
-  AssertValidModel(model);
-
-  input.page = SelectionPage::Fixtures;
+  input.selection = {{Kind::Fixture, "keep"}};
+  auto model = Build(input);
+  assert(!model.replaceSelection && model.selection == input.selection);
+  assert(!Has(model, Action::RenderStyle) && !Has(model, Action::ExportImage));
+  input.capabilities.renderStyle = input.capabilities.exportImage = true;
   model = Build(input);
-  assert(!model.selectionAvailable);
-  AssertValidModel(model);
-
-  input.page = SelectionPage::Trusses;
-  model = Build(input);
-  assert(!model.selectionAvailable);
-  AssertValidModel(model);
-
-  input.objects = {{"Model", "Position"}};
-  input.selectionObjectHit = true;
-  model = Build(input);
-  assert(!model.selectionAvailable);
-  assert(model.typesOrModels.empty());
-  AssertValidModel(model);
-
-  input.selectionObjectHit = false;
-  input.pickingAvailable = false;
-  model = Build(input);
-  assert(!model.selectionAvailable);
-  AssertValidModel(model);
+  assert(Has(model, Action::RenderStyle) && Has(model, Action::ExportImage));
+  input.capabilities.selectionShortcuts = true;
+  assert(Has(Build(input), Action::SelectionShortcuts));
+  input.hit = {Kind::Fixture, "hit"};
+  assert(!Has(Build(input), Action::SelectionShortcuts));
+  // Failed/filtered picks have no individual action target.
+  input.hit = {Kind::Fixture, {}};
+  input.capabilities.editFixture = true;
+  assert(!Has(Build(input), Action::EditFixture));
+  input.interactionActive = true;
+  assert(Build(input).actions.empty());
+  input.interactionActive = false;
+  input.dragged = true;
+  assert(Build(input).actions.empty());
 }
-
-// Verifies fixture labels and deterministic type and position collection.
-void TestFixtureSelectionModel() {
-  Input input;
-  input.page = SelectionPage::Fixtures;
-  input.pickingAvailable = true;
-  input.objects = {{"Wash", "FOH"}, {"Spot", ""}, {"Wash", "FOH"}};
-  const Model model = Build(input);
-
-  assert(model.selectionAvailable);
-  assert(model.selectAllLabel == "All fixtures");
-  assert(model.typeSubmenuLabel == "Select by fixture type");
-  assert((model.typesOrModels == std::vector<std::string>{"Spot", "Wash"}));
-  assert((model.positions == std::vector<std::string>{"FOH"}));
-  assert(model.hasNoPosition);
-  AssertValidModel(model);
+void TestGestureRecovery() {
+  ClickGesture gesture;
+  assert(!gesture.Finish());
+  gesture.Begin(10, 10); gesture.Move(14, 10); gesture.Move(10, 10);
+  assert(!gesture.Finish());
+  gesture.Begin(10, 10); gesture.Move(12, 12);
+  assert(gesture.Finish());
+  gesture.Begin(10, 10, true); assert(!gesture.Finish());
+  gesture.Begin(10, 10); gesture.Cancel(); assert(!gesture.Finish());
+  gesture.Begin(10, 10); assert(gesture.Finish());
 }
-
-// Verifies truss labels and deterministic model and position collection.
-void TestTrussSelectionModel() {
-  Input input;
-  input.page = SelectionPage::Trusses;
-  input.pickingAvailable = true;
-  input.objects = {{"F34-3000", "Upstage"}, {"F34-2000", "Downstage"}};
-  const Model model = Build(input);
-
-  assert(model.selectionAvailable);
-  assert(model.selectAllLabel == "All trusses");
-  assert(model.typeSubmenuLabel == "Select by model");
-  assert((model.typesOrModels ==
-          std::vector<std::string>{"F34-2000", "F34-3000"}));
-  assert((model.positions == std::vector<std::string>{"Downstage", "Upstage"}));
-  assert(!model.hasNoPosition);
-  AssertValidModel(model);
-}
-
-// Verifies conversion remains independent from fixture and truss selection.
-void TestSceneObjectConversionModel() {
-  Input input;
-  input.pickingAvailable = true;
-  input.convertibleSceneObjectHit = true;
-  const Model model = Build(input);
-
-  assert(model.convertToTrussAvailable);
-  assert(!model.selectionAvailable);
-  AssertValidModel(model);
-}
-
 } // namespace
-
-// Runs the Viewer3D context-menu state regression scenarios.
 int main() {
-  TestUnavailableSelectionStates();
-  TestFixtureSelectionModel();
-  TestTrussSelectionModel();
-  TestSceneObjectConversionModel();
-  return 0;
+  TestClickedIdentityAndChronology(); TestCategoriesAndCapabilities();
+  TestEmptyAndInteractions(); TestGestureRecovery();
 }

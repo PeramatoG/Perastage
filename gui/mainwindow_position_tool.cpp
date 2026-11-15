@@ -30,6 +30,14 @@ void MainWindow::OnTogglePositionTool(wxCommandEvent &) {
   UpdateViewMenuChecks();
 }
 
+void MainWindow::FocusPositionTool() {
+  if (!auiManager || !positionToolPanel) return;
+  auiManager->GetPane("PositionTool").Show();
+  auiManager->Update();
+  UpdateViewMenuChecks();
+  positionToolPanel->SetFocus();
+}
+
 // Migrate the original bottom/hidden default once, retaining later user layouts.
 void MainWindow::InitializePositionToolSidebar(bool sceneWorkspace) {
   auto &preferences = guiConfigServices->Preferences();

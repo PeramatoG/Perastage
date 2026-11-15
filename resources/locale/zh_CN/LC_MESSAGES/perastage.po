@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-15 18:17+0100\n"
+"POT-Creation-Date: 2026-11-15 23:20+0100\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -107,7 +107,7 @@ msgstr ""
 msgid "Name:"
 msgstr "名称："
 
-#: gui/addfixturedialog.cpp:49 gui/fixturepatchdialog.cpp:29
+#: gui/addfixturedialog.cpp:49 gui/fixturepatchdialog.cpp:30
 msgid "Fixture ID:"
 msgstr "灯具 ID："
 
@@ -119,12 +119,12 @@ msgstr "模式："
 msgid "Edit Address"
 msgstr "编辑地址"
 
-#: gui/addressdialog.cpp:27 gui/fixturepatchdialog.cpp:39
+#: gui/addressdialog.cpp:27 gui/fixturepatchdialog.cpp:40
 #: gui/patch/dmx_patch_panel.cpp:26
 msgid "Universe:"
 msgstr "DMX 域："
 
-#: gui/addressdialog.cpp:31 gui/fixturepatchdialog.cpp:43
+#: gui/addressdialog.cpp:31 gui/fixturepatchdialog.cpp:44
 msgid "Channel:"
 msgstr "通道："
 
@@ -498,6 +498,7 @@ msgstr "添加"
 
 #: gui/dictionaryeditdialog.cpp:606 gui/hang_position_dialog.cpp:179
 #: gui/layerpanel.cpp:128 gui/layoutpanel.cpp:44 gui/layoutviewerpanel.cpp:1291
+#: gui/viewport_context_menu.cpp:143
 msgid "Delete"
 msgstr "删除"
 
@@ -1283,7 +1284,7 @@ msgstr "预览背景"
 
 #: gui/fixture_label_editor.cpp:73
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:44
-#: viewer2d/viewer2drenderpanel.cpp:65
+#: gui/viewport_context_menu.cpp:209 viewer2d/viewer2drenderpanel.cpp:65
 msgid "White"
 msgstr "白色"
 
@@ -1300,7 +1301,9 @@ msgid ""
 "The viewer, editor and PDF use the same bundled font and label composition. "
 "Sizes and offsets use scene metres.\n"
 "Supported text: English and Western European WinAnsi characters."
-msgstr "视图、编辑器和 PDF 使用相同的内置字体和标签布局。大小和偏移使用场景米。\n支持的文本：英语和西欧 WinAnsi 字符。"
+msgstr ""
+"视图、编辑器和 PDF 使用相同的内置字体和标签布局。大小和偏移使用场景米。\n"
+"支持的文本：英语和西欧 WinAnsi 字符。"
 
 #: gui/fixture_label_editor.cpp:88
 msgid "Reset to Default"
@@ -1373,6 +1376,17 @@ msgstr "GDTF 验证"
 #: gui/fixtureeditdialog.cpp:1014 gui/fixtureeditdialog.cpp:1019
 msgid "GDTF update"
 msgstr "GDTF 更新"
+
+#: gui/fixturepatchdialog.cpp:74
+msgid ""
+"Enter a non-negative fixture ID and a positive universe with channel 1–512, "
+"or 0/0 to unpatch."
+msgstr ""
+"请输入非负的灯具 ID 和正整数域号，通道范围为 1–512；输入 0/0 可取消配接。"
+
+#: gui/fixturepatchdialog.cpp:75 gui/viewport_scene_editing.cpp:71
+msgid "Edit DMX Patch"
+msgstr "编辑 DMX 配接"
 
 #: gui/fixturetable/fixture_table_columns.cpp:13 gui/hoisttablepanel.cpp:461
 #: gui/inspection/gdtf_inspector_details_panel.cpp:154
@@ -3390,20 +3404,20 @@ msgstr "无法转换所选灯具：%s"
 msgid "Converted %zu fixture(s) to hoists."
 msgstr "将 %zu 固定装置转换为吊机。"
 
-#: gui/mainwindow_conversion.cpp:98
+#: gui/mainwindow_conversion.cpp:101
 msgid "Please select a scene object to convert first."
 msgstr "请先选择要转换的场景对象。"
 
-#: gui/mainwindow_conversion.cpp:99 gui/mainwindow_conversion.cpp:118
-#: gui/mainwindow_conversion.cpp:150 gui/mainwindow_menu_builders.cpp:112
+#: gui/mainwindow_conversion.cpp:102 gui/mainwindow_conversion.cpp:121
+#: gui/mainwindow_conversion.cpp:153 gui/mainwindow_menu_builders.cpp:112
 msgid "Convert Scene Objects to Truss"
 msgstr "导出场景对象..."
 
-#: gui/mainwindow_conversion.cpp:117
+#: gui/mainwindow_conversion.cpp:120
 msgid "No scene objects with a valid model file were converted."
 msgstr "没有转换具有有效模型文件的场景对象。"
 
-#: gui/mainwindow_conversion.cpp:147
+#: gui/mainwindow_conversion.cpp:150
 #, c-format
 msgid "Converted %zu scene object(s) with model '%s' to truss."
 msgstr "Converted %zu scene object(s) with model '%s' to truss."
@@ -3861,7 +3875,7 @@ msgstr "数量"
 msgid "Cut selected scene elements"
 msgstr "剪切选定的场景元素"
 
-#: gui/mainwindow_menu.cpp:207
+#: gui/mainwindow_menu.cpp:207 gui/viewport_context_menu.cpp:142
 msgid "Copy"
 msgstr "复制"
 
@@ -4332,7 +4346,7 @@ msgid "Layout Mode View"
 msgstr "布局模式视图"
 
 #: gui/mainwindow_menu_builders.cpp:79 gui/mainwindow_position_tool.cpp:20
-#: gui/positiontoolpanel.cpp:226
+#: gui/positiontoolpanel.cpp:226 gui/viewport_context_menu.cpp:139
 msgid "Position Tool"
 msgstr "位置工具"
 
@@ -5690,6 +5704,7 @@ msgstr "低"
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:21
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:41
+#: gui/viewport_context_menu.cpp:205
 msgid "Standard"
 msgstr "标准"
 
@@ -5715,30 +5730,32 @@ msgid "Render mode"
 msgstr "渲染模式"
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:46
+#: gui/viewport_context_menu.cpp:206
 msgid "Sketch mode"
 msgstr "草图模式"
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:48
+#: gui/viewport_context_menu.cpp:207
 msgid "Textured"
 msgstr "纹理"
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:50
-#: viewer2d/viewer2drenderpanel.cpp:65
+#: gui/viewport_context_menu.cpp:208 viewer2d/viewer2drenderpanel.cpp:65
 msgid "Wireframe"
 msgstr "线框"
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:52
-#: viewer2d/viewer2drenderpanel.cpp:65
+#: gui/viewport_context_menu.cpp:210 viewer2d/viewer2drenderpanel.cpp:65
 msgid "By device type"
 msgstr "按设备类型"
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:54
-#: viewer2d/viewer2drenderpanel.cpp:66
+#: gui/viewport_context_menu.cpp:211 viewer2d/viewer2drenderpanel.cpp:66
 msgid "By layer"
 msgstr "按图层"
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:56
-#: viewer2d/viewer2drenderpanel.cpp:66
+#: gui/viewport_context_menu.cpp:212 viewer2d/viewer2drenderpanel.cpp:66
 msgid "By universe"
 msgstr "按 DMX 域"
 
@@ -6404,6 +6421,74 @@ msgstr[0] "正在为导航准备场景：剩余 %zu 项"
 msgid "Scene loaded. Some resources are unavailable; see Console."
 msgstr "场景已加载。部分资源不可用；请查看控制台。"
 
+#: gui/viewport_context_menu.cpp:132
+msgid "Edit Fixture..."
+msgstr "编辑灯具..."
+
+#: gui/viewport_context_menu.cpp:133
+msgid "Edit DMX Patch..."
+msgstr "编辑 DMX 配接..."
+
+#: gui/viewport_context_menu.cpp:134
+msgid "Edit Truss..."
+msgstr "编辑桁架..."
+
+#: gui/viewport_context_menu.cpp:135
+msgid "Edit Object..."
+msgstr "编辑对象..."
+
+#: gui/viewport_context_menu.cpp:136
+msgid "Convert to Truss"
+msgstr "转换为电动葫芦"
+
+#: gui/viewport_context_menu.cpp:137
+msgid "Select Similar by Type"
+msgstr "选择相同类型的元素"
+
+#: gui/viewport_context_menu.cpp:138
+msgid "Select Similar by Position"
+msgstr "选择相同吊挂位置的元素"
+
+#: gui/viewport_context_menu.cpp:140
+msgid "Group"
+msgstr "编组"
+
+#: gui/viewport_context_menu.cpp:141
+msgid "Ungroup"
+msgstr "取消编组"
+
+#: gui/viewport_context_menu.cpp:189
+msgid "All fixtures"
+msgstr "所有灯具"
+
+#: gui/viewport_context_menu.cpp:189
+msgid "All trusses"
+msgstr "所有桁架"
+
+#: gui/viewport_context_menu.cpp:194
+msgid "Select by fixture type"
+msgstr "按灯具类型选择"
+
+#: gui/viewport_context_menu.cpp:194
+msgid "Select by model"
+msgstr "按型号选择"
+
+#: gui/viewport_context_menu.cpp:197
+msgid "No position"
+msgstr "位置"
+
+#: gui/viewport_context_menu.cpp:199
+msgid "Select by position"
+msgstr "选择"
+
+#: gui/viewport_context_menu.cpp:223
+msgid "Render style"
+msgstr "渲染模式"
+
+#: gui/viewport_context_menu.cpp:271
+msgid "Export image..."
+msgstr "导出灯具..."
+
 #: gui/windows/SymbolPreviewWindow.cpp:143
 msgid "Export this view as SVG..."
 msgstr "导出 CSV..."
@@ -6474,25 +6559,13 @@ msgstr "全选"
 msgid "Spanish"
 msgstr "西班牙语"
 
-#: viewer2d/viewer2dpanel.cpp:3569
+#: viewer2d/viewer2dpanel.cpp:3419
 msgid "Gap measure: "
 msgstr "测量工具"
 
-#: viewer2d/viewer2dpanel.cpp:3570
+#: viewer2d/viewer2dpanel.cpp:3420
 msgid "Measure: "
 msgstr "测量工具"
-
-#: viewer2d/viewer2dpanel.cpp:3642 viewer3d/viewer3dpanel.cpp:2256
-msgid "Convert to Truss"
-msgstr "转换为电动葫芦"
-
-#: viewer2d/viewer2dpanel.cpp:3728 viewer3d/viewer3dpanel.cpp:2273
-msgid "No position"
-msgstr "位置"
-
-#: viewer2d/viewer2dpanel.cpp:3739 viewer3d/viewer3dpanel.cpp:2284
-msgid "Select by position"
-msgstr "选择"
 
 #: viewer2d/viewer2drenderpanel.cpp:72
 msgid "Dark mode"
@@ -6558,40 +6631,32 @@ msgstr "Z尺"
 msgid "Edit Fixture Labels..."
 msgstr "编辑灯具标签..."
 
-#: viewer3d/viewer3dpanel.cpp:1352
+#: viewer3d/viewer3dpanel.cpp:1303
 msgid "Cannot export while the 3D viewer is hidden."
 msgstr "3D 查看器隐藏时无法导出。"
 
-#: viewer3d/viewer3dpanel.cpp:1352 viewer3d/viewer3dpanel.cpp:1357
-#: viewer3d/viewer3dpanel.cpp:1369 viewer3d/viewer3dpanel.cpp:1374
-#: viewer3d/viewer3dpanel.cpp:1417 viewer3d/viewer3dpanel.cpp:1466
+#: viewer3d/viewer3dpanel.cpp:1303 viewer3d/viewer3dpanel.cpp:1308
+#: viewer3d/viewer3dpanel.cpp:1320 viewer3d/viewer3dpanel.cpp:1325
+#: viewer3d/viewer3dpanel.cpp:1368 viewer3d/viewer3dpanel.cpp:1417
 msgid "Export image"
 msgstr "导出"
 
-#: viewer3d/viewer3dpanel.cpp:1369 viewer3d/viewer3dpanel.cpp:1374
+#: viewer3d/viewer3dpanel.cpp:1320 viewer3d/viewer3dpanel.cpp:1325
 msgid "OpenGL is not initialized yet."
 msgstr "OpenGL 尚未初始化。"
 
-#: viewer3d/viewer3dpanel.cpp:1416
+#: viewer3d/viewer3dpanel.cpp:1367
 msgid "Failed to create an offscreen framebuffer for export."
 msgstr "无法创建用于导出的离屏帧缓冲区。"
 
-#: viewer3d/viewer3dpanel.cpp:1466
+#: viewer3d/viewer3dpanel.cpp:1417
 msgid "Failed to save PNG image."
 msgstr "保存 PNG 图像失败。"
 
-#: viewer3d/viewer3dpanel.cpp:1720
+#: viewer3d/viewer3dpanel.cpp:1671
 #, c-format
 msgid "Measure: %s"
 msgstr "测量：%s"
-
-#: viewer3d/viewer3dpanel.cpp:2287
-msgid "Render style"
-msgstr "渲染模式"
-
-#: viewer3d/viewer3dpanel.cpp:2289
-msgid "Export image..."
-msgstr "导出灯具..."
 
 #, c-format
 #~ msgid "ID: %d"

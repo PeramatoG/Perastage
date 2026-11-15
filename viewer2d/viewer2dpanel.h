@@ -23,6 +23,7 @@
  */
 
 #pragma once
+#include "../viewer_common/context_menu_model.h"
 
 #include "PhysicalViewport.h"
 #include "layout_physical_editor.h"
@@ -276,6 +277,8 @@ private:
   void OnMouseUp(wxMouseEvent &event);
   void OnMouseMove(wxMouseEvent &event);
   void OnMouseWheel(wxMouseEvent &event);
+  viewport_context::ClickGesture m_contextClick;
+  void OnRightDown(wxMouseEvent &event);
   void OnRightUp(wxMouseEvent &event);
   void OnKeyDown(wxKeyEvent &event);
   void OnMouseEnter(wxMouseEvent &event);
