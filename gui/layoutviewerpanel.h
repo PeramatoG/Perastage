@@ -24,6 +24,7 @@
 #include "configservices.h"
 #include "layout_2d_view_rasterizer.h"
 #include "layout_viewer_interaction_session.h"
+#include "layout_viewer_group_gesture.h"
 #include "layout_viewer_selection_state.h"
 #include "layout_viewer_viewport_state.h"
 #include "symbolcache.h"
@@ -61,6 +62,11 @@ public:
   layouts::Layout2DViewDefinition *GetEditableView();
   const layouts::Layout2DViewDefinition *GetEditableView() const;
   bool DeleteSelectedElement();
+  size_t SelectedElementCount() const { return selectionState_.Ordered().size(); }
+  const std::vector<layouts::LayoutElementRef> &SelectedElements() const { return selectionState_.Ordered(); }
+  bool AlignSelectedElements(alignment::Reference reference,
+      alignment::Operation operation, bool origins = false);
+
   void RefreshLegendData();
   void RefreshAfterSelectionOnlyUpdate();
   void RefreshAfterSceneContentUpdate();
@@ -250,6 +256,14 @@ private:
                                    bool updatePosition);
   void CommitPendingFrameUpdate();
   void CancelFrameGesture();
+  void ReloadDocumentPlacement();
+  void DrawDocumentSelection() const;
+  std::vector<gui::layoutselection::SelectionFrame> SelectionFrames();
+  std::optional<layouts::LayoutElementRef> HitElement(const wxPoint &pos);
+  bool HandleSelectionDown(wxMouseEvent &event, const wxPoint &pos);
+  bool HandleSelectionUp(const wxPoint &pos);
+  bool HandleSelectionMotion(wxMouseEvent &event, const wxPoint &pos);
+
   void StackSelectedElement(bool toFront);
   bool InitGL();
   bool RebuildCachedTexture();
@@ -360,6 +374,11 @@ private:
   layouts::LayoutDefinition currentLayout;
   gui::layoutviewport::LayoutViewerViewportState viewportState_;
   gui::layoutinteraction::LayoutViewerInteractionSession interactionSession_;
+  gui::layoutinteraction::LayoutViewerGroupGesture groupGesture_;
+  std::optional<layouts::LayoutElementRef> groupClick_;
+  std::optional<wxPoint> marqueeStart_;
+  wxPoint marqueeEnd_;
+
   ui::MouseCaptureOwner mouseCapture_{*this, "LayoutViewerPanel"};
   int layoutVersion = 0;
   int viewRenderVersion = 0;

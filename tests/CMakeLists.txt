@@ -770,7 +770,7 @@ set_perastage_test_labels(LayoutViewerInteractionSession
 add_executable(layout_viewer_selection_state_test
                layout_viewer_selection_state_test.cpp
                ../gui/layout_viewer_selection_state.cpp)
-target_include_directories(layout_viewer_selection_state_test PRIVATE ../gui)
+target_include_directories(layout_viewer_selection_state_test PRIVATE ../gui ../core)
 add_test(NAME LayoutViewerSelectionState
          COMMAND layout_viewer_selection_state_test)
 set_perastage_test_labels(LayoutViewerSelectionState
@@ -1210,6 +1210,27 @@ target_include_directories(layout_legend_history_test PRIVATE . ../core ../gui .
     ../viewer2d ../viewer3d ../viewer_common ../core/print)
 target_link_libraries(layout_legend_history_test PRIVATE ${wxWidgets_LIBRARIES} perastage_mvr_core_support)
 add_test(NAME LayoutLegendHistory COMMAND layout_legend_history_test)
+
+add_executable(layout_document_edit_test layout_document_edit_test.cpp
+    ../core/layouts/LayoutDocumentEdit.cpp ../core/layouts/LayoutManagerDocumentEdit.cpp
+    ../core/alignment_geometry.cpp
+    ../gui/layout_viewer_selection_state.cpp
+    layout_viewer_state_panel_stubs.cpp ../viewer2d/viewer2dstate.cpp
+    layout_legend_source_stubs.cpp ../gui/layoutlegenditems.cpp ../gui/legendutils.cpp
+    ../core/configmanager.cpp ../core/configservices.cpp
+    ../core/layouts/LayoutManager.cpp ../core/layouts/LayoutImageResourceRegistry.cpp
+    ../core/layouts/LayoutDefaultsLoader.cpp ../core/layouts/LayoutCollection.cpp
+    ../core/layouts/LayoutTemplatePackageService.cpp ../core/layouts/LayoutTemplateSerializer.cpp
+    ../core/projectutils.cpp ../core/runtime_storage.cpp ../core/library/library_bootstrap.cpp
+    ../core/logger.cpp ../models/mvrscene.cpp mvr_io_stubs.cpp)
+target_include_directories(layout_document_edit_test PRIVATE . ../core ../gui ../third_party
+    ../viewer2d ../viewer3d ../viewer_common ../core/print)
+target_link_libraries(layout_document_edit_test PRIVATE ${wxWidgets_LIBRARIES} perastage_mvr_core_support)
+add_test(NAME LayoutDocumentEdit COMMAND layout_document_edit_test)
+set_perastage_test_labels(LayoutDocumentEdit LAYER standard-strict DOMAINS layout project geometry gui)
+add_bash_policy_test(LayoutDocumentAlignmentBoundary
+    ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_document_alignment_boundary.sh
+    LABELS "architecture;layout;gui")
 
 add_executable(layout_legend_preview_test layout_legend_preview_test.cpp
     layout_legend_pdf_resources_stub.cpp ../gui/layoutlegendrenderer.cpp ../gui/document_text_renderer.cpp
@@ -5062,3 +5083,15 @@ target_include_directories(scene_work_plane_test PRIVATE ../viewer3d)
 target_link_libraries(scene_work_plane_test PRIVATE perastage_scene_alignment)
 add_test(NAME SceneWorkPlane COMMAND scene_work_plane_test)
 set_perastage_test_labels(SceneWorkPlane LAYER standard-strict DOMAINS unit geometry gui)
+
+# Drive the production native application on a clean, fixed-size X11 display.
+if(UNIX AND NOT APPLE AND PERASTAGE_XVFB_RUN)
+    add_test(NAME NativeLayoutAlignmentSmoke
+        COMMAND "${PERASTAGE_XVFB_RUN}" -a -s "-screen 0 1600x1000x24"
+        "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/native_layout_alignment_smoke.py"
+        --app "$<TARGET_FILE:${PROJECT_NAME}>")
+    set_tests_properties(NativeLayoutAlignmentSmoke PROPERTIES
+        SKIP_RETURN_CODE 77 TIMEOUT 180 RESOURCE_LOCK native_layout_alignment)
+    set_perastage_test_labels(NativeLayoutAlignmentSmoke LAYER standard-strict DOMAINS layout gui project)
+    set_library_env(NativeLayoutAlignmentSmoke)
+endif()

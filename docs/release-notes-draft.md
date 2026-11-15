@@ -1,5 +1,10 @@
 # Perastage 1.8.0
 
+- Layout pages support mixed multi-selection with Ctrl/Shift clicks and selection
+  rectangles, moving selected frames together, atomic deletion, and the shared
+  Alignment toolbar with Extents/First/Last references. Viewport scales and cameras
+  are preserved; completed moves and alignments undo in one step.
+
 - Layout 2D viewports now offer optional fixed physical drawing scales alongside
   the default free/variable workflow, numeric world centers and millimeter frame
   properties. Fixed viewports keep their scale when moved or resized and require

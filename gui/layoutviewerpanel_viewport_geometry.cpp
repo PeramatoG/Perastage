@@ -84,3 +84,22 @@ layouts::ViewportFramePoints LayoutViewerPanel::GetDisplayedFrame(
   }
   return static_cast<layouts::ViewportFramePoints>(fallback);
 }
+
+// Computes the layout-wide maximum safe zoom across all renderable frames.
+double layoutviewerpanel::GetLayoutSafeMaxZoom(const layouts::LayoutDefinition &layout) {
+  std::vector<gui::layoutviewport::Size> frameSizes;
+  auto appendFrames = [&frameSizes](const auto &collection) {
+    for (const auto &entry : collection)
+      frameSizes.push_back({entry.frame.width, entry.frame.height});
+  };
+  for (const auto &view : layout.view2dViews) {
+    const auto frame = layouts::ResolveViewportFrame(view);
+    frameSizes.push_back({static_cast<int>(std::ceil(frame.width)),
+                          static_cast<int>(std::ceil(frame.height))});
+  }
+  appendFrames(layout.legendViews);
+  appendFrames(layout.eventTables);
+  appendFrames(layout.textViews);
+  appendFrames(layout.imageViews);
+  return gui::layoutviewport::GetLayoutSafeMaxZoom(frameSizes);
+}

@@ -4,10 +4,15 @@
 #include <wx/string.h>
 
 
+namespace layouts { struct LayoutDefinition; }
+
 class wxMouseEvent;
 class wxWindow;
 
 namespace layoutviewerpanel {
+
+// Resolves safe page zoom from precise viewport and integer supporting frames.
+double GetLayoutSafeMaxZoom(const layouts::LayoutDefinition &layout);
 
 // Returns the logical client size for a window or zero size when the window is null.
 wxSize GetLogicalClientSize(const wxWindow *window);

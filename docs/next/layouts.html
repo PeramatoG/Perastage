@@ -108,7 +108,36 @@
 <p>Edit each element&#39;s available settings to choose content and presentation. Check scene data in the <a href="views.html">views and tables</a> before producing documentation.</p>
 <p>Legends group fixture types across the whole scene. Edit a legend to reorder or hide types, set custom names, choose Bottom/Front/Side symbols, and show or hide the channel column. Enabled Side symbols are included in the vector PDF when a corresponding symbol is available. Oversized symbols are clipped to their column and row; very small frames can hide rows.</p>
 <h2 id="arrange-and-edit">Arrange and edit</h2>
-<p>Drag a frame to move it and a frame handle to resize it. Double-click a frame to edit the element. Right-click for editing, deletion and stacking controls. Drag empty space to pan and use the wheel to zoom. <strong>Z</strong> fits the layout; <strong>Delete</strong> removes the selected layout element.</p>
+<p>Click a frame to select it. <strong>Ctrl + click</strong> toggles an element and <strong>Shift + click</strong>
+adds one. <strong>Shift + drag</strong> on empty page space adds every intersecting frame;
+marquee additions follow back-to-front stacking order, with ties ordered by
+2D View, Legend, Event Table, Text, Image and then their stored order. Overlapping
+frames are picked from the front. The newest remaining selection is the primary
+(darker outline). Removing and selecting an element again makes it the newest.
+Click empty space to clear selection; an ordinary empty-space drag still pans.
+Selection is independent of scene selection and clears when switching pages.</p>
+<p>Drag any selected frame to move the whole selection. Relative positions and frame
+sizes remain unchanged. A single frame still has resize handles; a multiple
+selection has outlines and a collective boundary, without resize handles.
+Double-click a specific frame to edit only that element. Right-click a single
+frame for editing, deletion and stacking controls; a multiple selection offers
+batch deletion. <strong>Delete</strong> removes all selected elements in one Undo step.
+Use the wheel to zoom and <strong>Z</strong> to fit the layout.</p>
+<p>The shared <strong>Alignment</strong> toolbar works on mixed Layout selections of two or more
+elements. Choose <strong>Extents</strong>, <strong>First selected</strong>, or <strong>Last selected</strong>, then
+<strong>Align Top</strong>, <strong>Align Bottom</strong>, <strong>Align Left</strong>, <strong>Align Right</strong>,
+<strong>Center Horizontally</strong>, or <strong>Center Vertically</strong>. First and Last follow selection
+chronology and keep that reference frame stationary. Geometric bounds use complete
+page frames; insertion points mean the top-left page origins, never fixture
+insertion points inside a viewport. Work-plane buttons are disabled in Layout Mode.</p>
+<p>Viewports retain fractional point precision. Other elements use whole points:
+alignment rounds their target positions to the nearest point (half-point ties
+toward positive infinity), with at most 0.5 pt error per axis. A mixed group drag rounds its
+common delta to whole points so all relative positions remain exact. Extents
+alignment of selections containing integer frames stops within 0.5 pt, avoiding
+drift on repeated clicks. Pure viewport alignment retains
+fractional precision. Alignment and page movement preserve viewport scales,
+cameras, filters and scene positions; selection decorations never print.</p>
 <p>Page Add, Rename, Delete, Orientation and template Import share the project&#39;s
 Undo/Redo history with element editing. Selection clicks and unchanged edits do
 not add history. A completed move or resize records one change; <strong>Escape</strong> or

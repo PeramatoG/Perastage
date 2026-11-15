@@ -1436,8 +1436,8 @@ void MainWindow::OnAddPrimitiveCylinder(wxCommandEvent &WXUNUSED(event)) {
 void MainWindow::OnDelete(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
 
-  if (layoutViewerPanel && layoutViewerPanel->HasFocus() &&
-      layoutViewerPanel->DeleteSelectedElement()) {
+  if (layoutModeActive) {
+    if (!layout2DViewEditing && layoutViewerPanel) layoutViewerPanel->DeleteSelectedElement();
     return;
   }
 

@@ -147,6 +147,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/layouttextutils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/localized_unit_labels.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel_interaction.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel_multiselection.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layout_viewer_interaction_session.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layout_viewer_selection_state.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layout_viewer_viewport_state.cpp

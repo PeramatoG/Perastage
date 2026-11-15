@@ -18,6 +18,7 @@
 #include "viewer2dpdfexporter.h"
 #include "viewer2dcommandrenderer.h"
 #include "layout_viewport_adapter.h"
+#include "layouts/LayoutDocumentEdit.h"
 #include <cassert>
 #include <chrono>
 #include <cmath>
@@ -56,7 +57,15 @@ void TestPhysicalViewportPdf() {
     v.camera.view=orientation; v.camera.zoom=1000;
     v.camera.viewportWidth=10; v.camera.viewportHeight=10;
     v.scaleMode=ViewportScaleMode::Fixed; v.physicalScale=PhysicalViewport{denominator,2,3};
-    LayoutViewExportData data; data.frame=ResolveViewportFrame(v); data.drawFrame=false;
+    LayoutDefinition page; page.name="PDF movement"; page.view2dViews={v};
+    const auto moved=TranslateElements(page,{{LayoutElementKind::View2D,v.id}},17.125,-8.25);
+    const auto originalFrame=ResolveViewportFrame(v);
+    v=moved.view2dViews.front();
+    const auto movedFrame=ResolveViewportFrame(v);
+    assert(movedFrame.x==originalFrame.x+17.125 && movedFrame.y==originalFrame.y-8.25);
+    assert(movedFrame.width==originalFrame.width && movedFrame.height==originalFrame.height);
+    assert(v.physicalScale->denominator==denominator && v.camera.zoom==1000);
+    LayoutViewExportData data; data.frame=movedFrame; data.drawFrame=false;
     data.viewState.viewportWidth=800; data.viewState.viewportHeight=600;
     viewer2d::AttachPhysicalMapping(v,data.viewState);
     auto switched=data.viewState;

@@ -21,7 +21,38 @@ Modifiez les réglages disponibles de chaque élément pour choisir le contenu e
 
 ## Organiser et modifier
 
-Glissez un cadre pour le déplacer et une poignée pour le redimensionner. Double-cliquez le cadre pour modifier l’élément. Le clic droit propose édition, suppression et ordre de superposition. Glissez dans l’espace vide pour déplacer la vue et utilisez la molette pour zoomer. **Z** ajuste la mise en page ; **Delete** supprime l’élément sélectionné.
+Cliquez sur un cadre pour le sélectionner. **Ctrl + clic** inverse sa sélection
+et **Maj + clic** ajoute un élément. **Maj + glisser** sur un espace vide ajoute
+les cadres qui croisent le rectangle, de l’arrière vers l’avant. À profondeur
+égale, l’ordre est Vue 2D, Légende, Tableau d’événement, Texte, Image, puis l’ordre
+stocké. Un clic choisit le cadre au premier plan. Le dernier élément sélectionné
+restant est principal (contour plus foncé). Retirer puis sélectionner à nouveau
+un élément le place en dernier. La sélection est indépendante de la scène et
+s’efface au changement de page.
+
+Faites glisser un cadre sélectionné pour déplacer toute la sélection sans modifier
+les dimensions ni les positions relatives. Les poignées de redimensionnement
+s’affichent uniquement pour un élément seul. Double-cliquez sur un cadre pour
+modifier uniquement cet élément. **Suppr** retire toute la sélection en une étape
+d’annulation. Le menu contextuel d’une sélection multiple propose la suppression
+groupée. Cliquez dans le vide pour effacer la sélection ; glissez sans modificateur
+pour déplacer la page. La molette règle le zoom et **Z** ajuste la page.
+
+La barre partagée **Alignement** accepte des sélections mixtes de deux éléments
+ou plus. Choisissez Étendue, Premier sélectionné ou Dernier sélectionné, puis
+l’une des six opérations de bord ou de centrage. Premier et Dernier suivent
+l’ordre de sélection et laissent le cadre de référence immobile. Les limites
+géométriques utilisent les cadres entiers ; les points d’insertion désignent
+les coins supérieurs gauches des cadres sur la page, jamais ceux des projecteurs
+dans une vue. Les plans de travail sont désactivés en mode Layout.
+
+Les vues conservent leur précision fractionnaire. Les autres éléments arrondissent
+la position au point le plus proche, les demi-points allant vers l’infini positif, avec
+une erreur maximale de 0,5 pt par axe. Un déplacement mixte arrondit le décalage
+commun aux points entiers pour conserver les positions relatives. L’alignement
+sur l’étendue d’une sélection contenant des cadres entiers s’arrête à 0,5 pt
+près pour éviter une dérive lors des répétitions. Échelles, caméras,
+filtres et positions de scène sont conservés. Les contours de sélection ne sont pas imprimés.
 
 Enregistrez le projet `.pstg` pour conserver les mises en page. **Export template** crée une archive portable `.pslayout` avec les images référencées. **Import template** accepte `.pslayout` et les anciens modèles `.json`.
 
