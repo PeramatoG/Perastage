@@ -282,3 +282,11 @@ Free/variable mode retains the existing shortcuts and restores its free camera.
 Native numeric step arrows are editable focus targets, like spin controls. Their
 Up/Down keys take priority over viewport pan/zoom routing while they own focus,
 including the arrows beside Viewport properties text entries.
+
+## Layout document multi-selection
+
+With the Layout canvas active, Ctrl-click toggles document membership, Shift-click
+adds, and Shift-drag on empty page adds intersecting frames. Ordinary empty dragging
+still pans. Delete removes the entire document selection atomically. Escape cancels
+the complete pending move/marquee; editable text controls retain their existing
+keyboard priority. These gestures never target scene UUID selection.

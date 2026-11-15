@@ -1,12 +1,13 @@
 # Scene alignment
 
-PR1 supplies scene alignment only. Layout multi-selection/alignment and universal
-distribution remain deferred. Existing fixture distribution is unchanged.
+PR1 supplies scene alignment. Layout document selection and alignment reuse its
+geometry engine through the [document adapter](layout_document_alignment.md).
+Universal distribution remains deferred. Existing fixture distribution is unchanged.
 
 ## Ownership and command publication
 
 `alignment_geometry` accepts immutable projected rectangles and implements the six
-anchors once. A future Layout adapter can supply document rectangles directly.
+anchors once. The Layout adapter supplies document rectangles directly.
 `scene_alignment` resolves typed chronological scene identities with
 `BuildInteractiveTransformTargets` and the existing interactive promotion policy,
 collects the explicitly selected anchors, and passes world-axis translations to `ExecuteBatch`.
@@ -19,7 +20,7 @@ serialize scene mutation on their execution thread too.
 
 The GUI owns controls, localized messages, diagnostics and normal scene/selection
 refresh. It performs no bounds or alignment arithmetic. The toolbar remains
-accessible in both scene workspaces; actions are disabled in Layout mode. Enablement
+accessible in scene and Layout workspaces; Layout mode routes to its document service. Scene enablement
 resolves identities only and never loads geometry. Publication uses the established
 scene refresh boundary; incremental renderer notifications remain owned there.
 

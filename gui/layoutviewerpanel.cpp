@@ -139,25 +139,6 @@ void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
   }
 }
 
-// Computes the layout-wide maximum safe zoom across all renderable frames.
-double GetLayoutSafeMaxZoom(const layouts::LayoutDefinition &layout) {
-  std::vector<gui::layoutviewport::Size> frameSizes;
-  auto appendFrames = [&frameSizes](const auto &collection) {
-    for (const auto &entry : collection)
-      frameSizes.push_back({entry.frame.width, entry.frame.height});
-  };
-  for (const auto &view : layout.view2dViews) {
-    const auto frame = layouts::ResolveViewportFrame(view);
-    frameSizes.push_back({static_cast<int>(std::ceil(frame.width)),
-                          static_cast<int>(std::ceil(frame.height))});
-  }
-  appendFrames(layout.legendViews);
-  appendFrames(layout.eventTables);
-  appendFrames(layout.textViews);
-  appendFrames(layout.imageViews);
-  return gui::layoutviewport::GetLayoutSafeMaxZoom(frameSizes);
-}
-
 bool AreEqual(const layouts::Layout2DViewFrame &lhs,
               const layouts::Layout2DViewFrame &rhs) {
   return lhs.x == rhs.x && lhs.y == rhs.y && lhs.width == rhs.width &&
@@ -521,6 +502,8 @@ void LayoutViewerPanel::RequestFitToViewport() {
 // Clears project-scoped Layout preview render caches before applying a new
 // project.
 void LayoutViewerPanel::ResetPreviewCachesForProjectLoad() {
+  CancelFrameGesture();
+  selectionState_.Clear();
   ClearCachedTexture();
   pendingPersistentViewCacheJson_.clear();
   pendingPersistentViewCacheRasters_.clear();
@@ -548,13 +531,14 @@ void LayoutViewerPanel::ResetPreviewCachesForProjectLoad() {
 // rebuilds when renderable data changes.
 void LayoutViewerPanel::SetLayoutDefinition(
     const layouts::LayoutDefinition &layout) {
-  if (interactionSession_.DragMode() != FrameDragMode::None) {
+  if (groupGesture_.Active() || marqueeStart_ || interactionSession_.DragMode() != FrameDragMode::None) {
     CancelFrameGesture();
     mouseCapture_.Release("frame-drag");
   }
-  if (IsSameRenderableLayout(currentLayout, layout)) {
+  if (currentLayout.name == layout.name && IsSameRenderableLayout(currentLayout, layout)) {
     currentLayout = layout;
     InvalidateSelectionIndexCache();
+    selectionState_.Retain(BuildElementIdsByKind());
     legendDataDirty_ = true;
     RefreshLegendData();
     HydratePendingPersistentViewCache();
@@ -571,17 +555,8 @@ void LayoutViewerPanel::SetLayoutDefinition(
       !previousLayout.name.empty() && previousLayout.name == layout.name;
   currentLayout = layout;
   InvalidateSelectionIndexCache();
-  const auto selected = gui::layoutselection::RetainOrChooseDefault(
-      selectionState_.Current(), BuildElementIdsByKind());
-  if (!selectionState_.Matches(selected)) {
-    if (selected.kind == LayoutElementKind::None) {
-      selectionState_.Clear();
-    } else {
-      selectionState_.Select(selected.kind, selected.id);
-      if (selected.kind == LayoutElementKind::View2D)
-        EmitViewSelectionChanged(selected.id);
-    }
-  }
+  if (!sameLayoutName) selectionState_.Clear();
+  selectionState_.Retain(BuildElementIdsByKind());
   layoutVersion++;
   if (!AreEqual(previousLayout.view2dViews, currentLayout.view2dViews)) {
     captureInProgress = false;
@@ -946,6 +921,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
 
     if (showDeferredResizeOverlay)
       DrawDeferredResizeOverlay();
+    DrawDocumentSelection();
 
     const bool texturesReady = AreTexturesReady();
     auto hasTexture = [](const auto &cacheMap, int id) {
@@ -1194,6 +1170,7 @@ void LayoutViewerPanel::ClearLoadingTextTexture() {
 }
 
 void LayoutViewerPanel::DrawSelectionHandles(const wxRect &frameRect) const {
+  if (SelectedElementCount() > 1) return;
   wxRect handleRight(frameRect.GetRight() - kHandleHalfPx,
                      frameRect.GetTop() + frameRect.GetHeight() / 2 -
                          kHandleHalfPx,
@@ -1235,242 +1212,6 @@ void LayoutViewerPanel::OnSize(wxSizeEvent &) {
 }
 
 // Begins frame editing or viewport panning from a left-button press.
-void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
-  SetFocus();
-  pendingFrameCommit_ = false;
-  const wxPoint pos = layoutviewerpanel::GetLogicalMousePosition(event);
-  const gui::layoutinteraction::Point pointer{pos.x, pos.y};
-  SelectElementAtPosition(pos);
-  layouts::Layout2DViewFrame selectedFrame;
-  wxRect frameRect;
-  if (GetSelectedFrame(selectedFrame) &&
-      GetFrameRect(GetDisplayedFrame(selectionState_.Current(), selectedFrame), frameRect)) {
-    const FrameDragMode mode = gui::layoutinteraction::HitTestFrame(
-        pointer, {frameRect.GetX(), frameRect.GetY(), frameRect.GetWidth(),
-                  frameRect.GetHeight()});
-    if (mode != FrameDragMode::None) {
-      interactionSession_.BeginFrameDrag(mode, pointer, selectedFrame);
-      if (!mouseCapture_.TryAcquire("frame-drag")) {
-        interactionSession_.CancelAfterCaptureLoss();
-        return;
-      }
-      return;
-    }
-  }
-  interactionSession_.BeginPan(pointer);
-  if (!mouseCapture_.TryAcquire("viewport-pan"))
-    interactionSession_.CancelAfterCaptureLoss();
-}
-// Finalizes the active frame edit or viewport pan gesture.
-void LayoutViewerPanel::OnLeftUp(wxMouseEvent &) {
-  const FrameDragMode dragMode = interactionSession_.DragMode();
-  if (dragMode != FrameDragMode::None) {
-    layouts::Layout2DViewFrame preview;
-    if (GetSelectedFrame(preview)) {
-      if (dragMode != FrameDragMode::Move)
-        preview = interactionSession_.DeferredResize().value_or(
-            interactionSession_.DragStartFrame());
-      const auto final = interactionSession_.FinalFrame(preview);
-      if (final) {
-        ApplyFrameUpdateToSelection(*final, dragMode == FrameDragMode::Move);
-        CommitPendingFrameUpdate();
-      } else if (dragMode == FrameDragMode::Move) {
-        ApplyFrameUpdateToSelection(interactionSession_.DragStartFrame(), true);
-        pendingFrameCommit_ = false;
-      }
-    }
-    interactionSession_.CompleteFrameDrag();
-    mouseCapture_.Release("frame-drag");
-    return;
-  }
-  if (interactionSession_.IsPanning()) {
-    interactionSession_.EndPan();
-    mouseCapture_.Release("viewport-pan");
-  }
-}
-
-void LayoutViewerPanel::OnLeftDClick(wxMouseEvent &event) {
-  const wxPoint pos = layoutviewerpanel::GetLogicalMousePosition(event);
-  SelectElementAtPosition(pos);
-  layouts::Layout2DViewFrame selectedFrame;
-  wxRect frameRect;
-  if (GetSelectedFrame(selectedFrame) &&
-      GetFrameRect(GetDisplayedFrame(selectionState_.Current(), selectedFrame), frameRect) && frameRect.Contains(pos)) {
-    if (selectionState_.Current().kind == LayoutElementKind::View2D) {
-      EmitEditViewRequest();
-      return;
-    }
-    if (selectionState_.Current().kind == LayoutElementKind::EventTable) {
-      wxCommandEvent editEvent;
-      OnEditEventTable(editEvent);
-      return;
-    }
-    if (selectionState_.Current().kind == LayoutElementKind::Legend) {
-      wxCommandEvent editEvent;
-      OnEditLegend(editEvent);
-      return;
-    }
-    if (selectionState_.Current().kind == LayoutElementKind::Text) {
-      wxCommandEvent editEvent;
-      OnEditText(editEvent);
-      return;
-    }
-    if (selectionState_.Current().kind == LayoutElementKind::Image) {
-      wxCommandEvent editEvent;
-      OnEditImage(editEvent);
-      return;
-    }
-  }
-  event.Skip();
-}
-
-bool LayoutViewerPanel::DeleteSelectedElement() {
-  wxCommandEvent deleteEvent;
-  if (selectionState_.Current().kind == LayoutElementKind::View2D) {
-    OnDeleteView(deleteEvent);
-    return true;
-  }
-  if (selectionState_.Current().kind == LayoutElementKind::Legend) {
-    OnDeleteLegend(deleteEvent);
-    return true;
-  }
-  if (selectionState_.Current().kind == LayoutElementKind::EventTable) {
-    OnDeleteEventTable(deleteEvent);
-    return true;
-  }
-  if (selectionState_.Current().kind == LayoutElementKind::Text) {
-    OnDeleteText(deleteEvent);
-    return true;
-  }
-  if (selectionState_.Current().kind == LayoutElementKind::Image) {
-    OnDeleteImage(deleteEvent);
-    return true;
-  }
-  return false;
-}
-
-void LayoutViewerPanel::OnKeyDown(wxKeyEvent &event) {
-  if (gui::IsEditableWidgetFocused(wxWindow::FindFocus())) {
-    event.Skip();
-    return;
-  }
-
-  const int key = event.GetKeyCode();
-  if (key == WXK_ESCAPE && interactionSession_.DragMode() != FrameDragMode::None) {
-    CancelFrameGesture();
-    mouseCapture_.Release("frame-drag");
-    return;
-  }
-  if (key == WXK_DELETE || key == WXK_NUMPAD_DELETE) {
-    if (interactionSession_.DragMode() != FrameDragMode::None) {
-      CancelFrameGesture();
-      mouseCapture_.Release("frame-drag");
-    }
-    DeleteSelectedElement();
-    return;
-  }
-  if (key == 'Z' || key == 'z') {
-    ResetViewToFit();
-    RequestRenderRebuild();
-    Refresh();
-    return;
-  }
-  event.Skip();
-}
-
-// Handles pane visibility changes and resumes pending automatic fits.
-void LayoutViewerPanel::OnShow(wxShowEvent &event) {
-  if (event.IsShown()) {
-    InitGL();
-    SchedulePendingFitToViewport();
-    InvalidateRenderIfFrameChanged(true);
-    if (isReadyToRender_ && NeedsRenderRebuild()) {
-      RequestRenderRebuild();
-    }
-  }
-  event.Skip();
-}
-
-// Routes pointer motion through frame-edit and viewport-pan policies.
-void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
-  const wxPoint currentPos = layoutviewerpanel::GetLogicalMousePosition(event);
-  const gui::layoutinteraction::Point pointer{currentPos.x, currentPos.y};
-  layouts::Layout2DViewFrame selectedFrame;
-  wxRect frameRect;
-  if (GetSelectedFrame(selectedFrame) &&
-      GetFrameRect(GetDisplayedFrame(selectionState_.Current(), selectedFrame), frameRect)) {
-    interactionSession_.UpdateHoverMode(gui::layoutinteraction::HitTestFrame(
-        pointer, {frameRect.GetX(), frameRect.GetY(), frameRect.GetWidth(),
-                  frameRect.GetHeight()}));
-    SetCursor(CursorForMode(interactionSession_.HoverMode()));
-  } else {
-    interactionSession_.UpdateHoverMode(FrameDragMode::None);
-    SetCursor(wxCursor(wxCURSOR_ARROW));
-  }
-
-  const FrameDragMode dragMode = interactionSession_.DragMode();
-  if (dragMode != FrameDragMode::None && event.Dragging()) {
-    SetCursor(CursorForMode(dragMode));
-    std::optional<double> imageAspectRatio;
-    if (selectionState_.Current().kind == LayoutElementKind::Image) {
-      const auto *image = GetSelectedImage();
-      imageAspectRatio = image ? image->aspectRatio : 0.0;
-    }
-    const layouts::Layout2DViewFrame frame =
-        gui::layoutinteraction::ComputeDraggedFrame(
-            dragMode, interactionSession_.DragStartFrame(),
-            interactionSession_.DragStartPointer(), pointer,
-            viewportState_.Zoom(), imageAspectRatio);
-    const bool updatePosition = dragMode == FrameDragMode::Move;
-    if (updatePosition) {
-      ApplyFrameUpdateToSelection(frame, true);
-    } else {
-      interactionSession_.SetDeferredResize(frame);
-      Refresh();
-    }
-    return;
-  }
-
-  if (!interactionSession_.IsPanning() || !event.Dragging())
-    return;
-
-  const gui::layoutinteraction::Point delta =
-      interactionSession_.UpdatePan(pointer);
-  viewportState_.ApplyPan({delta.x, delta.y});
-  Refresh();
-}
-
-// Updates visual zoom around the cursor and defers high-quality cache
-// rendering.
-void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
-  if (interactionSession_.DragMode() != FrameDragMode::None)
-    return;
-  const wxSize size = layoutviewerpanel::GetLogicalClientSize(this);
-  const wxPoint mousePos = layoutviewerpanel::GetLogicalMousePosition(event);
-  if (!viewportState_.ApplyWheelZoom(
-          event.GetWheelRotation(), event.GetWheelDelta(),
-          {mousePos.x, mousePos.y}, {size.GetWidth(), size.GetHeight()},
-          GetLayoutSafeMaxZoom(currentLayout)))
-    return;
-  InvalidateRenderIfFrameChanged(false);
-  RequestRenderRebuild();
-  Refresh();
-}
-
-// Discards the local preview when a gesture is cancelled.
-void LayoutViewerPanel::CancelFrameGesture() {
-  if (interactionSession_.DragMode() == FrameDragMode::Move)
-    ApplyFrameUpdateToSelection(interactionSession_.DragStartFrame(), true);
-  pendingFrameCommit_ = false;
-  interactionSession_.CancelAfterCaptureLoss();
-  Refresh();
-}
-
-void LayoutViewerPanel::OnCaptureLost(wxMouseCaptureLostEvent &) {
-  mouseCapture_.AbandonOnLoss("active-gesture");
-  CancelFrameGesture();
-}
-
 void LayoutViewerPanel::ApplyFrameUpdateToSelection(
     const layouts::Layout2DViewFrame &frame, bool updatePosition) {
   if (selectionState_.Current().kind == LayoutElementKind::Legend) {
@@ -1533,7 +1274,7 @@ void LayoutViewerPanel::CommitPendingFrameUpdate() {
 }
 
 void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
-  if (interactionSession_.DragMode() != FrameDragMode::None) {
+  if (groupGesture_.Active() || marqueeStart_ || interactionSession_.DragMode() != FrameDragMode::None) {
     CancelFrameGesture();
     mouseCapture_.Release("frame-drag");
   }
@@ -1541,6 +1282,14 @@ void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
   const wxPoint pos = layoutviewerpanel::GetLogicalMousePosition(event);
   if (!SelectElementAtPosition(pos)) {
     event.Skip();
+    return;
+  }
+  if (SelectedElementCount() > 1) {
+    wxMenu menu;
+    const int id = wxWindow::NewControlId();
+    menu.Append(id, _("Delete"));
+    menu.Bind(wxEVT_MENU, [this](wxCommandEvent &) { DeleteSelectedElement(); }, id);
+    PopupMenu(&menu, pos);
     return;
   }
   layouts::Layout2DViewFrame selectedFrame;
@@ -1734,7 +1483,7 @@ double LayoutViewerPanel::GetRenderZoom() const {
   if (viewportState_.Zoom() <= 0.0)
     return kMinZoom;
 
-  const double safeMaxZoom = GetLayoutSafeMaxZoom(currentLayout);
+  const double safeMaxZoom = layoutviewerpanel::GetLayoutSafeMaxZoom(currentLayout);
   const double zoomSteps = std::log(viewportState_.Zoom()) / std::log(kZoomStep);
   const double bucketSteps =
       std::round(zoomSteps / kZoomCacheStepsPerLevel) * kZoomCacheStepsPerLevel;
@@ -3057,45 +2806,6 @@ bool LayoutViewerPanel::GetElementFrame(
 }
 
 // Selects the topmost layout element whose displayed frame contains a point.
-bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
-  EnsureSelectionIndexCache();
-  const auto &elements = selectionIndexCache_.zOrderedElements;
-  for (auto it = elements.rbegin(); it != elements.rend(); ++it) {
-    layouts::Layout2DViewFrame frame;
-    if (!GetElementFrame(it->element, frame))
-      continue;
-    wxRect frameRect;
-    if (!GetFrameRect(GetDisplayedFrame(it->element, frame), frameRect) || !frameRect.Contains(pos))
-      continue;
-    if (selectionState_.Matches(it->element))
-      return true;
-
-    selectionState_.Select(it->element.kind, it->element.id);
-    if (it->element.kind == LayoutElementKind::View2D)
-      EmitViewSelectionChanged(it->element.id);
-    RefreshAfterSelectionOnlyUpdate();
-    return true;
-  }
-  return false;
-}
-
-// Maps a frame interaction mode to its wx cursor presentation.
-wxCursor LayoutViewerPanel::CursorForMode(FrameDragMode mode) const {
-  switch (mode) {
-  case FrameDragMode::ResizeRight:
-    return wxCursor(wxCURSOR_SIZEWE);
-  case FrameDragMode::ResizeBottom:
-    return wxCursor(wxCURSOR_SIZENS);
-  case FrameDragMode::ResizeCorner:
-    return wxCursor(wxCURSOR_SIZENWSE);
-  case FrameDragMode::Move:
-    return wxCursor(wxCURSOR_SIZING);
-  case FrameDragMode::None:
-  default:
-    return wxCursor(wxCURSOR_ARROW);
-  }
-}
-
 void LayoutViewerPanel::EmitEditViewRequest() {
   wxCommandEvent event(EVT_LAYOUT_VIEW_EDIT);
   event.SetEventObject(this);

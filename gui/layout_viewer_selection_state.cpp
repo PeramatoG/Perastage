@@ -3,6 +3,23 @@
 #include <algorithm>
 
 namespace gui::layoutselection {
+std::vector<LayoutElementRef> IntersectingFrames(
+    const std::vector<SelectionFrame> &frames, double x, double y, double width, double height) {
+  if (width < 0) { x += width; width = -width; }
+  if (height < 0) { y += height; height = -height; }
+  std::vector<LayoutElementRef> result;
+  for (const auto &f : frames)
+    if (f.x <= x + width && f.x + f.width >= x &&
+        f.y <= y + height && f.y + f.height >= y)
+      result.push_back(f.element);
+  return result;
+}
+LayoutElementRef HitFrame(const std::vector<SelectionFrame> &frames, double x, double y) {
+  for (auto it = frames.rbegin(); it != frames.rend(); ++it)
+    if (x >= it->x && x < it->x + it->width && y >= it->y && y < it->y + it->height)
+      return it->element;
+  return {};
+}
 namespace {
 constexpr std::array<LayoutElementKind, 5> kKinds = {
     LayoutElementKind::View2D, LayoutElementKind::Legend,
@@ -10,37 +27,59 @@ constexpr std::array<LayoutElementKind, 5> kKinds = {
     LayoutElementKind::Image};
 }
 
-// Returns the immutable identity of the current selection.
+const std::vector<LayoutElementRef> &LayoutViewerSelectionState::Ordered() const {
+  return ordered_;
+}
 LayoutElementRef LayoutViewerSelectionState::Current() const {
-  return current_;
+  return ordered_.empty() ? LayoutElementRef{} : ordered_.back();
 }
-
-// Explicitly selects a valid element identity and reports whether it changed.
 bool LayoutViewerSelectionState::Select(LayoutElementKind kind, int id) {
-  if (kind == LayoutElementKind::None || id < 0)
-    return Clear();
-  const LayoutElementRef next{kind, id};
-  const bool changed = !(current_ == next);
-  current_ = next;
-  return changed;
+  if (kind == LayoutElementKind::None || id < 0) return Clear();
+  const LayoutElementRef next{kind,id};
+  if (ordered_.size() == 1 && ordered_.front() == next) return false;
+  ordered_ = {next};
+  return true;
 }
-
-// Explicitly clears the current selection and reports whether it changed.
+bool LayoutViewerSelectionState::Replace(const std::vector<LayoutElementRef> &elements) {
+  std::vector<LayoutElementRef> next;
+  for (auto element : elements)
+    if (element.kind != LayoutElementKind::None && element.id >= 0 &&
+        std::find(next.begin(),next.end(),element)==next.end()) next.push_back(element);
+  if (ordered_==next) return false;
+  ordered_=std::move(next);
+  return true;
+}
+bool LayoutViewerSelectionState::Add(LayoutElementRef element) {
+  if (element.kind == LayoutElementKind::None || element.id < 0 || Matches(element)) return false;
+  ordered_.push_back(element);
+  return true;
+}
+bool LayoutViewerSelectionState::Remove(LayoutElementRef element) {
+  return std::erase(ordered_, element) != 0;
+}
+bool LayoutViewerSelectionState::Toggle(LayoutElementRef element) {
+  return Matches(element) ? Remove(element) : Add(element);
+}
 bool LayoutViewerSelectionState::Clear() {
-  const bool changed = !(current_ == LayoutElementRef{});
-  current_ = {};
+  const bool changed = !ordered_.empty();
+  ordered_.clear();
   return changed;
 }
-
-// Reports whether the supplied identity is currently selected.
-bool LayoutViewerSelectionState::IsSelected(LayoutElementKind kind,
-                                            int id) const {
-  return Matches({kind, id});
+bool LayoutViewerSelectionState::IsSelected(LayoutElementKind kind, int id) const {
+  return Matches({kind,id});
 }
-
-// Reports whether the supplied reference is currently selected.
 bool LayoutViewerSelectionState::Matches(LayoutElementRef element) const {
-  return current_ == element;
+  return std::find(ordered_.begin(), ordered_.end(), element) != ordered_.end();
+}
+bool LayoutViewerSelectionState::Retain(const ElementRefsByKind &idsByKind) {
+  const auto count = ordered_.size();
+  std::erase_if(ordered_, [&](auto ref) {
+    for (size_t i = 0; i < kKinds.size(); ++i)
+      if (ref.kind == kKinds[i])
+        return std::find(idsByKind[i].begin(), idsByKind[i].end(), ref.id) == idsByKind[i].end();
+    return true;
+  });
+  return count != ordered_.size();
 }
 
 // Builds ascending stable Z order using the established category order.

@@ -792,3 +792,16 @@ Existing paper-space typography/presentation limitations remain deferred.
 Scene alignment shares neutral rectangle arithmetic, typed chronological scene
 selection, physical CPU bounds and transactional transforms. See
 [Scene alignment](scene_alignment.md) for ownership, bounds and work-plane policy.
+
+## Layout document positioning
+
+`core/layouts/LayoutElementRef.h` defines page-scoped typed identities.
+`LayoutDocumentEdit` resolves complete immutable frame snapshots and adapts them
+to `alignment::Calculate`; it never resolves scene geometry. `LayoutManager`
+accepts ordered references for alignment, common translation and batch deletion
+and publishes through its existing candidate/history/resource boundary.
+`gui/layout_viewer_selection_state` owns transient ordered membership;
+`layout_viewer_group_gesture` owns original-document previews. Native pointer
+adapters and nonprinting selection overlays live in focused Layout viewer files.
+See [document alignment](layout_document_alignment.md) for coordinate, precision,
+interaction and validation contracts.

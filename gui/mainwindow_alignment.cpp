@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "layoutviewerpanel.h"
 #include "main_toolbar_pane_policy.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
@@ -88,7 +89,7 @@ void MainWindow::CreateAlignmentToolBar() {
       controls->reference = static_cast<alignment::Reference>(index);
     },id);
     Bind(wxEVT_UPDATE_UI,[this,controls,index](wxUpdateUIEvent &event) {
-      event.Enable(!layoutModeActive);
+      event.Enable(true);
       event.Check(controls->reference == static_cast<alignment::Reference>(index));
     },id);
   }
@@ -120,8 +121,11 @@ void MainWindow::CreateAlignmentToolBar() {
     Bind(wxEVT_TOOL,[controls,index](wxCommandEvent &) {
       controls->anchor = static_cast<alignment::Anchor>(index);
     },id);
-    Bind(wxEVT_UPDATE_UI,[this,controls,index](wxUpdateUIEvent &event) {
-      event.Enable(!layoutModeActive);
+    Bind(wxEVT_UPDATE_UI,[this,bar,controls,index,id](wxUpdateUIEvent &event) {
+      event.Enable(true);
+      bar->SetToolShortHelp(id, layoutModeActive
+          ? (index == 0 ? _("Align using complete document frames") : _("Align using document frame top-left origins"))
+          : (index == 0 ? _("Align using geometric bounds") : _("Align using insertion points")));
       event.Check(controls->anchor == static_cast<alignment::Anchor>(index));
     },id);
   }
@@ -142,6 +146,10 @@ void MainWindow::CreateAlignmentToolBar() {
     bar->AddTool(id,labels[index],AlignmentIcon(operationIcons[index]),labels[index]);
     SetAlignmentDisabledIcon(bar,id,operationIcons[index]);
     Bind(wxEVT_UPDATE_UI,[this,availability](wxUpdateUIEvent &event) {
+      if (layoutModeActive) {
+        event.Enable(!layout2DViewEditing && layoutViewerPanel && layoutViewerPanel->SelectedElementCount() >= 2);
+        return;
+      }
       auto &cfg = guiConfigServices->LegacyConfigManager();
       const auto policy = selection_movement_settings::LoadInteractiveTransformPolicy(cfg);
       const Availability::Key key{cfg.GetRenderRevision(),cfg.GetSelectionRevision(),
@@ -152,9 +160,14 @@ void MainWindow::CreateAlignmentToolBar() {
         availability->enabled = targets.diagnostic.empty() && targets.items.size() >= 2;
         availability->key = key;
       }
-      event.Enable(!layoutModeActive && availability->enabled);
+      event.Enable(availability->enabled);
     },id);
     Bind(wxEVT_TOOL,[this,controls,currentPlane,operation](wxCommandEvent &) {
+      if (layoutModeActive) {
+        if (!layout2DViewEditing && layoutViewerPanel) layoutViewerPanel->AlignSelectedElements(
+            controls->reference, operation, controls->anchor == alignment::Anchor::InsertionPoint);
+        return;
+      }
       auto &cfg = guiConfigServices->LegacyConfigManager();
       const auto chronology = cfg.GetOrderedSelection();
       auto selection = Selection(cfg);

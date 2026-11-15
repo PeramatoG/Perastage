@@ -18,6 +18,8 @@
 #pragma once
 
 #include "LayoutCollection.h"
+#include "LayoutElementRef.h"
+#include "alignment_geometry.h"
 #include <functional>
 
 class ConfigManager;
@@ -29,6 +31,14 @@ public:
   static LayoutManager &Get();
 
   const LayoutCollection &GetLayouts() const;
+
+  bool AlignElements(const std::string &name, const std::vector<LayoutElementRef> &refs,
+      alignment::Reference reference, alignment::Operation operation,
+      bool origins = false, std::string *error = nullptr);
+  bool TranslateElements(const std::string &name, const std::vector<LayoutElementRef> &refs,
+      double dx, double dy, std::string *error = nullptr);
+  bool DeleteElements(const std::string &name, const std::vector<LayoutElementRef> &refs,
+      std::string *error = nullptr);
 
   bool AddLayout(const LayoutDefinition &layout);
   bool RenameLayout(const std::string &currentName,
@@ -72,6 +82,9 @@ public:
   bool LoadDefaultsForNewProject(ConfigManager &cfg);
 
 private:
+  bool EditElements(const std::string &name,
+      const std::function<LayoutDefinition(const LayoutDefinition &)> &edit,
+      const std::string &description, std::string *error);
   bool ApplyMutation(const std::string &description,
                      const std::function<bool(LayoutCollection &)> &mutation,
                      bool recordHistory = true);

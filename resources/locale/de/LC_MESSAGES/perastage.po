@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-14 20:28+0100\n"
+"POT-Creation-Date: 2026-11-15 07:39+0100\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: German\n"
@@ -510,7 +510,7 @@ msgid "Add"
 msgstr "Hinzufügen"
 
 #: gui/dictionaryeditdialog.cpp:606 gui/hang_position_dialog.cpp:179
-#: gui/layerpanel.cpp:128 gui/layoutpanel.cpp:44
+#: gui/layerpanel.cpp:128 gui/layoutpanel.cpp:44 gui/layoutviewerpanel.cpp:1290
 msgid "Delete"
 msgstr "Löschen"
 
@@ -1287,7 +1287,7 @@ msgstr "Rechts"
 msgid "Anchor"
 msgstr "Anker"
 
-#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:185
+#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:198
 msgid "Alignment"
 msgstr "Ausrichtung"
 
@@ -3279,71 +3279,79 @@ msgstr "Laden des Projekts wird abgeschlossen…"
 msgid "Loading tables..."
 msgstr "Tabellen werden geladen…"
 
-#: gui/mainwindow_alignment.cpp:80
+#: gui/mainwindow_alignment.cpp:81
 msgid "Extents"
 msgstr "Gesamtausdehnung"
 
-#: gui/mainwindow_alignment.cpp:80
+#: gui/mainwindow_alignment.cpp:81
 msgid "First selected"
 msgstr "Zuerst ausgewählt"
 
-#: gui/mainwindow_alignment.cpp:80
+#: gui/mainwindow_alignment.cpp:81
 msgid "Last selected"
 msgstr "Zuletzt ausgewählt"
 
-#: gui/mainwindow_alignment.cpp:96
+#: gui/mainwindow_alignment.cpp:97
 msgid "XY work plane (Top)"
 msgstr "Arbeitsebene XY (Oben)"
 
-#: gui/mainwindow_alignment.cpp:96
+#: gui/mainwindow_alignment.cpp:97
 msgid "XZ work plane (Front)"
 msgstr "Arbeitsebene XZ (Vorne)"
 
-#: gui/mainwindow_alignment.cpp:96
+#: gui/mainwindow_alignment.cpp:97
 msgid "YZ work plane (Side)"
 msgstr "Arbeitsebene YZ (Seite)"
 
-#: gui/mainwindow_alignment.cpp:113
+#: gui/mainwindow_alignment.cpp:114 gui/mainwindow_alignment.cpp:128
 msgid "Align using geometric bounds"
 msgstr "An geometrischen Grenzen ausrichten"
 
-#: gui/mainwindow_alignment.cpp:113
+#: gui/mainwindow_alignment.cpp:114 gui/mainwindow_alignment.cpp:128
 msgid "Align using insertion points"
 msgstr "An Einfügepunkten ausrichten"
 
-#: gui/mainwindow_alignment.cpp:135
+#: gui/mainwindow_alignment.cpp:127
+msgid "Align using complete document frames"
+msgstr "An vollständigen Dokumentrahmen ausrichten"
+
+#: gui/mainwindow_alignment.cpp:127
+msgid "Align using document frame top-left origins"
+msgstr "An den linken oberen Ursprüngen der Dokumentrahmen ausrichten"
+
+#: gui/mainwindow_alignment.cpp:139
 msgid "Align Top"
 msgstr "Oben ausrichten"
 
-#: gui/mainwindow_alignment.cpp:135
+#: gui/mainwindow_alignment.cpp:139
 msgid "Align Bottom"
 msgstr "Unten ausrichten"
 
-#: gui/mainwindow_alignment.cpp:135
+#: gui/mainwindow_alignment.cpp:139
 msgid "Align Left"
 msgstr "Links ausrichten"
 
-#: gui/mainwindow_alignment.cpp:135
+#: gui/mainwindow_alignment.cpp:139
 msgid "Align Right"
 msgstr "Rechts ausrichten"
 
-#: gui/mainwindow_alignment.cpp:136
+#: gui/mainwindow_alignment.cpp:140
 msgid "Center Horizontally"
 msgstr "Horizontal zentrieren"
 
-#: gui/mainwindow_alignment.cpp:136
+#: gui/mainwindow_alignment.cpp:140
 msgid "Center Vertically"
 msgstr "Vertikal zentrieren"
 
-#: gui/mainwindow_alignment.cpp:172
+#: gui/mainwindow_alignment.cpp:185
 msgid "Alignment failed. See diagnostics for details."
 msgstr "Ausrichtung fehlgeschlagen. Einzelheiten stehen in der Diagnose."
 
-#: gui/mainwindow_alignment.cpp:174
+#: gui/mainwindow_alignment.cpp:187
 msgid "Selection aligned."
 msgstr "Auswahl ausgerichtet."
 
-#: gui/mainwindow_alignment.cpp:174
+#: gui/mainwindow_alignment.cpp:187
 msgid "Selection is already aligned."
 msgstr "Die Auswahl ist bereits ausgerichtet."
 

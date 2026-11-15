@@ -23,7 +23,39 @@ Legends group fixture types across the whole scene. Edit a legend to reorder or 
 
 ## Arrange and edit
 
-Drag a frame to move it and a frame handle to resize it. Double-click a frame to edit the element. Right-click for editing, deletion and stacking controls. Drag empty space to pan and use the wheel to zoom. **Z** fits the layout; **Delete** removes the selected layout element.
+Click a frame to select it. **Ctrl + click** toggles an element and **Shift + click**
+adds one. **Shift + drag** on empty page space adds every intersecting frame;
+marquee additions follow back-to-front stacking order, with ties ordered by
+2D View, Legend, Event Table, Text, Image and then their stored order. Overlapping
+frames are picked from the front. The newest remaining selection is the primary
+(darker outline). Removing and selecting an element again makes it the newest.
+Click empty space to clear selection; an ordinary empty-space drag still pans.
+Selection is independent of scene selection and clears when switching pages.
+
+Drag any selected frame to move the whole selection. Relative positions and frame
+sizes remain unchanged. A single frame still has resize handles; a multiple
+selection has outlines and a collective boundary, without resize handles.
+Double-click a specific frame to edit only that element. Right-click a single
+frame for editing, deletion and stacking controls; a multiple selection offers
+batch deletion. **Delete** removes all selected elements in one Undo step.
+Use the wheel to zoom and **Z** to fit the layout.
+
+The shared **Alignment** toolbar works on mixed Layout selections of two or more
+elements. Choose **Extents**, **First selected**, or **Last selected**, then
+**Align Top**, **Align Bottom**, **Align Left**, **Align Right**,
+**Center Horizontally**, or **Center Vertically**. First and Last follow selection
+chronology and keep that reference frame stationary. Geometric bounds use complete
+page frames; insertion points mean the top-left page origins, never fixture
+insertion points inside a viewport. Work-plane buttons are disabled in Layout Mode.
+
+Viewports retain fractional point precision. Other elements use whole points:
+alignment rounds their target positions to the nearest point (half-point ties
+toward positive infinity), with at most 0.5 pt error per axis. A mixed group drag rounds its
+common delta to whole points so all relative positions remain exact. Extents
+alignment of selections containing integer frames stops within 0.5 pt, avoiding
+drift on repeated clicks. Pure viewport alignment retains
+fractional precision. Alignment and page movement preserve viewport scales,
+cameras, filters and scene positions; selection decorations never print.
 
 Page Add, Rename, Delete, Orientation and template Import share the project's
 Undo/Redo history with element editing. Selection clicks and unchanged edits do

@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Perastage 1.7.43\n"
+"Project-Id-Version: Perastage 1.7.44\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-14 20:28+0100\n"
+"POT-Creation-Date: 2026-11-15 07:39+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -457,7 +457,7 @@ msgid "Add"
 msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:606 gui/hang_position_dialog.cpp:179
-#: gui/layerpanel.cpp:128 gui/layoutpanel.cpp:44
+#: gui/layerpanel.cpp:128 gui/layoutpanel.cpp:44 gui/layoutviewerpanel.cpp:1290
 msgid "Delete"
 msgstr ""
 
@@ -1159,7 +1159,7 @@ msgstr ""
 msgid "Anchor"
 msgstr ""
 
-#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:185
+#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:198
 msgid "Alignment"
 msgstr ""
 
@@ -3072,71 +3072,79 @@ msgstr ""
 msgid "Loading tables..."
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:80
+#: gui/mainwindow_alignment.cpp:81
 msgid "Extents"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:80
+#: gui/mainwindow_alignment.cpp:81
 msgid "First selected"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:80
+#: gui/mainwindow_alignment.cpp:81
 msgid "Last selected"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:96
+#: gui/mainwindow_alignment.cpp:97
 msgid "XY work plane (Top)"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:96
+#: gui/mainwindow_alignment.cpp:97
 msgid "XZ work plane (Front)"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:96
+#: gui/mainwindow_alignment.cpp:97
 msgid "YZ work plane (Side)"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:113
+#: gui/mainwindow_alignment.cpp:114 gui/mainwindow_alignment.cpp:128
 msgid "Align using geometric bounds"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:113
+#: gui/mainwindow_alignment.cpp:114 gui/mainwindow_alignment.cpp:128
 msgid "Align using insertion points"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:135
+#: gui/mainwindow_alignment.cpp:127
+msgid "Align using complete document frames"
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:127
+msgid "Align using document frame top-left origins"
+msgstr ""
+
+#: gui/mainwindow_alignment.cpp:139
 msgid "Align Top"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:135
+#: gui/mainwindow_alignment.cpp:139
 msgid "Align Bottom"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:135
+#: gui/mainwindow_alignment.cpp:139
 msgid "Align Left"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:135
+#: gui/mainwindow_alignment.cpp:139
 msgid "Align Right"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:136
+#: gui/mainwindow_alignment.cpp:140
 msgid "Center Horizontally"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:136
+#: gui/mainwindow_alignment.cpp:140
 msgid "Center Vertically"
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:172
+#: gui/mainwindow_alignment.cpp:185
 msgid "Alignment failed. See diagnostics for details."
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:174
+#: gui/mainwindow_alignment.cpp:187
 msgid "Selection aligned."
 msgstr ""
 
-#: gui/mainwindow_alignment.cpp:174
+#: gui/mainwindow_alignment.cpp:187
 msgid "Selection is already aligned."
 msgstr ""
 

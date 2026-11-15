@@ -21,7 +21,38 @@ Bearbeiten Sie die verfügbaren Einstellungen jedes Elements für Inhalt und Dar
 
 ## Anordnen und bearbeiten
 
-Ziehen Sie einen Rahmen zum Verschieben und einen Griff zur Größenänderung. Doppelklick bearbeitet das Element. Rechtsklick bietet Bearbeitung, Löschen und Stapelreihenfolge. Ziehen auf freier Fläche verschiebt die Ansicht, das Mausrad zoomt. **Z** passt das Layout ein; **Delete** entfernt das ausgewählte Element.
+Klicken Sie auf einen Rahmen, um ihn auszuwählen. **Strg + Klick** schaltet die
+Auswahl um, **Umschalt + Klick** fügt ein Element hinzu. **Umschalt + Ziehen** auf
+leerem Seitenbereich wählt sich schneidende Rahmen von hinten nach vorn aus.
+Bei gleicher Ebene gilt die Reihenfolge 2D-Ansicht, Legende, Ereignistabelle,
+Text, Bild und danach die gespeicherte Reihenfolge. Ein Klick trifft den vordersten
+Rahmen. Das zuletzt gewählte verbleibende Element ist primär (dunklerer Umriss).
+Entfernen und erneutes Auswählen setzt es ans Ende. Die Dokumentauswahl ist von
+der Szene unabhängig und wird beim Seitenwechsel gelöscht.
+
+Ziehen Sie einen gewählten Rahmen, um die gesamte Auswahl ohne Größenänderung
+oder Änderung der relativen Positionen zu bewegen. Größenanfasser erscheinen
+nur bei Einzelauswahl. Doppelklicken Sie einen Rahmen, um nur dieses Element zu
+bearbeiten. **Entf** löscht die gesamte Auswahl in einem Rückgängig-Schritt.
+Das Kontextmenü einer Mehrfachauswahl bietet gemeinsames Löschen an. Ein Klick
+ins Leere hebt die Auswahl auf; Ziehen ohne Zusatztaste verschiebt die Seite.
+Das Mausrad zoomt, **Z** passt die Seite ein.
+
+Die gemeinsame Symbolleiste **Ausrichtung** unterstützt gemischte Auswahlen mit
+mindestens zwei Elementen. Wählen Sie Gesamtausdehnung, Zuerst ausgewählt oder
+Zuletzt ausgewählt und eine der sechs Kanten- oder Zentrierungsaktionen. Die
+Referenz folgt der Auswahlreihenfolge und bleibt bei Zuerst/Zuletzt unverändert.
+Geometrische Grenzen verwenden vollständige Seitenrahmen; Einfügepunkte sind
+deren linke obere Seitenecken, niemals die Einfügepunkte der Geräte innerhalb
+einer Ansicht. Arbeitsebenen sind im Layout-Modus deaktiviert.
+
+Ansichten behalten Bruchteile von Punkten. Andere Elemente runden Zielpositionen
+auf ganze Punkte, halbe Punkte zur positiven Unendlichkeit; der Fehler beträgt höchstens 0,5 pt
+je Achse. Gemischtes Ziehen rundet den gemeinsamen Versatz auf ganze Punkte und
+erhält relative Positionen. Bei Auswahlen mit Ganzzahlrahmen gilt eine
+Gesamtausdehnungs-Ausrichtung innerhalb von 0,5 pt als abgeschlossen, damit
+Wiederholungen keine Drift verursachen. Maßstäbe, Kameras, Filter und
+Szenenpositionen bleiben erhalten. Auswahlumrisse werden nicht gedruckt.
 
 Speichern Sie das `.pstg`-Projekt, um Layouts zu behalten. **Export template** erstellt ein portables `.pslayout`-Paket mit referenzierten Bildern. **Import template** akzeptiert `.pslayout` und ältere `.json`-Vorlagen.
 

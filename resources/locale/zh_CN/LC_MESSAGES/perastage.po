@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-14 20:28+0100\n"
+"POT-Creation-Date: 2026-11-15 07:39+0100\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -497,7 +497,7 @@ msgid "Add"
 msgstr "添加"
 
 #: gui/dictionaryeditdialog.cpp:606 gui/hang_position_dialog.cpp:179
-#: gui/layerpanel.cpp:128 gui/layoutpanel.cpp:44
+#: gui/layerpanel.cpp:128 gui/layoutpanel.cpp:44 gui/layoutviewerpanel.cpp:1290
 msgid "Delete"
 msgstr "删除"
 
@@ -1262,7 +1262,7 @@ msgstr "右"
 msgid "Anchor"
 msgstr "锚点"
 
-#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:185
+#: gui/fixture_label_editor.cpp:61 gui/mainwindow_alignment.cpp:198
 msgid "Alignment"
 msgstr "对齐"
 
@@ -3204,71 +3204,79 @@ msgstr "正在完成项目加载..."
 msgid "Loading tables..."
 msgstr "正在加载表格..."
 
-#: gui/mainwindow_alignment.cpp:80
+#: gui/mainwindow_alignment.cpp:81
 msgid "Extents"
 msgstr "整体边界"
 
-#: gui/mainwindow_alignment.cpp:80
+#: gui/mainwindow_alignment.cpp:81
 msgid "First selected"
 msgstr "首先选中"
 
-#: gui/mainwindow_alignment.cpp:80
+#: gui/mainwindow_alignment.cpp:81
 msgid "Last selected"
 msgstr "最后选中"
 
-#: gui/mainwindow_alignment.cpp:96
+#: gui/mainwindow_alignment.cpp:97
 msgid "XY work plane (Top)"
 msgstr "XY 工作平面（顶视）"
 
-#: gui/mainwindow_alignment.cpp:96
+#: gui/mainwindow_alignment.cpp:97
 msgid "XZ work plane (Front)"
 msgstr "XZ 工作平面（前视）"
 
-#: gui/mainwindow_alignment.cpp:96
+#: gui/mainwindow_alignment.cpp:97
 msgid "YZ work plane (Side)"
 msgstr "YZ 工作平面（侧视）"
 
-#: gui/mainwindow_alignment.cpp:113
+#: gui/mainwindow_alignment.cpp:114 gui/mainwindow_alignment.cpp:128
 msgid "Align using geometric bounds"
 msgstr "使用几何边界对齐"
 
-#: gui/mainwindow_alignment.cpp:113
+#: gui/mainwindow_alignment.cpp:114 gui/mainwindow_alignment.cpp:128
 msgid "Align using insertion points"
 msgstr "使用插入点对齐"
 
-#: gui/mainwindow_alignment.cpp:135
+#: gui/mainwindow_alignment.cpp:127
+msgid "Align using complete document frames"
+msgstr "使用完整文档边框对齐"
+
+#: gui/mainwindow_alignment.cpp:127
+msgid "Align using document frame top-left origins"
+msgstr "使用文档边框的左上角原点对齐"
+
+#: gui/mainwindow_alignment.cpp:139
 msgid "Align Top"
 msgstr "顶端对齐"
 
-#: gui/mainwindow_alignment.cpp:135
+#: gui/mainwindow_alignment.cpp:139
 msgid "Align Bottom"
 msgstr "底端对齐"
 
-#: gui/mainwindow_alignment.cpp:135
+#: gui/mainwindow_alignment.cpp:139
 msgid "Align Left"
 msgstr "左对齐"
 
-#: gui/mainwindow_alignment.cpp:135
+#: gui/mainwindow_alignment.cpp:139
 msgid "Align Right"
 msgstr "右对齐"
 
-#: gui/mainwindow_alignment.cpp:136
+#: gui/mainwindow_alignment.cpp:140
 msgid "Center Horizontally"
 msgstr "水平居中"
 
-#: gui/mainwindow_alignment.cpp:136
+#: gui/mainwindow_alignment.cpp:140
 msgid "Center Vertically"
 msgstr "垂直居中"
 
-#: gui/mainwindow_alignment.cpp:172
+#: gui/mainwindow_alignment.cpp:185
 msgid "Alignment failed. See diagnostics for details."
 msgstr "对齐失败。请查看诊断信息了解详情。"
 
-#: gui/mainwindow_alignment.cpp:174
+#: gui/mainwindow_alignment.cpp:187
 msgid "Selection aligned."
 msgstr "选中对象已对齐。"
 
-#: gui/mainwindow_alignment.cpp:174
+#: gui/mainwindow_alignment.cpp:187
 msgid "Selection is already aligned."
 msgstr "选中对象已处于对齐状态。"
 

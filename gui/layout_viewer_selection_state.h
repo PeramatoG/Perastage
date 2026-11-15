@@ -1,5 +1,6 @@
 #pragma once
 
+#include "layouts/LayoutElementRef.h"
 #include <array>
 #include <cstddef>
 #include <utility>
@@ -7,14 +8,17 @@
 
 namespace gui::layoutselection {
 
-enum class LayoutElementKind { None, View2D, Legend, EventTable, Text, Image };
+using layouts::LayoutElementKind;
+using layouts::LayoutElementRef;
 
-struct LayoutElementRef {
-  LayoutElementKind kind = LayoutElementKind::None;
-  int id = -1;
-
-  bool operator==(const LayoutElementRef &other) const = default;
+struct SelectionFrame {
+  LayoutElementRef element;
+  double x, y, width, height;
 };
+// Input follows ascending stable Z order; hits choose the last (topmost).
+std::vector<LayoutElementRef> IntersectingFrames(
+    const std::vector<SelectionFrame> &frames, double x, double y, double width, double height);
+LayoutElementRef HitFrame(const std::vector<SelectionFrame> &frames, double x, double y);
 
 struct ElementZIndex {
   int id = -1;
@@ -32,9 +36,15 @@ using ElementRefsByKind = std::array<std::vector<int>, 5>;
 
 class LayoutViewerSelectionState {
 public:
-  // Returns the immutable identity of the current selection.
+  const std::vector<LayoutElementRef> &Ordered() const;
+  bool Replace(const std::vector<LayoutElementRef> &elements);
+  bool Add(LayoutElementRef element);
+  bool Toggle(LayoutElementRef element);
+  bool Remove(LayoutElementRef element);
+  bool Retain(const ElementRefsByKind &idsByKind);
+  // Returns the newest remaining selected identity (the stable primary).
   LayoutElementRef Current() const;
-  // Explicitly selects an element identity and reports whether it changed.
+  // Replaces membership with one identity and reports whether it changed.
   bool Select(LayoutElementKind kind, int id);
   // Explicitly clears the current selection and reports whether it changed.
   bool Clear();
@@ -44,7 +54,9 @@ public:
   bool Matches(LayoutElementRef element) const;
 
 private:
-  LayoutElementRef current_;
+  // Primary is the newest remaining selection; additive no-ops keep it stable.
+  std::vector<LayoutElementRef> ordered_;
+
 };
 
 // Builds ascending stable Z order using View2D, Legend, EventTable, Text, Image

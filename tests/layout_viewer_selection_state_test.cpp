@@ -71,5 +71,30 @@ int main() {
   TestSelectionState();
   TestDefaultSelection();
   TestZOrder();
+  LayoutViewerSelectionState state;
+  const LayoutElementRef a{LayoutElementKind::View2D,1}, b{LayoutElementKind::Text,1}, c{LayoutElementKind::Image,2};
+  state.Select(a.kind,a.id);
+  assert(state.Add(b) && state.Add(c)); // Shift-add; typed IDs may overlap.
+  assert(!state.Add(a) && state.Current()==c);
+  assert((state.Ordered()==std::vector<LayoutElementRef>{a,b,c}));
+  assert(state.Toggle(b) && !state.Matches(b)); // Ctrl-toggle.
+  assert(state.Toggle(b) && state.Current()==b);
+  assert((state.Ordered()==std::vector<LayoutElementRef>{a,c,b}));
+  state.Remove(b); assert(state.Current()==c);
+  ElementRefsByKind valid;
+  valid[0]={1}; valid[3]={1};
+  state.Retain(valid); assert(state.Current()==a && state.Ordered().size()==1);
+  const std::vector<SelectionFrame> frames{{a,10,10,30,30},{b,20,20,30,30},{c,100,100,10,10}};
+  assert(HitFrame(frames,25,25)==b); // Highest stable Z wins overlap.
+  assert(HitFrame(frames,12,12)==a);
+  assert(HitFrame(frames,90,90)==LayoutElementRef{});
+  assert((IntersectingFrames(frames,0,0,22,22)==std::vector<LayoutElementRef>{a,b}));
+  assert((IntersectingFrames(frames,22,22,-22,-22)==std::vector<LayoutElementRef>{a,b}));
+  assert((IntersectingFrames(frames,0,0,200,200)==std::vector<LayoutElementRef>{a,b,c}));
+  assert(state.Replace({c,a,c,b}) && state.Current()==b);
+  assert((state.Ordered()==std::vector<LayoutElementRef>{c,a,b}));
+  assert(!state.Replace({c,a,b}));
+  state.Clear(); // Page replacement must clear even when IDs are reused.
+  assert(state.Current()==LayoutElementRef{});
   return 0;
 }

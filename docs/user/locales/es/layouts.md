@@ -21,7 +21,38 @@ Edita los ajustes disponibles de cada elemento para elegir contenido y presentac
 
 ## Organizar y editar
 
-Arrastra un marco para moverlo y uno de sus tiradores para cambiar su tamaño. Haz doble clic para editar el elemento. Haz clic derecho para editar, eliminar y cambiar el orden de superposición. Arrastra sobre un espacio vacío para desplazar y usa la rueda para acercar o alejar. **Z** ajusta el layout a la vista; **Delete** elimina el elemento seleccionado.
+Selecciona un marco con un clic. **Ctrl + clic** alterna su selección y
+**Mayús + clic** añade un elemento. **Mayús + arrastrar** sobre espacio vacío
+selecciona los marcos que intersectan el rectángulo, de atrás hacia delante.
+En caso de empate se usa el orden Vista 2D, Leyenda, Tabla de eventos, Texto,
+Imagen y después el orden almacenado. El clic elige el elemento situado delante.
+La selección más reciente es la principal (contorno más oscuro). Al quitar y
+volver a seleccionar un elemento, pasa a ser el más reciente. La selección es
+independiente de la escena y se borra al cambiar de página.
+
+Arrastra un marco seleccionado para mover toda la selección sin cambiar tamaños
+ni posiciones relativas. Solo una selección individual muestra controles de
+redimensionado. Haz doble clic en un marco para editar únicamente ese elemento.
+**Supr** elimina toda la selección en un paso de Deshacer. El menú contextual de
+una selección múltiple ofrece eliminación conjunta. Un clic en espacio vacío
+borra la selección; arrastrar sin modificadores desplaza la página. La rueda
+cambia el zoom y **Z** ajusta la página.
+
+La barra compartida **Alineación** admite selecciones mixtas de dos o más elementos.
+Elige Extensión, Primero seleccionado o Último seleccionado y una de las seis
+operaciones de bordes o centrado. Primero y Último siguen el orden de selección
+y mantienen inmóvil el marco de referencia. Los límites geométricos usan el
+marco completo; los puntos de inserción son las esquinas superiores izquierdas
+de los marcos en la página, no las de los aparatos dentro de una vista. Los
+controles del plano de trabajo están desactivados en el modo Layout.
+
+Las vistas conservan precisión fraccionaria. Los demás elementos redondean sus
+posiciones al punto más cercano, con empates de medio punto hacia el infinito positivo
+y un error máximo de 0,5 pt por eje. El arrastre mixto redondea el desplazamiento
+común a puntos enteros para conservar las posiciones relativas. La alineación
+por extensión de selecciones con marcos enteros se considera resuelta dentro de
+0,5 pt, evitando deriva al repetirla. Las escalas, cámaras,
+filtros y posiciones de la escena se conservan. Los contornos de selección no se imprimen.
 
 Guarda el proyecto `.pstg` para conservar los layouts. **Export template** crea un paquete portátil `.pslayout` con las imágenes referenciadas. **Import template** acepta `.pslayout` y plantillas antiguas `.json`.
 
