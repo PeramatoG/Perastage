@@ -91,10 +91,13 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
 }
 
 // Converts selected scene objects sharing the same model file into trusses.
-void MainWindow::OnConvertSceneObjectsToTruss(wxCommandEvent &WXUNUSED(event)) {
+void MainWindow::OnConvertSceneObjectsToTruss(wxCommandEvent &event) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const auto selected = cfg.GetSelectedSceneObjects();
-  if (selected.empty()) {
+  const std::string sourceUuid = event.GetString().empty()
+      ? (selected.empty() ? std::string{} : selected.front())
+      : event.GetString().ToStdString();
+  if (sourceUuid.empty()) {
     wxMessageBox(_("Please select a scene object to convert first."),
                  _("Convert Scene Objects to Truss"),
                  wxOK | wxICON_INFORMATION);
@@ -112,7 +115,7 @@ void MainWindow::OnConvertSceneObjectsToTruss(wxCommandEvent &WXUNUSED(event)) {
                                                mutationHost};
   const auto result =
       perastage::command::scene_tools::ExecuteSceneObjectsToTrusses(
-          {.sourceSceneObjectUuid = selected.front()}, context);
+          {.sourceSceneObjectUuid = sourceUuid}, context);
   if (!result.Success()) {
     wxMessageBox(_("No scene objects with a valid model file were converted."),
                  _("Convert Scene Objects to Truss"),

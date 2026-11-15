@@ -25,6 +25,7 @@ public:
     int GetFixtureId() const;
     int GetUniverse() const;
     int GetChannel() const;
+    bool Validate() override;
 private:
     wxTextCtrl* idCtrl;
     wxTextCtrl* uniCtrl;

@@ -8,6 +8,28 @@ In 3D, drag to orbit, Shift-drag or middle-drag to pan, and use the wheel to zoo
 
 In 2D, drag empty space to pan and use the wheel to zoom. Select scene elements to cross-check their rows in Fixtures, Trusses, Hoists and Objects. Double-click a cell within a multi-selection to edit that column for the selected rows.
 
+## Context menus
+
+Right-click a scene element for its supported actions. Fixtures offer **Edit
+Fixture...**, **Edit DMX Patch...**, selection by matching type or position and
+**Position Tool**. Trusses use the existing truss editor; supported primitive
+objects offer their existing editor and model conversion where available.
+Hoists in 2D offer applicable selection actions and the Position Tool.
+
+Right-clicking an already selected element preserves the complete selection and
+its order. Individual editors act on the clicked element; Group, Ungroup, Copy
+and Delete use the current selection through the existing commands. Right-click
+an unselected element to select it with the current group behavior. The active
+table limits picking unless **Cross-table Actions** is enabled.
+
+Empty-space menus preserve selection and keep type/position selection shortcuts.
+3D also retains **Render style** and **Export image...**. Escape dismisses a menu
+without editing the scene. A drag does not open a menu. During continuous
+placement or line-point selection, right-click cancels the active operation.
+Patch edits validate the address, preserve DMX break assignments and undo as one
+operation; cancelling an editor or accepting unchanged patch values adds no Undo
+entry. Camera-only Layout view editors do not expose scene context editing.
+
 ## Position Tool
 
 Open **View → Position Tool** in either the 2D or 3D workspace. Dock, float, resize or hide the same panel; its placement and visibility are saved with the workspace. With no selection, the coordinate fields are disabled.

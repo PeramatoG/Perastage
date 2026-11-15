@@ -56,7 +56,8 @@
 #include "continuous_placement_scene.h"
 #include "diagnostics/DiagnosticReport.h"
 #include "editable_focus_utils.h"
-#include "fixturepatchdialog.h"
+#include "../gui/viewport_context_menu.h"
+#include "../gui/viewport_scene_editing.h"
 #include "fixturetablepanel.h"
 #include "gl_state_guard.h"
 #include "hoisttablepanel.h"
@@ -505,134 +506,6 @@ void EmitGrid(ICanvas2D &canvas, int style, Viewer2DView view, float r, float g,
   }
 }
 
-// Builds fixture UUIDs filtered by type name for selection workflows.
-std::vector<std::string>
-BuildFixtureSelectionByType(const MvrScene &scene,
-                            const std::string &typeName) {
-  std::vector<std::string> uuids;
-  uuids.reserve(scene.fixtures.size());
-  for (const auto &[uuid, fixture] : scene.fixtures) {
-    if (typeName.empty() || fixture.typeName == typeName)
-      uuids.push_back(uuid);
-  }
-  return uuids;
-}
-
-// Builds fixture UUIDs filtered by position-name mapping criteria.
-std::vector<std::string>
-BuildFixtureSelectionByPosition(const MvrScene &scene,
-                                const std::string &positionName,
-                                bool selectNoPosition) {
-  std::vector<std::string> uuids;
-  uuids.reserve(scene.fixtures.size());
-  for (const auto &[uuid, fixture] : scene.fixtures) {
-    const bool hasPosition = !fixture.positionName.empty();
-    if (selectNoPosition) {
-      if (!hasPosition)
-        uuids.push_back(uuid);
-      continue;
-    }
-    if (positionName.empty() || fixture.positionName == positionName)
-      uuids.push_back(uuid);
-  }
-  return uuids;
-}
-
-void ApplyFixtureSelectionToUi(const std::vector<std::string> &selection,
-                               Viewer3DController &controller) {
-  ConfigManager &cfg = ConfigManager::Get();
-  if (selection != cfg.GetSelectedFixtures()) {
-    cfg.PushUndoState("fixture selection");
-    cfg.SetSelectedFixtures(selection);
-    if (Viewer2DRenderPanel::Instance())
-      Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
-  }
-  controller.SetSelectedUuids(selection);
-  selection::ScopedOrigin selectionOrigin(selection::Origin::Viewer2D);
-  if (FixtureTablePanel::Instance()) {
-    if (selection.empty())
-      FixtureTablePanel::Instance()->ClearSelection();
-    else
-      FixtureTablePanel::Instance()->SelectByUuid(selection, false);
-  }
-}
-
-// Returns a canonical resource key used to group trusses by type or source.
-std::string BuildTrussModelSelectionKey(const Truss &truss) {
-  auto normalize = [](std::string value) {
-    std::replace(value.begin(), value.end(), '\\', '/');
-    std::transform(
-        value.begin(), value.end(), value.begin(),
-        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    return value;
-  };
-
-  if (!truss.perastageTypeKey.empty())
-    return "perastage-type:" + normalize(truss.perastageTypeKey);
-  if (!truss.gdtfSpec.empty())
-    return "gdtf:" + normalize(truss.gdtfSpec);
-  if (!truss.modelFile.empty())
-    return "model-file:" + normalize(truss.modelFile);
-  if (!truss.symbolFile.empty())
-    return "symbol-file:" + normalize(truss.symbolFile);
-  if (!truss.model.empty())
-    return "display-model:" + normalize(truss.model);
-  return {};
-}
-
-// Builds truss UUIDs filtered by model-or-source-file key for selection
-// workflows.
-std::vector<std::string>
-BuildTrussSelectionByModelKey(const MvrScene &scene,
-                              const std::string &modelKey) {
-  std::vector<std::string> uuids;
-  uuids.reserve(scene.trusses.size());
-  for (const auto &[uuid, truss] : scene.trusses) {
-    if (modelKey.empty() || BuildTrussModelSelectionKey(truss) == modelKey)
-      uuids.push_back(uuid);
-  }
-  return uuids;
-}
-
-// Builds truss UUIDs filtered by position-name mapping criteria.
-std::vector<std::string>
-BuildTrussSelectionByPosition(const MvrScene &scene,
-                              const std::string &positionName,
-                              bool selectNoPosition) {
-  std::vector<std::string> uuids;
-  uuids.reserve(scene.trusses.size());
-  for (const auto &[uuid, truss] : scene.trusses) {
-    const bool hasPosition = !truss.positionName.empty();
-    if (selectNoPosition) {
-      if (!hasPosition)
-        uuids.push_back(uuid);
-      continue;
-    }
-    if (positionName.empty() || truss.positionName == positionName)
-      uuids.push_back(uuid);
-  }
-  return uuids;
-}
-
-// Applies a truss selection to scene state, controller highlights, and table
-// UI.
-void ApplyTrussSelectionToUi(const std::vector<std::string> &selection,
-                             Viewer3DController &controller) {
-  ConfigManager &cfg = ConfigManager::Get();
-  if (selection != cfg.GetSelectedTrusses()) {
-    cfg.PushUndoState("truss selection");
-    cfg.SetSelectedTrusses(selection);
-  }
-  controller.SetSelectedUuids(selection);
-  selection::ScopedOrigin selectionOrigin(selection::Origin::Viewer2D);
-  if (TrussTablePanel::Instance()) {
-    if (selection.empty())
-      TrussTablePanel::Instance()->ClearSelection();
-    else
-      TrussTablePanel::Instance()->SelectByUuid(selection, false);
-  }
-}
-
 // Appends missing UUIDs from the added selection while preserving existing
 // order.
 std::vector<std::string>
@@ -694,7 +567,7 @@ wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(
         Viewer2DPanel::OnMouseDown) EVT_MIDDLE_UP(Viewer2DPanel::OnMouseUp)
         EVT_MOTION(Viewer2DPanel::OnMouseMove) EVT_LEFT_DCLICK(
             Viewer2DPanel::OnMouseDClick)
-            EVT_MOUSEWHEEL(Viewer2DPanel::OnMouseWheel) EVT_RIGHT_UP(
+            EVT_MOUSEWHEEL(Viewer2DPanel::OnMouseWheel) EVT_RIGHT_DOWN(Viewer2DPanel::OnRightDown) EVT_RIGHT_UP(
                 Viewer2DPanel::OnRightUp) EVT_KEY_DOWN(Viewer2DPanel::OnKeyDown)
                 EVT_ENTER_WINDOW(Viewer2DPanel::OnMouseEnter)
                     EVT_LEAVE_WINDOW(Viewer2DPanel::OnMouseLeave)
@@ -797,8 +670,6 @@ void Viewer2DPanel::SetView(Viewer2DView view) {
   m_runtimeState.MarkViewMotion();
   RequestRepaint();
 }
-
-
 
 void Viewer2DPanel::SetLayerColor(const std::string &layer,
                                   const std::string &hex) {
@@ -3377,28 +3248,7 @@ void Viewer2DPanel::OnMouseDClick(wxMouseEvent &event) {
                                       &uuid))
     return;
 
-  auto &scene = cfg.GetScene();
-  auto it = scene.fixtures.find(uuid);
-  if (it == scene.fixtures.end())
-    return;
-
-  FixturePatchDialog dlg(this, it->second);
-  if (dlg.ShowModal() != wxID_OK)
-    return;
-
-  it->second.fixtureId = dlg.GetFixtureId();
-  int uni = dlg.GetUniverse();
-  int ch = dlg.GetChannel();
-  if (uni > 0 && ch > 0)
-    it->second.address = wxString::Format("%d.%d", uni, ch).ToStdString();
-  else
-    it->second.address.clear();
-
-  if (FixtureTablePanel::Instance())
-    FixtureTablePanel::Instance()->ReloadData();
-
-  UpdateScene(false);
-  RequestRepaint();
+  gui::viewport::EditFixturePatch(this, uuid);
 }
 
 // Completes mouse-driven interaction and applies click or rectangle selections.
@@ -3605,203 +3455,34 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
 }
 
 // Opens the active table selection menu when right-clicking empty viewer space.
+void Viewer2DPanel::OnRightDown(wxMouseEvent &event) {
+  SetFocus();
+  m_contextClick.Begin(event.GetX(), event.GetY(), m_interaction.mode != viewer2d::interaction::DragMode::None ||
+      m_interaction.middleMousePanning);
+}
+
 void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
-  if (m_linePointSelectionSession.IsActive()) {
-    CancelLinePointSelection();
-    return;
-  }
-  if (m_placementSession.IsActive()) {
-    CancelContinuousPlacement();
-    return;
-  }
-  if (!m_enableSelection || !event.RightUp()) {
-    event.Skip();
-    return;
-  }
-
-  const RenderSize renderSize = ResolveRenderSize(this);
-  const int w = renderSize.width;
-  const int h = renderSize.height;
-  if (w <= 0 || h <= 0 || !IsShownOnScreen()) {
-    event.Skip();
-    return;
-  }
-
-  if (!TryBindGlContextForInteraction())
-    return;
-
-  wxString label;
-  wxPoint pos;
-  std::string hitUuid;
-  const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
-  std::string sceneObjectUuid;
-  if (m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y, w, h, label, pos,
-                                         &sceneObjectUuid)) {
-    wxMenu menu;
-    constexpr int kConvertSceneObjectToTrussId = wxID_HIGHEST + 1300;
-    menu.Append(kConvertSceneObjectToTrussId, _("Convert to Truss"));
-    const int selectedId =
-        GetPopupMenuSelectionFromUser(menu, event.GetPosition());
-    if (selectedId == kConvertSceneObjectToTrussId) {
-      ConfigManager::Get().SetSelectedSceneObjects({sceneObjectUuid});
-      wxCommandEvent command(wxEVT_MENU, ID_Tools_ConvertSceneObjectsToTruss);
-      if (MainWindow::Instance())
-        MainWindow::Instance()->ProcessWindowEvent(command);
-    }
-    return;
-  }
-
-  const bool fixturePageActive = FixtureTablePanel::Instance() &&
-                                 FixtureTablePanel::Instance()->IsActivePage();
-  const bool trussPageActive = TrussTablePanel::Instance() &&
-                               TrussTablePanel::Instance()->IsActivePage();
-  if (!fixturePageActive && !trussPageActive) {
-    event.Skip();
-    return;
-  }
-
-  const auto &scene = ConfigManager::Get().GetScene();
-  std::set<std::string> typeNames;
-  std::set<std::string> positionNames;
-  bool hasNoPosition = false;
-  wxString allLabel;
-  wxString typeMenuLabel;
-
-  if (fixturePageActive) {
-    if (m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h, label, pos,
-                                       &hitUuid, true)) {
-      event.Skip();
-      return;
-    }
-    if (scene.fixtures.empty())
-      return;
-    for (const auto &[uuid, fixture] : scene.fixtures) {
-      if (!fixture.typeName.empty())
-        typeNames.insert(fixture.typeName);
-      if (fixture.positionName.empty())
-        hasNoPosition = true;
-      else
-        positionNames.insert(fixture.positionName);
-    }
-    allLabel = "All fixtures";
-    typeMenuLabel = "Select by fixture type";
-  } else {
-    if (m_controller.GetTrussLabelAt(pickPos.x, pickPos.y, w, h, label, pos,
-                                     &hitUuid)) {
-      event.Skip();
-      return;
-    }
-    if (scene.trusses.empty())
-      return;
-    for (const auto &[uuid, truss] : scene.trusses) {
-      const std::string modelKey = BuildTrussModelSelectionKey(truss);
-      if (!modelKey.empty())
-        typeNames.insert(modelKey);
-      if (truss.positionName.empty())
-        hasNoPosition = true;
-      else
-        positionNames.insert(truss.positionName);
-    }
-    allLabel = "All trusses";
-    typeMenuLabel = "Select by model";
-  }
-
-  wxMenu filterMenu;
-  auto typeSubmenu = std::make_unique<wxMenu>();
-  auto positionSubmenu = std::make_unique<wxMenu>();
-
-  constexpr int kSelectTypeAllId = wxID_HIGHEST + 600;
-  constexpr int kSelectTypeBaseId = wxID_HIGHEST + 601;
-  constexpr int kSelectPositionNoneId = wxID_HIGHEST + 800;
-  constexpr int kSelectPositionBaseId = wxID_HIGHEST + 801;
-
-  typeSubmenu->Append(kSelectTypeAllId, allLabel);
-
-  std::vector<std::string> orderedTypes;
-  orderedTypes.reserve(typeNames.size());
-  int nextTypeId = kSelectTypeBaseId;
-  for (const auto &name : typeNames) {
-    orderedTypes.push_back(name);
-    typeSubmenu->Append(nextTypeId++, wxString::FromUTF8(name));
-  }
-
-  positionSubmenu->Append(kSelectPositionNoneId, _("No position"));
-
-  std::vector<std::string> orderedPositions;
-  orderedPositions.reserve(positionNames.size());
-  int nextPositionId = kSelectPositionBaseId;
-  for (const auto &name : positionNames) {
-    orderedPositions.push_back(name);
-    positionSubmenu->Append(nextPositionId++, wxString::FromUTF8(name));
-  }
-
-  filterMenu.AppendSubMenu(typeSubmenu.release(), typeMenuLabel);
-  filterMenu.AppendSubMenu(positionSubmenu.release(), _("Select by position"));
-
-  const int selectedId =
-      GetPopupMenuSelectionFromUser(filterMenu, event.GetPosition());
-
-  if (selectedId == wxID_NONE)
-    return;
-
-  if (selectedId == kSelectTypeAllId) {
-    if (fixturePageActive)
-      ApplyFixtureSelectionToUi(BuildFixtureSelectionByType(scene, ""),
-                                m_controller);
-    else
-      ApplyTrussSelectionToUi(BuildTrussSelectionByModelKey(scene, ""),
-                              m_controller);
-    RequestRepaint();
-    return;
-  }
-
-  if (selectedId >= kSelectTypeBaseId &&
-      selectedId < kSelectTypeBaseId + static_cast<int>(orderedTypes.size())) {
-    const size_t idx = static_cast<size_t>(selectedId - kSelectTypeBaseId);
-    if (fixturePageActive)
-      ApplyFixtureSelectionToUi(
-          BuildFixtureSelectionByType(scene, orderedTypes[idx]), m_controller);
-    else
-      ApplyTrussSelectionToUi(
-          BuildTrussSelectionByModelKey(scene, orderedTypes[idx]),
-          m_controller);
-    RequestRepaint();
-    return;
-  }
-
-  if (selectedId == kSelectPositionNoneId) {
-    if (!hasNoPosition) {
-      if (fixturePageActive)
-        ApplyFixtureSelectionToUi({}, m_controller);
-      else
-        ApplyTrussSelectionToUi({}, m_controller);
-    } else {
-      if (fixturePageActive)
-        ApplyFixtureSelectionToUi(
-            BuildFixtureSelectionByPosition(scene, "", true), m_controller);
-      else
-        ApplyTrussSelectionToUi(BuildTrussSelectionByPosition(scene, "", true),
-                                m_controller);
-    }
-    RequestRepaint();
-    return;
-  }
-
-  if (selectedId >= kSelectPositionBaseId &&
-      selectedId <
-          kSelectPositionBaseId + static_cast<int>(orderedPositions.size())) {
-    const size_t idx = static_cast<size_t>(selectedId - kSelectPositionBaseId);
-    if (fixturePageActive)
-      ApplyFixtureSelectionToUi(
-          BuildFixtureSelectionByPosition(scene, orderedPositions[idx], false),
-          m_controller);
-    else
-      ApplyTrussSelectionToUi(
-          BuildTrussSelectionByPosition(scene, orderedPositions[idx], false),
-          m_controller);
-    RequestRepaint();
-    return;
-  }
+  m_contextClick.Move(event.GetX(), event.GetY());
+  const bool click = m_contextClick.Finish();
+  if (m_linePointSelectionSession.IsActive()) { CancelLinePointSelection(); return; }
+  if (m_placementSession.IsActive()) { CancelContinuousPlacement(); return; }
+  if (!click || !m_enableSelection || !IsShownOnScreen() ||
+      m_interaction.mode != viewer2d::interaction::DragMode::None || m_interaction.middleMousePanning) return;
+  const auto size = ResolveRenderSize(this);
+  if (size.width <= 0 || size.height <= 0 || !TryBindGlContextForInteraction()) return;
+  const auto point = ToFramebufferPoint(this, event.GetPosition());
+  const auto scope = ResolveInteractionScope();
+  std::string uuid;
+  if (!ResolvePickForScope(scope, point, size.width, size.height,
+                           BuildHiddenLayersHash(), true, uuid)) uuid.clear();
+  const auto kind = ResolveSceneElementKind(uuid);
+  if (!viewer2d::interaction::Viewer2DInteractionScopePolicy::Accepts(scope, kind)) uuid.clear();
+  auto active = viewport_context::Kind::Empty;
+  if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
+    active = viewport_context::Kind::Fixture;
+  else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
+    active = viewport_context::Kind::Truss;
+  gui::viewport::ShowContextMenu(*this, event.GetPosition(), uuid, active, false);
 }
 
 // Aligns the provisional fixture with the raw world position under the pointer.
@@ -3827,6 +3508,7 @@ bool Viewer2DPanel::AlignContinuousElementToPointer(const wxPoint &screenPos) {
 
 // Handles pointer-following placement, selection movement, and view panning.
 void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
+  m_contextClick.Move(event.GetX(), event.GetY());
   m_hasLastMousePos = true;
   if (m_linePointSelectionSession.IsActive()) {
     wxPoint pos = ScreenToClient(wxGetMousePosition());
@@ -3978,6 +3660,7 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
 
 // Handles local keyboard shortcuts when the 2D viewport owns focus.
 void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
+  if (event.GetKeyCode() == WXK_ESCAPE) m_contextClick.Cancel();
   if (m_linePointSelectionSession.IsActive() &&
       event.GetKeyCode() == WXK_ESCAPE) {
     CancelLinePointSelection();

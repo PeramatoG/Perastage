@@ -1,4 +1,6 @@
 target_sources(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/viewport_scene_editing.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/viewport_context_menu.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_dmx_patch.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/patch/dmx_patch_panel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/patch/dmx_patch_diagnostics.cpp

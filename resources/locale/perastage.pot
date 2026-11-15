@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Perastage 1.7.45\n"
+"Project-Id-Version: Perastage 1.7.46\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-15 18:17+0100\n"
+"POT-Creation-Date: 2026-11-15 23:20+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -108,7 +108,7 @@ msgstr ""
 msgid "Name:"
 msgstr ""
 
-#: gui/addfixturedialog.cpp:49 gui/fixturepatchdialog.cpp:29
+#: gui/addfixturedialog.cpp:49 gui/fixturepatchdialog.cpp:30
 msgid "Fixture ID:"
 msgstr ""
 
@@ -120,12 +120,12 @@ msgstr ""
 msgid "Edit Address"
 msgstr ""
 
-#: gui/addressdialog.cpp:27 gui/fixturepatchdialog.cpp:39
+#: gui/addressdialog.cpp:27 gui/fixturepatchdialog.cpp:40
 #: gui/patch/dmx_patch_panel.cpp:26
 msgid "Universe:"
 msgstr ""
 
-#: gui/addressdialog.cpp:31 gui/fixturepatchdialog.cpp:43
+#: gui/addressdialog.cpp:31 gui/fixturepatchdialog.cpp:44
 msgid "Channel:"
 msgstr ""
 
@@ -458,6 +458,7 @@ msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:606 gui/hang_position_dialog.cpp:179
 #: gui/layerpanel.cpp:128 gui/layoutpanel.cpp:44 gui/layoutviewerpanel.cpp:1291
+#: gui/viewport_context_menu.cpp:143
 msgid "Delete"
 msgstr ""
 
@@ -1180,7 +1181,7 @@ msgstr ""
 
 #: gui/fixture_label_editor.cpp:73
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:44
-#: viewer2d/viewer2drenderpanel.cpp:65
+#: gui/viewport_context_menu.cpp:209 viewer2d/viewer2drenderpanel.cpp:65
 msgid "White"
 msgstr ""
 
@@ -1267,6 +1268,16 @@ msgstr ""
 
 #: gui/fixtureeditdialog.cpp:1014 gui/fixtureeditdialog.cpp:1019
 msgid "GDTF update"
+msgstr ""
+
+#: gui/fixturepatchdialog.cpp:74
+msgid ""
+"Enter a non-negative fixture ID and a positive universe with channel 1–512, "
+"or 0/0 to unpatch."
+msgstr ""
+
+#: gui/fixturepatchdialog.cpp:75 gui/viewport_scene_editing.cpp:71
+msgid "Edit DMX Patch"
 msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:13 gui/hoisttablepanel.cpp:461
@@ -3258,20 +3269,20 @@ msgstr ""
 msgid "Converted %zu fixture(s) to hoists."
 msgstr ""
 
-#: gui/mainwindow_conversion.cpp:98
+#: gui/mainwindow_conversion.cpp:101
 msgid "Please select a scene object to convert first."
 msgstr ""
 
-#: gui/mainwindow_conversion.cpp:99 gui/mainwindow_conversion.cpp:118
-#: gui/mainwindow_conversion.cpp:150 gui/mainwindow_menu_builders.cpp:112
+#: gui/mainwindow_conversion.cpp:102 gui/mainwindow_conversion.cpp:121
+#: gui/mainwindow_conversion.cpp:153 gui/mainwindow_menu_builders.cpp:112
 msgid "Convert Scene Objects to Truss"
 msgstr ""
 
-#: gui/mainwindow_conversion.cpp:117
+#: gui/mainwindow_conversion.cpp:120
 msgid "No scene objects with a valid model file were converted."
 msgstr ""
 
-#: gui/mainwindow_conversion.cpp:147
+#: gui/mainwindow_conversion.cpp:150
 #, c-format
 msgid "Converted %zu scene object(s) with model '%s' to truss."
 msgstr ""
@@ -3726,7 +3737,7 @@ msgstr ""
 msgid "Cut selected scene elements"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:207
+#: gui/mainwindow_menu.cpp:207 gui/viewport_context_menu.cpp:142
 msgid "Copy"
 msgstr ""
 
@@ -4180,7 +4191,7 @@ msgid "Layout Mode View"
 msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:79 gui/mainwindow_position_tool.cpp:20
-#: gui/positiontoolpanel.cpp:226
+#: gui/positiontoolpanel.cpp:226 gui/viewport_context_menu.cpp:139
 msgid "Position Tool"
 msgstr ""
 
@@ -5501,6 +5512,7 @@ msgstr ""
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:21
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:41
+#: gui/viewport_context_menu.cpp:205
 msgid "Standard"
 msgstr ""
 
@@ -5524,30 +5536,32 @@ msgid "Render mode"
 msgstr ""
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:46
+#: gui/viewport_context_menu.cpp:206
 msgid "Sketch mode"
 msgstr ""
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:48
+#: gui/viewport_context_menu.cpp:207
 msgid "Textured"
 msgstr ""
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:50
-#: viewer2d/viewer2drenderpanel.cpp:65
+#: gui/viewport_context_menu.cpp:208 viewer2d/viewer2drenderpanel.cpp:65
 msgid "Wireframe"
 msgstr ""
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:52
-#: viewer2d/viewer2drenderpanel.cpp:65
+#: gui/viewport_context_menu.cpp:210 viewer2d/viewer2drenderpanel.cpp:65
 msgid "By device type"
 msgstr ""
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:54
-#: viewer2d/viewer2drenderpanel.cpp:66
+#: gui/viewport_context_menu.cpp:211 viewer2d/viewer2drenderpanel.cpp:66
 msgid "By layer"
 msgstr ""
 
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:56
-#: viewer2d/viewer2drenderpanel.cpp:66
+#: gui/viewport_context_menu.cpp:212 viewer2d/viewer2drenderpanel.cpp:66
 msgid "By universe"
 msgstr ""
 
@@ -6205,6 +6219,74 @@ msgstr[1] ""
 msgid "Scene loaded. Some resources are unavailable; see Console."
 msgstr ""
 
+#: gui/viewport_context_menu.cpp:132
+msgid "Edit Fixture..."
+msgstr ""
+
+#: gui/viewport_context_menu.cpp:133
+msgid "Edit DMX Patch..."
+msgstr ""
+
+#: gui/viewport_context_menu.cpp:134
+msgid "Edit Truss..."
+msgstr ""
+
+#: gui/viewport_context_menu.cpp:135
+msgid "Edit Object..."
+msgstr ""
+
+#: gui/viewport_context_menu.cpp:136
+msgid "Convert to Truss"
+msgstr ""
+
+#: gui/viewport_context_menu.cpp:137
+msgid "Select Similar by Type"
+msgstr ""
+
+#: gui/viewport_context_menu.cpp:138
+msgid "Select Similar by Position"
+msgstr ""
+
+#: gui/viewport_context_menu.cpp:140
+msgid "Group"
+msgstr ""
+
+#: gui/viewport_context_menu.cpp:141
+msgid "Ungroup"
+msgstr ""
+
+#: gui/viewport_context_menu.cpp:189
+msgid "All fixtures"
+msgstr ""
+
+#: gui/viewport_context_menu.cpp:189
+msgid "All trusses"
+msgstr ""
+
+#: gui/viewport_context_menu.cpp:194
+msgid "Select by fixture type"
+msgstr ""
+
+#: gui/viewport_context_menu.cpp:194
+msgid "Select by model"
+msgstr ""
+
+#: gui/viewport_context_menu.cpp:197
+msgid "No position"
+msgstr ""
+
+#: gui/viewport_context_menu.cpp:199
+msgid "Select by position"
+msgstr ""
+
+#: gui/viewport_context_menu.cpp:223
+msgid "Render style"
+msgstr ""
+
+#: gui/viewport_context_menu.cpp:271
+msgid "Export image..."
+msgstr ""
+
 #: gui/windows/SymbolPreviewWindow.cpp:143
 msgid "Export this view as SVG..."
 msgstr ""
@@ -6275,24 +6357,12 @@ msgstr ""
 msgid "Spanish"
 msgstr ""
 
-#: viewer2d/viewer2dpanel.cpp:3569
+#: viewer2d/viewer2dpanel.cpp:3419
 msgid "Gap measure: "
 msgstr ""
 
-#: viewer2d/viewer2dpanel.cpp:3570
+#: viewer2d/viewer2dpanel.cpp:3420
 msgid "Measure: "
-msgstr ""
-
-#: viewer2d/viewer2dpanel.cpp:3642 viewer3d/viewer3dpanel.cpp:2256
-msgid "Convert to Truss"
-msgstr ""
-
-#: viewer2d/viewer2dpanel.cpp:3728 viewer3d/viewer3dpanel.cpp:2273
-msgid "No position"
-msgstr ""
-
-#: viewer2d/viewer2dpanel.cpp:3739 viewer3d/viewer3dpanel.cpp:2284
-msgid "Select by position"
 msgstr ""
 
 #: viewer2d/viewer2drenderpanel.cpp:72
@@ -6359,37 +6429,29 @@ msgstr ""
 msgid "Edit Fixture Labels..."
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1352
+#: viewer3d/viewer3dpanel.cpp:1303
 msgid "Cannot export while the 3D viewer is hidden."
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1352 viewer3d/viewer3dpanel.cpp:1357
-#: viewer3d/viewer3dpanel.cpp:1369 viewer3d/viewer3dpanel.cpp:1374
-#: viewer3d/viewer3dpanel.cpp:1417 viewer3d/viewer3dpanel.cpp:1466
+#: viewer3d/viewer3dpanel.cpp:1303 viewer3d/viewer3dpanel.cpp:1308
+#: viewer3d/viewer3dpanel.cpp:1320 viewer3d/viewer3dpanel.cpp:1325
+#: viewer3d/viewer3dpanel.cpp:1368 viewer3d/viewer3dpanel.cpp:1417
 msgid "Export image"
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1369 viewer3d/viewer3dpanel.cpp:1374
+#: viewer3d/viewer3dpanel.cpp:1320 viewer3d/viewer3dpanel.cpp:1325
 msgid "OpenGL is not initialized yet."
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1416
+#: viewer3d/viewer3dpanel.cpp:1367
 msgid "Failed to create an offscreen framebuffer for export."
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1466
+#: viewer3d/viewer3dpanel.cpp:1417
 msgid "Failed to save PNG image."
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1720
+#: viewer3d/viewer3dpanel.cpp:1671
 #, c-format
 msgid "Measure: %s"
-msgstr ""
-
-#: viewer3d/viewer3dpanel.cpp:2287
-msgid "Render style"
-msgstr ""
-
-#: viewer3d/viewer3dpanel.cpp:2289
-msgid "Export image..."
 msgstr ""

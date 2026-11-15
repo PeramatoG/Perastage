@@ -23,6 +23,7 @@
  */
 
 #pragma once
+#include "../viewer_common/context_menu_model.h"
 
 #include "continuous_placement_type.h"
 #include "alignment_geometry.h"
@@ -214,6 +215,8 @@ private:
     void OnMouseUp(wxMouseEvent& event);
     void OnMouseMove(wxMouseEvent& event);
     void OnMouseWheel(wxMouseEvent& event);
+  viewport_context::ClickGesture m_contextClick;
+  void OnRightDown(wxMouseEvent &event);
     void OnRightUp(wxMouseEvent& event);
     void OnMouseDClick(wxMouseEvent& event);
     void OnKeyDown(wxKeyEvent& event);

@@ -101,6 +101,7 @@ public:
 
   void EnableShortcuts(bool enable);
   void FocusConsoleForQuickCommand(const wxString &prefill);
+  void FocusPositionTool();
   bool ApplyShortcutDecision(const gui::ShortcutExecutionDecision &decision);
   void SyncViewportToolToggleState(bool measureEnabled, Viewer2DMeasureMode mode = Viewer2DMeasureMode::CenterToCenter);
   void SyncAxisConstraintToolToggleState();

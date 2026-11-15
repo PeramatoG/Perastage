@@ -851,6 +851,12 @@ capture glyphs are compared with the actual editor composition, including font
 identity, size, advances, baselines, line height and outline values, and those
 captured glyphs are exported to PDF. An alternate height-based NanoVG test build
 qualifies raster metric conversion independently of the platform&#39;s default backend.</p>
+<h3 id="viewport-context-actions">Viewport context actions</h3>
+<p>The GUI-independent action policy in <code>viewer_common/context_menu_model.*</code> is shared
+by both viewports. Picking remains in viewport adapters; wx construction and
+existing command/editor dispatch are shared by <code>gui/viewport_context_menu.*</code>.
+See <a href="viewport_context_menus.html">Viewport context menus</a> for selection, gesture,
+mutation ownership and the historical regression analysis.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

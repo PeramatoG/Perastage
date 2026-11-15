@@ -17,6 +17,7 @@
  */
 #include "fixturepatchdialog.h"
 #include <wx/tokenzr.h>
+#include <limits>
 
 FixturePatchDialog::FixturePatchDialog(wxWindow* parent, const Fixture& fixture)
     : wxDialog(parent, wxID_ANY,
@@ -60,4 +61,19 @@ int FixturePatchDialog::GetUniverse() const {
 }
 int FixturePatchDialog::GetChannel() const {
     long v = 0; chCtrl->GetValue().ToLong(&v); return static_cast<int>(v);
+}
+
+bool FixturePatchDialog::Validate() {
+    long id = 0, universe = 0, channel = 0;
+    if (!idCtrl->GetValue().ToLong(&id) || id < 0 ||
+        id > std::numeric_limits<int>::max() ||
+        !uniCtrl->GetValue().ToLong(&universe) || universe < 0 ||
+        universe > std::numeric_limits<int>::max() ||
+        !chCtrl->GetValue().ToLong(&channel) || channel < 0 || channel > 512 ||
+        ((universe == 0) != (channel == 0))) {
+        wxMessageBox(_("Enter a non-negative fixture ID and a positive universe with channel 1–512, or 0/0 to unpatch."),
+                     _("Edit DMX Patch"), wxOK | wxICON_ERROR, this);
+        return false;
+    }
+    return wxDialog::Validate();
 }

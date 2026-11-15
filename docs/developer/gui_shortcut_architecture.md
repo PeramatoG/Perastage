@@ -295,3 +295,12 @@ The Layout 2D camera editor owns a local mouse selection for fixture-label targe
 click replaces targets and Shift-click toggles a target. These pointer modifiers
 do not invoke scene selection commands or Undo, and dragging remains camera pan.
 Existing keyboard navigation and modal Cancel routing are unchanged.
+
+## Scene context menus
+
+Scene right-click gestures use the shared viewport action model. The clicked
+viewport takes focus before showing the popup, so scene Copy/Delete commands
+retain their scene scope instead of being diverted to a previously focused text
+control. Existing main-window command handlers remain authoritative. Escape
+dismisses the popup and cancels an in-progress right-button gesture; keyboard
+alignment bindings and toolbar state are unchanged.

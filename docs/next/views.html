@@ -73,6 +73,24 @@
 <h2 id="navigate-and-review">Navigate and review</h2>
 <p>In 3D, drag to orbit, Shift-drag or middle-drag to pan, and use the wheel to zoom. Right-click and choose <strong>Render style</strong> for a different presentation, including type, layer or universe coloring.</p>
 <p>In 2D, drag empty space to pan and use the wheel to zoom. Select scene elements to cross-check their rows in Fixtures, Trusses, Hoists and Objects. Double-click a cell within a multi-selection to edit that column for the selected rows.</p>
+<h2 id="context-menus">Context menus</h2>
+<p>Right-click a scene element for its supported actions. Fixtures offer <strong>Edit
+Fixture...</strong>, <strong>Edit DMX Patch...</strong>, selection by matching type or position and
+<strong>Position Tool</strong>. Trusses use the existing truss editor; supported primitive
+objects offer their existing editor and model conversion where available.
+Hoists in 2D offer applicable selection actions and the Position Tool.</p>
+<p>Right-clicking an already selected element preserves the complete selection and
+its order. Individual editors act on the clicked element; Group, Ungroup, Copy
+and Delete use the current selection through the existing commands. Right-click
+an unselected element to select it with the current group behavior. The active
+table limits picking unless <strong>Cross-table Actions</strong> is enabled.</p>
+<p>Empty-space menus preserve selection and keep type/position selection shortcuts.
+3D also retains <strong>Render style</strong> and <strong>Export image...</strong>. Escape dismisses a menu
+without editing the scene. A drag does not open a menu. During continuous
+placement or line-point selection, right-click cancels the active operation.
+Patch edits validate the address, preserve DMX break assignments and undo as one
+operation; cancelling an editor or accepting unchanged patch values adds no Undo
+entry. Camera-only Layout view editors do not expose scene context editing.</p>
 <h2 id="position-tool">Position Tool</h2>
 <p>Open <strong>View → Position Tool</strong> in either the 2D or 3D workspace. Dock, float, resize or hide the same panel; its placement and visibility are saved with the workspace. With no selection, the coordinate fields are disabled.</p>
 <p>The three axis fields share one flexible row in a compact-height panel. The panel is shown by default below Summary in the right sidebar in 2D and 3D. The arrows beside each axis move every effective target by 1 mm per click in metric units or 0.01 ft in imperial units, preserving mixed values and stored precision. Each click is undoable.</p>
