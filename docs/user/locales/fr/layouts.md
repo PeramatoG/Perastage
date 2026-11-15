@@ -79,3 +79,35 @@ Les modifications valides dans **Propriétés de la vue** sont immédiatement pr
 Les dimensions du cadre utilisent des millimètres et conservent la précision fractionnaire. Déplacez l’élément sur la page du Layout pour changer sa position. Les placements partiellement hors page restent permis. Le minimum est 1 point (0,353 mm), la limite 200000 points. Déplacer ou redimensionner un cadre fixe conserve échelle et centre et change la zone visible. Le zoom du Layout et les DPI n’affectent que l’affichage. Revenir au mode libre conserve le zoom précédent, le dernier centre, les filtres et la présentation. **Cancel** abandonne le brouillon ; **OK** valide avec Annuler/Rétablir et sauvegarde PSTG/PSLAYOUT.
 
 Le menu contextuel de page propose A3/A4 et l’orientation sans redimensionner le contenu. Les vues fixes exigent un PDF à 100 % au même format que le Layout ; un autre format est refusé avec une explication. Pour changer de papier, modifiez d’abord celui du Layout. Les pages libres conservent l’ajustement uniforme. Imprimez le PDF à taille réelle/100 % : Perastage ne contrôle pas la mise à l’échelle du pilote. Le contrat physique porte sur la géométrie et n’élargit pas les garanties typographiques existantes.
+
+## Styles réutilisables des étiquettes des appareils
+
+Cliquez avec le bouton droit sur le cadre d’une vue 2D et choisissez **Réglages des
+étiquettes des appareils...**. Héritez de la présentation du projet ou sélectionnez
+un style nommé. Vous pouvez créer un style depuis les réglages actuels, le modifier,
+le renommer ou le dupliquer. Ses modifications concernent toutes les vues qui
+l’utilisent, y compris sur d’autres pages. Un style référencé ne peut pas être supprimé :
+rétablissez d’abord les réglages hérités dans les vues concernées.
+
+**Personnaliser la vue actuelle...** ouvre l’éditeur existant pour la vue actuelle
+ou ses appareils sélectionnés. Sélectionnez les appareils dans la scène au préalable.
+L’aperçu, son fond et le déplacement des champs restent disponibles. Chaque champ
+modifié d’une orientation enregistre ses propriétés complètes ; les autres héritent.
+Priorité : appareil local, champ de vue, champ du style, appareil du projet, valeurs
+du projet, puis configuration héritée. Réinitialiser le réglage local conserve les
+personnalisations du projet. Rétablir les réglages hérités dans le dialogue de vue
+efface aussi l’affectation du style.
+
+Dans l’éditeur imbriqué, Appliquer conserve le brouillon et OK le transmet au dialogue
+extérieur. Seul OK dans ce dernier publie une opération Annuler ; Annuler abandonne
+les modifications. Sélectionner un style ou un fond ne modifie pas le projet.
+PSTG conserve les styles et réglages locaux. PSLAYOUT inclut les styles nécessaires
+et remappe les identifiants en conflit de façon déterministe à l’importation.
+Une référence absente bloque l’opération avec un diagnostic. MVR et GDTF restent inchangés.
+Les tailles et décalages restent en mètres de scène, sans taille papier constante
+entre échelles. Bottom conserve la clé de style Side et la projection Top par
+compatibilité ; aucune nouvelle orientation SVG standard GDTF n’est créée.
+
+Dans le **2D View Editor**, cliquez sur un appareil pour sélectionner ses étiquettes ; Maj-clic ajoute ou retire des appareils. **Edit Fixture Labels...** ouvre la portée locale sélectionnée. Le glissement déplace toujours la caméra, jamais les appareils. La sélection et l’historique du projet restent inchangés. Le contour et le remplissage des étiquettes à l’écran utilisent la même rastérisation et le même arrondi des pixels, avec l’épaisseur traditionnelle de la scène, y compris à haute résolution. Le PDF conserve ses mesures en mètres de scène.
+
+Toutes les étiquettes des appareils 2D, y compris les champs hérités non modifiés, utilisent les mêmes fichiers Noto Sans, positions des lettres et lignes dans la vue, l’éditeur et le PDF. Ouvrir l’éditeur ne réécrit pas les réglages numériques enregistrés et ne crée pas d’historique. Les étiquettes utilisant auparavant une police système peuvent changer d’aspect pour correspondre à l’éditeur et à l’export. L’aperçu s’adapte à son cadre : le grossissement en pixels peut varier, mais pas les proportions ni l’espacement. Les mesures restent en mètres de scène. Les anciennes captures Layout sont régénérées automatiquement.

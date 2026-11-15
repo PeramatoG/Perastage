@@ -9,6 +9,21 @@ LabelFieldStyle ResolveFieldStyle(const ConfigManager &cfg,
   const auto *legacy = it == all.end() ? nullptr : &it->second;
   if (legacy && legacy->fieldStyles[view][field]) return *legacy->fieldStyles[view][field];
   const auto defaults = all.find(kLabelDefaultsKey);
+  FixtureLabelOverride inherited = legacy ? *legacy : FixtureLabelOverride{};
+  if (defaults != all.end()) {
+    const auto inherit = [](auto &value, const auto &fallback) { if (!value) value = fallback; };
+    for (int v=0; v<3; ++v) {
+      inherit(inherited.showLabelName[v], defaults->second.showLabelName[v]);
+      inherit(inherited.showLabelId[v], defaults->second.showLabelId[v]);
+      inherit(inherited.showLabelDmx[v], defaults->second.showLabelDmx[v]);
+      inherit(inherited.labelOffsetDistance[v], defaults->second.labelOffsetDistance[v]);
+      inherit(inherited.labelOffsetAngle[v], defaults->second.labelOffsetAngle[v]);
+    }
+    inherit(inherited.labelFontSizeName, defaults->second.labelFontSizeName);
+    inherit(inherited.labelFontSizeId, defaults->second.labelFontSizeId);
+    inherit(inherited.labelFontSizeDmx, defaults->second.labelFontSizeDmx);
+  }
+  const auto *effective = &inherited;
   if (defaults != all.end() && defaults->second.fieldStyles[view][field]) {
     auto s = *defaults->second.fieldStyles[view][field];
     if (legacy) {
@@ -17,8 +32,8 @@ LabelFieldStyle ResolveFieldStyle(const ConfigManager &cfg,
       if (show[view]) s.visible = *show[view];
       if (size) s.size = *size / 25.f;
       if (legacy->labelOffsetDistance[view] || legacy->labelOffsetAngle[view]) {
-        const float angle = ResolveLabelOffsetAngle(cfg, legacy, view) * 3.14159265358979323846f / 180;
-        const float distance = ResolveLabelOffsetDistance(cfg, legacy, view);
+        const float angle = ResolveLabelOffsetAngle(cfg, effective, view) * 3.14159265358979323846f / 180;
+        const float distance = ResolveLabelOffsetDistance(cfg, effective, view);
         s.x = distance * std::sin(angle); s.y = distance * std::cos(angle) - field * s.size;
       }
     }
@@ -29,13 +44,13 @@ LabelFieldStyle ResolveFieldStyle(const ConfigManager &cfg,
     s.color = {1,1,1};
     s.outlineColor = {0,0,0};
   }
-  s.visible = field == 0 ? ResolveShowLabelName(cfg, legacy, view) :
-              field == 1 ? ResolveShowLabelId(cfg, legacy, view) : ResolveShowLabelDmx(cfg, legacy, view);
-  s.size = (field == 0 ? ResolveLabelFontSizeName(cfg, legacy) :
-            field == 1 ? ResolveLabelFontSizeId(cfg, legacy) : ResolveLabelFontSizeDmx(cfg, legacy)) / 25.f;
+  s.visible = field == 0 ? ResolveShowLabelName(cfg, effective, view) :
+              field == 1 ? ResolveShowLabelId(cfg, effective, view) : ResolveShowLabelDmx(cfg, effective, view);
+  s.size = (field == 0 ? ResolveLabelFontSizeName(cfg, effective) :
+            field == 1 ? ResolveLabelFontSizeId(cfg, effective) : ResolveLabelFontSizeDmx(cfg, effective)) / 25.f;
   s.bold = field == 2;
-  const float radians = ResolveLabelOffsetAngle(cfg, legacy, view) * 3.14159265358979323846f / 180;
-  const float distance = ResolveLabelOffsetDistance(cfg, legacy, view);
+  const float radians = ResolveLabelOffsetAngle(cfg, effective, view) * 3.14159265358979323846f / 180;
+  const float distance = ResolveLabelOffsetDistance(cfg, effective, view);
   s.x = distance * std::sin(radians);
   s.y = distance * std::cos(radians) - field * s.size;
   return s;

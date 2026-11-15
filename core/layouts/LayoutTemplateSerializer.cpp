@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "FixtureLabelPresentationSerialization.h"
 #include "LayoutTemplateSerializer.h"
 
 #include <array>
@@ -165,6 +166,8 @@ nlohmann::json ToJson(const Layout2DViewDefinition &view) {
       view.frameResidual.x == 0 && view.frameResidual.y == 0 &&
       view.frameResidual.width == 0 && view.frameResidual.height == 0)
     result.erase("viewport");
+  const auto labels = LabelPresentationJson(view.labelPresentation);
+  if (!labels.empty()) result["fixtureLabels"] = labels;
   return result;
 }
 
@@ -484,6 +487,7 @@ bool ParseLayout2DView(const nlohmann::json &value, Layout2DViewDefinition &out,
   if (renderIt != value.end() && renderIt->is_object())
     ReadRenderOptions(*renderIt, out.renderOptions, ctx);
 
+  if (value.contains("fixtureLabels")) out.labelPresentation = ReadLabelPresentation(value.at("fixtureLabels"));
   auto layersIt = value.find("layers");
   if (layersIt != value.end() && layersIt->is_object())
     ReadLayers(*layersIt, out.layers, ctx);
@@ -738,7 +742,8 @@ bool SameViewportCaptureSettings(const Layout2DViewDefinition &a,
                                  const Layout2DViewDefinition &b) {
   const auto x = ToJson(a), y = ToJson(b);
   return x.at("camera") == y.at("camera") &&
-         x.at("renderOptions") == y.at("renderOptions") && x.at("layers") == y.at("layers");
+         x.at("renderOptions") == y.at("renderOptions") && x.at("layers") == y.at("layers") &&
+         LabelPresentationJson(a.labelPresentation) == LabelPresentationJson(b.labelPresentation);
 }
 
 nlohmann::json ToJson(const LayoutDefinition &layout) {
@@ -749,6 +754,7 @@ nlohmann::json ToJson(const LayoutDefinition &layout) {
                       {"resources",
                        {{"imagePathPolicy", kImagePathPolicy}}}};
 
+  if (!layout.portableLabelProfiles.empty()) data["fixtureLabelProfiles"] = LabelProfilesJson(layout.portableLabelProfiles);
   if (!layout.view2dViews.empty()) {
     data["view2dViews"] = nlohmann::json::array();
     for (const auto &view : layout.view2dViews)
@@ -874,6 +880,9 @@ static bool ParseLayoutJson(const nlohmann::json &value, LayoutDefinition &out,
 bool FromJson(const nlohmann::json &value, LayoutDefinition &out, std::string *error) {
   LayoutDefinition candidate;
   if (!ParseLayoutJson(value, candidate, error)) return false;
+  try {
+    if (value.contains("fixtureLabelProfiles")) candidate.portableLabelProfiles = ReadLabelProfiles(value.at("fixtureLabelProfiles"));
+  } catch (const std::exception &e) { if (error) *error = e.what(); return false; }
   out = std::move(candidate);
   return true;
 }
@@ -931,8 +940,14 @@ bool FromTemplateDocument(const nlohmann::json &value,
       LayoutDefinition layout;
       std::string layoutError;
       if (!FromJson(entry, layout, &layoutError)) {
+        if (entry.contains("fixtureLabelProfiles")) {
+          g_activeImportReport = previousReport;
+          if (error) *error = layoutError;
+          if (report) report->rejectedViewportMetadata = true;
+          return false;
+        }
         if (entry.contains("view2dViews")) {
-          for (const auto &v : entry.at("view2dViews")) if (v.contains("viewport")) {
+          for (const auto &v : entry.at("view2dViews")) if (v.contains("viewport") || v.contains("fixtureLabels")) {
             g_activeImportReport = previousReport;
             if (error) *error = layoutError;
             if (report) { report->errors.push_back(layoutError); report->rejectedViewportMetadata = true; }

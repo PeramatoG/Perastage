@@ -25,10 +25,6 @@ void DrawComposedFixtureLabels(ISelectionContext &controller, int width, int hei
     Viewer2DView view, float zoom, const viewer2d::FixtureLabelOverrideMap &styles,
     viewer2d::FixtureLabelCompositionCache &cache) {
   auto &cfg = ConfigManager::Get();
-  bool any = false;
-  for (const auto &[uuid, entry] : styles)
-    for (const auto &v : entry.fieldStyles) for (const auto &f : v) any |= f.has_value();
-  if (!any) return;
   auto *vg = controller.GetNanoVGContext();
   if (!vg || width <= 0 || height <= 0) return;
   // NanoVG flushes alter GL state also used by picking and selection outlines.
@@ -53,6 +49,9 @@ void DrawComposedFixtureLabels(ISelectionContext &controller, int width, int hei
           throw std::runtime_error("Cannot load bundled label font");
       }
     }
+    const std::array<double,2> rasterScale{
+      viewer2d::ResolveRasterFontEmScale(vg,"perastage-sans",fonts->regular),
+      viewer2d::ResolveRasterFontEmScale(vg,"perastage-sans-bold",fonts->bold)};
     double model[16], projection[16]; int viewport[4];
     glGetDoublev(GL_MODELVIEW_MATRIX, model); glGetDoublev(GL_PROJECTION_MATRIX, projection);
     glGetIntegerv(GL_VIEWPORT, viewport);
@@ -84,7 +83,7 @@ void DrawComposedFixtureLabels(ISelectionContext &controller, int width, int hei
         if (view == Viewer2DView::Side) { wx = 0; wy = -t.x; wz = t.y; }
         double sx, sy, sz;
         if (gluProject(wx, wy, wz, model, projection, viewport, &sx, &sy, &sz) != GL_TRUE) continue;
-        viewer2d::DrawCanvasText(vg, t, sx, height - sy, 25.0 * zoom, pass, 1.0);
+        viewer2d::DrawCanvasText(vg, t, sx, height - sy, 25.0 * zoom, pass, 1.0, rasterScale[t.style.fontFamily=="perastage-sans-bold"]);
       }
     }
   } catch (const std::exception &e) {

@@ -189,7 +189,7 @@ in Undo/Redo and PSTG/PSLAYOUT persistence.</p>
 <h2 id="export-pdf">Export PDF</h2>
 <p>Select a non-empty layout and choose <strong>File → Print Layout...</strong>. Choose a writable <code>.pdf</code> destination. The PDF uses the selected layout&#39;s page size and orientation and includes its supported elements. Review the exported file before printing or sharing.</p>
 <p>For missing views, incorrect output or export errors, see <a href="troubleshooting.html#layout-and-pdf-problems">Troubleshooting</a>.</p>
-<p>Fixture labels are configured in <strong>2D View settings → Edit Fixture Labels...</strong>. Project defaults and UUID-based fixture overrides also feed Layout viewports and vector PDF. Newly edited fields use the same bundled fonts and positioned composition in both targets. Legacy fields and Layout free text keep their earlier typography. Event Tables share their own point-space composition between preview and PDF. See <a href="views.html#fixture-labels">Fixture labels</a> for scope, units, Apply/Cancel and supported characters.</p>
+<p>Fixture labels are configured in <strong>2D View settings → Edit Fixture Labels...</strong>. Project defaults and UUID-based fixture overrides also feed Layout viewports and vector PDF. All fixture fields, including inherited/unedited labels, use the same bundled fonts and positioned composition in the editor, viewer and PDF. Layout free text keeps its own typography. Event Tables share their own point-space composition between preview and PDF. See <a href="views.html#fixture-labels">Fixture labels</a> for scope, units, Apply/Cancel and supported characters.</p>
 <p>Legends use the bundled PerastageSans regular/bold fonts with the same wrapping, row geometry and symbol columns in the editable preview and vector PDF. Screen zoom changes rasterization only. Printing on different paper uniformly fits the composed Legend without recomputing line breaks. Text that exceeds its column is clipped; its full value remains editable. Western European WinAnsi characters are supported. Unsupported glyphs are omitted on both targets while their original text is retained; PDF completion details identify the affected UTF-8 bytes.</p>
 <h3 id="event-table-preview-and-pdf">Event Table preview and PDF</h3>
 <p>Event Tables use the same bundled PerastageSans composition in the Layout Viewer
@@ -222,6 +222,49 @@ mapping correction does not establish free-text preview/PDF typography parity.</
 all existing presentation features. Existing paper-space text, outline and
 symbol styling limitations remain; annotations and broad typography changes
 belong to later milestones.</p>
+<h2 id="reusable-fixture-label-styles">Reusable fixture label styles</h2>
+<p>Right-click a 2D viewport frame and choose <strong>Fixture label settings...</strong>. Select
+<strong>Inherit project presentation</strong> or a named project style. <strong>Create style from
+current settings...</strong> captures reusable field settings; named styles can be edited,
+renamed or duplicated. Creating a style moves shared viewport fields into the
+profile; fixture-local adjustments remain local. The dialog indicates active local
+adjustments. Editing a named style updates every viewport using it,
+including other pages. Referenced styles cannot be deleted; restore inheritance
+in their referencing views first.</p>
+<p><strong>Customize current viewport...</strong> opens the existing Fixture Label Editor with
+explicit <strong>Current Layout viewport</strong> and <strong>Selected fixtures in current Layout
+viewport</strong> scopes. In the <strong>2D View Editor</strong>, click a fixture to select its
+labels; Shift-click adds or removes a fixture. The selected fixtures are outlined,
+and <strong>Edit Fixture Labels...</strong> opens their local scope. Dragging still pans the
+camera and cannot move scene fixtures. This selection does not alter the project
+selection or create Undo entries. For the frame context-menu workflow, select
+fixtures in the ordinary scene before opening label settings. The same preview, background selector and field dragging
+remain available. Only the edited orientation and field become explicit. Each
+field&#39;s visibility, font, ink, outline, anchor, alignment and offsets inherit as
+one unit; changing a field copies its current properties into that scope.
+<strong>Reset to Default</strong> in this editor clears only that scope&#39;s local settings.
+<strong>Restore inherited settings</strong> in the viewport dialog clears its profile assignment
+and all local adjustments. Neither operation removes project fixture overrides.</p>
+<p>Precedence, highest first: viewport-local fixture field, customized viewport field,
+named profile field, project fixture override, project default field, legacy
+configuration. Missing fields inherit. A local field stays independent of later
+profile edits until reset. Profiles cover Fixture Name, Fixture ID and DMX Address
+for Top, Front and Side. Bottom retains its historical Side style-key mapping
+and Top-plane placement; it is not an additional standard GDTF SVG orientation.</p>
+<p>The nested editor&#39;s <strong>Apply</strong> keeps the preview draft; <strong>OK</strong> accepts it into the
+outer dialog. The outer <strong>OK</strong> publishes one Undo operation; <strong>Cancel</strong> discards
+all of its changes. Opening settings, selecting a style or changing preview
+background does not save or dirty the project. Camera/scale edits use the same
+local label scope when opened from the Layout camera editor.</p>
+<p>Profiles and local adjustments are project presentation metadata in PSTG.
+Portable PSLAYOUT files include referenced profile definitions. Imports reuse an
+identical ID/definition or deterministically remap a conflicting ID. Missing
+profiles reject the operation with diagnostics instead of silently changing the
+appearance. MVR scene data and external GDTF archives are unchanged.</p>
+<p>Sizes, outlines and offsets remain in <strong>scene metres</strong>, including in vector PDF.
+A label therefore prints at different sizes at 1:100 and 1:25. Editing a label
+does not alter drawing scales, camera framing, scene transforms or symbols.
+Paper-sized typography and broader Unicode support remain separate work.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

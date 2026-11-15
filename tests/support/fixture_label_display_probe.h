@@ -9,6 +9,87 @@
 #include <iostream>
 #include <stdexcept>
 
+// Compare the shared adapter with the established scene raster halo at subpixel
+// origins. Aggregate ink area alone misses a misregistered contour and fill.
+inline void CheckFixtureLabelRasterRegistration() {
+  viewer3d::render::OpenGLStateGuard state;
+  GLfloat clear[4]; glGetFloatv(GL_COLOR_CLEAR_VALUE, clear);
+  glcapture::FramebufferCaptureTarget target;
+  if (!target.Initialize(256,160)) throw std::runtime_error("Registration framebuffer failed");
+  std::unique_ptr<NVGcontext,decltype(&nvgDeleteGL2)> vg(
+      nvgCreateGL2(NVG_ANTIALIAS | NVG_STENCIL_STROKES),nvgDeleteGL2);
+  if (!vg) throw std::runtime_error("Registration NanoVG context failed");
+  const typography::FontPair fonts(ProjectUtils::GetResourceRoot());
+  for (bool bold : {false,true}) {
+    const char *family=bold?"perastage-sans-bold":"perastage-sans";
+    const auto &font=bold?fonts.bold:fonts.regular;
+    const int id=nvgCreateFont(vg.get(),family,typography::BundledFontPath(fonts.resourceRoot,bold).string().c_str());
+    if (id<0) throw std::runtime_error("Registration font failed");
+    for (double dpi : {1.,1.5,2.}) for (double em : {8.,24.,48.})
+    for (double fraction : {.1,.49,.9}) for (const char *glyph : {"M","3"}) {
+      TextCommand text; text.text=glyph;
+      text.style.fontFamily=family; text.style.fontSize=.12;
+      text.style.color={1,1,1,1}; text.style.outlineColor={0,0,0,1};
+      text.style.outlineWidth=typography::kFixtureLabelOutlineReferenceMetres;
+      text.style.glyphOutline=typography::ReadGlyphOutline(font,static_cast<unsigned char>(glyph[0]));
+      std::vector<unsigned char> reference;
+      for (bool adapter : {false,true}) {
+        target.BindForRendering(); glViewport(0,0,256,160); glDisable(GL_SCISSOR_TEST);
+        glDisable(GL_DEPTH_TEST); glClearColor(0,0,0,0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+        nvgBeginFrame(vg.get(),256/dpi,160/dpi,dpi);
+        const float x=(40+fraction)/dpi, y=(120+fraction)/dpi;
+        if (adapter) {
+          for (auto pass : {typography::TextInkPass::Outline,typography::TextInkPass::Fill})
+            viewer2d::DrawCanvasText(vg.get(),text,x,y,em/(dpi*text.style.fontSize),pass,dpi);
+        } else {
+          nvgFontFaceId(vg.get(),id); nvgFontSize(vg.get(),em/dpi);
+          nvgTextAlign(vg.get(),NVG_ALIGN_LEFT | NVG_ALIGN_BASELINE);
+          nvgFillColor(vg.get(),nvgRGB(0,0,0));
+          for (const auto &offset : typography::OutlineOffsets(1/dpi))
+            nvgText(vg.get(),x+offset[0],y+offset[1],glyph,nullptr);
+          nvgFillColor(vg.get(),nvgRGB(255,255,255)); nvgText(vg.get(),x,y,glyph,nullptr);
+        }
+        nvgEndFrame(vg.get()); target.BindForReading();
+        std::vector<unsigned char> pixels(256*160*4);
+        glReadPixels(0,0,256,160,GL_RGBA,GL_UNSIGNED_BYTE,pixels.data());
+        if (!adapter) reference=std::move(pixels);
+        else for (size_t i=0;i<pixels.size();++i)
+          if (std::abs(int(pixels[i])-int(reference[i]))>1)
+            throw std::runtime_error("Fixture label contour/fill registration differs from scene raster halo");
+      }
+    }
+  }
+  glClearColor(clear[0],clear[1],clear[2],clear[3]);
+  std::cout << "Label raster registration passed: regular/bold, 3 sizes, 3 pixel ratios, subpixel origins" << std::endl;
+}
+
+inline void CheckFixtureLabelRasterMetrics() {
+  viewer3d::render::OpenGLStateGuard state;
+  std::unique_ptr<NVGcontext,decltype(&nvgDeleteGL2)> vg(
+      nvgCreateGL2(NVG_ANTIALIAS | NVG_STENCIL_STROKES),nvgDeleteGL2);
+  if (!vg) throw std::runtime_error("Metric probe context failed");
+  const typography::FontPair fonts(ProjectUtils::GetResourceRoot());
+  nvgBeginFrame(vg.get(),1024,256,1);
+  for (bool bold : {false,true}) {
+    const char *family=bold?"perastage-sans-bold":"perastage-sans";
+    const auto &font=bold?fonts.bold:fonts.regular;
+    const int id=nvgCreateFont(vg.get(),family,typography::BundledFontPath(fonts.resourceRoot,bold).string().c_str());
+    if (id<0) throw std::runtime_error("Metric probe font failed");
+    const double factor=viewer2d::ResolveRasterFontEmScale(vg.get(),family,font);
+    for (double em : {12.,32.,64.}) {
+      nvgFontFaceId(vg.get(),id); nvgFontSize(vg.get(),em*factor);
+      nvgTextAlign(vg.get(),NVG_ALIGN_LEFT | NVG_ALIGN_BASELINE); nvgTextLetterSpacing(vg.get(),0);
+      const double measured=nvgTextBounds(vg.get(),0,0,"M",nullptr,nullptr);
+      const double expected=font.advanceWidths['M']*em/font.unitsPerEm;
+      if (std::abs(measured-expected)>1.05)
+        throw std::runtime_error("Raster glyph advance disagrees with canonical TTF composition");
+    }
+  }
+  nvgEndFrame(vg.get());
+  std::cout << "Canonical screen font metrics passed: regular/bold, 3 sizes" << std::endl;
+}
+
 // Invoked with a current GL context by the existing native viewport smoke.
 inline void CheckFixtureLabelInkBalance() {
   viewer3d::render::OpenGLStateGuard state;

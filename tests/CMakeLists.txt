@@ -1252,8 +1252,15 @@ add_bash_policy_test(LegendCompositionBoundary
     ${CMAKE_CURRENT_SOURCE_DIR}/check_legend_composition_boundary.sh
     LABELS "architecture;layout;pdf")
 
+add_bash_policy_test(LayoutLabelPresentationBoundary
+    ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_label_presentation_boundary.sh
+    LABELS "architecture;layout;pdf")
+
 add_executable(fixture_label_overrides_reconcile_test
                fixture_label_overrides_reconcile_test.cpp
+               layout_fixture_label_presentation_test.cpp
+               ../core/layouts/LayoutLabelCommands.cpp
+               ../viewer2d/fixture_label_presentation.cpp
                ../viewer2d/fixture_label_style.cpp
                ../viewer2d/fixture_label_composition.cpp
                ../viewer2d/fixture_label_overrides.cpp

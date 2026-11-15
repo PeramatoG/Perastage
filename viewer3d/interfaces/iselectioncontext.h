@@ -9,6 +9,7 @@
 #include <vector>
 
 struct NVGcontext;
+namespace viewer2d { struct FixtureLabelPresentationContext; }
 
 class ISelectionContext {
 public:
@@ -19,6 +20,7 @@ public:
   enum class PickReadResult { Unavailable, Miss, Hit };
 
   virtual ~ISelectionContext() = default;
+  virtual const viewer2d::FixtureLabelPresentationContext *GetFixtureLabelPresentation() const { return nullptr; }
 
   virtual void ApplyHighlightUuid(const std::string &uuid) = 0;
   virtual void ReplaceSelectedUuids(const std::vector<std::string> &uuids) = 0;

@@ -79,3 +79,34 @@ Los cambios válidos en **Propiedades de la vista** se previsualizan inmediatame
 El ancho y alto del marco usan milímetros y conservan la precisión fraccionaria. Para cambiar la posición, mueve el elemento en la página del layout; X/Y no aparecen en este diálogo. Se admiten posiciones parcialmente fuera de página. El tamaño mínimo es 1 punto (0,353 mm) y el límite es 200000 puntos. Mover o redimensionar una vista fija conserva centro y escala, cambiando el área visible. El zoom del layout y los DPI solo afectan a la visualización. Volver a libre conserva el zoom anterior, el último centro, los filtros y la presentación. **Cancel** descarta el borrador; **OK** confirma una operación con Deshacer/Rehacer y persistencia PSTG/PSLAYOUT.
 
 El menú contextual de la página permite A3/A4 y orientación sin escalar elementos. Las páginas con vistas fijas requieren PDF al 100 % y el mismo papel del layout; otro tamaño se rechaza con una explicación. Para usar otro papel, cambia primero el papel del layout. Las páginas libres conservan el ajuste uniforme de salida. Imprime el PDF a tamaño real/100 %: Perastage no controla el escalado del controlador. La escala física garantiza geometría, sin ampliar las garantías de tipografía o estilos existentes.
+
+## Estilos reutilizables de etiquetas de aparatos
+
+Haga clic derecho en un marco de vista 2D y elija **Ajustes de etiquetas de aparatos...**.
+Puede heredar la presentación del proyecto, elegir un estilo con nombre, crearlo
+con los ajustes actuales, editarlo, renombrarlo o duplicarlo. Los cambios de un
+estilo se reflejan en todas las vistas que lo utilizan, incluso en otras páginas.
+Un estilo utilizado no se puede eliminar: restaure primero la herencia en sus vistas.
+
+**Personalizar la vista actual...** abre el editor existente con los ámbitos de
+vista actual y aparatos seleccionados en esa vista. Seleccione los aparatos en
+la escena antes de abrirlo. Se conservan la vista previa, su fondo y el arrastre.
+Cada campo editado de cada orientación guarda sus propiedades completas;
+los campos no editados heredan. La prioridad es: aparato local, campo de vista,
+campo de estilo, aparato de proyecto, valores del proyecto y configuración heredada.
+Restablecer el ámbito local no elimina los ajustes del proyecto. Restaurar los
+ajustes heredados en el diálogo de vista también elimina la asignación de estilo.
+
+En el editor anidado, Aplicar conserva el borrador y Aceptar lo pasa al diálogo
+exterior. Solo Aceptar en el diálogo exterior publica un paso de Deshacer;
+Cancelar descarta los cambios. Seleccionar estilos o fondos no modifica el proyecto.
+PSTG conserva estilos y ajustes locales; PSLAYOUT incluye los estilos necesarios
+y reasigna de forma determinista los identificadores en conflicto al importar.
+Las referencias ausentes rechazan la operación con diagnóstico. MVR y GDTF no cambian.
+Los tamaños y desplazamientos siguen en metros de escena: no son tamaños constantes
+en papel a distintas escalas. Bottom conserva la clave de estilo Side y la proyección
+Top por compatibilidad; no añade una orientación SVG estándar de GDTF.
+
+En el **2D View Editor**, haga clic en una luminaria para seleccionar sus etiquetas; Mayús-clic añade o quita luminarias. **Edit Fixture Labels...** abre el ámbito local seleccionado. Arrastrar sigue desplazando la cámara y no mueve luminarias. La selección del proyecto y su historial no cambian. El contorno y el relleno de las etiquetas en pantalla usan la misma rasterización y redondeo de píxeles, con el grosor tradicional de la escena, también con escalado de pantalla. El PDF conserva sus medidas en metros de escena.
+
+Todas las etiquetas de luminarias 2D, incluidas las heredadas sin editar, usan ahora los mismos archivos Noto Sans, posiciones de letras y líneas en el visor, editor y PDF. Los ajustes numéricos guardados no se reescriben ni generan historial al abrir el editor. Las etiquetas que usaban una fuente del sistema pueden cambiar de aspecto para coincidir con el editor y la exportación. La vista previa se ajusta a su marco: la ampliación en píxeles puede variar, pero no las proporciones ni el espaciado. Las medidas continúan en metros de escena. Las capturas antiguas de Layout se regeneran automáticamente.

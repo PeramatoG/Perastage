@@ -16,6 +16,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('build_dir', type=Path)
 parser.add_argument('--source', type=Path, help='Alternative native smoke entry point')
 parser.add_argument('--artifacts', type=Path, help='Copy smoke artifacts to this directory')
+parser.add_argument('--nanovg-library', type=Path, help='Qualify another NanoVG font-size backend with the same app objects')
 args = parser.parse_args()
 build = args.build_dir.resolve()
 root = Path(__file__).resolve().parents[1]
@@ -37,6 +38,13 @@ with tempfile.TemporaryDirectory(prefix='viewport-smoke-', dir=build) as tempora
     link = link.removeprefix(': && ').split(' && ', 1)[0]
     link = link.replace(original_object, shlex.quote(str(obj)))
     link = link.replace('-o Perastage ', '-o ' + shlex.quote(str(binary)) + ' ')
+    if args.nanovg_library:
+        tokens = shlex.split(link)
+        indexes = [i for i, token in enumerate(tokens) if Path(token).name in ('libnanovg.a', 'libnanovg.so')]
+        if len(indexes) != 1:
+            raise RuntimeError('Expected one NanoVG library in the application link command')
+        tokens[indexes[0]] = str(args.nanovg_library.resolve())
+        link = shlex.join(tokens)
     try:
         subprocess.run(link, cwd=build, shell=True, check=True)
         for mode in ([], ['existing']):

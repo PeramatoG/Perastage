@@ -968,7 +968,7 @@ void ConfigManager::PushUndoSnapshot(
 void ConfigManager::CommitLayoutMutation(
     const std::string &metadata,
     const layouts::LayoutImageResourceRegistry &departingResources,
-    const std::string &description, bool recordHistory) {
+    const std::string &description, bool recordHistory, bool presentationOnly) {
   auto preparedPreferences = preferencesStore;
   preparedPreferences.SetValue(kLayoutsConfigKey, metadata);
   if (recordHistory) {
@@ -979,8 +979,9 @@ void ConfigManager::CommitLayoutMutation(
         &GetProjectFixtureSymbols(), &departingResources);
   }
   preferencesStore = std::move(preparedPreferences);
-  if (!suppressRevision)
-    projectSession.Touch();
+  if (!suppressRevision) {
+    if (presentationOnly) projectSession.TouchPresentation(); else projectSession.Touch();
+  }
 }
 
 bool ConfigManager::CommitFixtureLabelMutation(

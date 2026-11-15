@@ -131,7 +131,7 @@ void FailNextLayoutPublicationForTest() { g_failNextLayoutPublication = true; }
 void ConfigManager::CommitLayoutMutation(
     const std::string &metadata,
     const layouts::LayoutImageResourceRegistry &,
-    const std::string &, bool) {
+    const std::string &, bool, bool) {
   if (g_failNextLayoutPublication) {
     g_failNextLayoutPublication = false;
     throw std::runtime_error("Injected Layout publication failure");

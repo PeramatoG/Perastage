@@ -44,6 +44,7 @@ struct Viewer2DState {
   layouts::Layout2DViewCameraState camera;
   layouts::Layout2DViewRenderOptions renderOptions;
   layouts::Layout2DViewLayers layers;
+  layouts::FixtureLabelPresentation labelPresentation;
 };
 
 bool IsViewer2DUserPreferenceConfigKey(std::string_view key);

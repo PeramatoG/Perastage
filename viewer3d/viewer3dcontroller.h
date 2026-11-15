@@ -73,6 +73,13 @@ class Viewer3DController : public IRenderContext,
                            public ISelectionContext,
                            public IVisibilityContext {
 public:
+  void SetFixtureLabelPresentation(std::shared_ptr<const viewer2d::FixtureLabelPresentationContext> context) {
+    m_fixtureLabelPresentation = std::move(context);
+  }
+  const viewer2d::FixtureLabelPresentationContext *GetFixtureLabelPresentation() const override {
+    return m_fixtureLabelPresentation.get();
+  }
+
   using ItemType = Viewer3DItemType;
   using VisibleSet = Viewer3DVisibleSet;
   using ViewFrustumSnapshot = Viewer3DViewFrustumSnapshot;
@@ -188,6 +195,7 @@ public:
   std::optional<bool> GetSymbolCaptureRenderProfileOverride() const;
 
 private:
+  std::shared_ptr<const viewer2d::FixtureLabelPresentationContext> m_fixtureLabelPresentation;
   struct Impl;
   std::unique_ptr<Impl> m_impl;
 

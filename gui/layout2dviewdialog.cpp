@@ -1,4 +1,5 @@
 #include "layout2dviewdialog.h"
+#include "layout_fixture_label_selection.h"
 
 #include "configmanager.h"
 #include "layout_viewport_properties.h"
@@ -46,6 +47,7 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent,
   auto *contentSizer = new wxBoxSizer(wxHORIZONTAL);
 
   viewerPanel = new Viewer2DPanel(this, false, false, false);
+  InstallLayoutFixtureLabelSelection(*viewerPanel, visibilityConfig);
   renderPanel = new Viewer2DRenderPanel(this);
   layerPanel = new LayerPanel(this, false, visibilityConfig,
                               gui::InitialPopulationPolicy::Deferred);
@@ -64,6 +66,9 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent,
   contentSizer->Add(rightColumnSizer, 0, wxEXPAND | wxTOP | wxBOTTOM | wxRIGHT, 8);
 
   mainSizer->Add(contentSizer, 1, wxEXPAND);
+  mainSizer->Add(new wxStaticText(this, wxID_ANY,
+      _("Click fixtures to select labels; Shift-click adds or removes. Drag to pan.")),
+      0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
 
   auto *scaleSizer = new wxBoxSizer(wxHORIZONTAL);
   auto *scaleLabel = new wxStaticText(this, wxID_ANY, _("Visual framing"));

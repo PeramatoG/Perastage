@@ -154,7 +154,7 @@ public:
     void CommitLayoutMutation(
         const std::string &metadata,
         const layouts::LayoutImageResourceRegistry &departingResources,
-        const std::string &description, bool recordHistory);
+        const std::string &description, bool recordHistory, bool presentationOnly = false);
 
     bool CommitFixtureLabelMutation(const std::optional<std::string> &metadata,
                                     const std::string &description);

@@ -7,11 +7,8 @@ void FixtureLabelPreview::RebuildComposition() {
     const auto anchor = symbols::SvgPresentationAnchor(*symbol_);
     symbolAnchor_ = {anchor[0],anchor[1]};
   }
-  auto previewStyles = styles_;
-  displayedStyles_ = viewer2d::ResolveEditableFieldStyles(cfg_, styles_, fixture_.uuid, view_, *fonts_);
-  for (int field = 0; field < 3; ++field)
-    previewStyles[fixture_.uuid].fieldStyles[view_][field] = displayedStyles_[field];
-  composition_ = viewer2d::ComposeFixtureLabels(cfg_, previewStyles, fixture_, view_, bounds_, *fonts_);
+  displayedStyles_ = viewer2d::ResolveEditableFieldStyles(cfg_, styles_, fixture_.uuid, view_, *fonts_, &fixture_);
+  composition_ = viewer2d::ComposeFixtureLabels(cfg_, styles_, fixture_, view_, bounds_, *fonts_);
 }
 
 viewer2d::LabelFieldStyle FixtureLabelPreview::ResolveEditingStyle(

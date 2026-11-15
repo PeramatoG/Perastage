@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "LayoutManager.h"
+#include "LayoutLabelDocument.h"
 #include "LayoutImageResourceRegistry.h"
 
 #include "LayoutDefaultsLoader.h"
@@ -191,7 +192,7 @@ const LayoutCollection &LayoutManager::GetLayouts() const { return layouts; }
 bool LayoutManager::ApplyMutation(
     const std::string &description,
     const std::function<bool(LayoutCollection &)> &mutation,
-    bool recordHistory) {
+    bool recordHistory, bool presentationOnly) {
   LayoutCollection candidate = layouts;
   auto &resources = LayoutImageResourceRegistry::Get();
   auto previousResources = resources;
@@ -202,18 +203,19 @@ bool LayoutManager::ApplyMutation(
     }
     for (const auto &layout : candidate.Items())
       for (const auto &view : layout.view2dViews) ValidateViewport(view);
-    const auto document = ToTemplateDocument(candidate.Items());
-    if (document == ToTemplateDocument(layouts.Items())) {
+    const auto document = LayoutDocumentJson(candidate);
+    if (document == LayoutDocumentJson(layouts)) {
       resources = std::move(previousResources);
       return true;
     }
     const std::string metadata = document.dump();
     resources.SynchronizeWithLayouts(candidate);
     ConfigManager::Get().CommitLayoutMutation(
-        metadata, previousResources, description, recordHistory);
+        metadata, previousResources, description, recordHistory, presentationOnly);
     layouts = std::move(candidate);
     return true;
-  } catch (...) {
+  } catch (const std::exception &e) {
+    Logger::Instance().Log(Logger::Level::Error, std::string("Layout mutation rejected: ") + e.what());
     resources = std::move(previousResources);
     return false;
   }
@@ -222,6 +224,7 @@ bool LayoutManager::ApplyMutation(
 bool LayoutManager::AddLayout(const LayoutDefinition &layout) {
   return ApplyMutation("add layout", [&](LayoutCollection &candidate) {
     LayoutDefinition prepared = layout;
+    ImportLabelDependencies(prepared, candidate.labelProfiles);
     // Legacy templates may retain unresolved image paths with import warnings.
     for (auto &image : prepared.imageViews)
       LayoutImageResourceRegistry::Get().AttachResource(image);
@@ -375,7 +378,12 @@ bool LayoutManager::ExportLayoutTemplate(const std::string &name,
       *error = "Layout not found.";
     return false;
   }
-  return LayoutTemplatePackageService::ExportPackage(*it, filePath, error);
+  auto portable = *it;
+  for (const auto &v : portable.view2dViews) {
+    const auto &id = v.labelPresentation.profileId;
+    if (!id.empty()) portable.portableLabelProfiles.emplace(id, layouts.labelProfiles.at(id));
+  }
+  return LayoutTemplatePackageService::ExportPackage(portable, filePath, error);
 }
 
 // Imports a portable package or legacy JSON template and adds it as a layout.
@@ -402,6 +410,11 @@ bool LayoutManager::ImportLayoutTemplate(const std::string &filePath,
       imported.name = preferredName;
     imported.name = MakeUniqueLayoutName(imported.name);
 
+    auto labelCandidate = layouts;
+    auto checkedPage = imported;
+    ImportLabelDependencies(checkedPage, labelCandidate.labelProfiles);
+    labelCandidate.Items().push_back(checkedPage);
+    ValidateLabelReferences(labelCandidate);
     if (!AddLayout(imported)) {
       if (error)
         *error = "Could not add imported layout.";
@@ -413,11 +426,11 @@ bool LayoutManager::ImportLayoutTemplate(const std::string &filePath,
     if (createdLayoutName)
       createdLayoutName->swap(imported.name);
     return true;
-  } catch (...) {
+  } catch (const std::exception &e) {
     if (!committed)
       LayoutImageResourceRegistry::Get() = std::move(previousResources);
     if (error)
-      *error = "Could not import layout template.";
+      *error = std::string("Could not import layout template: ") + e.what();
     return false;
   }
 }
@@ -425,6 +438,7 @@ bool LayoutManager::ImportLayoutTemplate(const std::string &filePath,
 // Loads layout state from configuration and restores image resource tracking.
 bool LayoutManager::LoadFromConfig(ConfigManager &cfg) {
   auto loadDefaultsOrFallback = [&cfg, this]() {
+    layouts = LayoutCollection();
     if (!LoadDefaultsForNewProject(cfg))
       SaveToConfig(cfg);
   };
@@ -461,7 +475,13 @@ bool LayoutManager::LoadFromConfig(ConfigManager &cfg) {
     EnsureUniqueImageIds(layout);
   }
 
-  layouts.Items() = std::move(loaded);
+  LayoutCollection candidate;
+  candidate.Items() = std::move(loaded);
+  try { ReadLayoutLabelProfiles(parsed, candidate); }
+  catch (const std::exception &e) {
+    Logger::Instance().Log(Logger::Level::Error, e.what()); return false;
+  }
+  layouts = std::move(candidate);
   PrepareImageResourcesForSave();
   return true;
 }
@@ -473,15 +493,17 @@ void LayoutManager::RestoreFromHistory(const std::optional<std::string> &metadat
     std::vector<LayoutDefinition> restored;
     std::string error;
     const auto parsed = nlohmann::json::parse(*metadata, nullptr, false);
-    if (!parsed.is_discarded() && FromTemplateDocument(parsed, restored, &error))
+    if (!parsed.is_discarded() && FromTemplateDocument(parsed, restored, &error)) {
       layouts.Items() = std::move(restored);
+      ReadLayoutLabelProfiles(parsed, layouts);
+    }
   }
   LayoutImageResourceRegistry::Get().SynchronizeWithLayouts(layouts);
 }
 
 // Saves the current layout collection to configuration metadata.
 void LayoutManager::SaveToConfig(ConfigManager &cfg) const {
-  cfg.SetValue(kLayoutsConfigKey, ToTemplateDocument(layouts.Items()).dump());
+  cfg.SetValue(kLayoutsConfigKey, LayoutDocumentJson(layouts).dump());
 }
 
 // Ensures current layout image resources are captured and usage counters are current.
@@ -532,7 +554,11 @@ bool LayoutManager::LoadDefaultsForNewProject(ConfigManager &cfg) {
     layout.name = candidate;
   }
 
-  layouts.ReplaceAll(std::move(loadedDefaults.layouts));
+  LayoutCollection candidate;
+  candidate.ReplaceAll(std::move(loadedDefaults.layouts));
+  for (auto &page : candidate.Items()) ImportLabelDependencies(page, candidate.labelProfiles);
+  ValidateLabelReferences(candidate);
+  layouts = std::move(candidate);
   PrepareImageResourcesForSave();
   SaveToConfig(cfg);
   return true;

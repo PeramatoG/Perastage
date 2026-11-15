@@ -32,6 +32,9 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2d_measure_tool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2d_coordinate_math.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_overrides.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/viewer2d_layout_label_selection.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/viewer2d_label_presentation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_presentation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_style.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_composition.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/viewer2d_interaction_scope_policy.cpp

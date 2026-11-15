@@ -290,3 +290,8 @@ adds, and Shift-drag on empty page adds intersecting frames. Ordinary empty drag
 still pans. Delete removes the entire document selection atomically. Escape cancels
 the complete pending move/marquee; editable text controls retain their existing
 keyboard priority. These gestures never target scene UUID selection.
+
+The Layout 2D camera editor owns a local mouse selection for fixture-label targets:
+click replaces targets and Shift-click toggles a target. These pointer modifiers
+do not invoke scene selection commands or Undo, and dragging remains camera pan.
+Existing keyboard navigation and modal Cancel routing are unchanged.
