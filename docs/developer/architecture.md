@@ -631,11 +631,11 @@ Viewer2D owns fixture field resolution and composition into existing canvas text
 commands. GUI owns the editor's draft and symbol preview; Viewer3D submits the
 same composed positions to NanoVG and capture, and PDF embeds the resolved fonts.
 
-Version-2 `presentation` fields extend existing PSTG label overrides with an independent fill and an outward contour radius in scene metres. Bundled TrueType contours (including composite accents) feed the NanoVG vector halo; screen fill uses the existing NanoVG font atlas at each composed glyph position and baseline. Polygon antialias fringes overfill subpixel stems, so vector fill at small zoom does not match legacy text coverage. No backend relayout or advance calculation is used. PDF strokes the embedded glyphs with twice the authored radius as line width. Display-only stroke resolution maps the 0.004 m reference radius to one framebuffer pixel, with proportional custom weights and no scene-zoom factor. The main viewer uses framebuffer coordinates (NanoVG ratio 1); the editor preview divides by its NanoVG device pixel ratio to avoid double DPI scaling. Composition/capture retain the authored physical radius and positioned geometry; PDF never uses this display policy. Unedited legacy text retains its eight-offset rendering. Version 1 remains readable with contrasting outline defaults. Opening the editor never reserializes metadata. Legacy and edited names share the fixed two-space-delimited-words-per-line rule in `fixture_label_name.h`, before composition; no new wrap setting or serialization is introduced. The adapter accounts for multiline Name height while preserving ID/DMX order. Preview and property controls share the legacy stack adapter; property edits retain unrelated geometry and unrounded offsets. Label-only commits touch document history/dirty state without changing the scene-resource revision; serialized styles invalidate composition and Layout viewport caches. The reserved
+Version-2 `presentation` fields extend existing PSTG label overrides with an independent fill and an outward contour radius in scene metres. Screen halo and fill use the same bundled-face NanoVG font atlas at each composed glyph position and baseline; vector contours remain available to export and synthetic-contour probes. The loaded face is measured at a stable probe size to adapt NanoVG em-size versus ascent/descent-height font backends, without changing canonical glyph advances. No backend relayout, kerning or extra letter spacing is applied. PDF strokes the embedded glyphs with twice the authored radius as line width. Display-only stroke resolution maps the 0.004 m reference radius to one framebuffer pixel, with proportional custom weights and no scene-zoom factor. The main viewer uses framebuffer coordinates (NanoVG ratio 1); the editor preview divides by its NanoVG device pixel ratio to avoid double DPI scaling. Composition/capture retain the authored physical radius and positioned geometry; PDF never uses this display policy. Inherited and edited 2D fixture fields share the same composition and eight-offset screen halo. Version 1 remains readable with contrasting outline defaults. Opening the editor never reserializes metadata. Legacy and edited names share the fixed two-space-delimited-words-per-line rule in `fixture_label_name.h`, before composition; no new wrap setting or serialization is introduced. The adapter accounts for multiline Name height while preserving ID/DMX order. Preview and property controls share the legacy stack adapter; property edits retain unrelated geometry and unrounded offsets. Label-only commits touch document history/dirty state without changing the scene-resource revision; serialized styles invalidate composition and Layout viewport caches. The reserved
 `__project_defaults__` entry participates in the same project history and is
-excluded from UUID normalization/pruning. Legacy keys remain a read-only adapter
-until a field is edited; existing line-spacing and Layout compensation constants
-remain intact. Layout free text, tables, 3D labels and the old global PDF
+excluded from UUID normalization/pruning. Legacy numeric keys remain a read-only resolution adapter; inherited fields pass
+through the same bundled-font stack/baseline composition as the editor. Opening
+or rendering them does not materialize saved overrides. Layout free text, tables, 3D labels and the old global PDF
 metrics compatibility API remain legacy consumers. The next integration is shared
 composition for Layout free text, with explicit migration and wrapping tests;
 this change does not claim preview/PDF parity for those paths.
@@ -831,7 +831,8 @@ The panel/controller owns the immutable render context; applying and restoring
 viewer state never substitutes the authoritative project override map. Existing
 `LabelRenderSystem`, `FixtureLabelCompositionCache`, capture service and PDF command
 publication consume those styles. Modern fields are frozen before rendering;
-legacy inputs are snapshotted while retaining their existing stack renderer.
+legacy numeric inputs are snapshotted and resolved through the same canonical
+composition, without a separate system-font fixture renderer.
 Composition keys compare orientation, effective field values, bounds and content,
 so a shared fixture UUID never permits a different viewport style to reuse stale
 composition. Layout capture/raster hashes include local settings and only the
@@ -857,3 +858,12 @@ subpixel registration and outline-weight differences. PDF retains its physical
 vector glyph stroke and scene-metre metrics. Native pixel comparisons against
 the existing scene raster halo qualify regular/bold text, small/large sizes,
 fractional origins and multiple pixel ratios.
+
+The canonical fixture typography revision participates in every Layout view
+capture/raster hash. It invalidates persisted images produced by the former
+system-font path without rebuilding scene/GDTF/symbol resources. Native parity
+qualification includes an untouched “MAC Quantum Profile” fixture: actual viewer
+capture glyphs are compared with the actual editor composition, including font
+identity, size, advances, baselines, line height and outline values, and those
+captured glyphs are exported to PDF. An alternate height-based NanoVG test build
+qualifies raster metric conversion independently of the platform's default backend.

@@ -64,6 +64,32 @@ inline void CheckFixtureLabelRasterRegistration() {
   std::cout << "Label raster registration passed: regular/bold, 3 sizes, 3 pixel ratios, subpixel origins" << std::endl;
 }
 
+inline void CheckFixtureLabelRasterMetrics() {
+  viewer3d::render::OpenGLStateGuard state;
+  std::unique_ptr<NVGcontext,decltype(&nvgDeleteGL2)> vg(
+      nvgCreateGL2(NVG_ANTIALIAS | NVG_STENCIL_STROKES),nvgDeleteGL2);
+  if (!vg) throw std::runtime_error("Metric probe context failed");
+  const typography::FontPair fonts(ProjectUtils::GetResourceRoot());
+  nvgBeginFrame(vg.get(),1024,256,1);
+  for (bool bold : {false,true}) {
+    const char *family=bold?"perastage-sans-bold":"perastage-sans";
+    const auto &font=bold?fonts.bold:fonts.regular;
+    const int id=nvgCreateFont(vg.get(),family,typography::BundledFontPath(fonts.resourceRoot,bold).string().c_str());
+    if (id<0) throw std::runtime_error("Metric probe font failed");
+    const double factor=viewer2d::ResolveRasterFontEmScale(vg.get(),family,font);
+    for (double em : {12.,32.,64.}) {
+      nvgFontFaceId(vg.get(),id); nvgFontSize(vg.get(),em*factor);
+      nvgTextAlign(vg.get(),NVG_ALIGN_LEFT | NVG_ALIGN_BASELINE); nvgTextLetterSpacing(vg.get(),0);
+      const double measured=nvgTextBounds(vg.get(),0,0,"M",nullptr,nullptr);
+      const double expected=font.advanceWidths['M']*em/font.unitsPerEm;
+      if (std::abs(measured-expected)>1.05)
+        throw std::runtime_error("Raster glyph advance disagrees with canonical TTF composition");
+    }
+  }
+  nvgEndFrame(vg.get());
+  std::cout << "Canonical screen font metrics passed: regular/bold, 3 sizes" << std::endl;
+}
+
 // Invoked with a current GL context by the existing native viewport smoke.
 inline void CheckFixtureLabelInkBalance() {
   viewer3d::render::OpenGLStateGuard state;

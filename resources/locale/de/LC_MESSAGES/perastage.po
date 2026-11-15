@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-15 14:20+0100\n"
+"POT-Creation-Date: 2026-11-15 18:17+0100\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: German\n"
@@ -1179,11 +1179,13 @@ msgid "Fixture Label Editor"
 msgstr "Gerätebeschriftungen bearbeiten"
 
 #: gui/fixture_label_editor.cpp:27
+#: tests/support/fixture_label_composition_parity_probe.h:45
 msgid "Project defaults"
 msgstr "Projektvorgaben"
 
 #
 #: gui/fixture_label_editor.cpp:29
+#: tests/support/fixture_label_composition_parity_probe.h:45
 msgid "Selected project fixtures"
 msgstr "Ausgewählte Projektgeräte"
 
@@ -1320,20 +1322,17 @@ msgstr "Ziehen Sie das ausgewählte Feld in der Vorschau."
 
 #: gui/fixture_label_editor.cpp:85
 msgid ""
-"Legacy rendering is preserved until edited; its preview is approximate. "
+"The viewer, editor and PDF use the same bundled font and label composition. "
 "Sizes and offsets use scene metres.\n"
 "Supported text: English and Western European WinAnsi characters."
-msgstr ""
-"Die bisherige Darstellung bleibt bis zur Bearbeitung erhalten; ihre Vorschau "
-"ist näherungsweise. Größen und Versätze verwenden Szenenmeter.\n"
-"Unterstützter Text: Englisch und westeuropäische WinAnsi-Zeichen."
+msgstr "Betrachter, Editor und PDF verwenden dieselbe mitgelieferte Schrift und Beschriftungskomposition. Größen und Versätze verwenden Szenenmeter.\nUnterstützter Text: Englisch und westeuropäische WinAnsi-Zeichen."
 
 #: gui/fixture_label_editor.cpp:88
 msgid "Reset to Default"
 msgstr "Auf Vorgaben zurücksetzen"
 
 #: gui/fixture_label_preview.cpp:31 gui/fixture_label_preview.cpp:102
-#: viewer3d/labels/composed_fixture_labels.cpp:102
+#: viewer3d/labels/composed_fixture_labels.cpp:101
 msgid "Bundled label fonts are unavailable."
 msgstr "Die mitgelieferten Beschriftungsschriften sind nicht verfügbar."
 
@@ -1342,19 +1341,19 @@ msgstr "Die mitgelieferten Beschriftungsschriften sind nicht verfügbar."
 msgid "Present; preview unavailable"
 msgstr "Vorhanden; Vorschau nicht verfügbar"
 
-#: gui/fixture_label_preview.cpp:140
+#: gui/fixture_label_preview.cpp:143
 msgid "Unsupported text: change the fixture attribute before export."
 msgstr "Nicht unterstützter Text: Geräteattribut vor dem Export ändern."
 
-#: gui/fixture_label_preview.cpp:141
+#: gui/fixture_label_preview.cpp:144
 msgid "Dark preview: symbol contours are lightened for display only."
 msgstr "Dunkle Vorschau: Symbolkonturen werden nur für die Anzeige aufgehellt."
 
-#: gui/fixture_label_preview.cpp:142
+#: gui/fixture_label_preview.cpp:145
 msgid "Preview uses the first fixture in this scope."
 msgstr "Die Vorschau verwendet das erste Gerät dieses Bereichs."
 
-#: gui/fixture_label_preview.cpp:142
+#: gui/fixture_label_preview.cpp:145
 msgid "Symbol unavailable"
 msgstr "Symbol nicht verfügbar"
 
@@ -2839,7 +2838,9 @@ msgstr "Ebene umbenennen"
 #: gui/layout2dviewdialog.cpp:70
 msgid ""
 "Click fixtures to select labels; Shift-click adds or removes. Drag to pan."
-msgstr "Geräte anklicken, um Beschriftungen auszuwählen; Umschalt-Klick fügt hinzu oder entfernt. Ziehen verschiebt die Ansicht."
+msgstr ""
+"Geräte anklicken, um Beschriftungen auszuwählen; Umschalt-Klick fügt hinzu "
+"oder entfernt. Ziehen verschiebt die Ansicht."
 
 #: gui/layout2dviewdialog.cpp:74
 msgid "Visual framing"
@@ -6765,11 +6766,6 @@ msgstr "Z-Lineal"
 msgid "Edit Fixture Labels..."
 msgstr "Gerätebeschriftungen bearbeiten..."
 
-#: viewer3d/labels/label_render_system.cpp:199
-#, c-format
-msgid "ID: %d"
-msgstr "ID: %d"
-
 #: viewer3d/viewer3dpanel.cpp:1352
 msgid "Cannot export while the 3D viewer is hidden."
 msgstr "Export nicht möglich, solange die 3D-Ansicht ausgeblendet ist."
@@ -6804,6 +6800,10 @@ msgstr "Darstellungsstil"
 #: viewer3d/viewer3dpanel.cpp:2289
 msgid "Export image..."
 msgstr "Bild exportieren…"
+
+#, c-format
+#~ msgid "ID: %d"
+#~ msgstr "ID: %d"
 
 #~ msgid "Alignment reference"
 #~ msgstr "Ausrichtungsreferenz"

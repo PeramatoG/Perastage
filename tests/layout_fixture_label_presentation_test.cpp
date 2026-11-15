@@ -139,7 +139,7 @@ void RunLayoutFixtureLabelPresentationTests() {
   auto cb=ca; cb[fixture.uuid].fieldStyles[0][0]=custom;
   const auto first=cache.Resolve(cfg,ca,fixture,0,{},fonts);
   assert(!first.text.empty());
-  assert(cache.Resolve(cfg,cb,fixture,0,{},fonts).text.empty());
+  assert(!cache.Resolve(cfg,cb,fixture,0,{},fonts).fields[0]);
   assert(!cache.Resolve(cfg,ca,fixture,0,{},fonts).text.empty());
   // Bottom retains the legacy Side style key, with Top-plane bounds projection.
   assert(viewer2d::ResolveFieldStyle(cfg,ca,fixture.uuid,3,0)==viewer2d::ResolveFieldStyle(cfg,ca,fixture.uuid,2,0));

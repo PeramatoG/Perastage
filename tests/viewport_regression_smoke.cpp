@@ -22,6 +22,7 @@
 #include "startup_profile.h"
 #include "support/layout_label_capture_probe.h"
 #include "support/layout_label_selection_probe.h"
+#include "support/fixture_label_composition_parity_probe.h"
 #include <cmath>
 #include <cstdlib>
 #include <wx/dcscreen.h>
@@ -99,14 +100,17 @@ class ViewportSmoke : public wxApp {
   float zoom_ = 0;
   std::string labels_, firstApply_, secondApply_;
   std::vector<unsigned char> selectedPixels_;
-  std::vector<std::pair<float,float>> legacyPositions_;
-  std::vector<std::pair<float,float>> LegacyPositions() {
+  std::vector<std::pair<float,float>> idPositions_;
+  std::vector<std::pair<float,float>> RenderedIdPositions() {
     std::vector<std::pair<float,float>> positions;
     Viewer2DPanel::Instance()->CaptureFrameNow([&](CommandBuffer buffer,Viewer2DViewState){
-      for(const auto &command:buffer.commands)
-        if(const auto *text=std::get_if<TextCommand>(&command))
-          if(!text->style.fontFamily.starts_with("perastage-sans") && text->text.starts_with("ID:"))
-            positions.emplace_back(text->x,text->y);
+      for (size_t i=0; i+2<buffer.commands.size(); ++i) {
+        const auto *a=std::get_if<TextCommand>(&buffer.commands[i]);
+        const auto *b=std::get_if<TextCommand>(&buffer.commands[i+1]);
+        const auto *c=std::get_if<TextCommand>(&buffer.commands[i+2]);
+        if (a && b && c && a->text=="I" && b->text=="D" && c->text==":")
+          positions.emplace_back(a->x,a->y);
+      }
     });
     return positions;
   }
@@ -161,7 +165,7 @@ class ViewportSmoke : public wxApp {
   }
   void CheckPreviewEditing() {
     auto *preview=Preview();preview->Update();
-    CheckFixtureLabelRasterRegistration(); CheckFixtureLabelInkBalance(); CheckScreenOutlineRaster(); preview->Refresh(false); preview->Update();
+    CheckFixtureLabelRasterMetrics(); CheckFixtureLabelRasterRegistration(); CheckFixtureLabelInkBalance(); CheckScreenOutlineRaster(); preview->Refresh(false); preview->Update();
     auto &cfg=ConfigManager::Get();const auto before=cfg.CaptureDirtyState();
     const auto bounds=preview->GetComposition().fields[0]->bounds;
     const auto otherFields=preview->GetComposition().fields;
@@ -355,12 +359,12 @@ public:
         CallAfter([dialog=editor_]{dialog->ShowModal();}); break;
       case 5: {
         labels_ = cfg.GetValue("label_fixture_overrides").value_or("");
-        legacyPositions_=LegacyPositions();
-        Require(!legacyPositions_.empty(),"Synthetic legacy ID label missing");
+        idPositions_=RenderedIdPositions();
+        Require(!idPositions_.empty(),"Synthetic canonical ID label missing");
         CheckPreviewEditing();SnapshotEditor();ApplyAndObservePaint();
         firstApply_=cfg.GetValue("label_fixture_overrides").value_or("");
         Require(firstApply_!=labels_,"First Apply did not commit");
-        Require(LegacyPositions()==legacyPositions_,"Editing Name moved the legacy ID baseline");
+        Require(RenderedIdPositions()==idPositions_,"Editing Name moved the inherited ID baseline");
         auto *width=dynamic_cast<wxSpinCtrlDouble *>(editor_->FindWindowByName("fixtureLabelOutlineWidth",editor_));
         Require(width,"Outline width control missing");
         width->SetValue(std::abs(width->GetValue()-.040)<1e-5?.031:.040);
@@ -403,6 +407,7 @@ public:
         CloseEditor();break;
       case 10:
         timer_.Stop();
+        CheckFixtureLabelCompositionParity(*frame_,scratch);
         CheckLayoutLabelSelection(*frame_);
         CheckLayoutLabelCapture(*frame_,scratch);
         Require(Pixels().size() == 600*600*4, "Viewport capture failed after reload");

@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-15 14:20+0100\n"
+"POT-Creation-Date: 2026-11-15 18:17+0100\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -1154,11 +1154,13 @@ msgid "Fixture Label Editor"
 msgstr "灯具标签编辑器"
 
 #: gui/fixture_label_editor.cpp:27
+#: tests/support/fixture_label_composition_parity_probe.h:45
 msgid "Project defaults"
 msgstr "项目默认值"
 
 #
 #: gui/fixture_label_editor.cpp:29
+#: tests/support/fixture_label_composition_parity_probe.h:45
 msgid "Selected project fixtures"
 msgstr "选中的项目灯具"
 
@@ -1295,19 +1297,17 @@ msgstr "在预览中拖动选中的字段。"
 
 #: gui/fixture_label_editor.cpp:85
 msgid ""
-"Legacy rendering is preserved until edited; its preview is approximate. "
+"The viewer, editor and PDF use the same bundled font and label composition. "
 "Sizes and offsets use scene metres.\n"
 "Supported text: English and Western European WinAnsi characters."
-msgstr ""
-"编辑前保留旧版渲染；其预览为近似效果。大小和偏移使用场景米。\n"
-"支持的文本：英语和西欧 WinAnsi 字符。"
+msgstr "视图、编辑器和 PDF 使用相同的内置字体和标签布局。大小和偏移使用场景米。\n支持的文本：英语和西欧 WinAnsi 字符。"
 
 #: gui/fixture_label_editor.cpp:88
 msgid "Reset to Default"
 msgstr "重置为默认值"
 
 #: gui/fixture_label_preview.cpp:31 gui/fixture_label_preview.cpp:102
-#: viewer3d/labels/composed_fixture_labels.cpp:102
+#: viewer3d/labels/composed_fixture_labels.cpp:101
 msgid "Bundled label fonts are unavailable."
 msgstr "内置标签字体不可用。"
 
@@ -1316,19 +1316,19 @@ msgstr "内置标签字体不可用。"
 msgid "Present; preview unavailable"
 msgstr "存在；预览不可用"
 
-#: gui/fixture_label_preview.cpp:140
+#: gui/fixture_label_preview.cpp:143
 msgid "Unsupported text: change the fixture attribute before export."
 msgstr "文本不受支持：导出前请修改灯具属性。"
 
-#: gui/fixture_label_preview.cpp:141
+#: gui/fixture_label_preview.cpp:144
 msgid "Dark preview: symbol contours are lightened for display only."
 msgstr "深色预览：符号轮廓仅为显示而调亮。"
 
-#: gui/fixture_label_preview.cpp:142
+#: gui/fixture_label_preview.cpp:145
 msgid "Preview uses the first fixture in this scope."
 msgstr "预览使用此范围内的第一个灯具。"
 
-#: gui/fixture_label_preview.cpp:142
+#: gui/fixture_label_preview.cpp:145
 msgid "Symbol unavailable"
 msgstr "符号不可用"
 
@@ -6558,11 +6558,6 @@ msgstr "Z尺"
 msgid "Edit Fixture Labels..."
 msgstr "编辑灯具标签..."
 
-#: viewer3d/labels/label_render_system.cpp:199
-#, c-format
-msgid "ID: %d"
-msgstr "ID：%d"
-
 #: viewer3d/viewer3dpanel.cpp:1352
 msgid "Cannot export while the 3D viewer is hidden."
 msgstr "3D 查看器隐藏时无法导出。"
@@ -6597,6 +6592,10 @@ msgstr "渲染模式"
 #: viewer3d/viewer3dpanel.cpp:2289
 msgid "Export image..."
 msgstr "导出灯具..."
+
+#, c-format
+#~ msgid "ID: %d"
+#~ msgstr "ID：%d"
 
 #~ msgid "Alignment reference"
 #~ msgstr "对齐参照"

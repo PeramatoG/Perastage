@@ -67,8 +67,8 @@ std::shared_ptr<const FixtureLabelPresentationContext> BuildLabelPresentationCon
     for (int v=0; v<3; ++v) for (int f=0; f<3; ++f)
       if (HasFieldPresentation(project, uuid, v, f))
         project[uuid].fieldStyles[v][f] = ResolveFieldStyle(cfg, project, uuid, v, f);
-  // Snapshot legacy inputs as well, retaining the historical renderer and stack
-  // placement for fields that have never adopted modern presentation.
+  // Snapshot inherited numeric inputs as well. All fields use the canonical
+  // composition, without rewriting legacy project settings.
   for (const auto &[uuid, fixture] : cfg.GetScene().fixtures) {
     auto &entry = project[uuid];
     entry.labelFontSizeName = ResolveLabelFontSizeName(cfg, &entry);

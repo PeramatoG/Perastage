@@ -82,7 +82,7 @@ FixtureLabelEditor::FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int
   body->Add(previewBox, 1, wxEXPAND);
   outer->Add(body, 1, wxEXPAND | wxLEFT | wxRIGHT, 10);
   auto *note = new wxStaticText(this, wxID_ANY,
-      _("Legacy rendering is preserved until edited; its preview is approximate. Sizes and offsets use scene metres.\nSupported text: English and Western European WinAnsi characters."));
+      _("The viewer, editor and PDF use the same bundled font and label composition. Sizes and offsets use scene metres.\nSupported text: English and Western European WinAnsi characters."));
   note->Wrap(700); outer->Add(note, 0, wxEXPAND | wxALL, 10);
   auto *buttons = new wxBoxSizer(wxHORIZONTAL);
   auto *reset = new wxButton(this, wxID_RESET, _("Reset to Default"));

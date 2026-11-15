@@ -109,8 +109,8 @@ int main() {
     const auto shifted = viewer2d::ComposeFixtureLabels(cfg, changed, validFixture, view, bounds, fonts);
     const auto &wrapped = typography::Compose(viewer2d::WrapFixtureLabelName(validFixture.instanceName),
         typography::TextStyle{adapted[0].size}, fonts.regular);
-    assert(wrapped.lines.size() == 3 && original.text.size() == wrapped.glyphs.size());
-    for (size_t i=0; i<original.text.size(); ++i) {
+    assert(wrapped.lines.size() == 3 && original.fields[0]->count == wrapped.glyphs.size());
+    for (size_t i=0; i<original.fields[0]->count; ++i) {
       assert(original.text[i].text == wrapped.glyphs[i].text);
       assert(std::abs(original.text[i].y - original.text.front().y - wrapped.glyphs[i].baseline) < 1e-6);
       assert(original.text[i].y == shifted.text[i].y);

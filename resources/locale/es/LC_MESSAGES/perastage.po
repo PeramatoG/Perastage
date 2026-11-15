@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-15 14:20+0100\n"
+"POT-Creation-Date: 2026-11-15 18:17+0100\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -1180,11 +1180,13 @@ msgid "Fixture Label Editor"
 msgstr "Editor de etiquetas de aparatos"
 
 #: gui/fixture_label_editor.cpp:27
+#: tests/support/fixture_label_composition_parity_probe.h:45
 msgid "Project defaults"
 msgstr "Valores predeterminados del proyecto"
 
 #
 #: gui/fixture_label_editor.cpp:29
+#: tests/support/fixture_label_composition_parity_probe.h:45
 msgid "Selected project fixtures"
 msgstr "Aparatos seleccionados del proyecto"
 
@@ -1321,20 +1323,17 @@ msgstr "Arrastre el campo seleccionado en la vista previa."
 
 #: gui/fixture_label_editor.cpp:85
 msgid ""
-"Legacy rendering is preserved until edited; its preview is approximate. "
+"The viewer, editor and PDF use the same bundled font and label composition. "
 "Sizes and offsets use scene metres.\n"
 "Supported text: English and Western European WinAnsi characters."
-msgstr ""
-"El renderizado heredado se conserva hasta editarlo; su vista previa es "
-"aproximada. Los tamaños y desplazamientos usan metros de escena.\n"
-"Texto admitido: inglés y caracteres WinAnsi de Europa occidental."
+msgstr "El visor, el editor y el PDF usan la misma fuente incluida y composición de etiquetas. Los tamaños y desplazamientos usan metros de escena.\nTexto admitido: inglés y caracteres WinAnsi de Europa occidental."
 
 #: gui/fixture_label_editor.cpp:88
 msgid "Reset to Default"
 msgstr "Restablecer valores predeterminados"
 
 #: gui/fixture_label_preview.cpp:31 gui/fixture_label_preview.cpp:102
-#: viewer3d/labels/composed_fixture_labels.cpp:102
+#: viewer3d/labels/composed_fixture_labels.cpp:101
 msgid "Bundled label fonts are unavailable."
 msgstr "Las fuentes de etiquetas incluidas no están disponibles."
 
@@ -1343,21 +1342,21 @@ msgstr "Las fuentes de etiquetas incluidas no están disponibles."
 msgid "Present; preview unavailable"
 msgstr "Presente; vista previa no disponible"
 
-#: gui/fixture_label_preview.cpp:140
+#: gui/fixture_label_preview.cpp:143
 msgid "Unsupported text: change the fixture attribute before export."
 msgstr "Texto no admitido: cambie el atributo del aparato antes de exportar."
 
-#: gui/fixture_label_preview.cpp:141
+#: gui/fixture_label_preview.cpp:144
 msgid "Dark preview: symbol contours are lightened for display only."
 msgstr ""
 "Vista previa oscura: los contornos del símbolo se aclaran solo para su "
 "visualización."
 
-#: gui/fixture_label_preview.cpp:142
+#: gui/fixture_label_preview.cpp:145
 msgid "Preview uses the first fixture in this scope."
 msgstr "La vista previa usa el primer aparato de este ámbito."
 
-#: gui/fixture_label_preview.cpp:142
+#: gui/fixture_label_preview.cpp:145
 msgid "Symbol unavailable"
 msgstr "Símbolo no disponible"
 
@@ -2834,7 +2833,9 @@ msgstr "Cambiar nombre de capa"
 #: gui/layout2dviewdialog.cpp:70
 msgid ""
 "Click fixtures to select labels; Shift-click adds or removes. Drag to pan."
-msgstr "Haga clic en luminarias para seleccionar etiquetas; Mayús-clic añade o quita. Arrastre para desplazar la vista."
+msgstr ""
+"Haga clic en luminarias para seleccionar etiquetas; Mayús-clic añade o "
+"quita. Arrastre para desplazar la vista."
 
 #: gui/layout2dviewdialog.cpp:74
 msgid "Visual framing"
@@ -6767,11 +6768,6 @@ msgstr "regla Z"
 msgid "Edit Fixture Labels..."
 msgstr "Editar etiquetas de aparatos..."
 
-#: viewer3d/labels/label_render_system.cpp:199
-#, c-format
-msgid "ID: %d"
-msgstr "Identificación: %d"
-
 #: viewer3d/viewer3dpanel.cpp:1352
 msgid "Cannot export while the 3D viewer is hidden."
 msgstr "No se puede exportar mientras el visor 3D está oculto."
@@ -6806,6 +6802,10 @@ msgstr "Estilo de renderizado"
 #: viewer3d/viewer3dpanel.cpp:2289
 msgid "Export image..."
 msgstr "Exportar imagen..."
+
+#, c-format
+#~ msgid "ID: %d"
+#~ msgstr "Identificación: %d"
 
 #~ msgid "Alignment reference"
 #~ msgstr "Referencia de alineación"

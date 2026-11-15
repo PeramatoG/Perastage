@@ -21,3 +21,9 @@ if rg -n 'SetSelectedFixtures|SetSelectedTrusses|PushUndoState|MarkDirty|transfo
   echo 'Layout label target picking must not mutate project selection, transforms or history.' >&2
   exit 1
 fi
+
+rg -q 'kFixtureLabelCompositionRevision' gui/layoutviewerpanel_render_invalidation.cpp
+if rg -n 'BuildFixtureLayoutEntry|BuildFixtureLayoutKey' viewer3d/labels/label_render_system.cpp; then
+  echo '2D fixture labels must not keep a separate legacy font/layout path.' >&2
+  exit 1
+fi

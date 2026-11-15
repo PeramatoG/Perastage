@@ -15,7 +15,7 @@ bool HasFieldPresentation(const FixtureLabelOverrideMap &all,
 }
 std::array<LabelFieldStyle, 3> ResolveEditableFieldStyles(const ConfigManager &cfg,
     const FixtureLabelOverrideMap &all, const std::string &uuid, int view,
-    const typography::FontPair &fonts) {
+    const typography::FontPair &fonts, const Fixture *source) {
   // Adapt legacy stack baselines once, identically for preview and property edits.
   FixtureLabelOverrideMap legacy;
   for (const auto &key : {uuid, std::string(kLabelDefaultsKey)}) {
@@ -28,9 +28,12 @@ std::array<LabelFieldStyle, 3> ResolveEditableFieldStyles(const ConfigManager &c
   std::array<LabelFieldStyle, 3> result;
   double groupHeight = 0;
   std::array<size_t, 3> lineCounts{1,1,1};
-  if (const auto it = cfg.GetScene().fixtures.find(uuid); it != cfg.GetScene().fixtures.end()) {
-    const auto &fixture = it->second;
-    const auto name = WrapFixtureLabelName(fixture.instanceName.empty() ? uuid : fixture.instanceName);
+  if (!source) {
+    const auto it = cfg.GetScene().fixtures.find(uuid);
+    if (it != cfg.GetScene().fixtures.end()) source = &it->second;
+  }
+  if (source) {
+    const auto name = WrapFixtureLabelName(source->instanceName.empty() ? uuid : source->instanceName);
     lineCounts[0] += std::count(name.begin(), name.end(), '\n');
   }
   for (int f = 0; f < 3; ++f) {
@@ -62,9 +65,9 @@ FixtureLabelComposition ComposeFixtureLabels(const ConfigManager &cfg,
   const std::array<std::string, 3> values{
     WrapFixtureLabelName(fixture.instanceName.empty() ? fixture.uuid : fixture.instanceName),
     "ID: " + std::to_string(fixture.fixtureId), fixture.address};
+  const auto resolved = ResolveEditableFieldStyles(cfg, all, fixture.uuid, view, fonts, &fixture);
   for (int f = 0; f < 3; ++f) {
-    if (!HasFieldPresentation(all, fixture.uuid, view, f)) continue;
-    const auto style = ResolveFieldStyle(cfg, all, fixture.uuid, view, f);
+    const auto &style = resolved[f];
     if (!style.visible || values[f].empty()) continue;
     typography::TextStyle textStyle;
     textStyle.size = style.size; textStyle.bold = style.bold;
@@ -128,9 +131,8 @@ const FixtureLabelComposition &FixtureLabelCompositionCache::Resolve(
     resourceRoot_ = fonts.resourceRoot;
   }
   Key key{fixture.instanceName, fixture.address, fixture.fixtureId, view, bounds, {}};
-  for (int field = 0; field < 3; ++field)
-    if (HasFieldPresentation(all, fixture.uuid, view, field))
-      key.styles[field] = ResolveFieldStyle(cfg, all, fixture.uuid, view, field);
+  const auto resolved = ResolveEditableFieldStyles(cfg, all, fixture.uuid, view, fonts, &fixture);
+  for (int field = 0; field < 3; ++field) key.styles[field] = resolved[field];
   auto it = entries_.find(fixture.uuid);
   if (it == entries_.end() || !(it->second.key == key)) {
     auto composition = ComposeFixtureLabels(cfg, all, fixture, view, bounds, fonts);

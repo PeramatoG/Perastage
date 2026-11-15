@@ -4,6 +4,8 @@
 #include "typography/font_resources.h"
 
 namespace viewer2d {
+// Included in persisted Layout capture hashes when typography semantics change.
+inline constexpr int kFixtureLabelCompositionRevision = 1;
 struct LabelBounds {
   double minX = 0, minY = 0, maxX = 0, maxY = 0;
   bool operator==(const LabelBounds &) const = default;
@@ -18,7 +20,7 @@ bool HasFieldPresentation(const FixtureLabelOverrideMap &all,
                          const std::string &uuid, int view, int field);
 std::array<LabelFieldStyle, 3> ResolveEditableFieldStyles(const ConfigManager &cfg,
     const FixtureLabelOverrideMap &all, const std::string &uuid, int view,
-    const typography::FontPair &fonts);
+    const typography::FontPair &fonts, const Fixture *fixture = nullptr);
 FixtureLabelComposition ComposeFixtureLabels(const ConfigManager &cfg,
     const FixtureLabelOverrideMap &all, const Fixture &fixture, int view,
     const LabelBounds &bounds, const typography::FontPair &fonts);

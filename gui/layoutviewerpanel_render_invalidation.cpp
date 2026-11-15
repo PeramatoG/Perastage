@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "FixtureLabelPresentationSerialization.h"
+#include "fixture_label_composition.h"
 #include "LayoutManager.h"
 #include "layoutviewerpanel.h"
 #include "layout_view_raster_policy.h"
@@ -134,6 +135,7 @@ size_t LayoutViewerPanel::ComputeSceneContentHash() const {
 size_t LayoutViewerPanel::HashViewContent(
     const layouts::Layout2DViewDefinition &view) const {
   size_t seed = std::hash<int>{}(view.id);
+  HashCombine(seed, std::hash<int>{}(viewer2d::kFixtureLabelCompositionRevision));
   HashCombine(seed, std::hash<std::string>{}(layouts::LabelPresentationJson(view.labelPresentation).dump()));
   const auto &profiles = layouts::LayoutManager::Get().GetLayouts().labelProfiles;
   if (const auto it = profiles.find(view.labelPresentation.profileId); it != profiles.end())

@@ -1,5 +1,11 @@
 # Perastage 1.8.0
 
+- Fixture labels now use the same bundled font, letter positions and line layout
+  in the 2D viewer, label editor and PDF, including unedited inherited fields.
+  Existing numeric settings remain stored unchanged; labels that previously used
+  a system font now match the editor. Font sizing is consistent across NanoVG
+  backends, and older Layout label captures are refreshed automatically.
+
 - Reuse named fixture label styles across Layout viewports and pages, with local
   viewport and selected-fixture adjustments in the existing label editor. Styles
   and positions stay independent of scene labels, support Undo/Redo, and travel
