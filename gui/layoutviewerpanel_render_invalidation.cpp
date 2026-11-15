@@ -15,6 +15,8 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "FixtureLabelPresentationSerialization.h"
+#include "LayoutManager.h"
 #include "layoutviewerpanel.h"
 #include "layout_view_raster_policy.h"
 
@@ -132,6 +134,10 @@ size_t LayoutViewerPanel::ComputeSceneContentHash() const {
 size_t LayoutViewerPanel::HashViewContent(
     const layouts::Layout2DViewDefinition &view) const {
   size_t seed = std::hash<int>{}(view.id);
+  HashCombine(seed, std::hash<std::string>{}(layouts::LabelPresentationJson(view.labelPresentation).dump()));
+  const auto &profiles = layouts::LayoutManager::Get().GetLayouts().labelProfiles;
+  if (const auto it = profiles.find(view.labelPresentation.profileId); it != profiles.end())
+    HashCombine(seed, std::hash<std::string>{}(layouts::LabelFieldsJson(it->second.fields).dump()));
   HashCombine(seed, std::hash<int>{}(static_cast<int>(view.scaleMode)));
   if (view.physicalScale) {
     for (double v : {view.physicalScale->denominator, view.physicalScale->centerX,

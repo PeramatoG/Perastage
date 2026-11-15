@@ -31,6 +31,7 @@
 #include "continuous_placement_state.h"
 #include "canvas2d.h"
 #include "viewer3dcontroller.h"
+#include "../core/layouts/FixtureLabelPresentation.h"
 #include "viewer2d_measure_tool.h"
 #include "interaction/viewer2d_interaction_session.h"
 #include "../gui/mouse_capture_ownership.h"
@@ -91,8 +92,15 @@ struct RenderFramePlan;
 }
 }
 
+class ConfigManager;
 class Viewer2DPanel : public wxGLCanvas {
 public:
+  layouts::FixtureLabelPresentation labelPresentation;
+  void ApplyFixtureLabelPresentation(const layouts::FixtureLabelPresentation &, const ConfigManager &);
+  void SetFixtureLabelPresentationContext(std::shared_ptr<const viewer2d::FixtureLabelPresentationContext> context) {
+    m_controller.SetFixtureLabelPresentation(std::move(context));
+  }
+
   bool HasPendingResourceLoading() const { return m_controller.IsResourceSyncPending(); }
   explicit Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender = false,
                          bool persistViewState = true,

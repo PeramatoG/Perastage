@@ -40,6 +40,8 @@ public:
   bool DeleteElements(const std::string &name, const std::vector<LayoutElementRef> &refs,
       std::string *error = nullptr);
 
+  bool CommitLabelPresentation(const std::string &page, const Layout2DViewDefinition &view,
+      const FixtureLabelProfiles &profiles);
   bool AddLayout(const LayoutDefinition &layout);
   bool RenameLayout(const std::string &currentName,
                     const std::string &newName);
@@ -87,7 +89,7 @@ private:
       const std::string &description, std::string *error);
   bool ApplyMutation(const std::string &description,
                      const std::function<bool(LayoutCollection &)> &mutation,
-                     bool recordHistory = true);
+                     bool recordHistory = true, bool presentationOnly = false);
   LayoutManager();
   std::string MakeUniqueLayoutName(const std::string &baseName) const;
 

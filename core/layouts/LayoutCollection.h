@@ -24,6 +24,7 @@
 
 #include "PageSetup.h"
 #include "PhysicalViewport.h"
+#include "FixtureLabelPresentation.h"
 
 namespace layouts {
 
@@ -88,6 +89,7 @@ struct Layout2DViewDefinition {
   Layout2DViewCameraState camera;
   Layout2DViewRenderOptions renderOptions;
   Layout2DViewLayers layers;
+  FixtureLabelPresentation labelPresentation;
 };
 
 inline ViewportFramePoints ResolveViewportFrame(const Layout2DViewDefinition &v) {
@@ -165,6 +167,8 @@ struct LayoutImageDefinition {
 
 struct LayoutDefinition {
   std::string name;
+  // Portable dependency closure; empty in the authoritative project collection.
+  FixtureLabelProfiles portableLabelProfiles;
   print::PageSetup pageSetup;
   std::vector<Layout2DViewDefinition> view2dViews;
   std::vector<LayoutLegendDefinition> legendViews;
@@ -176,6 +180,7 @@ struct LayoutDefinition {
 class LayoutCollection {
 public:
   LayoutCollection();
+  FixtureLabelProfiles labelProfiles;
 
   const std::vector<LayoutDefinition> &Items() const;
   std::vector<LayoutDefinition> &Items();

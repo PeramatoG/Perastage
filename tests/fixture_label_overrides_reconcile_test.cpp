@@ -10,6 +10,7 @@
 
 #include <cassert>
 
+void RunLayoutFixtureLabelPresentationTests();
 int main() {
   ConfigManager &cfg = ConfigManager::Get();
   cfg.Reset();
@@ -204,5 +205,6 @@ int main() {
   cfg.Redo(); assert(cfg.GetValue("label_fixture_overrides") == labelsAfter);
   assert(cfg.GetValue("layouts_collection") == layoutAfter);
   cfg.Reset();
+  RunLayoutFixtureLabelPresentationTests();
   return 0;
 }

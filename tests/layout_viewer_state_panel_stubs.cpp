@@ -8,3 +8,5 @@ void Viewer2DPanel::LoadViewFromConfig() { throw std::logic_error("Unexpected pa
 void Viewer2DPanel::ApplyViewState(float,float,float,Viewer2DView,Viewer2DRenderMode) { throw std::logic_error("Unexpected panel access"); }
 void Viewer2DPanel::UpdateScene(bool) { throw std::logic_error("Unexpected panel access"); }
 void Viewer2DRenderPanel::ApplyConfig() { throw std::logic_error("Unexpected panel access"); }
+
+void Viewer2DPanel::ApplyFixtureLabelPresentation(const layouts::FixtureLabelPresentation &, const ConfigManager &) { throw std::logic_error("Unexpected panel access"); }

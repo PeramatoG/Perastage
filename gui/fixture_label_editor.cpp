@@ -8,10 +8,12 @@
 #include <wx/stattext.h>
 #include <wx/button.h>
 
-FixtureLabelEditor::FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int initialView)
+FixtureLabelEditor::FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int initialView,
+                                       const FixtureLabelEditSession *session)
     : wxDialog(parent, wxID_ANY, _("Fixture Label Editor"), wxDefaultPosition,
                wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER), cfg_(cfg),
-      draft_(viewer2d::LoadFixtureLabelOverrides(cfg)), selection_(cfg.GetSelectedFixtures()) {
+      draft_(session ? session->draft : viewer2d::LoadFixtureLabelOverrides(cfg)), selection_(cfg.GetSelectedFixtures()) {
+  if (session) session_ = *session;
   if (!selection_.empty() && cfg.GetScene().fixtures.contains(selection_.front()))
     fixture_ = cfg.GetScene().fixtures.at(selection_.front());
   else if (!cfg.GetScene().fixtures.empty()) {
@@ -22,9 +24,10 @@ FixtureLabelEditor::FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int
   auto *outer = new wxBoxSizer(wxVERTICAL);
   auto *header = new wxBoxSizer(wxHORIZONTAL);
   scope_ = new wxChoice(this, wxID_ANY);
-  scope_->Append(_("Project defaults"));
-  if (!selection_.empty()) scope_->Append(_("Selected fixtures"));
-  scope_->SetSelection(selection_.empty() ? 0 : 1);
+  scope_->Append(session ? session->defaultsScope : _("Project defaults"));
+  if (session && session->fixturesScope.empty()) selection_.clear();
+  if (!selection_.empty()) scope_->Append(session ? session->fixturesScope : _("Selected project fixtures"));
+  scope_->SetSelection(session || selection_.empty() ? 0 : 1);
   view_ = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                        wxArrayString{_("Top"), _("Front"), _("Side")});
   view_->SetSelection(std::clamp(initialView, 0, 2));
@@ -78,7 +81,7 @@ FixtureLabelEditor::FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int
   body->Add(previewBox, 1, wxEXPAND);
   outer->Add(body, 1, wxEXPAND | wxLEFT | wxRIGHT, 10);
   auto *note = new wxStaticText(this, wxID_ANY,
-      _("Legacy rendering is preserved until edited; its preview is approximate. Sizes and offsets use scene metres.\nSupported text: English and Western European WinAnsi characters. No viewport-specific styles yet."));
+      _("Legacy rendering is preserved until edited; its preview is approximate. Sizes and offsets use scene metres.\nSupported text: English and Western European WinAnsi characters."));
   note->Wrap(700); outer->Add(note, 0, wxEXPAND | wxALL, 10);
   auto *buttons = new wxBoxSizer(wxHORIZONTAL);
   auto *reset = new wxButton(this, wxID_RESET, _("Reset to Default"));
@@ -99,7 +102,7 @@ FixtureLabelEditor::FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int
   outlineColor_->Bind(wxEVT_COLOURPICKER_CHANGED, [this](wxColourPickerEvent &event) { StoreField(event.GetEventObject()); });
   preview_->SetDragCallback([this](auto phase,const auto &style){ OnPreviewDrag(phase,style); });
   Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Apply(); }, wxID_APPLY);
-  Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Apply(); if(IsModal())EndModal(wxID_OK);else Hide(); }, wxID_OK);
+  Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Apply(); if (session_) session_->commit(draft_); if(IsModal())EndModal(wxID_OK);else Hide(); }, wxID_OK);
   Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { preview_->CancelDrag(); if(IsModal())EndModal(wxID_CANCEL);else Hide(); }, wxID_CANCEL);
   Bind(wxEVT_CLOSE_WINDOW,[this](wxCloseEvent &e){preview_->CancelDrag();e.Skip();});
   reset->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Reset(); });
@@ -114,7 +117,7 @@ std::string FixtureLabelEditor::ScopeUuid() const {
 }
 void FixtureLabelEditor::LoadField() {
   loading_ = true;
-  const auto s = preview_->ResolveEditingStyle(draft_, ScopeUuid(), view_->GetSelection(), fields_->GetSelection());
+  const auto s = preview_->ResolveEditingStyle(EffectiveDraft(), ScopeUuid(), view_->GetSelection(), fields_->GetSelection());
   visible_->SetValue(s.visible); bold_->SetValue(s.bold); size_->SetValue(s.size);
   x_->SetValue(s.x); y_->SetValue(s.y); anchor_->SetSelection(s.anchor); align_->SetSelection(s.alignment);
   color_->SetColour(wxColour(s.color[0]*255,s.color[1]*255,s.color[2]*255));
@@ -132,7 +135,7 @@ void FixtureLabelEditor::StoreField(wxObject *source) {
       !std::isfinite(width) || width<0 || width>1) return;
   const auto ids = scope_->GetSelection() == 0 ? std::vector<std::string>{viewer2d::kLabelDefaultsKey} : selection_;
   for (const auto &id : ids) {
-    auto s = preview_->ResolveEditingStyle(draft_, id, view_->GetSelection(), fields_->GetSelection());
+    auto s = preview_->ResolveEditingStyle(EffectiveDraft(), id, view_->GetSelection(), fields_->GetSelection());
     if (source == visible_) s.visible = visible_->GetValue();
     if (source == bold_) s.bold = bold_->GetValue();
     if (source == size_) s.size = size;
@@ -156,9 +159,10 @@ void FixtureLabelEditor::StoreField(wxObject *source) {
 }
 void FixtureLabelEditor::RefreshPreview() {
   viewer2d::FixtureLabelOverrideMap preview;
+  const auto effective = EffectiveDraft();
   for (const auto &key : {std::string(viewer2d::kLabelDefaultsKey),fixture_.uuid}) {
-    if (key == fixture_.uuid && scope_->GetSelection() == 0) continue;
-    if (const auto it = draft_.find(key); it != draft_.end()) preview.emplace(*it);
+    if (key == fixture_.uuid && scope_->GetSelection() == 0 && !session_) continue;
+    if (const auto it = effective.find(key); it != effective.end()) preview.emplace(*it);
   }
   preview_->SetActiveField(fields_->GetSelection());
   preview_->SetContent(fixture_, view_->GetSelection(), preview);
@@ -166,6 +170,7 @@ void FixtureLabelEditor::RefreshPreview() {
 void FixtureLabelEditor::Apply() {
   preview_->CancelDrag();
   if (!changed_) return;
+  if (session_) return;
   if (viewer2d::CommitFixtureLabelStyles(cfg_, draft_)) {
     if (auto *window = MainWindow::Instance()) window->RefreshAfterFixtureLabelUpdate();
   }

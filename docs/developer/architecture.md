@@ -805,3 +805,44 @@ and publishes through its existing candidate/history/resource boundary.
 adapters and nonprinting selection overlays live in focused Layout viewer files.
 See [document alignment](layout_document_alignment.md) for coordinate, precision,
 interaction and validation contracts.
+
+## Layout fixture label presentation
+
+`core/layouts/FixtureLabelPresentation.h` owns the GUI-independent profile and
+viewport presentation model. Profiles are stored once in `LayoutCollection`,
+keyed by stable IDs. `LayoutLabelDocument.h` extends the existing Layout metadata
+serializer with this registry and validates references before publication.
+`LayoutManager::CommitLabelPresentation` commits profiles and the target view
+through the existing candidate document transaction, preserving unrelated scene
+labels and Layout metadata. Referenced deletion and invalid/missing definitions
+fail atomically; no-op edits add no history. History and PSTG retain the registry
+in `layouts_collection`. Portable pages carry their profile dependency closure;
+imports simultaneously remap conflicting IDs with deterministic numeric suffixes.
+
+`viewer2d/fixture_label_presentation` adapts project defaults/fixture overrides
+and legacy settings into one immutable context per configured viewport. Missing
+fields inherit; complete field styles are the atomic unit. Precedence is local
+fixture field, local viewport field, profile field, project fixture override,
+project default, then legacy configuration. No configuration returns no context
+and preserves existing legacy resolution. Bottom continues using the clamped Side
+style key with Top-plane projection, without changing GDTF orientations.
+
+The panel/controller owns the immutable render context; applying and restoring
+viewer state never substitutes the authoritative project override map. Existing
+`LabelRenderSystem`, `FixtureLabelCompositionCache`, capture service and PDF command
+publication consume those styles. Modern fields are frozen before rendering;
+legacy inputs are snapshotted while retaining their existing stack renderer.
+Composition keys compare orientation, effective field values, bounds and content,
+so a shared fixture UUID never permits a different viewport style to reuse stale
+composition. Layout capture/raster hashes include local settings and only the
+referenced profile's fields; unrelated profiles do not invalidate captures.
+Style publication does not load GDTF resources, generate symbols or rebuild scene
+geometry. The existing global scene invalidation policy remains in effect for
+scene changes. All preview and vector PDF glyph commands share the existing
+composition; no PDF-specific resolver exists.
+
+The existing `FixtureLabelEditor` accepts a scoped draft session for named styles,
+viewport fields and local fixture fields. Nested sessions publish only on OK;
+the outer dialog commits once. Project editor Apply behavior is preserved.
+Presentation schema version/metric tags reserve explicit future metrics, while
+current sizes/offsets remain scene metres. They are not constant paper sizes.

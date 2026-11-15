@@ -18,7 +18,7 @@
 #include "viewer2drenderpanel.h"
 
 #include "configmanager.h"
-#include "fixture_label_editor.h"
+#include "layout_fixture_labels.h"
 #include "mainwindow.h"
 #include <algorithm>
 #include <array>
@@ -244,8 +244,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
 
   auto *editLabels = new wxButton(this, wxID_ANY, _("Edit Fixture Labels..."));
   editLabels->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
-    FixtureLabelEditor editor(this, ConfigManager::Get(), m_view->GetSelection());
-    editor.ShowModal();
+    EditPanelFixtureLabels(this, Viewer2DPanel::Instance(), m_view->GetSelection());
   });
   sizer->Add(editLabels, 0, wxEXPAND | wxALL, 5);
 

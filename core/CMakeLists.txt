@@ -568,6 +568,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutManagerDocumentEdit.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutImageResourceRegistry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutLabelCommands.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutTemplateSerializer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutTemplatePackageService.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutSelectionPolicy.cpp

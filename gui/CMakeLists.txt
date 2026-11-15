@@ -23,6 +23,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_alignment.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_patch_workflow.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_editor_drag.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_editor_session.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layout_fixture_labels.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_editor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_preview_composition.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_preview_symbol.cpp

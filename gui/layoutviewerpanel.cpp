@@ -50,6 +50,7 @@
 #include "layout_render_profiler.h"
 #include "layout_render_status_notifier.h"
 #include "layoutviewerpanel.h"
+#include "layout_fixture_labels.h"
 #include "layoutviewerpanel_helpers.h"
 #include <wx/debug.h>
 #include <wx/log.h>
@@ -1303,11 +1304,11 @@ void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
   wxMenu menu;
   if (selectionState_.Current().kind == LayoutElementKind::View2D) {
     menu.Append(kEditMenuId, layoutviewerpanel::BuildEditViewMenuLabel());
+    AppendLayoutFixtureLabelMenu(menu, *this, currentLayout.name, selectionState_.Current().id);
     menu.AppendCheckItem(kToggleViewFrameMenuId,
                          layoutviewerpanel::BuildShowBorderMenuLabel());
     menu.Append(kDeleteMenuId, layoutviewerpanel::BuildDeleteViewMenuLabel());
-    if (const auto *view = GetEditableView())
-      menu.Check(kToggleViewFrameMenuId, view->drawFrame);
+    if (const auto *view = GetEditableView()) menu.Check(kToggleViewFrameMenuId, view->drawFrame);
     menu.AppendSeparator();
     menu.Append(kBringToFrontMenuId,
                 layoutviewerpanel::BuildBringToFrontMenuLabel());

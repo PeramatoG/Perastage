@@ -159,3 +159,49 @@ Physical scale guarantees scene geometry placement, not typography parity for
 all existing presentation features. Existing paper-space text, outline and
 symbol styling limitations remain; annotations and broad typography changes
 belong to later milestones.
+
+## Reusable fixture label styles
+
+Right-click a 2D viewport frame and choose **Fixture label settings...**. Select
+**Inherit project presentation** or a named project style. **Create style from
+current settings...** captures reusable field settings; named styles can be edited,
+renamed or duplicated. Creating a style moves shared viewport fields into the
+profile; fixture-local adjustments remain local. The dialog indicates active local
+adjustments. Editing a named style updates every viewport using it,
+including other pages. Referenced styles cannot be deleted; restore inheritance
+in their referencing views first.
+
+**Customize current viewport...** opens the existing Fixture Label Editor with
+explicit **Current Layout viewport** and **Selected fixtures in current Layout
+viewport** scopes. Select fixtures in the scene before opening it to make local
+fixture adjustments. The same preview, background selector and field dragging
+remain available. Only the edited orientation and field become explicit. Each
+field's visibility, font, ink, outline, anchor, alignment and offsets inherit as
+one unit; changing a field copies its current properties into that scope.
+**Reset to Default** in this editor clears only that scope's local settings.
+**Restore inherited settings** in the viewport dialog clears its profile assignment
+and all local adjustments. Neither operation removes project fixture overrides.
+
+Precedence, highest first: viewport-local fixture field, customized viewport field,
+named profile field, project fixture override, project default field, legacy
+configuration. Missing fields inherit. A local field stays independent of later
+profile edits until reset. Profiles cover Fixture Name, Fixture ID and DMX Address
+for Top, Front and Side. Bottom retains its historical Side style-key mapping
+and Top-plane placement; it is not an additional standard GDTF SVG orientation.
+
+The nested editor's **Apply** keeps the preview draft; **OK** accepts it into the
+outer dialog. The outer **OK** publishes one Undo operation; **Cancel** discards
+all of its changes. Opening settings, selecting a style or changing preview
+background does not save or dirty the project. Camera/scale edits use the same
+local label scope when opened from the Layout camera editor.
+
+Profiles and local adjustments are project presentation metadata in PSTG.
+Portable PSLAYOUT files include referenced profile definitions. Imports reuse an
+identical ID/definition or deterministically remap a conflicting ID. Missing
+profiles reject the operation with diagnostics instead of silently changing the
+appearance. MVR scene data and external GDTF archives are unchanged.
+
+Sizes, outlines and offsets remain in **scene metres**, including in vector PDF.
+A label therefore prints at different sizes at 1:100 and 1:25. Editing a label
+does not alter drawing scales, camera framing, scene transforms or symbols.
+Paper-sized typography and broader Unicode support remain separate work.

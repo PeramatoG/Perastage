@@ -1,6 +1,7 @@
 #include "fixture_label_name.h"
 #include "layer_identity.h"
 #include "label_render_system.h"
+#include "fixture_label_presentation.h"
 #include "composed_fixture_labels.h"
 #include "fixture_label_composition.h"
 
@@ -761,6 +762,7 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
   const int viewIdx = static_cast<int>(view);
   auto &layoutCacheState = GetFixtureLayoutCacheState(this);
   const auto &fixtureOverrides =
+      m_controller.GetFixtureLabelPresentation() ? m_controller.GetFixtureLabelPresentation()->styles :
       GetCachedFixtureLabelOverrides(layoutCacheState, cfg);
 
   if (layoutCacheState.composedRevision != cfg.GetRenderRevision()) {

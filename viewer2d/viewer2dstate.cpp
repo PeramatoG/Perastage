@@ -18,6 +18,7 @@
 #include "viewer2dstate.h"
 
 #include "configmanager.h"
+#include "preference_draft.h"
 #include "viewer2dpanel.h"
 #include "viewer2drenderpanel.h"
 
@@ -120,6 +121,7 @@ Viewer2DState CaptureState(const Viewer2DPanel *panel,
                            const ConfigManager &cfg) {
   Viewer2DState state;
   if (panel) {
+    state.labelPresentation = panel->labelPresentation;
     const auto viewState = panel->GetViewState();
     state.camera.offsetPixelsX = viewState.offsetPixelsX;
     state.camera.offsetPixelsY = viewState.offsetPixelsY;
@@ -244,6 +246,9 @@ void ApplyState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
       state.layers.hiddenFixtureTypes.end());
   cfg.SetHiddenFixtureTypes(hiddenFixtureTypes);
 
+  if (panel) {
+    panel->ApplyFixtureLabelPresentation(state.labelPresentation, cfg);
+  }
   if (panel && updatePanels) {
     if (persistCameraToConfig) {
       panel->LoadViewFromConfig();
@@ -253,7 +258,7 @@ void ApplyState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
           state.camera.zoom, static_cast<Viewer2DView>(state.camera.view),
           static_cast<Viewer2DRenderMode>(state.renderOptions.renderMode));
     }
-    panel->UpdateScene(true);
+    panel->UpdateScene(false);
     panel->Refresh();
   }
   if (renderPanel && updatePanels)
@@ -263,14 +268,11 @@ void ApplyState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
 namespace {
 void ApplyScopedState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
     ConfigManager &cfg, const Viewer2DState &state, bool persistCamera) {
-  // Preserve revisions only during synchronous temporary apply/restore calls.
-  // Never hold this guard across asynchronous captures or unrelated user edits.
-  struct DirtyStateRestore {
-    ConfigManager &cfg;
-    std::optional<ConfigManager::DirtyState> previous;
-    ~DirtyStateRestore() { if (previous) cfg.RestoreDirtyState(*previous); }
-  } revisions{cfg, persistCamera ? std::nullopt :
-      std::optional<ConfigManager::DirtyState>{cfg.CaptureDirtyState()}};
+  // Own only synchronous preference writes; never invalidate geometry or roll
+  // back unrelated edits when applying/restoring temporary capture settings.
+  ScopedPreferenceDraft preferences(&cfg, [persistCamera](std::string_view key) {
+    return !persistCamera && (IsViewer2DUserPreferenceConfigKey(key) || key == "view_hidden_fixture_types");
+  });
   ApplyState(panel, renderPanel, cfg, state, persistCamera, true);
 }
 } // namespace
@@ -348,6 +350,7 @@ Viewer2DState FromLayoutDefinition(const layouts::Layout2DViewDefinition &view) 
   state.camera = view.camera;
   state.renderOptions = view.renderOptions;
   state.layers = view.layers;
+  state.labelPresentation = view.labelPresentation;
   return state;
 }
 
@@ -373,6 +376,7 @@ layouts::Layout2DViewDefinition ToLayoutDefinition(
   }
   view.renderOptions = state.renderOptions;
   view.layers = state.layers;
+  view.labelPresentation = state.labelPresentation;
   return view;
 }
 

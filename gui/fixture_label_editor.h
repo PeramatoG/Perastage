@@ -10,11 +10,19 @@
 #include <functional>
 
 class FixtureLabelPreview;
+struct FixtureLabelEditSession {
+  wxString defaultsScope, fixturesScope;
+  viewer2d::FixtureLabelOverrideMap draft, inherited;
+  std::function<void(const viewer2d::FixtureLabelOverrideMap &)> commit;
+};
 class FixtureLabelEditor : public wxDialog {
 public:
-  FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int initialView);
+  FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int initialView,
+                     const FixtureLabelEditSession *session = nullptr);
   ~FixtureLabelEditor() override;
 private:
+  viewer2d::FixtureLabelOverrideMap EffectiveDraft() const;
+  std::optional<FixtureLabelEditSession> session_;
   void LoadField();
   void StoreField(wxObject *source);
   void Apply();

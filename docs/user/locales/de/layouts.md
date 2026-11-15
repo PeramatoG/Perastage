@@ -79,3 +79,31 @@ Gültige Änderungen in **Ansichtseigenschaften** werden sofort im Editor angeze
 Rahmenbreite und -höhe verwenden Millimeter. Verschieben Sie das Element auf der Layout-Seite, um seine Position zu ändern; X/Y werden in diesem Dialog nicht angeboten. Bruchteile bleiben erhalten. Teilweise außerhalb der Seite liegende Rahmen sind erlaubt. Die Mindestgröße beträgt 1 Punkt (0,353 mm), die Grenze 200000 Punkte. Verschieben und Größenänderungen fester Rahmen erhalten Mittelpunkt und Maßstab und ändern den sichtbaren Bereich. Layout-Zoom und DPI betreffen nur die Anzeige. Der Wechsel zu frei erhält den vorherigen Zoom, den neuesten Mittelpunkt, Filter und Darstellung. **Cancel** verwirft den Entwurf; **OK** bestätigt mit Rückgängig/Wiederholen und PSTG/PSLAYOUT-Speicherung.
 
 Im Seitenkontextmenü wählen Sie A3/A4 und die Ausrichtung, ohne Inhalte zu skalieren. Feste Ansichten benötigen PDF-Ausgabe zu 100 % im Layout-Papierformat; andere Formate werden mit Erklärung abgelehnt. Ändern Sie zuerst das Layout-Papier, wenn ein anderes Format benötigt wird. Freie Seiten behalten die gleichmäßige Ausgabeanpassung. Drucken Sie PDF in tatsächlicher Größe/100 %; Perastage kontrolliert keine Treiberskalierung. Der physische Vertrag gilt für Geometrie und erweitert keine bestehenden Typografiegarantien.
+
+## Wiederverwendbare Stile für Gerätebeschriftungen
+
+Klicken Sie mit der rechten Maustaste auf einen 2D-Ansichtsrahmen und wählen Sie
+**Einstellungen für Gerätebeschriftungen...**. Übernehmen Sie die Projektdarstellung
+oder wählen Sie einen benannten Stil. Sie können aus aktuellen Einstellungen einen
+Stil erstellen, ihn bearbeiten, umbenennen oder duplizieren. Änderungen gelten für
+alle Ansichtsfenster mit diesem Stil, auch auf anderen Seiten. Verwendete Stile
+lassen sich erst löschen, nachdem die zugehörigen Ansichtsfenster wieder erben.
+
+**Aktuelles Ansichtsfenster anpassen...** öffnet den vorhandenen Editor für das
+aktuelle Ansichtsfenster oder dessen ausgewählte Geräte. Wählen Sie die Geräte
+vorher in der Szene aus. Vorschau, Hintergrundwahl und Ziehen bleiben verfügbar.
+Jedes bearbeitete Feld einer Orientierung speichert seine vollständigen Eigenschaften;
+unbearbeitete Felder erben. Vorrang: lokales Gerät, Ansichtsfensterfeld, Stilfeld,
+Projektgerät, Projektvorgabe, bisherige Konfiguration. Lokales Zurücksetzen erhält
+Projektanpassungen. Das Wiederherstellen geerbter Einstellungen im Ansichtsfensterdialog
+entfernt auch die Stilzuweisung.
+
+Im eingebetteten Editor bleibt Übernehmen ein Entwurf; OK übernimmt ihn in den
+äußeren Dialog. Erst dessen OK erzeugt einen Rückgängig-Schritt, Abbrechen verwirft
+die Änderungen. Die Wahl eines Stils oder Hintergrunds verändert das Projekt nicht.
+PSTG speichert Stile und lokale Einstellungen. PSLAYOUT enthält benötigte Stile und
+ordnet kollidierende Kennungen beim Import deterministisch neu zu. Fehlende Referenzen
+blockieren den Vorgang mit Diagnose. MVR und GDTF bleiben unverändert.
+Größen und Versätze bleiben in Szenenmetern und haben bei unterschiedlichen Maßstäben
+keine konstante Papiergröße. Bottom behält aus Kompatibilitätsgründen den Side-Stilschlüssel
+und die Top-Projektion; es entsteht keine neue standardisierte GDTF-SVG-Orientierung.
