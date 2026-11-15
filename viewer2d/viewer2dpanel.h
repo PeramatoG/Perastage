@@ -96,6 +96,9 @@ class ConfigManager;
 class Viewer2DPanel : public wxGLCanvas {
 public:
   layouts::FixtureLabelPresentation labelPresentation;
+  std::optional<std::vector<std::string>> layoutFixtureLabelSelection;
+  std::optional<std::string> PickFixtureForLayoutLabels(const wxPoint &position);
+  void SetLayoutFixtureLabelSelection(std::vector<std::string> selection);
   void ApplyFixtureLabelPresentation(const layouts::FixtureLabelPresentation &, const ConfigManager &);
   void SetFixtureLabelPresentationContext(std::shared_ptr<const viewer2d::FixtureLabelPresentationContext> context) {
     m_controller.SetFixtureLabelPresentation(std::move(context));

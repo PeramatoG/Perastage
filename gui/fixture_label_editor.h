@@ -14,6 +14,7 @@ struct FixtureLabelEditSession {
   wxString defaultsScope, fixturesScope;
   viewer2d::FixtureLabelOverrideMap draft, inherited;
   std::function<void(const viewer2d::FixtureLabelOverrideMap &)> commit;
+  std::optional<std::vector<std::string>> fixtureSelection;
 };
 class FixtureLabelEditor : public wxDialog {
 public:

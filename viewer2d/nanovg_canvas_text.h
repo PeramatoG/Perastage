@@ -5,8 +5,8 @@
 #include <nanovg.h>
 
 namespace viewer2d {
-// Composition owns glyph positions. Screen fill uses the legacy font rasterizer:
-// polygon AA fringes overfill subpixel stems when zoomed out. Halos stay vector.
+// Composition owns glyph positions. Screen ink uses the established rasterizer
+// for both halo and fill, keeping their glyph shape and pixel rounding identical.
 inline void DrawCanvasText(NVGcontext *vg, const TextCommand &text,
                            float x, float y, double scenePixelsPerUnit,
                            typography::TextInkPass pass = typography::TextInkPass::Both,
@@ -25,8 +25,18 @@ inline void DrawCanvasText(NVGcontext *vg, const TextCommand &text,
       nvgText(vg, x, y, text.text.c_str(), nullptr);
     } else nvgFill(vg); // Non-font synthetic contours retain their vector fill.
   };
-  if (pass == typography::TextInkPass::Fill && font >= 0) {
-    fill();
+  if (font >= 0) {
+    nvgFontFaceId(vg, font);
+    nvgFontSize(vg, em);
+    nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_BASELINE);
+    if (pass != typography::TextInkPass::Fill && style.outlineWidth > 0) {
+      const double radius = typography::ScreenOutlineStrokeWidth(style.outlineWidth, devicePixelRatio) / 2;
+      nvgFillColor(vg, nvgRGBAf(style.outlineColor.r, style.outlineColor.g,
+                               style.outlineColor.b, style.outlineColor.a));
+      for (const auto &offset : typography::OutlineOffsets(radius))
+        nvgText(vg, x + offset[0], y + offset[1], text.text.c_str(), nullptr);
+    }
+    if (pass != typography::TextInkPass::Outline) fill();
     nvgRestore(vg);
     return;
   }

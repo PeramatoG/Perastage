@@ -832,6 +832,16 @@ viewport fields and local fixture fields. Nested sessions publish only on OK;
 the outer dialog commits once. Project editor Apply behavior is preserved.
 Presentation schema version/metric tags reserve explicit future metrics, while
 current sizes/offsets remain scene metres. They are not constant paper sizes.</p>
+<p>Layout camera editors retain disabled scene selection/movement. Their separate
+fixture-label target adapter uses the existing picking API and controller outline
+without publishing ConfigManager selection or history; click/Shift-click targets
+are passed explicitly into the scoped label editor session. Drag gestures remain
+camera pans. Screen fixture text renders halo and fill through the same font
+rasterizer at identical origins; using vector contours with raster fill caused
+subpixel registration and outline-weight differences. PDF retains its physical
+vector glyph stroke and scene-metre metrics. Native pixel comparisons against
+the existing scene raster halo qualify regular/bold text, small/large sizes,
+fractional origins and multiple pixel ratios.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

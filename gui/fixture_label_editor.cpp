@@ -12,7 +12,7 @@ FixtureLabelEditor::FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int
                                        const FixtureLabelEditSession *session)
     : wxDialog(parent, wxID_ANY, _("Fixture Label Editor"), wxDefaultPosition,
                wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER), cfg_(cfg),
-      draft_(session ? session->draft : viewer2d::LoadFixtureLabelOverrides(cfg)), selection_(cfg.GetSelectedFixtures()) {
+      draft_(session ? session->draft : viewer2d::LoadFixtureLabelOverrides(cfg)), selection_(session && session->fixtureSelection ? *session->fixtureSelection : cfg.GetSelectedFixtures()) {
   if (session) session_ = *session;
   if (!selection_.empty() && cfg.GetScene().fixtures.contains(selection_.front()))
     fixture_ = cfg.GetScene().fixtures.at(selection_.front());
@@ -27,7 +27,8 @@ FixtureLabelEditor::FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int
   scope_->Append(session ? session->defaultsScope : _("Project defaults"));
   if (session && session->fixturesScope.empty()) selection_.clear();
   if (!selection_.empty()) scope_->Append(session ? session->fixturesScope : _("Selected project fixtures"));
-  scope_->SetSelection(session || selection_.empty() ? 0 : 1);
+  scope_->SetName("fixtureLabelScope");
+  scope_->SetSelection(!selection_.empty() && (!session || session->fixtureSelection) ? 1 : 0);
   view_ = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                        wxArrayString{_("Top"), _("Front"), _("Side")});
   view_->SetSelection(std::clamp(initialView, 0, 2));

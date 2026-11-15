@@ -48,13 +48,14 @@ void StoreLocal(FixtureLabelPresentation &p, const viewer2d::FixtureLabelOverrid
     else if (entry.HasAnyValue()) p.fixtures[id] = entry.fieldStyles;
   }
 }
-void EditLocal(wxWindow *parent, FixtureLabelPresentation &p, const FixtureLabelProfiles &profiles, int view, const Layout2DViewRenderOptions &options) {
+void EditLocal(wxWindow *parent, FixtureLabelPresentation &p, const FixtureLabelProfiles &profiles, int view, const Layout2DViewRenderOptions &options,
+               const std::optional<std::vector<std::string>> &selection = {}) {
   auto base = p; base.fields = {}; base.fixtures.clear();
   const auto inherited = viewer2d::OverlayLabelPresentation(
       viewer2d::SnapshotLayoutLabelEditorInheritance(Config(), options), base, profiles);
   FixtureLabelEditSession session{_("Current Layout viewport"), _("Selected fixtures in current Layout viewport"),
     LocalDraft(p), inherited,
-    [&](const auto &draft) { StoreLocal(p, draft); }};
+    [&](const auto &draft) { StoreLocal(p, draft); }, selection};
   FixtureLabelEditor editor(parent, Config(), view, &session);
   editor.ShowModal();
 }
@@ -172,7 +173,7 @@ void EditPanelFixtureLabels(wxWindow *parent, Viewer2DPanel *panel, int view) {
   if (panel && panel->GetLayoutEditOverlaySize()) {
     auto draft=panel->labelPresentation;
     EditLocal(parent, draft, layouts::LayoutManager::Get().GetLayouts().labelProfiles, view,
-        viewer2d::CaptureState(panel, Config()).renderOptions);
+        viewer2d::CaptureState(panel, Config()).renderOptions, panel->layoutFixtureLabelSelection);
     panel->labelPresentation=std::move(draft);
     panel->SetFixtureLabelPresentationContext(viewer2d::BuildLabelPresentationContext(Config(), panel->labelPresentation,
         layouts::LayoutManager::Get().GetLayouts().labelProfiles));

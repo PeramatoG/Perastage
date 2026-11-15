@@ -21,6 +21,7 @@
 #include "viewer3dpanel.h"
 #include "startup_profile.h"
 #include "support/layout_label_capture_probe.h"
+#include "support/layout_label_selection_probe.h"
 #include <cmath>
 #include <cstdlib>
 #include <wx/dcscreen.h>
@@ -160,7 +161,7 @@ class ViewportSmoke : public wxApp {
   }
   void CheckPreviewEditing() {
     auto *preview=Preview();preview->Update();
-    CheckFixtureLabelInkBalance(); CheckScreenOutlineRaster(); preview->Refresh(false); preview->Update();
+    CheckFixtureLabelRasterRegistration(); CheckFixtureLabelInkBalance(); CheckScreenOutlineRaster(); preview->Refresh(false); preview->Update();
     auto &cfg=ConfigManager::Get();const auto before=cfg.CaptureDirtyState();
     const auto bounds=preview->GetComposition().fields[0]->bounds;
     const auto otherFields=preview->GetComposition().fields;
@@ -401,6 +402,8 @@ public:
         Require(!editor_->IsShown() && cfg.GetValue("label_fixture_overrides").value_or("")!=labels_,"OK did not apply and close");
         CloseEditor();break;
       case 10:
+        timer_.Stop();
+        CheckLayoutLabelSelection(*frame_);
         CheckLayoutLabelCapture(*frame_,scratch);
         Require(Pixels().size() == 600*600*4, "Viewport capture failed after reload");
         outcome_ = 0; timer_.Stop(); frame_->Destroy(); ExitMainLoop();

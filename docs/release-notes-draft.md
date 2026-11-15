@@ -4,6 +4,10 @@
   viewport and selected-fixture adjustments in the existing label editor. Styles
   and positions stay independent of scene labels, support Undo/Redo, and travel
   with projects and portable templates. Sizes remain in scene metres.
+- Corrected mismatched fixture-label contours and fills in the label preview and
+  2D viewport, retaining the established scene halo weight at different zooms
+  and display scales. The Layout 2D View Editor now supports local fixture label
+  selection by click and Shift-click while dragging continues to pan the camera.
 
 - Layout pages support mixed multi-selection with Ctrl/Shift clicks and selection
   rectangles, moving selected frames together, atomic deletion, and the shared

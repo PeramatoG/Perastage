@@ -16,3 +16,8 @@ rg -q 'BuildLabelPresentationContext' viewer2d/viewer2d_label_presentation.cpp
 rg -q 'LabelPresentationJson' gui/layoutviewerpanel_render_invalidation.cpp
 rg -q 'LabelFieldsJson' gui/layoutviewerpanel_render_invalidation.cpp
 echo 'Layout label presentation boundary passed.'
+
+if rg -n 'SetSelectedFixtures|SetSelectedTrusses|PushUndoState|MarkDirty|transform\.o[[:space:]]*=' gui/layout_fixture_label_selection.cpp viewer2d/viewer2d_layout_label_selection.cpp; then
+  echo 'Layout label target picking must not mutate project selection, transforms or history.' >&2
+  exit 1
+fi

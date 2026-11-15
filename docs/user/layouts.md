@@ -173,8 +173,12 @@ in their referencing views first.
 
 **Customize current viewport...** opens the existing Fixture Label Editor with
 explicit **Current Layout viewport** and **Selected fixtures in current Layout
-viewport** scopes. Select fixtures in the scene before opening it to make local
-fixture adjustments. The same preview, background selector and field dragging
+viewport** scopes. In the **2D View Editor**, click a fixture to select its
+labels; Shift-click adds or removes a fixture. The selected fixtures are outlined,
+and **Edit Fixture Labels...** opens their local scope. Dragging still pans the
+camera and cannot move scene fixtures. This selection does not alter the project
+selection or create Undo entries. For the frame context-menu workflow, select
+fixtures in the ordinary scene before opening label settings. The same preview, background selector and field dragging
 remain available. Only the edited orientation and field become explicit. Each
 field's visibility, font, ink, outline, anchor, alignment and offsets inherit as
 one unit; changing a field copies its current properties into that scope.

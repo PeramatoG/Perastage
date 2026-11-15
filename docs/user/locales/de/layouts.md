@@ -107,3 +107,5 @@ blockieren den Vorgang mit Diagnose. MVR und GDTF bleiben unverändert.
 Größen und Versätze bleiben in Szenenmetern und haben bei unterschiedlichen Maßstäben
 keine konstante Papiergröße. Bottom behält aus Kompatibilitätsgründen den Side-Stilschlüssel
 und die Top-Projektion; es entsteht keine neue standardisierte GDTF-SVG-Orientierung.
+
+Klicken Sie im **2D View Editor** auf ein Gerät, um dessen Beschriftungen auszuwählen; Umschalt-Klick fügt Geräte hinzu oder entfernt sie. **Edit Fixture Labels...** öffnet den ausgewählten lokalen Bereich. Ziehen verschiebt weiterhin die Kamera, niemals die Geräte. Projektauswahl und Verlauf bleiben unverändert. Kontur und Füllung der Bildschirmbeschriftungen verwenden dieselbe Rasterung und Pixelrundung mit der bisherigen Konturstärke der Szene, auch bei hoher Pixeldichte. PDF behält seine Maße in Szenenmetern.

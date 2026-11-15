@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-15 12:59+0100\n"
+"POT-Creation-Date: 2026-11-15 14:20+0100\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: German\n"
@@ -313,7 +313,7 @@ msgstr "Nur Verweise exportieren"
 #: gui/dictionaryeditdialog.cpp:260 gui/dictionaryeditdialog.cpp:293
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
 #: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:92
-#: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:89
+#: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:94
 #: gui/layouttextdialog.cpp:149 gui/preferencesdialog.cpp:87
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139
@@ -527,7 +527,7 @@ msgid "Export..."
 msgstr "Exportieren…"
 
 #: gui/dictionaryeditdialog.cpp:610 gui/gdtf_download_queue_dialog.cpp:93
-#: gui/layout2dviewdialog.cpp:88 gui/mvr_export_result_dialog.cpp:97
+#: gui/layout2dviewdialog.cpp:93 gui/mvr_export_result_dialog.cpp:97
 #: gui/preferencesdialog.cpp:86 gui/scene_object_primitive_dialogs.cpp:138
 msgid "OK"
 msgstr "OK"
@@ -1173,8 +1173,8 @@ msgstr "Von einem Punkt in der gewählten Richtung"
 msgid "Placement"
 msgstr "Platzierung"
 
-#: gui/fixture_label_editor.cpp:13 gui/layout_fixture_labels.cpp:91
-#: gui/layout_fixture_labels.cpp:161
+#: gui/fixture_label_editor.cpp:13 gui/layout_fixture_labels.cpp:92
+#: gui/layout_fixture_labels.cpp:162
 msgid "Fixture Label Editor"
 msgstr "Gerätebeschriftungen bearbeiten"
 
@@ -1187,63 +1187,63 @@ msgstr "Projektvorgaben"
 msgid "Selected project fixtures"
 msgstr "Ausgewählte Projektgeräte"
 
-#: gui/fixture_label_editor.cpp:32 gui/fixture_label_editor.cpp:62
+#: gui/fixture_label_editor.cpp:33 gui/fixture_label_editor.cpp:63
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:55
 #: viewer2d/viewer2drenderpanel.cpp:84
 msgid "Top"
 msgstr "Oben"
 
-#: gui/fixture_label_editor.cpp:32
+#: gui/fixture_label_editor.cpp:33
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:56
 #: viewer2d/viewer2drenderpanel.cpp:84
 msgid "Front"
 msgstr "Vorne"
 
-#: gui/fixture_label_editor.cpp:32
+#: gui/fixture_label_editor.cpp:33
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:57
 #: viewer2d/viewer2drenderpanel.cpp:84
 msgid "Side"
 msgstr "Seite"
 
-#: gui/fixture_label_editor.cpp:39
+#: gui/fixture_label_editor.cpp:40
 msgid "Fixture Name"
 msgstr "Gerätename"
 
-#: gui/fixture_label_editor.cpp:39
+#: gui/fixture_label_editor.cpp:40
 #: gui/fixturetable/fixture_table_columns.cpp:12
 #: tests/localization_catalog_integration_test.cpp:247
 msgid "Fixture ID"
 msgstr "Scheinwerfer-ID"
 
-#: gui/fixture_label_editor.cpp:39
+#: gui/fixture_label_editor.cpp:40
 msgid "DMX Address"
 msgstr "DMX-Adresse"
 
-#: gui/fixture_label_editor.cpp:46
+#: gui/fixture_label_editor.cpp:47
 msgid "Show field"
 msgstr "Feld anzeigen"
 
-#: gui/fixture_label_editor.cpp:46
+#: gui/fixture_label_editor.cpp:47
 msgid "Visibility"
 msgstr "Sichtbarkeit"
 
-#: gui/fixture_label_editor.cpp:48
+#: gui/fixture_label_editor.cpp:49
 msgid "Font family"
 msgstr "Schriftfamilie"
 
-#: gui/fixture_label_editor.cpp:49
+#: gui/fixture_label_editor.cpp:50
 msgid "Bold"
 msgstr "Fett"
 
-#: gui/fixture_label_editor.cpp:49
+#: gui/fixture_label_editor.cpp:50
 msgid "Style"
 msgstr "Stil"
 
-#: gui/fixture_label_editor.cpp:54
+#: gui/fixture_label_editor.cpp:55
 msgid "Size (m)"
 msgstr "Größe (m)"
 
-#: gui/fixture_label_editor.cpp:55
+#: gui/fixture_label_editor.cpp:56
 #: gui/inspection/gdtf_inspector_details_panel.cpp:158
 #: gui/inspection/gdtf_inspector_details_panel.cpp:173 gui/layerpanel.cpp:88
 #: gui/layerpanel.cpp:102 gui/summarypanel.cpp:266 gui/summarypanel.cpp:320
@@ -1251,74 +1251,74 @@ msgstr "Größe (m)"
 msgid "Color"
 msgstr "Farbe"
 
-#: gui/fixture_label_editor.cpp:56
+#: gui/fixture_label_editor.cpp:57
 msgid "Enabled"
 msgstr "Aktiviert"
 
-#: gui/fixture_label_editor.cpp:56
+#: gui/fixture_label_editor.cpp:57
 msgid "Outline"
 msgstr "Kontur"
 
-#: gui/fixture_label_editor.cpp:57
+#: gui/fixture_label_editor.cpp:58
 msgid "Outline color"
 msgstr "Konturfarbe"
 
-#: gui/fixture_label_editor.cpp:58
+#: gui/fixture_label_editor.cpp:59
 msgid "Outline thickness (m)"
 msgstr "Konturstärke (m)"
 
-#: gui/fixture_label_editor.cpp:62 gui/fixture_label_editor.cpp:64
+#: gui/fixture_label_editor.cpp:63 gui/fixture_label_editor.cpp:65
 msgid "Center"
 msgstr "Mitte"
 
-#: gui/fixture_label_editor.cpp:62
+#: gui/fixture_label_editor.cpp:63
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:59
 msgid "Bottom"
 msgstr "Unten"
 
-#: gui/fixture_label_editor.cpp:62 gui/fixture_label_editor.cpp:64
+#: gui/fixture_label_editor.cpp:63 gui/fixture_label_editor.cpp:65
 msgid "Left"
 msgstr "Links"
 
-#: gui/fixture_label_editor.cpp:62 gui/fixture_label_editor.cpp:64
+#: gui/fixture_label_editor.cpp:63 gui/fixture_label_editor.cpp:65
 msgid "Right"
 msgstr "Rechts"
 
-#: gui/fixture_label_editor.cpp:62
+#: gui/fixture_label_editor.cpp:63
 msgid "Anchor"
 msgstr "Anker"
 
-#: gui/fixture_label_editor.cpp:64 gui/mainwindow_alignment.cpp:198
+#: gui/fixture_label_editor.cpp:65 gui/mainwindow_alignment.cpp:198
 msgid "Alignment"
 msgstr "Ausrichtung"
 
-#: gui/fixture_label_editor.cpp:65
+#: gui/fixture_label_editor.cpp:66
 msgid "X offset (m)"
 msgstr "X-Versatz (m)"
 
-#: gui/fixture_label_editor.cpp:66
+#: gui/fixture_label_editor.cpp:67
 msgid "Y offset (m)"
 msgstr "Y-Versatz (m)"
 
-#: gui/fixture_label_editor.cpp:71
+#: gui/fixture_label_editor.cpp:72
 msgid "Preview background"
 msgstr "Vorschauhintergrund"
 
-#: gui/fixture_label_editor.cpp:72
+#: gui/fixture_label_editor.cpp:73
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:44
 #: viewer2d/viewer2drenderpanel.cpp:65
 msgid "White"
 msgstr "Weiß"
 
-#: gui/fixture_label_editor.cpp:72
+#: gui/fixture_label_editor.cpp:73
 msgid "Dark"
 msgstr "Dunkel"
 
-#: gui/fixture_label_editor.cpp:80
+#: gui/fixture_label_editor.cpp:81
 msgid "Drag the selected field in the preview."
 msgstr "Ziehen Sie das ausgewählte Feld in der Vorschau."
 
-#: gui/fixture_label_editor.cpp:84
+#: gui/fixture_label_editor.cpp:85
 msgid ""
 "Legacy rendering is preserved until edited; its preview is approximate. "
 "Sizes and offsets use scene metres.\n"
@@ -1328,7 +1328,7 @@ msgstr ""
 "ist näherungsweise. Größen und Versätze verwenden Szenenmeter.\n"
 "Unterstützter Text: Englisch und westeuropäische WinAnsi-Zeichen."
 
-#: gui/fixture_label_editor.cpp:87
+#: gui/fixture_label_editor.cpp:88
 msgid "Reset to Default"
 msgstr "Auf Vorgaben zurücksetzen"
 
@@ -2836,87 +2836,92 @@ msgstr "Standardebene kann nicht umbenannt werden."
 msgid "Rename Layer"
 msgstr "Ebene umbenennen"
 
-#: gui/layout2dviewdialog.cpp:69
+#: gui/layout2dviewdialog.cpp:70
+msgid ""
+"Click fixtures to select labels; Shift-click adds or removes. Drag to pan."
+msgstr "Geräte anklicken, um Beschriftungen auszuwählen; Umschalt-Klick fügt hinzu oder entfernt. Ziehen verschiebt die Ansicht."
+
+#: gui/layout2dviewdialog.cpp:74
 msgid "Visual framing"
 msgstr "Visueller Ausschnitt"
 
-#: gui/layout2dviewdialog.cpp:71
+#: gui/layout2dviewdialog.cpp:76
 msgid "100%"
 msgstr "100%"
 
-#: gui/layout2dviewdialog.cpp:84 gui/layout2dviewdialog.cpp:115
+#: gui/layout2dviewdialog.cpp:89 gui/layout2dviewdialog.cpp:120
 #: gui/layout_viewport_properties.cpp:45 gui/layout_viewport_properties.cpp:197
 msgid "Viewport properties"
 msgstr "Ansichtseigenschaften"
 
-#: gui/layout2dviewdialog.cpp:114 gui/layout_viewport_properties.cpp:196
+#: gui/layout2dviewdialog.cpp:119 gui/layout_viewport_properties.cpp:196
 #, c-format
 msgid "Invalid viewport properties: %s"
 msgstr "Ungültige Ansichtseigenschaften: %s"
 
-#: gui/layout2dviewdialog.cpp:215
+#: gui/layout2dviewdialog.cpp:220
 #, c-format
 msgid "1:%s"
 msgstr "1:%s"
 
-#: gui/layout2dviewdialog.cpp:217
+#: gui/layout2dviewdialog.cpp:222
 #, c-format
 msgid "%d%%"
 msgstr "%d%%"
 
-#: gui/layout2dviewdialog.cpp:220
+#: gui/layout2dviewdialog.cpp:225
 #, c-format
 msgid "Fixed scale 1:%s. Zoom is locked; pan to adjust framing."
 msgstr ""
 "Fester Maßstab 1:%s. Zoom gesperrt; verschieben Sie die Ansicht zum "
 "Ausrichten."
 
-#: gui/layout_fixture_labels.cpp:55
+#: gui/layout_fixture_labels.cpp:56
 #: tests/support/layout_label_capture_probe.h:33
 msgid "Current Layout viewport"
 msgstr "Aktuelles Layout-Ansichtsfenster"
 
-#: gui/layout_fixture_labels.cpp:55
+#: gui/layout_fixture_labels.cpp:56
 msgid "Selected fixtures in current Layout viewport"
 msgstr "Ausgewählte Geräte im aktuellen Layout-Ansichtsfenster"
 
-#: gui/layout_fixture_labels.cpp:66
+#: gui/layout_fixture_labels.cpp:67
 msgid "Layout viewport fixture labels"
 msgstr "Gerätebeschriftungen im Layout-Ansichtsfenster"
 
-#: gui/layout_fixture_labels.cpp:78
+#: gui/layout_fixture_labels.cpp:79
 msgid "Customize current viewport..."
 msgstr "Aktuelles Ansichtsfenster anpassen..."
 
-#: gui/layout_fixture_labels.cpp:79
+#: gui/layout_fixture_labels.cpp:80
 msgid "Create style from current settings..."
 msgstr "Stil aus aktuellen Einstellungen erstellen..."
 
-#: gui/layout_fixture_labels.cpp:80
+#: gui/layout_fixture_labels.cpp:81
 msgid "Edit named style..."
 msgstr "Benannten Stil bearbeiten..."
 
-#: gui/layout_fixture_labels.cpp:81
+#: gui/layout_fixture_labels.cpp:82
 msgid "Duplicate named style..."
 msgstr "Benannten Stil duplizieren..."
 
-#: gui/layout_fixture_labels.cpp:82
+#: gui/layout_fixture_labels.cpp:83
 msgid "Rename named style..."
 msgstr "Benannten Stil umbenennen..."
 
-#: gui/layout_fixture_labels.cpp:84 gui/layout_fixture_labels.cpp:123
+#: gui/layout_fixture_labels.cpp:85 gui/layout_fixture_labels.cpp:124
 msgid "Style name"
 msgstr "Name des Stils"
 
-#: gui/layout_fixture_labels.cpp:84
+#: gui/layout_fixture_labels.cpp:85
 msgid "Rename named style"
 msgstr "Benannten Stil umbenennen"
 
-#: gui/layout_fixture_labels.cpp:87
+#: gui/layout_fixture_labels.cpp:88
 msgid "Delete unused named style"
 msgstr "Unbenutzten benannten Stil löschen"
 
-#: gui/layout_fixture_labels.cpp:91
+#: gui/layout_fixture_labels.cpp:92
 msgid ""
 "This style is referenced by a Layout viewport. Restore inherited settings in "
 "every referencing viewport before deleting it."
@@ -2925,32 +2930,32 @@ msgstr ""
 "Löschen in allen Ansichtsfenstern, die ihn verwenden, die geerbten "
 "Einstellungen wieder her."
 
-#: gui/layout_fixture_labels.cpp:95
+#: gui/layout_fixture_labels.cpp:96
 msgid "Restore inherited settings"
 msgstr "Geerbte Einstellungen wiederherstellen"
 
-#: gui/layout_fixture_labels.cpp:108
+#: gui/layout_fixture_labels.cpp:109
 msgid "Inherit project presentation"
 msgstr "Projektdarstellung übernehmen"
 
-#: gui/layout_fixture_labels.cpp:117
+#: gui/layout_fixture_labels.cpp:118
 msgid "Viewport-local adjustments are active."
 msgstr "Lokale Anpassungen des Ansichtsfensters sind aktiv."
 
-#: gui/layout_fixture_labels.cpp:123
+#: gui/layout_fixture_labels.cpp:124
 msgid "Create named style"
 msgstr "Benannten Stil erstellen"
 
 #
-#: gui/layout_fixture_labels.cpp:142
+#: gui/layout_fixture_labels.cpp:143
 msgid "Named style profile"
 msgstr "Benanntes Stilprofil"
 
-#: gui/layout_fixture_labels.cpp:152
+#: gui/layout_fixture_labels.cpp:153
 msgid "Fixture label settings..."
 msgstr "Einstellungen für Gerätebeschriftungen..."
 
-#: gui/layout_fixture_labels.cpp:161
+#: gui/layout_fixture_labels.cpp:162
 msgid "Could not update fixture label settings."
 msgstr ""
 "Die Einstellungen für Gerätebeschriftungen konnten nicht aktualisiert werden."

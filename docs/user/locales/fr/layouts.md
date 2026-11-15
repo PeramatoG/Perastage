@@ -107,3 +107,5 @@ Une référence absente bloque l’opération avec un diagnostic. MVR et GDTF re
 Les tailles et décalages restent en mètres de scène, sans taille papier constante
 entre échelles. Bottom conserve la clé de style Side et la projection Top par
 compatibilité ; aucune nouvelle orientation SVG standard GDTF n’est créée.
+
+Dans le **2D View Editor**, cliquez sur un appareil pour sélectionner ses étiquettes ; Maj-clic ajoute ou retire des appareils. **Edit Fixture Labels...** ouvre la portée locale sélectionnée. Le glissement déplace toujours la caméra, jamais les appareils. La sélection et l’historique du projet restent inchangés. Le contour et le remplissage des étiquettes à l’écran utilisent la même rastérisation et le même arrondi des pixels, avec l’épaisseur traditionnelle de la scène, y compris à haute résolution. Le PDF conserve ses mesures en mètres de scène.

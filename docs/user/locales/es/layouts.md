@@ -106,3 +106,5 @@ Las referencias ausentes rechazan la operación con diagnóstico. MVR y GDTF no 
 Los tamaños y desplazamientos siguen en metros de escena: no son tamaños constantes
 en papel a distintas escalas. Bottom conserva la clave de estilo Side y la proyección
 Top por compatibilidad; no añade una orientación SVG estándar de GDTF.
+
+En el **2D View Editor**, haga clic en una luminaria para seleccionar sus etiquetas; Mayús-clic añade o quita luminarias. **Edit Fixture Labels...** abre el ámbito local seleccionado. Arrastrar sigue desplazando la cámara y no mueve luminarias. La selección del proyecto y su historial no cambian. El contorno y el relleno de las etiquetas en pantalla usan la misma rasterización y redondeo de píxeles, con el grosor tradicional de la escena, también con escalado de pantalla. El PDF conserva sus medidas en metros de escena.

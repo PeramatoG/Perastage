@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-15 12:59+0100\n"
+"POT-Creation-Date: 2026-11-15 14:20+0100\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -302,7 +302,7 @@ msgstr "仅导出参考"
 #: gui/dictionaryeditdialog.cpp:260 gui/dictionaryeditdialog.cpp:293
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
 #: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:92
-#: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:89
+#: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:94
 #: gui/layouttextdialog.cpp:149 gui/preferencesdialog.cpp:87
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139
@@ -514,7 +514,7 @@ msgid "Export..."
 msgstr "导出 MVR..."
 
 #: gui/dictionaryeditdialog.cpp:610 gui/gdtf_download_queue_dialog.cpp:93
-#: gui/layout2dviewdialog.cpp:88 gui/mvr_export_result_dialog.cpp:97
+#: gui/layout2dviewdialog.cpp:93 gui/mvr_export_result_dialog.cpp:97
 #: gui/preferencesdialog.cpp:86 gui/scene_object_primitive_dialogs.cpp:138
 msgid "OK"
 msgstr "确定"
@@ -1148,8 +1148,8 @@ msgstr "从选定方向的一点开始"
 msgid "Placement"
 msgstr "放置："
 
-#: gui/fixture_label_editor.cpp:13 gui/layout_fixture_labels.cpp:91
-#: gui/layout_fixture_labels.cpp:161
+#: gui/fixture_label_editor.cpp:13 gui/layout_fixture_labels.cpp:92
+#: gui/layout_fixture_labels.cpp:162
 msgid "Fixture Label Editor"
 msgstr "灯具标签编辑器"
 
@@ -1162,63 +1162,63 @@ msgstr "项目默认值"
 msgid "Selected project fixtures"
 msgstr "选中的项目灯具"
 
-#: gui/fixture_label_editor.cpp:32 gui/fixture_label_editor.cpp:62
+#: gui/fixture_label_editor.cpp:33 gui/fixture_label_editor.cpp:63
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:55
 #: viewer2d/viewer2drenderpanel.cpp:84
 msgid "Top"
 msgstr "顶视图"
 
-#: gui/fixture_label_editor.cpp:32
+#: gui/fixture_label_editor.cpp:33
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:56
 #: viewer2d/viewer2drenderpanel.cpp:84
 msgid "Front"
 msgstr "前视图"
 
-#: gui/fixture_label_editor.cpp:32
+#: gui/fixture_label_editor.cpp:33
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:57
 #: viewer2d/viewer2drenderpanel.cpp:84
 msgid "Side"
 msgstr "侧视图"
 
-#: gui/fixture_label_editor.cpp:39
+#: gui/fixture_label_editor.cpp:40
 msgid "Fixture Name"
 msgstr "灯具名称"
 
-#: gui/fixture_label_editor.cpp:39
+#: gui/fixture_label_editor.cpp:40
 #: gui/fixturetable/fixture_table_columns.cpp:12
 #: tests/localization_catalog_integration_test.cpp:247
 msgid "Fixture ID"
 msgstr "灯具 ID"
 
-#: gui/fixture_label_editor.cpp:39
+#: gui/fixture_label_editor.cpp:40
 msgid "DMX Address"
 msgstr "DMX 地址"
 
-#: gui/fixture_label_editor.cpp:46
+#: gui/fixture_label_editor.cpp:47
 msgid "Show field"
 msgstr "显示字段"
 
-#: gui/fixture_label_editor.cpp:46
+#: gui/fixture_label_editor.cpp:47
 msgid "Visibility"
 msgstr "可见性"
 
-#: gui/fixture_label_editor.cpp:48
+#: gui/fixture_label_editor.cpp:49
 msgid "Font family"
 msgstr "字体系列"
 
-#: gui/fixture_label_editor.cpp:49
+#: gui/fixture_label_editor.cpp:50
 msgid "Bold"
 msgstr "粗体"
 
-#: gui/fixture_label_editor.cpp:49
+#: gui/fixture_label_editor.cpp:50
 msgid "Style"
 msgstr "样式"
 
-#: gui/fixture_label_editor.cpp:54
+#: gui/fixture_label_editor.cpp:55
 msgid "Size (m)"
 msgstr "大小（m）"
 
-#: gui/fixture_label_editor.cpp:55
+#: gui/fixture_label_editor.cpp:56
 #: gui/inspection/gdtf_inspector_details_panel.cpp:158
 #: gui/inspection/gdtf_inspector_details_panel.cpp:173 gui/layerpanel.cpp:88
 #: gui/layerpanel.cpp:102 gui/summarypanel.cpp:266 gui/summarypanel.cpp:320
@@ -1226,74 +1226,74 @@ msgstr "大小（m）"
 msgid "Color"
 msgstr "颜色"
 
-#: gui/fixture_label_editor.cpp:56
+#: gui/fixture_label_editor.cpp:57
 msgid "Enabled"
 msgstr "启用"
 
-#: gui/fixture_label_editor.cpp:56
+#: gui/fixture_label_editor.cpp:57
 msgid "Outline"
 msgstr "描边"
 
-#: gui/fixture_label_editor.cpp:57
+#: gui/fixture_label_editor.cpp:58
 msgid "Outline color"
 msgstr "描边颜色"
 
-#: gui/fixture_label_editor.cpp:58
+#: gui/fixture_label_editor.cpp:59
 msgid "Outline thickness (m)"
 msgstr "描边粗细（m）"
 
-#: gui/fixture_label_editor.cpp:62 gui/fixture_label_editor.cpp:64
+#: gui/fixture_label_editor.cpp:63 gui/fixture_label_editor.cpp:65
 msgid "Center"
 msgstr "居中"
 
-#: gui/fixture_label_editor.cpp:62
+#: gui/fixture_label_editor.cpp:63
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:59
 msgid "Bottom"
 msgstr "底部"
 
-#: gui/fixture_label_editor.cpp:62 gui/fixture_label_editor.cpp:64
+#: gui/fixture_label_editor.cpp:63 gui/fixture_label_editor.cpp:65
 msgid "Left"
 msgstr "左"
 
-#: gui/fixture_label_editor.cpp:62 gui/fixture_label_editor.cpp:64
+#: gui/fixture_label_editor.cpp:63 gui/fixture_label_editor.cpp:65
 msgid "Right"
 msgstr "右"
 
-#: gui/fixture_label_editor.cpp:62
+#: gui/fixture_label_editor.cpp:63
 msgid "Anchor"
 msgstr "锚点"
 
-#: gui/fixture_label_editor.cpp:64 gui/mainwindow_alignment.cpp:198
+#: gui/fixture_label_editor.cpp:65 gui/mainwindow_alignment.cpp:198
 msgid "Alignment"
 msgstr "对齐"
 
-#: gui/fixture_label_editor.cpp:65
+#: gui/fixture_label_editor.cpp:66
 msgid "X offset (m)"
 msgstr "X 偏移（m）"
 
-#: gui/fixture_label_editor.cpp:66
+#: gui/fixture_label_editor.cpp:67
 msgid "Y offset (m)"
 msgstr "Y 偏移（m）"
 
-#: gui/fixture_label_editor.cpp:71
+#: gui/fixture_label_editor.cpp:72
 msgid "Preview background"
 msgstr "预览背景"
 
-#: gui/fixture_label_editor.cpp:72
+#: gui/fixture_label_editor.cpp:73
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:44
 #: viewer2d/viewer2drenderpanel.cpp:65
 msgid "White"
 msgstr "白色"
 
-#: gui/fixture_label_editor.cpp:72
+#: gui/fixture_label_editor.cpp:73
 msgid "Dark"
 msgstr "深色"
 
-#: gui/fixture_label_editor.cpp:80
+#: gui/fixture_label_editor.cpp:81
 msgid "Drag the selected field in the preview."
 msgstr "在预览中拖动选中的字段。"
 
-#: gui/fixture_label_editor.cpp:84
+#: gui/fixture_label_editor.cpp:85
 msgid ""
 "Legacy rendering is preserved until edited; its preview is approximate. "
 "Sizes and offsets use scene metres.\n"
@@ -1302,7 +1302,7 @@ msgstr ""
 "编辑前保留旧版渲染；其预览为近似效果。大小和偏移使用场景米。\n"
 "支持的文本：英语和西欧 WinAnsi 字符。"
 
-#: gui/fixture_label_editor.cpp:87
+#: gui/fixture_label_editor.cpp:88
 msgid "Reset to Default"
 msgstr "重置为默认值"
 
@@ -2771,117 +2771,122 @@ msgstr "无法重命名默认图层。"
 msgid "Rename Layer"
 msgstr "重命名图层"
 
-#: gui/layout2dviewdialog.cpp:69
+#: gui/layout2dviewdialog.cpp:70
+msgid ""
+"Click fixtures to select labels; Shift-click adds or removes. Drag to pan."
+msgstr "单击灯具选择标签；按住 Shift 单击可添加或移除。拖动可平移视图。"
+
+#: gui/layout2dviewdialog.cpp:74
 msgid "Visual framing"
 msgstr "可视取景"
 
-#: gui/layout2dviewdialog.cpp:71
+#: gui/layout2dviewdialog.cpp:76
 msgid "100%"
 msgstr "100%"
 
-#: gui/layout2dviewdialog.cpp:84 gui/layout2dviewdialog.cpp:115
+#: gui/layout2dviewdialog.cpp:89 gui/layout2dviewdialog.cpp:120
 #: gui/layout_viewport_properties.cpp:45 gui/layout_viewport_properties.cpp:197
 msgid "Viewport properties"
 msgstr "视口属性"
 
-#: gui/layout2dviewdialog.cpp:114 gui/layout_viewport_properties.cpp:196
+#: gui/layout2dviewdialog.cpp:119 gui/layout_viewport_properties.cpp:196
 #, c-format
 msgid "Invalid viewport properties: %s"
 msgstr "视口属性无效：%s"
 
-#: gui/layout2dviewdialog.cpp:215
+#: gui/layout2dviewdialog.cpp:220
 #, c-format
 msgid "1:%s"
 msgstr "1:%s"
 
-#: gui/layout2dviewdialog.cpp:217
+#: gui/layout2dviewdialog.cpp:222
 #, c-format
 msgid "%d%%"
 msgstr "%d%%"
 
-#: gui/layout2dviewdialog.cpp:220
+#: gui/layout2dviewdialog.cpp:225
 #, c-format
 msgid "Fixed scale 1:%s. Zoom is locked; pan to adjust framing."
 msgstr "固定比例 1:%s。缩放已锁定；平移视图以调整取景。"
 
-#: gui/layout_fixture_labels.cpp:55
+#: gui/layout_fixture_labels.cpp:56
 #: tests/support/layout_label_capture_probe.h:33
 msgid "Current Layout viewport"
 msgstr "当前 Layout 视口"
 
-#: gui/layout_fixture_labels.cpp:55
+#: gui/layout_fixture_labels.cpp:56
 msgid "Selected fixtures in current Layout viewport"
 msgstr "当前 Layout 视口中选中的灯具"
 
-#: gui/layout_fixture_labels.cpp:66
+#: gui/layout_fixture_labels.cpp:67
 msgid "Layout viewport fixture labels"
 msgstr "Layout 视口灯具标签"
 
-#: gui/layout_fixture_labels.cpp:78
+#: gui/layout_fixture_labels.cpp:79
 msgid "Customize current viewport..."
 msgstr "自定义当前视口..."
 
-#: gui/layout_fixture_labels.cpp:79
+#: gui/layout_fixture_labels.cpp:80
 msgid "Create style from current settings..."
 msgstr "根据当前设置创建样式..."
 
-#: gui/layout_fixture_labels.cpp:80
+#: gui/layout_fixture_labels.cpp:81
 msgid "Edit named style..."
 msgstr "编辑命名样式..."
 
-#: gui/layout_fixture_labels.cpp:81
+#: gui/layout_fixture_labels.cpp:82
 msgid "Duplicate named style..."
 msgstr "复制命名样式..."
 
-#: gui/layout_fixture_labels.cpp:82
+#: gui/layout_fixture_labels.cpp:83
 msgid "Rename named style..."
 msgstr "重命名样式..."
 
-#: gui/layout_fixture_labels.cpp:84 gui/layout_fixture_labels.cpp:123
+#: gui/layout_fixture_labels.cpp:85 gui/layout_fixture_labels.cpp:124
 msgid "Style name"
 msgstr "样式名称"
 
-#: gui/layout_fixture_labels.cpp:84
+#: gui/layout_fixture_labels.cpp:85
 msgid "Rename named style"
 msgstr "重命名样式"
 
-#: gui/layout_fixture_labels.cpp:87
+#: gui/layout_fixture_labels.cpp:88
 msgid "Delete unused named style"
 msgstr "删除未使用的命名样式"
 
-#: gui/layout_fixture_labels.cpp:91
+#: gui/layout_fixture_labels.cpp:92
 msgid ""
 "This style is referenced by a Layout viewport. Restore inherited settings in "
 "every referencing viewport before deleting it."
 msgstr ""
 "此样式正被 Layout 视口引用。删除前，请在所有引用此样式的视口中恢复继承设置。"
 
-#: gui/layout_fixture_labels.cpp:95
+#: gui/layout_fixture_labels.cpp:96
 msgid "Restore inherited settings"
 msgstr "恢复继承设置"
 
-#: gui/layout_fixture_labels.cpp:108
+#: gui/layout_fixture_labels.cpp:109
 msgid "Inherit project presentation"
 msgstr "继承项目显示设置"
 
-#: gui/layout_fixture_labels.cpp:117
+#: gui/layout_fixture_labels.cpp:118
 msgid "Viewport-local adjustments are active."
 msgstr "视口本地调整已启用。"
 
-#: gui/layout_fixture_labels.cpp:123
+#: gui/layout_fixture_labels.cpp:124
 msgid "Create named style"
 msgstr "创建命名样式"
 
 #
-#: gui/layout_fixture_labels.cpp:142
+#: gui/layout_fixture_labels.cpp:143
 msgid "Named style profile"
 msgstr "命名样式配置"
 
-#: gui/layout_fixture_labels.cpp:152
+#: gui/layout_fixture_labels.cpp:153
 msgid "Fixture label settings..."
 msgstr "灯具标签设置..."
 
-#: gui/layout_fixture_labels.cpp:161
+#: gui/layout_fixture_labels.cpp:162
 msgid "Could not update fixture label settings."
 msgstr "无法更新灯具标签设置。"
 
