@@ -28,6 +28,8 @@ int main() {
       const auto run = Compose("Escena Málaga € — Ω", {12, TextUnit::PaperPoints, bold}, catalog, family);
       assert(run.unsupportedBytes.empty() && run.glyphs.size() == 19);
       assert(run.resourceId == face.fingerprint);
+      assert(std::abs(run.bounds.right - run.bounds.left - run.lines.front().width) < 1e-9);
+      assert(run.bounds.top == run.ascent && run.bounds.bottom == -run.descent);
       if (!bold) widths.insert(run.lines.front().width);
       for (const auto &glyph : run.glyphs) {
         assert(glyph.glyphId > 0);

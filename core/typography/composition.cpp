@@ -51,6 +51,14 @@ Composition Compose(const std::string &text, const TextStyle &style,
   const auto finish = [&] {
     const double shift = style.alignment == 1 ? -width / 2 : style.alignment == 2 ? -width : 0;
     for (size_t i = first; i < out.glyphs.size(); ++i) out.glyphs[i].x += shift;
+    const TextBounds lineBounds{shift, baseline - out.descent, shift + width, baseline + out.ascent};
+    if (out.lines.empty()) out.bounds = lineBounds;
+    else {
+      out.bounds.left = std::min(out.bounds.left, lineBounds.left);
+      out.bounds.bottom = std::min(out.bounds.bottom, lineBounds.bottom);
+      out.bounds.right = std::max(out.bounds.right, lineBounds.right);
+      out.bounds.top = std::max(out.bounds.top, lineBounds.top);
+    }
     out.lines.push_back({first, out.glyphs.size() - first, width, baseline});
     first = out.glyphs.size();
     width = 0;

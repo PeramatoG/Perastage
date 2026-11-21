@@ -23,6 +23,9 @@ struct ComposedLine {
   size_t first = 0, count = 0;
   double width = 0, baseline = 0;
 };
+struct TextBounds {
+  double left = 0, bottom = 0, right = 0, top = 0;
+};
 struct Composition {
   TextStyle style;
   std::vector<PositionedGlyph> glyphs;
@@ -31,6 +34,7 @@ struct Composition {
   std::string_view resourceId;
   FontIssue fontIssue = FontIssue::None;
   double ascent = 0, descent = 0, lineHeight = 0;
+  TextBounds bounds; // Logical bounds relative to the first baseline.
 };
 
 Composition Compose(const std::string &text, const TextStyle &style,

@@ -104,6 +104,10 @@ int main(int argc, char **argv) {
     WriteLicensedFontLayout(argv[2]);
     return 0;
   }
+  const auto mixedPdf = std::filesystem::temp_directory_path() /
+      ("perastage-licensed-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".pdf");
+  WriteLicensedFontLayout(mixedPdf);
+  std::filesystem::remove(mixedPdf);
   LayoutLegendExportData legend;
   legend.frame = {10, 20, 300, 100};
   LayoutLegendItem item;
