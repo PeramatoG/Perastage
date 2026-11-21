@@ -22,6 +22,7 @@
 #include "startup_profile.h"
 #include "support/layout_label_capture_probe.h"
 #include "support/layout_label_selection_probe.h"
+#include "support/layout_text_editor_font_probe.h"
 #include "support/fixture_label_composition_parity_probe.h"
 #include <cmath>
 #include <cstdlib>
@@ -98,7 +99,7 @@ class ViewportSmoke : public wxApp {
   int stage_ = 0, ticks_ = 0, paints_ = 0, resumePaints_ = 0;
   int outcome_ = 1;
   float zoom_ = 0;
-  std::string labels_, firstApply_, secondApply_;
+  std::string labels_, firstApply_, secondApply_, selectedFamily_;
   std::vector<unsigned char> selectedPixels_;
   std::vector<std::pair<float,float>> idPositions_;
   std::vector<std::pair<float,float>> RenderedIdPositions() {
@@ -363,14 +364,19 @@ public:
         Require(!idPositions_.empty(),"Synthetic canonical ID label missing");
         CheckPreviewEditing();
         const auto previousFace = Preview()->GetComposition().text.front().style.fontResource;
-        Choice("fixtureLabelFontFamily", 2);
+        const auto catalog = typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
+        const auto *previousResource = catalog->FindResource(previousFace);
+        Require(previousResource, "The initial preview face is unavailable");
+        const auto index = previousResource->family == "Source Sans 3" ? 1 : 2;
+        selectedFamily_ = index == 1 ? "Noto Serif" : "Source Sans 3";
+        Choice("fixtureLabelFontFamily", index);
         const auto selectedFace = Preview()->GetComposition().text.front().style.fontResource;
         Require(!selectedFace.empty() && selectedFace != previousFace,
                 "Font selection did not immediately change the preview glyphs");
         SnapshotEditor();ApplyAndObservePaint();
         firstApply_=cfg.GetValue("label_fixture_overrides").value_or("");
         Require(firstApply_!=labels_,"First Apply did not commit");
-        Require(firstApply_.find("Source Sans 3") != std::string::npos,
+        Require(firstApply_.find(selectedFamily_) != std::string::npos,
                 "First Apply did not persist the approved family");
         Require(RenderedIdPositions()==idPositions_,"Editing Name moved the inherited ID baseline");
         auto *width=dynamic_cast<wxSpinCtrlDouble *>(editor_->FindWindowByName("fixtureLabelOutlineWidth",editor_));
@@ -391,7 +397,7 @@ public:
           if (const auto *text = std::get_if<TextCommand>(&command))
             if (const auto *face = typography::GetFontCatalog(ProjectUtils::GetResourceRoot())
                                        ->FindResource(text->style.fontResource))
-              composed |= face->family == "Source Sans 3";
+              composed |= face->family == selectedFamily_;
         Require(composed, "Edited labels are absent from real viewport capture");
         const auto applied = cfg.GetValue("label_fixture_overrides");
         Menu(ID_Edit_Undo); Require(cfg.GetValue("label_fixture_overrides").value_or("")==firstApply_,"Undo second Apply failed");
@@ -403,7 +409,7 @@ public:
         editor_ = new FixtureLabelEditor(frame_, cfg, 0); editor_->Show(); break;
       }
       case 7:
-        Choice("fixtureLabelFontFamily", 1); Bold(); Button(wxID_RESET); Button(wxID_CANCEL); CloseEditor();
+        Choice("fixtureLabelFontFamily", selectedFamily_ == "Noto Serif" ? 2 : 1); Bold(); Button(wxID_RESET); Button(wxID_CANCEL); CloseEditor();
         Require(cfg.GetValue("label_fixture_overrides").value_or("") == labels_, "Closing committed an unapplied draft");
         cfg.SetValue("layout_perspective", manager->SavePerspective().ToStdString());
         Require(cfg.SaveProject((scratch/"scene.pstg").string()), "Save with a 2D perspective failed");
@@ -420,6 +426,7 @@ public:
         CheckFixtureLabelCompositionParity(*frame_,scratch);
         CheckLayoutLabelSelection(*frame_);
         CheckLayoutLabelCapture(*frame_,scratch);
+        CheckLayoutTextEditorFontSelection(*frame_);
         Require(Pixels().size() == 600*600*4, "Viewport capture failed after reload");
         outcome_ = 0; timer_.Stop(); frame_->Destroy(); ExitMainLoop();
         std::cout << "Viewport regression smoke passed" << std::endl; break;
