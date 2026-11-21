@@ -158,7 +158,7 @@ void GeometryAndText() {
   input.rows[0].name.clear();
   for (int i=0;i<100;++i) input.rows[0].name += "灯";
   p = ComposeLegend(input, fonts);
-  assert(p.unsupportedGlyphs == 100 && p.diagnostics.size() == 16);
+  assert(p.unsupportedGlyphs == 100 && p.diagnostics.size() == 1);
   input.width = 1;
   p = ComposeLegend(input, fonts);
   assert(p.typeColumn.width == 0 && p.rows[0].overflow);

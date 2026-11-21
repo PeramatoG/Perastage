@@ -27,8 +27,8 @@
 
 namespace gui::layoutcache {
 
-// Version 7 uses deterministic per-Legend semantic identities.
-inline constexpr int kLayoutViewCacheSchemaVersion = 7;
+// Version 8 retains resolved font fingerprints and Unicode glyph IDs.
+inline constexpr int kLayoutViewCacheSchemaVersion = 8;
 inline constexpr const char *kLayoutViewCacheArchiveEntry =
     "resources/layout_view_cache/last_selected_layout_view.json";
 inline constexpr const char *kLayoutViewCacheRasterEntryPrefix =

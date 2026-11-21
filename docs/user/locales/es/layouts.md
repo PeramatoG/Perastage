@@ -62,6 +62,12 @@ Selecciona un layout con contenido y elige **File → Print Layout...**. Elige u
 
 Si faltan vistas, el resultado es incorrecto o falla la exportación, consulta [Resolución de problemas](troubleshooting.md#problemas-con-layouts-y-pdf).
 
+## Tipografía del documento
+
+Usa **Familia tipográfica** para elegir PerastageSans, Noto Serif o Source Sans 3 en las etiquetas de aparatos, leyendas, tablas de eventos y textos. En el editor de texto, selecciona un fragmento para cambiar solo ese fragmento o deja la selección vacía para cambiar todo el elemento. El PDF incrusta las fuentes aprobadas y permite seleccionar el texto compatible.
+
+Si falta una fuente, Perastage conserva la elección guardada, usa una fuente de sustitución aprobada y muestra el aviso en los detalles de exportación. Vuelve a abrir el proyecto después de restaurar la fuente.
+
 ## Escala física y propiedades de la vista
 
 Haz doble clic en una vista 2D y abre **Propiedades de la vista**. **Libre / Variable** sigue siendo el modo predeterminado para vistas nuevas y archivos antiguos: permite encuadrar con zoom, desplazamiento y ajuste visual. La escala efectiva aproximada es informativa. El control **Encuadre visual** modifica el encuadre visual, no una escala física.

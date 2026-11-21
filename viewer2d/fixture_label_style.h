@@ -1,5 +1,5 @@
 #pragma once
-#include "typography/composition.h"
+#include <string>
 #include "typography/text_outline.h"
 #include "fixture_label_keys.h"
 #include <array>
@@ -18,6 +18,7 @@ struct LabelFieldStyle {
   int anchor = 1; // Center, top, bottom, left, right of projected fixture bounds.
   int alignment = 1;
   float x = 0, y = 0;
+  std::string fontFamily; // Empty retains the historical default.
   bool operator==(const LabelFieldStyle &) const = default;
 };
 using LabelFieldStyles = std::array<std::array<std::optional<LabelFieldStyle>, 3>, 3>;

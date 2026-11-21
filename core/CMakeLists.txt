@@ -1,4 +1,5 @@
-add_library(perastage_typography STATIC typography/font_metrics.cpp typography/glyph_outline.cpp)
+add_library(perastage_typography STATIC typography/font_metrics.cpp typography/glyph_outline.cpp
+    typography/font_resources.cpp typography/system_font_paths.cpp typography/composition.cpp typography/text_block.cpp)
 target_include_directories(perastage_typography PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_features(perastage_typography PUBLIC cxx_std_20)
 target_link_libraries(${PROJECT_NAME} PRIVATE perastage_typography)

@@ -1,9 +1,5 @@
 #include "font_metrics.h"
 
-#include <algorithm>
-#include <array>
-#include <cctype>
-#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -12,110 +8,6 @@
 #include <vector>
 
 namespace typography {
-
-unsigned char EncodeWinAnsiCodepoint(uint32_t codepoint) {
-  if (codepoint == '\n' || codepoint == '\r' || codepoint == '\t')
-    return static_cast<unsigned char>(codepoint);
-  if (codepoint <= 0x7F)
-    return static_cast<unsigned char>(codepoint);
-  if (codepoint >= 0xA0 && codepoint <= 0xFF)
-    return static_cast<unsigned char>(codepoint);
-  switch (codepoint) {
-  case 0x20AC:
-    return 0x80;
-  case 0x201A:
-    return 0x82;
-  case 0x0192:
-    return 0x83;
-  case 0x201E:
-    return 0x84;
-  case 0x2026:
-    return 0x85;
-  case 0x2020:
-    return 0x86;
-  case 0x2021:
-    return 0x87;
-  case 0x02C6:
-    return 0x88;
-  case 0x2030:
-    return 0x89;
-  case 0x0160:
-    return 0x8A;
-  case 0x2039:
-    return 0x8B;
-  case 0x0152:
-    return 0x8C;
-  case 0x017D:
-    return 0x8E;
-  case 0x2018:
-    return 0x91;
-  case 0x2019:
-    return 0x92;
-  case 0x201C:
-    return 0x93;
-  case 0x201D:
-    return 0x94;
-  case 0x2022:
-    return 0x95;
-  case 0x2013:
-    return 0x96;
-  case 0x2014:
-    return 0x97;
-  case 0x02DC:
-    return 0x98;
-  case 0x2122:
-    return 0x99;
-  case 0x0161:
-    return 0x9A;
-  case 0x203A:
-    return 0x9B;
-  case 0x0153:
-    return 0x9C;
-  case 0x017E:
-    return 0x9E;
-  case 0x0178:
-    return 0x9F;
-  default:
-    return '?';
-  }
-}
-
-std::string EncodeWinAnsi(const std::string &utf8) {
-  std::string out;
-  out.reserve(utf8.size());
-  size_t i = 0;
-  while (i < utf8.size()) {
-    unsigned char lead = static_cast<unsigned char>(utf8[i]);
-    uint32_t codepoint = 0;
-    size_t length = 0;
-    if (lead < 0x80) {
-      codepoint = lead;
-      length = 1;
-    } else if ((lead >> 5) == 0x6 && i + 1 < utf8.size()) {
-      codepoint = ((lead & 0x1F) << 6) |
-                  (static_cast<unsigned char>(utf8[i + 1]) & 0x3F);
-      length = 2;
-    } else if ((lead >> 4) == 0xE && i + 2 < utf8.size()) {
-      codepoint = ((lead & 0x0F) << 12) |
-                  ((static_cast<unsigned char>(utf8[i + 1]) & 0x3F) << 6) |
-                  (static_cast<unsigned char>(utf8[i + 2]) & 0x3F);
-      length = 3;
-    } else if ((lead >> 3) == 0x1E && i + 3 < utf8.size()) {
-      codepoint = ((lead & 0x07) << 18) |
-                  ((static_cast<unsigned char>(utf8[i + 1]) & 0x3F) << 12) |
-                  ((static_cast<unsigned char>(utf8[i + 2]) & 0x3F) << 6) |
-                  (static_cast<unsigned char>(utf8[i + 3]) & 0x3F);
-      length = 4;
-    } else {
-      out.push_back('?');
-      ++i;
-      continue;
-    }
-    out.push_back(static_cast<char>(EncodeWinAnsiCodepoint(codepoint)));
-    i += length;
-  }
-  return out;
-}
 
 bool ReadFileToString(const std::filesystem::path &path, std::string &out) {
   std::ifstream file(path, std::ios::binary);
@@ -167,20 +59,39 @@ bool FindTable(const std::string &data, uint32_t tag, uint32_t &offset,
     if (entryTag == tag) {
       offset = entryOffset;
       length = entryLength;
-      return entryOffset + entryLength <= data.size();
+      return entryOffset <= data.size() && entryLength <= data.size() - entryOffset;
     }
   }
   return false;
 }
 
-bool LoadTtfFontMetrics(const std::filesystem::path &path,
-                        TtfFontMetrics &metrics) {
-  metrics = TtfFontMetrics{};
+FontIssue CheckStaticTrueType(const std::string &data) {
+  if (data.size() < 12) return FontIssue::Invalid;
+  if (ReadU32(data, 0) != 0x00010000) {
+    const auto tag = ReadU32(data, 0);
+    return tag == MakeTag('O','T','T','O') || tag == MakeTag('t','t','c','f') ||
+           tag == MakeTag('w','O','F','F') || tag == MakeTag('w','O','F','2')
+        ? FontIssue::UnsupportedFormat : FontIssue::Invalid;
+  }
+  uint32_t offset, length;
+  if (!FindTable(data, MakeTag('g','l','y','f'), offset, length) ||
+      !FindTable(data, MakeTag('l','o','c','a'), offset, length) ||
+       FindTable(data, MakeTag('f','v','a','r'), offset, length))
+    return FontIssue::UnsupportedFormat;
+  if (!FindTable(data, MakeTag('O','S','/','2'), offset, length) ||
+      length < 10 || ReadU16(data, offset + 8) != 0)
+    return FontIssue::EmbeddingUnverified;
+  return FontIssue::None;
+}
+
+bool LoadTtfFontMetrics(const std::filesystem::path &path, TtfFontMetrics &metrics) {
   std::string data;
-  if (!ReadFileToString(path, data))
-    return false;
-  if (data.size() < 12)
-    return false;
+  return ReadFileToString(path, data) && ParseTtfFontMetrics(std::move(data), metrics);
+}
+
+bool ParseTtfFontMetrics(std::string data, TtfFontMetrics &metrics) {
+  metrics = TtfFontMetrics{};
+  if (data.size() < 12) return false;
 
   uint32_t headOffset = 0, headLength = 0;
   uint32_t hheaOffset = 0, hheaLength = 0;
@@ -201,7 +112,7 @@ bool LoadTtfFontMetrics(const std::filesystem::path &path,
     return false;
   FindTable(data, MakeTag('O', 'S', '/', '2'), os2Offset, os2Length);
 
-  if (headOffset + 54 > data.size())
+  if (headLength < 54)
     return false;
   metrics.unitsPerEm = ReadU16(data, headOffset + 18);
   metrics.xMin = ReadS16(data, headOffset + 36);
@@ -209,14 +120,14 @@ bool LoadTtfFontMetrics(const std::filesystem::path &path,
   metrics.xMax = ReadS16(data, headOffset + 40);
   metrics.yMax = ReadS16(data, headOffset + 42);
 
-  if (hheaOffset + 36 > data.size())
+  if (hheaLength < 36)
     return false;
   metrics.ascent = ReadS16(data, hheaOffset + 4);
   metrics.descent = ReadS16(data, hheaOffset + 6);
   metrics.lineGap = ReadS16(data, hheaOffset + 8);
   uint16_t numHMetrics = ReadU16(data, hheaOffset + 34);
 
-  if (maxpOffset + 6 > data.size())
+  if (maxpLength < 6)
     return false;
   uint16_t numGlyphs = ReadU16(data, maxpOffset + 4);
   if (numGlyphs == 0)
@@ -225,7 +136,7 @@ bool LoadTtfFontMetrics(const std::filesystem::path &path,
   if (numHMetrics == 0 || numHMetrics > numGlyphs)
     return false;
 
-  if (hmtxOffset + static_cast<uint32_t>(numHMetrics) * 4 > data.size())
+  if (hmtxLength < static_cast<uint32_t>(numHMetrics) * 4)
     return false;
 
   std::vector<int> advanceWidths;
@@ -247,96 +158,85 @@ bool LoadTtfFontMetrics(const std::filesystem::path &path,
       metrics.capHeight = ReadS16(data, os2Offset + 88);
     }
   }
+  uint32_t postOffset = 0, postLength = 0;
+  if (FindTable(data, MakeTag('p','o','s','t'), postOffset, postLength) && postLength >= 8)
+    metrics.italicAngle = static_cast<int32_t>(ReadU32(data, postOffset + 4)) / 65536.0;
+
   if (metrics.capHeight == 0)
     metrics.capHeight = metrics.ascent;
 
-  const std::string cmapData =
-      data.substr(cmapOffset, std::min<size_t>(cmapLength, data.size() - cmapOffset));
-  if (cmapData.size() < 4)
-    return false;
-  uint16_t cmapTables = ReadU16(cmapData, 2);
-  size_t cmapRecordOffset = 4;
-  uint32_t chosenOffset = 0;
-  for (uint16_t i = 0; i < cmapTables; ++i) {
-    if (cmapRecordOffset + 8 > cmapData.size())
-      return false;
-    uint16_t platformId = ReadU16(cmapData, cmapRecordOffset);
-    uint16_t encodingId = ReadU16(cmapData, cmapRecordOffset + 2);
-    uint32_t subOffset = ReadU32(cmapData, cmapRecordOffset + 4);
-    size_t subBase = subOffset;
-    if (subBase + 2 > cmapData.size())
+  if (cmapLength < 4) return false;
+  const auto count = ReadU16(data, cmapOffset + 2);
+  if (4u + 8u * count > cmapLength) return false;
+  for (unsigned i = 0; i < count; ++i) {
+    const auto record = cmapOffset + 4 + 8 * i;
+    const auto platform = ReadU16(data, record);
+    const auto encoding = ReadU16(data, record + 2);
+    if (platform != 0 && (platform != 3 || (encoding != 1 && encoding != 10)))
       continue;
-    uint16_t format = ReadU16(cmapData, subBase);
-    if (format == 4 && platformId == 3 &&
-        (encodingId == 1 || encodingId == 0)) {
-      chosenOffset = subOffset;
-      break;
-    }
-    cmapRecordOffset += 8;
-  }
-  if (chosenOffset == 0)
-    return false;
-
-  size_t subBase = chosenOffset;
-  if (subBase + 14 > cmapData.size())
-    return false;
-  uint16_t segCount = ReadU16(cmapData, subBase + 6) / 2;
-  size_t endCountOffset = subBase + 14;
-  size_t startCountOffset = endCountOffset + 2 * segCount + 2;
-  size_t idDeltaOffset = startCountOffset + 2 * segCount;
-  size_t idRangeOffsetOffset = idDeltaOffset + 2 * segCount;
-  if (idRangeOffsetOffset + 2 * segCount > cmapData.size())
-    return false;
-
-  auto glyphForCodepoint = [&](uint16_t code) -> uint16_t {
-    for (uint16_t i = 0; i < segCount; ++i) {
-      uint16_t endCount = ReadU16(cmapData, endCountOffset + 2 * i);
-      uint16_t startCount = ReadU16(cmapData, startCountOffset + 2 * i);
-      if (code < startCount || code > endCount)
-        continue;
-      int16_t idDelta = ReadS16(cmapData, idDeltaOffset + 2 * i);
-      uint16_t idRangeOffset = ReadU16(cmapData, idRangeOffsetOffset + 2 * i);
-      if (idRangeOffset == 0) {
-        return static_cast<uint16_t>(code + idDelta);
-      }
-      size_t glyphOffset =
-          idRangeOffsetOffset + 2 * i + idRangeOffset + 2 * (code - startCount);
-      if (glyphOffset + 2 > cmapData.size())
-        return 0;
-      uint16_t glyphIndex = ReadU16(cmapData, glyphOffset);
-      if (glyphIndex == 0)
-        return 0;
-      return static_cast<uint16_t>(glyphIndex + idDelta);
-    }
-    return 0;
-  };
-
-  int missingWidth = advanceWidths.empty() ? 0 : advanceWidths[0];
-  for (size_t i = 0; i < metrics.advanceWidths.size(); ++i) {
-    static constexpr uint16_t cp1252[] = {
-      0x20ac,0,0x201a,0x192,0x201e,0x2026,0x2020,0x2021,
-      0x2c6,0x2030,0x160,0x2039,0x152,0,0x17d,0,
-      0,0x2018,0x2019,0x201c,0x201d,0x2022,0x2013,0x2014,
-      0x2dc,0x2122,0x161,0x203a,0x153,0,0x17e,0x178};
-    const uint16_t code = i >= 128 && i < 160 ? cp1252[i-128] : i;
-    uint16_t glyphIndex = glyphForCodepoint(code);
-    metrics.glyphIndices[i] = glyphIndex;
-    int advance = missingWidth;
-    if (glyphIndex < advanceWidths.size())
-      advance = advanceWidths[glyphIndex];
-    metrics.advanceWidths[i] = advance;
-    if (metrics.unitsPerEm > 0) {
-      metrics.widths1000[i] =
-          static_cast<int>(std::lround(advance * 1000.0 / metrics.unitsPerEm));
-    } else {
-      metrics.widths1000[i] = 0;
+    const auto relative = ReadU32(data, record + 4);
+    if (relative > cmapLength - 4) continue;
+    const auto base = cmapOffset + relative;
+    const auto format = ReadU16(data, base);
+    if (format == 4) {
+      const auto length = ReadU16(data, base + 2);
+      if (length >= 16 && length <= cmapLength - relative &&
+          16u + 4u * ReadU16(data, base + 6) <= length)
+        metrics.cmap4 = base;
+    } else if (format == 12 && cmapLength - relative >= 16) {
+      const auto length = ReadU32(data, base + 4);
+      if (length >= 16 && length <= cmapLength - relative &&
+          ReadU32(data, base + 12) <= (length - 16) / 12)
+        metrics.cmap12 = base;
     }
   }
-
+  if (!metrics.cmap4 && !metrics.cmap12) return false;
+  metrics.glyphAdvances = std::move(advanceWidths);
   metrics.data = std::move(data);
   metrics.valid = metrics.unitsPerEm > 0;
   return metrics.valid;
 }
 
+uint16_t TtfFontMetrics::GlyphFor(uint32_t codepoint) const {
+  if (cmap12) {
+    auto first = 0u;
+    auto last = ReadU32(data, cmap12 + 12);
+    while (first < last) {
+      const auto middle = first + (last - first) / 2;
+      const auto entry = cmap12 + 16 + 12 * middle;
+      const auto start = ReadU32(data, entry);
+      if (codepoint < start) last = middle;
+      else if (codepoint > ReadU32(data, entry + 4)) first = middle + 1;
+      else {
+        const uint64_t glyph = uint64_t(ReadU32(data, entry + 8)) + codepoint - start;
+        return glyph < glyphAdvances.size() ? static_cast<uint16_t>(glyph) : 0;
+      }
+    }
+  }
+  if (!cmap4 || codepoint > 0xffff) return 0;
+  const auto count = ReadU16(data, cmap4 + 6) / 2u;
+  const auto ends = cmap4 + 14;
+  unsigned first = 0, last = count;
+  while (first < last) {
+    const auto middle = first + (last - first) / 2;
+    if (ReadU16(data, ends + 2 * middle) < codepoint) first = middle + 1;
+    else last = middle;
+  }
+  if (first == count) return 0;
+  const auto starts = ends + 2 * count + 2;
+  const auto start = ReadU16(data, starts + 2 * first);
+  if (codepoint < start) return 0;
+  const auto delta = ReadS16(data, starts + 2 * (count + first));
+  const auto range = starts + 2 * (2 * count + first);
+  const auto offset = ReadU16(data, range);
+  uint16_t glyph = static_cast<uint16_t>(codepoint + delta);
+  if (offset) {
+    const auto entry = range + offset + 2 * (codepoint - start);
+    if (entry + 2 > cmap4 + ReadU16(data, cmap4 + 2)) return 0;
+    glyph = ReadU16(data, entry);
+    if (glyph) glyph = static_cast<uint16_t>(glyph + delta);
+  }
+  return glyph < glyphAdvances.size() ? glyph : 0;
+}
 
 } // namespace typography

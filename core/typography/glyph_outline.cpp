@@ -1,4 +1,7 @@
 #include "glyph_outline.h"
+#include "font_resources.h"
+#include <map>
+#include <mutex>
 #include <stdexcept>
 
 namespace typography {
@@ -101,7 +104,11 @@ public:
           py = b * px + d * py + dy;
           px = tx;
         };
-        if (p.kind != GlyphPathElement::Kind::Close) transform(p.x, p.y);
+        if (p.kind == GlyphPathElement::Kind::Close) {
+          if (a * d < b * c) p.hole = !p.hole;
+        } else {
+          transform(p.x, p.y);
+        }
         if (p.kind == GlyphPathElement::Kind::Quadratic) transform(p.cx, p.cy);
         result.push_back(p);
       }
@@ -152,14 +159,29 @@ private:
 };
 } // namespace
 
-std::shared_ptr<const GlyphOutline> ReadGlyphOutline(const TtfFontMetrics &font,
-                                                    unsigned char winAnsi) {
+std::shared_ptr<const GlyphOutline> ReadGlyphOutlineById(const TtfFontMetrics &font,
+                                                        uint16_t glyph) {
   auto outline = std::make_shared<GlyphOutline>();
-  outline->path = OutlineReader(font).Read(font.glyphIndices[winAnsi]);
+  outline->path = OutlineReader(font).Read(glyph);
   for (auto &p : outline->path) {
     p.x /= font.unitsPerEm; p.y /= font.unitsPerEm;
     p.cx /= font.unitsPerEm; p.cy /= font.unitsPerEm;
   }
   return outline;
+}
+
+std::shared_ptr<const GlyphOutline> ResolveGlyphOutline(const FontCatalog &catalog,
+                                                       std::string_view resource,
+                                                       uint16_t glyph) {
+  const auto *face = catalog.FindResource(resource);
+  if (!face || glyph >= face->metrics.glyphAdvances.size()) return {};
+  using Key = std::pair<std::string_view, uint16_t>;
+  static std::mutex mutex;
+  static std::map<Key, std::shared_ptr<const GlyphOutline>> cache;
+  const std::lock_guard lock(mutex);
+  const Key key{face->fingerprint, glyph};
+  if (const auto it = cache.find(key); it != cache.end()) return it->second;
+  if (cache.size() >= 4096) cache.clear();
+  return cache.emplace(key, ReadGlyphOutlineById(face->metrics, glyph)).first->second;
 }
 } // namespace typography

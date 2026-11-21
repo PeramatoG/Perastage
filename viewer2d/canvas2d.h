@@ -65,6 +65,11 @@ struct CanvasTextStyle {
   CanvasColor outlineColor{};
   float outlineWidth = 0.0f;
   std::shared_ptr<const typography::GlyphOutline> glyphOutline;
+  std::string fontResource;
+  uint32_t codepoint = 0;
+  uint16_t glyphId = 0;
+  std::string fontDiagnostic;
+  bool IsComposedGlyph() const { return !fontResource.empty(); }
   enum class HorizontalAlign { Left, Center, Right } hAlign =
       HorizontalAlign::Left;
   enum class VerticalAlign { Baseline, Middle, Top, Bottom } vAlign =

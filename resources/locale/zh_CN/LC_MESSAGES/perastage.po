@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-15 23:20+0100\n"
+"POT-Creation-Date: 2026-11-22 00:01+0100\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -12,25 +12,25 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: app/perastage_app.cpp:271
+#: app/perastage_app.cpp:274
 msgid "Running library bootstrap..."
 msgstr "正在初始化资源库..."
 
-#: app/perastage_app.cpp:281
+#: app/perastage_app.cpp:284
 msgid "Creating main window..."
 msgstr "正在创建主窗口..."
 
-#: app/perastage_app.cpp:304
+#: app/perastage_app.cpp:307
 msgid "Loading last project..."
 msgstr "正在加载上次项目..."
 
-#: app/perastage_app.cpp:380
+#: app/perastage_app.cpp:383
 msgid ""
 "The Spanish translation catalog is not available in this build. Perastage is "
 "using English."
 msgstr "Spanish 翻译目录在此版本中不可用。 Peraget 使用的是英语。"
 
-#: app/perastage_app.cpp:382
+#: app/perastage_app.cpp:385
 msgid "Translation catalog unavailable"
 msgstr "没有可用的 GDTF 目录。"
 
@@ -303,7 +303,7 @@ msgstr "仅导出参考"
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
 #: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:92
 #: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:94
-#: gui/layouttextdialog.cpp:149 gui/preferencesdialog.cpp:87
+#: gui/layouttextdialog.cpp:178 gui/preferencesdialog.cpp:87
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139
 msgid "Cancel"
@@ -480,13 +480,13 @@ msgid "Type Color"
 msgstr "类型颜色"
 
 #: gui/dictionaryeditdialog.cpp:599 gui/mainwindow_layout.cpp:329
-#: gui/mainwindow_menu_builders.cpp:81 gui/mainwindow_print.cpp:517
+#: gui/mainwindow_menu_builders.cpp:81 gui/mainwindow_print.cpp:525
 #: gui/riggingpanel.cpp:185 gui/summarypanel.cpp:139
 msgid "Fixtures"
 msgstr "灯具"
 
 #: gui/dictionaryeditdialog.cpp:600 gui/mainwindow_layout.cpp:334
-#: gui/mainwindow_print.cpp:520 gui/riggingpanel.cpp:188
+#: gui/mainwindow_print.cpp:528 gui/riggingpanel.cpp:188
 #: gui/summarypanel.cpp:172
 msgid "Trusses"
 msgstr "桁架"
@@ -1097,6 +1097,21 @@ msgstr ""
 msgid "Select category"
 msgstr "选择类别"
 
+#: gui/document_font_choice.h:17
+#, c-format
+msgid "%s (default)"
+msgstr "%s（默认）"
+
+#: gui/document_font_choice.h:30
+msgid ""
+"The requested font is unavailable. The document uses an approved fallback."
+msgstr "请求的字体不可用。文档将使用经过验证的后备字体。"
+
+#: gui/document_font_choice.h:53 gui/fixture_label_editor.cpp:52
+#: gui/layouttextdialog.cpp:127
+msgid "Font family"
+msgstr "字体系列"
+
 #: gui/fixture_distribution_dialog.cpp:12
 msgid "Distribute fixtures"
 msgstr "分配电动葫芦负载..."
@@ -1149,79 +1164,75 @@ msgstr "从选定方向的一点开始"
 msgid "Placement"
 msgstr "放置："
 
-#: gui/fixture_label_editor.cpp:13 gui/layout_fixture_labels.cpp:92
+#: gui/fixture_label_editor.cpp:14 gui/layout_fixture_labels.cpp:92
 #: gui/layout_fixture_labels.cpp:162
 msgid "Fixture Label Editor"
 msgstr "灯具标签编辑器"
 
-#: gui/fixture_label_editor.cpp:27
+#: gui/fixture_label_editor.cpp:28
 #: tests/support/fixture_label_composition_parity_probe.h:45
 msgid "Project defaults"
 msgstr "项目默认值"
 
 #
-#: gui/fixture_label_editor.cpp:29
+#: gui/fixture_label_editor.cpp:30
 #: tests/support/fixture_label_composition_parity_probe.h:45
 msgid "Selected project fixtures"
 msgstr "选中的项目灯具"
 
-#: gui/fixture_label_editor.cpp:33 gui/fixture_label_editor.cpp:63
+#: gui/fixture_label_editor.cpp:34 gui/fixture_label_editor.cpp:66
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:55
 #: viewer2d/viewer2drenderpanel.cpp:84
 msgid "Top"
 msgstr "顶视图"
 
-#: gui/fixture_label_editor.cpp:33
+#: gui/fixture_label_editor.cpp:34
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:56
 #: viewer2d/viewer2drenderpanel.cpp:84
 msgid "Front"
 msgstr "前视图"
 
-#: gui/fixture_label_editor.cpp:33
+#: gui/fixture_label_editor.cpp:34
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:57
 #: viewer2d/viewer2drenderpanel.cpp:84
 msgid "Side"
 msgstr "侧视图"
 
-#: gui/fixture_label_editor.cpp:40
+#: gui/fixture_label_editor.cpp:41
 msgid "Fixture Name"
 msgstr "灯具名称"
 
-#: gui/fixture_label_editor.cpp:40
+#: gui/fixture_label_editor.cpp:41
 #: gui/fixturetable/fixture_table_columns.cpp:12
 #: tests/localization_catalog_integration_test.cpp:247
 msgid "Fixture ID"
 msgstr "灯具 ID"
 
-#: gui/fixture_label_editor.cpp:40
+#: gui/fixture_label_editor.cpp:41
 msgid "DMX Address"
 msgstr "DMX 地址"
 
-#: gui/fixture_label_editor.cpp:47
+#: gui/fixture_label_editor.cpp:48
 msgid "Show field"
 msgstr "显示字段"
 
-#: gui/fixture_label_editor.cpp:47
+#: gui/fixture_label_editor.cpp:48
 msgid "Visibility"
 msgstr "可见性"
 
-#: gui/fixture_label_editor.cpp:49
-msgid "Font family"
-msgstr "字体系列"
-
-#: gui/fixture_label_editor.cpp:50
+#: gui/fixture_label_editor.cpp:53
 msgid "Bold"
 msgstr "粗体"
 
-#: gui/fixture_label_editor.cpp:50
+#: gui/fixture_label_editor.cpp:53
 msgid "Style"
 msgstr "样式"
 
-#: gui/fixture_label_editor.cpp:55
+#: gui/fixture_label_editor.cpp:58
 msgid "Size (m)"
 msgstr "大小（m）"
 
-#: gui/fixture_label_editor.cpp:56
+#: gui/fixture_label_editor.cpp:59
 #: gui/inspection/gdtf_inspector_details_panel.cpp:158
 #: gui/inspection/gdtf_inspector_details_panel.cpp:173 gui/layerpanel.cpp:88
 #: gui/layerpanel.cpp:102 gui/summarypanel.cpp:266 gui/summarypanel.cpp:320
@@ -1229,88 +1240,85 @@ msgstr "大小（m）"
 msgid "Color"
 msgstr "颜色"
 
-#: gui/fixture_label_editor.cpp:57
+#: gui/fixture_label_editor.cpp:60
 msgid "Enabled"
 msgstr "启用"
 
-#: gui/fixture_label_editor.cpp:57
+#: gui/fixture_label_editor.cpp:60
 msgid "Outline"
 msgstr "描边"
 
-#: gui/fixture_label_editor.cpp:58
+#: gui/fixture_label_editor.cpp:61
 msgid "Outline color"
 msgstr "描边颜色"
 
-#: gui/fixture_label_editor.cpp:59
+#: gui/fixture_label_editor.cpp:62
 msgid "Outline thickness (m)"
 msgstr "描边粗细（m）"
 
-#: gui/fixture_label_editor.cpp:63 gui/fixture_label_editor.cpp:65
+#: gui/fixture_label_editor.cpp:66 gui/fixture_label_editor.cpp:68
 msgid "Center"
 msgstr "居中"
 
-#: gui/fixture_label_editor.cpp:63
+#: gui/fixture_label_editor.cpp:66
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:59
 msgid "Bottom"
 msgstr "底部"
 
-#: gui/fixture_label_editor.cpp:63 gui/fixture_label_editor.cpp:65
+#: gui/fixture_label_editor.cpp:66 gui/fixture_label_editor.cpp:68
 msgid "Left"
 msgstr "左"
 
-#: gui/fixture_label_editor.cpp:63 gui/fixture_label_editor.cpp:65
+#: gui/fixture_label_editor.cpp:66 gui/fixture_label_editor.cpp:68
 msgid "Right"
 msgstr "右"
 
-#: gui/fixture_label_editor.cpp:63
+#: gui/fixture_label_editor.cpp:66
 msgid "Anchor"
 msgstr "锚点"
 
-#: gui/fixture_label_editor.cpp:65 gui/mainwindow_alignment.cpp:198
+#: gui/fixture_label_editor.cpp:68 gui/mainwindow_alignment.cpp:198
 msgid "Alignment"
 msgstr "对齐"
 
-#: gui/fixture_label_editor.cpp:66
+#: gui/fixture_label_editor.cpp:69
 msgid "X offset (m)"
 msgstr "X 偏移（m）"
 
-#: gui/fixture_label_editor.cpp:67
+#: gui/fixture_label_editor.cpp:70
 msgid "Y offset (m)"
 msgstr "Y 偏移（m）"
 
-#: gui/fixture_label_editor.cpp:72
+#: gui/fixture_label_editor.cpp:75
 msgid "Preview background"
 msgstr "预览背景"
 
-#: gui/fixture_label_editor.cpp:73
+#: gui/fixture_label_editor.cpp:76
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:44
 #: gui/viewport_context_menu.cpp:209 viewer2d/viewer2drenderpanel.cpp:65
 msgid "White"
 msgstr "白色"
 
-#: gui/fixture_label_editor.cpp:73
+#: gui/fixture_label_editor.cpp:76
 msgid "Dark"
 msgstr "深色"
 
-#: gui/fixture_label_editor.cpp:81
+#: gui/fixture_label_editor.cpp:84
 msgid "Drag the selected field in the preview."
 msgstr "在预览中拖动选中的字段。"
 
-#: gui/fixture_label_editor.cpp:85
-msgid ""
-"The viewer, editor and PDF use the same bundled font and label composition. "
-"Sizes and offsets use scene metres.\n"
-"Supported text: English and Western European WinAnsi characters."
-msgstr ""
-"视图、编辑器和 PDF 使用相同的内置字体和标签布局。大小和偏移使用场景米。\n"
-"支持的文本：英语和西欧 WinAnsi 字符。"
-
 #: gui/fixture_label_editor.cpp:88
+msgid ""
+"The viewer, editor and PDF use the same approved fonts and label "
+"composition. Sizes and offsets use scene metres."
+msgstr "视图、编辑器和 PDF 使用相同的已批准字体和标签排版。大小和偏移量以场景米为单位。"
+
+#: gui/fixture_label_editor.cpp:91
 msgid "Reset to Default"
 msgstr "重置为默认值"
 
-#: gui/fixture_label_preview.cpp:31 gui/fixture_label_preview.cpp:102
-#: viewer3d/labels/composed_fixture_labels.cpp:101
+#: gui/fixture_label_preview.cpp:31
+#: viewer3d/labels/composed_fixture_labels.cpp:88
 msgid "Bundled label fonts are unavailable."
 msgstr "内置标签字体不可用。"
 
@@ -1319,19 +1327,15 @@ msgstr "内置标签字体不可用。"
 msgid "Present; preview unavailable"
 msgstr "存在；预览不可用"
 
-#: gui/fixture_label_preview.cpp:143
-msgid "Unsupported text: change the fixture attribute before export."
-msgstr "文本不受支持：导出前请修改灯具属性。"
-
-#: gui/fixture_label_preview.cpp:144
+#: gui/fixture_label_preview.cpp:135
 msgid "Dark preview: symbol contours are lightened for display only."
 msgstr "深色预览：符号轮廓仅为显示而调亮。"
 
-#: gui/fixture_label_preview.cpp:145
+#: gui/fixture_label_preview.cpp:136
 msgid "Preview uses the first fixture in this scope."
 msgstr "预览使用此范围内的第一个灯具。"
 
-#: gui/fixture_label_preview.cpp:145
+#: gui/fixture_label_preview.cpp:136
 msgid "Symbol unavailable"
 msgstr "符号不可用"
 
@@ -2954,15 +2958,15 @@ msgstr "有效自由比例：约为 1:%.4f"
 msgid "Invalid image"
 msgstr "无效值"
 
-#: gui/layoutlegendeditdialog.cpp:70
+#: gui/layoutlegendeditdialog.cpp:74
 msgid "Show channel count column"
 msgstr "显示通道数列"
 
-#: gui/layoutlegendeditdialog.cpp:98
+#: gui/layoutlegendeditdialog.cpp:102
 msgid "Move Up"
 msgstr "向上移动"
 
-#: gui/layoutlegendeditdialog.cpp:99
+#: gui/layoutlegendeditdialog.cpp:103
 msgid "Move Down"
 msgstr "下移"
 
@@ -3060,15 +3064,15 @@ msgstr "导入布局模板"
 msgid "Could not import layout template.\n"
 msgstr "无法导入布局模板.\n"
 
-#: gui/layouttextdialog.cpp:132
+#: gui/layouttextdialog.cpp:160
 msgid "Solid background"
 msgstr "纯色背景"
 
-#: gui/layouttextdialog.cpp:135
+#: gui/layouttextdialog.cpp:163
 msgid "Show outline"
 msgstr "显示轮廓"
 
-#: gui/layouttextdialog.cpp:148
+#: gui/layouttextdialog.cpp:177
 msgid "Ok"
 msgstr "好的"
 
@@ -3743,7 +3747,7 @@ msgstr "导入 Rider 失败。"
 msgid "Object exported successfully."
 msgstr "对象导出成功。"
 
-#: gui/mainwindow_io.cpp:906 gui/mainwindow_print.cpp:535
+#: gui/mainwindow_io.cpp:906 gui/mainwindow_print.cpp:543
 msgid "Select table"
 msgstr "选择表格"
 
@@ -3752,12 +3756,12 @@ msgstr "选择表格"
 msgid "Export CSV"
 msgstr "导出 CSV..."
 
-#: gui/mainwindow_layout.cpp:339 gui/mainwindow_print.cpp:523
+#: gui/mainwindow_layout.cpp:339 gui/mainwindow_print.cpp:531
 #: gui/riggingpanel.cpp:191 gui/summarypanel.cpp:182
 msgid "Hoists"
 msgstr "电动葫芦"
 
-#: gui/mainwindow_layout.cpp:344 gui/mainwindow_print.cpp:526
+#: gui/mainwindow_layout.cpp:344 gui/mainwindow_print.cpp:534
 #: gui/summarypanel.cpp:199
 msgid "Objects"
 msgstr "对象"
@@ -4467,13 +4471,13 @@ msgstr "表格"
 msgid "Select what to print:"
 msgstr "选择要打印的内容："
 
-#: gui/mainwindow_print.cpp:103 gui/mainwindow_print.cpp:252
+#: gui/mainwindow_print.cpp:103 gui/mainwindow_print.cpp:256
 msgid "2D viewport is not available."
 msgstr "2D 视口不可用。"
 
 #: gui/mainwindow_print.cpp:103 gui/mainwindow_print.cpp:133
 #: gui/mainwindow_print.cpp:163 gui/mainwindow_print.cpp:201
-#: gui/mainwindow_print.cpp:205
+#: gui/mainwindow_print.cpp:209
 msgid "Print Viewer 2D"
 msgstr "打印 2D 查看器"
 
@@ -4498,53 +4502,53 @@ msgstr "无法捕获用于打印的 2D 视图。"
 msgid "Failed to generate PDF plan: %s"
 msgstr "生成 PDF 平面图失败：%s"
 
-#: gui/mainwindow_print.cpp:200 gui/mainwindow_print.cpp:420
+#: gui/mainwindow_print.cpp:200 gui/mainwindow_print.cpp:426
 msgid "Print failed. Please review the error and try again."
 msgstr "打印失败。请检查错误后重试。"
 
-#: gui/mainwindow_print.cpp:204
+#: gui/mainwindow_print.cpp:208
 #, c-format
 msgid "2D view saved to %s"
 msgstr "2D 视图已保存到 %s"
 
-#: gui/mainwindow_print.cpp:219
+#: gui/mainwindow_print.cpp:223
 msgid "No layout is selected."
 msgstr "未选择布局。"
 
-#: gui/mainwindow_print.cpp:219 gui/mainwindow_print.cpp:232
-#: gui/mainwindow_print.cpp:244 gui/mainwindow_print.cpp:252
-#: gui/mainwindow_print.cpp:286 gui/mainwindow_print.cpp:304
-#: gui/mainwindow_print.cpp:421 gui/mainwindow_print.cpp:433
+#: gui/mainwindow_print.cpp:223 gui/mainwindow_print.cpp:236
+#: gui/mainwindow_print.cpp:248 gui/mainwindow_print.cpp:256
+#: gui/mainwindow_print.cpp:290 gui/mainwindow_print.cpp:308
+#: gui/mainwindow_print.cpp:427 gui/mainwindow_print.cpp:441
 msgid "Print Layout"
 msgstr "打印布局"
 
-#: gui/mainwindow_print.cpp:232
+#: gui/mainwindow_print.cpp:236
 msgid "Selected layout is not available."
 msgstr "所选布局不可用。"
 
-#: gui/mainwindow_print.cpp:243
+#: gui/mainwindow_print.cpp:247
 msgid "The selected layout is empty."
 msgstr "所选布局为空。"
 
-#: gui/mainwindow_print.cpp:276
+#: gui/mainwindow_print.cpp:280
 msgid "Save layout as"
 msgstr "将布局另存为"
 
-#: gui/mainwindow_print.cpp:285
+#: gui/mainwindow_print.cpp:289
 msgid "Please choose a destination file for the layout."
 msgstr "请选择布局的目标文件。"
 
-#: gui/mainwindow_print.cpp:303 gui/mainwindow_print.cpp:417
+#: gui/mainwindow_print.cpp:307 gui/mainwindow_print.cpp:423
 #, c-format
 msgid "Failed to generate layout PDF: %s"
 msgstr "生成布局 PDF 失败：%s"
 
-#: gui/mainwindow_print.cpp:425
+#: gui/mainwindow_print.cpp:431
 #, c-format
 msgid "Layout saved to %s"
 msgstr "布局已保存到 %s"
 
-#: gui/mainwindow_print.cpp:427
+#: gui/mainwindow_print.cpp:433
 #, c-format
 msgid ""
 "\n"
@@ -4559,11 +4563,11 @@ msgstr ""
 "Perastage symbols：%zu\n"
 "渲染后备：%zu"
 
-#: gui/mainwindow_print.cpp:504
+#: gui/mainwindow_print.cpp:512
 msgid "Printing layout..."
 msgstr "正在打印布局..."
 
-#: gui/mainwindow_print.cpp:535
+#: gui/mainwindow_print.cpp:543
 msgid "Print Table"
 msgstr "打印表格"
 
@@ -6657,6 +6661,9 @@ msgstr "保存 PNG 图像失败。"
 #, c-format
 msgid "Measure: %s"
 msgstr "测量：%s"
+
+#~ msgid "Unsupported text: change the fixture attribute before export."
+#~ msgstr "文本不受支持：导出前请修改灯具属性。"
 
 #, c-format
 #~ msgid "ID: %d"

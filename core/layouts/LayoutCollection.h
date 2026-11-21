@@ -136,6 +136,7 @@ struct LayoutLegendDefinition {
   Layout2DViewFrame frame;
   bool showChannelColumn = true;
   std::vector<ItemSettings> itemSettings;
+  std::string fontFamily;
 };
 
 struct LayoutEventTableDefinition {
@@ -143,6 +144,7 @@ struct LayoutEventTableDefinition {
   int zIndex = 0;
   Layout2DViewFrame frame;
   std::array<std::string, 7> fields;
+  std::string fontFamily;
 };
 
 struct LayoutTextDefinition {

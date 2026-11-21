@@ -1,5 +1,6 @@
 #include "layout_image_export.h"
 #include "layouttextutils.h"
+#include "typography/font_resources.h"
 #include <wx/app.h>
 #include <wx/image.h>
 #include <cassert>
@@ -18,6 +19,36 @@ int main(int argc,char **argv) {
     auto data=layouttext::BuildLayoutTextExportData(text);
     assert(data.frame.x==17 && data.frame.y==29 && data.frame.width==101 && data.frame.height==73);
     assert(text.text=="Plain text" && text.frame.width==101);
+    wxRichTextBuffer rich;
+    wxRichTextAttr heading;
+    heading.SetAlignment(wxTEXT_ALIGNMENT_RIGHT);
+    auto *paragraph = new wxRichTextParagraph(&rich, &heading);
+    rich.AppendChild(paragraph);
+    wxRichTextAttr first;
+    first.SetFontPointSize(18);
+    first.SetFontFaceName("Source Sans 3");
+    first.SetFontWeight(wxFONTWEIGHT_BOLD);
+    first.SetTextColour(wxColour(20, 30, 40));
+    wxRichTextAttr second;
+    second.SetFontPointSize(10);
+    second.SetFontFaceName("Noto Serif");
+    second.SetFontUnderlined(true);
+    paragraph->AppendChild(new wxRichTextPlainText(wxString::FromUTF8("Producción"), paragraph, &first));
+    paragraph->AppendChild(new wxRichTextPlainText(wxString::FromUTF8(" Málaga"), paragraph, &second));
+    rich.UpdateRanges();
+    text.richText = layouttext::SaveRichTextBufferToString(rich).utf8_string();
+    const auto spans = layouttext::BuildLayoutTextExportData(text);
+    assert(spans.wrap && spans.lines.size() == 1);
+    assert(spans.lines.front().alignment == typography::TextBlock::Alignment::Right);
+    assert(spans.lines.front().runs[0].family == "Source Sans 3" && spans.lines.front().runs[0].bold);
+    assert(spans.lines.front().runs[0].text == "Producción");
+    assert(spans.lines.front().runs[0].color[0] == 20);
+    assert(spans.lines.front().runs[1].family == "Noto Serif" && spans.lines.front().runs[1].underline);
+    const typography::FontCatalog catalog(PERASTAGE_TEST_RESOURCE_DIR);
+    const auto plan = typography::ComposeTextBlock(spans, 200, 140, catalog);
+    assert(plan.glyphs.front().glyph.resourceId != plan.glyphs.back().glyph.resourceId);
+    assert(plan.glyphs.front().baseline == plan.glyphs.back().baseline);
+    assert(!plan.decorations.empty());
     const auto path=std::filesystem::temp_directory_path()/("layout-image-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".png");
     wxImage source(2,1);source.SetRGB(0,0,255,0,0);source.SetRGB(1,0,0,0,255);source.InitAlpha();source.SetAlpha(0,0,0);source.SetAlpha(1,0,0);
     assert(source.SaveFile(path.string(),wxBITMAP_TYPE_PNG));

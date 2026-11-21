@@ -31,7 +31,7 @@ inline void CheckFixtureLabelRasterRegistration() {
       text.style.fontFamily=family; text.style.fontSize=.12;
       text.style.color={1,1,1,1}; text.style.outlineColor={0,0,0,1};
       text.style.outlineWidth=typography::kFixtureLabelOutlineReferenceMetres;
-      text.style.glyphOutline=typography::ReadGlyphOutline(font,static_cast<unsigned char>(glyph[0]));
+      text.style.glyphOutline=typography::ReadGlyphOutlineById(font,font.GlyphFor(glyph[0]));
       std::vector<unsigned char> reference;
       for (bool adapter : {false,true}) {
         target.BindForRendering(); glViewport(0,0,256,160); glDisable(GL_SCISSOR_TEST);
@@ -81,7 +81,7 @@ inline void CheckFixtureLabelRasterMetrics() {
       nvgFontFaceId(vg.get(),id); nvgFontSize(vg.get(),em*factor);
       nvgTextAlign(vg.get(),NVG_ALIGN_LEFT | NVG_ALIGN_BASELINE); nvgTextLetterSpacing(vg.get(),0);
       const double measured=nvgTextBounds(vg.get(),0,0,"M",nullptr,nullptr);
-      const double expected=font.advanceWidths['M']*em/font.unitsPerEm;
+      const double expected=font.glyphAdvances[font.GlyphFor('M')]*em/font.unitsPerEm;
       if (std::abs(measured-expected)>1.05)
         throw std::runtime_error("Raster glyph advance disagrees with canonical TTF composition");
     }
@@ -109,8 +109,7 @@ inline void CheckFixtureLabelInkBalance() {
   for (const auto &g : layout.glyphs) {
     TextCommand t; t.text=g.text; t.x=g.x; t.y=g.baseline;
     t.style.fontFamily="perastage-sans"; t.style.fontSize=style.size;
-    t.style.glyphOutline=typography::ReadGlyphOutline(fonts.regular,
-        static_cast<unsigned char>(typography::EncodeWinAnsi(g.text)[0]));
+    t.style.glyphOutline=typography::ReadGlyphOutlineById(fonts.regular, g.glyphId);
     t.style.color={1,1,1,1}; t.style.outlineColor={0,0,0,1};
     t.style.outlineWidth=typography::kFixtureLabelOutlineReferenceMetres;
     glyphs.push_back(t);

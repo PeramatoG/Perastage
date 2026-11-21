@@ -22,6 +22,8 @@
 #include <wx/wx.h>
 #include "LayoutCollection.h"
 
+namespace gui { class DocumentFontChoice; }
+
 class LayoutEventTableDialog : public wxDialog {
 public:
   LayoutEventTableDialog(wxWindow *parent,
@@ -29,6 +31,9 @@ public:
 
   std::array<std::string, 7> GetFields() const;
 
+  std::string GetFontFamily() const;
+
 private:
+  gui::DocumentFontChoice *fontChoice_ = nullptr;
   std::array<wxTextCtrl *, 7> fieldControls_{};
 };

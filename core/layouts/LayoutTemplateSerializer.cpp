@@ -185,7 +185,7 @@ nlohmann::json ToJson(const LayoutLegendDefinition &legend) {
     });
   }
 
-  return {{"id", legend.id},
+  nlohmann::json data{{"id", legend.id},
           {"zIndex", legend.zIndex},
           {"frame",
            {{"x", frame.x},
@@ -194,6 +194,8 @@ nlohmann::json ToJson(const LayoutLegendDefinition &legend) {
             {"height", frame.height}}},
           {"showChannelColumn", legend.showChannelColumn},
           {"itemSettings", std::move(itemSettings)}};
+  if (!legend.fontFamily.empty()) data["fontFamily"] = legend.fontFamily;
+  return data;
 }
 
 nlohmann::json ToJson(const LayoutEventTableDefinition &table) {
@@ -202,7 +204,7 @@ nlohmann::json ToJson(const LayoutEventTableDefinition &table) {
   for (size_t idx = 0; idx < table.fields.size(); ++idx)
     fields[kEventTableFieldKeys[idx]] = table.fields[idx];
 
-  return {{"id", table.id},
+  nlohmann::json data{{"id", table.id},
           {"zIndex", table.zIndex},
           {"frame",
            {{"x", frame.x},
@@ -210,6 +212,8 @@ nlohmann::json ToJson(const LayoutEventTableDefinition &table) {
             {"width", frame.width},
             {"height", frame.height}}},
           {"fields", std::move(fields)}};
+  if (!table.fontFamily.empty()) data["fontFamily"] = table.fontFamily;
+  return data;
 }
 
 nlohmann::json ToJson(const LayoutTextDefinition &text) {
@@ -503,6 +507,8 @@ bool ParseLayoutLegend(const nlohmann::json &value, LayoutLegendDefinition &out,
     out.id = idIt->get<int>();
   if (auto zIt = value.find("zIndex"); zIt != value.end() && zIt->is_number_integer())
     out.zIndex = zIt->get<int>();
+  if (const auto family = value.find("fontFamily"); family != value.end() && family->is_string())
+    out.fontFamily = family->get<std::string>();
   auto frameIt = value.find("frame");
   if (frameIt != value.end() && frameIt->is_object())
     ReadFrame(*frameIt, out.frame, ctx);
@@ -576,6 +582,8 @@ bool ParseLayoutEventTable(const nlohmann::json &value,
     out.id = idIt->get<int>();
   if (auto zIt = value.find("zIndex"); zIt != value.end() && zIt->is_number_integer())
     out.zIndex = zIt->get<int>();
+  if (const auto family = value.find("fontFamily"); family != value.end() && family->is_string())
+    out.fontFamily = family->get<std::string>();
   auto frameIt = value.find("frame");
   if (frameIt != value.end() && frameIt->is_object())
     ReadFrame(*frameIt, out.frame, ctx);

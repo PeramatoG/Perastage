@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "canvas2d.h"
+#include <string_view>
 #include "symbolcache.h"
 
 struct Viewer2DViewState;
@@ -59,6 +60,7 @@ struct Viewer2DRenderText {
   double fontSizePx = 0.0;
   double lineHeightPx = 0.0;
   double outlineWidthPx = 0.0;
+  std::string_view source;
 };
 
 class IViewer2DCommandBackend {

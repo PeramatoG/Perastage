@@ -1,4 +1,5 @@
 #include "layout_pdf_legend_renderer.h"
+#include "pdf_unicode_fonts.h"
 #include "paper_stroke_mapping.h"
 #include "layout_pdf_page_mapping.h"
 
@@ -29,7 +30,7 @@ std::array<double, 3> FillRgb(const std::optional<std::string> &hex) {
 
 LegendPdfRenderResult RenderLegendPdf(std::ostringstream &out,
     const LayoutLegendExportData &legend, const SymbolDefinitionSnapshot *snapshot,
-    double pageHeight, double outputScaleX, double outputScaleY, const PdfFontCatalog &fonts,
+    double pageHeight, double outputScaleX, double outputScaleY, PdfUnicodeFonts &ink,
     const FloatFormatter &formatter, const viewer2d::LegendSvgResolver &resolveSvg,
     const LegendCommandStreamRenderer &renderCommands, LegendCompositionPlan *composedPlan) {
   LegendPdfRenderResult result;
@@ -39,7 +40,8 @@ LegendPdfRenderResult RenderLegendPdf(std::ostringstream &out,
   input.width = legend.frame.width;
   input.height = legend.frame.height;
   input.showChannelColumn = legend.showChannelColumn;
-  const auto plan = ComposeLegend(input, {fonts.labelRegular->metrics, fonts.labelBold->metrics});
+  const typography::TtfFontMetrics empty;
+  const auto plan = ComposeLegend(input, {empty, empty, &ink.Catalog(), legend.fontFamily});
   if (composedPlan) *composedPlan = plan;
   result.textSubstitutions = plan.unsupportedGlyphs;
   result.diagnostics = plan.diagnostics;
@@ -107,15 +109,8 @@ LegendPdfRenderResult RenderLegendPdf(std::ostringstream &out,
   }
   for (const auto &line : plan.text) {
     out << "q\n"; rect(line.clip); out << "W n\n";
-    for (const auto &runLine : line.glyphRun.lines) {
-      std::string supported;
-      for (auto index = runLine.first; index < runLine.first + runLine.count; ++index)
-        supported += line.glyphRun.glyphs[index].text;
-      out << "BT\n/" << (line.role == TextRole::Bold ? "F4" : "F3") << ' '
-          << formatter.Format(plan.fontSize) << " Tf\n0.078431 0.078431 0.078431 rg\n"
-          << x(line.baseline.x) << ' ' << y(line.baseline.y-runLine.baseline) << " Td\n("
-          << EscapePdfLiteralBytes(EncodeWinAnsi(supported)) << ") Tj\nET\n";
-    }
+    out << "0.078431 0.078431 0.078431 rg\n";
+    ink.AppendRun(out, formatter, line.glyphRun, frameX + line.baseline.x, frameTop - line.baseline.y);
     out << "Q\n";
   }
   out << "Q\nq\n0 0 0 RG " << formatter.Format(plan.borderWidth) << " w ";

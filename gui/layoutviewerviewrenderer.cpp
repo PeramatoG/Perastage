@@ -445,10 +445,12 @@ wxImage RenderLayoutViewCommandBufferToImage(
   if (viewState.physicalMapping)
     RenderPhysicalViewportPreview(dc, buffer, mapping, symbols,
         mapping.scale / viewState.physicalMapping->pointsPerMeter);
-  else
+  else {
     RenderCommandBuffer(dc, buffer, mapping, symbols, svgCache,
                         resolvedModelKeyCache, nullptr, Transform2D::Identity(),
                         CanvasTransform{}, false);
+    RenderPhysicalViewportPreview(dc, buffer, mapping, nullptr, 1.0, true);
+  }
 
   memoryDc.SelectObject(wxNullBitmap);
   return bitmap.ConvertToImage();

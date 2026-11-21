@@ -28,7 +28,7 @@ inline viewer2d::LabelFieldStyles ReadLabelFields(const nlohmann::json &j) {
   viewer2d::LabelFieldStyles fields;
   if (j.empty()) return fields;
   const auto &p = j.at("presentation");
-  if (p.at("version") != 2 || !p.at("fields").is_array() || p.at("fields").size() != 3)
+  if ((p.at("version") != 2 && p.at("version") != 3) || !p.at("fields").is_array() || p.at("fields").size() != 3)
     throw std::invalid_argument("Invalid Layout label field presentation.");
   viewer2d::ReadFieldStyles(j, fields);
   for (int v=0; v<3; ++v) {

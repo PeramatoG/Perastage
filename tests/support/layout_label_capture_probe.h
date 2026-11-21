@@ -56,6 +56,7 @@ inline void CheckLayoutLabelCapture(MainWindow &window, const std::filesystem::p
   require(tests::zip::ReadEntry(beforeMvr,"GeneralSceneDescription.xml",&beforeXml),"Missing baseline scene XML");
   layouts::FixtureLabelStyleProfile profile{"native-style","Native shared style",{}};
   viewer2d::LabelFieldStyle field; field.size=.22f; field.x=.8f; field.y=.3f;
+  field.fontFamily = "Noto Serif";
   field.color={.1f,.2f,.9f}; field.outlineColor={.9f,.7f,.1f}; field.outlineWidth=.02f;
   for (int v=0; v<3; ++v) for (int f=0; f<3; ++f) {
     auto style=field; style.visible=f==1; profile.fields[v][f]=style;
@@ -66,7 +67,7 @@ inline void CheckLayoutLabelCapture(MainWindow &window, const std::filesystem::p
   a.id=1; a.labelPresentation.profileId=profile.id;
   a.scaleMode=layouts::ViewportScaleMode::Fixed; a.physicalScale=layouts::PhysicalViewport{100,0,0};
   auto b=a; b.id=2; b.frame.x=240; b.physicalScale->denominator=25;
-  for (int f=0; f<3; ++f) { auto s=field; s.size=.12f; s.x=-.6f; s.visible=true; b.labelPresentation.fields[0][f]=s; }
+  for (int f=0; f<3; ++f) { auto s=field; s.size=.12f; s.x=-.6f; s.visible=true; s.fontFamily="Source Sans 3"; b.labelPresentation.fields[0][f]=s; }
   page.view2dViews={a,b};
   // Add profiles and assignments through one real document transaction.
   page.view2dViews[0].labelPresentation={}; page.view2dViews[1].labelPresentation={};
@@ -93,7 +94,7 @@ inline void CheckLayoutLabelCapture(MainWindow &window, const std::filesystem::p
   const auto text=[](const auto &data) {
     std::vector<TextCommand> result;
     for (const auto &c : data.buffer.commands) if (const auto *t=std::get_if<TextCommand>(&c))
-      if (t->style.fontFamily.starts_with("perastage-sans")) result.push_back(*t);
+      if (t->style.IsComposedGlyph()) result.push_back(*t);
     return result;
   };
   const auto beforeRevision=cfg.GetRenderRevision();
@@ -102,6 +103,10 @@ inline void CheckLayoutLabelCapture(MainWindow &window, const std::filesystem::p
   require(!ta.empty() && tb.size()>ta.size(),"Independent viewport visibility did not reach capture");
   require(ta.size()==tc.size() && ta.front().x==tc.front().x && ta.front().y==tc.front().y,"Cross-viewport capture contamination");
   require(std::abs(ta.front().style.fontSize-.22)<1e-5 && std::abs(tb.front().style.fontSize-.12)<1e-5,"Captured viewport font sizes disagree");
+  require(!ta.front().style.fontResource.empty() &&
+          ta.front().style.fontResource != tb.front().style.fontResource &&
+          ta.front().style.fontResource == tc.front().style.fontResource,
+          "Resolved fonts crossed Layout viewport scopes");
   require(ta.front().style.color.b==field.color[2] && ta.front().style.outlineColor.r==field.outlineColor[0],"Capture lost ink colors");
   require(std::abs(ta.front().style.outlineWidth-.02)<1e-5,"Capture lost outline width");
   require(cfg.GetValue("label_fixture_overrides")==projectLabels,"Capture mutated project overrides");
@@ -111,6 +116,9 @@ inline void CheckLayoutLabelCapture(MainWindow &window, const std::filesystem::p
   require(ExportLayoutToPdf({first,second},{},{},{},{},options,pdf).success,"Scoped vector PDF export failed");
   std::ifstream pdfFile(pdf,std::ios::binary); const std::string bytes((std::istreambuf_iterator<char>(pdfFile)),{});
   require(bytes.find("%PDF-")==0 && bytes.find("0.100 0.200 0.900 rg")!=std::string::npos,"PDF did not retain captured label color");
+  require(bytes.find("/BaseFont /NotoSerif-Regular") != std::string::npos &&
+          bytes.find("/BaseFont /SourceSans3-Regular") != std::string::npos,
+          "Layout PDF failed to embed the exact captured font faces");
   require(exporter.ExportCanonicalSnapshotToFile(cfg.GetScene(),afterMvr.string()),"Styled canonical MVR export failed");
   require(tests::zip::ReadEntry(afterMvr,"GeneralSceneDescription.xml",&afterXml) && beforeXml==afterXml,"Layout styles mutated canonical MVR scene XML");
   require(cfg.SaveProject((scratch/"label-profiles.pstg").string()),"Scoped PSTG save failed");

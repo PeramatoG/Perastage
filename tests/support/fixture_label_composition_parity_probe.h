@@ -53,7 +53,7 @@ inline void CheckFixtureLabelCompositionParity(MainWindow &window,const std::fil
   std::string name;
   for (size_t i=0;i<actual.size();++i) {
     const auto &a=actual[i], &b=expected.text[i]; name+=a.text;
-    if (a.text!=b.text || a.style.fontFamily!=b.style.fontFamily ||
+    if (a.text!=b.text || a.style.fontResource!=b.style.fontResource || a.style.glyphId!=b.style.glyphId ||
         std::abs(a.style.fontSize-b.style.fontSize)>1e-6 ||
         std::abs(a.x-b.x)>1e-5 || std::abs(a.y-b.y)>1e-5 ||
         std::abs(a.style.lineHeight-b.style.lineHeight)>1e-6 ||

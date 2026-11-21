@@ -13,20 +13,12 @@ wxImage RenderEventTableImage(const wxSize &size, double zoom,
     layouts::composition::EventTablePlan *composedPlan) {
   using namespace layouts::composition;
   if (size.x <= 0 || size.y <= 0 || !std::isfinite(zoom) || zoom <= 0) return {};
-  // Unlike FontPair's throwing constructor, retain failed loads as invalid metrics
-  // so the common composer can return a deterministic, diagnosed empty plan.
-  static const auto fonts = [] {
-    std::array<typography::TtfFontMetrics, 2> pair;
-    const auto root = ProjectUtils::GetResourceRoot();
-    typography::LoadTtfFontMetrics(typography::BundledFontPath(root, false), pair[0]);
-    typography::LoadTtfFontMetrics(typography::BundledFontPath(root, true), pair[1]);
-    return pair;
-  }();
+  const typography::FontPair fonts(ProjectUtils::GetResourceRoot(), table.fontFamily);
   const auto plan = ComposeEventTable(
       {static_cast<double>(table.frame.width), static_cast<double>(table.frame.height), table.fields},
-      {fonts[0], fonts[1]});
+      {fonts.regular, fonts.bold, fonts.catalog.get(), table.fontFamily});
   if (composedPlan) *composedPlan = plan;
-  for (const auto &message : plan.diagnostics) Logger::Instance().Log(message);
+  for (const auto &message : plan.diagnostics) ReportDocumentTypographyDiagnostic(message);
   wxBitmap bitmap(size.x, size.y, 32);
   wxMemoryDC memory(bitmap);
   wxGCDC dc(memory);
@@ -43,7 +35,7 @@ wxImage RenderEventTableImage(const wxSize &size, double zoom,
         gc->Clip(cell->clip.x * zoom, cell->clip.y * zoom,
                  cell->clip.width * zoom, cell->clip.height * zoom);
         DrawComposedDocumentText(*gc, cell->run,
-            cell->role == TextRole::Bold ? fonts[1] : fonts[0],
+            *fonts.catalog,
             cell->baseline.x, cell->baseline.y, zoom);
         gc->PopState();
       }

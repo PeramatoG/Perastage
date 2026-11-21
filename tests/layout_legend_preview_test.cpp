@@ -1,6 +1,6 @@
 #include "layoutlegendrenderer.h"
 #include "pdf/layout_pdf_legend_renderer.h"
-#include "pdf/pdf_label_fonts.h"
+#include "pdf/pdf_unicode_fonts.h"
 #include "legend_composition_adapter.h"
 #include "typography/font_resources.h"
 #include "symbols/fixture_symbol_availability.h"
@@ -67,10 +67,8 @@ static void TestFallbackStrokes() {
       for(int x=centerX-2;x<=centerX+2;++x) assert(image.GetRed(x,y)>240);
     std::ostringstream stream;
     LayoutLegendExportData output; output.frame={0,0,300,100}; output.items={item};
-    layout_pdf_internal::LegacyFontPair fonts;
-    layout_pdf_internal::PdfFontCatalog catalog{&fonts.regular,&fonts.bold,&fonts.regular,&fonts.bold};
     const typography::FontPair bundled(PERASTAGE_TEST_RESOURCE_DIR);
-    fonts.regular.metrics=bundled.regular; fonts.bold.metrics=bundled.bold;
+    layout_pdf_internal::PdfUnicodeFonts catalog(bundled.catalog);
     int calls=0;
     layout_pdf_internal::RenderLegendPdf(stream,output,&snapshot,100,zoom,zoom,catalog,
         layout_pdf_internal::FloatFormatter{6},{},
@@ -86,12 +84,7 @@ int main(int argc, char **argv) {
   {
     TestFallbackStrokes();
     const typography::FontPair bundled(PERASTAGE_TEST_RESOURCE_DIR);
-    layout_pdf_internal::LegacyFontPair legacy;
-    layout_pdf_internal::PdfFontCatalog catalog{&legacy.regular,&legacy.bold};
-    layout_pdf_internal::LabelFonts embedded;
-    std::vector<layout_pdf_internal::PdfObject> objects;
-    assert(embedded.Prepare(objects,catalog,true));
-    assert(embedded.regular.metrics.unitsPerEm == 1000);
+    layout_pdf_internal::PdfUnicodeFonts catalog(bundled.catalog);
     layouts::LayoutLegendDefinition legend;
     const std::vector<std::string> names = {"Exterior Linear-1200 Graze", "MAC Ultra Performance", "Martin Atomic 3000 LED", "ÉclairageSüdÉclairageSüdÉclairageSüd", "É灯😀", "Explicit\nline break"};
     std::vector<layouts::LegendResolvedItem> items;
@@ -131,14 +124,13 @@ int main(int argc, char **argv) {
         const layout_pdf_internal::FloatFormatter formatter(6);
         assert(stream.str().find(formatter.Format(scale)+" 0 0 "+formatter.Format(scale)) != std::string::npos);
         for (const auto &line : rendered.text) {
-          const auto position = formatter.Format(line.baseline.x)+" "+formatter.Format(100*scale-line.baseline.y)+" Td";
-          assert(stream.str().find(position) != std::string::npos);
+          for (const auto &glyph : line.glyphRun.glyphs) {
+            const auto position = formatter.Format(line.baseline.x + glyph.x)+" "+
+                formatter.Format(100*scale-line.baseline.y + glyph.baseline)+" Tm";
+            assert(stream.str().find(position) != std::string::npos);
+          }
         }
         assert(result.textSubstitutions == pdfPlan.unsupportedGlyphs);
-        for (const auto &line : rendered.text) {
-          if (line.glyphRun.unsupportedBytes.empty())
-            assert(stream.str().find("("+layout_pdf_internal::EscapePdfLiteralBytes(typography::EncodeWinAnsi(line.text))+") Tj") != std::string::npos);
-        }
       }
       for (double zoom : {0.5,0.8,1.0,2.0}) {
         LegendCompositionPlan preview;

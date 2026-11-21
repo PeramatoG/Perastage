@@ -178,6 +178,7 @@ void LayoutViewerPanel::OnEditLegend(wxCommandEvent &) {
     return;
 
   legend->showChannelColumn = dialog.GetShowChannelColumn();
+  legend->fontFamily = dialog.GetFontFamily();
   legend->itemSettings = dialog.GetItemSettings();
   layouts::LayoutManager::Get().UpdateLayoutLegend(currentLayout.name, *legend);
   legendDataDirty_ = true;
@@ -309,7 +310,7 @@ size_t LayoutViewerPanel::HashLegendItems(
     appendString(std::to_string(value));
   };
   // Old persistent rasters predate logical composition and symbol-slot clips.
-  appendString("legend-composition-v2-perastage-sans");
+  appendString("legend-composition-v3-licensed-fonts");
   appendInt(static_cast<int>(items.size()));
   for (const auto &item : items) {
     appendString(item.typeName);
@@ -324,6 +325,7 @@ size_t LayoutViewerPanel::HashLegendItems(
   }
   if (!legend)
     legend = GetSelectedLegend();
+  if (legend) appendString(legend->fontFamily);
   appendInt((legend && legend->showChannelColumn) ? 1 : 0);
   const std::string fingerprint = hash.Finish();
   return static_cast<size_t>(

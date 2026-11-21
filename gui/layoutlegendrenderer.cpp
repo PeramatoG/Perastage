@@ -457,10 +457,10 @@ wxImage RenderLegendImage(const wxSize &size, const wxSize &logicalSize,
   input.width = logicalSize.GetWidth() > 0 ? logicalSize.GetWidth() : size.GetWidth() / renderZoom;
   input.height = logicalSize.GetHeight() > 0 ? logicalSize.GetHeight() : size.GetHeight() / renderZoom;
   input.showChannelColumn = legend.showChannelColumn;
-  static const typography::FontPair fonts(ProjectUtils::GetResourceRoot());
-  const auto plan = ComposeLegend(input, {fonts.regular, fonts.bold});
+  const typography::FontPair fonts(ProjectUtils::GetResourceRoot(), legend.fontFamily);
+  const auto plan = ComposeLegend(input, {fonts.regular, fonts.bold, fonts.catalog.get(), legend.fontFamily});
   if (composedPlan) *composedPlan = plan;
-  for (const auto &diagnostic : plan.diagnostics) Logger::Instance().Log(diagnostic);
+  for (const auto &diagnostic : plan.diagnostics) ReportDocumentTypographyDiagnostic(diagnostic);
   dc.SetBackground(wxBrush(*wxWHITE));
   dc.Clear();
   dc.SetTextForeground(wxColour(20, 20, 20));
@@ -532,7 +532,7 @@ wxImage RenderLegendImage(const wxSize &size, const wxSize &logicalSize,
       gc->PushState();
       gc->Clip(line.clip.x*renderZoom,line.clip.y*renderZoom,line.clip.width*renderZoom,line.clip.height*renderZoom);
       gui::DrawComposedDocumentText(*gc, line.glyphRun,
-          line.role == TextRole::Bold ? fonts.bold : fonts.regular,
+          *fonts.catalog,
           line.baseline.x, line.baseline.y, renderZoom);
       gc->PopState();
     }

@@ -17,6 +17,7 @@
  */
 
 #pragma once
+#include "typography/text_block.h"
 #include "layouts/LegendContent.h"
 
 #include "canvas2d.h"
@@ -55,7 +56,7 @@ struct Viewer2DExportResult {
   std::string message;
   size_t perastageSymbolInstances = 0;
   size_t fallbackSymbolInstances = 0;
-  // Unsupported Legend glyphs are omitted consistently on both targets; source UTF-8 is retained.
+  std::vector<std::string> fontDiagnostics;
   size_t eventTableTextSubstitutions = 0;
   std::vector<std::string> eventTableTextDiagnostics;
   size_t legendTextSubstitutions = 0;
@@ -80,34 +81,21 @@ struct LayoutLegendExportData {
   int zIndex = 0;
   bool showChannelColumn = true;
   std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot = nullptr;
+  std::string fontFamily;
 };
 
 struct LayoutEventTableExportData {
   layouts::Layout2DViewFrame frame;
   std::array<std::string, 7> fields;
   int zIndex = 0;
+  std::string fontFamily;
 };
 
-struct LayoutTextExportData {
+struct LayoutTextExportData : typography::TextBlock {
   layouts::Layout2DViewFrame frame;
   int zIndex = 0;
   bool solidBackground = true;
   bool drawFrame = true;
-  enum class Alignment { Left, Center, Right, Justified };
-  Alignment alignment = Alignment::Left;
-  int fontSize = 12;
-  bool bold = false;
-  bool italic = false;
-  struct Run {
-    std::string text;
-    int fontSize = 12;
-    bool bold = false;
-    bool italic = false;
-  };
-  struct Line {
-    std::vector<Run> runs;
-  };
-  std::vector<Line> lines;
 };
 
 struct LayoutImageExportData {

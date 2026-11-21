@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layouttextdialog.h"
+#include "document_font_choice.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -41,21 +42,25 @@ constexpr int kToolbarButtonSizePx = 36;
 constexpr int kMinFontSize = 6;
 constexpr int kMaxFontSize = 72;
 
-// Returns the text colour used while editing rich text.
-wxColour GetEditorTextColour() {
-  return *wxWHITE;
-}
-
-// Applies a consistent text colour to the whole rich text buffer.
-void NormalizeBufferTextColour(wxRichTextBuffer &buffer,
-                               const wxColour &colour) {
-  wxRichTextRange range = buffer.GetRange();
-  if (range.GetLength() <= 0)
-    return;
-  wxRichTextAttr attr;
-  attr.SetTextColour(colour);
-  attr.SetFlags(wxTEXT_ATTR_TEXT_COLOUR);
-  buffer.SetStyle(range, attr);
+// Native editor styling is an adapter; document rendering uses the verified
+// resource bytes and shared composition regardless of native font availability.
+void RegisterEditorFonts() {
+#if wxUSE_PRIVATE_FONTS
+  static const bool registered = [] {
+    const auto catalog = typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
+    for (const auto family : catalog->Families()) {
+      for (const auto [bold, italic] : {std::pair{false, false}, {true, false}, {false, true}, {true, true}}) {
+        const auto resolved = catalog->Resolve(family, bold, italic);
+        if (resolved.issue != typography::FontIssue::None || !resolved.face) continue;
+        const auto *face = resolved.face;
+        const auto path = face->path.u8string();
+        wxFont::AddPrivateFont(wxString::FromUTF8(reinterpret_cast<const char *>(path.data()), path.size()));
+      }
+    }
+    return true;
+  }();
+  (void)registered;
+#endif
 }
 
 // Initializes rich text handlers once before loading or saving rich text content.
@@ -80,6 +85,7 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
                wxSize(640, 420),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
   EnsureRichTextHandlers();
+  RegisterEditorFonts();
   wxBoxSizer *mainSizer = new wxBoxSizer(wxVERTICAL);
   wxBoxSizer *toolbarSizer = new wxBoxSizer(wxHORIZONTAL);
 
@@ -99,7 +105,7 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
   };
 
   addToolButton("bold", "Bold", [this]() { ApplyBold(); });
-  addToolButton("italic", "Italic", [this]() { ApplyItalic(); });
+  addToolButton("italic", "Italic", [this]() { textCtrl->ApplyItalicToSelection(); });
   addToolButton("a-arrow-down", "Decrease font size",
                 [this]() { AdjustFontSize(-1); });
   addToolButton("a-arrow-up", "Increase font size",
@@ -116,6 +122,28 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
     ApplyFontSize(fontSizeCtrl->GetValue());
   });
   toolbarSizer->Add(fontSizeCtrl, 0, wxRIGHT, 8);
+  auto *family = new gui::DocumentFontChoice(this, {});
+  family->SetName("layoutTextFontFamily");
+  family->SetToolTip(_("Font family"));
+  family->Bind(wxEVT_CHOICE, [this, family](wxCommandEvent &) {
+    if (family->GetSelection() == wxNOT_FOUND || !textCtrl) return;
+    auto selected = family->GetFamily();
+    if (selected.empty() || selected == typography::kDefaultFamily) selected = "Noto Sans";
+    wxRichTextAttr attr;
+    attr.SetFontFaceName(wxString::FromUTF8(selected));
+    const auto range = textCtrl->HasSelection() ? textCtrl->GetSelectionRange()
+                      : wxRichTextRange(0, textCtrl->GetLastPosition());
+    if (range.GetLength() > 0)
+      textCtrl->SetStyleEx(range, attr, wxRICHTEXT_SETSTYLE_WITH_UNDO | wxRICHTEXT_SETSTYLE_OPTIMIZE);
+    if (!textCtrl->HasSelection()) {
+      auto next = textCtrl->GetDefaultStyleEx();
+      next.Apply(attr);
+      textCtrl->SetDefaultStyle(next);
+    }
+    textCtrl->SetFocus();
+  });
+  toolbarSizer->Add(family, 0, wxRIGHT, 8);
+
 
   addToolButton("text-align-start", "Align start",
                 [this]() { ApplyAlignment(wxTEXT_ALIGNMENT_LEFT); });
@@ -140,7 +168,8 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
   textCtrl = new wxRichTextCtrl(this, wxID_ANY, wxEmptyString,
                                 wxDefaultPosition, wxDefaultSize,
                                 wxTE_MULTILINE | wxTE_RICH2);
-  ApplyDefaultFontStyle();
+  textCtrl->SetBackgroundColour(*wxWHITE);
+  textCtrl->SetForegroundColour(*wxBLACK);
   textCtrl->SetMinSize(wxSize(580, 280));
   mainSizer->Add(textCtrl, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
 
@@ -154,7 +183,16 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
 
   SetSizer(mainSizer);
   LoadInitialContent(initialRichText, fallbackText);
-  ApplyDefaultFontStyle();
+  const auto synchronizeFamily = [this, family] {
+    wxRichTextAttr attr;
+    if (textCtrl->GetStyle(textCtrl->GetInsertionPoint(), attr))
+      family->SelectFamily(attr.GetFontFaceName().utf8_string());
+  };
+  synchronizeFamily();
+  textCtrl->Bind(wxEVT_RICHTEXT_SELECTION_CHANGED, [synchronizeFamily](wxRichTextEvent &event) {
+    synchronizeFamily();
+    event.Skip();
+  });
   Layout();
   Centre();
 }
@@ -164,7 +202,6 @@ wxString LayoutTextDialog::GetRichText() const {
   if (!textCtrl)
     return wxEmptyString;
   wxRichTextBuffer bufferCopy = textCtrl->GetBuffer();
-  NormalizeBufferTextColour(bufferCopy, *wxBLACK);
   return layouttext::SaveRichTextBufferToString(bufferCopy);
 }
 
@@ -214,37 +251,10 @@ void LayoutTextDialog::LoadInitialContent(const wxString &initialRichText,
   textCtrl->SetValue(fallbackText);
 }
 
-// Applies the default editor text style to current and future content.
-void LayoutTextDialog::ApplyDefaultFontStyle() {
-  if (!textCtrl)
-    return;
-  wxRichTextAttr defaultStyle = textCtrl->GetDefaultStyle();
-  wxColour editorColour = GetEditorTextColour();
-  defaultStyle.SetTextColour(editorColour);
-  defaultStyle.SetFlags(defaultStyle.GetFlags() | wxTEXT_ATTR_TEXT_COLOUR);
-  textCtrl->SetDefaultStyle(defaultStyle);
-  textCtrl->GetBuffer().SetDefaultStyle(defaultStyle);
-  textCtrl->GetBuffer().SetBasicStyle(defaultStyle);
-
-  wxRichTextRange range(0, textCtrl->GetLastPosition());
-  if (range.GetLength() <= 0)
-    return;
-  wxRichTextAttr colourOnly;
-  colourOnly.SetTextColour(editorColour);
-  colourOnly.SetFlags(wxTEXT_ATTR_TEXT_COLOUR);
-  textCtrl->SetStyle(range, colourOnly);
-}
-
 // Toggles bold formatting for the current rich text selection.
 void LayoutTextDialog::ApplyBold() {
   if (textCtrl)
     textCtrl->ApplyBoldToSelection();
-}
-
-// Toggles italic formatting for the current rich text selection.
-void LayoutTextDialog::ApplyItalic() {
-  if (textCtrl)
-    textCtrl->ApplyItalicToSelection();
 }
 
 // Applies the selected font size to the current selection or document.

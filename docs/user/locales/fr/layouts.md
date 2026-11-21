@@ -62,6 +62,12 @@ Sélectionnez une mise en page non vide et choisissez **File → Print Layout...
 
 Pour les vues manquantes, sorties incorrectes ou erreurs d’export, consultez [Dépannage](troubleshooting.md#problèmes-de-mise-en-page-et-de-pdf).
 
+## Typographie du document
+
+Utilisez **Famille de police** pour choisir PerastageSans, Noto Serif ou Source Sans 3 dans les étiquettes, les légendes, les tableaux d’événement et les textes. Dans l’éditeur de texte, sélectionnez un passage pour modifier sa police ou laissez la sélection vide pour modifier tout l’élément. Le PDF intègre les polices approuvées et permet de sélectionner les caractères pris en charge.
+
+Lorsqu’une police manque, Perastage conserve le choix enregistré, utilise une police de remplacement approuvée et affiche un avertissement dans les détails de l’exportation. Rouvrez le projet après avoir restauré la police.
+
 ## Échelle physique et propriétés de la vue
 
 Double-cliquez sur une vue 2D puis ouvrez **Propriétés de la vue**. **Libre / Variable** reste le mode par défaut des nouvelles vues et anciens fichiers, avec zoom, déplacement et cadrage visuel. L’échelle effective approximative est informative. **Cadrage visuel** règle le cadrage visuel, pas un rapport physique.

@@ -16,6 +16,11 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layouttextutils.h"
+#include "document_text_renderer.h"
+#include "projectutils.h"
+#include "typography/font_resources.h"
+#include "typography/glyph_outline.h"
+#include <wx/graphics.h>
 
 #include <algorithm>
 #include <cmath>
@@ -23,47 +28,16 @@
 
 #include <wx/dcgraph.h>
 #include <wx/dcmemory.h>
-#include <wx/fontenum.h>
-#include <wx/fontmap.h>
 #include <wx/log.h>
 #include <wx/mstream.h>
 #include <wx/richtext/richtextbuffer.h>
 #include <wx/richtext/richtextxml.h>
 #include <wx/sstream.h>
 #include <wx/tokenzr.h>
-#include "layoutviewerpanel_shared.h"
-
-#ifndef wxTEXT_ATTR_PARAGRAPH_SPACING_BEFORE
-#define wxTEXT_ATTR_PARAGRAPH_SPACING_BEFORE 0
-#endif
-
-#ifndef wxTEXT_ATTR_PARAGRAPH_SPACING_AFTER
-#define wxTEXT_ATTR_PARAGRAPH_SPACING_AFTER 0
-#endif
 
 namespace layouttext {
 namespace {
 enum class RichTextOpStatus { kSuccess, kNoHandler, kFailure };
-
-// Creates a UTF-8-capable layout text font using the shared sans-serif face policy.
-wxFont MakeRenderFont(int sizePx, bool bold, bool italic,
-                      const wxString &faceName) {
-  const wxFontWeight weight =
-      bold ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL;
-  const wxFontStyle style =
-      italic ? wxFONTSTYLE_ITALIC : wxFONTSTYLE_NORMAL;
-  wxFont font;
-  if (!faceName.empty()) {
-    font = wxFont(sizePx, wxFONTFAMILY_SWISS, style, weight, false, faceName);
-  } else {
-    font = wxFont(sizePx, wxFONTFAMILY_SWISS, style, weight);
-  }
-  if (wxFontMapper::Get() &&
-      wxFontMapper::Get()->IsEncodingAvailable(wxFONTENCODING_UTF8)) {
-    font.SetEncoding(wxFONTENCODING_UTF8);
-  }
-  return font;
-}
 
 wxString FormatName(int format) {
   switch (static_cast<wxRichTextFileType>(format)) {
@@ -213,128 +187,91 @@ LayoutTextExportData BuildLayoutTextExportData(
   data.drawFrame = text.drawFrame;
 
   wxRichTextBuffer buffer;
-  bool loaded = false;
-  if (!text.richText.empty()) {
-    loaded = LoadRichTextBufferFromString(
-        buffer, wxString::FromUTF8(text.richText.data(),
-                                   text.richText.size()));
-  }
-
-  wxString plainText;
-  if (loaded) {
-    plainText = buffer.GetText();
-  }
-  if (plainText.empty()) {
-    plainText = text.text.empty() ? wxString("Light Plot")
-                                  : wxString::FromUTF8(text.text.data(),
-                                                       text.text.size());
-  }
-  plainText.Replace("\r\n", "\n");
-  plainText.Replace("\r", "\n");
-
-  wxRichTextAttr style;
-  if (loaded && buffer.GetRange().GetLength() > 0) {
-    buffer.GetStyle(0, style);
-  }
-  const int fontSize = style.GetFontSize() > 0
-                           ? style.GetFontSize()
-                           : layoutviewerpanel::detail::kTextDefaultFontSize;
-  data.fontSize = fontSize;
-  data.bold = style.GetFontWeight() >= wxFONTWEIGHT_BOLD;
-  data.italic = style.GetFontStyle() == wxFONTSTYLE_ITALIC ||
-                style.GetFontStyle() == wxFONTSTYLE_SLANT;
-  switch (style.GetAlignment()) {
-  case wxTEXT_ALIGNMENT_CENTRE:
-    data.alignment = LayoutTextExportData::Alignment::Center;
-    break;
-  case wxTEXT_ALIGNMENT_RIGHT:
-    data.alignment = LayoutTextExportData::Alignment::Right;
-    break;
-  case wxTEXT_ALIGNMENT_JUSTIFIED:
-    data.alignment = LayoutTextExportData::Alignment::Justified;
-    break;
-  case wxTEXT_ALIGNMENT_LEFT:
-  default:
-    data.alignment = LayoutTextExportData::Alignment::Left;
-    break;
-  }
-
-  wxStringTokenizer tokenizer(plainText, "\n", wxTOKEN_RET_EMPTY_ALL);
-  if (loaded) {
-    wxString content = buffer.GetText();
-    if (content.empty()) {
-      content = plainText;
+  const bool loaded = !text.richText.empty() && LoadRichTextBufferFromString(
+      buffer, wxString::FromUTF8(text.richText.data(), text.richText.size()));
+  using Alignment = LayoutTextExportData::Alignment;
+  const auto alignment = [](wxTextAttrAlignment value) {
+    switch (value) {
+    case wxTEXT_ALIGNMENT_CENTRE: return Alignment::Center;
+    case wxTEXT_ALIGNMENT_RIGHT: return Alignment::Right;
+    case wxTEXT_ALIGNMENT_JUSTIFIED: return Alignment::Justified;
+    default: return Alignment::Left;
     }
-    const size_t length = static_cast<size_t>(content.length());
-    LayoutTextExportData::Line currentLine;
-    LayoutTextExportData::Run currentRun;
-    bool hasRun = false;
-    auto finalizeRun = [&]() {
-      if (!hasRun)
-        return;
-      if (!currentRun.text.empty()) {
-        currentLine.runs.push_back(std::move(currentRun));
-      }
-      currentRun = LayoutTextExportData::Run{};
-      hasRun = false;
-    };
-    auto finalizeLine = [&]() {
-      finalizeRun();
-      data.lines.push_back(currentLine);
-      currentLine = LayoutTextExportData::Line{};
-    };
-    for (size_t i = 0; i < length; ++i) {
-      const wxChar ch = content[i];
-      if (ch == '\r')
-        continue;
-      if (ch == '\n') {
-        finalizeLine();
-        continue;
-      }
-      wxRichTextAttr runStyle;
-      if (!buffer.GetStyle(static_cast<long>(i), runStyle)) {
-        runStyle = buffer.GetDefaultStyle();
-      }
-      const int runFontSize =
-          runStyle.GetFontSize() > 0
-              ? runStyle.GetFontSize()
-              : layoutviewerpanel::detail::kTextDefaultFontSize;
-      const bool runBold =
-          runStyle.GetFontWeight() >= wxFONTWEIGHT_BOLD;
-      const bool runItalic =
-          runStyle.GetFontStyle() == wxFONTSTYLE_ITALIC ||
-          runStyle.GetFontStyle() == wxFONTSTYLE_SLANT;
-      if (!hasRun || currentRun.fontSize != runFontSize ||
-          currentRun.bold != runBold || currentRun.italic != runItalic) {
-        finalizeRun();
-        currentRun.fontSize = runFontSize;
-        currentRun.bold = runBold;
-        currentRun.italic = runItalic;
-        hasRun = true;
-      }
-      wxCharBuffer utf8 = wxString(ch).ToUTF8();
-      if (utf8.data())
-        currentRun.text.append(utf8.data(), utf8.length());
+  };
+  const auto toUtf8 = [](const wxString &value) {
+    const auto bytes = value.ToUTF8();
+    return bytes.data() ? std::string(bytes.data(), bytes.length()) : std::string{};
+  };
+  const auto makeRun = [&](const wxString &value, const wxRichTextAttr &style) {
+    LayoutTextExportData::Run run;
+    run.text = toUtf8(value);
+    run.fontSize = style.GetFontSize() > 0 ? style.GetFontSize() : data.fontSize;
+    run.bold = style.GetFontWeight() >= wxFONTWEIGHT_BOLD;
+    run.italic = style.GetFontStyle() == wxFONTSTYLE_ITALIC || style.GetFontStyle() == wxFONTSTYLE_SLANT;
+    run.family = toUtf8(style.GetFontFaceName());
+    if (run.family == typography::kDefaultFamily || run.family == "Noto Sans" ||
+        run.family == "Noto Serif" || run.family == "Source Sans 3")
+      data.wrap = true;
+    if (style.GetTextColour().IsOk()) {
+      const auto ink = style.GetTextColour();
+      run.color = {ink.Red(), ink.Green(), ink.Blue()};
     }
-    finalizeLine();
-  } else {
-    bool wroteLine = false;
-    while (tokenizer.HasMoreTokens()) {
-      wxCharBuffer utf8 = tokenizer.GetNextToken().ToUTF8();
+    run.underline = style.GetFontUnderlined();
+    run.strikethrough = style.GetFontStrikethrough();
+    return run;
+  };
+
+  if (loaded && buffer.GetChildCount() > 0) {
+    const auto defaults = buffer.GetBasicStyle();
+    constexpr double tenthsMmToPoints = 72.0 / 254;
+    for (size_t p = 0; p < buffer.GetChildCount(); ++p) {
+      const auto *paragraph = wxDynamicCast(buffer.GetChild(p), wxRichTextParagraph);
+      if (!paragraph) { data.containsUnsupportedObjects = true; continue; }
+      auto style = defaults;
+      style.Apply(paragraph->GetAttributes());
       LayoutTextExportData::Line line;
-      LayoutTextExportData::Run run;
-      run.text = utf8.data() ? utf8.data() : "";
-      run.fontSize = data.fontSize;
-      run.bold = data.bold;
-      run.italic = data.italic;
-      line.runs.push_back(std::move(run));
+      line.alignment = alignment(style.GetAlignment());
+      line.spaceBefore = style.GetParagraphSpacingBefore() * tenthsMmToPoints;
+      line.spaceAfter = style.GetParagraphSpacingAfter() * tenthsMmToPoints;
+      line.lineSpacing = style.GetLineSpacing() > 0 ? style.GetLineSpacing() / 10.0 : 1.0;
+      line.leftIndent = (style.GetLeftIndent() + style.GetLeftSubIndent()) * tenthsMmToPoints;
+      line.firstLineIndent = -style.GetLeftSubIndent() * tenthsMmToPoints;
+      line.rightIndent = style.GetRightIndent() * tenthsMmToPoints;
+      for (size_t r = 0; r < paragraph->GetChildCount(); ++r) {
+        const auto *span = wxDynamicCast(paragraph->GetChild(r), wxRichTextPlainText);
+        if (!span) { data.containsUnsupportedObjects = true; continue; }
+        auto runStyle = style;
+        runStyle.Apply(span->GetAttributes());
+        wxString part = span->GetText();
+        part.Replace(wxString(wxRichTextLineBreakChar), "\n");
+        part.Replace("\r\n", "\n");
+        part.Replace("\r", "\n");
+        while (part.Contains("\n")) {
+          const auto split = part.Find('\n');
+          line.runs.push_back(makeRun(part.Left(split), runStyle));
+          auto next = line;
+          next.runs.clear();
+          next.spaceBefore = 0;
+          next.firstLineIndent = 0;
+          line.spaceAfter = 0;
+          data.lines.push_back(std::move(line));
+          line = std::move(next);
+          part = part.Mid(split + 1);
+        }
+        line.runs.push_back(makeRun(part, runStyle));
+      }
+      if (line.runs.empty()) line.runs.push_back(makeRun({}, style));
       data.lines.push_back(std::move(line));
-      wroteLine = true;
     }
-    if (!wroteLine) {
-      data.lines.emplace_back();
-    }
+    return data;
   }
+
+  auto plain = text.text.empty() ? wxString("Light Plot") : wxString::FromUTF8(text.text);
+  plain.Replace("\r\n", "\n");
+  plain.Replace("\r", "\n");
+  wxStringTokenizer tokenizer(plain, "\n", wxTOKEN_RET_EMPTY_ALL);
+  while (tokenizer.HasMoreTokens())
+    data.lines.push_back({{makeRun(tokenizer.GetNextToken(), {})}});
   return data;
 }
 
@@ -345,14 +282,6 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
       renderScale <= 0.0) {
     return wxImage();
   }
-
-  const double adjustedScale =
-      renderScale / layoutviewerpanel::detail::kTextRenderScale;
-  if (adjustedScale <= 0.0) {
-    return wxImage();
-  }
-
-  EnsureRichTextHandlers();
 
   wxBitmap bitmap(renderSize.GetWidth(), renderSize.GetHeight(), 32);
   bitmap.UseAlpha();
@@ -365,78 +294,26 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
     dc.SetBackground(wxBrush(wxColour(255, 255, 255, 0)));
   }
   dc.Clear();
-  dc.SetTextForeground(wxColour(0, 0, 0));
-
-  const LayoutTextExportData data =
-      BuildLayoutTextExportData(text);
-  wxString faceName = layoutviewerpanel::detail::ResolveSharedFontFaceName();
-
-  const int padding = 4;
-  const double logicalScale = layoutviewerpanel::detail::kTextRenderScale;
-  const int logicalWidth = std::max(
-      0, static_cast<int>(std::lround(logicalSize.GetWidth() * logicalScale)) -
-             padding * 2);
-  const int logicalHeight =
-      std::max(0, static_cast<int>(std::lround(logicalSize.GetHeight() *
-                                               logicalScale)) -
-                     padding * 2);
-  wxRect logicalRect(padding, padding, logicalWidth, logicalHeight);
-
-  dc.SetUserScale(adjustedScale, adjustedScale);
-  const double availableHeight =
-      static_cast<double>(logicalRect.GetHeight());
-  double usedHeight = 0.0;
-  const int defaultFontSize =
-      layoutviewerpanel::detail::kTextDefaultFontSize;
-  for (const auto &line : data.lines) {
-    double lineFontSize =
-        data.fontSize > 0 ? static_cast<double>(data.fontSize)
-                          : static_cast<double>(defaultFontSize);
-    for (const auto &run : line.runs) {
-      const double runSize =
-          run.fontSize > 0 ? static_cast<double>(run.fontSize) : lineFontSize;
-      lineFontSize = std::max(lineFontSize, runSize);
+  const auto data = BuildLayoutTextExportData(text);
+  const auto catalog = typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
+  const auto plan = typography::ComposeTextBlock(data, logicalSize.x, logicalSize.y, *catalog);
+  for (const auto &message : plan.diagnostics) gui::ReportDocumentTypographyDiagnostic(message);
+  if (auto *gc = dc.GetGraphicsContext()) {
+    gc->PushState();
+    gc->Scale(renderScale, renderScale);
+    for (const auto &entry : plan.glyphs) {
+      const auto outline = typography::ResolveGlyphOutline(*catalog, entry.glyph.resourceId, entry.glyph.glyphId);
+      if (!outline) continue;
+      gc->SetBrush(wxBrush(wxColour(entry.color[0], entry.color[1], entry.color[2])));
+      gc->FillPath(gui::BuildDocumentGlyphPath(*gc, *outline, entry.x, entry.baseline, entry.size),
+                   wxWINDING_RULE);
     }
-    const double lineHeight = lineFontSize * 1.2;
-    if (usedHeight + lineHeight > availableHeight && usedHeight > 0.0)
-      break;
-
-    double lineWidth = 0.0;
-    for (const auto &run : line.runs) {
-      const int runSize =
-          run.fontSize > 0 ? run.fontSize : static_cast<int>(lineFontSize);
-      dc.SetFont(MakeRenderFont(runSize, run.bold, run.italic, faceName));
-      const wxString runText = wxString::FromUTF8(run.text);
-      int runWidth = 0;
-      int runHeight = 0;
-      dc.GetTextExtent(runText, &runWidth, &runHeight);
-      lineWidth += static_cast<double>(runWidth);
+    gc->SetPen(*wxTRANSPARENT_PEN);
+    for (const auto &line : plan.decorations) {
+      gc->SetBrush(wxBrush(wxColour(line.color[0], line.color[1], line.color[2])));
+      gc->DrawRectangle(line.x, line.y, line.width, line.height);
     }
-
-    double x = static_cast<double>(logicalRect.GetX());
-    if (data.alignment == LayoutTextExportData::Alignment::Center) {
-      x += std::max(0.0, (logicalRect.GetWidth() - lineWidth) * 0.5);
-    } else if (data.alignment == LayoutTextExportData::Alignment::Right) {
-      x += logicalRect.GetWidth() - lineWidth;
-    }
-    const double y = static_cast<double>(logicalRect.GetY()) + usedHeight;
-    double cursorX = x;
-    if (line.runs.empty()) {
-      usedHeight += lineHeight;
-      continue;
-    }
-    for (const auto &run : line.runs) {
-      const int runSize =
-          run.fontSize > 0 ? run.fontSize : static_cast<int>(lineFontSize);
-      dc.SetFont(MakeRenderFont(runSize, run.bold, run.italic, faceName));
-      const wxString runText = wxString::FromUTF8(run.text);
-      int runWidth = 0;
-      int runHeight = 0;
-      dc.GetTextExtent(runText, &runWidth, &runHeight);
-      dc.DrawText(runText, cursorX, y);
-      cursorX += static_cast<double>(runWidth);
-    }
-    usedHeight += lineHeight;
+    gc->PopState();
   }
 
   memoryDc.SelectObject(wxNullBitmap);

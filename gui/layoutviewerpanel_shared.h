@@ -24,9 +24,8 @@
 
 namespace layoutviewerpanel {
 namespace detail {
-// Keep this list in sync with the font candidates used by the PDF exporter so
-// on-screen rendering matches exported PDFs.
-inline const std::vector<const char *> kSharedFontFaceNames = {
+// Native application chrome font preferences.
+inline const std::vector<const char *> kUiFontFaceNames = {
 #ifdef _WIN32
     "Arial",
 #elif defined(__APPLE__)
@@ -37,15 +36,14 @@ inline const std::vector<const char *> kSharedFontFaceNames = {
 #endif
 };
 
-constexpr double kTextRenderScale = 96.0 / 72.0;
 constexpr int kTextDefaultFontSize = 12;
 
-inline wxString ResolveSharedFontFaceName() {
+inline wxString ResolveDefaultUiFontFaceName() {
   static wxString faceName;
   static bool initialized = false;
   if (initialized)
     return faceName;
-  for (const char *candidate : kSharedFontFaceNames) {
+  for (const char *candidate : kUiFontFaceNames) {
     wxFont testFont(10, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL,
                     wxFONTWEIGHT_NORMAL, false,
                     wxString::FromUTF8(candidate));
@@ -57,15 +55,6 @@ inline wxString ResolveSharedFontFaceName() {
   }
   initialized = true;
   return faceName;
-}
-
-inline wxFont MakeSharedFont(int sizePx, wxFontWeight weight) {
-  wxString faceName = ResolveSharedFontFaceName();
-  if (!faceName.empty()) {
-    return wxFont(sizePx, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, weight, false,
-                  faceName);
-  }
-  return wxFont(sizePx, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, weight);
 }
 
 } // namespace detail

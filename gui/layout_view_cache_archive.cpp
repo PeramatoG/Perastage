@@ -19,6 +19,8 @@
 #include "layout_view_texture_pixels.h"
 #include "filesystem_path_utils.h"
 #include "layoutviewerpanel.h"
+#include "typography/font_resources.h"
+#include "projectutils.h"
 
 #include <algorithm>
 #include <array>
@@ -62,12 +64,14 @@ constexpr size_t kMaxPersistentRasterEntryBytes = 8 * 1024 * 1024;
 // Returns the platform-scoped raster rendering contract.
 std::string PersistentRasterEnvironmentContract() {
 #if defined(_WIN32)
-  return "windows-wx-3-v4";
+  constexpr std::string_view platform = "windows-wx-3-v4";
 #elif defined(__APPLE__)
-  return "macos-wx-3-v4";
+  constexpr std::string_view platform = "macos-wx-3-v4";
 #else
-  return "linux-wx-3-v4";
+  constexpr std::string_view platform = "linux-wx-3-v4";
 #endif
+  return std::string(platform) + ":" +
+      typography::GetFontCatalog(ProjectUtils::GetResourceRoot())->Signature();
 }
 
 // Combines a byte into a deterministic FNV-1a hash accumulator.
@@ -395,6 +399,10 @@ Transform2D Transform2DFromJson(const nlohmann::json &json) {
 // Serializes a text style into JSON.
 nlohmann::json TextStyleToJson(const CanvasTextStyle &style) {
   return {{"fontFamily", style.fontFamily},
+          {"fontResource", style.fontResource},
+          {"glyphId", style.glyphId},
+          {"codepoint", style.codepoint},
+          {"fontDiagnostic", style.fontDiagnostic},
           {"fontSize", style.fontSize},
           {"ascent", style.ascent},
           {"descent", style.descent},
@@ -413,6 +421,10 @@ CanvasTextStyle TextStyleFromJson(const nlohmann::json &json) {
   if (!json.is_object())
     return style;
   style.fontFamily = json.value("fontFamily", std::string{});
+  style.fontResource = json.value("fontResource", std::string{});
+  style.glyphId = json.value("glyphId", uint16_t{});
+  style.codepoint = json.value("codepoint", uint32_t{});
+  style.fontDiagnostic = json.value("fontDiagnostic", std::string{});
   style.fontSize = json.value("fontSize", 12.0f);
   style.ascent = json.value("ascent", 0.0f);
   style.descent = json.value("descent", 0.0f);

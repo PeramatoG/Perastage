@@ -1,7 +1,5 @@
 #pragma once
 
-#include "pdf_font_metrics.h"
-
 #include <sstream>
 #include <string>
 #include <vector>
@@ -26,11 +24,5 @@ public:
   static bool Compress(const std::string &input, std::string &output,
                        std::string &error);
 };
-
-bool AppendEmbeddedFontObjects(std::vector<PdfObject> &objects,
-                               PdfFontDefinition &font);
-void AppendFallbackType1Font(std::vector<PdfObject> &objects,
-                             PdfFontDefinition &font,
-                             const std::string &baseFont);
 
 } // namespace layout_pdf_internal

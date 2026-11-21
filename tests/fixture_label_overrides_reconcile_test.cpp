@@ -1,3 +1,4 @@
+#include "typography/composition.h"
 #include "configmanager.h"
 #include "fixture.h"
 #include "fixture_label_overrides.h"
@@ -171,6 +172,16 @@ int main() {
   assert(std::abs(compositionCache.Resolve(cfg, draft, validFixture, 0, bounds, fonts).text.front().x - x - .5f) < 1e-6f);
   const viewer2d::LabelBounds moved{bounds.minX+1,bounds.minY,bounds.maxX+1,bounds.maxY};
   assert(std::abs(compositionCache.Resolve(cfg, draft, validFixture, 0, moved, fonts).text.front().x - x - 1.5f) < 1e-6f);
+  draft[validFixture.uuid].fieldStyles[0][0]->fontFamily = "Source Sans 3";
+  const auto &selected = compositionCache.Resolve(cfg, draft, validFixture, 0, bounds, fonts);
+  const auto *sourceSans = fonts.catalog->Resolve("Source Sans 3", style.bold).face;
+  assert(!selected.text.empty() && selected.text.front().style.fontResource == sourceSans->fingerprint);
+  assert(viewer2d::CommitFixtureLabelStyles(cfg, draft));
+  assert(viewer2d::LoadFixtureLabelOverrides(cfg).at(validFixture.uuid).fieldStyles[0][0]->fontFamily == "Source Sans 3");
+  cfg.Undo();
+  assert(viewer2d::LoadFixtureLabelOverrides(cfg).at(validFixture.uuid).fieldStyles[0][0]->fontFamily.empty());
+  cfg.Redo();
+  assert(viewer2d::LoadFixtureLabelOverrides(cfg).at(validFixture.uuid).fieldStyles[0][0]->fontFamily == "Source Sans 3");
   draft[validFixture.uuid].fieldStyles[0][0] = style;
   compositionCache.Clear();
   assert(cachedText() == "RenamedID: 91.002");

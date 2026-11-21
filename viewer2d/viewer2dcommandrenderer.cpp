@@ -226,7 +226,8 @@ void Viewer2DCommandRenderer::RenderInternal(const CommandBuffer &buffer,
       if (text->style.outlineWidth > 0.0f)
         outline = text->style.outlineWidth * mapping_.scale;
       Viewer2DRenderText renderText{anchor, text->text, text->style,
-                                    fontSize, lineHeight, outline};
+                                    fontSize, lineHeight, outline,
+                                    index < buffer.sources.size() ? std::string_view(buffer.sources[index]) : std::string_view{}};
       backend_.DrawText(renderText);
     } else if (const auto *save = std::get_if<SaveCommand>(&cmd)) {
       (void)save;

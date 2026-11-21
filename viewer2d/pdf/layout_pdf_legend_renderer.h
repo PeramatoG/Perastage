@@ -17,7 +17,7 @@ using LegendCommandStreamRenderer =
 
 LegendPdfRenderResult RenderLegendPdf(std::ostringstream &out,
     const LayoutLegendExportData &legend, const SymbolDefinitionSnapshot *snapshot,
-    double pageHeight, double outputScaleX, double outputScaleY, const PdfFontCatalog &fonts,
+    double pageHeight, double outputScaleX, double outputScaleY, PdfUnicodeFonts &ink,
     const FloatFormatter &formatter, const viewer2d::LegendSvgResolver &resolveSvg,
     const LegendCommandStreamRenderer &renderCommands,
     layouts::composition::LegendCompositionPlan *composedPlan = nullptr);

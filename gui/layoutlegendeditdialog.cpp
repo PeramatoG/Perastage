@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layoutlegendeditdialog.h"
+#include "document_font_choice.h"
 
 #include <unordered_map>
 
@@ -65,6 +66,9 @@ LayoutLegendEditDialog::LayoutLegendEditDialog(
   }
 
   wxBoxSizer *mainSizer = new wxBoxSizer(wxVERTICAL);
+  fontChoice_ = new gui::DocumentFontChoice(this, legend.fontFamily);
+  mainSizer->Add(gui::DocumentFontRow(this, fontChoice_), 0, wxEXPAND | wxALL, 10);
+
 
   showChannelColumnCheck_ =
       new wxCheckBox(this, wxID_ANY, _("Show channel count column"));
@@ -192,4 +196,8 @@ void LayoutLegendEditDialog::SaveFromGrid() {
     data.showSideSymbol = !grid_->GetCellValue(row, kColSide).IsEmpty();
     data.customName = std::string(grid_->GetCellValue(row, kColCustomName).utf8_string());
   }
+}
+
+std::string LayoutLegendEditDialog::GetFontFamily() const {
+  return fontChoice_->GetFamily();
 }

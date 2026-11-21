@@ -35,6 +35,8 @@ private:
   std::vector<std::string> selection_;
   Fixture fixture_;
   wxChoice *scope_ = nullptr, *view_ = nullptr, *anchor_ = nullptr, *align_ = nullptr;
+  wxChoice *family_ = nullptr;
+  std::vector<std::string_view> families_;
   wxListBox *fields_ = nullptr;
   wxCheckBox *visible_ = nullptr, *bold_ = nullptr;
   wxSpinCtrlDouble *size_ = nullptr, *x_ = nullptr, *y_ = nullptr;

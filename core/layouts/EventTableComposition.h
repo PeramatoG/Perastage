@@ -11,10 +11,12 @@ struct EventTableField { const char *id; const char *label; };
 inline constexpr std::array<EventTableField, 7> kEventTableFields = {{
     {"venue", "Venue:"}, {"location", "Location:"}, {"date", "Date:"},
     {"stage", "Stage:"}, {"version", "Version:"}, {"design", "Design:"}, {"mail", "Mail:"}}};
-inline constexpr const char *kEventTableCompositionVersion = "event-table-v1-perastage-sans-v2";
+inline constexpr const char *kEventTableCompositionVersion = "event-table-v2-licensed-fonts";
 struct EventTableFonts {
   const typography::TtfFontMetrics &regular;
   const typography::TtfFontMetrics &bold;
+  const typography::FontCatalog *catalog = nullptr;
+  std::string_view family;
 };
 struct EventTableInput {
   double width = 0, height = 0;
@@ -31,7 +33,7 @@ struct EventTableCell {
 };
 struct EventTableRow { Rect frame; EventTableCell label, value; };
 struct EventTablePlan {
-  std::string fontIdentity = "PerastageSans-v2";
+  std::string fontIdentity;
   Rect clip;
   double borderWidth = 0.5;
   double labelWidth = 0, valueX = 0, fontSize = 0, rowHeight = 0;

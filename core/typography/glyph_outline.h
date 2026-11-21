@@ -1,6 +1,7 @@
 #pragma once
 #include "font_metrics.h"
 #include <memory>
+#include <string_view>
 #include <vector>
 
 namespace typography {
@@ -13,7 +14,10 @@ struct GlyphPathElement {
 struct GlyphOutline {
   std::vector<GlyphPathElement> path;
 };
-// Reads the bundled TrueType fonts, including transformed composite accents.
-std::shared_ptr<const GlyphOutline> ReadGlyphOutline(const TtfFontMetrics &font,
-                                                    unsigned char winAnsi);
+class FontCatalog;
+std::shared_ptr<const GlyphOutline> ReadGlyphOutlineById(const TtfFontMetrics &font,
+                                                        uint16_t glyph);
+std::shared_ptr<const GlyphOutline> ResolveGlyphOutline(const FontCatalog &catalog,
+                                                       std::string_view resource,
+                                                       uint16_t glyph);
 } // namespace typography

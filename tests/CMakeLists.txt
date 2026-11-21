@@ -1146,9 +1146,9 @@ add_executable(rdp_simplifier_test
 target_include_directories(rdp_simplifier_test PRIVATE ../core)
 add_test(NAME RdpSimplifierGeometry COMMAND rdp_simplifier_test)
 
-add_executable(pdf_font_metrics_test
-               pdf_font_metrics_test.cpp
-               ../viewer2d/pdf/font_metrics.cpp)
+add_executable(pdf_font_metrics_test pdf_font_metrics_test.cpp)
+target_link_libraries(pdf_font_metrics_test PRIVATE perastage_typography)
+target_compile_definitions(pdf_font_metrics_test PRIVATE PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
 add_test(NAME PdfFontMetricsEncoding COMMAND pdf_font_metrics_test)
 
 add_executable(layout_pdf_symbol_usage_test
@@ -1167,9 +1167,8 @@ add_executable(layout_legend_pdf_test
     ../viewer2d/legend_composition_adapter.cpp
     ../viewer2d/pdf/layout_pdf_symbol_usage.cpp
     ../viewer2d/pdf/pdf_draw_commands.cpp
-    ../viewer2d/pdf/pdf_font_metrics.cpp
     ../viewer2d/pdf/pdf_objects.cpp
-    ../viewer2d/pdf/pdf_label_fonts.cpp
+    ../viewer2d/pdf/pdf_unicode_fonts.cpp
     ../viewer2d/pdf/pdf_writer.cpp
     ../viewer2d/viewer2dcommandrenderer.cpp)
 target_include_directories(layout_legend_pdf_test PRIVATE
@@ -1236,8 +1235,8 @@ add_executable(layout_legend_preview_test layout_legend_preview_test.cpp
     layout_legend_pdf_resources_stub.cpp ../gui/layoutlegendrenderer.cpp ../gui/document_text_renderer.cpp
     ../viewer2d/legend_composition_adapter.cpp
     ../viewer2d/pdf/layout_pdf_event_table_renderer.cpp
-    ../viewer2d/pdf/layout_pdf_legend_renderer.cpp ../viewer2d/pdf/pdf_font_metrics.cpp
-    ../viewer2d/pdf/pdf_label_fonts.cpp ../viewer2d/pdf/pdf_objects.cpp
+    ../viewer2d/pdf/layout_pdf_legend_renderer.cpp
+    ../viewer2d/pdf/pdf_unicode_fonts.cpp ../viewer2d/pdf/pdf_objects.cpp
     ../viewer2d/pdf/pdf_draw_commands.cpp)
 target_include_directories(layout_legend_preview_test PRIVATE ../gui ../viewer2d ../viewer2d/pdf
     ../core/layouts ../core/print ../models ../viewer_common ../viewer3d ../third_party)
@@ -1288,7 +1287,7 @@ add_test(NAME FixtureLabelOverridesReconcile
 add_executable(pdf_writer_test
                pdf_writer_test.cpp
                ../viewer2d/pdf/pdf_draw_commands.cpp
-               ../viewer2d/pdf/pdf_font_metrics.cpp
+               ../viewer2d/pdf/pdf_unicode_fonts.cpp
                ../viewer2d/pdf/pdf_objects.cpp
                ../viewer2d/pdf/pdf_writer.cpp)
 target_include_directories(pdf_writer_test PRIVATE .)
@@ -4799,6 +4798,17 @@ endif()
 set_library_env(LayoutLegendPreview)
 find_program(PERASTAGE_PDFTOPPM NAMES pdftoppm)
 find_program(PERASTAGE_PDFTOTEXT NAMES pdftotext)
+find_program(PERASTAGE_PDFFONTS NAMES pdffonts)
+find_program(PERASTAGE_PDFINFO NAMES pdfinfo)
+if(PERASTAGE_PDFTOTEXT AND PERASTAGE_PDFFONTS AND PERASTAGE_PDFINFO)
+    add_test(NAME LayoutLicensedFontsPdf COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/check_licensed_fonts_pdf.py"
+        "$<TARGET_FILE:layout_legend_pdf_test>"
+        "${PERASTAGE_PDFFONTS}" "${PERASTAGE_PDFTOTEXT}" "${PERASTAGE_PDFINFO}")
+    set_library_env(LayoutLicensedFontsPdf)
+    set_tests_properties(LayoutLicensedFontsPdf PROPERTIES LABELS "layout;pdf;typography")
+endif()
+
 if(UNIX AND NOT APPLE AND PERASTAGE_XVFB_RUN AND PERASTAGE_PDFTOPPM)
     add_test(NAME LayoutLegendRasterParity COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/check_legend_raster_parity.py"
@@ -4873,7 +4883,7 @@ add_test(NAME EventTableComposition COMMAND event_table_composition_test)
 add_executable(layout_event_table_preview_test layout_event_table_preview_test.cpp
     layout_legend_pdf_resources_stub.cpp ../gui/layout_event_table_renderer.cpp
     ../gui/document_text_renderer.cpp ../viewer2d/pdf/layout_pdf_event_table_renderer.cpp
-    ../viewer2d/pdf/pdf_font_metrics.cpp ../viewer2d/pdf/pdf_label_fonts.cpp
+    ../viewer2d/pdf/pdf_unicode_fonts.cpp
     ../viewer2d/pdf/pdf_objects.cpp)
 target_include_directories(layout_event_table_preview_test PRIVATE ../gui ../viewer2d ../viewer2d/pdf
     ../core/layouts ../core/print ../models ../viewer_common ../viewer3d ../third_party)
@@ -4917,9 +4927,8 @@ add_executable(layout_page_mapping_pdf_test
     ../viewer2d/legend_composition_adapter.cpp
     ../viewer2d/pdf/layout_pdf_symbol_usage.cpp
     ../viewer2d/pdf/pdf_draw_commands.cpp
-    ../viewer2d/pdf/pdf_font_metrics.cpp
     ../viewer2d/pdf/pdf_objects.cpp
-    ../viewer2d/pdf/pdf_label_fonts.cpp
+    ../viewer2d/pdf/pdf_unicode_fonts.cpp
     ../viewer2d/pdf/pdf_writer.cpp
     ../viewer2d/viewer2dcommandrenderer.cpp)
 target_include_directories(layout_page_mapping_pdf_test PRIVATE

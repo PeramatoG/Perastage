@@ -118,19 +118,32 @@ Select a non-empty layout and choose **File → Print Layout...**. Choose a writ
 
 For missing views, incorrect output or export errors, see [Troubleshooting](troubleshooting.md#layout-and-pdf-problems).
 
-Fixture labels are configured in **2D View settings → Edit Fixture Labels...**. Project defaults and UUID-based fixture overrides also feed Layout viewports and vector PDF. All fixture fields, including inherited/unedited labels, use the same bundled fonts and positioned composition in the editor, viewer and PDF. Layout free text keeps its own typography. Event Tables share their own point-space composition between preview and PDF. See [Fixture labels](views.md#fixture-labels) for scope, units, Apply/Cancel and supported characters.
+Fixture labels use the same selected face in the Fixture Label Editor, 2D and
+Layout viewports, and PDF. Project defaults and fixture overrides feed Layout
+viewports. See [Fixture labels](views.md#fixture-labels) for scope and units.
 
-Legends use the bundled PerastageSans regular/bold fonts with the same wrapping, row geometry and symbol columns in the editable preview and vector PDF. Screen zoom changes rasterization only. Printing on different paper uniformly fits the composed Legend without recomputing line breaks. Text that exceeds its column is clipped; its full value remains editable. Western European WinAnsi characters are supported. Unsupported glyphs are omitted on both targets while their original text is retained; PDF completion details identify the affected UTF-8 bytes.
+Use **Font family** when editing a legend or Event Table. The selection applies
+to that element and preserves its Regular and Bold roles. For free text, select
+a span to apply a family to that span or leave the selection empty to apply it
+to the whole element. Each text element can use different fonts. PerastageSans
+supports real italic faces. An italic request in another family uses an
+approved default italic face and appears in the PDF completion details.
 
 ### Event Table preview and PDF
 
-Event Tables use the same bundled PerastageSans composition in the Layout Viewer
-and selectable vector PDF. Zoom and output paper scale transform the existing
-layout; they do not refit its seven fields. Labels and the first value are bold.
-Each cell shows one line, using `...` for overflow when it fits. The complete
-value remains editable and is saved unchanged. Unsupported glyphs are omitted
-consistently in both outputs and recorded in technical diagnostics; full Unicode
-shaping is not supported.
+Layout and PDF use the same font advances and baselines. Zoom and output paper
+scale transform the composition. Legends wrap group names within their columns.
+Event Table cells display one line and use an ellipsis for overflow when it
+fits. The complete source remains editable in both cases.
+
+PerastageSans, Noto Serif and Source Sans 3 are bundled. A project retains the
+requested family if it is temporarily unavailable. Perastage uses the approved
+default and reports the substitution. Reopen the project after restoring the missing
+font resources to recover the requested appearance. Spanish accents,
+punctuation and other characters covered by the bundled faces remain selectable
+in PDF. Missing glyphs are marked in the drawing and reported in the export
+details. Complex-script shaping and bidirectional layout are outside the
+current repertoire.
 
 ### Output paper size
 

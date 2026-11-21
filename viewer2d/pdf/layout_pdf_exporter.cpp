@@ -48,10 +48,10 @@
 #include "layout_pdf_page_mapping.h"
 #include "layout_pdf_text_renderer.h"
 #include "pdf_draw_commands.h"
-#include "pdf_font_metrics.h"
 #include "pdf_fixture_symbol_source.h"
 #include "pdf_objects.h"
-#include "pdf_label_fonts.h"
+#include "pdf_unicode_fonts.h"
+#include "projectutils.h"
 #include "symbols/fixture_symbol_availability.h"
 #include "viewer2dcommandrenderer.h"
 
@@ -255,7 +255,7 @@ std::string RenderCommandsToStream(
   for (size_t i = 0; i < commands.size(); ++i) {
     const auto &cmd = commands[i];
     if (const auto *text = std::get_if<TextCommand>(&cmd);
-        text && options.includeText && text->style.fontFamily.starts_with("perastage-sans")) {
+        text && options.includeText && text->style.IsComposedGlyph()) {
       flushGroup();
       i = AppendComposedTextRun(content, formatter, mapping, current, commands, sources, i, options.fonts) - 1;
       continue;
@@ -474,23 +474,8 @@ Viewer2DExportResult ExportViewer2DToPdf(
     }
   }
 
-  LegacyFontPair legacyFonts;
-  auto &regularFont = legacyFonts.regular;
-  auto &boldFont = legacyFonts.bold;
-
-  bool regularMetricsLoaded = LoadPdfFontMetrics(regularFont, false);
-  bool boldMetricsLoaded = LoadPdfFontMetrics(boldFont, true);
-  if (!boldMetricsLoaded && regularMetricsLoaded)
-    boldFont.metrics = regularFont.metrics;
-
-  PdfFontCatalog fontCatalog{&regularFont, &boldFont};
-  LabelFonts labelFonts;
+  PdfUnicodeFonts fontCatalog(typography::GetFontCatalog(ProjectUtils::GetResourceRoot()));
   std::vector<PdfObject> objects;
-  if (!labelFonts.Prepare(objects, fontCatalog, HasComposedLabels(buffer))) {
-    result.message = "Bundled label fonts are unavailable; PDF export stopped.";
-    return result;
-  }
-
 
   RenderOptions mainOptions{};
   mainOptions.includeText = true;
@@ -510,26 +495,6 @@ Viewer2DExportResult ExportViewer2DToPdf(
       useCompression = true;
     }
   }
-  if (regularMetricsLoaded && AppendEmbeddedFontObjects(objects, regularFont)) {
-    // Embedded font loaded successfully.
-  } else {
-    Logger::Instance().Log(
-        "PDF export: falling back to Type1 Helvetica (embedded font not found)");
-    AppendFallbackType1Font(objects, regularFont, "Helvetica");
-  }
-
-  if (boldMetricsLoaded && AppendEmbeddedFontObjects(objects, boldFont)) {
-    // Embedded bold font loaded successfully.
-  } else if (regularFont.objectId != 0) {
-    boldFont.objectId = regularFont.objectId;
-    boldFont.embedded = regularFont.embedded;
-    boldFont.metrics = regularFont.metrics;
-  } else {
-    Logger::Instance().Log(
-        "PDF export: falling back to Type1 Helvetica-Bold (embedded font not found)");
-    AppendFallbackType1Font(objects, boldFont, "Helvetica-Bold");
-  }
-
   Mapping symbolMapping{};
   symbolMapping.scale = 1.0;
   symbolMapping.flipY = false;
@@ -606,13 +571,12 @@ Viewer2DExportResult ExportViewer2DToPdf(
   contentObj << " >>\nstream\n" << streamData << "endstream";
   objects.push_back({contentObj.str()});
 
+  const size_t contentIndex = objects.size();
   std::ostringstream resources;
-  resources << "<< /Font << /F1 " << regularFont.objectId << " 0 R";
-  labelFonts.Resources(resources);
-  if (boldFont.objectId != 0 && boldFont.objectId != regularFont.objectId)
-    resources << " /F2 " << boldFont.objectId << " 0 R";
-  else if (boldFont.objectId == regularFont.objectId)
-    resources << " /F2 " << regularFont.objectId << " 0 R";
+  resources << "<< /Font <<";
+  fontCatalog.WriteResources(objects, resources);
+  result.fontDiagnostics.assign(fontCatalog.Diagnostics().begin(),
+                                fontCatalog.Diagnostics().end());
   resources << " >>";
   if (!xObjectKeyIds.empty() || !xObjectIdIds.empty()) {
     resources << " /XObject << ";
@@ -633,8 +597,7 @@ Viewer2DExportResult ExportViewer2DToPdf(
   resources << " >>";
 
   std::ostringstream pageObj;
-  size_t contentIndex = objects.size();
-  size_t pageIndex = contentIndex + 1;
+  size_t pageIndex = objects.size() + 1;
   size_t pagesIndex = pageIndex + 1;
   size_t catalogIndex = pagesIndex + 1;
 
@@ -917,40 +880,7 @@ Viewer2DExportResult ExportLayoutToPdf(
   };
 
   std::vector<PdfObject> objects;
-  LegacyFontPair legacyFonts;
-  auto &regularFont = legacyFonts.regular;
-  auto &boldFont = legacyFonts.bold;
-
-  auto loadFont = [&](PdfFontDefinition &font, bool bold) {
-    if (!LoadPdfFontMetrics(font, bold))
-      return false;
-    return AppendEmbeddedFontObjects(objects, font);
-  };
-
-  if (!loadFont(regularFont, false)) {
-    Logger::Instance().Log(
-        "PDF export: falling back to Type1 Helvetica (embedded font not found)");
-    AppendFallbackType1Font(objects, regularFont, "Helvetica");
-  }
-
-  bool boldLoaded = loadFont(boldFont, true);
-  if (!boldLoaded && regularFont.objectId != 0) {
-    boldFont = regularFont;
-    boldFont.key = "F2";
-    boldFont.family = "sans-bold";
-  } else if (!boldLoaded) {
-    Logger::Instance().Log(
-        "PDF export: falling back to Type1 Helvetica-Bold (embedded font not found)");
-    AppendFallbackType1Font(objects, boldFont, "Helvetica-Bold");
-  }
-
-  PdfFontCatalog fontCatalog{&regularFont, &boldFont};
-  LabelFonts labelFonts;
-  if (!labelFonts.Prepare(objects, fontCatalog, !legends.empty() || !tables.empty() || std::any_of(views.begin(), views.end(), [](const auto &v) { return HasComposedLabels(v.buffer); }))) {
-    result.message = "Bundled label fonts are unavailable; PDF export stopped.";
-    return result;
-  }
-
+  PdfUnicodeFonts fontCatalog(typography::GetFontCatalog(ProjectUtils::GetResourceRoot()));
 
   auto appendSymbolObject = [&](const std::string &name,
                                 const std::vector<CanvasCommand> &commands,
@@ -1348,13 +1278,12 @@ Viewer2DExportResult ExportLayoutToPdf(
   contentObj << " >>\nstream\n" << streamData << "endstream";
   objects.push_back({contentObj.str()});
 
+  const size_t contentIndex = objects.size();
   std::ostringstream resources;
-  resources << "<< /Font << /F1 " << regularFont.objectId << " 0 R";
-  labelFonts.Resources(resources);
-  if (boldFont.objectId != 0 && boldFont.objectId != regularFont.objectId)
-    resources << " /F2 " << boldFont.objectId << " 0 R";
-  else
-    resources << " /F2 " << regularFont.objectId << " 0 R";
+  resources << "<< /Font <<";
+  fontCatalog.WriteResources(objects, resources);
+  result.fontDiagnostics.assign(fontCatalog.Diagnostics().begin(),
+                                fontCatalog.Diagnostics().end());
   resources << " >>";
   if (!xObjectNameIds.empty()) {
     resources << " /XObject << ";
@@ -1366,8 +1295,7 @@ Viewer2DExportResult ExportLayoutToPdf(
   resources << " >>";
 
   std::ostringstream pageObj;
-  size_t contentIndex = objects.size();
-  size_t pageIndex = contentIndex + 1;
+  size_t pageIndex = objects.size() + 1;
   size_t pagesIndex = pageIndex + 1;
   size_t catalogIndex = pagesIndex + 1;
 

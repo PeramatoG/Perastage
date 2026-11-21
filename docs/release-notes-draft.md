@@ -6,11 +6,10 @@
   capture loss; drags no longer open menus. Quick fixture patch edits now validate
   DMX assignments and support atomic Undo/Redo.
 
-- Fixture labels now use the same bundled font, letter positions and line layout
-  in the 2D viewer, label editor and PDF, including unedited inherited fields.
-  Existing numeric settings remain stored unchanged; labels that previously used
-  a system font now match the editor. Font sizing is consistent across NanoVG
-  backends, and older Layout label captures are refreshed automatically.
+- Choose PerastageSans, Noto Serif or Source Sans 3 for fixture labels, Layout
+  text, legends and event tables. Labels and Layout elements share font geometry
+  with PDF export. PDFs embed approved faces and preserve supported text for
+  searching and selection. Saved font choices survive temporary substitutions.
 
 - Reuse named fixture label styles across Layout viewports and pages, with local
   viewport and selected-fixture adjustments in the existing label editor. Styles

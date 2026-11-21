@@ -5,7 +5,7 @@
 
 namespace viewer2d {
 // Included in persisted Layout capture hashes when typography semantics change.
-inline constexpr int kFixtureLabelCompositionRevision = 1;
+inline constexpr int kFixtureLabelCompositionRevision = 2;
 struct LabelBounds {
   double minX = 0, minY = 0, maxX = 0, maxY = 0;
   bool operator==(const LabelBounds &) const = default;
@@ -41,7 +41,7 @@ private:
     bool operator==(const Key &) const = default;
   };
   struct Entry { Key key; FixtureLabelComposition composition; };
-  std::filesystem::path resourceRoot_;
+  std::shared_ptr<const typography::FontCatalog> catalog_;
   std::unordered_map<std::string, Entry> entries_;
 };
 } // namespace viewer2d

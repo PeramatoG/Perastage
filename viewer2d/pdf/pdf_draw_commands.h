@@ -1,6 +1,5 @@
 #pragma once
 
-#include "pdf_font_metrics.h"
 #include "pdf_objects.h"
 #include "viewer2dcommandrenderer.h"
 #include "typography/text_outline.h"
@@ -11,6 +10,7 @@
 #include <vector>
 
 namespace layout_pdf_internal {
+class PdfUnicodeFonts;
 
 struct Point { double x = 0.0; double y = 0.0; };
 struct Transform { double scale = 1.0; double offsetX = 0.0; double offsetY = 0.0; };
@@ -27,7 +27,7 @@ struct RenderOptions {
   bool includeText = true;
   const std::unordered_map<std::string, std::string> *symbolKeyNames = nullptr;
   const std::unordered_map<uint32_t, std::string> *symbolIdNames = nullptr;
-  const PdfFontCatalog *fonts = nullptr;
+  PdfUnicodeFonts *fonts = nullptr;
   double strokeScale = 1.0;
 };
 
@@ -68,11 +68,11 @@ void AppendCircle(std::ostringstream &out, GraphicsStateCache &cache, const Floa
                   const CanvasFill *fill);
 void AppendText(std::ostringstream &out, const FloatFormatter &fmt, const Point &pos,
                 const TextCommand &cmd, const CanvasTextStyle &style, double scale,
-                const PdfFontCatalog *fonts,
+                PdfUnicodeFonts *fonts,
                 typography::TextInkPass pass = typography::TextInkPass::Both);
 size_t AppendComposedTextRun(std::ostringstream &out, const FloatFormatter &fmt,
     const Mapping &mapping, const Transform &current, const std::vector<CanvasCommand> &commands,
-    const std::vector<std::string> &sources, size_t first, const PdfFontCatalog *fonts);
+    const std::vector<std::string> &sources, size_t first, PdfUnicodeFonts *fonts);
 void AppendSymbolInstance(std::ostringstream &out, const FloatFormatter &fmt,
                           const Mapping &mapping, const Transform2D &transform,
                           const std::string &name);

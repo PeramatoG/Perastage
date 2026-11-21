@@ -251,7 +251,7 @@ class ViewportSmoke : public wxApp {
     bool outline=false;
     for(const auto &command:probe->commands.commands)
       if(const auto *text=std::get_if<TextCommand>(&command))
-        outline|=text->style.fontFamily.starts_with("perastage-sans") &&
+        outline|=text->style.IsComposedGlyph() &&
             text->style.glyphOutline && std::abs(text->style.outlineWidth-width->GetValue())<1e-6;
     Require(outline,"Natural viewport paint omitted the configured text outline");
     const auto after=panel->GetViewState();
@@ -361,9 +361,17 @@ public:
         labels_ = cfg.GetValue("label_fixture_overrides").value_or("");
         idPositions_=RenderedIdPositions();
         Require(!idPositions_.empty(),"Synthetic canonical ID label missing");
-        CheckPreviewEditing();SnapshotEditor();ApplyAndObservePaint();
+        CheckPreviewEditing();
+        const auto previousFace = Preview()->GetComposition().text.front().style.fontResource;
+        Choice("fixtureLabelFontFamily", 2);
+        const auto selectedFace = Preview()->GetComposition().text.front().style.fontResource;
+        Require(!selectedFace.empty() && selectedFace != previousFace,
+                "Font selection did not immediately change the preview glyphs");
+        SnapshotEditor();ApplyAndObservePaint();
         firstApply_=cfg.GetValue("label_fixture_overrides").value_or("");
         Require(firstApply_!=labels_,"First Apply did not commit");
+        Require(firstApply_.find("Source Sans 3") != std::string::npos,
+                "First Apply did not persist the approved family");
         Require(RenderedIdPositions()==idPositions_,"Editing Name moved the inherited ID baseline");
         auto *width=dynamic_cast<wxSpinCtrlDouble *>(editor_->FindWindowByName("fixtureLabelOutlineWidth",editor_));
         Require(width,"Outline width control missing");
@@ -381,7 +389,9 @@ public:
         bool composed = false;
         for (const auto &command : commands.commands)
           if (const auto *text = std::get_if<TextCommand>(&command))
-            composed |= text->style.fontFamily.starts_with("perastage-sans");
+            if (const auto *face = typography::GetFontCatalog(ProjectUtils::GetResourceRoot())
+                                       ->FindResource(text->style.fontResource))
+              composed |= face->family == "Source Sans 3";
         Require(composed, "Edited labels are absent from real viewport capture");
         const auto applied = cfg.GetValue("label_fixture_overrides");
         Menu(ID_Edit_Undo); Require(cfg.GetValue("label_fixture_overrides").value_or("")==firstApply_,"Undo second Apply failed");
@@ -393,7 +403,7 @@ public:
         editor_ = new FixtureLabelEditor(frame_, cfg, 0); editor_->Show(); break;
       }
       case 7:
-        Bold(); Button(wxID_RESET); Button(wxID_CANCEL); CloseEditor();
+        Choice("fixtureLabelFontFamily", 1); Bold(); Button(wxID_RESET); Button(wxID_CANCEL); CloseEditor();
         Require(cfg.GetValue("label_fixture_overrides").value_or("") == labels_, "Closing committed an unapplied draft");
         cfg.SetValue("layout_perspective", manager->SavePerspective().ToStdString());
         Require(cfg.SaveProject((scratch/"scene.pstg").string()), "Save with a 2D perspective failed");

@@ -604,41 +604,29 @@ the resulting plan without a second layout algorithm. No persistent schema or
 transaction boundary changes. Oversized legacy symbols retain their size and
 origin alignment but are clipped to their planned slots.
 
-Legend plans use the existing bundled PerastageSans regular/bold metrics and
-`typography::Compose` for positioned glyphs. Both adapters compose with the same
-logical frame and font identities. The GUI draws the bundled glyph contours;
-PDF embeds those same fonts and writes selectable vector text. No platform font
-measurement, target-specific geometry profile or Legend typography compensation
-remains. Layout free-text compensation remains unchanged; Event Tables use the shared composition described below. Output
-paper scaling uniformly fits the original Legend plan after composition, so
-zoom, DPI and paper changes cannot change wrapping or distort symbols.
+The preview and PDF adapters both consume the plan in document points. Zoom
+and page fit transform its baselines, glyphs and clip boxes. The Legend cache
+includes the family selection and composition revision.
 
-Text cells and symbol slots have shared clipping rectangles. Source UTF-8 stays
-in the plan and persistent data. The supported repertoire is WinAnsi Latin;
-unsupported glyphs are omitted consistently on both targets and reported with
-bounded line/byte/UTF-8 diagnostics, including PDF dialog details. This does not
-claim full Unicode shaping. The per-Legend content hash includes the v2 font/
-composition identity; unrelated rasters remain reusable.
+## Shared document typography
 
-## Fixture label typography
+`core/typography` owns the approved font catalog, font byte identity, TrueType
+metrics and contours, UTF-8 decoding, fallback, and positioned glyphs. It also
+lays out mixed-style paper text blocks. The application UI extracts wx rich-text
+attributes at the boundary. Fixture and Layout renderers use the same approved
+font resources and advances. The PDF adapter registers used faces and their
+Unicode mappings. See [Typography and font licensing](typography.md).
 
-Core's GUI-independent `typography/` boundary owns the existing TrueType metrics
-reader, WinAnsi encoding and bounded text composition. It produces advances,
-line boundaries and baselines in explicit scene metres or paper points. Bundled
-PerastageSans resolves to Noto Sans 2.004 regular/bold; composed fixture labels
-use those exact files, independently positioned glyphs and no backend kerning.
-Viewer2D owns fixture field resolution and composition into existing canvas text
-commands. GUI owns the editor's draft and symbol preview; Viewer3D submits the
-same composed positions to NanoVG and capture, and PDF embeds the resolved fonts.
-
-Version-2 `presentation` fields extend existing PSTG label overrides with an independent fill and an outward contour radius in scene metres. Screen halo and fill use the same bundled-face NanoVG font atlas at each composed glyph position and baseline; vector contours remain available to export and synthetic-contour probes. The loaded face is measured at a stable probe size to adapt NanoVG em-size versus ascent/descent-height font backends, without changing canonical glyph advances. No backend relayout, kerning or extra letter spacing is applied. PDF strokes the embedded glyphs with twice the authored radius as line width. Display-only stroke resolution maps the 0.004 m reference radius to one framebuffer pixel, with proportional custom weights and no scene-zoom factor. The main viewer uses framebuffer coordinates (NanoVG ratio 1); the editor preview divides by its NanoVG device pixel ratio to avoid double DPI scaling. Composition/capture retain the authored physical radius and positioned geometry; PDF never uses this display policy. Inherited and edited 2D fixture fields share the same composition and eight-offset screen halo. Version 1 remains readable with contrasting outline defaults. Opening the editor never reserializes metadata. Legacy and edited names share the fixed two-space-delimited-words-per-line rule in `fixture_label_name.h`, before composition; no new wrap setting or serialization is introduced. The adapter accounts for multiline Name height while preserving ID/DMX order. Preview and property controls share the legacy stack adapter; property edits retain unrelated geometry and unrounded offsets. Label-only commits touch document history/dirty state without changing the scene-resource revision; serialized styles invalidate composition and Layout viewport caches. The reserved
-`__project_defaults__` entry participates in the same project history and is
-excluded from UUID normalization/pruning. Legacy numeric keys remain a read-only resolution adapter; inherited fields pass
-through the same bundled-font stack/baseline composition as the editor. Opening
-or rendering them does not materialize saved overrides. Layout free text, tables, 3D labels and the old global PDF
-metrics compatibility API remain legacy consumers. The next integration is shared
-composition for Layout free text, with explicit migration and wrapping tests;
-this change does not claim preview/PDF parity for those paths.
+Fixture label presentation versions 1 and 2 remain readable. Version 3 adds
+the requested family when a selection is explicit. Project defaults, UUID
+overrides, Layout overrides and profiles use the same field serialization.
+Label changes preserve the existing document history and invalidation
+mechanisms. Captures include resolved resource fingerprints and glyph IDs.
+Legacy numeric fields and the fixed two-word fixture-name wrap still apply.
+The default face retains its NanoVG raster halo, including the established
+zoom-independent reference weight. Layout and PDF keep the authored outline
+radius in scene metres. Perastage resolves the authored anchor, baseline and
+offset before submission to any graphics backend.
 
 ### Event Table composition
 

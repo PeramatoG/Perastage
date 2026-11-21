@@ -8,7 +8,8 @@ Perastage is licensed separately under the GNU General Public License version 3 
 |---|---|---|
 | [nlohmann/json](https://github.com/nlohmann/json) | MIT | [License](licenses/nlohmann_json_LICENSE.txt) |
 | [stb_easy_font](https://github.com/nothings/stb) | MIT or public domain | [License](licenses/stb_easy_font_LICENSE.txt) |
-| [Noto Sans](https://fonts.google.com/noto/specimen/Noto+Sans) / bundled Perastage font asset | SIL Open Font License 1.1 | [License](licenses/noto_sans_LICENSE.txt) |
+| [Noto Sans and Noto Serif 2.004](https://packages.debian.org/bookworm/fonts-noto-core) | SIL Open Font License 1.1 | [License](licenses/noto_sans_LICENSE.txt) |
+| [Source Sans 3 3.052R](https://github.com/adobe-fonts/source-sans/tree/ed1808970eb3c7301c9a523bee26473ba0bb62fa) | SIL Open Font License 1.1 | [License](licenses/source_sans_3_LICENSE.txt) |
 | [Lucide icons 0.562.0](https://github.com/lucide-icons/lucide/tree/0.562.0) | ISC for Lucide portions; MIT for Feather-derived portions | [Combined upstream license](licenses/lucide_LICENSE.txt) |
 
 ## Direct runtime libraries
@@ -35,9 +36,18 @@ Official builds made with vcpkg copy the available `share/*/copyright` metadata 
 
 This curated document is not an exhaustive inventory of every operating-system library that a downstream packager may choose to bundle. Distributors remain responsible for preserving notices required by the exact dependency set they redistribute.
 
-The `resources/fonts/PerastageSans*.ttf` assets are unmodified Noto Sans 2.004
-regular/bold (Debian `fonts-noto-core` distribution), with internal family name
-Noto Sans and unrestricted embedding (`OS/2.fsType = 0`). The existing SIL OFL
-notice permits bundling and PDF embedding; the Perastage filenames are resource
-aliases, not a renamed font family. Earlier assets at these paths contained HTML
-rather than usable TrueType data.
+The bundled faces are unmodified static TrueType fonts. PerastageSans is an
+application alias for Noto Sans and the font's internal names are unchanged.
+Adobe's reserved name **Source** remains in the original Adobe binaries. The
+SIL OFL 1.1 permits bundling the fonts with software and embedding them in
+documents. All shipped faces have `OS/2.fsType = 0`. The application checks
+both embedding flags and the pinned SHA-256 of each approved face.
+
+| Files in `resources/fonts/` | Exact source |
+| --- | --- |
+| `PerastageSans.ttf`, `PerastageSans-Bold.ttf`, `PerastageSans-Italic.ttf`, `PerastageSans-BoldItalic.ttf` | Noto Sans 2.004, Debian `fonts-noto-core_20201225-2_all.deb`. Original `NotoSans-{Regular,Bold,Italic,BoldItalic}.ttf`. |
+| `NotoSerif-Regular.ttf`, `NotoSerif-Bold.ttf` | Noto Serif 2.004 from the same Debian package. |
+| `SourceSans3-Regular.ttf`, `SourceSans3-Bold.ttf` | Adobe Source Sans 3 3.052R, tag commit `ed1808970eb3c7301c9a523bee26473ba0bb62fa`, `TTF/` directory. |
+
+The pinned face records and SHA-256 values are in
+[`core/typography/font_resources.cpp`](core/typography/font_resources.cpp).

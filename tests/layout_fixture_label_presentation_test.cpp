@@ -110,6 +110,21 @@ void RunLayoutFixtureLabelPresentationTests() {
   layouts::LayoutCollection restored; restored.Items()=pages;
   layouts::ReadLayoutLabelProfiles(json,restored);
   assert(layouts::LayoutDocumentJson(restored)==json);
+  auto withFonts = page;
+  withFonts.view2dViews = {a};
+  auto &field = withFonts.view2dViews.front().labelPresentation.fields[0][0];
+  if (!field) field = viewer2d::LabelFieldStyle{};
+  field->fontFamily = "Unverified project face";
+  withFonts.legendViews.emplace_back().fontFamily = "Noto Serif";
+  withFonts.eventTables.emplace_back().fontFamily = "Source Sans 3";
+  withFonts.legendViews.back().frame = {0, 0, 100, 100};
+  withFonts.eventTables.back().frame = {0, 0, 100, 100};
+  const auto fontJson = layouts::ToTemplateDocument({withFonts});
+  assert(layouts::FromTemplateDocument(fontJson, pages, &error));
+  assert(pages.size() == 1 && pages.front().view2dViews.front().labelPresentation.fields[0][0]->fontFamily ==
+         "Unverified project face");
+  assert(pages.front().legendViews.front().fontFamily == "Noto Serif");
+  assert(pages.front().eventTables.front().fontFamily == "Source Sans 3");
   // A portable page carries its dependency closure and remaps conflicting IDs.
   auto portable=page; portable.view2dViews={a}; portable.portableLabelProfiles=profiles;
   const auto portableJson=layouts::ToTemplateDocument({portable});
