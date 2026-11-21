@@ -20,6 +20,7 @@ assert 'frame.width * scaleX' not in Path('gui/mainwindow_print.cpp').read_text(
 refresh = Path('gui/layoutviewerpanel_legend.cpp').read_text()
 assert refresh.index('InvalidateChangedLegendRasters(') < refresh.index('newHash == legendDataHash')
 assert 'entry.second.renderDirty = true' not in refresh
-assert 'legend-composition-v2-perastage-sans' in refresh
+assert 'legend-composition-v3-licensed-fonts' in refresh
+assert 'appendString(legend->fontFamily)' in refresh
 print('Legend composition boundary passed.')
 PY
