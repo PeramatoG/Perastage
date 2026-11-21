@@ -10,7 +10,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 NOTICE = ROOT / "THIRD_PARTY_NOTICES.md"
-BUNDLED_COMPONENTS = {"nlohmann/json", "stb_easy_font", "noto sans", "lucide icons 0.562.0"}
+BUNDLED_COMPONENTS = {
+    "nlohmann/json", "stb_easy_font", "noto sans", "noto serif",
+    "source sans 3", "lucide icons 0.562.0",
+}
 DEPENDENCY_COMPONENT_NAMES = {"curl": "libcurl"}
 
 

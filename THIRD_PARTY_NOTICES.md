@@ -8,8 +8,9 @@ Perastage is licensed separately under the GNU General Public License version 3 
 |---|---|---|
 | [nlohmann/json](https://github.com/nlohmann/json) | MIT | [License](licenses/nlohmann_json_LICENSE.txt) |
 | [stb_easy_font](https://github.com/nothings/stb) | MIT or public domain | [License](licenses/stb_easy_font_LICENSE.txt) |
-| [Noto Sans and Noto Serif 2.004](https://packages.debian.org/bookworm/fonts-noto-core) | SIL Open Font License 1.1 | [License](licenses/noto_sans_LICENSE.txt) |
-| [Source Sans 3 3.052R](https://github.com/adobe-fonts/source-sans/tree/ed1808970eb3c7301c9a523bee26473ba0bb62fa) | SIL Open Font License 1.1 | [License](licenses/source_sans_3_LICENSE.txt) |
+| [Noto Sans](https://packages.debian.org/bookworm/fonts-noto-core) | SIL Open Font License 1.1 | [License](licenses/noto_sans_LICENSE.txt) |
+| [Noto Serif](https://packages.debian.org/bookworm/fonts-noto-core) | SIL Open Font License 1.1 | [License](licenses/noto_sans_LICENSE.txt) |
+| [Source Sans 3](https://github.com/adobe-fonts/source-sans/tree/ed1808970eb3c7301c9a523bee26473ba0bb62fa) | SIL Open Font License 1.1 | [License](licenses/source_sans_3_LICENSE.txt) |
 | [Lucide icons 0.562.0](https://github.com/lucide-icons/lucide/tree/0.562.0) | ISC for Lucide portions; MIT for Feather-derived portions | [Combined upstream license](licenses/lucide_LICENSE.txt) |
 
 ## Direct runtime libraries

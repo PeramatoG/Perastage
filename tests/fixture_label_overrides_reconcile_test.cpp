@@ -175,13 +175,14 @@ int main() {
   draft[validFixture.uuid].fieldStyles[0][0]->fontFamily = "Source Sans 3";
   const auto &selected = compositionCache.Resolve(cfg, draft, validFixture, 0, bounds, fonts);
   const auto *sourceSans = fonts.catalog->Resolve("Source Sans 3", style.bold).face;
+  const auto beforeFontEdit = cfg.GetValue("label_fixture_overrides");
   assert(!selected.text.empty() && selected.text.front().style.fontResource == sourceSans->fingerprint);
   assert(viewer2d::CommitFixtureLabelStyles(cfg, draft));
-  assert(viewer2d::LoadFixtureLabelOverrides(cfg).at(validFixture.uuid).fieldStyles[0][0]->fontFamily == "Source Sans 3");
+  assert(viewer2d::LoadFixtureLabelOverrides(cfg).at(validFixture.uuid).fieldStyles[0][0].value().fontFamily == "Source Sans 3");
   cfg.Undo();
-  assert(viewer2d::LoadFixtureLabelOverrides(cfg).at(validFixture.uuid).fieldStyles[0][0]->fontFamily.empty());
+  assert(cfg.GetValue("label_fixture_overrides") == beforeFontEdit);
   cfg.Redo();
-  assert(viewer2d::LoadFixtureLabelOverrides(cfg).at(validFixture.uuid).fieldStyles[0][0]->fontFamily == "Source Sans 3");
+  assert(viewer2d::LoadFixtureLabelOverrides(cfg).at(validFixture.uuid).fieldStyles[0][0].value().fontFamily == "Source Sans 3");
   draft[validFixture.uuid].fieldStyles[0][0] = style;
   compositionCache.Clear();
   assert(cachedText() == "RenamedID: 91.002");
