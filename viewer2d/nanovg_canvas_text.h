@@ -100,6 +100,10 @@ inline void DrawCanvasText(NVGcontext *vg, const TextCommand &text,
     case Kind::Quadratic:
       nvgQuadTo(vg, x + p.cx * em, y - p.cy * em, x + p.x * em, y - p.y * em);
       break;
+    case Kind::Cubic:
+      nvgBezierTo(vg, x + p.cx * em, y - p.cy * em, x + p.dx * em, y - p.dy * em,
+                  x + p.x * em, y - p.y * em);
+      break;
     case Kind::Close:
       nvgClosePath(vg);
       nvgPathWinding(vg, p.hole ? NVG_HOLE : NVG_SOLID);

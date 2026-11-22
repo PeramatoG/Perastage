@@ -16,17 +16,9 @@ bool HasGeometry(const LegendSymbolGeometry &symbol) {
       std::isfinite(symbol.bounds.width) && std::isfinite(symbol.bounds.height) &&
       symbol.bounds.width > 0 && symbol.bounds.height > 0;
 }
-// A valid UTF-8 input is split only at codepoint boundaries. Combining sequences
-// and shaping remain the metric/backend's responsibility, as in legacy Legends.
-std::size_t NextCodepoint(const std::string &text, std::size_t offset) {
-  ++offset;
-  while (offset < text.size() &&
-         (static_cast<unsigned char>(text[offset]) & 0xc0) == 0x80)
-    ++offset;
-  return offset;
-}
 std::array<std::string, 2> Wrap(const std::string &text, double width,
-    const std::function<double(std::string_view)> &measure) {
+    const std::function<double(std::string_view)> &measure,
+    const std::function<size_t(const std::string &, double)> &firstBreak) {
   if (width <= 0) return {};
   if (const auto newline = text.find('\n'); newline != std::string::npos)
     return {text.substr(0,newline), text.substr(newline+1)};
@@ -38,15 +30,7 @@ std::array<std::string, 2> Wrap(const std::string &text, double width,
       break;
     }
   }
-  if (!split) {
-    for (std::size_t end = NextCodepoint(text, 0); end <= text.size();) {
-      if (measure(std::string_view(text).substr(0, end)) > width) break;
-      split = end;
-      if (end == text.size()) break;
-      end = NextCodepoint(text, end);
-    }
-    if (!split && !text.empty()) split = NextCodepoint(text, 0);
-  }
+  if (!split) split = firstBreak(text, width);
   std::string remainder = text.substr(split);
   const auto first = remainder.find_first_not_of(' ');
   if (first == std::string::npos) remainder.clear();
@@ -58,7 +42,8 @@ std::array<std::string, 2> Wrap(const std::string &text, double width,
 } // namespace
 
 static LegendCompositionPlan ComposeGeometry(const LegendCompositionInput &in,
-                                    const TextMetrics &metrics) {
+                                    const TextMetrics &metrics,
+                                    const std::function<size_t(const std::string &, double, double)> &firstBreak) {
   LegendCompositionPlan plan;
   plan.clip = {0, 0, Nonnegative(in.width), Nonnegative(in.height)};
   std::vector<std::size_t> visible;
@@ -163,7 +148,8 @@ static LegendCompositionPlan ComposeGeometry(const LegendCompositionInput &in,
   for (const auto i : visible) {
     if (y + plan.rowHeight > plan.clip.height + 1e-6) { ++plan.clippedRows; continue; }
     const auto &row = in.rows[i];
-    const auto lines = Wrap(row.name, plan.typeColumn.width, width);
+    const auto lines = Wrap(row.name, plan.typeColumn.width, width,
+        [&](const auto &name, double available) { return firstBreak(name, fontSize, available); });
     const bool twoLines = !lines[1].empty();
     const auto firstText = plan.text.size();
     append(row.count, TextRole::Normal, plan.countColumn.x, y + singleOffset, countWidth);
@@ -201,9 +187,9 @@ static LegendCompositionPlan ComposeGeometry(const LegendCompositionInput &in,
 }
 LegendCompositionPlan ComposeLegend(const LegendCompositionInput &input,
                                     const LegendFonts &fonts) {
-  const auto compose = [&](std::string_view text, double size, TextRole role) {
+  const auto compose = [&](std::string_view text, double size, TextRole role, double wrapWidth = 0) {
     const typography::TextStyle style{size, typography::TextUnit::PaperPoints,
-                                      role == TextRole::Bold, 0, 0};
+                                      role == TextRole::Bold, wrapWidth, 0};
     if (fonts.catalog) return typography::Compose(std::string(text), style, *fonts.catalog, fonts.family);
     return typography::Compose(std::string(text), style, style.bold ? fonts.bold : fonts.regular);
   };
@@ -214,7 +200,10 @@ LegendCompositionPlan ComposeLegend(const LegendCompositionInput &input,
     const auto extraLines = run.lines.empty() ? 0 : run.lines.size() - 1;
     return TextMeasurement{width, run.ascent + run.descent + extraLines * run.lineHeight, run.ascent};
   };
-  auto plan = ComposeGeometry(input, measure);
+  auto plan = ComposeGeometry(input, measure, [&](const std::string &text, double size, double width) {
+    const auto wrapped = compose(text, size, TextRole::Normal, width);
+    return wrapped.lines.empty() ? text.size() : wrapped.lines.front().sourceEnd;
+  });
   plan.fontIdentity = std::string(compose({}, plan.fontSize, TextRole::Normal).resourceId) +
                       "/" + std::string(compose({}, plan.fontSize, TextRole::Bold).resourceId);
   for (auto &line : plan.text) {

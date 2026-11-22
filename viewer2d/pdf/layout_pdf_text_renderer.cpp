@@ -21,10 +21,14 @@ void RenderLayoutTextPdf(std::ostringstream &out, const LayoutTextExportData &te
     out << fmt.Format(rgb[0] / 255.0) << ' ' << fmt.Format(rgb[1] / 255.0) << ' '
         << fmt.Format(rgb[2] / 255.0) << " rg\n";
   };
-  for (const auto &entry : plan.glyphs) {
-    color(entry.color);
-    ink.AppendGlyph(out, fmt, entry.glyph, text.frame.x + entry.x, top - entry.baseline, entry.size);
-  }
+  AppendTextClusters(out, 0, plan.glyphs.size(),
+      [&](size_t i) -> const auto & { return plan.glyphs[i].glyph.text; },
+      [&](size_t i) { return plan.glyphs[i].glyph.clusterContinuation; },
+      [&](size_t i) {
+        const auto &entry = plan.glyphs[i];
+        color(entry.color);
+        ink.AppendGlyph(out, fmt, entry.glyph, text.frame.x + entry.x, top - entry.baseline, entry.size);
+      });
   for (const auto &line : plan.decorations) {
     color(line.color);
     out << fmt.Format(text.frame.x + line.x) << ' ' << fmt.Format(top - line.y - line.height)

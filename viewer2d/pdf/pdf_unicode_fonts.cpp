@@ -2,6 +2,7 @@
 #include "typography/glyph_outline.h"
 #include <algorithm>
 #include <cmath>
+#include "typography/unicode_shaping.h"
 
 namespace layout_pdf_internal {
 namespace {
@@ -22,6 +23,12 @@ std::string Utf16Hex(uint32_t scalar) {
   return Hex16(0xd800 + (scalar >> 10)) + Hex16(0xdc00 + (scalar & 0x3ff));
 }
 
+std::string SequenceHex(std::string_view value) {
+  std::string sequence;
+  for (const auto unit : typography::DecodeUtf16(value)) sequence += Hex16(unit);
+  return sequence;
+}
+
 size_t AppendObject(std::vector<PdfObject> &objects, std::string body) {
   objects.push_back({std::move(body)});
   return objects.size();
@@ -34,6 +41,10 @@ size_t AppendStream(std::vector<PdfObject> &objects, const std::string &data,
 }
 }
 
+void BeginActualText(std::ostringstream &out, std::string_view text) {
+  out << "/Span << /ActualText <FEFF" << SequenceHex(text) << "> >> BDC\n";
+}
+
 PdfUnicodeFonts::PdfUnicodeFonts(std::shared_ptr<const typography::FontCatalog> catalog)
     : catalog_(std::move(catalog)) {}
 
@@ -44,12 +55,15 @@ void PdfUnicodeFonts::AddDiagnostic(const std::string &message) {
 void PdfUnicodeFonts::AppendGlyph(std::ostringstream &out, const FloatFormatter &fmt,
     const typography::PositionedGlyph &glyph, double x, double y, double size, double radius) {
   const auto *resource = catalog_->FindResource(glyph.resourceId);
-  if (!resource || glyph.glyphId >= resource->metrics.glyphAdvances.size()) {
+  if (!resource) {
     AddDiagnostic("A captured glyph references an unavailable approved font.");
     return;
   }
+  const auto outline = typography::ResolveGlyphOutline(*catalog_, glyph.resourceId, glyph.glyphId);
+  if (!outline || outline->substituted)
+    AddDiagnostic("A glyph contour is invalid in " + std::string(resource->postScriptName) +
+                  ". Using that face's missing-glyph contour.");
   if (radius > 0) {
-    const auto outline = typography::ResolveGlyphOutline(*catalog_, glyph.resourceId, glyph.glyphId);
     if (!outline || outline->path.empty()) return;
     out << "q\n" << fmt.Format(2 * radius) << " w\n1 J\n1 j\n";
     double currentX = 0, currentY = 0;
@@ -68,6 +82,10 @@ void PdfUnicodeFonts::AppendGlyph(std::ostringstream &out, const FloatFormatter 
         out << ' ';
         point(p.x, p.y); out << " c\n";
         break;
+      case Kind::Cubic:
+        point(p.cx, p.cy); out << ' '; point(p.dx, p.dy); out << ' ';
+        point(p.x, p.y); out << " c\n";
+        break;
       case Kind::Close: out << "h\n"; break;
       }
       currentX = p.x;
@@ -82,7 +100,8 @@ void PdfUnicodeFonts::AppendGlyph(std::ostringstream &out, const FloatFormatter 
     face.resource = resource;
     face.key = "F" + std::to_string(used_.size() + 2);
   }
-  const auto mapping = std::pair{glyph.glyphId, glyph.codepoint};
+  const auto mapping = std::pair{outline && !outline->substituted ? glyph.glyphId : uint16_t{0}, glyph.clusterContinuation ? std::string()
+      : glyph.text.empty() ? Utf16Hex(glyph.codepoint) : SequenceHex(glyph.text)};
   auto code = face.codes.find(mapping);
   if (code == face.codes.end()) {
     if (face.glyphs.size() == 65535) {
@@ -100,8 +119,13 @@ void PdfUnicodeFonts::AppendGlyph(std::ostringstream &out, const FloatFormatter 
 void PdfUnicodeFonts::AppendRun(std::ostringstream &out, const FloatFormatter &fmt,
     const typography::Composition &run, double x, double y) {
   if (!run.unsupportedBytes.empty()) AddDiagnostic("Some text characters are unavailable in the approved fonts.");
-  for (const auto &glyph : run.glyphs)
-    AppendGlyph(out, fmt, glyph, x + glyph.x, y + glyph.baseline, run.style.size);
+  AppendTextClusters(out, 0, run.glyphs.size(),
+      [&](size_t i) -> const auto & { return run.glyphs[i].text; },
+      [&](size_t i) { return run.glyphs[i].clusterContinuation; },
+      [&](size_t i) {
+        const auto &glyph = run.glyphs[i];
+        AppendGlyph(out, fmt, glyph, x + glyph.x, y + glyph.baseline, run.style.size);
+      });
 }
 
 void PdfUnicodeFonts::WriteResources(std::vector<PdfObject> &objects, std::ostringstream &out) const {
@@ -147,12 +171,17 @@ void PdfUnicodeFonts::WriteResources(std::vector<PdfObject> &objects, std::ostri
          << "/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n"
          << "/CMapName /Perastage-UCS def\n/CMapType 2 def\n"
          << "1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n";
-    for (size_t first = 0; first < face.glyphs.size(); first += 100) {
-      const auto count = std::min<size_t>(100, face.glyphs.size() - first);
+    std::vector<size_t> mapped;
+    for (size_t i = 0; i < face.glyphs.size(); ++i)
+      if (!face.glyphs[i].second.empty()) mapped.push_back(i);
+    for (size_t first = 0; first < mapped.size(); first += 100) {
+      const auto count = std::min<size_t>(100, mapped.size() - first);
       cmap << count << " beginbfchar\n";
-      for (size_t i = first; i < first + count; ++i)
+      for (size_t j = first; j < first + count; ++j) {
+        const auto i = mapped[j];
         cmap << '<' << Hex16(static_cast<uint16_t>(i + 1)) << "> <"
-             << Utf16Hex(face.glyphs[i].second) << ">\n";
+             << face.glyphs[i].second << ">\n";
+      }
       cmap << "endbfchar\n";
     }
     cmap << "endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n";

@@ -2,6 +2,7 @@
 #include "typography/font_resources.h"
 #include <algorithm>
 #include <cmath>
+#include <map>
 
 namespace layouts::composition {
 namespace {
@@ -59,15 +60,26 @@ EventTablePlan ComposeEventTable(const EventTableInput &in, const EventTableFont
           (!source.empty() && full.ascent + full.descent > out.clip.height + 1e-9);
       const auto dots = compose("...", size, out.role);
       const double suffixWidth = out.overflow ? dots.lines.front().width : 0;
-      double used = 0;
-      // Glyphs carry complete decoded UTF-8 sequences; never slice source bytes.
-      for (std::size_t j = line.first; j < line.first + line.count; ++j) {
-        const auto &g = full.glyphs[j];
-        if (used + g.advance + suffixWidth > width + 1e-9) break;
-        out.displayed += g.text; used += g.advance;
+      std::map<size_t, std::pair<size_t, double>> clusters;
+      for (size_t j = line.first; j < line.first + line.count; ++j) {
+        const auto &glyph = full.glyphs[j];
+        auto &cluster = clusters[glyph.sourceBegin];
+        cluster.first = glyph.sourceEnd;
+        cluster.second += glyph.advance;
       }
-      if (out.overflow && suffixWidth <= width) out.displayed += "...";
-      out.run = compose(out.displayed, size, out.role);
+      std::vector<size_t> fitting{0};
+      double used = 0;
+      for (const auto &[begin, cluster] : clusters) {
+        used += cluster.second;
+        if (used + suffixWidth > width + 1e-9) break;
+        fitting.push_back(cluster.first);
+      }
+      const std::string suffix = out.overflow && suffixWidth <= width ? "..." : "";
+      do {
+        out.displayed = source.substr(0, fitting.back()) + suffix;
+        out.run = compose(out.displayed, size, out.role);
+        fitting.pop_back();
+      } while (!fitting.empty() && out.run.lines.front().width > width + 1e-9);
       out.baseline = {x, row.frame.y + (row.frame.height - full.ascent - full.descent) / 2 + full.ascent};
       if (out.overflow) diagnose(std::string("Event Table ") + kEventTableFields[i].id +
           " cell overflow; hidden text retained in source.");

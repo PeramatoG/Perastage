@@ -7,6 +7,22 @@
 #include <set>
 
 namespace layout_pdf_internal {
+// Wrap a multi-glyph cluster so PDF readers extract its original Unicode once.
+void BeginActualText(std::ostringstream &, std::string_view text);
+
+template <typename Text, typename Continuation, typename Emit>
+void AppendTextClusters(std::ostringstream &out, size_t first, size_t end,
+                        Text text, Continuation continuation, Emit emit) {
+  while (first < end) {
+    size_t next = first + 1;
+    while (next < end && continuation(next)) ++next;
+    if (next > first + 1) BeginActualText(out, text(first));
+    for (size_t i = first; i < next; ++i) emit(i);
+    if (next > first + 1) out << "EMC\n";
+    first = next;
+  }
+}
+
 // One registry per output document. Only used, authorized faces are embedded.
 class PdfUnicodeFonts {
 public:
@@ -25,8 +41,8 @@ private:
   struct Face {
     const typography::FontResource *resource = nullptr;
     std::string key;
-    std::map<std::pair<uint16_t, uint32_t>, uint16_t> codes;
-    std::vector<std::pair<uint16_t, uint32_t>> glyphs;
+    std::map<std::pair<uint16_t, std::string>, uint16_t> codes;
+    std::vector<std::pair<uint16_t, std::string>> glyphs;
   };
   std::shared_ptr<const typography::FontCatalog> catalog_;
   std::map<std::string_view, Face> used_;

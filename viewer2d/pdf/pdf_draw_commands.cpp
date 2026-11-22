@@ -201,6 +201,7 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
     ink.AddDiagnostic(style.fontDiagnostic);
     typography::PositionedGlyph glyph{cmd.text, 0, 0, 0, style.fontResource,
                                       style.codepoint, style.glyphId};
+    glyph.clusterContinuation = style.clusterContinuation;
     const auto emit = [&](const CanvasColor &color, double radius) {
       out << fmt.Format(color.r) << ' ' << fmt.Format(color.g) << ' '
           << fmt.Format(color.b) << (radius > 0 ? " RG\n" : " rg\n");
@@ -239,13 +240,16 @@ size_t AppendComposedTextRun(std::ostringstream &out, const FloatFormatter &fmt,
         (end < sources.size() && first < sources.size() && sources[end] != sources[first])) break;
     ++end;
   }
-  for (auto pass : {typography::TextInkPass::Outline, typography::TextInkPass::Fill}) {
-    for (size_t i = first; i < end; ++i) {
-      const auto &text = std::get<TextCommand>(commands[i]);
-      const auto pos = MapPointWithTransform(text.x, text.y, current, mapping);
-      AppendText(out, fmt, pos, text, text.style, mapping.scale, fonts, pass);
-    }
-  }
+  const auto draw = [&](size_t i, typography::TextInkPass pass) {
+    const auto &text = std::get<TextCommand>(commands[i]);
+    const auto pos = MapPointWithTransform(text.x, text.y, current, mapping);
+    AppendText(out, fmt, pos, text, text.style, mapping.scale, fonts, pass);
+  };
+  for (size_t i = first; i < end; ++i) draw(i, typography::TextInkPass::Outline);
+  AppendTextClusters(out, first, end,
+      [&](size_t i) -> const auto & { return std::get<TextCommand>(commands[i]).text; },
+      [&](size_t i) { return std::get<TextCommand>(commands[i]).style.clusterContinuation; },
+      [&](size_t i) { draw(i, typography::TextInkPass::Fill); });
   return end;
 }
 

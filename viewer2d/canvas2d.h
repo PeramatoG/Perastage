@@ -68,6 +68,7 @@ struct CanvasTextStyle {
   std::string fontResource;
   uint32_t codepoint = 0;
   uint16_t glyphId = 0;
+  bool clusterContinuation = false;
   std::string fontDiagnostic;
   bool IsComposedGlyph() const { return !fontResource.empty(); }
   enum class HorizontalAlign { Left, Center, Right } hAlign =

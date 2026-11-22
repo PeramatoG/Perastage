@@ -402,6 +402,7 @@ nlohmann::json TextStyleToJson(const CanvasTextStyle &style) {
           {"fontResource", style.fontResource},
           {"glyphId", style.glyphId},
           {"codepoint", style.codepoint},
+          {"clusterContinuation", style.clusterContinuation},
           {"fontDiagnostic", style.fontDiagnostic},
           {"fontSize", style.fontSize},
           {"ascent", style.ascent},
@@ -423,6 +424,7 @@ CanvasTextStyle TextStyleFromJson(const nlohmann::json &json) {
   style.fontFamily = json.value("fontFamily", std::string{});
   style.fontResource = json.value("fontResource", std::string{});
   style.glyphId = json.value("glyphId", uint16_t{});
+  style.clusterContinuation = json.value("clusterContinuation", false);
   style.codepoint = json.value("codepoint", uint32_t{});
   style.fontDiagnostic = json.value("fontDiagnostic", std::string{});
   style.fontSize = json.value("fontSize", 12.0f);

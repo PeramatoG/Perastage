@@ -1,180 +1,102 @@
 #include "glyph_outline.h"
 #include "font_resources.h"
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_OUTLINE_H
 #include <map>
 #include <mutex>
-#include <stdexcept>
 
 namespace typography {
 namespace {
-struct Reader {
-  const std::string &data;
-  size_t pos, end;
-  void Skip(size_t count) {
-    if (pos > end || count > end - pos || end > data.size())
-      throw std::runtime_error("Invalid TrueType glyph contour bounds");
-    pos += count;
-  }
-  unsigned Byte() { Skip(1); return static_cast<unsigned char>(data[pos - 1]); }
-  unsigned Word() { const auto high = Byte(); return (high << 8) | Byte(); }
-  int SignedWord() { return static_cast<int16_t>(Word()); }
-  uint32_t Dword() { const auto high = Word(); return (high << 16) | Word(); }
-  double Fixed() { return SignedWord() / 16384.0; }
+struct FreeType {
+  FT_Library library = nullptr;
+  FreeType() { FT_Init_FreeType(&library); }
+  ~FreeType() { if (library) FT_Done_FreeType(library); }
 };
-struct Point { double x = 0, y = 0; bool on = false; };
 
-void AppendContour(std::vector<GlyphPathElement> &path, std::vector<Point> points) {
-  if (points.empty()) return;
-  double area = 0;
-  for (size_t i = 0; i < points.size(); ++i) {
-    const auto &p = points[i], &next = points[(i + 1) % points.size()];
-    area += p.x * next.y - next.x * p.y;
+struct OutlineBuilder {
+  GlyphOutline &outline;
+  double em, area = 0, x = 0, y = 0, startX = 0, startY = 0;
+  bool active = false, reverse = false;
+
+  void Add(double nextX, double nextY) {
+    area += x * nextY - nextX * y;
+    x = nextX;
+    y = nextY;
   }
-  Point start;
-  if (points.front().on) {
-    start = points.front();
-    points.erase(points.begin());
-  } else if (points.back().on) {
-    start = points.back();
-    points.pop_back();
-  } else {
-    start = {(points.front().x + points.back().x) / 2,
-             (points.front().y + points.back().y) / 2, true};
+
+  void Close() {
+    if (!active) return;
+    Add(startX, startY);
+    outline.path.push_back({GlyphPathElement::Kind::Close, 0, 0, 0, 0, (area > 0) != reverse});
+    active = false;
   }
-  path.push_back({GlyphPathElement::Kind::Move, start.x, start.y});
-  points.push_back(start);
-  for (size_t i = 0; i < points.size();) {
-    const auto p = points[i++];
-    if (p.on) {
-      path.push_back({GlyphPathElement::Kind::Line, p.x, p.y});
-    } else {
-      const auto next = points.at(i);
-      const auto end = next.on ? next : Point{(p.x + next.x) / 2, (p.y + next.y) / 2, true};
-      path.push_back({GlyphPathElement::Kind::Quadratic, end.x, end.y, p.x, p.y});
-      if (next.on) ++i;
-    }
+
+  static int Move(const FT_Vector *point, void *context) {
+    auto &b = *static_cast<OutlineBuilder *>(context);
+    b.Close();
+    b.x = b.startX = point->x / b.em;
+    b.y = b.startY = point->y / b.em;
+    b.active = true;
+    b.area = 0;
+    b.outline.path.push_back({GlyphPathElement::Kind::Move, b.x, b.y});
+    return 0;
   }
-  path.push_back({GlyphPathElement::Kind::Close, 0, 0, 0, 0, area > 0});
+
+  static int Line(const FT_Vector *point, void *context) {
+    auto &b = *static_cast<OutlineBuilder *>(context);
+    b.Add(point->x / b.em, point->y / b.em);
+    b.outline.path.push_back({GlyphPathElement::Kind::Line, b.x, b.y});
+    return 0;
+  }
+
+  static int Quad(const FT_Vector *control, const FT_Vector *point, void *context) {
+    auto &b = *static_cast<OutlineBuilder *>(context);
+    b.Add(control->x / b.em, control->y / b.em);
+    const auto cx = b.x, cy = b.y;
+    b.Add(point->x / b.em, point->y / b.em);
+    b.outline.path.push_back({GlyphPathElement::Kind::Quadratic, b.x, b.y, cx, cy});
+    return 0;
+  }
+
+  static int Cubic(const FT_Vector *c1, const FT_Vector *c2, const FT_Vector *point, void *context) {
+    auto &b = *static_cast<OutlineBuilder *>(context);
+    b.Add(c1->x / b.em, c1->y / b.em);
+    const auto cx = b.x, cy = b.y;
+    b.Add(c2->x / b.em, c2->y / b.em);
+    const auto dx = b.x, dy = b.y;
+    b.Add(point->x / b.em, point->y / b.em);
+    b.outline.path.push_back({GlyphPathElement::Kind::Cubic, b.x, b.y, cx, cy, false, dx, dy});
+    return 0;
+  }
+};
 }
 
-class OutlineReader {
-public:
-  explicit OutlineReader(const TtfFontMetrics &font) : font_(font) {
-    uint32_t head = 0, length = 0;
-    if (!font.valid || font.unitsPerEm <= 0 ||
-        !FindTable(font.data, 0x68656164, head, length) || length < 54 ||
-        !FindTable(font.data, 0x6c6f6361, loca_, locaLength_) ||
-        !FindTable(font.data, 0x676c7966, glyf_, glyfLength_))
-      throw std::runtime_error("Bundled font has no TrueType contours");
-    Reader r{font.data, head + 50, font.data.size()};
-    longOffsets_ = r.Word() != 0;
-  }
-  std::vector<GlyphPathElement> Read(unsigned glyph, unsigned depth = 0) {
-    if (depth > 12) throw std::runtime_error("Recursive TrueType glyph component");
-    const unsigned stride = longOffsets_ ? 4 : 2;
-    if ((static_cast<size_t>(glyph) + 2) * stride > locaLength_)
-      throw std::runtime_error("Invalid TrueType glyph index");
-    Reader locations{font_.data, loca_ + glyph * stride, font_.data.size()};
-    const auto first = longOffsets_ ? locations.Dword() : locations.Word() * 2;
-    const auto last = longOffsets_ ? locations.Dword() : locations.Word() * 2;
-    if (first > last || last > glyfLength_)
-      throw std::runtime_error("Invalid TrueType glyph location");
-    if (first == last) return {};
-    Reader r{font_.data, glyf_ + first, glyf_ + last};
-    const int contours = r.SignedWord();
-    r.Skip(8);
-    if (contours >= 0) return ReadSimple(r, contours);
-    std::vector<GlyphPathElement> result;
-    unsigned flags;
-    do {
-      flags = r.Word();
-      const unsigned component = r.Word();
-      const int x = flags & 1 ? r.SignedWord() : static_cast<int8_t>(r.Byte());
-      const int y = flags & 1 ? r.SignedWord() : static_cast<int8_t>(r.Byte());
-      if (!(flags & 2))
-        throw std::runtime_error("Unsupported TrueType point-anchored component");
-      double a = 1, b = 0, c = 0, d = 1;
-      if (flags & 8) a = d = r.Fixed();
-      else if (flags & 64) { a = r.Fixed(); d = r.Fixed(); }
-      else if (flags & 128) { a = r.Fixed(); b = r.Fixed(); c = r.Fixed(); d = r.Fixed(); }
-      const double dx = flags & 0x800 ? a * x + c * y : x;
-      const double dy = flags & 0x800 ? b * x + d * y : y;
-      for (auto p : Read(component, depth + 1)) {
-        const auto transform = [&](double &px, double &py) {
-          const double tx = a * px + c * py + dx;
-          py = b * px + d * py + dy;
-          px = tx;
-        };
-        if (p.kind == GlyphPathElement::Kind::Close) {
-          if (a * d < b * c) p.hole = !p.hole;
-        } else {
-          transform(p.x, p.y);
-        }
-        if (p.kind == GlyphPathElement::Kind::Quadratic) transform(p.cx, p.cy);
-        result.push_back(p);
-      }
-    } while (flags & 32);
-    return result;
-  }
-private:
-  std::vector<GlyphPathElement> ReadSimple(Reader &r, unsigned contours) {
-    std::vector<unsigned> ends;
-    for (unsigned i = 0; i < contours; ++i) {
-      const auto end = r.Word();
-      if (!ends.empty() && end <= ends.back()) throw std::runtime_error("Invalid contour endpoints");
-      ends.push_back(end);
-    }
-    const auto instructions = r.Word();
-    r.Skip(instructions);
-    const unsigned count = ends.empty() ? 0 : ends.back() + 1;
-    std::vector<unsigned> flags;
-    while (flags.size() < count) {
-      const auto flag = r.Byte();
-      const unsigned repeat = flag & 8 ? r.Byte() : 0;
-      if (repeat + 1 > count - flags.size()) throw std::runtime_error("Invalid repeated glyph flags");
-      flags.insert(flags.end(), repeat + 1, flag);
-    }
-    std::vector<Point> points(count);
-    for (int axis = 0; axis < 2; ++axis) {
-      int coordinate = 0;
-      for (unsigned i = 0; i < count; ++i) {
-        const unsigned shortFlag = axis == 0 ? 2 : 4, sameFlag = axis == 0 ? 16 : 32;
-        const int delta = flags[i] & shortFlag ? static_cast<int>(r.Byte()) * (flags[i] & sameFlag ? 1 : -1)
-                         : flags[i] & sameFlag ? 0 : r.SignedWord();
-        coordinate += delta;
-        if (axis == 0) points[i].x = coordinate; else points[i].y = coordinate;
-        points[i].on = (flags[i] & 1) != 0;
-      }
-    }
-    std::vector<GlyphPathElement> result;
-    unsigned first = 0;
-    for (auto last : ends) {
-      AppendContour(result, {points.begin() + first, points.begin() + last + 1});
-      first = last + 1;
-    }
-    return result;
-  }
-  const TtfFontMetrics &font_;
-  uint32_t loca_ = 0, locaLength_ = 0, glyf_ = 0, glyfLength_ = 0;
-  bool longOffsets_ = false;
-};
-} // namespace
-
-std::shared_ptr<const GlyphOutline> ReadGlyphOutlineById(const TtfFontMetrics &font,
-                                                        uint16_t glyph) {
-  auto outline = std::make_shared<GlyphOutline>();
-  outline->path = OutlineReader(font).Read(glyph);
-  for (auto &p : outline->path) {
-    p.x /= font.unitsPerEm; p.y /= font.unitsPerEm;
-    p.cx /= font.unitsPerEm; p.cy /= font.unitsPerEm;
-  }
-  return outline;
+std::shared_ptr<const GlyphOutline> ReadGlyphOutlineById(const TtfFontMetrics &font, uint16_t glyph) {
+  if (!font.valid || font.unitsPerEm <= 0 || glyph >= font.glyphAdvances.size()) return {};
+  thread_local FreeType ft;
+  FT_Face raw = nullptr;
+  if (!ft.library || FT_New_Memory_Face(ft.library,
+      reinterpret_cast<const FT_Byte *>(font.data.data()), font.data.size(), 0, &raw)) return {};
+  const std::unique_ptr<std::remove_pointer_t<FT_Face>, decltype(&FT_Done_Face)> face(raw, FT_Done_Face);
+  if (FT_Load_Glyph(raw, glyph, FT_LOAD_NO_SCALE | FT_LOAD_NO_BITMAP) ||
+      raw->glyph->format != FT_GLYPH_FORMAT_OUTLINE) return {};
+  auto result = std::make_shared<GlyphOutline>();
+  auto &outline = raw->glyph->outline;
+  OutlineBuilder builder{*result, static_cast<double>(font.unitsPerEm)};
+  builder.reverse = FT_Outline_Get_Orientation(&outline) == FT_ORIENTATION_POSTSCRIPT;
+  const FT_Outline_Funcs funcs{OutlineBuilder::Move, OutlineBuilder::Line, OutlineBuilder::Quad,
+                               OutlineBuilder::Cubic, 0, 0};
+  if (FT_Outline_Decompose(&outline, &funcs, &builder)) return {};
+  builder.Close();
+  return result;
 }
 
 std::shared_ptr<const GlyphOutline> ResolveGlyphOutline(const FontCatalog &catalog,
                                                        std::string_view resource,
                                                        uint16_t glyph) {
   const auto *face = catalog.FindResource(resource);
-  if (!face || glyph >= face->metrics.glyphAdvances.size()) return {};
+  if (!face) return {};
   using Key = std::pair<std::string_view, uint16_t>;
   static std::mutex mutex;
   static std::map<Key, std::shared_ptr<const GlyphOutline>> cache;
@@ -182,6 +104,14 @@ std::shared_ptr<const GlyphOutline> ResolveGlyphOutline(const FontCatalog &catal
   const Key key{face->fingerprint, glyph};
   if (const auto it = cache.find(key); it != cache.end()) return it->second;
   if (cache.size() >= 4096) cache.clear();
-  return cache.emplace(key, ReadGlyphOutlineById(face->metrics, glyph)).first->second;
+  auto outline = ReadGlyphOutlineById(face->metrics, glyph);
+  if (!outline && glyph) {
+    if (const auto missing = ReadGlyphOutlineById(face->metrics, 0)) {
+      auto replacement = std::make_shared<GlyphOutline>(*missing);
+      replacement->substituted = true;
+      outline = std::move(replacement);
+    }
+  }
+  return cache.emplace(key, std::move(outline)).first->second;
 }
-} // namespace typography
+}

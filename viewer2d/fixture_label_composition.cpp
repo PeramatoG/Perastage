@@ -5,6 +5,12 @@
 #include "typography/composition.h"
 
 namespace viewer2d {
+namespace {
+size_t ScalarBytes(uint32_t codepoint) {
+  return codepoint < 0x80 ? 1 : codepoint < 0x800 ? 2 : codepoint < 0x10000 ? 3 : 4;
+}
+}
+
 bool HasFieldPresentation(const FixtureLabelOverrideMap &all,
     const std::string &uuid, int view, int field) {
   view = std::clamp(view, 0, 2);
@@ -17,7 +23,8 @@ bool HasFieldPresentation(const FixtureLabelOverrideMap &all,
 std::array<LabelFieldStyle, 3> ResolveEditableFieldStyles(const ConfigManager &cfg,
     const FixtureLabelOverrideMap &all, const std::string &uuid, int view,
     const typography::FontPair &fonts, const Fixture *source) {
-  // Adapt legacy stack baselines once, identically for preview and property edits.
+  // Legacy fields share a centered stack. Explicit field positions are authored
+  // baselines and remain fixed when a font changes, including sibling fields.
   FixtureLabelOverrideMap legacy;
   for (const auto &key : {uuid, std::string(kLabelDefaultsKey)}) {
     if (const auto it = all.find(key); it != all.end()) {
@@ -29,6 +36,7 @@ std::array<LabelFieldStyle, 3> ResolveEditableFieldStyles(const ConfigManager &c
   std::array<LabelFieldStyle, 3> result;
   double groupHeight = 0;
   std::array<size_t, 3> lineCounts{1,1,1};
+  std::array<typography::FontLineMetrics, 3> metrics;
   if (!source) {
     const auto it = cfg.GetScene().fixtures.find(uuid);
     if (it != cfg.GetScene().fixtures.end()) source = &it->second;
@@ -40,32 +48,29 @@ std::array<LabelFieldStyle, 3> ResolveEditableFieldStyles(const ConfigManager &c
   for (int f = 0; f < 3; ++f) {
     result[f] = ResolveFieldStyle(cfg, legacy, uuid, view, f);
     const auto &s = result[f];
-    const auto &font = s.bold ? fonts.bold : fonts.regular;
-    if (s.visible) groupHeight += (font.ascent + std::abs(font.descent)) * s.size / font.unitsPerEm +
-        (lineCounts[f] - 1) * (font.ascent + std::abs(font.descent) + font.lineGap) * s.size / font.unitsPerEm;
+    const auto resolved = fonts.catalog->Resolve(s.fontFamily, s.bold);
+    if (resolved.face) metrics[f] = typography::MeasureFontLine(resolved.face->metrics, s.size);
+    if (s.visible)
+      groupHeight += metrics[f].ascent + metrics[f].descent + (lineCounts[f] - 1) * metrics[f].lineHeight;
   }
   double top = groupHeight / 2;
   for (int f = 0; f < 3; ++f) {
     auto &s = result[f];
-    const auto &font = s.bold ? fonts.bold : fonts.regular;
-    const double ascent = font.ascent * s.size / font.unitsPerEm;
-    const double height = (font.ascent + std::abs(font.descent)) * s.size / font.unitsPerEm;
+    const auto [ascent, descent, lineHeight] = metrics[f];
     s.y += f * s.size + top - ascent;
-    if (s.visible) top -= height + (lineCounts[f] - 1) *
-        (font.ascent + std::abs(font.descent) + font.lineGap) * s.size / font.unitsPerEm;
+    if (s.visible) top -= ascent + descent + (lineCounts[f] - 1) * lineHeight;
     if (HasFieldPresentation(all, uuid, view, f)) s = ResolveFieldStyle(cfg, all, uuid, view, f);
   }
   return result;
 }
 
-FixtureLabelComposition ComposeFixtureLabels(const ConfigManager &cfg,
-    const FixtureLabelOverrideMap &all, const Fixture &fixture, int view,
+static FixtureLabelComposition ComposeResolvedFixtureLabels(
+    const std::array<LabelFieldStyle, 3> &resolved, const Fixture &fixture,
     const LabelBounds &bounds, const typography::FontPair &fonts) {
   FixtureLabelComposition out;
   const std::array<std::string, 3> values{
     WrapFixtureLabelName(fixture.instanceName.empty() ? fixture.uuid : fixture.instanceName),
     "ID: " + std::to_string(fixture.fixtureId), fixture.address};
-  const auto resolved = ResolveEditableFieldStyles(cfg, all, fixture.uuid, view, fonts, &fixture);
   for (int f = 0; f < 3; ++f) {
     const auto &style = resolved[f];
     if (!style.visible || values[f].empty()) continue;
@@ -91,7 +96,9 @@ FixtureLabelComposition ComposeFixtureLabels(const ConfigManager &cfg,
     for (const auto &g : composed.glyphs) {
       CanvasTextStyle canvas;
       const auto *face = fonts.catalog->FindResource(g.resourceId);
-      if (face && face->family == typography::kDefaultFamily && !face->italic)
+      if (face && face->family == typography::kDefaultFamily && !face->italic &&
+          !g.clusterContinuation && g.text.size() == ScalarBytes(g.codepoint) &&
+          face->metrics.GlyphFor(g.codepoint) == g.glyphId)
         canvas.fontFamily = face->bold ? "perastage-sans-bold" : "perastage-sans";
       canvas.fontSize = textStyle.size;
       canvas.ascent = composed.ascent; canvas.descent = composed.descent;
@@ -102,25 +109,36 @@ FixtureLabelComposition ComposeFixtureLabels(const ConfigManager &cfg,
       canvas.fontResource = g.resourceId;
       canvas.codepoint = g.codepoint;
       canvas.glyphId = g.glyphId;
+      canvas.clusterContinuation = g.clusterContinuation;
       if (field.count == 0) canvas.fontDiagnostic = issue;
       canvas.glyphOutline = typography::ResolveGlyphOutline(*fonts.catalog, g.resourceId, g.glyphId);
-      const double gx = x + style.x + g.x, gy = y + style.y + g.baseline;
-      const LabelBounds glyph{gx - canvas.outlineWidth, gy - composed.descent - canvas.outlineWidth,
-                              gx + g.advance + canvas.outlineWidth, gy + composed.ascent + canvas.outlineWidth};
-      if (!field.count) field.bounds = glyph;
-      else {
-        field.bounds.minX = std::min(field.bounds.minX,glyph.minX);
-        field.bounds.minY = std::min(field.bounds.minY,glyph.minY);
-        field.bounds.maxX = std::max(field.bounds.maxX,glyph.maxX);
-        field.bounds.maxY = std::max(field.bounds.maxY,glyph.maxY);
+      if (!canvas.glyphOutline || canvas.glyphOutline->substituted) {
+        const std::string diagnostic = "A fixture label glyph contour is unavailable in the approved face.";
+        if (std::find(out.diagnostics.begin(), out.diagnostics.end(), diagnostic) == out.diagnostics.end())
+          out.diagnostics.push_back(diagnostic);
+        canvas.fontFamily.clear();
       }
       ++field.count;
       out.text.push_back({static_cast<float>(x + style.x + g.x),
                          static_cast<float>(y + style.y + g.baseline), g.text, canvas});
     }
-    if (field.count) out.fields[f] = field;
+    if (field.count) {
+      const auto stroke = style.outlineEnabled ? style.outlineWidth : 0;
+      const auto &box = composed.bounds;
+      field.bounds = {x + style.x + box.left - stroke, y + style.y + box.bottom - stroke,
+                      x + style.x + box.right + stroke, y + style.y + box.top + stroke};
+      out.fields[f] = field;
+    }
   }
   return out;
+}
+
+FixtureLabelComposition ComposeFixtureLabels(const ConfigManager &cfg,
+    const FixtureLabelOverrideMap &all, const Fixture &fixture, int view,
+    const LabelBounds &bounds, const typography::FontPair &fonts) {
+  return ComposeResolvedFixtureLabels(
+      ResolveEditableFieldStyles(cfg, all, fixture.uuid, view, fonts, &fixture),
+      fixture, bounds, fonts);
 }
 
 const FixtureLabelComposition &FixtureLabelCompositionCache::Resolve(
@@ -137,7 +155,7 @@ const FixtureLabelComposition &FixtureLabelCompositionCache::Resolve(
   auto it = entries_.find(fixture.uuid);
   if (it == entries_.end() || !(it->second.key == key)) {
     if (entries_.size() >= 20000 && it == entries_.end()) entries_.clear();
-    auto composition = ComposeFixtureLabels(cfg, all, fixture, view, bounds, fonts);
+    auto composition = ComposeResolvedFixtureLabels(resolved, fixture, bounds, fonts);
     it = entries_.insert_or_assign(fixture.uuid,
         Entry{std::move(key), std::move(composition)}).first;
   }

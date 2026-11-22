@@ -25,6 +25,7 @@ wxGraphicsPath BuildDocumentGlyphPath(wxGraphicsContext &graphics,
     case Kind::Move: path.MoveToPoint(x(point.x), y(point.y)); break;
     case Kind::Line: path.AddLineToPoint(x(point.x), y(point.y)); break;
     case Kind::Quadratic: path.AddQuadCurveToPoint(x(point.cx), y(point.cy), x(point.x), y(point.y)); break;
+    case Kind::Cubic: path.AddCurveToPoint(x(point.cx), y(point.cy), x(point.dx), y(point.dy), x(point.x), y(point.y)); break;
     case Kind::Close: path.CloseSubpath(); break;
     }
   }
@@ -36,6 +37,8 @@ void DrawComposedDocumentText(wxGraphicsContext &graphics,
     double baselineX, double baselineY, double outputScale) {
   for (const auto &glyph : run.glyphs) {
     const auto outline = typography::ResolveGlyphOutline(catalog, glyph.resourceId, glyph.glyphId);
+    if (!outline || outline->substituted)
+      ReportDocumentTypographyDiagnostic("A document glyph contour is unavailable in the approved face.");
     if (!outline) continue;
     const auto path = BuildDocumentGlyphPath(graphics, *outline,
         (baselineX + glyph.x) * outputScale,

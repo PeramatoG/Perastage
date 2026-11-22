@@ -303,6 +303,8 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
     gc->Scale(renderScale, renderScale);
     for (const auto &entry : plan.glyphs) {
       const auto outline = typography::ResolveGlyphOutline(*catalog, entry.glyph.resourceId, entry.glyph.glyphId);
+      if (!outline || outline->substituted)
+        gui::ReportDocumentTypographyDiagnostic("A document glyph contour is unavailable in the approved face.");
       if (!outline) continue;
       gc->SetBrush(wxBrush(wxColour(entry.color[0], entry.color[1], entry.color[2])));
       gc->FillPath(gui::BuildDocumentGlyphPath(*gc, *outline, entry.x, entry.baseline, entry.size),
