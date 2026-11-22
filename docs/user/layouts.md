@@ -118,8 +118,8 @@ Select a non-empty layout and choose **File → Print Layout...**. Choose a writ
 
 For missing views, incorrect output or export errors, see [Troubleshooting](troubleshooting.md#layout-and-pdf-problems).
 
-Fixture labels use the same selected face in the Fixture Label Editor, 2D and
-Layout viewports, and PDF. Project defaults and fixture overrides feed Layout
+Fixture labels use the selected face in the Fixture Label Editor and in 2D and
+Layout viewports. PDF uses the same face when it can embed it. Project defaults and fixture overrides feed Layout
 viewports. See [Fixture labels](views.md#fixture-labels) for scope and units.
 
 Use **Font family** when editing a legend or Event Table. The selection applies
@@ -143,13 +143,31 @@ scale transform the composition. Legends wrap group names within their columns.
 Event Table cells display one line and use an ellipsis for overflow when it
 fits. The complete source remains editable in both cases.
 
-A project retains the requested family if it is temporarily unavailable.
-Perastage uses an approved fallback and reports the substitution. After
-restoring approved resources, reopen the project or use **Refresh fonts** in
-the Layout text editor. The bundled faces support Spanish accents, Greek,
-Cyrillic, and common Arabic and Hebrew text. PDF preserves supported shaped
-text for selection and searching. Missing glyphs such as unsupported CJK and
-emoji are marked in the drawing and reported in the export details.
+### Installed fonts and portability
+
+The font picker lists the included families first and marks families from your
+computer as **installed**. Leave a project on the included families when it
+must look the same on machines with different installed fonts. The picker
+reports unavailable, unsupported and PDF-substituted faces in its tooltip.
+Fixture labels offer Bold and Italic. If the requested style is missing,
+Perastage uses a real compatible face and reports the substitution.
+
+Projects store the selection and keep it when a font is missing. They do not
+carry installed font files. Use **Refresh fonts** in a font editor after
+installing or removing a font, or select a different family. The same saved
+selection can recover after the matching face becomes available.
+
+Perastage can render compatible static TrueType and OpenType/CFF fonts locally,
+including individual faces from supported collections. PDF can embed a supported
+standalone TrueType face when its metadata permits it. It uses an approved
+fallback for restricted, preview-and-print-only, bitmap-only or unsupported
+faces and reports the substitutions after export. Different fallback advances
+can change line breaks. Font metadata cannot confirm every license term.
+Check the license for the intended use and distribution.
+
+The bundled fallback covers Spanish accents, Greek, Cyrillic, and common
+Arabic and Hebrew text. PDF preserves supported shaped text for selection and
+searching. Missing glyphs are reported in the export details.
 
 ### Output paper size
 

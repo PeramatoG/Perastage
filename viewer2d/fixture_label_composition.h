@@ -5,7 +5,7 @@
 
 namespace viewer2d {
 // Included in persisted Layout capture hashes when typography semantics change.
-inline constexpr int kFixtureLabelCompositionRevision = 3;
+inline constexpr int kFixtureLabelCompositionRevision = 4;
 struct LabelBounds {
   double minX = 0, minY = 0, maxX = 0, maxY = 0;
   bool operator==(const LabelBounds &) const = default;

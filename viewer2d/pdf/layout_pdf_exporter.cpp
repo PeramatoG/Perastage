@@ -474,7 +474,8 @@ Viewer2DExportResult ExportViewer2DToPdf(
     }
   }
 
-  PdfUnicodeFonts fontCatalog(typography::GetFontCatalog(ProjectUtils::GetResourceRoot()));
+  PdfUnicodeFonts fontCatalog(options.fontCatalog ? options.fontCatalog :
+      typography::GetFontCatalog(ProjectUtils::GetResourceRoot()));
   std::vector<PdfObject> objects;
 
   RenderOptions mainOptions{};
@@ -880,7 +881,8 @@ Viewer2DExportResult ExportLayoutToPdf(
   };
 
   std::vector<PdfObject> objects;
-  PdfUnicodeFonts fontCatalog(typography::GetFontCatalog(ProjectUtils::GetResourceRoot()));
+  PdfUnicodeFonts fontCatalog(options.fontCatalog ? options.fontCatalog :
+      typography::GetFontCatalog(ProjectUtils::GetResourceRoot()));
 
   auto appendSymbolObject = [&](const std::string &name,
                                 const std::vector<CanvasCommand> &commands,

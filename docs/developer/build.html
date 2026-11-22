@@ -225,8 +225,10 @@ dependency tree.</p>
 <p>The root <code>setup.sh</code> launcher installs the distro packages needed by dependency
 discovery, <code>ripgrep</code> for repository policy tests, and the Spanish and Simplified
 Chinese locales used by the complete CTest suite on its supported apt path.
-Its supported package lists include libxml2 and libsecret development headers
-required by XML schema discovery and the native credential-store capability.
+Its supported package lists include libxml2, libsecret and Fontconfig development headers.
+They provide XML schema discovery, the native credential store and system font discovery.
+On Ubuntu or Debian, install <code>libfontconfig-dev</code> when configuring a Linux build
+without the launcher. Windows uses the SDK&#39;s DirectWrite. macOS uses CoreText.
 Ripgrep is a development/test dependency, not an application runtime
 dependency. The MVR-xchange <code>mdns</code> package
 is not available from those distro package sets. Supply it externally as

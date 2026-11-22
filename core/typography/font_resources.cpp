@@ -1,6 +1,7 @@
 #include "font_resources.h"
 #include "file_import_utils.h"
 #include "system_font_paths.h"
+#include "system_font_cache.h"
 #include <algorithm>
 #include <array>
 #include <mutex>
@@ -72,23 +73,39 @@ FontIssue LoadApproved(const std::filesystem::path &path, const Approval &record
   TtfFontMetrics metrics;
   if (!ParseTtfFontMetrics(std::move(bytes), metrics)) return FontIssue::Invalid;
   metrics.resourceId = record.hash;
-  face = {record.family, record.version, record.postScript, record.hash,
-          "OFL-1.1", record.provenance, source, record.bold, record.italic, path, std::move(metrics)};
+  face.family = record.family;
+  face.version = record.version;
+  face.postScriptName = record.postScript;
+  face.fingerprint = record.hash;
+  face.license = "OFL-1.1";
+  face.provenance = record.provenance;
+  face.source = source;
+  face.bold = record.bold;
+  face.italic = record.italic;
+  face.weight = record.bold ? 700 : 400;
+  face.path = path;
+  face.metrics = std::move(metrics);
+  face.embedding = ClassifyEmbedding(4, 0);
   return FontIssue::None;
 }
 
-const TtfFontMetrics &Metrics(const FontCatalog &catalog, std::string_view family, bool bold) {
+const TtfFontMetrics &Metrics(const std::shared_ptr<const FontResource> &face) {
   static const TtfFontMetrics empty;
-  const auto resolved = catalog.Resolve(family, bold);
-  return resolved.face ? resolved.face->metrics : empty;
+  return face ? face->metrics : empty;
 }
 }
 
 FontCatalog::FontCatalog(const std::filesystem::path &root)
-    : FontCatalog(root, SystemFontRoots()) {}
+    : FontCatalog(root, SystemFontRoots(), DiscoverSystemFonts()) {}
 
 FontCatalog::FontCatalog(const std::filesystem::path &root,
-                         const std::vector<std::filesystem::path> &systemRoots) {
+                         const std::vector<std::filesystem::path> &systemRoots)
+    : FontCatalog(root, systemRoots, {}) {}
+
+FontCatalog::FontCatalog(const std::filesystem::path &root,
+                         const std::vector<std::filesystem::path> &systemRoots,
+                         std::vector<SystemFontRecord> systemFonts) {
+  if (!systemFonts.empty()) system_ = std::make_shared<SystemFontCache>(std::move(systemFonts));
   faces_.resize(kApprovals.size());
   auto fontDirectory = root / "fonts";
 #ifdef __APPLE__
@@ -98,9 +115,14 @@ FontCatalog::FontCatalog(const std::filesystem::path &root,
       root.parent_path().filename() == "Resources")
     fontDirectory = root.parent_path() / "fonts";
 #endif
-  for (std::size_t i = 0; i < kApprovals.size(); ++i)
-    issues_.push_back(LoadApproved(fontDirectory / kApprovals[i].filename,
-                                  kApprovals[i], faces_[i], FontSource::Bundled));
+  const auto tryLoad = [&](size_t index, const std::filesystem::path &path, FontSource source) {
+    auto face = std::make_shared<FontResource>();
+    const auto issue = LoadApproved(path, kApprovals[index], *face, source);
+    if (issue == FontIssue::None) faces_[index] = std::move(face);
+    return issue;
+  };
+  for (size_t i = 0; i < kApprovals.size(); ++i)
+    issues_.push_back(tryLoad(i, fontDirectory / kApprovals[i].filename, FontSource::Bundled));
   // Check conventional names and a common Linux package location before walking.
   for (const auto &directory : systemRoots) {
     if (IsComplete()) break;
@@ -110,7 +132,7 @@ FontCatalog::FontCatalog(const std::filesystem::path &root,
       const auto name = std::string(record.postScript) + ".ttf";
       for (const auto &candidate : {directory / record.filename, directory / name,
                                     directory / "truetype/noto" / name}) {
-        if (LoadApproved(candidate, record, faces_[i], FontSource::ApprovedSystem) == FontIssue::None) {
+        if (tryLoad(i, candidate, FontSource::ApprovedSystem) == FontIssue::None) {
           issues_[i] = FontIssue::None;
           break;
         }
@@ -131,18 +153,21 @@ FontCatalog::FontCatalog(const std::filesystem::path &root,
       if (entryError) continue;
       for (std::size_t i = 0; i < kApprovals.size(); ++i) {
         if (issues_[i] != FontIssue::None && size == kApprovals[i].size &&
-            LoadApproved(files->path(), kApprovals[i], faces_[i], FontSource::ApprovedSystem)
+            tryLoad(i, files->path(), FontSource::ApprovedSystem)
                 == FontIssue::None)
           issues_[i] = FontIssue::None;
       }
     }
   }
   for (const auto &face : faces_)
-    if (!face.fingerprint.empty()) signature_ += face.fingerprint;
+    if (face) signature_ += face->fingerprint;
+  if (system_) signature_ += "|" + system_->Signature();
 }
 
-FontResolution FontCatalog::Resolve(std::string_view family, bool bold, bool italic) const {
-  if (family.empty() || family == "Noto Sans") family = kDefaultFamily;
+FontResolution FontCatalog::Resolve(std::string_view family, bool bold, bool italic, FontUsage usage) const {
+  auto reference = DecodeFontReference(family);
+  if (reference.family.empty() || reference.family == "Noto Sans") reference.family = kDefaultFamily;
+  family = reference.family;
   const auto find = [&](std::string_view requested, bool weight, bool slant) {
     const auto it = std::find_if(kApprovals.begin(), kApprovals.end(), [&](const auto &record) {
       return record.family == requested && record.bold == weight && record.italic == slant;
@@ -152,25 +177,43 @@ FontResolution FontCatalog::Resolve(std::string_view family, bool bold, bool ita
   const auto requested = find(family, bold, italic);
   const auto upright = find(family, bold, false);
   if (requested < faces_.size() && issues_[requested] == FontIssue::None)
-    return {&faces_[requested], FontIssue::None};
+    return {faces_[requested], FontIssue::None};
 
-  const auto issue = requested < faces_.size() ? issues_[requested] :
-      upright < faces_.size() ? FontIssue::FaceUnavailable : FontIssue::Unapproved;
+  auto issue = requested < faces_.size() ? issues_[requested] :
+      upright < faces_.size() ? FontIssue::FaceUnavailable : FontIssue::Missing;
+  const bool bundledFamily = std::any_of(kApprovals.begin(), kApprovals.end(),
+      [&](const Approval &record) { return record.family == family; });
+  if (!bundledFamily && system_) {
+    auto installed = system_->Resolve(reference, bold, italic);
+    if (!installed.face) issue = installed.issue;
+    else if (usage == FontUsage::Local || installed.face->CanEmbedPdf()) return installed;
+    else issue = installed.face->embedding.PermitsPdf() ? FontIssue::PdfFormatUnsupported :
+                                                          FontIssue::EmbeddingUnverified;
+  }
   for (const auto weight : {bold, !bold}) {
     for (const auto slant : {italic, false}) {
       const auto fallback = find(kDefaultFamily, weight, slant);
       if (fallback < faces_.size() && issues_[fallback] == FontIssue::None)
-        return {&faces_[fallback], issue};
+        return {faces_[fallback], issue};
     }
   }
   return {nullptr, issue};
 }
 
-const FontResource *FontCatalog::FindResource(std::string_view id) const {
-  if (id.empty()) return nullptr;
+std::shared_ptr<const FontResource> FontCatalog::FindResource(std::string_view id) const {
+  if (id.empty()) return {};
   for (const auto &face : faces_)
-    if (face.fingerprint == id) return &face;
-  return nullptr;
+    if (face && face->fingerprint == id) return face;
+  return system_ ? system_->FindResource(id) : nullptr;
+}
+
+std::vector<std::string> FontCatalog::SystemFamilies() const {
+  auto result = system_ ? system_->Families() : std::vector<std::string>{};
+  std::erase_if(result, [](const auto &family) {
+    return family == "Noto Sans" || std::any_of(kApprovals.begin(), kApprovals.end(),
+        [&](const Approval &record) { return record.family == family; });
+  });
+  return result;
 }
 
 std::vector<std::string_view> FontCatalog::Families() const {
@@ -185,6 +228,21 @@ std::vector<std::string_view> FontCatalog::Families() const {
   return families;
 }
 
+std::string FontCatalog::ReferenceForFamily(std::string_view family) const {
+  FontReference reference{family};
+  std::array<std::shared_ptr<const FontResource>, 4> faces;
+  for (size_t variant = 0; variant < faces.size(); ++variant) {
+    const auto selected = Resolve(family, variant & 1, variant & 2);
+    if (selected.issue != FontIssue::None || !selected.face ||
+        selected.face->source != FontSource::InstalledSystem) continue;
+    faces[variant] = selected.face;
+    reference.postScriptNames[variant] = faces[variant]->postScriptName;
+    reference.fingerprints[variant] = faces[variant]->fingerprint;
+  }
+  return std::any_of(faces.begin(), faces.end(), [](const auto &face) { return bool(face); })
+      ? EncodeFontReference(reference) : std::string(family);
+}
+
 bool FontCatalog::IsComplete() const {
   return std::all_of(issues_.begin(), issues_.end(), [](auto issue) {
     return issue == FontIssue::None;
@@ -196,17 +254,25 @@ std::shared_ptr<const FontCatalog> GetFontCatalog(const std::filesystem::path &r
   static std::mutex mutex;
   static std::filesystem::path loadedRoot;
   static std::shared_ptr<const FontCatalog> catalog;
+  static std::mutex initialize;
+  const auto cached = [&]() -> std::shared_ptr<const FontCatalog> {
+    std::lock_guard lock(mutex);
+    if (root != loadedRoot || !catalog || refresh == FontRefresh::All ||
+        (refresh == FontRefresh::Incomplete && !catalog->IsComplete())) return {};
+    return catalog;
+  };
+  if (auto current = cached()) return current;
+  const std::lock_guard initLock(initialize);
+  if (auto current = cached()) return current;
+  auto next = std::make_shared<const FontCatalog>(root);
   std::lock_guard lock(mutex);
-  if (!catalog || root != loadedRoot || refresh == FontRefresh::All ||
-      (refresh == FontRefresh::Incomplete && !catalog->IsComplete())) {
-    catalog = std::make_shared<const FontCatalog>(root);
-    loadedRoot = root;
-  }
-  return catalog;
+  catalog = next;
+  loadedRoot = root;
+  return next;
 }
 
 std::string DescribeFontIssue(const FontCatalog &catalog, std::string_view family,
-                              bool bold, FontIssue issue, bool italic) {
+                              bool bold, FontIssue issue, bool italic, FontUsage usage) {
   std::string detail;
   switch (issue) {
   case FontIssue::None: return {};
@@ -215,15 +281,22 @@ std::string DescribeFontIssue(const FontCatalog &catalog, std::string_view famil
   case FontIssue::UnsupportedFormat: detail = "font format is unsupported"; break;
   case FontIssue::FaceUnavailable: detail = "requested face is unavailable"; break;
   case FontIssue::Invalid: detail = "font file is invalid"; break;
-  case FontIssue::EmbeddingUnverified: detail = "font embedding is restricted or unverifiable"; break;
-  case FontIssue::Inaccessible: detail = "font file is inaccessible"; break;
+  case FontIssue::EmbeddingUnverified: {
+    const auto local = catalog.Resolve(family, bold, italic);
+    detail = local.face && local.face->embedding.right == EmbeddingRight::PreviewPrint
+        ? "font requires a read-only document for embedding" : "font embedding is restricted or unverifiable";
+    break;
   }
-  const auto resolved = catalog.Resolve(family, bold, italic);
+  case FontIssue::Inaccessible: detail = "font file is inaccessible"; break;
+  case FontIssue::PdfFormatUnsupported: detail = "font format cannot be embedded in PDF"; break;
+  case FontIssue::CompatibleFace: detail = "the saved font identity is unavailable"; break;
+  }
+  const auto resolved = catalog.Resolve(family, bold, italic, usage);
   if (resolved.face)
     detail += ". Using " + std::string(resolved.face->family) +
               (resolved.face->bold ? " Bold" : resolved.face->italic ? "" : " Regular") +
               (resolved.face->italic ? " Italic" : "");
-  return std::string(family.empty() ? kDefaultFamily : family) +
+  return std::string(family.empty() ? kDefaultFamily : DecodeFontReference(family).family) +
          (bold ? " Bold" : italic ? "" : " Regular") +
          (italic ? " Italic" : "") + ": " + detail + ".";
 }
@@ -234,5 +307,10 @@ std::filesystem::path BundledFontPath(const std::filesystem::path &root, bool bo
 
 FontPair::FontPair(const std::filesystem::path &root, std::string_view family)
     : resourceRoot(root), catalog(GetFontCatalog(root)),
-      regular(Metrics(*catalog, family, false)), bold(Metrics(*catalog, family, true)) {}
+      regularFace(catalog->Resolve(family, false).face), boldFace(catalog->Resolve(family, true).face),
+      regular(Metrics(regularFace)), bold(Metrics(boldFace)) {}
+
+FontPair::FontPair(std::shared_ptr<const FontCatalog> snapshot)
+    : catalog(std::move(snapshot)), regularFace(catalog->Resolve({}, false).face),
+      boldFace(catalog->Resolve({}, true).face), regular(Metrics(regularFace)), bold(Metrics(boldFace)) {}
 } // namespace typography

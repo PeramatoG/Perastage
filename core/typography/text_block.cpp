@@ -29,7 +29,7 @@ std::vector<ShapingStyle> SliceStyles(const std::vector<ShapingStyle> &styles,
 }
 
 TextBlockPlan ComposeTextBlock(const TextBlock &block, double width, double height,
-                              const FontCatalog &catalog) {
+                              const FontCatalog &catalog, FontUsage usage) {
   TextBlockPlan plan;
   constexpr double padding = 4;
   if (width <= 0 || height <= 0) return plan;
@@ -42,14 +42,16 @@ TextBlockPlan ComposeTextBlock(const TextBlock &block, double width, double heig
   for (const auto &paragraph : block.lines) {
     std::string text;
     std::vector<ShapingStyle> styles;
+    std::vector<std::shared_ptr<const FontResource>> faces;
     for (size_t i = 0; i < paragraph.runs.size(); ++i) {
       const auto &run = paragraph.runs[i];
       if (run.text.empty()) continue;
       const double size = run.fontSize > 0 ? std::min(run.fontSize, 1024) : defaultSize;
-      const auto resolved = catalog.Resolve(run.family, run.bold, run.italic);
+      const auto resolved = catalog.Resolve(run.family, run.bold, run.italic, usage);
       if (resolved.issue != FontIssue::None)
-        plan.diagnostics.insert(DescribeFontIssue(catalog, run.family, run.bold, resolved.issue, run.italic));
-      styles.push_back({text.size(), i, size, CompositionFonts(catalog, resolved.face, run.bold, run.italic)});
+        plan.diagnostics.insert(DescribeFontIssue(catalog, run.family, run.bold, resolved.issue, run.italic, usage));
+      styles.push_back({text.size(), i, size, CompositionFonts(catalog, resolved.face.get(), run.bold, run.italic)});
+      faces.push_back(resolved.face);
       text += run.text;
     }
     auto shaped = ShapeStyledLine(text, styles);
@@ -71,7 +73,7 @@ TextBlockPlan ComposeTextBlock(const TextBlock &block, double width, double heig
       for (const auto &glyph : line.glyphs) {
         const auto &run = paragraph.runs[glyph.styleIndex];
         const double size = run.fontSize > 0 ? std::min(run.fontSize, 1024) : defaultSize;
-        const auto *face = catalog.FindResource(glyph.resourceId);
+        const auto face = catalog.FindResource(glyph.resourceId);
         const auto metrics = Metrics(face ? &face->metrics : nullptr, size);
         ascent = std::max({ascent, metrics.ascent, glyph.offsetY + glyph.ink.top});
         descent = std::max({descent, metrics.descent, -glyph.offsetY - glyph.ink.bottom});
@@ -96,7 +98,7 @@ TextBlockPlan ComposeTextBlock(const TextBlock &block, double width, double heig
         if (glyph.advance > 0 && run.underline)
           plan.decorations.push_back({x, baseline + size * 0.08, glyph.advance, size * 0.05, run.color});
         if (glyph.advance > 0 && run.strikethrough) {
-          const auto *face = catalog.FindResource(glyph.resourceId);
+          const auto face = catalog.FindResource(glyph.resourceId);
           const auto ascender = Metrics(face ? &face->metrics : nullptr, size).ascent;
           plan.decorations.push_back({x, baseline - ascender * 0.35, glyph.advance, size * 0.05, run.color});
         }

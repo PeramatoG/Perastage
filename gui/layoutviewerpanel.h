@@ -281,6 +281,8 @@ private:
                                         const wxSize &textureSize,
                                         const wxSize &renderSize) const;
   void RequestRenderRebuild();
+  void CheckTypographyRefresh();
+  std::string typographySignature_;
   void InvalidateViewCacheForSceneContent(ViewCache &cache);
   void InvalidateRenderIfFrameChanged(bool includeSceneContent = true);
   size_t ComputeSceneContentHash() const;

@@ -199,5 +199,5 @@ void LayoutLegendEditDialog::SaveFromGrid() {
 }
 
 std::string LayoutLegendEditDialog::GetFontFamily() const {
-  return fontChoice_->GetFamily();
+  return fontChoice_->GetReference();
 }

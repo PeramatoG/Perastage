@@ -51,13 +51,13 @@ constexpr int kMaxFontSize = 72;
 // resource bytes and shared composition regardless of native font availability.
 void RegisterEditorFonts() {
 #if wxUSE_PRIVATE_FONTS
-  static std::set<std::string_view> registered;
+  static std::set<std::string> registered;
   const auto catalog = typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
   for (const auto family : catalog->Families()) {
     for (const auto [bold, italic] : {std::pair{false, false}, {true, false}, {false, true}, {true, true}}) {
       const auto resolved = catalog->Resolve(family, bold, italic);
       if (resolved.issue != typography::FontIssue::None || !resolved.face) continue;
-      const auto *face = resolved.face;
+      const auto face = resolved.face;
       if (registered.contains(face->fingerprint)) continue;
       const auto path = face->path.u8string();
       if (wxFont::AddPrivateFont(wxString::FromUTF8(reinterpret_cast<const char *>(path.data()), path.size())))
@@ -84,10 +84,11 @@ void EnsureRichTextHandlers() {
 LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
                                    const wxString &initialRichText,
                                    const wxString &fallbackText,
-                                   bool solidBackground, bool drawFrame, wxSize documentSize)
+                                   bool solidBackground, bool drawFrame, wxSize documentSize,
+                                   std::optional<bool> wrapText)
     : wxDialog(parent, wxID_ANY, "Edit Text", wxDefaultPosition,
                wxSize(640, 420),
-               wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
+               wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER), wrapText_(wrapText) {
   EnsureRichTextHandlers();
   RegisterEditorFonts();
   wxBoxSizer *mainSizer = new wxBoxSizer(wxVERTICAL);
@@ -129,7 +130,8 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
   auto *family = new gui::DocumentFontChoice(this, {});
   family->SetName("layoutTextFontFamily");
   family->SetToolTip(_("Font family"));
-  family->Bind(wxEVT_CHOICE, [this, family](wxCommandEvent &) {
+  family->Bind(wxEVT_CHOICE, [this, family](wxCommandEvent &event) {
+    event.Skip();
     if (family->GetSelection() == wxNOT_FOUND || !textCtrl) return;
     auto selected = family->GetFamily();
     if (selected.empty() || selected == typography::kDefaultFamily) selected = "Noto Sans";
@@ -137,8 +139,18 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
     attr.SetFontFaceName(wxString::FromUTF8(selected));
     const auto range = textCtrl->HasSelection() ? textCtrl->GetSelectionRange()
                       : wxRichTextRange(0, textCtrl->GetLastPosition());
-    if (range.GetLength() > 0)
+    if (range.GetLength() > 0) {
+      const auto reference = family->GetReference();
+      wxRichTextProperties properties;
+      properties.SetProperty(layouttext::kInstalledFontReferenceProperty, wxString::FromUTF8(reference));
+      textCtrl->BeginBatchUndo(_("Font family"));
       textCtrl->SetStyleEx(range, attr, wxRICHTEXT_SETSTYLE_WITH_UNDO | wxRICHTEXT_SETSTYLE_OPTIMIZE);
+      const bool installed = typography::DecodeFontReference(reference).family != reference;
+      const int propertyAction = installed ? 0 : wxRICHTEXT_SETPROPERTIES_REMOVE;
+      textCtrl->SetProperties(range, properties, propertyAction |
+          wxRICHTEXT_SETPROPERTIES_WITH_UNDO | wxRICHTEXT_SETPROPERTIES_CHARACTERS_ONLY);
+      textCtrl->EndBatchUndo();
+    }
     if (!textCtrl->HasSelection()) {
       auto next = textCtrl->GetDefaultStyleEx();
       next.Apply(attr);
@@ -187,11 +199,7 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
   refresh->Bind(wxEVT_BUTTON, [this, family](wxCommandEvent &) {
     wxRichTextAttr attr;
     textCtrl->GetStyle(textCtrl->GetInsertionPoint(), attr);
-    const auto root = ProjectUtils::GetResourceRoot();
-    const auto old = typography::GetFontCatalog(root);
-    const auto current = typography::GetFontCatalog(root, typography::FontRefresh::All);
-    if (old->Signature() != current->Signature())
-      gui::ReportDocumentTypographyDiagnostic("Approved font resources changed. The document will use the refreshed catalog.");
+    gui::DocumentFontChoice::RefreshCatalog();
     RegisterEditorFonts();
     family->RefreshFamilies(attr.GetFontFaceName().utf8_string());
   });
@@ -235,6 +243,7 @@ void LayoutTextDialog::ShowDocumentPreview(const wxSize &documentSize) {
                       std::max(1, static_cast<int>(documentSize.y * scale)));
   layouts::LayoutTextDefinition text;
   text.richText = GetRichText().utf8_string();
+  text.wrapText = GetWrapText();
   text.text = GetPlainText().utf8_string();
   text.solidBackground = GetSolidBackground();
   const auto image = layouttext::RenderTextImage(text, output, documentSize, scale);
@@ -257,6 +266,13 @@ wxString LayoutTextDialog::GetRichText() const {
   const auto xml = layouttext::SaveRichTextBufferToString(bufferCopy);
   if (!originalXml_.empty() && xml == loadedXml_) return originalXml_;
   return xml.empty() ? xml : xml + legacyXmlTail_;
+}
+
+std::optional<bool> LayoutTextDialog::GetWrapText() const {
+  if (wrapText_) return wrapText_;
+  const auto xml = GetRichText();
+  if (xml == originalXml_ || xml == loadedXml_) return wrapText_;
+  return true;
 }
 
 // Returns the edited content as plain text.

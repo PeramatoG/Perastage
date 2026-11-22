@@ -46,6 +46,15 @@ struct CanvasFill {
   CanvasColor color{};
 };
 
+// Logical fixture field retained alongside positioned glyphs for PDF substitution.
+struct CanvasTextSource {
+  std::string text, family;
+  float anchorOffsetX = 0, anchorOffsetY = 0;
+  size_t glyphCount = 0;
+  bool bold = false, italic = false;
+  int alignment = 0;
+};
+
 // Describes text appearance. Alignment flags follow the conventional meaning
 // of left/center/right for horizontal alignment and baseline for vertical
 // positioning. The coordinate passed to text commands is the anchor point that
@@ -70,6 +79,7 @@ struct CanvasTextStyle {
   uint16_t glyphId = 0;
   bool clusterContinuation = false;
   std::string fontDiagnostic;
+  std::shared_ptr<const CanvasTextSource> source;
   bool IsComposedGlyph() const { return !fontResource.empty(); }
   enum class HorizontalAlign { Left, Center, Right } hAlign =
       HorizontalAlign::Left;

@@ -29,6 +29,21 @@ std::string SequenceHex(std::string_view value) {
   return sequence;
 }
 
+std::string PdfFontName(std::string_view postScript) {
+  constexpr std::string_view hex = "0123456789ABCDEF";
+  std::string name;
+  for (const unsigned char ch : postScript) {
+    if (ch > 32 && ch < 127 && std::string_view("#%()/<>[]{}").find(ch) == std::string_view::npos) {
+      name += static_cast<char>(ch);
+    } else {
+      name += '#';
+      name += hex[ch >> 4];
+      name += hex[ch & 15];
+    }
+  }
+  return name;
+}
+
 size_t AppendObject(std::vector<PdfObject> &objects, std::string body) {
   objects.push_back({std::move(body)});
   return objects.size();
@@ -54,9 +69,9 @@ void PdfUnicodeFonts::AddDiagnostic(const std::string &message) {
 
 void PdfUnicodeFonts::AppendGlyph(std::ostringstream &out, const FloatFormatter &fmt,
     const typography::PositionedGlyph &glyph, double x, double y, double size, double radius) {
-  const auto *resource = catalog_->FindResource(glyph.resourceId);
-  if (!resource) {
-    AddDiagnostic("A captured glyph references an unavailable approved font.");
+  const auto resource = catalog_->FindResource(glyph.resourceId);
+  if (!resource || !resource->CanEmbedPdf()) {
+    AddDiagnostic("A PDF glyph references a font that cannot be embedded.");
     return;
   }
   const auto outline = typography::ResolveGlyphOutline(*catalog_, glyph.resourceId, glyph.glyphId);
@@ -100,7 +115,7 @@ void PdfUnicodeFonts::AppendGlyph(std::ostringstream &out, const FloatFormatter 
     face.resource = resource;
     face.key = "F" + std::to_string(used_.size() + 2);
   }
-  const auto mapping = std::pair{outline && !outline->substituted ? glyph.glyphId : uint16_t{0}, glyph.clusterContinuation ? std::string()
+  const auto mapping = std::pair{outline && !outline->substituted && glyph.glyphId < resource->metrics.glyphAdvances.size() ? glyph.glyphId : uint16_t{0}, glyph.clusterContinuation ? std::string()
       : glyph.text.empty() ? Utf16Hex(glyph.codepoint) : SequenceHex(glyph.text)};
   auto code = face.codes.find(mapping);
   if (code == face.codes.end()) {
@@ -134,7 +149,7 @@ void PdfUnicodeFonts::AppendRun(std::ostringstream &out, const FloatFormatter &f
 void PdfUnicodeFonts::WriteResources(std::vector<PdfObject> &objects, std::ostringstream &out) const {
   for (const auto &[id, face] : used_) {
     const auto &font = face.resource->metrics;
-    const std::string name(face.resource->postScriptName);
+    const auto name = PdfFontName(face.resource->postScriptName);
     const auto metric = [&](int units) { return std::lround(units * 1000.0 / font.unitsPerEm); };
     const auto length = " /Length1 " + std::to_string(font.data.size());
     std::string compressed, error;

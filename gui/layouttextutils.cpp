@@ -185,6 +185,9 @@ LayoutTextExportData BuildLayoutTextExportData(
   data.zIndex = text.zIndex;
   data.solidBackground = text.solidBackground;
   data.drawFrame = text.drawFrame;
+  data.wrap = text.wrapText.value_or(false);
+  const auto catalog = text.wrapText ? nullptr : typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
+  const auto portableFamilies = catalog ? catalog->Families() : std::vector<std::string_view>{};
 
   wxRichTextBuffer buffer;
   const bool loaded = !text.richText.empty() && LoadRichTextBufferFromString(
@@ -202,15 +205,22 @@ LayoutTextExportData BuildLayoutTextExportData(
     const auto bytes = value.ToUTF8();
     return bytes.data() ? std::string(bytes.data(), bytes.length()) : std::string{};
   };
-  const auto makeRun = [&](const wxString &value, const wxRichTextAttr &style) {
+  const auto makeRun = [&](const wxString &value, const wxRichTextAttr &style,
+                           const wxRichTextProperties *properties = nullptr) {
     LayoutTextExportData::Run run;
     run.text = toUtf8(value);
     run.fontSize = style.GetFontSize() > 0 ? style.GetFontSize() : data.fontSize;
     run.bold = style.GetFontWeight() >= wxFONTWEIGHT_BOLD;
     run.italic = style.GetFontStyle() == wxFONTSTYLE_ITALIC || style.GetFontStyle() == wxFONTSTYLE_SLANT;
     run.family = toUtf8(style.GetFontFaceName());
-    if (run.family == typography::kDefaultFamily || run.family == "Noto Sans" ||
-        run.family == "Noto Serif" || run.family == "Source Sans 3")
+    if (properties) {
+      const auto reference = toUtf8(properties->GetPropertyString(kInstalledFontReferenceProperty));
+      if (!reference.empty() && typography::DecodeFontReference(reference).family == run.family)
+        run.family = reference;
+    }
+    // Legacy documents opted into automatic wrapping via portable face styles.
+    if (!text.wrapText && (run.family == "Noto Sans" ||
+        std::find(portableFamilies.begin(), portableFamilies.end(), run.family) != portableFamilies.end()))
       data.wrap = true;
     if (style.GetTextColour().IsOk()) {
       const auto ink = style.GetTextColour();
@@ -248,7 +258,7 @@ LayoutTextExportData BuildLayoutTextExportData(
         part.Replace("\r", "\n");
         while (part.Contains("\n")) {
           const auto split = part.Find('\n');
-          line.runs.push_back(makeRun(part.Left(split), runStyle));
+          line.runs.push_back(makeRun(part.Left(split), runStyle, &span->GetProperties()));
           auto next = line;
           next.runs.clear();
           next.spaceBefore = 0;
@@ -258,7 +268,7 @@ LayoutTextExportData BuildLayoutTextExportData(
           line = std::move(next);
           part = part.Mid(split + 1);
         }
-        line.runs.push_back(makeRun(part, runStyle));
+        line.runs.push_back(makeRun(part, runStyle, &span->GetProperties()));
       }
       if (line.runs.empty()) line.runs.push_back(makeRun({}, style));
       data.lines.push_back(std::move(line));

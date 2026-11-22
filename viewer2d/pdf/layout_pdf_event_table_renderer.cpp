@@ -11,7 +11,7 @@ layouts::composition::EventTablePlan RenderEventTablePdf(std::ostringstream &out
   const typography::TtfFontMetrics empty;
   const auto plan = ComposeEventTable(
       {static_cast<double>(table.frame.width), static_cast<double>(table.frame.height), table.fields},
-      {empty, empty, &ink.Catalog(), table.fontFamily});
+      {empty, empty, &ink.Catalog(), table.fontFamily, typography::FontUsage::Pdf});
   if (plan.clip.width <= 0 || plan.clip.height <= 0) return plan;
   ScopedDocumentPageMapping pageMapping(out, pageHeight, scaleX, scaleY, formatter);
   const auto x = [&](double local) { return formatter.Format(table.frame.x + local); };

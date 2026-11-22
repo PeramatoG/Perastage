@@ -138,9 +138,11 @@ full MVR/GDTF conformance, or interoperability with every third-party applicatio
 
 - Layout PDFs now scale 2D views, Legends, Event Tables, text and images together when changing paper size, preserving alignment, proportions and the 2D crop. Printing no longer marks the Layout project dirty.
 - Layout Event Tables now share measured text, bold styles, clipping and ellipsis between preview and selectable vector PDF, independent of zoom and output scale.
-- Layout Legends now use the same bundled font, line wrapping, row geometry and symbol columns in the editable preview and vector PDF. Enabled Side symbols remain vector geometry, independent settings refresh reliably, and unsupported glyphs are identified in PDF completion details.
+- Layout Legends now share font selection, line wrapping, row geometry and symbol columns in the editable preview and vector PDF. Enabled Side symbols remain vector geometry, independent settings refresh reliably, and unsupported glyphs are identified in PDF completion details.
 
 - A new **Fixture Label Editor** lets users adjust Name, ID, and DMX Address labels, including visibility, font weight, size, colors, outlines, alignment, anchors, and position. It supports project defaults, per-fixture overrides, and preview dragging.
+
+- Fixture labels, Layout text, legends and Event Tables accept compatible fonts installed on the computer. Projects retain their font choices when moved between systems. PDF export embeds eligible TrueType faces and reports substitutions for fonts that require a portable fallback.
 
 - Edited fixture labels share their positioned presentation between the interactive 2D viewer, Layout view captures, and vector PDF. Legacy name wrapping and small-text zoom appearance are retained more consistently.
 

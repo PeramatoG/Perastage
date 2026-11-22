@@ -46,5 +46,5 @@ struct TextBlockPlan {
   std::set<std::string> diagnostics;
 };
 TextBlockPlan ComposeTextBlock(const TextBlock &, double width, double height,
-                              const FontCatalog &);
+                              const FontCatalog &, FontUsage usage = FontUsage::Local);
 }

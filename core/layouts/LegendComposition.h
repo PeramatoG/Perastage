@@ -37,6 +37,7 @@ struct LegendFonts {
   const typography::TtfFontMetrics &bold;
   const typography::FontCatalog *catalog = nullptr;
   std::string_view family;
+  typography::FontUsage usage = typography::FontUsage::Local;
 };
 struct LegendCompositionInput {
   double width = 0;

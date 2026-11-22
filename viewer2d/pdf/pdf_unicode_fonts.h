@@ -51,13 +51,13 @@ public:
 
 private:
   struct Face {
-    const typography::FontResource *resource = nullptr;
+    std::shared_ptr<const typography::FontResource> resource;
     std::string key;
     std::map<std::pair<uint16_t, std::string>, uint16_t> codes;
     std::vector<std::pair<uint16_t, std::string>> glyphs;
   };
   std::shared_ptr<const typography::FontCatalog> catalog_;
-  std::map<std::string_view, Face> used_;
+  std::map<std::string, Face, std::less<>> used_;
   std::set<std::string> diagnostics_;
 };
 }

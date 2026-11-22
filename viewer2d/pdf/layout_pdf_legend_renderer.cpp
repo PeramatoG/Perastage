@@ -41,7 +41,7 @@ LegendPdfRenderResult RenderLegendPdf(std::ostringstream &out,
   input.height = legend.frame.height;
   input.showChannelColumn = legend.showChannelColumn;
   const typography::TtfFontMetrics empty;
-  const auto plan = ComposeLegend(input, {empty, empty, &ink.Catalog(), legend.fontFamily});
+  const auto plan = ComposeLegend(input, {empty, empty, &ink.Catalog(), legend.fontFamily, typography::FontUsage::Pdf});
   if (composedPlan) *composedPlan = plan;
   result.textSubstitutions = plan.unsupportedGlyphs;
   result.diagnostics = plan.diagnostics;

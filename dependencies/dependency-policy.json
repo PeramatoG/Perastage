@@ -29,6 +29,7 @@
   ],
   "capabilities": [
     {"name":"OpenGL/GLU","provider":"system","maintenance-group":"compatibility","update-mode":"platform","expose-version":false,"rationale":"Provided by platform graphics stacks."},
+    {"name":"DirectWrite/CoreText/Fontconfig","provider":"system","maintenance-group":"compatibility","update-mode":"platform","expose-version":false,"rationale":"System font enumeration follows native platform registration."},
     {"name":"GTK/libsecret","provider":"system","maintenance-group":"compatibility","update-mode":"platform","expose-version":false,"rationale":"Linux UI and secure-store capabilities follow distribution packages."},
     {"name":"compiler/runtime libraries","provider":"system","maintenance-group":"compatibility","update-mode":"platform","expose-version":false,"rationale":"Toolchain capabilities follow supported platform environments."}
   ],

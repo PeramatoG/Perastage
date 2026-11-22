@@ -170,3 +170,11 @@ else()
 endif()
 find_package(Freetype REQUIRED)
 find_package(ICU REQUIRED COMPONENTS uc i18n)
+
+# Font enumeration follows the host's font registration APIs.
+if(APPLE)
+    find_library(PERASTAGE_CORETEXT CoreText REQUIRED)
+    find_library(PERASTAGE_COREFOUNDATION CoreFoundation REQUIRED)
+elseif(NOT WIN32)
+    find_package(Fontconfig REQUIRED)
+endif()

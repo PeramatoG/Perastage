@@ -127,7 +127,8 @@ void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
           ? wxString("Light Plot")
           : wxString::FromUTF8(text->text.data(), text->text.size());
   LayoutTextDialog dialog(this, richText, fallbackText, text->solidBackground,
-                          text->drawFrame, wxSize(text->frame.width, text->frame.height));
+                          text->drawFrame, wxSize(text->frame.width, text->frame.height),
+                          text->wrapText);
   if (dialog.ShowModal() != wxID_OK)
     return;
 
@@ -140,6 +141,7 @@ void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
   if (updatedRichText != richText) {
     updated.richText = updatedRichText.utf8_string();
     updated.text = dialog.GetPlainText().utf8_string();
+    updated.wrapText = dialog.GetWrapText();
   }
   updated.solidBackground = dialog.GetSolidBackground();
   updated.drawFrame = dialog.GetDrawFrame();

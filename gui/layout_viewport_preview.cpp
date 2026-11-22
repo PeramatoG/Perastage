@@ -101,6 +101,8 @@ public:
       text_.push_back({gui::BuildDocumentGlyphPath(gc_, outline, x, y, t.fontSizePx),
                        Color(t.style.color), Color(t.style.outlineColor), t.outlineWidthPx});
     };
+    if (t.style.source)
+      catalog_->Resolve(t.style.source->family, t.style.source->bold, t.style.source->italic);
     if (t.style.IsComposedGlyph()) {
       if (!catalog_->FindResource(t.style.fontResource)) return;
       const auto outline = t.style.glyphOutline ? t.style.glyphOutline

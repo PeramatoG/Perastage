@@ -213,24 +213,26 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
     if (pass != typography::TextInkPass::Outline) emit(style.color, 0);
     return;
   }
-  const auto layout = viewer2d::ComposeCanvasText(cmd.text, style, scale, ink.Catalog());
+  const auto layout = viewer2d::ComposeCanvasText(cmd.text, style, scale, ink.Catalog(), typography::FontUsage::Pdf);
   const auto &run = layout.run;
   const auto baseline = pos.y + layout.baselineOffset;
   if (run.fontIssue != typography::FontIssue::None) {
     const auto request = viewer2d::CanvasFont(style.fontFamily);
     ink.AddDiagnostic(typography::DescribeFontIssue(ink.Catalog(), request.family,
-                                                  request.bold, run.fontIssue, request.italic));
+                                                  request.bold, run.fontIssue, request.italic, typography::FontUsage::Pdf));
   }
-  if (style.outlineWidth > 0) {
+  if (pass != typography::TextInkPass::Fill && style.outlineWidth > 0) {
     const auto &color = style.outlineColor;
     out << fmt.Format(color.r) << ' ' << fmt.Format(color.g) << ' ' << fmt.Format(color.b) << " RG\n";
     for (const auto &glyph : run.glyphs)
       ink.AppendGlyph(out, fmt, glyph, pos.x + glyph.x, baseline + glyph.baseline,
                       size, style.outlineWidth * scale);
   }
-  out << fmt.Format(style.color.r) << ' ' << fmt.Format(style.color.g) << ' '
-      << fmt.Format(style.color.b) << " rg\n";
-  ink.AppendRun(out, fmt, run, pos.x, baseline);
+  if (pass != typography::TextInkPass::Outline) {
+    out << fmt.Format(style.color.r) << ' ' << fmt.Format(style.color.g) << ' '
+        << fmt.Format(style.color.b) << " rg\n";
+    ink.AppendRun(out, fmt, run, pos.x, baseline);
+  }
 }
 
 // Composed glyphs keep their positions; only ink layering is batched per fixture.
@@ -240,9 +242,33 @@ size_t AppendComposedTextRun(std::ostringstream &out, const FloatFormatter &fmt,
   size_t end = first;
   while (end < commands.size()) {
     const auto *text = std::get_if<TextCommand>(&commands[end]);
-    if (!text || !text->style.IsComposedGlyph() ||
+    if (!text || !text->style.IsComposedGlyph() || (end != first && text->style.source) ||
         (end < sources.size() && first < sources.size() && sources[end] != sources[first])) break;
     ++end;
+  }
+  const auto &firstGlyph = std::get<TextCommand>(commands[first]);
+  if (fonts && firstGlyph.style.source) {
+    const auto &source = *firstGlyph.style.source;
+    end = first + std::min(source.glyphCount, end - first);
+    const auto selected = fonts->Catalog().Resolve(source.family, source.bold, source.italic,
+                                                   typography::FontUsage::Pdf);
+    if (selected.issue != typography::FontIssue::None || !selected.face ||
+        !fonts->Catalog().FindResource(firstGlyph.style.fontResource)) {
+      auto style = firstGlyph.style;
+      style.fontResource.clear();
+      style.fontFamily = source.family + (source.bold ? (source.italic ? " Bold Italic" : " Bold")
+                                                     : (source.italic ? " Italic" : " Regular"));
+      style.hAlign = static_cast<CanvasTextStyle::HorizontalAlign>(source.alignment);
+      style.lineHeight = 0;
+      const auto pos = MapPointWithTransform(firstGlyph.x + source.anchorOffsetX,
+                                             firstGlyph.y + source.anchorOffsetY, current, mapping);
+      if (selected.issue == typography::FontIssue::None)
+        fonts->AddDiagnostic(std::string(typography::DecodeFontReference(source.family).family) +
+                             ": captured font changed. Recomputed text for PDF.");
+      AppendText(out, fmt, pos, TextCommand{0, 0, source.text, style},
+                 style, mapping.scale, fonts, typography::TextInkPass::Both);
+      return end;
+    }
   }
   const auto draw = [&](size_t i, typography::TextInkPass pass) {
     const auto &text = std::get<TextCommand>(commands[i]);

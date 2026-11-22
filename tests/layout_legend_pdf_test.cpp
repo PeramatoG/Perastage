@@ -1,6 +1,7 @@
 #include "viewer2dpdfexporter.h"
 #include "support/pdf_unicode_test_utils.h"
 #include "support/layout_licensed_fonts_pdf.h"
+#include "support/layout_system_fonts_pdf.h"
 
 #include <cassert>
 #include <chrono>
@@ -100,6 +101,10 @@ void MixedPage(LayoutLegendExportData legend) {
 }
 
 int main(int argc, char **argv) {
+  if (argc == 3 && std::string_view(argv[1]) == "--system-fonts") {
+    WriteSystemFontLayout(argv[2]);
+    return 0;
+  }
   if (argc == 3 && std::string_view(argv[1]) == "--licensed-fonts") {
     WriteLicensedFontLayout(argv[2]);
     return 0;

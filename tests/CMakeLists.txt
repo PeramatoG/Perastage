@@ -1151,6 +1151,19 @@ target_link_libraries(pdf_font_metrics_test PRIVATE perastage_typography)
 target_compile_definitions(pdf_font_metrics_test PRIVATE PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
 add_test(NAME PdfFontMetricsEncoding COMMAND pdf_font_metrics_test)
 
+add_executable(system_font_test system_font_test.cpp)
+target_link_libraries(system_font_test PRIVATE perastage_typography)
+target_compile_definitions(system_font_test PRIVATE
+    PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources"
+    PERASTAGE_SYSTEM_FONT_FIXTURES="${CMAKE_SOURCE_DIR}/tests/fixtures/system_fonts")
+add_test(NAME SystemFontCatalog COMMAND system_font_test)
+set_tests_properties(SystemFontCatalog PROPERTIES LABELS "typography;pdf")
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_test(NAME FontconfigCatalogRefresh COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/check_fontconfig_refresh.py" "$<TARGET_FILE:system_font_test>")
+    set_tests_properties(FontconfigCatalogRefresh PROPERTIES LABELS "typography")
+endif()
+
 add_executable(layout_pdf_symbol_usage_test
                layout_pdf_symbol_usage_test.cpp
                ../viewer2d/pdf/layout_pdf_symbol_usage.cpp)
@@ -1176,7 +1189,8 @@ target_include_directories(layout_legend_pdf_test PRIVATE
     ../viewer2d ../viewer2d/pdf ../core ../core/layouts ../core/printing
     ../models ../gui ../viewer_common ../viewer3d ../third_party)
 target_compile_definitions(layout_legend_pdf_test PRIVATE
-    PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
+    PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources"
+    PERASTAGE_SYSTEM_FONT_FIXTURES="${CMAKE_SOURCE_DIR}/tests/fixtures/system_fonts")
 target_link_libraries(layout_legend_pdf_test PRIVATE
     perastage_typography perastage_legend_composition ${wxWidgets_LIBRARIES})
 if(TARGET ZLIB::ZLIB)
@@ -4808,6 +4822,12 @@ if(PERASTAGE_PDFTOTEXT AND PERASTAGE_PDFFONTS AND PERASTAGE_PDFINFO)
         "${CMAKE_CURRENT_SOURCE_DIR}/check_licensed_fonts_pdf.py"
         "$<TARGET_FILE:layout_legend_pdf_test>"
         "${PERASTAGE_PDFFONTS}" "${PERASTAGE_PDFTOTEXT}" "${PERASTAGE_PDFINFO}")
+    add_test(NAME LayoutInstalledFontsPdf COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/check_system_fonts_pdf.py"
+        "$<TARGET_FILE:layout_legend_pdf_test>"
+        "${PERASTAGE_PDFFONTS}" "${PERASTAGE_PDFTOTEXT}" "${PERASTAGE_PDFINFO}")
+    set_library_env(LayoutInstalledFontsPdf)
+    set_tests_properties(LayoutInstalledFontsPdf PROPERTIES LABELS "layout;pdf;typography")
     set_library_env(LayoutLicensedFontsPdf)
     set_tests_properties(LayoutLicensedFontsPdf PROPERTIES LABELS "layout;pdf;typography")
 elseif(PERASTAGE_REQUIRE_POPPLER_TESTS)

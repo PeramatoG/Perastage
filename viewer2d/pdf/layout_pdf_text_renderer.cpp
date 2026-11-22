@@ -16,7 +16,7 @@ void RenderLayoutTextPdf(std::ostringstream &out, const LayoutTextExportData &te
   out << "q\n" << rect << "W n\n";
   if (text.solidBackground) out << "1 1 1 rg " << rect << "f\n";
 
-  const auto plan = typography::ComposeTextBlock(text, width, height, ink.Catalog());
+  const auto plan = typography::ComposeTextBlock(text, width, height, ink.Catalog(), typography::FontUsage::Pdf);
   for (const auto &warning : plan.diagnostics) ink.AddDiagnostic(warning);
   const auto color = [&](const auto &rgb) {
     out << fmt.Format(rgb[0] / 255.0) << ' ' << fmt.Format(rgb[1] / 255.0) << ' '

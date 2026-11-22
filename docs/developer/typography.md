@@ -17,22 +17,51 @@ files and licenses. Only these SHA-256 identities enter the catalog.
 The files are static single-face TrueType fonts with unrestricted embedding
 flags. An unrestricted `OS/2.fsType` on its own gives no license evidence.
 
-The immutable catalog checks packaged resources during application
-initialization. Missing or unusable resources trigger targeted filename probes
-in the platform font roots, then a bounded walk of 8,192 entries and six
-directory levels. Candidates are filtered by file size before format,
-embedding and SHA-256 validation. A match may have a different filename.
-The roots cover Windows Fonts and per-user Microsoft Fonts, macOS system,
-local and user Fonts, and Linux standard, XDG and user font directories.
-Custom platform registration paths outside these directories are outside
-this discovery scope. Discovery results stay cached until an explicit refresh
-or a project reopens with an incomplete catalog. Perastage does not install
-fonts or attach them to projects.
+The packaged catalog checks its pinned files at application initialization.
+The existing targeted probes and bounded file walk can recover a missing
+portable face only when its fingerprint matches a bundled approval record.
 
-CFF, collections, web fonts and variable fonts are unsupported. Additions need
-a verified provenance and rights record, pinned bytes, a supported outline and
-cmap check, exact installed-package files and the upstream license text.
-The application uses the same package contract on Windows, Linux and macOS.
+## Installed fonts
+
+DirectWrite on Windows, CoreText on macOS and Fontconfig on Linux enumerate
+registered font metadata. Windows uses DirectWrite's local file provider.
+macOS resolves the CoreText PostScript name against a file's faces. Linux
+uses Fontconfig's index. Remote, private or provider-only faces without a
+readable file are outside this scope. Enumeration records family, style and
+file identity and stats each distinct file once. The first selection validates
+the face in FreeType and hashes the selected bytes. Ordinary installed faces
+are independent of the bundled allowlist. No system font is redistributed
+with the application or written to PSTG, MVR, GDTF or a Layout template.
+
+The catalog holds immutable discovery data and bounded loaded-face caches.
+Resolution and PDF registries keep shared ownership of any resources they
+use. Glyphs carry owned fingerprint strings. FreeType outlines and HarfBuzz
+shaping use the same file bytes and collection index. The cache rejects an
+unloaded face if its file changed after discovery. Refresh publishes a new
+snapshot, allowing open project references and render caches to resolve
+against the updated font collection.
+
+System font references keep the authored family and the per-style PostScript
+names and fingerprints when available. Layout rich text records these
+references in run properties. Resolution tries the exact identity, a
+compatible named or same-family face, and the bundled style and script fallbacks.
+Files, collection indices and system registration paths are local details.
+Unavailable requested styles use real faces and never synthesize weight or slant.
+
+| Installed font capability | Local display | PDF |
+| --- | --- | --- |
+| Static standalone TrueType with installable or editable embedding | Yes | Full program |
+| No subsetting | Yes | Full program when other flags permit |
+| Preview-and-print only | Yes | Portable fallback. The writer does not enforce read-only access. |
+| Restricted, bitmap-only or ambiguous rights | Yes for supported outlines | Portable fallback |
+| Static OpenType/CFF and compatible TrueType or CFF collection faces | Yes | Portable fallback |
+| Variable instances, color fonts, non-scalable bitmap fonts and web containers | Unsupported | Portable fallback |
+
+Embedding rights follow the [OpenType OS/2 specification](https://learn.microsoft.com/en-us/typography/opentype/spec/os2#fstype).
+OS/2 versions 0 and 1 ignore the unassigned high bits. Versions 0 through 2
+allow the least-restrictive permission among conflicting permission bits.
+Modern conflicting permission bits are invalid. Font metadata does not
+establish redistribution rights or override the applicable license.
 
 ## Composition and adapters
 
@@ -70,8 +99,9 @@ Free text uses the same point-space text block plan for Layout and PDF. Rich
 text remains serialized in its original wx XML model. Extraction preserves
 families, weights, sizes, italic requests, foreground colors, underlines,
 strikethrough, explicit breaks, paragraph alignment, spacing and indentation.
-Approved family selections enable word wrapping. Existing text without an
-explicit approved family retains explicit line breaks and clipping. Legacy
+Edited content stores its wrapping behavior explicitly. Legacy definitions
+without that setting retain font-driven compatibility wrapping for the
+portable families and explicit breaks for historical styles. Legacy
 native-font metrics could vary by platform. Default sizing now uses the
 shipped faces, so historical free-text widths can change. Non-text rich
 objects and uncommon XML style features remain in the source XML with limited
@@ -100,14 +130,18 @@ cluster uses a PDF `ActualText` span around its selectable glyphs. Adjacent
 left-to-right glyphs can share a span with a source space so readers preserve
 the space during extraction. The PDF places
 glyphs at the composed positions. It draws fixture outlines as vector paths
-and leaves the glyph fill selectable. Only used approved faces are embedded.
+and leaves the glyph fill selectable. Only used embeddable faces are written. Before placing PDF glyphs, a restricted
+or unsupported face is resolved to a portable face and the logical text is
+recomposed. Fixture capture stores the original field text and the anchor
+needed for that recomposition. The PDF registry also rejects disallowed
+resources at the point where glyphs and outlines are emitted.
 Missing faces and unsupported glyphs are recorded once per issue in the
 export report. Font resource failure leaves scene contents and requested
 style values intact.
 
-Label presentation version 3 adds the optional `fontFamily` field. Layout's
-presentation wrapper reads both versions 2 and 3. Unchanged label styles
-continue to write version 2. Legends and Event Tables have an optional
+Label presentation version 3 added the optional `fontFamily` field. Version 4
+adds italic where requested. Layout reads all three versions starting at 2.
+Unchanged legacy label styles continue to write version 2. Legends and Event Tables have an optional
 `fontFamily` property in the existing Layout schema and use the default when
 the field is absent. Free text retains its existing per-run rich-text data.
 PSTG and templates store presentation choices without introducing font data

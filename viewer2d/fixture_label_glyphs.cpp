@@ -24,10 +24,10 @@ FixtureLabelComposition ComposeResolvedFixtureLabels(
     typography::TextStyle textStyle;
     textStyle.size = style.size; textStyle.bold = style.bold;
     textStyle.alignment = style.alignment;
-    const auto composed = typography::Compose(values[f], textStyle, *fonts.catalog, style.fontFamily);
+    const auto composed = typography::Compose(values[f], textStyle, *fonts.catalog, style.fontFamily, style.italic);
     std::string issue;
     if (composed.fontIssue != typography::FontIssue::None)
-      issue = typography::DescribeFontIssue(*fonts.catalog, style.fontFamily, style.bold, composed.fontIssue);
+      issue = typography::DescribeFontIssue(*fonts.catalog, style.fontFamily, style.bold, composed.fontIssue, style.italic);
     if (!composed.unsupportedBytes.empty()) {
       if (!issue.empty()) issue += "\n";
       issue += "Some fixture label characters are unavailable in the approved fonts.";
@@ -42,7 +42,7 @@ FixtureLabelComposition ComposeResolvedFixtureLabels(
     field.first = out.text.size();
     for (const auto &g : composed.glyphs) {
       CanvasTextStyle canvas;
-      const auto *face = fonts.catalog->FindResource(g.resourceId);
+      const auto face = fonts.catalog->FindResource(g.resourceId);
       if (face && face->family == typography::kDefaultFamily && !face->italic &&
           !g.clusterContinuation && g.text.size() == ScalarBytes(g.codepoint) &&
           face->metrics.GlyphFor(g.codepoint) == g.glyphId)
@@ -70,6 +70,13 @@ FixtureLabelComposition ComposeResolvedFixtureLabels(
                          static_cast<float>(y + style.y + g.baseline), g.text, canvas});
     }
     if (field.count) {
+      const auto selected = fonts.catalog->FindResource(composed.resourceId);
+      if (selected && selected->source == typography::FontSource::InstalledSystem) {
+        auto &first = out.text[field.first];
+        first.style.source = std::make_shared<CanvasTextSource>(CanvasTextSource{
+            values[f], style.fontFamily, static_cast<float>(x + style.x - first.x),
+            static_cast<float>(y + style.y - first.y), field.count, style.bold, style.italic, style.alignment});
+      }
       const auto stroke = style.outlineEnabled ? style.outlineWidth : 0;
       const auto &box = composed.bounds;
       field.bounds = {x + style.x + box.left - stroke, y + style.y + box.bottom - stroke,

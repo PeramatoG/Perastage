@@ -8,6 +8,7 @@
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/button.h>
+#include <wx/panel.h>
 
 FixtureLabelEditor::FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int initialView,
                                        const FixtureLabelEditSession *session)
@@ -46,11 +47,17 @@ FixtureLabelEditor::FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int
     properties->Add(control, 1, wxEXPAND);
   };
   visible_ = new wxCheckBox(this, wxID_ANY, _("Show field")); row(_("Visibility"), visible_);
-  family_ = new wxChoice(this, wxID_ANY);
+  family_ = new gui::DocumentFontChoice(this, {});
   family_->SetName("fixtureLabelFontFamily");
-  families_ = gui::PopulateDocumentFontChoice(*family_);
   row(_("Font family"), family_);
-  bold_ = new wxCheckBox(this, wxID_ANY, _("Bold")); row(_("Style"), bold_);
+  auto *styles = new wxPanel(this);
+  auto *styleRow = new wxBoxSizer(wxHORIZONTAL);
+  bold_ = new wxCheckBox(styles, wxID_ANY, _("Bold"));
+  italic_ = new wxCheckBox(styles, wxID_ANY, _("Italic"));
+  styleRow->Add(bold_, 0, wxRIGHT, 8);
+  styleRow->Add(italic_);
+  styles->SetSizerAndFit(styleRow);
+  row(_("Style"), styles);
   const auto spin = [&](double min, double max, double step) {
     auto *s = new wxSpinCtrlDouble(this, wxID_ANY, "", wxDefaultPosition, wxSize(100,-1), wxSP_ARROW_KEYS);
     s->SetRange(min,max); s->SetIncrement(step); s->SetDigits(3); return s;
@@ -85,19 +92,28 @@ FixtureLabelEditor::FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int
   body->Add(previewBox, 1, wxEXPAND);
   outer->Add(body, 1, wxEXPAND | wxLEFT | wxRIGHT, 10);
   auto *note = new wxStaticText(this, wxID_ANY,
-      _("The viewer, editor and PDF use the same approved fonts and label composition. Sizes and offsets use scene metres."));
+      _("Sizes and offsets use scene metres. PDF export reports installed fonts that require substitution."));
   note->Wrap(700); outer->Add(note, 0, wxEXPAND | wxALL, 10);
   auto *buttons = new wxBoxSizer(wxHORIZONTAL);
   auto *reset = new wxButton(this, wxID_RESET, _("Reset to Default"));
-  buttons->Add(reset, 0, wxRIGHT, 8); buttons->AddStretchSpacer();
+  buttons->Add(reset, 0, wxRIGHT, 8);
+  auto *refreshFonts = new wxButton(this, wxID_ANY, _("Refresh fonts"));
+  buttons->Add(refreshFonts, 0);
+  refreshFonts->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
+    const auto requested = family_->GetReference();
+    gui::DocumentFontChoice::RefreshCatalog();
+    family_->RefreshFamilies(requested);
+    LoadField();
+  });
+  buttons->AddStretchSpacer();
   buttons->Add(CreateButtonSizer(wxAPPLY | wxOK | wxCANCEL));
   outer->Add(buttons, 0, wxEXPAND | wxALL, 10); SetSizerAndFit(outer);
   SetMinSize(wxSize(850,600)); SetSize(wxSize(930,650)); CentreOnParent();
   for (auto *choice : {scope_, view_}) choice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &) { preview_->CancelDrag(); preview_->ResetFit(); LoadField(); });
   fields_->Bind(wxEVT_LISTBOX, [this](wxCommandEvent &) { preview_->CancelDrag(); LoadField(); });
   background->Bind(wxEVT_CHOICE,[this,background](wxCommandEvent &){ preview_->SetDarkBackground(background->GetSelection()==1); });
-  for (auto *choice : {anchor_,align_,family_}) choice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &event) { StoreField(event.GetEventObject()); });
-  for (auto *check : {visible_,bold_,outline_}) check->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent &event) { StoreField(event.GetEventObject()); });
+  for (auto *choice : {anchor_,align_,static_cast<wxChoice *>(family_)}) choice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &event) { StoreField(event.GetEventObject()); event.Skip(); });
+  for (auto *check : {visible_,bold_,italic_,outline_}) check->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent &event) { StoreField(event.GetEventObject()); });
   for (auto *s : {size_,x_,y_,outlineWidth_}) {
     s->Bind(wxEVT_SPINCTRLDOUBLE, [this](wxSpinDoubleEvent &event) { StoreField(event.GetEventObject()); });
     s->Bind(wxEVT_TEXT, [this](wxCommandEvent &event) { StoreField(event.GetEventObject()); });
@@ -122,11 +138,8 @@ std::string FixtureLabelEditor::ScopeUuid() const {
 void FixtureLabelEditor::LoadField() {
   loading_ = true;
   const auto s = preview_->ResolveEditingStyle(EffectiveDraft(), ScopeUuid(), view_->GetSelection(), fields_->GetSelection());
-  const auto requested = s.fontFamily.empty() ? typography::kDefaultFamily : std::string_view(s.fontFamily);
-  const auto selected = std::find(families_.begin(), families_.end(), requested);
-  family_->SetSelection(selected == families_.end() ? wxNOT_FOUND :
-                        static_cast<int>(selected - families_.begin()));
-  visible_->SetValue(s.visible); bold_->SetValue(s.bold); size_->SetValue(s.size);
+  family_->SelectFamily(s.fontFamily);
+  visible_->SetValue(s.visible); bold_->SetValue(s.bold); italic_->SetValue(s.italic); size_->SetValue(s.size);
   x_->SetValue(s.x); y_->SetValue(s.y); anchor_->SetSelection(s.anchor); align_->SetSelection(s.alignment);
   color_->SetColour(wxColour(s.color[0]*255,s.color[1]*255,s.color[2]*255));
   outline_->SetValue(s.outlineEnabled); outlineWidth_->SetValue(s.outlineWidth);
@@ -146,8 +159,9 @@ void FixtureLabelEditor::StoreField(wxObject *source) {
     auto s = preview_->ResolveEditingStyle(EffectiveDraft(), id, view_->GetSelection(), fields_->GetSelection());
     if (source == visible_) s.visible = visible_->GetValue();
     if (source == bold_) s.bold = bold_->GetValue();
+    if (source == italic_) s.italic = italic_->GetValue();
     if (source == family_ && family_->GetSelection() != wxNOT_FOUND)
-      s.fontFamily = families_[family_->GetSelection()];
+      s.fontFamily = family_->GetReference();
     if (source == size_) s.size = size;
     if (source == x_) s.x = x;
     if (source == y_) s.y = y;

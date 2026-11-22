@@ -123,9 +123,9 @@ Composition Compose(const std::string &text, const TextStyle &style,
 
 Composition Compose(const std::string &text, const TextStyle &style,
                     const FontCatalog &catalog, std::string_view family,
-                    bool italic) {
-  const auto requested = catalog.Resolve(family, style.bold, italic);
-  const auto fonts = CompositionFonts(catalog, requested.face, style.bold, italic);
+                    bool italic, FontUsage usage) {
+  const auto requested = catalog.Resolve(family, style.bold, italic, usage);
+  const auto fonts = CompositionFonts(catalog, requested.face.get(), style.bold, italic);
   auto result = ComposeFonts(text, style, fonts);
   result.fontIssue = requested.issue;
   return result;

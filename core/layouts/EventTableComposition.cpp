@@ -28,9 +28,9 @@ EventTablePlan ComposeEventTable(const EventTableInput &in, const EventTableFont
     const typography::TextStyle style{size, typography::TextUnit::PaperPoints,
                                       role == TextRole::Bold, 0, 0};
     if (!fonts.catalog) return typography::Compose(text, style, style.bold ? fonts.bold : fonts.regular);
-    auto run = typography::Compose(text, style, *fonts.catalog, fonts.family);
+    auto run = typography::Compose(text, style, *fonts.catalog, fonts.family, false, fonts.usage);
     if (run.fontIssue != typography::FontIssue::None)
-      diagnose(typography::DescribeFontIssue(*fonts.catalog, fonts.family, style.bold, run.fontIssue));
+      diagnose(typography::DescribeFontIssue(*fonts.catalog, fonts.family, style.bold, run.fontIssue, false, fonts.usage));
     return run;
   };
   if (valid) {

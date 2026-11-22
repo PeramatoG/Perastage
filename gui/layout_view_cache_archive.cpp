@@ -398,7 +398,7 @@ Transform2D Transform2DFromJson(const nlohmann::json &json) {
 
 // Serializes a text style into JSON.
 nlohmann::json TextStyleToJson(const CanvasTextStyle &style) {
-  return {{"fontFamily", style.fontFamily},
+  nlohmann::json data{{"fontFamily", style.fontFamily},
           {"fontResource", style.fontResource},
           {"glyphId", style.glyphId},
           {"codepoint", style.codepoint},
@@ -414,6 +414,13 @@ nlohmann::json TextStyleToJson(const CanvasTextStyle &style) {
           {"outlineWidth", style.outlineWidth},
           {"hAlign", static_cast<int>(style.hAlign)},
           {"vAlign", static_cast<int>(style.vAlign)}};
+  if (style.source) {
+    const auto &source = *style.source;
+    data["source"] = {{"text", source.text}, {"family", source.family}, {"x", source.anchorOffsetX},
+        {"y", source.anchorOffsetY}, {"glyphs", source.glyphCount}, {"bold", source.bold}, {"italic", source.italic},
+        {"alignment", source.alignment}};
+  }
+  return data;
 }
 
 // Parses a text style from JSON.
@@ -427,6 +434,19 @@ CanvasTextStyle TextStyleFromJson(const nlohmann::json &json) {
   style.clusterContinuation = json.value("clusterContinuation", false);
   style.codepoint = json.value("codepoint", uint32_t{});
   style.fontDiagnostic = json.value("fontDiagnostic", std::string{});
+  if (const auto entry = json.find("source"); entry != json.end() && entry->is_object()) {
+    auto source = std::make_shared<CanvasTextSource>();
+    source->text = entry->value("text", std::string{});
+    source->family = entry->value("family", std::string{});
+    source->anchorOffsetX = entry->value("x", 0.f);
+    source->anchorOffsetY = entry->value("y", 0.f);
+    source->glyphCount = entry->value("glyphs", size_t{0});
+    source->bold = entry->value("bold", false);
+    source->italic = entry->value("italic", false);
+    source->alignment = entry->value("alignment", 0);
+    if (source->glyphCount && source->alignment >= 0 && source->alignment <= 2)
+      style.source = std::move(source);
+  }
   style.fontSize = json.value("fontSize", 12.0f);
   style.ascent = json.value("ascent", 0.0f);
   style.descent = json.value("descent", 0.0f);

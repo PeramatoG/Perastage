@@ -190,7 +190,7 @@ LegendCompositionPlan ComposeLegend(const LegendCompositionInput &input,
   const auto compose = [&](std::string_view text, double size, TextRole role, double wrapWidth = 0) {
     const typography::TextStyle style{size, typography::TextUnit::PaperPoints,
                                       role == TextRole::Bold, wrapWidth, 0};
-    if (fonts.catalog) return typography::Compose(std::string(text), style, *fonts.catalog, fonts.family);
+    if (fonts.catalog) return typography::Compose(std::string(text), style, *fonts.catalog, fonts.family, false, fonts.usage);
     return typography::Compose(std::string(text), style, style.bold ? fonts.bold : fonts.regular);
   };
   const auto measure = [&](std::string_view text, double size, TextRole role) {
@@ -210,7 +210,7 @@ LegendCompositionPlan ComposeLegend(const LegendCompositionInput &input,
     line.glyphRun = compose(line.text, plan.fontSize, line.role);
     if (fonts.catalog && line.glyphRun.fontIssue != typography::FontIssue::None) {
       const auto message = typography::DescribeFontIssue(*fonts.catalog, fonts.family,
-          line.role == TextRole::Bold, line.glyphRun.fontIssue);
+          line.role == TextRole::Bold, line.glyphRun.fontIssue, false, fonts.usage);
       if (std::find(plan.diagnostics.begin(), plan.diagnostics.end(), message) == plan.diagnostics.end())
         plan.diagnostics.push_back(message);
     }

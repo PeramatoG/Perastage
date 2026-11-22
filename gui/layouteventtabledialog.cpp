@@ -70,5 +70,5 @@ std::array<std::string, 7> LayoutEventTableDialog::GetFields() const {
 }
 
 std::string LayoutEventTableDialog::GetFontFamily() const {
-  return fontChoice_->GetFamily();
+  return fontChoice_->GetReference();
 }

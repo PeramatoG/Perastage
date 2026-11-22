@@ -40,7 +40,7 @@ std::array<LabelFieldStyle, 3> ResolveEditableFieldStyles(const ConfigManager &c
   for (int f = 0; f < 3; ++f) {
     result[f] = ResolveFieldStyle(cfg, legacy, uuid, view, f);
     const auto &s = result[f];
-    const auto resolved = fonts.catalog->Resolve(s.fontFamily, s.bold);
+    const auto resolved = fonts.catalog->Resolve(s.fontFamily, s.bold, s.italic);
     if (resolved.face) metrics[f] = typography::MeasureFontLine(resolved.face->metrics, s.size);
     if (s.visible)
       groupHeight += metrics[f].ascent + metrics[f].descent + (lineCounts[f] - 1) * metrics[f].lineHeight;

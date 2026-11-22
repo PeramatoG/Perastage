@@ -49,6 +49,7 @@ struct Viewer2DPrintOptions {
   int floatPrecision = 3;
   bool useSimplifiedFootprints = true;
   bool printIncludeGrid = true;
+  std::shared_ptr<const typography::FontCatalog> fontCatalog;
 };
 
 struct Viewer2DExportResult {

@@ -57,6 +57,8 @@
 #include "viewer2dpdfexporter.h"
 #include "viewer2dprintdialog.h"
 #include "LayoutManager.h"
+#include "projectutils.h"
+#include "typography/font_resources.h"
 
 namespace {
 void SetPrintStatus(MainWindow *window, const wxString &message) {
@@ -135,6 +137,7 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
   }
 
   Viewer2DPrintOptions opts; // Defaults to A3 portrait.
+  opts.fontCatalog = typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
   opts.landscape = settings.landscape;
   opts.printIncludeGrid = settings.includeGrid;
   opts.useSimplifiedFootprints = !settings.detailedFootprints;
@@ -382,6 +385,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
        projectSymbols](size_t index) mutable {
         if (index >= layoutViews.size()) {
           Viewer2DPrintOptions opts;
+          opts.fontCatalog = typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
           opts.pageWidthPt = outputPageW;
           opts.pageHeightPt = outputPageH;
           opts.marginPt = 0.0;

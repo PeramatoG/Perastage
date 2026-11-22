@@ -31,6 +31,7 @@ The versions resolved by a package manager can vary for system-package builds. O
 | [PoDoFo](https://github.com/podofo/podofo) | LGPL-2.0-or-later OR MPL-2.0 | [LGPL terms](licenses/podofo_COPYING.LGPL.txt); [MPL terms](licenses/podofo_COPYING.MPL.txt) |
 | [HarfBuzz](https://github.com/harfbuzz/harfbuzz) | MIT-Modern-Variant AND MIT | [License](licenses/harfbuzz_LICENSE.txt), [Universal Shaping Engine notice](licenses/harfbuzz_ms_use_NOTICE.txt) |
 | [FreeType](https://www.freetype.org/) | FreeType License or GPL-2.0-or-later | [FreeType License](licenses/freetype_FTL.txt), [GPLv2 text](licenses/freetype_GPLv2.txt) |
+| [Fontconfig](https://www.freedesktop.org/wiki/Software/fontconfig/) | MIT-style Fontconfig license | [License](licenses/fontconfig_LICENSE.txt) (Linux font discovery) |
 | [ICU](https://icu.unicode.org/) | Unicode/ICU license and accompanying third-party notices | [License](licenses/icu_LICENSE.txt) |
 | [meshoptimizer](https://github.com/zeux/meshoptimizer) | MIT | [License](licenses/meshoptimizer_LICENSE.txt) |
 | [backward-cpp](https://github.com/bombela/backward-cpp) | MIT | [License](licenses/backward-cpp_LICENSE.txt) |

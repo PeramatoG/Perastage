@@ -365,10 +365,17 @@ public:
         CheckPreviewEditing();
         const auto previousFace = Preview()->GetComposition().text.front().style.fontResource;
         const auto catalog = typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
-        const auto *previousResource = catalog->FindResource(previousFace);
-        Require(previousResource, "The initial preview face is unavailable");
-        const auto index = previousResource->family == "Source Sans 3" ? 1 : 2;
+        const auto previousResource = catalog->FindResource(previousFace);
+        Require(bool(previousResource), "The initial preview face is unavailable");
+        auto index = previousResource->family == "Source Sans 3" ? 1 : 2;
         selectedFamily_ = index == 1 ? "Noto Serif" : "Source Sans 3";
+        if (const auto *external = std::getenv("PERASTAGE_SMOKE_INSTALLED_FONT"); external && *external) {
+          auto *picker = dynamic_cast<wxChoice *>(editor_->FindWindowByName("fixtureLabelFontFamily", editor_));
+          Require(picker, "Fixture label font picker missing");
+          index = picker->FindString(wxString::FromUTF8(std::string(external) + " (installed)"));
+          Require(index != wxNOT_FOUND, "Native system font was not exposed in the fixture picker");
+          selectedFamily_ = external;
+        }
         Choice("fixtureLabelFontFamily", index);
         const auto selectedFace = Preview()->GetComposition().text.front().style.fontResource;
         Require(!selectedFace.empty() && selectedFace != previousFace,
@@ -395,7 +402,7 @@ public:
         bool composed = false;
         for (const auto &command : commands.commands)
           if (const auto *text = std::get_if<TextCommand>(&command))
-            if (const auto *face = typography::GetFontCatalog(ProjectUtils::GetResourceRoot())
+            if (const auto face = typography::GetFontCatalog(ProjectUtils::GetResourceRoot())
                                        ->FindResource(text->style.fontResource))
               composed |= face->family == selectedFamily_;
         Require(composed, "Edited labels are absent from real viewport capture");

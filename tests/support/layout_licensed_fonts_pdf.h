@@ -112,7 +112,7 @@ inline void WriteLicensedFontLayout(const std::filesystem::path &path) {
   assert(legacy.resourceId == catalog.Resolve({}, true).face->fingerprint);
   generic.fontFamily = "Unverified file Bold";
   const auto denied = viewer2d::ComposeCanvasText("AV", generic, 1, catalog).run;
-  assert(denied.fontIssue == typography::FontIssue::Unapproved && denied.resourceId == legacy.resourceId);
+  assert(denied.fontIssue == typography::FontIssue::Missing && denied.resourceId == legacy.resourceId);
 
   Viewer2DPrintOptions options;
   options.compressStreams = false;

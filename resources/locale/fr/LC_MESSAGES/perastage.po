@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 22:33+0100\n"
+"POT-Creation-Date: 2026-11-23 00:08+0100\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: French\n"
@@ -314,7 +314,7 @@ msgstr "Exporter uniquement les références"
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
 #: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:92
 #: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:94
-#: gui/layouttextdialog.cpp:182 gui/preferencesdialog.cpp:87
+#: gui/layouttextdialog.cpp:194 gui/preferencesdialog.cpp:87
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139
 msgid "Cancel"
@@ -510,7 +510,7 @@ msgid "Add"
 msgstr "Ajouter"
 
 #: gui/dictionaryeditdialog.cpp:606 gui/hang_position_dialog.cpp:179
-#: gui/layerpanel.cpp:128 gui/layoutpanel.cpp:44 gui/layoutviewerpanel.cpp:1291
+#: gui/layerpanel.cpp:128 gui/layoutpanel.cpp:44 gui/layoutviewerpanel.cpp:1292
 #: gui/viewport_context_menu.cpp:143
 msgid "Delete"
 msgstr "Supprimer"
@@ -1123,22 +1123,47 @@ msgstr ""
 msgid "Select category"
 msgstr "Sélectionner une catégorie"
 
-#: gui/document_font_choice.h:17
+#: gui/document_font_choice.h:69
 #, c-format
 msgid "%s (default)"
 msgstr "%s (par défaut)"
 
-#: gui/document_font_choice.h:30
-msgid ""
-"The requested font is unavailable. The document uses an approved fallback."
-msgstr ""
-"La police demandée est indisponible. Le document utilise une police de "
-"remplacement approuvée."
+#: gui/document_font_choice.h:72
+#, c-format
+msgid "%s (installed)"
+msgstr "%s (installée)"
 
-#: gui/document_font_choice.h:59 gui/fixture_label_editor.cpp:52
-#: gui/layouttextdialog.cpp:131
+#: gui/document_font_choice.h:82
+msgid ""
+"This installed font format is unsupported. The document uses an approved "
+"fallback."
+msgstr "Le format de cette police installée est incompatible. Le document utilise une police de remplacement approuvée."
+
+#: gui/document_font_choice.h:84
+msgid ""
+"The requested font or style is unavailable. The document uses a fallback."
+msgstr "La police ou le style demandé est indisponible. Le document utilise une police de remplacement."
+
+#: gui/document_font_choice.h:86
+msgid "PDF export uses a fallback for this installed font."
+msgstr "L’exportation PDF utilise une police de remplacement pour cette police installée."
+
+#: gui/document_font_choice.h:88
+msgid ""
+"Installed font. Other computers need a compatible face. Check its license "
+"before exporting."
+msgstr "Police installée. Une variante compatible est nécessaire sur les autres ordinateurs. Vérifiez sa licence avant l’exportation."
+
+#: gui/document_font_choice.h:90 gui/document_font_choice.h:101
+#: gui/fixture_label_editor.cpp:52 gui/layouttextdialog.cpp:132
+#: gui/layouttextdialog.cpp:146
 msgid "Font family"
 msgstr "Famille de police"
+
+#: gui/document_font_choice.h:104 gui/fixture_label_editor.cpp:100
+#: gui/layouttextdialog.cpp:198
+msgid "Refresh fonts"
+msgstr "Actualiser les polices"
 
 #: gui/fixture_distribution_dialog.cpp:12
 msgid "Distribute fixtures"
@@ -1192,75 +1217,79 @@ msgstr "Depuis un point dans la direction choisie"
 msgid "Placement"
 msgstr "Placement"
 
-#: gui/fixture_label_editor.cpp:14 gui/layout_fixture_labels.cpp:92
+#: gui/fixture_label_editor.cpp:15 gui/layout_fixture_labels.cpp:92
 #: gui/layout_fixture_labels.cpp:162
 msgid "Fixture Label Editor"
 msgstr "Éditeur des étiquettes des projecteurs"
 
-#: gui/fixture_label_editor.cpp:28
+#: gui/fixture_label_editor.cpp:29
 #: tests/support/fixture_label_composition_parity_probe.h:46
 msgid "Project defaults"
 msgstr "Valeurs par défaut du projet"
 
 #
-#: gui/fixture_label_editor.cpp:30
+#: gui/fixture_label_editor.cpp:31
 #: tests/support/fixture_label_composition_parity_probe.h:46
 msgid "Selected project fixtures"
 msgstr "Appareils sélectionnés du projet"
 
-#: gui/fixture_label_editor.cpp:34 gui/fixture_label_editor.cpp:66
+#: gui/fixture_label_editor.cpp:35 gui/fixture_label_editor.cpp:73
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:55
 #: viewer2d/viewer2drenderpanel.cpp:84
 msgid "Top"
 msgstr "Dessus"
 
-#: gui/fixture_label_editor.cpp:34
+#: gui/fixture_label_editor.cpp:35
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:56
 #: viewer2d/viewer2drenderpanel.cpp:84
 msgid "Front"
 msgstr "Face"
 
-#: gui/fixture_label_editor.cpp:34
+#: gui/fixture_label_editor.cpp:35
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:57
 #: viewer2d/viewer2drenderpanel.cpp:84
 msgid "Side"
 msgstr "Côté"
 
-#: gui/fixture_label_editor.cpp:41
+#: gui/fixture_label_editor.cpp:42
 msgid "Fixture Name"
 msgstr "Nom du projecteur"
 
-#: gui/fixture_label_editor.cpp:41
+#: gui/fixture_label_editor.cpp:42
 #: gui/fixturetable/fixture_table_columns.cpp:12
 #: tests/localization_catalog_integration_test.cpp:247
 msgid "Fixture ID"
 msgstr "ID du projecteur"
 
-#: gui/fixture_label_editor.cpp:41
+#: gui/fixture_label_editor.cpp:42
 msgid "DMX Address"
 msgstr "Adresse DMX"
 
-#: gui/fixture_label_editor.cpp:48
+#: gui/fixture_label_editor.cpp:49
 msgid "Show field"
 msgstr "Afficher le champ"
 
-#: gui/fixture_label_editor.cpp:48
+#: gui/fixture_label_editor.cpp:49
 msgid "Visibility"
 msgstr "Visibilité"
 
-#: gui/fixture_label_editor.cpp:53
+#: gui/fixture_label_editor.cpp:55
 msgid "Bold"
 msgstr "Gras"
 
-#: gui/fixture_label_editor.cpp:53
+#: gui/fixture_label_editor.cpp:56
+msgid "Italic"
+msgstr "Italique"
+
+#: gui/fixture_label_editor.cpp:60
 msgid "Style"
 msgstr "Style"
 
-#: gui/fixture_label_editor.cpp:58
+#: gui/fixture_label_editor.cpp:65
 msgid "Size (m)"
 msgstr "Taille (m)"
 
-#: gui/fixture_label_editor.cpp:59
+#: gui/fixture_label_editor.cpp:66
 #: gui/inspection/gdtf_inspector_details_panel.cpp:158
 #: gui/inspection/gdtf_inspector_details_panel.cpp:173 gui/layerpanel.cpp:88
 #: gui/layerpanel.cpp:102 gui/summarypanel.cpp:266 gui/summarypanel.cpp:320
@@ -1268,83 +1297,80 @@ msgstr "Taille (m)"
 msgid "Color"
 msgstr "Couleur"
 
-#: gui/fixture_label_editor.cpp:60
+#: gui/fixture_label_editor.cpp:67
 msgid "Enabled"
 msgstr "Activé"
 
-#: gui/fixture_label_editor.cpp:60
+#: gui/fixture_label_editor.cpp:67
 msgid "Outline"
 msgstr "Contour"
 
-#: gui/fixture_label_editor.cpp:61
+#: gui/fixture_label_editor.cpp:68
 msgid "Outline color"
 msgstr "Couleur du contour"
 
-#: gui/fixture_label_editor.cpp:62
+#: gui/fixture_label_editor.cpp:69
 msgid "Outline thickness (m)"
 msgstr "Épaisseur du contour (m)"
 
-#: gui/fixture_label_editor.cpp:66 gui/fixture_label_editor.cpp:68
+#: gui/fixture_label_editor.cpp:73 gui/fixture_label_editor.cpp:75
 msgid "Center"
 msgstr "Centre"
 
-#: gui/fixture_label_editor.cpp:66
+#: gui/fixture_label_editor.cpp:73
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:59
 msgid "Bottom"
 msgstr "Dessous"
 
-#: gui/fixture_label_editor.cpp:66 gui/fixture_label_editor.cpp:68
+#: gui/fixture_label_editor.cpp:73 gui/fixture_label_editor.cpp:75
 msgid "Left"
 msgstr "Gauche"
 
-#: gui/fixture_label_editor.cpp:66 gui/fixture_label_editor.cpp:68
+#: gui/fixture_label_editor.cpp:73 gui/fixture_label_editor.cpp:75
 msgid "Right"
 msgstr "Droite"
 
-#: gui/fixture_label_editor.cpp:66
+#: gui/fixture_label_editor.cpp:73
 msgid "Anchor"
 msgstr "Ancrage"
 
-#: gui/fixture_label_editor.cpp:68 gui/mainwindow_alignment.cpp:198
+#: gui/fixture_label_editor.cpp:75 gui/mainwindow_alignment.cpp:198
 msgid "Alignment"
 msgstr "Alignement"
 
-#: gui/fixture_label_editor.cpp:69
+#: gui/fixture_label_editor.cpp:76
 msgid "X offset (m)"
 msgstr "Décalage X (m)"
 
-#: gui/fixture_label_editor.cpp:70
+#: gui/fixture_label_editor.cpp:77
 msgid "Y offset (m)"
 msgstr "Décalage Y (m)"
 
-#: gui/fixture_label_editor.cpp:75
+#: gui/fixture_label_editor.cpp:82
 msgid "Preview background"
 msgstr "Fond de l’aperçu"
 
-#: gui/fixture_label_editor.cpp:76
+#: gui/fixture_label_editor.cpp:83
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:44
 #: gui/viewport_context_menu.cpp:209 viewer2d/viewer2drenderpanel.cpp:65
 msgid "White"
 msgstr "Blanc"
 
-#: gui/fixture_label_editor.cpp:76
+#: gui/fixture_label_editor.cpp:83
 msgid "Dark"
 msgstr "Sombre"
 
-#: gui/fixture_label_editor.cpp:84
+#: gui/fixture_label_editor.cpp:91
 msgid "Drag the selected field in the preview."
 msgstr "Faites glisser le champ sélectionné dans l’aperçu."
 
-#: gui/fixture_label_editor.cpp:88
+#: gui/fixture_label_editor.cpp:95
 msgid ""
-"The viewer, editor and PDF use the same approved fonts and label "
-"composition. Sizes and offsets use scene metres."
-msgstr ""
-"La vue, l’éditeur et le PDF utilisent les mêmes polices approuvées et la "
-"même composition des étiquettes. Les tailles et les décalages sont exprimés "
-"en mètres de la scène."
+"Sizes and offsets use scene metres. PDF export reports installed fonts that "
+"require substitution."
+msgstr "Les tailles et les décalages sont exprimés en mètres dans la scène. L’exportation PDF signale les polices installées à remplacer."
 
-#: gui/fixture_label_editor.cpp:91
+#: gui/fixture_label_editor.cpp:98
 msgid "Reset to Default"
 msgstr "Rétablir les valeurs par défaut"
 
@@ -3138,27 +3164,23 @@ msgstr "Importer un modèle de mise en page"
 msgid "Could not import layout template.\n"
 msgstr "Impossible d’importer le modèle de mise en page.\n"
 
-#: gui/layouttextdialog.cpp:164
+#: gui/layouttextdialog.cpp:176
 msgid "Solid background"
 msgstr "Fond uni"
 
-#: gui/layouttextdialog.cpp:167
+#: gui/layouttextdialog.cpp:179
 msgid "Show outline"
 msgstr "Afficher le contour"
 
-#: gui/layouttextdialog.cpp:181
+#: gui/layouttextdialog.cpp:193
 msgid "Ok"
 msgstr "OK"
 
-#: gui/layouttextdialog.cpp:183 gui/layouttextdialog.cpp:242
+#: gui/layouttextdialog.cpp:195 gui/layouttextdialog.cpp:251
 msgid "Document preview"
 msgstr "Aperçu du document"
 
-#: gui/layouttextdialog.cpp:186
-msgid "Refresh fonts"
-msgstr "Actualiser les polices"
-
-#: gui/layouttextdialog.cpp:211
+#: gui/layouttextdialog.cpp:219
 msgid ""
 "Some legacy formatting cannot be edited here. A copy of the original is kept "
 "with your edits."
@@ -6891,6 +6913,14 @@ msgstr "Impossible d’enregistrer l’image PNG."
 #, c-format
 msgid "Measure: %s"
 msgstr "Mesure : %s"
+
+#~ msgid ""
+#~ "The viewer, editor and PDF use the same approved fonts and label "
+#~ "composition. Sizes and offsets use scene metres."
+#~ msgstr ""
+#~ "La vue, l’éditeur et le PDF utilisent les mêmes polices approuvées et la "
+#~ "même composition des étiquettes. Les tailles et les décalages sont "
+#~ "exprimés en mètres de la scène."
 
 #~ msgid "Unsupported text: change the fixture attribute before export."
 #~ msgstr ""

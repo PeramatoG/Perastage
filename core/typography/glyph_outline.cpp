@@ -77,7 +77,7 @@ std::shared_ptr<const GlyphOutline> ReadGlyphOutlineById(const TtfFontMetrics &f
   thread_local FreeType ft;
   FT_Face raw = nullptr;
   if (!ft.library || FT_New_Memory_Face(ft.library,
-      reinterpret_cast<const FT_Byte *>(font.data.data()), font.data.size(), 0, &raw)) return {};
+      reinterpret_cast<const FT_Byte *>(font.data.data()), font.data.size(), font.faceIndex, &raw)) return {};
   const std::unique_ptr<std::remove_pointer_t<FT_Face>, decltype(&FT_Done_Face)> face(raw, FT_Done_Face);
   if (FT_Load_Glyph(raw, glyph, FT_LOAD_NO_SCALE | FT_LOAD_NO_BITMAP) ||
       raw->glyph->format != FT_GLYPH_FORMAT_OUTLINE) return {};
@@ -95,15 +95,16 @@ std::shared_ptr<const GlyphOutline> ReadGlyphOutlineById(const TtfFontMetrics &f
 std::shared_ptr<const GlyphOutline> ResolveGlyphOutline(const FontCatalog &catalog,
                                                        std::string_view resource,
                                                        uint16_t glyph) {
-  const auto *face = catalog.FindResource(resource);
+  const auto face = catalog.FindResource(resource);
   if (!face) return {};
-  using Key = std::pair<std::string_view, uint16_t>;
+  using Key = std::pair<std::string, uint16_t>;
   static std::mutex mutex;
   static std::map<Key, std::shared_ptr<const GlyphOutline>> cache;
-  const std::lock_guard lock(mutex);
   const Key key{face->fingerprint, glyph};
-  if (const auto it = cache.find(key); it != cache.end()) return it->second;
-  if (cache.size() >= 4096) cache.clear();
+  {
+    const std::lock_guard lock(mutex);
+    if (const auto it = cache.find(key); it != cache.end()) return it->second;
+  }
   auto outline = ReadGlyphOutlineById(face->metrics, glyph);
   if (!outline && glyph) {
     if (const auto missing = ReadGlyphOutlineById(face->metrics, 0)) {
@@ -112,6 +113,8 @@ std::shared_ptr<const GlyphOutline> ResolveGlyphOutline(const FontCatalog &catal
       outline = std::move(replacement);
     }
   }
+  const std::lock_guard lock(mutex);
+  if (cache.size() >= 4096) cache.clear();
   return cache.emplace(key, std::move(outline)).first->second;
 }
 }

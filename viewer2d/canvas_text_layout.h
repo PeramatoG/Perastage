@@ -30,12 +30,13 @@ struct CanvasTextLayout {
 };
 
 inline CanvasTextLayout ComposeCanvasText(const std::string &text,
-    const CanvasTextStyle &style, double scale, const typography::FontCatalog &catalog) {
+    const CanvasTextStyle &style, double scale, const typography::FontCatalog &catalog,
+    typography::FontUsage usage = typography::FontUsage::Local) {
   const auto size = style.fontSize * scale;
   const auto align = static_cast<int>(style.hAlign);
   const auto request = CanvasFont(style.fontFamily);
   CanvasTextLayout layout{typography::Compose(text,
-      {size, typography::TextUnit::SceneMetres, request.bold, 0, align}, catalog, request.family, request.italic)};
+      {size, typography::TextUnit::SceneMetres, request.bold, 0, align}, catalog, request.family, request.italic, usage)};
   const auto ascent = layout.run.ascent, descent = layout.run.descent;
   using Align = CanvasTextStyle::VerticalAlign;
   switch (style.vAlign) {

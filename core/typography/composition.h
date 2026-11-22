@@ -18,7 +18,7 @@ struct TextBounds {
 struct PositionedGlyph {
   std::string text;
   double x = 0, baseline = 0, advance = 0;
-  std::string_view resourceId;
+  std::string resourceId;
   uint32_t codepoint = 0;
   uint16_t glyphId = 0;
   size_t sourceBegin = 0, sourceEnd = 0;
@@ -39,7 +39,7 @@ struct Composition {
   std::vector<PositionedGlyph> glyphs;
   std::vector<ComposedLine> lines;
   std::vector<size_t> unsupportedBytes;
-  std::string_view resourceId;
+  std::string resourceId;
   FontIssue fontIssue = FontIssue::None;
   double ascent = 0, descent = 0, lineHeight = 0;
   TextBounds bounds; // Logical bounds relative to the first baseline.
@@ -50,5 +50,5 @@ Composition Compose(const std::string &text, const TextStyle &style,
                     const TtfFontMetrics *fallback = nullptr);
 Composition Compose(const std::string &text, const TextStyle &style,
                     const FontCatalog &catalog, std::string_view family,
-                    bool italic = false);
+                    bool italic = false, FontUsage usage = FontUsage::Local);
 } // namespace typography

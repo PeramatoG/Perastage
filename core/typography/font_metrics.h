@@ -5,11 +5,13 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <utility>
 
 namespace typography {
+enum class FontUsage { Local, Pdf };
 enum class FontIssue {
   None, Missing, Unapproved, UnsupportedFormat, FaceUnavailable,
-  Invalid, EmbeddingUnverified, Inaccessible
+  Invalid, EmbeddingUnverified, Inaccessible, PdfFormatUnsupported, CompatibleFace
 };
 
 struct TtfFontMetrics {
@@ -24,7 +26,9 @@ struct TtfFontMetrics {
   int xMax = 0;
   int yMax = 0;
   std::string data;
-  std::string_view resourceId;
+  std::string resourceId;
+  unsigned faceIndex = 0;
+  std::vector<std::pair<uint32_t, uint16_t>> coverage;
   std::vector<int> glyphAdvances;
   uint32_t cmap4 = 0, cmap12 = 0;
   uint16_t GlyphFor(uint32_t codepoint) const;

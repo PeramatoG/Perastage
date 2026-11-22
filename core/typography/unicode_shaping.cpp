@@ -42,7 +42,7 @@ HbFont MakeFont(const TtfFontMetrics &font, hb_memory_mode_t mode) {
       hb_blob_create(font.data.data(), font.data.size(), mode, nullptr, nullptr),
       hb_blob_destroy);
   std::unique_ptr<hb_face_t, decltype(&hb_face_destroy)> face(
-      hb_face_create(blob.get(), 0), hb_face_destroy);
+      hb_face_create(blob.get(), font.faceIndex), hb_face_destroy);
   HbFont result(hb_font_create(face.get()), hb_font_destroy);
   hb_ot_font_set_funcs(result.get());
   hb_font_set_scale(result.get(), font.unitsPerEm, font.unitsPerEm);
@@ -54,10 +54,15 @@ HbFont GetFont(const TtfFontMetrics &font) {
   if (font.resourceId.empty()) return MakeFont(font, HB_MEMORY_MODE_READONLY);
   static std::mutex mutex;
   static std::map<std::string, HbFont, std::less<>> cache;
+  if (font.data.size() > 2 * 1024 * 1024) return MakeFont(font, HB_MEMORY_MODE_READONLY);
+  {
+    const std::lock_guard lock(mutex);
+    if (auto it = cache.find(font.resourceId); it != cache.end()) return it->second;
+  }
+  auto loaded = MakeFont(font, HB_MEMORY_MODE_DUPLICATE);
   const std::lock_guard lock(mutex);
-  if (auto it = cache.find(font.resourceId); it != cache.end()) return it->second;
-  if (cache.size() >= 64) cache.clear();
-  return cache.emplace(std::string(font.resourceId), MakeFont(font, HB_MEMORY_MODE_DUPLICATE)).first->second;
+  if (cache.size() >= 48) cache.clear();
+  return cache.emplace(font.resourceId, std::move(loaded)).first->second;
 }
 
 std::vector<int32_t> Breaks(const UnicodeLine &line, UBreakIteratorType type) {

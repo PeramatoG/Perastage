@@ -250,8 +250,10 @@ Use the WSL presets from a Linux/WSL environment where the required development 
 The root `setup.sh` launcher installs the distro packages needed by dependency
 discovery, `ripgrep` for repository policy tests, and the Spanish and Simplified
 Chinese locales used by the complete CTest suite on its supported apt path.
-Its supported package lists include libxml2 and libsecret development headers
-required by XML schema discovery and the native credential-store capability.
+Its supported package lists include libxml2, libsecret and Fontconfig development headers.
+They provide XML schema discovery, the native credential store and system font discovery.
+On Ubuntu or Debian, install `libfontconfig-dev` when configuring a Linux build
+without the launcher. Windows uses the SDK's DirectWrite. macOS uses CoreText.
 Ripgrep is a development/test dependency, not an application runtime
 dependency. The MVR-xchange `mdns` package
 is not available from those distro package sets. Supply it externally as

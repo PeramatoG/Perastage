@@ -1,5 +1,6 @@
 #include "font_metrics.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -199,6 +200,11 @@ bool ParseTtfFontMetrics(std::string data, TtfFontMetrics &metrics) {
 }
 
 uint16_t TtfFontMetrics::GlyphFor(uint32_t codepoint) const {
+  if (!coverage.empty()) {
+    const auto glyph = std::lower_bound(coverage.begin(), coverage.end(), codepoint,
+        [](const auto &entry, uint32_t cp) { return entry.first < cp; });
+    return glyph != coverage.end() && glyph->first == codepoint ? glyph->second : 0;
+  }
   if (cmap12) {
     auto first = 0u;
     auto last = ReadU32(data, cmap12 + 12);

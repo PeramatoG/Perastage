@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 22:33+0100\n"
+"POT-Creation-Date: 2026-11-23 00:08+0100\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -303,7 +303,7 @@ msgstr "仅导出参考"
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
 #: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:92
 #: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:94
-#: gui/layouttextdialog.cpp:182 gui/preferencesdialog.cpp:87
+#: gui/layouttextdialog.cpp:194 gui/preferencesdialog.cpp:87
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139
 msgid "Cancel"
@@ -497,7 +497,7 @@ msgid "Add"
 msgstr "添加"
 
 #: gui/dictionaryeditdialog.cpp:606 gui/hang_position_dialog.cpp:179
-#: gui/layerpanel.cpp:128 gui/layoutpanel.cpp:44 gui/layoutviewerpanel.cpp:1291
+#: gui/layerpanel.cpp:128 gui/layoutpanel.cpp:44 gui/layoutviewerpanel.cpp:1292
 #: gui/viewport_context_menu.cpp:143
 msgid "Delete"
 msgstr "删除"
@@ -1097,20 +1097,47 @@ msgstr ""
 msgid "Select category"
 msgstr "选择类别"
 
-#: gui/document_font_choice.h:17
+#: gui/document_font_choice.h:69
 #, c-format
 msgid "%s (default)"
 msgstr "%s（默认）"
 
-#: gui/document_font_choice.h:30
-msgid ""
-"The requested font is unavailable. The document uses an approved fallback."
-msgstr "请求的字体不可用。文档将使用经过验证的后备字体。"
+#: gui/document_font_choice.h:72
+#, c-format
+msgid "%s (installed)"
+msgstr "%s（已安装）"
 
-#: gui/document_font_choice.h:59 gui/fixture_label_editor.cpp:52
-#: gui/layouttextdialog.cpp:131
+#: gui/document_font_choice.h:82
+msgid ""
+"This installed font format is unsupported. The document uses an approved "
+"fallback."
+msgstr "不支持此已安装字体的格式。文档将使用已批准的备用字体。"
+
+#: gui/document_font_choice.h:84
+msgid ""
+"The requested font or style is unavailable. The document uses a fallback."
+msgstr "请求的字体或样式不可用。文档将使用备用字体。"
+
+#: gui/document_font_choice.h:86
+msgid "PDF export uses a fallback for this installed font."
+msgstr "导出 PDF 时将用备用字体替换此已安装字体。"
+
+#: gui/document_font_choice.h:88
+msgid ""
+"Installed font. Other computers need a compatible face. Check its license "
+"before exporting."
+msgstr "已安装的字体。其他计算机需要兼容的字形变体。导出前请检查其许可证。"
+
+#: gui/document_font_choice.h:90 gui/document_font_choice.h:101
+#: gui/fixture_label_editor.cpp:52 gui/layouttextdialog.cpp:132
+#: gui/layouttextdialog.cpp:146
 msgid "Font family"
 msgstr "字体系列"
+
+#: gui/document_font_choice.h:104 gui/fixture_label_editor.cpp:100
+#: gui/layouttextdialog.cpp:198
+msgid "Refresh fonts"
+msgstr "刷新字体"
 
 #: gui/fixture_distribution_dialog.cpp:12
 msgid "Distribute fixtures"
@@ -1164,75 +1191,79 @@ msgstr "从选定方向的一点开始"
 msgid "Placement"
 msgstr "放置："
 
-#: gui/fixture_label_editor.cpp:14 gui/layout_fixture_labels.cpp:92
+#: gui/fixture_label_editor.cpp:15 gui/layout_fixture_labels.cpp:92
 #: gui/layout_fixture_labels.cpp:162
 msgid "Fixture Label Editor"
 msgstr "灯具标签编辑器"
 
-#: gui/fixture_label_editor.cpp:28
+#: gui/fixture_label_editor.cpp:29
 #: tests/support/fixture_label_composition_parity_probe.h:46
 msgid "Project defaults"
 msgstr "项目默认值"
 
 #
-#: gui/fixture_label_editor.cpp:30
+#: gui/fixture_label_editor.cpp:31
 #: tests/support/fixture_label_composition_parity_probe.h:46
 msgid "Selected project fixtures"
 msgstr "选中的项目灯具"
 
-#: gui/fixture_label_editor.cpp:34 gui/fixture_label_editor.cpp:66
+#: gui/fixture_label_editor.cpp:35 gui/fixture_label_editor.cpp:73
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:55
 #: viewer2d/viewer2drenderpanel.cpp:84
 msgid "Top"
 msgstr "顶视图"
 
-#: gui/fixture_label_editor.cpp:34
+#: gui/fixture_label_editor.cpp:35
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:56
 #: viewer2d/viewer2drenderpanel.cpp:84
 msgid "Front"
 msgstr "前视图"
 
-#: gui/fixture_label_editor.cpp:34
+#: gui/fixture_label_editor.cpp:35
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:57
 #: viewer2d/viewer2drenderpanel.cpp:84
 msgid "Side"
 msgstr "侧视图"
 
-#: gui/fixture_label_editor.cpp:41
+#: gui/fixture_label_editor.cpp:42
 msgid "Fixture Name"
 msgstr "灯具名称"
 
-#: gui/fixture_label_editor.cpp:41
+#: gui/fixture_label_editor.cpp:42
 #: gui/fixturetable/fixture_table_columns.cpp:12
 #: tests/localization_catalog_integration_test.cpp:247
 msgid "Fixture ID"
 msgstr "灯具 ID"
 
-#: gui/fixture_label_editor.cpp:41
+#: gui/fixture_label_editor.cpp:42
 msgid "DMX Address"
 msgstr "DMX 地址"
 
-#: gui/fixture_label_editor.cpp:48
+#: gui/fixture_label_editor.cpp:49
 msgid "Show field"
 msgstr "显示字段"
 
-#: gui/fixture_label_editor.cpp:48
+#: gui/fixture_label_editor.cpp:49
 msgid "Visibility"
 msgstr "可见性"
 
-#: gui/fixture_label_editor.cpp:53
+#: gui/fixture_label_editor.cpp:55
 msgid "Bold"
 msgstr "粗体"
 
-#: gui/fixture_label_editor.cpp:53
+#: gui/fixture_label_editor.cpp:56
+msgid "Italic"
+msgstr "斜体"
+
+#: gui/fixture_label_editor.cpp:60
 msgid "Style"
 msgstr "样式"
 
-#: gui/fixture_label_editor.cpp:58
+#: gui/fixture_label_editor.cpp:65
 msgid "Size (m)"
 msgstr "大小（m）"
 
-#: gui/fixture_label_editor.cpp:59
+#: gui/fixture_label_editor.cpp:66
 #: gui/inspection/gdtf_inspector_details_panel.cpp:158
 #: gui/inspection/gdtf_inspector_details_panel.cpp:173 gui/layerpanel.cpp:88
 #: gui/layerpanel.cpp:102 gui/summarypanel.cpp:266 gui/summarypanel.cpp:320
@@ -1240,82 +1271,80 @@ msgstr "大小（m）"
 msgid "Color"
 msgstr "颜色"
 
-#: gui/fixture_label_editor.cpp:60
+#: gui/fixture_label_editor.cpp:67
 msgid "Enabled"
 msgstr "启用"
 
-#: gui/fixture_label_editor.cpp:60
+#: gui/fixture_label_editor.cpp:67
 msgid "Outline"
 msgstr "描边"
 
-#: gui/fixture_label_editor.cpp:61
+#: gui/fixture_label_editor.cpp:68
 msgid "Outline color"
 msgstr "描边颜色"
 
-#: gui/fixture_label_editor.cpp:62
+#: gui/fixture_label_editor.cpp:69
 msgid "Outline thickness (m)"
 msgstr "描边粗细（m）"
 
-#: gui/fixture_label_editor.cpp:66 gui/fixture_label_editor.cpp:68
+#: gui/fixture_label_editor.cpp:73 gui/fixture_label_editor.cpp:75
 msgid "Center"
 msgstr "居中"
 
-#: gui/fixture_label_editor.cpp:66
+#: gui/fixture_label_editor.cpp:73
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:59
 msgid "Bottom"
 msgstr "底部"
 
-#: gui/fixture_label_editor.cpp:66 gui/fixture_label_editor.cpp:68
+#: gui/fixture_label_editor.cpp:73 gui/fixture_label_editor.cpp:75
 msgid "Left"
 msgstr "左"
 
-#: gui/fixture_label_editor.cpp:66 gui/fixture_label_editor.cpp:68
+#: gui/fixture_label_editor.cpp:73 gui/fixture_label_editor.cpp:75
 msgid "Right"
 msgstr "右"
 
-#: gui/fixture_label_editor.cpp:66
+#: gui/fixture_label_editor.cpp:73
 msgid "Anchor"
 msgstr "锚点"
 
-#: gui/fixture_label_editor.cpp:68 gui/mainwindow_alignment.cpp:198
+#: gui/fixture_label_editor.cpp:75 gui/mainwindow_alignment.cpp:198
 msgid "Alignment"
 msgstr "对齐"
 
-#: gui/fixture_label_editor.cpp:69
+#: gui/fixture_label_editor.cpp:76
 msgid "X offset (m)"
 msgstr "X 偏移（m）"
 
-#: gui/fixture_label_editor.cpp:70
+#: gui/fixture_label_editor.cpp:77
 msgid "Y offset (m)"
 msgstr "Y 偏移（m）"
 
-#: gui/fixture_label_editor.cpp:75
+#: gui/fixture_label_editor.cpp:82
 msgid "Preview background"
 msgstr "预览背景"
 
-#: gui/fixture_label_editor.cpp:76
+#: gui/fixture_label_editor.cpp:83
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:44
 #: gui/viewport_context_menu.cpp:209 viewer2d/viewer2drenderpanel.cpp:65
 msgid "White"
 msgstr "白色"
 
-#: gui/fixture_label_editor.cpp:76
+#: gui/fixture_label_editor.cpp:83
 msgid "Dark"
 msgstr "深色"
 
-#: gui/fixture_label_editor.cpp:84
+#: gui/fixture_label_editor.cpp:91
 msgid "Drag the selected field in the preview."
 msgstr "在预览中拖动选中的字段。"
 
-#: gui/fixture_label_editor.cpp:88
+#: gui/fixture_label_editor.cpp:95
 msgid ""
-"The viewer, editor and PDF use the same approved fonts and label "
-"composition. Sizes and offsets use scene metres."
-msgstr ""
-"视图、编辑器和 PDF 使用相同的已批准字体和标签排版。大小和偏移量以场景米为单"
-"位。"
+"Sizes and offsets use scene metres. PDF export reports installed fonts that "
+"require substitution."
+msgstr "尺寸和偏移以场景中的米为单位。导出 PDF 时会报告需要替换的已安装字体。"
 
-#: gui/fixture_label_editor.cpp:91
+#: gui/fixture_label_editor.cpp:98
 msgid "Reset to Default"
 msgstr "重置为默认值"
 
@@ -3066,27 +3095,23 @@ msgstr "导入布局模板"
 msgid "Could not import layout template.\n"
 msgstr "无法导入布局模板.\n"
 
-#: gui/layouttextdialog.cpp:164
+#: gui/layouttextdialog.cpp:176
 msgid "Solid background"
 msgstr "纯色背景"
 
-#: gui/layouttextdialog.cpp:167
+#: gui/layouttextdialog.cpp:179
 msgid "Show outline"
 msgstr "显示轮廓"
 
-#: gui/layouttextdialog.cpp:181
+#: gui/layouttextdialog.cpp:193
 msgid "Ok"
 msgstr "好的"
 
-#: gui/layouttextdialog.cpp:183 gui/layouttextdialog.cpp:242
+#: gui/layouttextdialog.cpp:195 gui/layouttextdialog.cpp:251
 msgid "Document preview"
 msgstr "文档预览"
 
-#: gui/layouttextdialog.cpp:186
-msgid "Refresh fonts"
-msgstr "刷新字体"
-
-#: gui/layouttextdialog.cpp:211
+#: gui/layouttextdialog.cpp:219
 msgid ""
 "Some legacy formatting cannot be edited here. A copy of the original is kept "
 "with your edits."
@@ -6677,6 +6702,13 @@ msgstr "保存 PNG 图像失败。"
 #, c-format
 msgid "Measure: %s"
 msgstr "测量：%s"
+
+#~ msgid ""
+#~ "The viewer, editor and PDF use the same approved fonts and label "
+#~ "composition. Sizes and offsets use scene metres."
+#~ msgstr ""
+#~ "视图、编辑器和 PDF 使用相同的已批准字体和标签排版。大小和偏移量以场景米为"
+#~ "单位。"
 
 #~ msgid "Unsupported text: change the fixture attribute before export."
 #~ msgstr "文本不受支持：导出前请修改灯具属性。"

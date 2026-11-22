@@ -10,6 +10,7 @@ inline constexpr const char *kLabelDefaultsKey = fixture_labels::kProjectDefault
 struct LabelFieldStyle {
   bool visible = true;
   bool bold = false;
+  bool italic = false;
   float size = 0.12f; // Scene metres, independent of zoom and DPI.
   std::array<float, 3> color{0, 0, 0};
   bool outlineEnabled = true;

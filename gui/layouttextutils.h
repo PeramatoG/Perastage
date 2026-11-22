@@ -25,6 +25,7 @@
 #include "viewer2dpdfexporter.h"
 
 namespace layouttext {
+inline constexpr auto kInstalledFontReferenceProperty = "PerastageFontReference";
 bool LoadRichTextBufferFromString(wxRichTextBuffer &buffer,
                                   const wxString &content);
 wxString SaveRichTextBufferToString(wxRichTextBuffer &buffer);

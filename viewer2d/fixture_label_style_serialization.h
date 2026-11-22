@@ -9,7 +9,7 @@ inline void ReadFieldStyles(const nlohmann::json &json, LabelFieldStyles &styles
   const auto it = json.find("presentation");
   if (it == json.end() || !it->is_object()) return;
   const auto version = it->find("version");
-  if (version == it->end() || !version->is_number_integer() || (*version != 1 && *version != 2 && *version != 3)) return;
+  if (version == it->end() || !version->is_number_integer() || (*version != 1 && *version != 2 && *version != 3 && *version != 4)) return;
   auto a = it->find("fields");
   if (a == it->end() || !a->is_array()) return;
   for (size_t v = 0; v < 3 && v < a->size(); ++v) {
@@ -21,6 +21,7 @@ inline void ReadFieldStyles(const nlohmann::json &json, LabelFieldStyles &styles
         LabelFieldStyle s;
         s.visible = j.value("visible", true); s.bold = j.value("bold", false);
         if (*version >= 3) s.fontFamily = j.value("fontFamily", std::string{});
+        if (*version >= 4) s.italic = j.value("italic", false);
         s.size = j.value("sizeMetres", 0.12f);
         s.x = j.value("xMetres", 0.f); s.y = j.value("yMetres", 0.f);
         s.anchor = j.value("anchor", 1); s.alignment = j.value("alignment", 1);
@@ -44,7 +45,7 @@ inline void ReadFieldStyles(const nlohmann::json &json, LabelFieldStyles &styles
 }
 inline void WriteFieldStyles(nlohmann::json &json, const LabelFieldStyles &styles) {
   nlohmann::json a = nlohmann::json::array();
-  bool any = false, hasFont = false;
+  bool any = false, hasFont = false, hasItalic = false;
   for (const auto &view : styles) {
     nlohmann::json row = nlohmann::json::array();
     for (const auto &s : view) {
@@ -59,9 +60,13 @@ inline void WriteFieldStyles(nlohmann::json &json, const LabelFieldStyles &style
         row.back()["fontFamily"] = s->fontFamily;
         hasFont = true;
       }
+      if (s->italic) {
+        row.back()["italic"] = true;
+        hasItalic = true;
+      }
     }
     a.push_back(row);
   }
-  if (any) json["presentation"] = {{"version", hasFont ? 3 : 2}, {"fields", a}};
+  if (any) json["presentation"] = {{"version", hasItalic ? 4 : hasFont ? 3 : 2}, {"fields", a}};
 }
 } // namespace viewer2d

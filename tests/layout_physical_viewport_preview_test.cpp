@@ -65,7 +65,7 @@ void TestGenericCanvasFonts() {
     style.fontSize = 24;
     style.fontFamily = std::string(family) + " Bold Italic";
     // A generic command must use its approved face even if it carries an old outline.
-    const auto *fallback = catalog.Resolve({}, false).face;
+    const auto fallback = catalog.Resolve({}, false).face;
     style.glyphOutline = typography::ResolveGlyphOutline(catalog, fallback->fingerprint,
                                                          fallback->metrics.GlyphFor('X'));
     CommandBuffer generic, reference, defaultFont;

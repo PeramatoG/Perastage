@@ -360,6 +360,21 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(
   }
 }
 
+void LayoutViewerPanel::CheckTypographyRefresh() {
+  const auto catalog = typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
+  if (typographySignature_ == catalog->Signature()) return;
+  const bool hadCatalog = !typographySignature_.empty();
+  typographySignature_ = catalog->Signature();
+  if (!hadCatalog) return;
+  ++viewRenderVersion;
+  captureInProgress = false;
+  for (auto &entry : viewCaches_) InvalidateViewCacheForSceneContent(entry.second);
+  for (auto &entry : legendCaches_) entry.second.renderDirty = true;
+  for (auto &entry : eventTableCaches_) entry.second.renderDirty = true;
+  for (auto &entry : textCaches_) entry.second.renderDirty = true;
+  renderDirty = true;
+}
+
 // Invalidates render data after scene content changes and queues a rebuild.
 void LayoutViewerPanel::RefreshAfterSceneContentUpdate() {
   legendDataDirty_ = true;

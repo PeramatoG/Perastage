@@ -16,6 +16,8 @@ struct FixtureLabelEditSession {
   std::function<void(const viewer2d::FixtureLabelOverrideMap &)> commit;
   std::optional<std::vector<std::string>> fixtureSelection;
 };
+namespace gui { class DocumentFontChoice; }
+
 class FixtureLabelEditor : public wxDialog {
 public:
   FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int initialView,
@@ -35,10 +37,9 @@ private:
   std::vector<std::string> selection_;
   Fixture fixture_;
   wxChoice *scope_ = nullptr, *view_ = nullptr, *anchor_ = nullptr, *align_ = nullptr;
-  wxChoice *family_ = nullptr;
-  std::vector<std::string_view> families_;
+  gui::DocumentFontChoice *family_ = nullptr;
   wxListBox *fields_ = nullptr;
-  wxCheckBox *visible_ = nullptr, *bold_ = nullptr;
+  wxCheckBox *visible_ = nullptr, *bold_ = nullptr, *italic_ = nullptr;
   wxSpinCtrlDouble *size_ = nullptr, *x_ = nullptr, *y_ = nullptr;
   wxColourPickerCtrl *color_ = nullptr;
   wxCheckBox *outline_ = nullptr;
