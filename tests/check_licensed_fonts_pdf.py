@@ -28,13 +28,18 @@ with tempfile.TemporaryDirectory() as temp:
     assert {row[0] for row in rows} == expected, fonts
     assert all(row[1:7] == ["CID", "TrueType", "Identity-H", "yes", "no", "yes"] for row in rows), fonts
 
-    # Poppler puts embedding controls around RTL runs. Compare the source
-    # Unicode in logical order and count clusters without normalizing accents.
-    for args in (("-raw",), ()):
+    rtl_text = (
+        ("Scene 12 — שלום", "Scene 12 — םולש"),
+        ("Fixture 24 — مرحبا", "Fixture 24 — ابحرم"),
+    )
+    # Normal extraction must recover logical text, including RTL ordering.
+    # Raw mode can expose the drawing order on some Poppler releases.
+    for args in ((), ("-raw",)):
         # Windows Poppler can use the console code page for standard output.
         extracted = path.with_suffix(".txt")
         run(sys.argv[3], "-enc", "UTF-8", *args, str(path), str(extracted))
-        text = extracted.read_text(encoding="utf-8").replace("\u202b", "").replace("\u202c", "")
+        # Remove only the directional embedding controls added by Poppler.
+        text = extracted.read_text(encoding="utf-8").translate(dict.fromkeys(map(ord, "\u202a\u202b\u202c")))
         for content in (
             "Producción Málaga — Diseño",
             "Notas: € / Ω / Ж",
@@ -43,12 +48,13 @@ with tempfile.TemporaryDirectory() as temp:
             "Teatro Español",
             "Lámpara Ágil",
             "AV To fi ffi é é Å Å x́",
-            "Scene 12 — שלום",
-            "Fixture 24 — مرحبا",
             "España · Iluminación · À È É Ñ Ü ß € £ © ™",
             "Αθήνα — Москва — Журнал · 🙼",
             "A B C",
             "Unsupported: 灯 😀",
         ):
-            assert text.count(content) == 1, (content, text)
+            assert text.count(content) == 1, (content, args, text)
+        for logical, visual in rtl_text:
+            count = text.count(logical) + (text.count(visual) if args else 0)
+            assert count == 1, (logical, args, text)
     assert "Pages:" in run(sys.argv[4], str(path))

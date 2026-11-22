@@ -142,9 +142,10 @@ fingerprints invalidate the relevant capture and composition caches.</p>
 <p><code>PdfFontMetricsEncoding</code> covers catalog authorization, exact installed-face
 recovery, actual glyph identity, fallback, advances and mixed-family runs.
 <code>LayoutLicensedFontsPdf</code> uses Poppler to validate a representative Layout&#39;s
-faces, logical Unicode extraction in both default and raw mode, and
-outline/selection behavior. Official Windows, Linux and macOS CI require
-Poppler. A local configuration without Poppler reports the missing validation
+faces, logical Unicode extraction in the default mode, and outline/selection
+behavior. Raw mode also checks text and spaces. Depending on the Poppler
+release it may emit RTL glyphs in PDF drawing order. Official Windows, Linux
+and macOS CI require Poppler. A local configuration without Poppler reports the missing validation
 tools and still runs the structural test. Layout preview
 and PDF tests compare geometry in document points. The raster parity tests
 compare ink geometry with tolerances for antialiasing and rasterizer
