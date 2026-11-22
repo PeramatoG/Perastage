@@ -1,5 +1,6 @@
 #include "font_metrics.h"
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -237,6 +238,14 @@ uint16_t TtfFontMetrics::GlyphFor(uint32_t codepoint) const {
     if (glyph) glyph = static_cast<uint16_t>(glyph + delta);
   }
   return glyph < glyphAdvances.size() ? glyph : 0;
+}
+
+FontLineMetrics MeasureFontLine(const TtfFontMetrics &font, double size) {
+  if (!font.valid || font.unitsPerEm <= 0) return {};
+  const auto scale = size / font.unitsPerEm;
+  const auto ascent = font.ascent * scale;
+  const auto descent = std::abs(font.descent) * scale;
+  return {ascent, descent, ascent + descent + font.lineGap * scale};
 }
 
 } // namespace typography

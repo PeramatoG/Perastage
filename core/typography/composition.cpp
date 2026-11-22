@@ -1,101 +1,145 @@
 #include "composition.h"
 #include "font_resources.h"
+#include "unicode_shaping.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <map>
 
 namespace typography {
-namespace {
-uint32_t NextScalar(std::string_view text, size_t &index) {
-  const auto lead = static_cast<unsigned char>(text[index++]);
-  if (lead < 0x80) return lead;
-  if (lead < 0xc2 || lead > 0xf4) return 0xfffd;
-  const unsigned extra = lead < 0xe0 ? 1 : lead < 0xf0 ? 2 : 3;
-  uint32_t cp = lead & ((1u << (6 - extra)) - 1);
-  for (unsigned i = 0; i < extra; ++i) {
-    if (index == text.size()) return 0xfffd;
-    const auto byte = static_cast<unsigned char>(text[index]);
-    if ((byte & 0xc0) != 0x80) return 0xfffd;
-    ++index;
-    cp = (cp << 6) | (byte & 0x3f);
+std::vector<size_t> WrapShapedLine(std::string_view text, const ShapedLine &shaped, double maxWidth, double continuationWidth) {
+  if (maxWidth < 0 || shaped.width <= maxWidth) return {text.size()};
+  std::map<size_t, std::pair<size_t, double>> clusters;
+  for (const auto &glyph : shaped.glyphs) {
+    auto &cluster = clusters[glyph.sourceBegin];
+    cluster.first = glyph.sourceEnd;
+    cluster.second += glyph.advance;
   }
-  if (cp < (extra == 1 ? 0x80u : extra == 2 ? 0x800u : 0x10000u) ||
-      cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff)) return 0xfffd;
-  return cp;
+  const auto breaks = UnicodeLineBreaks(text);
+  std::vector<size_t> result;
+  auto begin = clusters.begin();
+  while (begin != clusters.end()) {
+    double width = 0;
+    auto end = begin, preferred = begin;
+    for (; end != clusters.end(); ++end) {
+      if (end != begin && width + end->second.second > maxWidth) break;
+      width += end->second.second;
+      if (std::binary_search(breaks.begin(), breaks.end(), end->second.first))
+        preferred = std::next(end);
+    }
+    if (end != clusters.end() && preferred != begin) end = preferred;
+    result.push_back(end == clusters.end() ? text.size() : end->first);
+    begin = end;
+    if (continuationWidth >= 0) maxWidth = continuationWidth;
+  }
+  if (result.empty()) result.push_back(text.size());
+  return result;
 }
 
-// This compositor covers independently positioned left-to-right glyphs.
-bool NeedsShaping(uint32_t cp) {
-  return (cp >= 0x0300 && cp <= 0x036f) || (cp >= 0x0590 && cp <= 0x109f) ||
-         (cp >= 0x1780 && cp <= 0x17ff) || (cp >= 0x1ab0 && cp <= 0x1aff) ||
-         (cp >= 0x1dc0 && cp <= 0x1dff) || (cp >= 0x200b && cp <= 0x200f) ||
-         (cp >= 0x202a && cp <= 0x202e) || (cp >= 0x2066 && cp <= 0x2069) ||
-         (cp >= 0x20d0 && cp <= 0x20ff) || (cp >= 0xfe00 && cp <= 0xfe0f) ||
-         (cp >= 0xfe20 && cp <= 0xfe2f);
-}
+namespace {
+Composition ComposeFonts(const std::string &text, const TextStyle &style,
+                         std::span<const TtfFontMetrics *const> fonts) {
+  Composition out;
+  out.style = style;
+  if (fonts.empty() || !fonts.front()->valid || !std::isfinite(style.size) || style.size <= 0)
+    return out;
+  const auto &font = *fonts.front();
+  out.resourceId = font.resourceId;
+  const auto [primaryAscent, primaryDescent, primaryHeight] = MeasureFontLine(font, style.size);
+  out.ascent = primaryAscent;
+  out.descent = primaryDescent;
+  out.lineHeight = primaryHeight;
+  double baseline = 0;
+  const auto emit = [&](ShapedLine shaped, size_t sourceOffset, size_t sourceEnd) {
+    auto ascent = primaryAscent, descent = primaryDescent, height = primaryHeight;
+    for (const auto &glyph : shaped.glyphs) {
+      if (glyph.resourceId == font.resourceId) continue;
+      const auto found = std::find_if(fonts.begin(), fonts.end(),
+          [&](const auto *face) { return face->resourceId == glyph.resourceId; });
+      if (found == fonts.end()) continue;
+      const auto metrics = MeasureFontLine(**found, style.size);
+      ascent = std::max(ascent, metrics.ascent);
+      descent = std::max(descent, metrics.descent);
+      height = std::max(height, metrics.lineHeight);
+    }
+    out.ascent = std::max(out.ascent, ascent);
+    out.descent = std::max(out.descent, descent);
+    out.lineHeight = std::max({out.lineHeight, height, ascent + descent});
+    const auto width = shaped.width;
+    const double shift = style.alignment == 1 ? -width / 2 : style.alignment == 2 ? -width : 0;
+    out.lines.push_back({out.glyphs.size(), shaped.glyphs.size(), width, baseline, sourceEnd});
+    TextBounds bounds{shift, baseline - descent, shift + width, baseline + ascent};
+    for (auto &g : shaped.glyphs) {
+      g.x += shift;
+      g.baseline += baseline;
+      bounds.left = std::min(bounds.left, g.x + g.ink.left);
+      bounds.right = std::max(bounds.right, g.x + g.ink.right);
+      bounds.bottom = std::min(bounds.bottom, g.baseline + g.ink.bottom);
+      bounds.top = std::max(bounds.top, g.baseline + g.ink.top);
+      g.sourceBegin += sourceOffset;
+      g.sourceEnd += sourceOffset;
+      out.glyphs.push_back(std::move(g));
+    }
+    for (const auto byte : shaped.unsupportedBytes)
+      out.unsupportedBytes.push_back(sourceOffset + byte);
+    if (out.lines.size() == 1) out.bounds = bounds;
+    else {
+      out.bounds.left = std::min(out.bounds.left, bounds.left);
+      out.bounds.right = std::max(out.bounds.right, bounds.right);
+      out.bounds.bottom = std::min(out.bounds.bottom, bounds.bottom);
+      out.bounds.top = std::max(out.bounds.top, bounds.top);
+    }
+    baseline -= std::max(height, ascent + descent);
+  };
 
+  size_t start = 0;
+  while (true) {
+    const auto newline = text.find_first_of("\r\n", start);
+    const std::string_view paragraph = std::string_view(text).substr(start, newline - start);
+    auto shaped = ShapeUnicodeLine(paragraph, style.size, fonts);
+    const auto breaks = WrapShapedLine(paragraph, shaped, style.maxWidth > 0 ? style.maxWidth : -1);
+    if (breaks.size() == 1) emit(std::move(shaped), start, start + paragraph.size());
+    else {
+      size_t offset = 0;
+      for (const auto end : breaks) {
+        emit(ShapeUnicodeLine(paragraph.substr(offset, end - offset), style.size, fonts,
+                             paragraph, offset), start + offset, start + end);
+        offset = end;
+      }
+    }
+    if (newline == std::string::npos) break;
+    start = newline + 1;
+    if (text[newline] == '\r' && start < text.size() && text[start] == '\n') ++start;
+  }
+  return out;
+}
 }
 
 Composition Compose(const std::string &text, const TextStyle &style,
                     const TtfFontMetrics &font, const TtfFontMetrics *fallback) {
-  Composition out;
-  out.style = style;
-  out.resourceId = font.resourceId;
-  if (!font.valid || font.glyphAdvances.empty() || !std::isfinite(style.size) || style.size <= 0)
-    return out;
-  const auto scale = style.size / font.unitsPerEm;
-  out.ascent = font.ascent * scale;
-  out.descent = std::abs(font.descent) * scale;
-  out.lineHeight = (font.ascent + std::abs(font.descent) + font.lineGap) * scale;
-  size_t first = 0;
-  double width = 0, baseline = 0;
-  const auto finish = [&] {
-    const double shift = style.alignment == 1 ? -width / 2 : style.alignment == 2 ? -width : 0;
-    for (size_t i = first; i < out.glyphs.size(); ++i) out.glyphs[i].x += shift;
-    const TextBounds lineBounds{shift, baseline - out.descent, shift + width, baseline + out.ascent};
-    if (out.lines.empty()) out.bounds = lineBounds;
-    else {
-      out.bounds.left = std::min(out.bounds.left, lineBounds.left);
-      out.bounds.bottom = std::min(out.bounds.bottom, lineBounds.bottom);
-      out.bounds.right = std::max(out.bounds.right, lineBounds.right);
-      out.bounds.top = std::max(out.bounds.top, lineBounds.top);
-    }
-    out.lines.push_back({first, out.glyphs.size() - first, width, baseline});
-    first = out.glyphs.size();
-    width = 0;
-    baseline -= out.lineHeight;
-  };
-  for (size_t i = 0; i < text.size();) {
-    const auto start = i;
-    const auto cp = NextScalar(text, i);
-    if (cp == '\n') { finish(); continue; }
-    if (cp == '\r') continue;
-    const auto scalar = cp == '\t' ? uint32_t(' ') : cp;
-    const bool supported = !NeedsShaping(cp) && (cp >= 32 || cp == '\t');
-    uint16_t glyph = supported ? font.GlyphFor(scalar) : 0;
-    const auto *face = &font;
-    if (!glyph && supported && fallback && (glyph = fallback->GlyphFor(scalar))) face = fallback;
-    if (!glyph || (cp == 0xfffd && text.compare(start, i - start, "\xef\xbf\xbd") != 0))
-      out.unsupportedBytes.push_back(start);
-    const auto advance = face->glyphAdvances[glyph] * style.size / face->unitsPerEm;
-    if (style.maxWidth > 0 && width > 0 && width + advance > style.maxWidth) finish();
-    out.glyphs.push_back({text.substr(start, i - start), width, baseline, advance,
-                          face->resourceId, cp, glyph});
-    width += advance;
-  }
-  finish();
-  return out;
+  const std::array fonts{&font, fallback};
+  return ComposeFonts(text, style, std::span(fonts).first(fallback && fallback->valid ? 2 : 1));
 }
 
 Composition Compose(const std::string &text, const TextStyle &style,
-                    const FontCatalog &catalog, std::string_view family, bool italic) {
+                    const FontCatalog &catalog, std::string_view family,
+                    bool italic) {
   const auto requested = catalog.Resolve(family, style.bold, italic);
-  const auto fallback = catalog.Resolve(kDefaultFamily, style.bold, italic);
-  Composition result;
-  result.style = style;
-  if (requested.face)
-    result = Compose(text, style, requested.face->metrics,
-                     fallback.face ? &fallback.face->metrics : nullptr);
+  const auto fonts = CompositionFonts(catalog, requested.face, style.bold, italic);
+  auto result = ComposeFonts(text, style, fonts);
   result.fontIssue = requested.issue;
   return result;
 }
-} // namespace typography
+std::vector<const TtfFontMetrics *> CompositionFonts(const FontCatalog &catalog,
+                                                     const FontResource *face, bool bold, bool italic) {
+  std::vector<const TtfFontMetrics *> fonts;
+  if (face) fonts.push_back(&face->metrics);
+  for (const auto candidate : {kDefaultFamily, std::string_view("Noto Sans Arabic"),
+                               std::string_view("Noto Sans Hebrew")}) {
+    const auto fallback = catalog.Resolve(candidate, bold, candidate == kDefaultFamily && italic);
+    if (fallback.face && std::find(fonts.begin(), fonts.end(), &fallback.face->metrics) == fonts.end())
+      fonts.push_back(&fallback.face->metrics);
+  }
+  return fonts;
+}
+}

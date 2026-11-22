@@ -150,3 +150,7 @@ if(PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE AND NOT PERASTAGE_WX_SECRETSTORE_EN
         "On Linux, wxWidgets also needs libsecret development support (for example libsecret-1-dev) when it is built."
     )
 endif()
+
+find_package(harfbuzz CONFIG REQUIRED)
+find_package(Freetype REQUIRED)
+find_package(ICU REQUIRED COMPONENTS uc i18n)

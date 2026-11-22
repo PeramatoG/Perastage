@@ -28,6 +28,9 @@
     "zlib",
     "nanovg",
     "podofo",
+    { "name": "harfbuzz", "default-features": false },
+    "freetype",
+    "icu",
     "meshoptimizer",
     "backward-cpp",
     "mdns"

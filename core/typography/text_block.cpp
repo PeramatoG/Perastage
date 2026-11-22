@@ -1,29 +1,30 @@
 #include "text_block.h"
 #include "font_resources.h"
+#include "unicode_shaping.h"
 #include <algorithm>
 #include <cmath>
 
 namespace typography {
 namespace {
-struct RunGlyph {
-  PositionedGlyph glyph;
-  const TextBlock::Run *style;
-  double ascent, descent, height, size;
-};
-
-bool IsBreak(const RunGlyph &glyph) {
-  return glyph.glyph.codepoint == ' ' || glyph.glyph.codepoint == '\t';
+FontLineMetrics Metrics(const TtfFontMetrics *font, double size) {
+  return font ? MeasureFontLine(*font, size) : FontLineMetrics{0, 0, size};
 }
 
-void AddGlyph(TextBlockPlan &plan, RunGlyph &entry, double x, double baseline) {
-  const auto &style = *entry.style;
-  if (entry.glyph.advance > 0 && style.underline)
-    plan.decorations.push_back({x, baseline + entry.size * 0.08, entry.glyph.advance,
-                               entry.size * 0.05, style.color});
-  if (entry.glyph.advance > 0 && style.strikethrough)
-    plan.decorations.push_back({x, baseline - entry.ascent * 0.35, entry.glyph.advance,
-                               entry.size * 0.05, style.color});
-  plan.glyphs.push_back({std::move(entry.glyph), x, baseline, entry.size, style.color});
+bool IsSpace(const PositionedGlyph &glyph) {
+  return glyph.codepoint == ' ' || glyph.codepoint == '\t';
+}
+
+std::vector<ShapingStyle> SliceStyles(const std::vector<ShapingStyle> &styles,
+                                     size_t start, size_t end) {
+  std::vector<ShapingStyle> slice;
+  auto first = std::upper_bound(styles.begin(), styles.end(), start,
+      [](size_t offset, const ShapingStyle &style) { return offset < style.start; });
+  if (first != styles.begin()) --first;
+  for (; first != styles.end() && first->start < end; ++first) {
+    slice.push_back(*first);
+    slice.back().start = first->start > start ? first->start - start : 0;
+  }
+  return slice;
 }
 }
 
@@ -35,62 +36,76 @@ TextBlockPlan ComposeTextBlock(const TextBlock &block, double width, double heig
   if (block.containsUnsupportedObjects)
     plan.diagnostics.insert("Some rich-text objects cannot be rendered. The original data is retained.");
   const double defaultSize = std::clamp(block.fontSize, 1, 1024);
-  const auto empty = Compose("", {defaultSize, TextUnit::PaperPoints, block.bold}, catalog, {});
+  const auto defaultFace = catalog.Resolve({}, block.bold, block.italic).face;
+  const auto defaultMetrics = Metrics(defaultFace ? &defaultFace->metrics : nullptr, defaultSize);
   double top = padding;
   for (const auto &paragraph : block.lines) {
-    std::vector<RunGlyph> glyphs;
-    for (const auto &run : paragraph.runs) {
+    std::string text;
+    std::vector<ShapingStyle> styles;
+    for (size_t i = 0; i < paragraph.runs.size(); ++i) {
+      const auto &run = paragraph.runs[i];
+      if (run.text.empty()) continue;
       const double size = run.fontSize > 0 ? std::min(run.fontSize, 1024) : defaultSize;
-      auto composed = Compose(run.text, {size, TextUnit::PaperPoints, run.bold, 0, 0},
-                              catalog, run.family, run.italic);
-      if (composed.fontIssue != FontIssue::None)
-        plan.diagnostics.insert(DescribeFontIssue(catalog, run.family, run.bold, composed.fontIssue, run.italic));
-      if (!composed.unsupportedBytes.empty())
-        plan.diagnostics.insert("Some text characters are unavailable in the approved fonts.");
-      for (auto &glyph : composed.glyphs)
-        glyphs.push_back({std::move(glyph), &run, composed.ascent,
-                          composed.descent, composed.lineHeight, size});
+      const auto resolved = catalog.Resolve(run.family, run.bold, run.italic);
+      if (resolved.issue != FontIssue::None)
+        plan.diagnostics.insert(DescribeFontIssue(catalog, run.family, run.bold, resolved.issue, run.italic));
+      styles.push_back({text.size(), i, size, CompositionFonts(catalog, resolved.face, run.bold, run.italic)});
+      text += run.text;
     }
-
+    auto shaped = ShapeStyledLine(text, styles);
+    if (!shaped.unsupportedBytes.empty())
+      plan.diagnostics.insert("Some text characters are unavailable in the approved fonts.");
+    const auto left = padding + paragraph.leftIndent;
+    const auto right = width - padding - paragraph.rightIndent;
+    const auto widthFor = [&](size_t start) {
+      return std::max(0.0, right - left - (start == 0 ? paragraph.firstLineIndent : 0));
+    };
+    const auto breaks = WrapShapedLine(text, shaped, block.wrap ? widthFor(0) : -1, widthFor(1));
     top += paragraph.spaceBefore;
     size_t start = 0;
-    do {
-      const auto left = padding + paragraph.leftIndent + (start == 0 ? paragraph.firstLineIndent : 0);
-      const auto right = width - padding - paragraph.rightIndent;
-      const auto available = std::max(0.0, right - left);
-      double used = 0, atBreak = 0;
-      size_t end = start, wrapAt = start;
-      for (; end < glyphs.size(); ++end) {
-        const auto advance = glyphs[end].glyph.advance;
-        if (block.wrap && end > start && used + advance > available) break;
-        used += advance;
-        if (IsBreak(glyphs[end])) { wrapAt = end + 1; atBreak = used; }
+    for (const auto end : breaks) {
+      auto line = breaks.size() == 1 ? std::move(shaped)
+          : ShapeStyledLine(std::string_view(text).substr(start, end - start),
+                            SliceStyles(styles, start, end), text, start);
+      auto ascent = defaultMetrics.ascent, descent = defaultMetrics.descent, lineHeight = defaultMetrics.lineHeight;
+      for (const auto &glyph : line.glyphs) {
+        const auto &run = paragraph.runs[glyph.styleIndex];
+        const double size = run.fontSize > 0 ? std::min(run.fontSize, 1024) : defaultSize;
+        const auto *face = catalog.FindResource(glyph.resourceId);
+        const auto metrics = Metrics(face ? &face->metrics : nullptr, size);
+        ascent = std::max({ascent, metrics.ascent, glyph.offsetY + glyph.ink.top});
+        descent = std::max({descent, metrics.descent, -glyph.offsetY - glyph.ink.bottom});
+        lineHeight = std::max(lineHeight, metrics.lineHeight);
       }
-      if (end < glyphs.size() && wrapAt > start) { end = wrapAt; used = atBreak; }
-      double ascent = empty.ascent, descent = empty.descent, lineHeight = empty.lineHeight;
-      for (size_t i = start; i < end; ++i) {
-        ascent = std::max(ascent, glyphs[i].ascent);
-        descent = std::max(descent, glyphs[i].descent);
-        lineHeight = std::max(lineHeight, glyphs[i].height);
-      }
-      const auto baseline = top + ascent;
       if (top >= height - padding) return plan;
+      const auto baseline = top + ascent;
+      const auto available = widthFor(start);
       const auto alignment = paragraph.alignment.value_or(block.alignment);
-      double x = left, extra = 0;
-      if (alignment == TextBlock::Alignment::Center) x += (available - used) / 2;
-      if (alignment == TextBlock::Alignment::Right) x += available - used;
-      if (alignment == TextBlock::Alignment::Justified && end < glyphs.size()) {
-        const auto spaces = std::count_if(glyphs.begin() + start, glyphs.begin() + end, IsBreak);
-        if (spaces) extra = std::max(0.0, available - used) / spaces;
+      double origin = left + (start == 0 ? paragraph.firstLineIndent : 0), extra = 0;
+      if (alignment == TextBlock::Alignment::Center) origin += (available - line.width) / 2;
+      if (alignment == TextBlock::Alignment::Right) origin += available - line.width;
+      if (alignment == TextBlock::Alignment::Justified && end < text.size()) {
+        const auto spaces = std::count_if(line.glyphs.begin(), line.glyphs.end(), IsSpace);
+        if (spaces) extra = std::max(0.0, available - line.width) / spaces;
       }
-      for (size_t i = start; i < end; ++i) {
-        const auto advance = glyphs[i].glyph.advance + (IsBreak(glyphs[i]) ? extra : 0);
-        AddGlyph(plan, glyphs[i], x, baseline);
-        x += advance;
+      double adjustment = 0;
+      for (auto &glyph : line.glyphs) {
+        const auto &run = paragraph.runs[glyph.styleIndex];
+        const double size = run.fontSize > 0 ? std::min(run.fontSize, 1024) : defaultSize;
+        const double x = origin + glyph.x + adjustment;
+        if (glyph.advance > 0 && run.underline)
+          plan.decorations.push_back({x, baseline + size * 0.08, glyph.advance, size * 0.05, run.color});
+        if (glyph.advance > 0 && run.strikethrough)
+          plan.decorations.push_back({x, baseline - size * 0.35, glyph.advance, size * 0.05, run.color});
+        if (IsSpace(glyph)) adjustment += extra;
+        const auto y = baseline - glyph.offsetY;
+        glyph.sourceBegin += start;
+        glyph.sourceEnd += start;
+        plan.glyphs.push_back({std::move(glyph), x, y, size, run.color});
       }
       top += std::max(lineHeight, ascent + descent) * std::clamp(paragraph.lineSpacing, 0.5, 5.0);
       start = end;
-    } while (start < glyphs.size());
+    }
     top += paragraph.spaceAfter;
   }
   return plan;

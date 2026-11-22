@@ -12,19 +12,27 @@ struct TextStyle {
   double maxWidth = 0;
   int alignment = 1; // Left, center, right.
 };
+struct TextBounds {
+  double left = 0, bottom = 0, right = 0, top = 0;
+};
 struct PositionedGlyph {
   std::string text;
   double x = 0, baseline = 0, advance = 0;
   std::string_view resourceId;
   uint32_t codepoint = 0;
   uint16_t glyphId = 0;
+  size_t sourceBegin = 0, sourceEnd = 0;
+  double offsetX = 0, offsetY = 0;
+  uint32_t script = 0;
+  bool rightToLeft = false;
+  bool clusterContinuation = false;
+  size_t styleIndex = 0;
+  TextBounds ink; // Bounds relative to the positioned glyph origin.
 };
 struct ComposedLine {
   size_t first = 0, count = 0;
   double width = 0, baseline = 0;
-};
-struct TextBounds {
-  double left = 0, bottom = 0, right = 0, top = 0;
+  size_t sourceEnd = 0;
 };
 struct Composition {
   TextStyle style;

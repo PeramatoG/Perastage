@@ -31,6 +31,11 @@ struct TtfFontMetrics {
   bool valid = false;
 };
 
+struct FontLineMetrics {
+  double ascent = 0, descent = 0, lineHeight = 0;
+};
+FontLineMetrics MeasureFontLine(const TtfFontMetrics &, double size);
+
 bool ReadFileToString(const std::filesystem::path &path, std::string &out);
 bool FindTable(const std::string &data, uint32_t tag, uint32_t &offset,
                uint32_t &length);
