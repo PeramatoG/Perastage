@@ -365,7 +365,8 @@ public:
         Require(bool(previousResource), "The initial preview face is unavailable");
         auto index = previousResource->family == "Source Sans 3" ? 1 : 2;
         selectedFamily_ = index == 1 ? "Noto Serif" : "Source Sans 3";
-        if (const auto *external = std::getenv("PERASTAGE_SMOKE_INSTALLED_FONT"); external && *external) {
+        if (const auto *external = std::getenv("PERASTAGE_SMOKE_INSTALLED_FONT");
+            external && *external && previousResource->family != external) {
           auto *picker = dynamic_cast<wxChoice *>(editor_->FindWindowByName("fixtureLabelFontFamily", editor_));
           Require(picker, "Fixture label font picker missing");
           index = picker->FindString(wxString::FromUTF8(std::string(external) + " (installed)"));
