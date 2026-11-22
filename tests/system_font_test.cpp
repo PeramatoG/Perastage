@@ -11,19 +11,26 @@ int main(int argc, char **argv) {
     const std::filesystem::path watched(argv[1]);
     const auto discover = [] { return GetFontCatalog(PERASTAGE_TEST_RESOURCE_DIR, FontRefresh::All); };
     const auto files = Sans();
+    const auto directoryStamp = std::filesystem::last_write_time(watched.parent_path());
+    const auto simulateCoarseClock = [&] {
+      std::filesystem::last_write_time(watched.parent_path(), directoryStamp);
+    };
     const auto uninstalled = discover();
     assert(uninstalled->Resolve(sans, false).issue == FontIssue::Missing);
     std::filesystem::copy_file(files.path, watched);
+    simulateCoarseClock();
     const auto installed = discover();
     const auto reference = installed->ReferenceForFamily(sans);
     const auto face = installed->Resolve(reference, false).face;
     assert(face && face->source == FontSource::InstalledSystem);
     assert(installed->Signature() != uninstalled->Signature());
     std::filesystem::remove(watched);
+    simulateCoarseClock();
     const auto removed = discover();
     assert(removed->Resolve(reference, false).issue == FontIssue::Missing);
     assert(installed->Resolve(reference, false).face->fingerprint == face->fingerprint);
     std::filesystem::copy_file(files.path, watched);
+    simulateCoarseClock();
     assert(discover()->Resolve(reference, false).face->fingerprint == face->fingerprint);
     return 0;
   }

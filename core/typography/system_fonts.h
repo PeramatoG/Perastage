@@ -30,6 +30,6 @@ struct SystemFontRecord {
 };
 
 struct FontResource;
-std::vector<SystemFontRecord> DiscoverSystemFonts();
+std::vector<SystemFontRecord> DiscoverSystemFonts(bool refresh = false);
 FontIssue LoadSystemFont(const SystemFontRecord &, FontResource &);
 }

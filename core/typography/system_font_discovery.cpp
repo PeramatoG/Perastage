@@ -14,6 +14,7 @@
 #endif
 #include <algorithm>
 #include <memory>
+#include <set>
 #include <tuple>
 
 namespace typography {
@@ -156,9 +157,43 @@ int Number(FcPattern *font, const char *key, int fallback) {
   return FcPatternGetInteger(font, key, 0, &value) == FcResultMatch ? value : fallback;
 }
 
-void Enumerate(std::vector<SystemFontRecord> &records) {
-  const std::unique_ptr<FcConfig, decltype(&FcConfigDestroy)> config(FcInitLoadConfigAndFonts(), FcConfigDestroy);
+// Fontconfig caches may retain the same directory timestamp across consecutive
+// installs and removals. Force the provider to rebuild its registered directories
+// only when the user requests a refresh.
+using DirectoryCache = std::unique_ptr<FcCache, decltype(&FcDirCacheUnload)>;
+std::vector<DirectoryCache> RefreshDirectories(FcConfig *config) {
+  const std::unique_ptr<FcStrList, decltype(&FcStrListDone)> dirs(FcConfigGetFontDirs(config), FcStrListDone);
+  std::vector<std::string> pending;
+  if (dirs) {
+    while (const auto *dir = FcStrListNext(dirs.get()))
+      pending.emplace_back(reinterpret_cast<const char *>(dir));
+  }
+  std::vector<DirectoryCache> caches;
+  std::set<std::filesystem::path> visited;
+  constexpr size_t maxDirectories = 8192;
+  for (size_t i = 0; i < pending.size() && i < maxDirectories; ++i) {
+    const auto requested = pending[i];
+    std::error_code error;
+    const auto canonical = std::filesystem::canonical(requested, error);
+    if (error || !visited.insert(canonical).second) continue;
+    DirectoryCache cache(FcDirCacheRead(reinterpret_cast<const FcChar8 *>(requested.c_str()),
+                                        FcTrue, config), FcDirCacheUnload);
+    if (!cache) continue;
+    for (int j = 0; j < FcCacheNumSubdir(cache.get()) && pending.size() < maxDirectories; ++j) {
+      if (const auto *child = FcCacheSubdir(cache.get(), j))
+        pending.emplace_back(reinterpret_cast<const char *>(child));
+    }
+    caches.push_back(std::move(cache));
+  }
+  return caches;
+}
+
+void Enumerate(std::vector<SystemFontRecord> &records, bool refresh) {
+  const std::unique_ptr<FcConfig, decltype(&FcConfigDestroy)> config(
+      refresh ? FcInitLoadConfig() : FcInitLoadConfigAndFonts(), FcConfigDestroy);
   if (!config) return;
+  const auto refreshed = refresh ? RefreshDirectories(config.get()) : std::vector<DirectoryCache>{};
+  if (refresh && !FcConfigBuildFonts(config.get())) return;
   const std::unique_ptr<FcPattern, decltype(&FcPatternDestroy)> query(FcPatternCreate(), FcPatternDestroy);
   const std::unique_ptr<FcObjectSet, decltype(&FcObjectSetDestroy)> fields(
       FcObjectSetBuild(FC_FILE, FC_INDEX, FC_FAMILY, FC_STYLE, FC_POSTSCRIPT_NAME,
@@ -180,9 +215,14 @@ void Enumerate(std::vector<SystemFontRecord> &records) {
 #endif
 }
 
-std::vector<SystemFontRecord> DiscoverSystemFonts() {
+std::vector<SystemFontRecord> DiscoverSystemFonts(bool refresh) {
   std::vector<SystemFontRecord> records;
+#if defined(_WIN32) || defined(__APPLE__)
+  (void)refresh;  // Native registration APIs provide a current snapshot.
   Enumerate(records);
+#else
+  Enumerate(records, refresh);
+#endif
   std::erase_if(records, [](const auto &record) { return record.path.empty() || record.family.empty(); });
   std::stable_sort(records.begin(), records.end(), [](const auto &a, const auto &b) {
     return std::tie(a.family, a.italic, a.weight, a.width, a.postScriptName, a.path, a.index) <

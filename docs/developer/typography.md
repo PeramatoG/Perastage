@@ -39,7 +39,9 @@ use. Glyphs carry owned fingerprint strings. FreeType outlines and HarfBuzz
 shaping use the same file bytes and collection index. The cache rejects an
 unloaded face if its file changed after discovery. Refresh publishes a new
 snapshot, allowing open project references and render caches to resolve
-against the updated font collection.
+against the updated font collection. An explicit Linux refresh forces Fontconfig
+to rebuild its registered directory caches even when directory timestamps have
+not changed. Startup uses the normal operating-system caches.
 
 System font references keep the authored family and the per-style PostScript
 names and fingerprints when available. Layout rich text records these

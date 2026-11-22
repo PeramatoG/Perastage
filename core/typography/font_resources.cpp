@@ -271,7 +271,9 @@ std::shared_ptr<const FontCatalog> GetFontCatalog(const std::filesystem::path &r
   if (auto current = cached()) return current;
   const std::lock_guard initLock(initialize);
   if (auto current = cached()) return current;
-  auto next = std::make_shared<const FontCatalog>(root);
+  auto next = refresh == FontRefresh::All ?
+      std::make_shared<const FontCatalog>(root, SystemFontRoots(), DiscoverSystemFonts(true)) :
+      std::make_shared<const FontCatalog>(root);
   std::lock_guard lock(mutex);
   catalog = next;
   loadedRoot = root;
