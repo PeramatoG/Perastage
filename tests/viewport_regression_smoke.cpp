@@ -127,16 +127,12 @@ class ViewportSmoke : public wxApp {
     return pixels;
   }
   void Bold() {
-    for (wxWindow *child : editor_->GetChildren()) {
-      auto *check = dynamic_cast<wxCheckBox *>(child);
-      if (check && check->GetLabel() == "Bold") {
-        check->SetValue(!check->GetValue());
-        wxCommandEvent event(wxEVT_CHECKBOX, check->GetId());
-        event.SetEventObject(check); check->GetEventHandler()->ProcessEvent(event);
-        return;
-      }
-    }
-    throw std::runtime_error("Editor Bold property missing");
+    auto *check = dynamic_cast<wxCheckBox *>(wxWindow::FindWindowByLabel("Bold", editor_));
+    Require(check, "Editor Bold property missing");
+    check->SetValue(!check->GetValue());
+    wxCommandEvent event(wxEVT_CHECKBOX, check->GetId());
+    event.SetEventObject(check);
+    check->GetEventHandler()->ProcessEvent(event);
   }
   void Select(const std::vector<std::string> &ids) {
     auto *table = FixtureTablePanel::Instance();
@@ -421,6 +417,8 @@ public:
         cfg.SetValue("layout_perspective", manager->SavePerspective().ToStdString());
         Require(cfg.SaveProject((scratch/"scene.pstg").string()), "Save with a 2D perspective failed");
         Require(frame_->LoadProjectFromPath((scratch/"scene.pstg").string(), false), "Reload with perspective failed");
+        Require(cfg.GetValue("label_fixture_overrides").value_or("") == labels_,
+                "Reopening the project changed the saved fixture font reference");
         break;
       case 8:
         editor_=new FixtureLabelEditor(frame_,cfg,0);editor_->Show();break;
