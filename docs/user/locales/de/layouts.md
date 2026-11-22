@@ -64,7 +64,7 @@ Bei fehlenden Ansichten, falscher Ausgabe oder Exportfehlern siehe [Fehlerbehebu
 
 ## Dokumenttypografie
 
-Wählen Sie unter **Schriftfamilie** PerastageSans, Noto Serif oder Source Sans 3 für Gerätebeschriftungen, Legenden, Ereignistabellen und Texte. Markieren Sie im Texteditor eine Passage, um deren Schrift zu ändern. Ohne Markierung gilt die Auswahl für das gesamte Element. Die PDF-Datei bettet zugelassene Schriften ein und macht unterstützten Text auswählbar.
+Wählen Sie unter **Schriftfamilie** PerastageSans, Noto Serif, Source Sans 3 oder Noto Sans Mono für Gerätebeschriftungen, Legenden, Ereignistabellen und Texte. Markieren Sie im Texteditor eine Passage, um deren Schrift zu ändern. Ohne Markierung gilt die Auswahl für das gesamte Element. Die PDF-Datei bettet zugelassene Schriften ein und macht unterstützten Text auswählbar. Die **Dokumentvorschau** zeigt die Darstellung im Layout. **Schriften aktualisieren** prüft die zugelassenen Schriftdateien erneut.
 
 Fehlt eine Schrift, behält Perastage die gespeicherte Auswahl bei, verwendet eine zugelassene Ersatzschrift und meldet die Ersetzung in den Exportdetails. Öffnen Sie das Projekt erneut, sobald die Schrift wieder verfügbar ist.
 

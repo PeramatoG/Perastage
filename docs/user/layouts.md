@@ -125,9 +125,11 @@ viewports. See [Fixture labels](views.md#fixture-labels) for scope and units.
 Use **Font family** when editing a legend or Event Table. The selection applies
 to that element and preserves its Regular and Bold roles. For free text, select
 a span to apply a family to that span or leave the selection empty to apply it
-to the whole element. Each text element can use different fonts. PerastageSans
-supports real italic faces. An italic request in another family uses an
-approved default italic face and appears in the PDF completion details.
+to the whole element. Each text element can use different fonts. PerastageSans,
+Noto Serif and Source Sans 3 have genuine italic and bold italic faces. Noto
+Sans Mono has Regular and Bold. Use **Document preview** in the text editor
+to see the shared Layout rendering. The native editing control can display a
+different system rendering while you edit.
 
 ### Event Table preview and PDF
 
@@ -136,14 +138,13 @@ scale transform the composition. Legends wrap group names within their columns.
 Event Table cells display one line and use an ellipsis for overflow when it
 fits. The complete source remains editable in both cases.
 
-PerastageSans, Noto Serif and Source Sans 3 are bundled. A project retains the
-requested family if it is temporarily unavailable. Perastage uses the approved
-default and reports the substitution. Reopen the project after restoring the missing
-font resources to recover the requested appearance. Spanish accents,
-punctuation and other characters covered by the bundled faces remain selectable
-in PDF. Missing glyphs are marked in the drawing and reported in the export
-details. Complex-script shaping and bidirectional layout are outside the
-current repertoire.
+A project retains the requested family if it is temporarily unavailable.
+Perastage uses an approved fallback and reports the substitution. After
+restoring approved resources, reopen the project or use **Refresh fonts** in
+the Layout text editor. The bundled faces support Spanish accents, Greek,
+Cyrillic, and common Arabic and Hebrew text. PDF preserves supported shaped
+text for selection and searching. Missing glyphs such as unsupported CJK and
+emoji are marked in the drawing and reported in the export details.
 
 ### Output paper size
 

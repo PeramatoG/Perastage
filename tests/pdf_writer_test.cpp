@@ -175,12 +175,13 @@ int main() {
   const auto b = typography::Compose("Euro € — Süd\nÉclairage", style, fonts.regular);
   assert(a.unsupportedBytes.empty() && a.lines.size() == 4 && a.lines.size() == b.lines.size());
   const std::array<std::string,4> expectedLines{"Euro € ", "— Süd", "Éclairag", "e"};
-  const std::array<double,4> expectedWidths{39.408,36.504,44.424,6.768};
   for (size_t i=0; i<4; ++i) {
     std::string line;
     for (size_t j=a.lines[i].first; j<a.lines[i].first+a.lines[i].count; ++j) line += a.glyphs[j].text;
     assert(line == expectedLines[i]);
-    assert(std::abs(a.lines[i].width - expectedWidths[i]) < 0.000001);
+    auto unwrapped = style;
+    unwrapped.maxWidth = 0;
+    assert(std::abs(a.lines[i].width - typography::Compose(line, unwrapped, fonts.regular).lines.front().width) < 1e-6);
     assert(std::abs(a.lines[i].baseline + i*16.344) < 0.000001);
   }
   assert(fonts.regular.glyphAdvances[fonts.regular.GlyphFor(0x20ac)] == 572); // Euro, not U+0080.
@@ -210,6 +211,7 @@ int main() {
   for (const auto *font : {&fonts.regular, &fonts.bold}) {
     for (unsigned code = 32; code < 256; ++code) {
       const auto outline = typography::ReadGlyphOutlineById(*font, font->GlyphFor(code));
+      assert(outline);
       for (const auto &p : outline->path)
         assert(std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.cx) && std::isfinite(p.cy));
     }
@@ -229,10 +231,10 @@ int main() {
     return p.kind == typography::GlyphPathElement::Kind::Quadratic;
   }));
   auto truncated = fonts.regular; truncated.data.resize(4);
-  bool invalidContour = false;
-  try { typography::ReadGlyphOutlineById(truncated, fonts.regular.GlyphFor('A')); }
-  catch (const std::runtime_error &) { invalidContour = true; }
-  assert(invalidContour);
+  assert(!typography::ReadGlyphOutlineById(truncated, fonts.regular.GlyphFor('A')));
+  assert(!typography::ReadGlyphOutlineById(fonts.regular, UINT16_MAX));
+  const auto fallbackOutline = typography::ResolveGlyphOutline(*fonts.catalog, fonts.regular.resourceId, UINT16_MAX);
+  assert(fallbackOutline && fallbackOutline->substituted && !fallbackOutline->path.empty());
 
   TextCommand outlined;
   outlined.text = "A"; outlined.style.fontFamily = "perastage-sans";

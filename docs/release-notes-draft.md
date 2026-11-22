@@ -6,10 +6,12 @@
   capture loss; drags no longer open menus. Quick fixture patch edits now validate
   DMX assignments and support atomic Undo/Redo.
 
-- Choose PerastageSans, Noto Serif or Source Sans 3 for fixture labels, Layout
-  text, legends and event tables. Labels and Layout elements share font geometry
-  with PDF export. PDFs embed approved faces and preserve supported text for
-  searching and selection. Saved font choices survive temporary substitutions.
+- Choose PerastageSans, Noto Serif, Source Sans 3 or Noto Sans Mono for fixture
+  labels, Layout text, legends and event tables. Rich text supports genuine
+  serif and Source Sans italics. Layout and PDF use shared glyph placement for
+  kerning, ligatures, combining marks and supported Arabic and Hebrew.
+  The Layout text editor includes a document preview and a font refresh action.
+  Saved selections survive temporary substitutions.
 
 - Reuse named fixture label styles across Layout viewports and pages, with local
   viewport and selected-fixture adjustments in the existing label editor. Styles

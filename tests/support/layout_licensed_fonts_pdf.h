@@ -2,6 +2,8 @@
 
 #include "pdf_unicode_test_utils.h"
 #include "typography/font_resources.h"
+#include "pdf_objects.h"
+#include <algorithm>
 #include <iterator>
 #include "viewer2dpdfexporter.h"
 #include <cassert>
@@ -20,6 +22,14 @@ inline void WriteLicensedFontLayout(const std::filesystem::path &path) {
   notes.lines = {{{{"Notas: € / Ω / Ж", 14, false, false, "Noto Serif"}}},
                  {{{"Fallback de proyecto", 12, true, false, "Unverified Font"}}}};
 
+  LayoutTextExportData shaped;
+  shaped.frame = {12, 555, 480, 190};
+  shaped.lines = {{{{"AV To fi ffi é é Å Å x́", 14, false, true, "Noto Serif"}}},
+                  {{{"Scene 12 — שלום", 14, false, false, "Noto Sans Mono"}}},
+                  {{{"Fixture 24 — مرحبا", 14, true, true, "Source Sans 3"}}},
+                  {{{"España · Iluminación · À È É Ñ Ü ß € £ © ™", 14, false, false, "Noto Sans Mono"}}},
+                  {{{"Αθήνα — Москва — Журнал · 🙼", 14, false, false, "Noto Sans Mono"}}},
+                  {{{"Unsupported: 灯 😀", 14, false, false, "Noto Serif"}}}};
   LayoutLegendExportData legend;
   legend.frame = {12, 140, 480, 120};
   legend.fontFamily = "Source Sans 3";
@@ -63,9 +73,10 @@ inline void WriteLicensedFontLayout(const std::filesystem::path &path) {
   Viewer2DPrintOptions options;
   options.compressStreams = false;
   options.floatPrecision = 6;
-  const auto result = ExportLayoutToPdf({viewport}, {legend}, {table}, {title, notes}, {}, options, path);
-  assert(result.success && result.fontDiagnostics.size() == 1);
-  assert(result.fontDiagnostics.front().find("Unverified Font") != std::string::npos);
+  const auto result = ExportLayoutToPdf({viewport}, {legend}, {table}, {title, notes, shaped}, {}, options, path);
+  assert(result.success && result.fontDiagnostics.size() == 2);
+  assert(std::any_of(result.fontDiagnostics.begin(), result.fontDiagnostics.end(),
+      [](const auto &warning) { return warning.find("Unverified Font") != std::string::npos; }));
   std::ifstream file(path, std::ios::binary);
   const std::string pdf{std::istreambuf_iterator<char>(file), {}};
   for (const auto name : {"SourceSans3-Bold", "SourceSans3-Regular", "NotoSerif-Regular",
@@ -73,7 +84,16 @@ inline void WriteLicensedFontLayout(const std::filesystem::path &path) {
     assert(pdf.find(std::string("/BaseFont /") + name) != std::string::npos);
   assert(pdf.find("/WinAnsiEncoding") == std::string::npos);
   assert(pdf.find("/Helvetica") == std::string::npos);
-  const auto extracted = pdf_test::Text(pdf_test::PageStream(pdf, true));
+  assert(pdf.find("/ActualText <FEFF00780301>") != std::string::npos);
+  const auto stream = pdf_test::PageStream(pdf, true);
+  const auto plan = typography::ComposeTextBlock(shaped, shaped.frame.width, shaped.frame.height, catalog);
+  const layout_pdf_internal::FloatFormatter fmt(options.floatPrecision);
+  for (const auto &glyph : plan.glyphs) {
+    const auto x = shaped.frame.x + glyph.x;
+    const auto y = options.pageHeightPt - shaped.frame.y - glyph.baseline;
+    assert(stream.find(fmt.Format(x) + " " + fmt.Format(y) + " Tm") != std::string::npos);
+  }
+  const auto extracted = pdf_test::Text(stream);
   for (const auto text : {"Producción Málaga — Diseño", "Notas: € / Ω / Ж", "Fallback de proyecto",
                           "Foco Escénico", "Teatro Español", "Lámpara Ágil"})
     assert(extracted.find(text) != std::string::npos);

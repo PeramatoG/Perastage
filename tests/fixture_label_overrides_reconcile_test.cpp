@@ -175,6 +175,25 @@ int main() {
   draft[validFixture.uuid].fieldStyles[0][0]->fontFamily = "Source Sans 3";
   const auto &selected = compositionCache.Resolve(cfg, draft, validFixture, 0, bounds, fonts);
   const auto *sourceSans = fonts.catalog->Resolve("Source Sans 3", style.bold).face;
+  auto mix = draft;
+  auto &mixedStyles = mix.at(validFixture.uuid).fieldStyles[0];
+  mixedStyles[0]->bold = true;
+  mixedStyles[1]->fontFamily = "Noto Serif";
+  mixedStyles[1]->bold = false;
+  mixedStyles[2]->fontFamily = "PerastageSans";
+  const auto mixed = viewer2d::ComposeFixtureLabels(cfg, mix, validFixture, 0, bounds, fonts);
+  for (size_t field = 0; field < mixed.fields.size(); ++field) {
+    assert(mixed.fields[field]);
+    const auto &geometry = *mixed.fields[field];
+    const auto &settings = *mixedStyles[field];
+    const auto &ink = mixed.text[geometry.first].style;
+    const auto expected = fonts.catalog->Resolve(settings.fontFamily, settings.bold).face;
+    assert(ink.fontResource == expected->fingerprint);
+    const auto metrics = typography::MeasureFontLine(expected->metrics, settings.size);
+    assert(std::abs(ink.ascent - metrics.ascent) < 1e-6);
+    assert(std::abs(ink.descent - metrics.descent) < 1e-6);
+    assert(geometry.bounds.maxY - geometry.bounds.minY >= ink.ascent + ink.descent - 1e-6);
+  }
   const auto beforeFontEdit = cfg.GetValue("label_fixture_overrides");
   assert(!selected.text.empty() && selected.text.front().style.fontResource == sourceSans->fingerprint);
   assert(viewer2d::CommitFixtureLabelStyles(cfg, draft));

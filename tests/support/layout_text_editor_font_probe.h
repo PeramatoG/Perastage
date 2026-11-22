@@ -15,7 +15,7 @@ inline void CheckLayoutTextEditorFontSelection(wxWindow &parent) {
   for (auto *child : dialog.GetChildren()) {
     if (auto *control = dynamic_cast<wxRichTextCtrl *>(child)) rich = control;
   }
-  if (!family || !rich || family->GetCount() != 3)
+  if (!family || !rich || family->GetCount() != 4)
     throw std::runtime_error("The native Layout editor is missing approved families");
 
   const auto select = [&](int start, int stop, int index) {

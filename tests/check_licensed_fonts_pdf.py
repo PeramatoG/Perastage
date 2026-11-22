@@ -19,18 +19,32 @@ with tempfile.TemporaryDirectory() as temp:
         "NotoSerif-Regular",
         "NotoSerif-Bold",
         "NotoSans-Bold",
+        "NotoSansArabic-Bold",
+        "NotoSansHebrew-Regular",
+        "NotoSansMono-Regular",
+        "NotoSerif-Italic",
+        "SourceSans3-BoldIt",
     }
     assert {row[0] for row in rows} == expected, fonts
     assert all(row[1:7] == ["CID", "TrueType", "Identity-H", "yes", "no", "yes"] for row in rows), fonts
 
-    text = run(sys.argv[3], "-raw", str(path), "-")
-    for content in (
-        "Producción Málaga — Diseño",
-        "Notas: € / Ω / Ж",
-        "Fallback de proyecto",
-        "Foco Escénico",
-        "Teatro Español",
-        "Lámpara Ágil",
-    ):
-        assert text.count(content) == 1, (content, text)
+    # Poppler puts embedding controls around RTL runs. Compare the source
+    # Unicode in logical order and count clusters without normalizing accents.
+    for args in (("-raw",), ()):
+        text = run(sys.argv[3], *args, str(path), "-").replace("\u202b", "").replace("\u202c", "")
+        for content in (
+            "Producción Málaga — Diseño",
+            "Notas: € / Ω / Ж",
+            "Fallback de proyecto",
+            "Foco Escénico",
+            "Teatro Español",
+            "Lámpara Ágil",
+            "AV To fi ffi é é Å Å x́",
+            "Scene 12 — שלום",
+            "Fixture 24 — مرحبا",
+            "España · Iluminación · À È É Ñ Ü ß € £ © ™",
+            "Αθήνα — Москва — Журнал · 🙼",
+            "Unsupported: 灯 😀",
+        ):
+            assert text.count(content) == 1, (content, text)
     assert "Pages:" in run(sys.argv[4], str(path))

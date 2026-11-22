@@ -64,7 +64,7 @@ Si faltan vistas, el resultado es incorrecto o falla la exportación, consulta [
 
 ## Tipografía del documento
 
-Usa **Familia tipográfica** para elegir PerastageSans, Noto Serif o Source Sans 3 en las etiquetas de aparatos, leyendas, tablas de eventos y textos. En el editor de texto, selecciona un fragmento para cambiar solo ese fragmento o deja la selección vacía para cambiar todo el elemento. El PDF incrusta las fuentes aprobadas y permite seleccionar el texto compatible.
+Usa **Familia tipográfica** para elegir PerastageSans, Noto Serif, Source Sans 3 o Noto Sans Mono en las etiquetas de aparatos, leyendas, tablas de eventos y textos. En el editor de texto, selecciona un fragmento para cambiar solo ese fragmento o deja la selección vacía para cambiar todo el elemento. El PDF incrusta las fuentes aprobadas y permite seleccionar el texto compatible. Usa **Vista previa del documento** para revisar el resultado del diseño. **Actualizar fuentes** vuelve a comprobar los recursos aprobados.
 
 Si falta una fuente, Perastage conserva la elección guardada, usa una fuente de sustitución aprobada y muestra el aviso en los detalles de exportación. Vuelve a abrir el proyecto después de restaurar la fuente.
 

@@ -24,10 +24,7 @@ inline std::string Reference(const std::string &dictionary, const std::string &n
       dictionary.find(' ', pos + name.size() + 2) - pos - name.size() - 2);
 }
 
-inline std::string Utf8(std::string hex) {
-  uint32_t cp = std::stoul(hex.substr(0, 4), nullptr, 16);
-  if (hex.size() == 8)
-    cp = 0x10000 + ((cp - 0xd800) << 10) + std::stoul(hex.substr(4), nullptr, 16) - 0xdc00;
+inline std::string Utf8Scalar(uint32_t cp) {
   if (cp < 0x80) return {static_cast<char>(cp)};
   if (cp < 0x800)
     return {static_cast<char>(0xc0 | (cp >> 6)), static_cast<char>(0x80 | (cp & 63))};
@@ -37,6 +34,19 @@ inline std::string Utf8(std::string hex) {
   text += static_cast<char>(0x80 | ((cp >> 6) & 63));
   text += static_cast<char>(0x80 | (cp & 63));
   return text;
+}
+
+inline std::string Utf8(const std::string &hex) {
+  std::string result;
+  for (size_t i = 0; i + 4 <= hex.size(); i += 4) {
+    auto cp = std::stoul(hex.substr(i, 4), nullptr, 16);
+    if (cp >= 0xd800 && cp <= 0xdbff && i + 8 <= hex.size()) {
+      cp = 0x10000 + ((cp - 0xd800) << 10) + std::stoul(hex.substr(i + 4, 4), nullptr, 16) - 0xdc00;
+      i += 4;
+    }
+    result += Utf8Scalar(cp);
+  }
+  return result;
 }
 
 inline std::string PageStream(const std::string &pdf, bool decode = false) {
@@ -54,7 +64,7 @@ inline std::string PageStream(const std::string &pdf, bool decode = false) {
   };
   std::map<std::string, Font> fonts;
   const std::regex resource(R"(/(F[0-9]+) ([0-9]+) 0 R)");
-  const std::regex mapping(R"(<([0-9A-F]{4})> <([0-9A-F]{4,8})>)");
+  const std::regex mapping(R"(<([0-9A-F]{4})> <((?:[0-9A-F]{4})+)>)");
   for (std::sregex_iterator it(page.begin(), page.end(), resource), end; it != end; ++it) {
     auto &font = fonts[(*it)[1]];
     const auto dictionary = Object(pdf, (*it)[2]);
@@ -74,7 +84,8 @@ inline std::string PageStream(const std::string &pdf, bool decode = false) {
       line = font->name + line.substr(space);
     } else if (line.size() == 9 && line.front() == '<' && line.ends_with("> Tj")) {
       assert(font);
-      line = "glyph " + font->codepoints.at(line.substr(1, 4));
+      const auto decoded = font->codepoints.find(line.substr(1, 4));
+      line = decoded == font->codepoints.end() ? "" : "glyph " + decoded->second;
     }
     normalized << line << '\n';
   }
