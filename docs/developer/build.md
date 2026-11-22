@@ -22,6 +22,7 @@ this guide owns build prerequisites and procedures.
   - CURL
   - nanovg
   - PoDoFo
+  - HarfBuzz, FreeType and ICU
   - meshoptimizer
   - ZLIB
   - backward-cpp
@@ -48,7 +49,7 @@ Both presets use the schema-v3 top-level `toolchainFile` field to load `cmake/Pe
 Install or repair dependencies manually before configuring if they are missing. A typical one-time command is:
 
 ```powershell
-& "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows wxwidgets[secretstore] gettext[tools] tinyxml2 libxml2[core] curl glew zlib nanovg podofo meshoptimizer backward-cpp mdns
+& "$env:VCPKG_ROOT\vcpkg.exe" install --classic --triplet x64-windows wxwidgets[secretstore] gettext[tools] tinyxml2 libxml2[core] curl glew zlib nanovg podofo harfbuzz[core] freetype icu meshoptimizer backward-cpp mdns
 ```
 
 Gettext tools are build-time dependencies for localization catalog generation. On Windows they should resolve from `$env:VCPKG_ROOT\installed\x64-windows\tools\gettext\bin`. They are not Perastage runtime dependencies. Homebrew gettext is keg-only on macOS; add `$(brew --prefix gettext)/bin` to `PATH` before configuring CMake so `msgfmt`, `xgettext`, `msgmerge`, and `msgattrib` resolve consistently.
@@ -327,10 +328,11 @@ Could NOT find ZLIB (missing: ZLIB_LIBRARY ZLIB_INCLUDE_DIR)
 
 or a similar error for `tinyxml2`, `CURL`, `GLEW`, `meshoptimizer`, `nanovg`, `podofo`, `Backward`, or `mdns`, the most common cause is that CMake is using a different vcpkg installation than the one where Perastage dependencies were installed.
 
-First verify that the dependency is installed in the intended vcpkg instance. For example:
+A local vcpkg installation created before unified typography may need three
+additional packages. Install them into the same root used by CMake:
 
 ```powershell
-& "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows
+& "$env:VCPKG_ROOT\vcpkg.exe" install --classic --triplet x64-windows harfbuzz[core] freetype icu
 ```
 
 Then verify that the expected vcpkg instance exists:
@@ -339,6 +341,7 @@ Then verify that the expected vcpkg instance exists:
 Test-Path "$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
 Test-Path "$env:VCPKG_ROOT\installed\x64-windows\share\wxwidgets"
 Test-Path "$env:VCPKG_ROOT\installed\x64-windows\include\zlib.h"
+Test-Path "$env:VCPKG_ROOT\installed\x64-windows\share\harfbuzz\harfbuzzConfig.cmake"
 ```
 
 If the error path contains Visual Studio's internal vcpkg, for example:

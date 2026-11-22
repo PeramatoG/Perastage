@@ -56,6 +56,12 @@ for responsibility in (
 assert "Assert-PerastageWxSecretStoreHeaders -InstalledTriplet $Vcpkg.InstalledTriplet" in implementation_text
 assert "include\\libxml2\\libxml\\parser.h" in implementation_text
 assert "share\\libxml2\\copyright" in implementation_text
+for typography_dependency in (
+    r"share\harfbuzz\harfbuzzConfig.cmake",
+    r"include\freetype\freetype.h",
+    r"include\unicode\ubidi.h",
+):
+    assert typography_dependency in implementation_text, typography_dependency
 assert "libxml2 version:" in implementation_text
 assert "scripts\\dependencies\\report_installed.py" in implementation_text
 assert "differences from the official baseline are informational" in implementation_text
