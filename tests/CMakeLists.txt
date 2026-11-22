@@ -1160,6 +1160,7 @@ add_test(NAME LayoutPdfSymbolUsage COMMAND layout_pdf_symbol_usage_test)
 
 add_executable(layout_legend_pdf_test
     layout_legend_pdf_test.cpp layout_legend_pdf_resources_stub.cpp
+    ../viewer2d/fixture_label_glyphs.cpp
     ../viewer2d/pdf/layout_pdf_text_renderer.cpp
     ../viewer2d/pdf/layout_pdf_exporter.cpp
     ../viewer2d/pdf/layout_pdf_event_table_renderer.cpp
@@ -1262,6 +1263,7 @@ add_executable(fixture_label_overrides_reconcile_test
                ../viewer2d/fixture_label_presentation.cpp
                ../viewer2d/fixture_label_style.cpp
                ../viewer2d/fixture_label_composition.cpp
+               ../viewer2d/fixture_label_glyphs.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
@@ -4956,7 +4958,8 @@ add_executable(layout_export_input_test layout_export_input_test.cpp
     ../gui/layout_viewport_properties.cpp
     ../gui/layout_viewport_preview.cpp ../gui/document_text_renderer.cpp
     ../viewer2d/viewer2dcommandrenderer.cpp
-    layout_legend_pdf_resources_stub.cpp ../gui/layout_image_export.cpp ../gui/layouttextutils.cpp)
+    layout_legend_pdf_resources_stub.cpp ../gui/layout_image_export.cpp ../gui/layouttextutils.cpp
+    ../gui/layouttext_legacy_xml.cpp)
 target_include_directories(layout_export_input_test PRIVATE ../gui ../viewer2d ../core ../core/layouts
     ../core/print ../models ../viewer_common ../viewer3d ../third_party)
 target_compile_definitions(layout_export_input_test PRIVATE PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")

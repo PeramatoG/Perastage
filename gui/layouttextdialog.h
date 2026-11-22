@@ -45,7 +45,7 @@ private:
   void AdjustFontSize(int delta);
   void ApplyAlignment(int alignment);
 
-  wxString originalXml_, loadedXml_;
+  wxString originalXml_, loadedXml_, legacyXmlTail_;
   wxRichTextCtrl *textCtrl = nullptr;
   wxSpinCtrl *fontSizeCtrl = nullptr;
   wxCheckBox *solidBackgroundCtrl = nullptr;

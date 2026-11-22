@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 10:34+0100\n"
+"POT-Creation-Date: 2026-11-22 22:33+0100\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -303,7 +303,7 @@ msgstr "仅导出参考"
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
 #: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:92
 #: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:94
-#: gui/layouttextdialog.cpp:180 gui/preferencesdialog.cpp:87
+#: gui/layouttextdialog.cpp:182 gui/preferencesdialog.cpp:87
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139
 msgid "Cancel"
@@ -1108,7 +1108,7 @@ msgid ""
 msgstr "请求的字体不可用。文档将使用经过验证的后备字体。"
 
 #: gui/document_font_choice.h:59 gui/fixture_label_editor.cpp:52
-#: gui/layouttextdialog.cpp:129
+#: gui/layouttextdialog.cpp:131
 msgid "Font family"
 msgstr "字体系列"
 
@@ -1170,13 +1170,13 @@ msgid "Fixture Label Editor"
 msgstr "灯具标签编辑器"
 
 #: gui/fixture_label_editor.cpp:28
-#: tests/support/fixture_label_composition_parity_probe.h:45
+#: tests/support/fixture_label_composition_parity_probe.h:46
 msgid "Project defaults"
 msgstr "项目默认值"
 
 #
 #: gui/fixture_label_editor.cpp:30
-#: tests/support/fixture_label_composition_parity_probe.h:45
+#: tests/support/fixture_label_composition_parity_probe.h:46
 msgid "Selected project fixtures"
 msgstr "选中的项目灯具"
 
@@ -2830,7 +2830,7 @@ msgid "Fixed scale 1:%s. Zoom is locked; pan to adjust framing."
 msgstr "固定比例 1:%s。缩放已锁定；平移视图以调整取景。"
 
 #: gui/layout_fixture_labels.cpp:56
-#: tests/support/layout_label_capture_probe.h:33
+#: tests/support/layout_label_capture_probe.h:36
 msgid "Current Layout viewport"
 msgstr "当前 Layout 视口"
 
@@ -3066,25 +3066,31 @@ msgstr "导入布局模板"
 msgid "Could not import layout template.\n"
 msgstr "无法导入布局模板.\n"
 
-#: gui/layouttextdialog.cpp:162
+#: gui/layouttextdialog.cpp:164
 msgid "Solid background"
 msgstr "纯色背景"
 
-#: gui/layouttextdialog.cpp:165
+#: gui/layouttextdialog.cpp:167
 msgid "Show outline"
 msgstr "显示轮廓"
 
-#: gui/layouttextdialog.cpp:179
+#: gui/layouttextdialog.cpp:181
 msgid "Ok"
 msgstr "好的"
 
-#: gui/layouttextdialog.cpp:181 gui/layouttextdialog.cpp:231
+#: gui/layouttextdialog.cpp:183 gui/layouttextdialog.cpp:242
 msgid "Document preview"
 msgstr "文档预览"
 
-#: gui/layouttextdialog.cpp:184
+#: gui/layouttextdialog.cpp:186
 msgid "Refresh fonts"
 msgstr "刷新字体"
+
+#: gui/layouttextdialog.cpp:211
+msgid ""
+"Some legacy formatting cannot be edited here. A copy of the original is kept "
+"with your edits."
+msgstr "部分旧版格式无法在此编辑。原始内容的副本会随编辑结果一起保留。"
 
 #: gui/logindialog.cpp:21
 msgid "GDTF Share Login"

@@ -11,7 +11,8 @@
   serif and Source Sans italics. Layout and PDF use shared glyph placement for
   kerning, ligatures, combining marks and supported Arabic and Hebrew.
   The Layout text editor includes a document preview and a font refresh action.
-  Saved selections survive temporary substitutions.
+  Saved selections survive temporary substitutions. When editing legacy Layout
+  text, Perastage keeps a recovery copy of formatting the editor cannot round-trip.
 
 - Reuse named fixture label styles across Layout viewports and pages, with local
   viewport and selected-fixture adjustments in the existing label editor. Styles

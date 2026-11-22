@@ -149,6 +149,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutlegenditems.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouttextdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layouttext_legacy_xml.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouttextutils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/localized_unit_labels.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel.cpp

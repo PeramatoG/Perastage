@@ -21,6 +21,10 @@ bool HasFieldPresentation(const FixtureLabelOverrideMap &all,
 std::array<LabelFieldStyle, 3> ResolveEditableFieldStyles(const ConfigManager &cfg,
     const FixtureLabelOverrideMap &all, const std::string &uuid, int view,
     const typography::FontPair &fonts, const Fixture *fixture = nullptr);
+// Compose the fields after the caller has applied the viewport's style inheritance.
+FixtureLabelComposition ComposeResolvedFixtureLabels(
+    const std::array<LabelFieldStyle, 3> &styles, const Fixture &fixture,
+    const LabelBounds &bounds, const typography::FontPair &fonts);
 FixtureLabelComposition ComposeFixtureLabels(const ConfigManager &cfg,
     const FixtureLabelOverrideMap &all, const Fixture &fixture, int view,
     const LabelBounds &bounds, const typography::FontPair &fonts);

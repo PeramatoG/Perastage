@@ -1,5 +1,7 @@
 #include "layout_image_export.h"
 #include "layouttextutils.h"
+#include "layouttext_legacy_xml.h"
+#include <wx/base64.h>
 #include "typography/font_resources.h"
 #include <wx/app.h>
 #include <wx/image.h>
@@ -7,6 +9,40 @@
 #include <fstream>
 #include <chrono>
 #include <limits>
+static void TestLegacyRichText(const wxString &current) {
+  assert(layouttext::LegacyRichTextTail(current, current).empty());
+  auto original = current;
+  original.Replace("<richtext ", "<!-- Vendor metadata -->\n<richtext vendor-tag=\"preserve\" ");
+  assert(original.Replace("</richtext>", "<vendor-style>opaque styling</vendor-style></richtext>") == 1);
+  assert(original != current);
+  wxRichTextBuffer baseline;
+  assert(layouttext::LoadRichTextBufferFromString(baseline, current));
+  assert(layouttext::LegacyRichTextTail(current, layouttext::SaveRichTextBufferToString(baseline)).empty());
+  assert(layouttext::LoadRichTextBufferFromString(baseline, original));
+  const auto normalized = layouttext::SaveRichTextBufferToString(baseline);
+  const auto archive = layouttext::LegacyRichTextTail(original, normalized);
+  const auto originalBytes = original.utf8_str();
+  assert(!archive.empty() && archive.Contains(wxBase64Encode(originalBytes.data(), originalBytes.length())));
+
+  auto *paragraph = dynamic_cast<wxRichTextParagraph *>(baseline.GetChild(0));
+  assert(paragraph);
+  auto *run = dynamic_cast<wxRichTextPlainText *>(paragraph->GetChild(0));
+  assert(run && run->GetText() == wxString::FromUTF8("Producción"));
+  run->SetText("Edited");
+  baseline.UpdateRanges();
+  const auto edited = layouttext::SaveRichTextBufferToString(baseline);
+  assert(layouttext::LoadRichTextBufferFromString(baseline, edited + archive));
+  assert(baseline.GetText().Contains("Edited"));
+  auto content = layouts::LayoutTextDefinition{};
+  content.richText = (edited + archive).utf8_string();
+  const auto plan = layouttext::BuildLayoutTextExportData(content);
+  assert(plan.lines.front().runs.front().text == "Edited");
+  assert(plan.lines.front().runs.front().family == "Source Sans 3");
+  assert(plan.lines.front().runs.front().bold && plan.lines.front().runs.back().underline);
+  assert(layouttext::LegacyRichTextTail(edited + archive,
+      layouttext::SaveRichTextBufferToString(baseline)) == archive);
+}
+
 class InputTestApp : public wxApp { public: bool OnInit() override {return true;} };
 wxIMPLEMENT_APP_NO_MAIN(InputTestApp);
 void TestPhysicalViewportPreview();
@@ -37,6 +73,7 @@ int main(int argc,char **argv) {
     paragraph->AppendChild(new wxRichTextPlainText(wxString::FromUTF8(" Málaga"), paragraph, &second));
     rich.UpdateRanges();
     text.richText = layouttext::SaveRichTextBufferToString(rich).utf8_string();
+    TestLegacyRichText(wxString::FromUTF8(text.richText));
     const auto spans = layouttext::BuildLayoutTextExportData(text);
     assert(spans.wrap && spans.lines.size() == 1);
     assert(spans.lines.front().alignment == typography::TextBlock::Alignment::Right);

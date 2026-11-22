@@ -216,8 +216,11 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
   const auto layout = viewer2d::ComposeCanvasText(cmd.text, style, scale, ink.Catalog());
   const auto &run = layout.run;
   const auto baseline = pos.y + layout.baselineOffset;
-  if (run.fontIssue != typography::FontIssue::None)
-    ink.AddDiagnostic(typography::DescribeFontIssue(ink.Catalog(), {}, run.style.bold, run.fontIssue));
+  if (run.fontIssue != typography::FontIssue::None) {
+    const auto request = viewer2d::CanvasFont(style.fontFamily);
+    ink.AddDiagnostic(typography::DescribeFontIssue(ink.Catalog(), request.family,
+                                                  request.bold, run.fontIssue, request.italic));
+  }
   if (style.outlineWidth > 0) {
     const auto &color = style.outlineColor;
     out << fmt.Format(color.r) << ' ' << fmt.Format(color.g) << ' ' << fmt.Format(color.b) << " RG\n";

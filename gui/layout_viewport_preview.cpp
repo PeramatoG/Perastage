@@ -101,13 +101,20 @@ public:
       text_.push_back({gui::BuildDocumentGlyphPath(gc_, outline, x, y, t.fontSizePx),
                        Color(t.style.color), Color(t.style.outlineColor), t.outlineWidthPx});
     };
-    if (t.style.glyphOutline) {
-      add(*t.style.glyphOutline, t.anchor.x, t.anchor.y);
-    } else if (t.style.IsComposedGlyph()) {
-      const auto outline = typography::ResolveGlyphOutline(*catalog_, t.style.fontResource, t.style.glyphId);
+    if (t.style.IsComposedGlyph()) {
+      if (!catalog_->FindResource(t.style.fontResource)) return;
+      const auto outline = t.style.glyphOutline ? t.style.glyphOutline
+          : typography::ResolveGlyphOutline(*catalog_, t.style.fontResource, t.style.glyphId);
       if (outline) add(*outline, t.anchor.x, t.anchor.y);
     } else {
       const auto layout = viewer2d::ComposeCanvasText(t.text, t.style, textScale_, *catalog_);
+      if (layout.run.fontIssue != typography::FontIssue::None) {
+        const auto request = viewer2d::CanvasFont(t.style.fontFamily);
+        gui::ReportDocumentTypographyDiagnostic(typography::DescribeFontIssue(
+            *catalog_, request.family, request.bold, layout.run.fontIssue, request.italic));
+      }
+      if (!layout.run.unsupportedBytes.empty())
+        gui::ReportDocumentTypographyDiagnostic("Some text characters are unavailable in the approved fonts.");
       for (const auto &glyph : layout.run.glyphs) {
         const auto outline = typography::ResolveGlyphOutline(*catalog_, glyph.resourceId, glyph.glyphId);
         if (outline) add(*outline, t.anchor.x + glyph.x,

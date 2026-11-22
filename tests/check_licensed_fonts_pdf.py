@@ -20,6 +20,9 @@ with tempfile.TemporaryDirectory() as temp:
         "NotoSerif-Bold",
         "NotoSans-Bold",
         "NotoSansArabic-Bold",
+        "NotoSansArabic-Regular",
+        "NotoSerif-BoldItalic",
+        "SourceSans3-It",
         "NotoSansHebrew-Regular",
         "NotoSansMono-Regular",
         "NotoSerif-Italic",
@@ -31,6 +34,8 @@ with tempfile.TemporaryDirectory() as temp:
     rtl_text = (
         ("Scene 12 — שלום", "Scene 12 — םולש"),
         ("Fixture 24 — مرحبا", "Fixture 24 — ابحرم"),
+        ("Rack12 שלום", "Rack12 םולש"),
+        ("Lamp24 مرحبا", "Lamp24 ابحرم"),
     )
     # Normal extraction must recover logical text, including RTL ordering.
     # Raw mode can expose the drawing order on some Poppler releases.
@@ -47,6 +52,9 @@ with tempfile.TemporaryDirectory() as temp:
             "Foco Escénico",
             "Teatro Español",
             "Lámpara Ágil",
+            "x́ ffi",
+            "Canvas Serif",
+            "Canvas Source",
             "AV To fi ffi é é Å Å x́",
             "España · Iluminación · À È É Ñ Ü ß € £ © ™",
             "Αθήνα — Москва — Журнал · 🙼",
@@ -57,4 +65,8 @@ with tempfile.TemporaryDirectory() as temp:
         for logical, visual in rtl_text:
             count = text.count(logical) + (text.count(visual) if args else 0)
             assert count == 1, (logical, args, text)
+        if not args:
+            # Raw mode can put the whole words of an RTL phrase in drawing order.
+            for logical in ("مرحبا عالم", "שלום עולם"):
+                assert text.count(logical) == 1, (logical, text)
     assert "Pages:" in run(sys.argv[4], str(path))

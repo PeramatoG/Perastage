@@ -3,10 +3,13 @@
 #include "pdf_unicode_test_utils.h"
 #include "typography/font_resources.h"
 #include "pdf_objects.h"
+#include "fixture_label_composition.h"
+#include "canvas_text_layout.h"
 #include <algorithm>
 #include <iterator>
 #include "viewer2dpdfexporter.h"
 #include <cassert>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 
@@ -55,21 +58,61 @@ inline void WriteLicensedFontLayout(const std::filesystem::path &path) {
   viewport.buffer.commands.emplace_back(line);
   viewport.buffer.metadata.push_back({true, false});
   viewport.buffer.sources.push_back("geometry");
-  const auto label = typography::Compose("Lámpara Ágil", {.36, typography::TextUnit::SceneMetres, false},
-                                        catalog, "Source Sans 3");
-  for (const auto &glyph : label.glyphs) {
-    CanvasTextStyle style;
-    style.fontResource = glyph.resourceId;
-    style.fontSize = label.style.size;
-    style.glyphId = glyph.glyphId;
-    style.codepoint = glyph.codepoint;
-    style.outlineWidth = .004f;
-    style.outlineColor = {1, 1, 1, 1};
-    viewport.buffer.commands.emplace_back(TextCommand{
-        static_cast<float>(glyph.x), static_cast<float>(glyph.baseline), glyph.text, style});
+  const auto addText = [&](const TextCommand &command, const std::string &source) {
+    viewport.buffer.commands.emplace_back(command);
     viewport.buffer.metadata.push_back({});
-    viewport.buffer.sources.push_back("label:fixture");
-  }
+    viewport.buffer.sources.push_back(source);
+  };
+  const typography::FontPair fonts(PERASTAGE_TEST_RESOURCE_DIR);
+  std::array<viewer2d::LabelFieldStyle, 3> fields;
+  fields[0].fontFamily = "Source Sans 3";
+  fields[0].size = .30f;
+  fields[1].visible = fields[2].visible = false;
+  Fixture fixture;
+  fixture.uuid = "licensed";
+  const auto addLabel = [&](const std::string &name, double x, double y) {
+    fixture.instanceName = name;
+    const auto glyphs = viewer2d::ComposeResolvedFixtureLabels(fields, fixture, {x,y,x,y}, fonts);
+    assert(glyphs.diagnostics.empty() && glyphs.fields.front());
+    for (const auto &glyph : glyphs.text) addText(glyph, "label:" + name);
+    assert(fixture.instanceName == name);
+    return glyphs;
+  };
+  addLabel("Lámpara Ágil", -2, 1.2);
+  const auto he = addLabel("Rack12 שלום", 2, 1.2);
+  const auto ar = addLabel("Lamp24 مرحبا", -2, 0);
+  const auto marks = addLabel("x́ ffi", 2, 0);
+  addLabel("مرحبا عالم", -2, -2.3);
+  addLabel("שלום עולם", 2, -2.3);
+  const auto resources = [&](const auto &label, const auto &family) {
+    const auto id = catalog.Resolve(family, false).face->fingerprint;
+    return std::any_of(label.text.begin(), label.text.end(), [&](const auto &g) {
+      return g.style.fontResource == id && g.style.glyphId > 0;
+    });
+  };
+  assert(resources(he, "Noto Sans Hebrew") && resources(ar, "Noto Sans Arabic"));
+  assert(std::any_of(marks.text.begin(), marks.text.end(), [](const auto &g) {
+    return g.style.clusterContinuation;
+  }));
+  CanvasTextStyle generic;
+  generic.fontSize = .25f;
+  generic.fontFamily = "Noto Serif Bold Italic";
+  addText({-3, -1.2f, "Canvas Serif", generic}, "generic:serif");
+  generic.fontFamily = "Source Sans 3 Italic";
+  addText({1, -1.2f, "Canvas Source", generic}, "generic:source");
+
+  generic.lineHeight = .55f;
+  const auto spaced = viewer2d::ComposeCanvasText("x́\nx́", generic, 1, catalog).run;
+  assert(spaced.lines.size() == 2 && std::abs(spaced.lines[1].baseline + generic.lineHeight) < 1e-6);
+  for (const auto &row : spaced.lines)
+    for (size_t i = row.first; i < row.first + row.count; ++i)
+      assert(std::abs(spaced.glyphs[i].baseline - row.baseline - spaced.glyphs[i].offsetY) < 1e-9);
+  generic.fontFamily = "perastage-sans-bold";
+  const auto legacy = viewer2d::ComposeCanvasText("AV", generic, 1, catalog).run;
+  assert(legacy.resourceId == catalog.Resolve({}, true).face->fingerprint);
+  generic.fontFamily = "Unverified file Bold";
+  const auto denied = viewer2d::ComposeCanvasText("AV", generic, 1, catalog).run;
+  assert(denied.fontIssue == typography::FontIssue::Unapproved && denied.resourceId == legacy.resourceId);
 
   Viewer2DPrintOptions options;
   options.compressStreams = false;

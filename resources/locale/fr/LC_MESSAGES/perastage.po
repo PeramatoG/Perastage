@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 10:34+0100\n"
+"POT-Creation-Date: 2026-11-22 22:33+0100\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: French\n"
@@ -314,7 +314,7 @@ msgstr "Exporter uniquement les références"
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
 #: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:92
 #: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:94
-#: gui/layouttextdialog.cpp:180 gui/preferencesdialog.cpp:87
+#: gui/layouttextdialog.cpp:182 gui/preferencesdialog.cpp:87
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139
 msgid "Cancel"
@@ -1136,7 +1136,7 @@ msgstr ""
 "remplacement approuvée."
 
 #: gui/document_font_choice.h:59 gui/fixture_label_editor.cpp:52
-#: gui/layouttextdialog.cpp:129
+#: gui/layouttextdialog.cpp:131
 msgid "Font family"
 msgstr "Famille de police"
 
@@ -1198,13 +1198,13 @@ msgid "Fixture Label Editor"
 msgstr "Éditeur des étiquettes des projecteurs"
 
 #: gui/fixture_label_editor.cpp:28
-#: tests/support/fixture_label_composition_parity_probe.h:45
+#: tests/support/fixture_label_composition_parity_probe.h:46
 msgid "Project defaults"
 msgstr "Valeurs par défaut du projet"
 
 #
 #: gui/fixture_label_editor.cpp:30
-#: tests/support/fixture_label_composition_parity_probe.h:45
+#: tests/support/fixture_label_composition_parity_probe.h:46
 msgid "Selected project fixtures"
 msgstr "Appareils sélectionnés du projet"
 
@@ -2901,7 +2901,7 @@ msgstr ""
 "Échelle fixe 1:%s. Zoom verrouillé ; déplacez la vue pour ajuster le cadrage."
 
 #: gui/layout_fixture_labels.cpp:56
-#: tests/support/layout_label_capture_probe.h:33
+#: tests/support/layout_label_capture_probe.h:36
 msgid "Current Layout viewport"
 msgstr "Vue Layout actuelle"
 
@@ -3138,25 +3138,33 @@ msgstr "Importer un modèle de mise en page"
 msgid "Could not import layout template.\n"
 msgstr "Impossible d’importer le modèle de mise en page.\n"
 
-#: gui/layouttextdialog.cpp:162
+#: gui/layouttextdialog.cpp:164
 msgid "Solid background"
 msgstr "Fond uni"
 
-#: gui/layouttextdialog.cpp:165
+#: gui/layouttextdialog.cpp:167
 msgid "Show outline"
 msgstr "Afficher le contour"
 
-#: gui/layouttextdialog.cpp:179
+#: gui/layouttextdialog.cpp:181
 msgid "Ok"
 msgstr "OK"
 
-#: gui/layouttextdialog.cpp:181 gui/layouttextdialog.cpp:231
+#: gui/layouttextdialog.cpp:183 gui/layouttextdialog.cpp:242
 msgid "Document preview"
 msgstr "Aperçu du document"
 
-#: gui/layouttextdialog.cpp:184
+#: gui/layouttextdialog.cpp:186
 msgid "Refresh fonts"
 msgstr "Actualiser les polices"
+
+#: gui/layouttextdialog.cpp:211
+msgid ""
+"Some legacy formatting cannot be edited here. A copy of the original is kept "
+"with your edits."
+msgstr ""
+"Certaines mises en forme anciennes ne peuvent pas être modifiées ici. Une "
+"copie de l’original est conservée avec vos modifications."
 
 #: gui/logindialog.cpp:21
 msgid "GDTF Share Login"

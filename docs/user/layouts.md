@@ -131,6 +131,11 @@ Sans Mono has Regular and Bold. Use **Document preview** in the text editor
 to see the shared Layout rendering. The native editing control can display a
 different system rendering while you edit.
 
+When a legacy text element contains formatting the editor cannot round-trip,
+the editor keeps a recovery copy of the original alongside your edits and
+shows a notice. The Layout and PDF use the supported formatting in the
+edited text.
+
 ### Event Table preview and PDF
 
 Layout and PDF use the same font advances and baselines. Zoom and output paper

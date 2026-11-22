@@ -16,6 +16,8 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layouttextdialog.h"
+#include "layouttext_legacy_xml.h"
+#include <wx/stattext.h>
 #include "document_font_choice.h"
 
 #include <algorithm>
@@ -203,6 +205,15 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
   LoadInitialContent(initialRichText, fallbackText);
   loadedXml_ = GetRichText();
   originalXml_ = initialRichText;
+  legacyXmlTail_ = layouttext::LegacyRichTextTail(originalXml_, loadedXml_);
+  if (!legacyXmlTail_.empty()) {
+    auto *notice = new wxStaticText(this, wxID_ANY, _(
+        "Some legacy formatting cannot be edited here. A copy of the original is kept with your edits."));
+    notice->SetName("layoutTextLegacyNotice");
+    notice->Wrap(560);
+    mainSizer->Insert(2, notice, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
+    SetMinSize(mainSizer->GetMinSize());
+  }
   const auto synchronizeFamily = [this, family] {
     wxRichTextAttr attr;
     if (textCtrl->GetStyle(textCtrl->GetInsertionPoint(), attr))
@@ -244,7 +255,8 @@ wxString LayoutTextDialog::GetRichText() const {
     return wxEmptyString;
   wxRichTextBuffer bufferCopy = textCtrl->GetBuffer();
   const auto xml = layouttext::SaveRichTextBufferToString(bufferCopy);
-  return !originalXml_.empty() && xml == loadedXml_ ? originalXml_ : xml;
+  if (!originalXml_.empty() && xml == loadedXml_) return originalXml_;
+  return xml.empty() ? xml : xml + legacyXmlTail_;
 }
 
 // Returns the edited content as plain text.

@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layoutviewerpanel.h"
+#include "document_text_renderer.h"
 
 #include <algorithm>
 #include <functional>
@@ -130,24 +131,21 @@ void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
   if (dialog.ShowModal() != wxID_OK)
     return;
 
-  wxString updatedRichText = dialog.GetRichText();
-  wxString updatedPlainText = dialog.GetPlainText();
-  const bool hadRichText = !text->richText.empty();
-  wxScopedCharBuffer richBuf = updatedRichText.ToUTF8();
-  wxScopedCharBuffer plainBuf = updatedPlainText.ToUTF8();
-  if (updatedRichText.IsEmpty() && hadRichText) {
-    wxLogWarning("LayoutViewerPanel::OnEditText received empty rich text, "
-                 "preserving previous rich text to avoid losing formatting.");
-  } else {
-    text->richText.assign(richBuf.data() ? richBuf.data() : "",
-                          richBuf.length());
+  const auto updatedRichText = dialog.GetRichText();
+  if (updatedRichText.empty()) {
+    gui::ReportDocumentTypographyDiagnostic("Layout text could not be saved. The previous content was kept.");
+    return;
   }
-  text->text.assign(plainBuf.data() ? plainBuf.data() : "", plainBuf.length());
-  text->solidBackground = dialog.GetSolidBackground();
-  text->drawFrame = dialog.GetDrawFrame();
-  if (!currentLayout.name.empty()) {
-    layouts::LayoutManager::Get().UpdateLayoutText(currentLayout.name, *text);
+  auto updated = *text;
+  if (updatedRichText != richText) {
+    updated.richText = updatedRichText.utf8_string();
+    updated.text = dialog.GetPlainText().utf8_string();
   }
+  updated.solidBackground = dialog.GetSolidBackground();
+  updated.drawFrame = dialog.GetDrawFrame();
+  if (!currentLayout.name.empty() &&
+      !layouts::LayoutManager::Get().UpdateLayoutText(currentLayout.name, updated)) return;
+  *text = std::move(updated);
   TextCache &cache = GetTextCache(text->id);
   cache.renderDirty = true;
   RequestRenderRebuild();

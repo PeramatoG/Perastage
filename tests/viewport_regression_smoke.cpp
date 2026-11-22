@@ -424,6 +424,7 @@ public:
       case 10:
         timer_.Stop();
         CheckFixtureLabelCompositionParity(*frame_,scratch);
+        CheckFixtureLabelCompositionParity(*frame_,scratch,true);
         CheckLayoutLabelSelection(*frame_);
         CheckLayoutLabelCapture(*frame_,scratch);
         CheckLayoutTextEditorFontSelection(*frame_);

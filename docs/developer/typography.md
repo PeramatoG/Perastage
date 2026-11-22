@@ -61,7 +61,10 @@ existing field composition. The default face preserves the established
 NanoVG halo and the shared positions. Other approved faces use their glyph
 contours. Layout replay renders the captured contours with the stored physical
 outline widths. Raster antialiasing and the zoom-independent 2D halo policy
-may differ from paper ink.
+may differ from paper ink. Generic Canvas commands resolve through the same
+catalog in Layout replay and PDF. They accept the approved family name, an
+optional face suffix such as ` Bold Italic`, and the historic `sans` and
+`perastage-sans` aliases with their bold variants.
 
 Free text uses the same point-space text block plan for Layout and PDF. Rich
 text remains serialized in its original wx XML model. Extraction preserves
@@ -76,8 +79,10 @@ rendering support. The `Document preview` button renders the current edits with 
 shared point-space composition. The native editor registers approved faces
 where wxWidgets supports it. Native rendering and caret geometry can vary by
 platform. Opening and accepting the dialog without editing text keeps the
-original rich-text XML. Native editing can rewrite XML that wxWidgets does
-not round-trip.
+original rich-text XML byte for byte. When wxWidgets cannot round-trip some
+of the source, the editor displays a notice and keeps the original UTF-8 XML
+as a Base64 recovery comment beside the edited XML. Subsequent edits keep the
+same recovery copy. Rendering and export use the active, editable XML.
 
 Legend and Event Table retain their shared point-space composition and size
 formulas from the integration branch. The older split-export PDF compensation
@@ -117,7 +122,9 @@ fingerprints invalidate the relevant capture and composition caches.
 recovery, actual glyph identity, fallback, advances and mixed-family runs.
 `LayoutLicensedFontsPdf` uses Poppler to validate a representative Layout's
 faces, logical Unicode extraction in the default mode, and outline/selection
-behavior. Raw mode also checks text and spaces. Depending on the Poppler
+behavior. The PDF fixture uses the production fixture label compositor for
+Arabic, Hebrew, ligatures and combining marks. The native smoke test exercises
+editor and viewport capture of a fixture with mixed-direction text. Raw mode also checks text and spaces. Depending on the Poppler
 release it may emit RTL glyphs in PDF drawing order. Official Windows, Linux
 and macOS CI require Poppler. A local configuration without Poppler reports the missing validation
 tools and still runs the structural test. Layout preview
