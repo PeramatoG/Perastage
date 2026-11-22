@@ -158,8 +158,8 @@ text remains serialized in its original wx XML model. Extraction preserves
 families, weights, sizes, italic requests, foreground colors, underlines,
 strikethrough, explicit breaks, paragraph alignment, spacing and indentation.
 Edited content stores its wrapping behavior explicitly. Legacy definitions
-without that setting retain font-driven compatibility wrapping for the
-portable families and explicit breaks for historical styles. Legacy
+without that setting use the recorded compatibility defaults, independent of
+which fonts are installed or missing. New content records wrapping explicitly. Legacy
 native-font metrics could vary by platform. Default sizing now uses the
 shipped faces, so historical free-text widths can change. Non-text rich
 objects and uncommon XML style features remain in the source XML with limited

@@ -49,6 +49,7 @@ public:
   std::vector<std::string> SystemFamilies() const;
   std::string ReferenceForFamily(std::string_view family) const;
   std::vector<std::string_view> Families() const;
+  static bool LegacyWrapDefault(std::string_view family);
   const std::string &Signature() const { return signature_; }
   bool IsComplete() const;
 

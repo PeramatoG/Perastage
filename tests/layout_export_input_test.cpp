@@ -86,6 +86,8 @@ int main(int argc,char **argv) {
     assert(plan.glyphs.front().glyph.resourceId != plan.glyphs.back().glyph.resourceId);
     assert(plan.glyphs.front().baseline == plan.glyphs.back().baseline);
     assert(!plan.decorations.empty());
+    assert(typography::FontCatalog::LegacyWrapDefault("Noto Serif"));
+    assert(!typography::FontCatalog::LegacyWrapDefault("Noto Sans Mono"));
     auto *run = static_cast<wxRichTextPlainText *>(paragraph->GetChild(0));
     run->GetAttributes().SetFontFaceName("Test installed family");
     typography::FontReference installed{"Test installed family"};

@@ -11,22 +11,22 @@ namespace {
 struct Approval {
   std::string_view family, filename, version, postScript, hash, provenance;
   std::uintmax_t size;
-  bool bold, italic = false;
+  bool bold, italic = false, legacyWrap = false;
 };
 constexpr auto kNoto = "Debian fonts-noto-core 20201225-2";
 constexpr auto kMono = "Debian fonts-noto-mono 20201225-2";
 constexpr auto kAdobe = "Adobe Source Sans 3.052R ed1808970eb3c7301c9a523bee26473ba0bb62fa";
 constexpr std::array<Approval, 18> kApprovals{{
     {kDefaultFamily, "PerastageSans.ttf", "2.004", "NotoSans-Regular",
-     "89c3c497f618fdaa0b2d1e98fef93582f28c71debd2c4a8cdf41f190ced2909d", kNoto, 512672, false},
+     "89c3c497f618fdaa0b2d1e98fef93582f28c71debd2c4a8cdf41f190ced2909d", kNoto, 512672, false, false, true},
     {kDefaultFamily, "PerastageSans-Bold.ttf", "2.004", "NotoSans-Bold",
      "e83493c945848ecd4a9ad0f6d19164541a0d3e23a9c952304a00a46e00272ac5", kNoto, 515752, true},
     {"Noto Serif", "NotoSerif-Regular.ttf", "2.004", "NotoSerif-Regular",
-     "9d7583b7dc9e812afd32a14280c5cac3160012efe50c8d08938f4fea266ff67f", kNoto, 588876, false},
+     "9d7583b7dc9e812afd32a14280c5cac3160012efe50c8d08938f4fea266ff67f", kNoto, 588876, false, false, true},
     {"Noto Serif", "NotoSerif-Bold.ttf", "2.004", "NotoSerif-Bold",
      "0af0ff2be8f84910fb21ec5fe1b6b7395e3073250502a334baf6ca2f860c88fe", kNoto, 611904, true},
     {"Source Sans 3", "SourceSans3-Regular.ttf", "3.052", "SourceSans3-Regular",
-     "4644c81b86ec9caaa76b634889968ed3c4f4f52f054855933acc7c2b21e53b0f", kAdobe, 431196, false},
+     "4644c81b86ec9caaa76b634889968ed3c4f4f52f054855933acc7c2b21e53b0f", kAdobe, 431196, false, false, true},
     {"Source Sans 3", "SourceSans3-Bold.ttf", "3.052", "SourceSans3-Bold",
      "9214b9d95e4231c609802815c2646c98174e2102d0d37f88978a7f8e71006e6a", kAdobe, 428176, true},
     {kDefaultFamily, "PerastageSans-Italic.ttf", "2.004", "NotoSans-Italic",
@@ -241,6 +241,13 @@ std::string FontCatalog::ReferenceForFamily(std::string_view family) const {
   }
   return std::any_of(faces.begin(), faces.end(), [](const auto &face) { return bool(face); })
       ? EncodeFontReference(reference) : std::string(family);
+}
+
+bool FontCatalog::LegacyWrapDefault(std::string_view family) {
+  if (family == "Noto Sans") family = kDefaultFamily;
+  return std::any_of(kApprovals.begin(), kApprovals.end(), [&](const Approval &record) {
+    return record.family == family && record.legacyWrap;
+  });
 }
 
 bool FontCatalog::IsComplete() const {

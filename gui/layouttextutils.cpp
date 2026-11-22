@@ -186,8 +186,6 @@ LayoutTextExportData BuildLayoutTextExportData(
   data.solidBackground = text.solidBackground;
   data.drawFrame = text.drawFrame;
   data.wrap = text.wrapText.value_or(false);
-  const auto catalog = text.wrapText ? nullptr : typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
-  const auto portableFamilies = catalog ? catalog->Families() : std::vector<std::string_view>{};
 
   wxRichTextBuffer buffer;
   const bool loaded = !text.richText.empty() && LoadRichTextBufferFromString(
@@ -218,10 +216,8 @@ LayoutTextExportData BuildLayoutTextExportData(
       if (!reference.empty() && typography::DecodeFontReference(reference).family == run.family)
         run.family = reference;
     }
-    // Legacy documents opted into automatic wrapping via portable face styles.
-    if (!text.wrapText && (run.family == "Noto Sans" ||
-        std::find(portableFamilies.begin(), portableFamilies.end(), run.family) != portableFamilies.end()))
-      data.wrap = true;
+    // Preserve historical defaults independently of the installed font catalog.
+    if (!text.wrapText && typography::FontCatalog::LegacyWrapDefault(run.family)) data.wrap = true;
     if (style.GetTextColour().IsOk()) {
       const auto ink = style.GetTextColour();
       run.color = {ink.Red(), ink.Green(), ink.Blue()};
