@@ -10,12 +10,15 @@ license=('GPL-3.0-or-later')
 options=('debug')
 depends=(
   'curl'
+  'freetype2'
   'gcc-libs'
   'glew'
   'glibc'
   'glu'
   'gtk3'
+  'harfbuzz'
   'hicolor-icon-theme'
+  'icu'
   'libglvnd'
   'libsecret'
   'shared-mime-info'

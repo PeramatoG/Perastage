@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <functional>
+#include <set>
 
 #include <wx/artprov.h>
 #include <wx/bmpbuttn.h>
@@ -31,6 +32,8 @@
 #include <wx/richtext/richtextctrl.h>
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
+#include <wx/statbmp.h>
+#include "document_text_renderer.h"
 
 #include "layouttextutils.h"
 #include "layoutviewerpanel_shared.h"
@@ -46,20 +49,19 @@ constexpr int kMaxFontSize = 72;
 // resource bytes and shared composition regardless of native font availability.
 void RegisterEditorFonts() {
 #if wxUSE_PRIVATE_FONTS
-  static const bool registered = [] {
-    const auto catalog = typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
-    for (const auto family : catalog->Families()) {
-      for (const auto [bold, italic] : {std::pair{false, false}, {true, false}, {false, true}, {true, true}}) {
-        const auto resolved = catalog->Resolve(family, bold, italic);
-        if (resolved.issue != typography::FontIssue::None || !resolved.face) continue;
-        const auto *face = resolved.face;
-        const auto path = face->path.u8string();
-        wxFont::AddPrivateFont(wxString::FromUTF8(reinterpret_cast<const char *>(path.data()), path.size()));
-      }
+  static std::set<std::string_view> registered;
+  const auto catalog = typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
+  for (const auto family : catalog->Families()) {
+    for (const auto [bold, italic] : {std::pair{false, false}, {true, false}, {false, true}, {true, true}}) {
+      const auto resolved = catalog->Resolve(family, bold, italic);
+      if (resolved.issue != typography::FontIssue::None || !resolved.face) continue;
+      const auto *face = resolved.face;
+      if (registered.contains(face->fingerprint)) continue;
+      const auto path = face->path.u8string();
+      if (wxFont::AddPrivateFont(wxString::FromUTF8(reinterpret_cast<const char *>(path.data()), path.size())))
+        registered.insert(face->fingerprint);
     }
-    return true;
-  }();
-  (void)registered;
+  }
 #endif
 }
 
@@ -80,7 +82,7 @@ void EnsureRichTextHandlers() {
 LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
                                    const wxString &initialRichText,
                                    const wxString &fallbackText,
-                                   bool solidBackground, bool drawFrame)
+                                   bool solidBackground, bool drawFrame, wxSize documentSize)
     : wxDialog(parent, wxID_ANY, "Edit Text", wxDefaultPosition,
                wxSize(640, 420),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
@@ -176,6 +178,22 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
   wxBoxSizer *buttonSizer = new wxBoxSizer(wxHORIZONTAL);
   wxButton *okButton = new wxButton(this, wxID_OK, _("Ok"));
   wxButton *cancelButton = new wxButton(this, wxID_CANCEL, _("Cancel"));
+  auto *preview = new wxButton(this, wxID_ANY, _("Document preview"));
+  preview->Bind(wxEVT_BUTTON, [this, documentSize](wxCommandEvent &) { ShowDocumentPreview(documentSize); });
+  buttonSizer->Add(preview, 0, wxRIGHT, 8);
+  auto *refresh = new wxButton(this, wxID_ANY, _("Refresh fonts"));
+  refresh->Bind(wxEVT_BUTTON, [this, family](wxCommandEvent &) {
+    wxRichTextAttr attr;
+    textCtrl->GetStyle(textCtrl->GetInsertionPoint(), attr);
+    const auto root = ProjectUtils::GetResourceRoot();
+    const auto old = typography::GetFontCatalog(root);
+    const auto current = typography::GetFontCatalog(root, typography::FontRefresh::All);
+    if (old->Signature() != current->Signature())
+      gui::ReportDocumentTypographyDiagnostic("Approved font resources changed. The document will use the refreshed catalog.");
+    RegisterEditorFonts();
+    family->RefreshFamilies(attr.GetFontFaceName().utf8_string());
+  });
+  buttonSizer->Add(refresh, 0, wxRIGHT, 8);
   buttonSizer->AddStretchSpacer();
   buttonSizer->Add(okButton, 0, wxRIGHT, 8);
   buttonSizer->Add(cancelButton, 0);
@@ -183,6 +201,8 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
 
   SetSizer(mainSizer);
   LoadInitialContent(initialRichText, fallbackText);
+  loadedXml_ = GetRichText();
+  originalXml_ = initialRichText;
   const auto synchronizeFamily = [this, family] {
     wxRichTextAttr attr;
     if (textCtrl->GetStyle(textCtrl->GetInsertionPoint(), attr))
@@ -197,12 +217,34 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
   Centre();
 }
 
+void LayoutTextDialog::ShowDocumentPreview(const wxSize &documentSize) {
+  if (documentSize.x <= 0 || documentSize.y <= 0) return;
+  const auto scale = std::min(650.0 / documentSize.x, 420.0 / documentSize.y);
+  const wxSize output(std::max(1, static_cast<int>(documentSize.x * scale)),
+                      std::max(1, static_cast<int>(documentSize.y * scale)));
+  layouts::LayoutTextDefinition text;
+  text.richText = GetRichText().utf8_string();
+  text.text = GetPlainText().utf8_string();
+  text.solidBackground = GetSolidBackground();
+  const auto image = layouttext::RenderTextImage(text, output, documentSize, scale);
+  if (!image.IsOk()) return;
+  wxDialog preview(this, wxID_ANY, _("Document preview"));
+  auto *contents = new wxBoxSizer(wxVERTICAL);
+  contents->Add(new wxStaticBitmap(&preview, wxID_ANY, wxBitmap(image), wxDefaultPosition,
+                                    wxDefaultSize, GetDrawFrame() ? wxBORDER_SIMPLE : wxBORDER_NONE),
+                0, wxALL | wxALIGN_CENTER_HORIZONTAL, 8);
+  contents->Add(preview.CreateStdDialogButtonSizer(wxOK), 0, wxALL | wxEXPAND, 8);
+  preview.SetSizerAndFit(contents);
+  preview.ShowModal();
+}
+
 // Returns the edited content serialized as rich text XML.
 wxString LayoutTextDialog::GetRichText() const {
   if (!textCtrl)
     return wxEmptyString;
   wxRichTextBuffer bufferCopy = textCtrl->GetBuffer();
-  return layouttext::SaveRichTextBufferToString(bufferCopy);
+  const auto xml = layouttext::SaveRichTextBufferToString(bufferCopy);
+  return !originalXml_.empty() && xml == loadedXml_ ? originalXml_ : xml;
 }
 
 // Returns the edited content as plain text.

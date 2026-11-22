@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 00:01+0100\n"
+"POT-Creation-Date: 2026-11-22 10:28+0100\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: French\n"
@@ -314,7 +314,7 @@ msgstr "Exporter uniquement les références"
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
 #: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:92
 #: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:94
-#: gui/layouttextdialog.cpp:178 gui/preferencesdialog.cpp:87
+#: gui/layouttextdialog.cpp:180 gui/preferencesdialog.cpp:87
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139
 msgid "Cancel"
@@ -1131,10 +1131,12 @@ msgstr "%s (par défaut)"
 #: gui/document_font_choice.h:30
 msgid ""
 "The requested font is unavailable. The document uses an approved fallback."
-msgstr "La police demandée est indisponible. Le document utilise une police de remplacement approuvée."
+msgstr ""
+"La police demandée est indisponible. Le document utilise une police de "
+"remplacement approuvée."
 
-#: gui/document_font_choice.h:53 gui/fixture_label_editor.cpp:52
-#: gui/layouttextdialog.cpp:127
+#: gui/document_font_choice.h:59 gui/fixture_label_editor.cpp:52
+#: gui/layouttextdialog.cpp:129
 msgid "Font family"
 msgstr "Famille de police"
 
@@ -1337,7 +1339,10 @@ msgstr "Faites glisser le champ sélectionné dans l’aperçu."
 msgid ""
 "The viewer, editor and PDF use the same approved fonts and label "
 "composition. Sizes and offsets use scene metres."
-msgstr "La vue, l’éditeur et le PDF utilisent les mêmes polices approuvées et la même composition des étiquettes. Les tailles et les décalages sont exprimés en mètres de la scène."
+msgstr ""
+"La vue, l’éditeur et le PDF utilisent les mêmes polices approuvées et la "
+"même composition des étiquettes. Les tailles et les décalages sont exprimés "
+"en mètres de la scène."
 
 #: gui/fixture_label_editor.cpp:91
 msgid "Reset to Default"
@@ -3133,17 +3138,25 @@ msgstr "Importer un modèle de mise en page"
 msgid "Could not import layout template.\n"
 msgstr "Impossible d’importer le modèle de mise en page.\n"
 
-#: gui/layouttextdialog.cpp:160
+#: gui/layouttextdialog.cpp:162
 msgid "Solid background"
 msgstr "Fond uni"
 
-#: gui/layouttextdialog.cpp:163
+#: gui/layouttextdialog.cpp:165
 msgid "Show outline"
 msgstr "Afficher le contour"
 
-#: gui/layouttextdialog.cpp:177
+#: gui/layouttextdialog.cpp:179
 msgid "Ok"
 msgstr "OK"
+
+#: gui/layouttextdialog.cpp:181 gui/layouttextdialog.cpp:231
+msgid "Document preview"
+msgstr "Aperçu du document"
+
+#: gui/layouttextdialog.cpp:184
+msgid "Refresh fonts"
+msgstr "Actualiser les polices"
 
 #: gui/logindialog.cpp:21
 msgid "GDTF Share Login"
@@ -3320,65 +3333,65 @@ msgstr ""
 msgid "Unsupported file"
 msgstr "Fichier non pris en charge"
 
-#: gui/mainwindow.cpp:687
+#: gui/mainwindow.cpp:688
 #, c-format
 msgid "Do you want to save changes before %s?"
 msgstr "Voulez-vous enregistrer les modifications avant de %s ?"
 
-#: gui/mainwindow.cpp:761
+#: gui/mainwindow.cpp:762
 #, c-format
 msgid "Please wait until the startup project loading finishes before %s."
 msgstr "Attendez la fin du chargement du projet au démarrage avant de %s."
 
-#: gui/mainwindow.cpp:763
+#: gui/mainwindow.cpp:764
 msgid "Perastage is still loading"
 msgstr "Perastage est encore en cours de chargement"
 
-#: gui/mainwindow.cpp:793
+#: gui/mainwindow.cpp:795
 msgid "Project loading"
 msgstr "Chargement du projet"
 
-#: gui/mainwindow.cpp:820 gui/mainwindow.cpp:1041
+#: gui/mainwindow.cpp:822 gui/mainwindow.cpp:1043
 msgid "Loading project file..."
 msgstr "Chargement du fichier de projet…"
 
-#: gui/mainwindow.cpp:877
+#: gui/mainwindow.cpp:879
 msgid "Building scene..."
 msgstr "Construction de la scène…"
 
-#: gui/mainwindow.cpp:885
+#: gui/mainwindow.cpp:887
 msgid "Applying saved layout..."
 msgstr "Application de la mise en page enregistrée…"
 
-#: gui/mainwindow.cpp:913
+#: gui/mainwindow.cpp:915
 msgid "Reloading fixture/truss/support tables..."
 msgstr "Rechargement des tables de projecteurs, structures et supports…"
 
-#: gui/mainwindow.cpp:939
+#: gui/mainwindow.cpp:941
 msgid "Updating 3D viewport..."
 msgstr "Mise à jour de la vue 3D…"
 
-#: gui/mainwindow.cpp:953
+#: gui/mainwindow.cpp:955
 msgid "Updating 2D viewport..."
 msgstr "Mise à jour de la vue 2D…"
 
-#: gui/mainwindow.cpp:971 gui/mainwindow.cpp:1660
+#: gui/mainwindow.cpp:973 gui/mainwindow.cpp:1662
 msgid "Refreshing panels..."
 msgstr "Actualisation des panneaux…"
 
-#: gui/mainwindow.cpp:973
+#: gui/mainwindow.cpp:975
 msgid "Refreshing rigging..."
 msgstr "Actualisation de l’accroche…"
 
-#: gui/mainwindow.cpp:981
+#: gui/mainwindow.cpp:983
 msgid "Updating window title..."
 msgstr "Mise à jour du titre de la fenêtre…"
 
-#: gui/mainwindow.cpp:997
+#: gui/mainwindow.cpp:999
 msgid "Finalizing project load..."
 msgstr "Finalisation du chargement du projet…"
 
-#: gui/mainwindow.cpp:1618
+#: gui/mainwindow.cpp:1620
 msgid "Loading tables..."
 msgstr "Chargement des tables…"
 

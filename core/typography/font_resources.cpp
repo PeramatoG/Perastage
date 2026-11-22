@@ -13,8 +13,9 @@ struct Approval {
   bool bold, italic = false;
 };
 constexpr auto kNoto = "Debian fonts-noto-core 20201225-2";
+constexpr auto kMono = "Debian fonts-noto-mono 20201225-2";
 constexpr auto kAdobe = "Adobe Source Sans 3.052R ed1808970eb3c7301c9a523bee26473ba0bb62fa";
-constexpr std::array<Approval, 8> kApprovals{{
+constexpr std::array<Approval, 18> kApprovals{{
     {kDefaultFamily, "PerastageSans.ttf", "2.004", "NotoSans-Regular",
      "89c3c497f618fdaa0b2d1e98fef93582f28c71debd2c4a8cdf41f190ced2909d", kNoto, 512672, false},
     {kDefaultFamily, "PerastageSans-Bold.ttf", "2.004", "NotoSans-Bold",
@@ -31,6 +32,26 @@ constexpr std::array<Approval, 8> kApprovals{{
      "5d7618dda819443fd07301c84adcee9fe8960c873ea5e5e1f0f59db384b78082", kNoto, 530120, false, true},
     {kDefaultFamily, "PerastageSans-BoldItalic.ttf", "2.004", "NotoSans-BoldItalic",
      "4315b26e5afb62f70f5ffe0edaa3363e57765ff2af2beda12b6fef197e3e5f5a", kNoto, 534180, true, true},
+    {"Noto Sans Mono", "NotoSansMono-Regular.ttf", "2.006", "NotoSansMono-Regular",
+     "6b692c4b6d15ccf59f1c1fe8d11cb8a92f51960f3e9f1f523781755a3af7e29f", kMono, 510612, false, false},
+    {"Noto Sans Mono", "NotoSansMono-Bold.ttf", "2.006", "NotoSansMono-Bold",
+     "b22563d5f03b345a62115e78d8789c9ed99c2cfa8059fad6e7a5c4ced288e21e", kMono, 523412, true, false},
+    {"Noto Sans Arabic", "NotoSansArabic-Regular.ttf", "2.005", "NotoSansArabic-Regular",
+     "504d7407d86875acf7d04dfaa0fd7524d0b8797723bc4aa18022f29db25b0b6e", kNoto, 244072, false, false},
+    {"Noto Sans Arabic", "NotoSansArabic-Bold.ttf", "2.005", "NotoSansArabic-Bold",
+     "ded6fc7359ca36d15d7aab9ef0c066e21ce48b26a069994d6602fa2cb9a1b952", kNoto, 252940, true, false},
+    {"Noto Sans Hebrew", "NotoSansHebrew-Regular.ttf", "3.000", "NotoSansHebrew-Regular",
+     "436900d5ad77d33e4234247f3076eaecd25b92b9bea0519514f684140e3566a7", kNoto, 26892, false, false},
+    {"Noto Sans Hebrew", "NotoSansHebrew-Bold.ttf", "3.000", "NotoSansHebrew-Bold",
+     "d3b01343f71e8a93fffb84c345a1aecbaf4694b98d0eaace916cb9eac9e6dcd3", kNoto, 27156, true, false},
+    {"Noto Serif", "NotoSerif-Italic.ttf", "2.004", "NotoSerif-Italic",
+     "bc25600aa27cd409e1e5b3d86340df3a329bb860fcfbe57a03a95070b229e1b0", kNoto, 637472, false, true},
+    {"Noto Serif", "NotoSerif-BoldItalic.ttf", "2.004", "NotoSerif-BoldItalic",
+     "78a6d685e5690b7dcda0f336b689193afc03b6bab5cf18fc1a9ecc3aa0600059", kNoto, 656716, true, true},
+    {"Source Sans 3", "SourceSans3-It.ttf", "3.052", "SourceSans3-It",
+     "192afd78f0f54a3c69eaf02d43f4d9a821e9d6110e41d3d25d61a7385cd580e4", kAdobe, 315812, false, true},
+    {"Source Sans 3", "SourceSans3-BoldIt.ttf", "3.052", "SourceSans3-BoldIt",
+     "7978291fc1bf314db887e0366853b33c5cf2e964c7b95cfb9ce403a6ec46a842", kAdobe, 318700, true, true},
 }};
 
 FontIssue LoadApproved(const std::filesystem::path &path, const Approval &record,
@@ -80,12 +101,30 @@ FontCatalog::FontCatalog(const std::filesystem::path &root,
   for (std::size_t i = 0; i < kApprovals.size(); ++i)
     issues_.push_back(LoadApproved(fontDirectory / kApprovals[i].filename,
                                   kApprovals[i], faces_[i], FontSource::Bundled));
+  // Check conventional names and a common Linux package location before walking.
   for (const auto &directory : systemRoots) {
     if (IsComplete()) break;
+    for (size_t i = 0; i < kApprovals.size(); ++i) {
+      if (issues_[i] == FontIssue::None) continue;
+      const auto &record = kApprovals[i];
+      const auto name = std::string(record.postScript) + ".ttf";
+      for (const auto &candidate : {directory / record.filename, directory / name,
+                                    directory / "truetype/noto" / name}) {
+        if (LoadApproved(candidate, record, faces_[i], FontSource::ApprovedSystem) == FontIssue::None) {
+          issues_[i] = FontIssue::None;
+          break;
+        }
+      }
+    }
+  }
+  size_t remainingEntries = 8192;
+  for (const auto &directory : systemRoots) {
+    if (IsComplete() || !remainingEntries) break;
     std::error_code ec;
     std::filesystem::recursive_directory_iterator files(
         directory, std::filesystem::directory_options::skip_permission_denied, ec), end;
-    for (; !ec && files != end && !IsComplete(); files.increment(ec)) {
+    for (; !ec && files != end && remainingEntries && !IsComplete(); files.increment(ec), --remainingEntries) {
+      if (files.depth() >= 6) files.disable_recursion_pending();
       std::error_code entryError;
       if (!files->is_regular_file(entryError)) continue;
       const auto size = files->file_size(entryError);
@@ -136,9 +175,13 @@ const FontResource *FontCatalog::FindResource(std::string_view id) const {
 
 std::vector<std::string_view> FontCatalog::Families() const {
   std::vector<std::string_view> families;
-  for (std::size_t i = 0; i < faces_.size(); i += 2)
-    if (!kApprovals[i].italic && issues_[i] == FontIssue::None && issues_[i + 1] == FontIssue::None)
-      families.push_back(faces_[i].family);
+  for (size_t i = 0; i < kApprovals.size(); ++i) {
+    const auto &record = kApprovals[i];
+    if (record.bold || record.italic || record.family == "Noto Sans Arabic" ||
+        record.family == "Noto Sans Hebrew" || issues_[i] != FontIssue::None) continue;
+    if (Resolve(record.family, true).issue == FontIssue::None)
+      families.push_back(record.family);
+  }
   return families;
 }
 
@@ -149,12 +192,13 @@ bool FontCatalog::IsComplete() const {
 }
 
 std::shared_ptr<const FontCatalog> GetFontCatalog(const std::filesystem::path &root,
-                                                  bool refreshIncomplete) {
+                                                  FontRefresh refresh) {
   static std::mutex mutex;
   static std::filesystem::path loadedRoot;
   static std::shared_ptr<const FontCatalog> catalog;
   std::lock_guard lock(mutex);
-  if (!catalog || root != loadedRoot || (refreshIncomplete && !catalog->IsComplete())) {
+  if (!catalog || root != loadedRoot || refresh == FontRefresh::All ||
+      (refresh == FontRefresh::Incomplete && !catalog->IsComplete())) {
     catalog = std::make_shared<const FontCatalog>(root);
     loadedRoot = root;
   }

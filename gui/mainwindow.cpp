@@ -770,7 +770,7 @@ bool MainWindow::GuardStartupProjectLoadAction(const wxString &actionLabel) {
 bool MainWindow::LoadProjectFromPath(const std::string &path,
                                      bool showBlockingLoadUi) {
   CancelActiveSceneClipboardPlacement();
-  typography::GetFontCatalog(ProjectUtils::GetResourceRoot(), true);
+  typography::GetFontCatalog(ProjectUtils::GetResourceRoot(), typography::FontRefresh::Incomplete);
   NotifyFixtureSymbolProjectReplaced(false);
   diagnostics::DiagnosticLogger::Info(
       "Project load started: " +

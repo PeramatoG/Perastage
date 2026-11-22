@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 00:01+0100\n"
+"POT-Creation-Date: 2026-11-22 10:28+0100\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -303,7 +303,7 @@ msgstr "仅导出参考"
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
 #: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:92
 #: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:94
-#: gui/layouttextdialog.cpp:178 gui/preferencesdialog.cpp:87
+#: gui/layouttextdialog.cpp:180 gui/preferencesdialog.cpp:87
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139
 msgid "Cancel"
@@ -1107,8 +1107,8 @@ msgid ""
 "The requested font is unavailable. The document uses an approved fallback."
 msgstr "请求的字体不可用。文档将使用经过验证的后备字体。"
 
-#: gui/document_font_choice.h:53 gui/fixture_label_editor.cpp:52
-#: gui/layouttextdialog.cpp:127
+#: gui/document_font_choice.h:59 gui/fixture_label_editor.cpp:52
+#: gui/layouttextdialog.cpp:129
 msgid "Font family"
 msgstr "字体系列"
 
@@ -1311,7 +1311,9 @@ msgstr "在预览中拖动选中的字段。"
 msgid ""
 "The viewer, editor and PDF use the same approved fonts and label "
 "composition. Sizes and offsets use scene metres."
-msgstr "视图、编辑器和 PDF 使用相同的已批准字体和标签排版。大小和偏移量以场景米为单位。"
+msgstr ""
+"视图、编辑器和 PDF 使用相同的已批准字体和标签排版。大小和偏移量以场景米为单"
+"位。"
 
 #: gui/fixture_label_editor.cpp:91
 msgid "Reset to Default"
@@ -3064,17 +3066,25 @@ msgstr "导入布局模板"
 msgid "Could not import layout template.\n"
 msgstr "无法导入布局模板.\n"
 
-#: gui/layouttextdialog.cpp:160
+#: gui/layouttextdialog.cpp:162
 msgid "Solid background"
 msgstr "纯色背景"
 
-#: gui/layouttextdialog.cpp:163
+#: gui/layouttextdialog.cpp:165
 msgid "Show outline"
 msgstr "显示轮廓"
 
-#: gui/layouttextdialog.cpp:177
+#: gui/layouttextdialog.cpp:179
 msgid "Ok"
 msgstr "好的"
+
+#: gui/layouttextdialog.cpp:181 gui/layouttextdialog.cpp:231
+msgid "Document preview"
+msgstr "文档预览"
+
+#: gui/layouttextdialog.cpp:184
+msgid "Refresh fonts"
+msgstr "刷新字体"
 
 #: gui/logindialog.cpp:21
 msgid "GDTF Share Login"
@@ -3246,65 +3256,65 @@ msgstr "不支持的启动文件。请使用 %s 或 .mvr 文件。"
 msgid "Unsupported file"
 msgstr "不支持的文件"
 
-#: gui/mainwindow.cpp:687
+#: gui/mainwindow.cpp:688
 #, c-format
 msgid "Do you want to save changes before %s?"
 msgstr "是否要在%s之前保存更改？"
 
-#: gui/mainwindow.cpp:761
+#: gui/mainwindow.cpp:762
 #, c-format
 msgid "Please wait until the startup project loading finishes before %s."
 msgstr "请等待启动项目加载完成后再%s。"
 
-#: gui/mainwindow.cpp:763
+#: gui/mainwindow.cpp:764
 msgid "Perastage is still loading"
 msgstr "Perastage 仍在加载"
 
-#: gui/mainwindow.cpp:793
+#: gui/mainwindow.cpp:795
 msgid "Project loading"
 msgstr "正在加载项目"
 
-#: gui/mainwindow.cpp:820 gui/mainwindow.cpp:1041
+#: gui/mainwindow.cpp:822 gui/mainwindow.cpp:1043
 msgid "Loading project file..."
 msgstr "正在加载项目文件..."
 
-#: gui/mainwindow.cpp:877
+#: gui/mainwindow.cpp:879
 msgid "Building scene..."
 msgstr "正在构建场景..."
 
-#: gui/mainwindow.cpp:885
+#: gui/mainwindow.cpp:887
 msgid "Applying saved layout..."
 msgstr "正在应用已保存的布局..."
 
-#: gui/mainwindow.cpp:913
+#: gui/mainwindow.cpp:915
 msgid "Reloading fixture/truss/support tables..."
 msgstr "正在重新加载灯具/桁架/支撑表格..."
 
-#: gui/mainwindow.cpp:939
+#: gui/mainwindow.cpp:941
 msgid "Updating 3D viewport..."
 msgstr "正在更新 3D 视口..."
 
-#: gui/mainwindow.cpp:953
+#: gui/mainwindow.cpp:955
 msgid "Updating 2D viewport..."
 msgstr "正在更新 2D 视口..."
 
-#: gui/mainwindow.cpp:971 gui/mainwindow.cpp:1660
+#: gui/mainwindow.cpp:973 gui/mainwindow.cpp:1662
 msgid "Refreshing panels..."
 msgstr "正在刷新面板..."
 
-#: gui/mainwindow.cpp:973
+#: gui/mainwindow.cpp:975
 msgid "Refreshing rigging..."
 msgstr "正在刷新吊挂数据..."
 
-#: gui/mainwindow.cpp:981
+#: gui/mainwindow.cpp:983
 msgid "Updating window title..."
 msgstr "正在更新窗口标题..."
 
-#: gui/mainwindow.cpp:997
+#: gui/mainwindow.cpp:999
 msgid "Finalizing project load..."
 msgstr "正在完成项目加载..."
 
-#: gui/mainwindow.cpp:1618
+#: gui/mainwindow.cpp:1620
 msgid "Loading tables..."
 msgstr "正在加载表格..."
 

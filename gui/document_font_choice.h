@@ -30,6 +30,12 @@ public:
       SetToolTip(_("The requested font is unavailable. The document uses an approved fallback."));
   }
 
+  void RefreshFamilies(std::string_view family) {
+    Clear();
+    families_ = PopulateDocumentFontChoice(*this);
+    SelectFamily(family);
+  }
+
   std::string GetFamily() const {
     const auto index = GetSelection();
     if (index == wxNOT_FOUND || (original_.empty() && families_[index] == typography::kDefaultFamily))

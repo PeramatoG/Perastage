@@ -40,10 +40,10 @@ private:
   std::string signature_;
 };
 
-// Application assets are immutable for a session. Construct a new catalog to
-// re-evaluate resources after an installation or when inspecting another root.
+enum class FontRefresh { Cached, Incomplete, All };
+// Refresh is for startup, project open or an explicit request, outside paint.
 std::shared_ptr<const FontCatalog> GetFontCatalog(const std::filesystem::path &root,
-                                                  bool refreshIncomplete = false);
+                                                  FontRefresh refresh = FontRefresh::Cached);
 
 std::string DescribeFontIssue(const FontCatalog &catalog, std::string_view family,
                               bool bold, FontIssue issue, bool italic = false);
