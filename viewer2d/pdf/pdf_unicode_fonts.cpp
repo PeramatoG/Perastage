@@ -119,13 +119,16 @@ void PdfUnicodeFonts::AppendGlyph(std::ostringstream &out, const FloatFormatter 
 void PdfUnicodeFonts::AppendRun(std::ostringstream &out, const FloatFormatter &fmt,
     const typography::Composition &run, double x, double y) {
   if (!run.unsupportedBytes.empty()) AddDiagnostic("Some text characters are unavailable in the approved fonts.");
-  AppendTextClusters(out, 0, run.glyphs.size(),
-      [&](size_t i) -> const auto & { return run.glyphs[i].text; },
-      [&](size_t i) { return run.glyphs[i].clusterContinuation; },
-      [&](size_t i) {
-        const auto &glyph = run.glyphs[i];
-        AppendGlyph(out, fmt, glyph, x + glyph.x, y + glyph.baseline, run.style.size);
-      });
+  for (const auto &line : run.lines) {
+    AppendTextClusters(out, line.first, line.first + line.count,
+        [&](size_t i) -> const auto & { return run.glyphs[i].text; },
+        [&](size_t i) { return run.glyphs[i].clusterContinuation; },
+        [&](size_t a, size_t b) { return !run.glyphs[a].rightToLeft && !run.glyphs[b].rightToLeft; },
+        [&](size_t i) {
+          const auto &glyph = run.glyphs[i];
+          AppendGlyph(out, fmt, glyph, x + glyph.x, y + glyph.baseline, run.style.size);
+        });
+  }
 }
 
 void PdfUnicodeFonts::WriteResources(std::vector<PdfObject> &objects, std::ostringstream &out) const {

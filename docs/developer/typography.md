@@ -91,7 +91,9 @@ bounded shared outline cache avoid repeating glyph work.
 The exporter uses Type 0 fonts with TrueType CIDFont descendants, an explicit
 CID-to-glyph map and a ToUnicode CMap. CIDs encode glyph IDs and the original
 UTF-16 sequence, including surrogate pairs and ligature source. A multi-glyph
-cluster uses a PDF `ActualText` span around its selectable glyphs. The PDF places
+cluster uses a PDF `ActualText` span around its selectable glyphs. Adjacent
+left-to-right glyphs can share a span with a source space so readers preserve
+the space during extraction. The PDF places
 glyphs at the composed positions. It draws fixture outlines as vector paths
 and leaves the glyph fill selectable. Only used approved faces are embedded.
 Missing faces and unsupported glyphs are recorded once per issue in the

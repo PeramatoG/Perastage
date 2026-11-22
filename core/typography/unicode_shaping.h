@@ -23,6 +23,7 @@ struct ShapingStyle {
 ShapedLine ShapeStyledLine(std::string_view text, std::span<const ShapingStyle> styles,
                            std::string_view paragraph = {}, size_t paragraphOffset = 0);
 std::vector<size_t> WrapShapedLine(std::string_view text, const ShapedLine &line, double width, double continuationWidth = -1);
+bool IsRightToLeftScalar(uint32_t codepoint);
 std::u16string DecodeUtf16(std::string_view text);
 std::vector<size_t> UnicodeLineBreaks(std::string_view text);
 }

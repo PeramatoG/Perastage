@@ -1,5 +1,6 @@
 #include "pdf_draw_commands.h"
 #include "pdf_unicode_fonts.h"
+#include "typography/unicode_shaping.h"
 #include "canvas_text_layout.h"
 #include "typography/text_outline.h"
 #include <stdexcept>
@@ -249,6 +250,13 @@ size_t AppendComposedTextRun(std::ostringstream &out, const FloatFormatter &fmt,
   AppendTextClusters(out, first, end,
       [&](size_t i) -> const auto & { return std::get<TextCommand>(commands[i]).text; },
       [&](size_t i) { return std::get<TextCommand>(commands[i]).style.clusterContinuation; },
+      [&](size_t a, size_t b) {
+        const auto &left = std::get<TextCommand>(commands[a]);
+        const auto &right = std::get<TextCommand>(commands[b]);
+        return left.y == right.y && left.x <= right.x &&
+            !typography::IsRightToLeftScalar(left.style.codepoint) &&
+            !typography::IsRightToLeftScalar(right.style.codepoint);
+      },
       [&](size_t i) { draw(i, typography::TextInkPass::Fill); });
   return end;
 }

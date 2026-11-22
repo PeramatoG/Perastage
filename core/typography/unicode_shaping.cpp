@@ -132,6 +132,11 @@ void ShapeSpan(ShapedLine &line, const UnicodeLine &source, std::string_view ori
 }
 }
 
+bool IsRightToLeftScalar(uint32_t codepoint) {
+  const auto direction = u_charDirection(codepoint);
+  return direction == U_RIGHT_TO_LEFT || direction == U_RIGHT_TO_LEFT_ARABIC;
+}
+
 std::u16string DecodeUtf16(std::string_view text) {
   if (text.size() > INT32_MAX) return {};
   return UnicodeLine(text, false).utf16;

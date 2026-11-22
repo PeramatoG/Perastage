@@ -29,6 +29,7 @@ inline void WriteLicensedFontLayout(const std::filesystem::path &path) {
                   {{{"Fixture 24 — مرحبا", 14, true, true, "Source Sans 3"}}},
                   {{{"España · Iluminación · À È É Ñ Ü ß € £ © ™", 14, false, false, "Noto Sans Mono"}}},
                   {{{"Αθήνα — Москва — Журнал · 🙼", 14, false, false, "Noto Sans Mono"}}},
+                  {{{"A B C", 14, true, false, "Source Sans 3"}}},
                   {{{"Unsupported: 灯 😀", 14, false, false, "Noto Serif"}}}};
   LayoutLegendExportData legend;
   legend.frame = {12, 140, 480, 120};
@@ -85,6 +86,8 @@ inline void WriteLicensedFontLayout(const std::filesystem::path &path) {
   assert(pdf.find("/WinAnsiEncoding") == std::string::npos);
   assert(pdf.find("/Helvetica") == std::string::npos);
   assert(pdf.find("/ActualText <FEFF00780301>") != std::string::npos);
+  assert(pdf.find("/ActualText <FEFF006E0020004D>") != std::string::npos); // "n M"
+  assert(pdf.find("/ActualText <FEFF00410020004200200043>") != std::string::npos); // "A B C"
   const auto stream = pdf_test::PageStream(pdf, true);
   const auto plan = typography::ComposeTextBlock(shaped, shaped.frame.width, shaped.frame.height, catalog);
   const layout_pdf_internal::FloatFormatter fmt(options.floatPrecision);

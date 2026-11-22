@@ -31,7 +31,10 @@ with tempfile.TemporaryDirectory() as temp:
     # Poppler puts embedding controls around RTL runs. Compare the source
     # Unicode in logical order and count clusters without normalizing accents.
     for args in (("-raw",), ()):
-        text = run(sys.argv[3], *args, str(path), "-").replace("\u202b", "").replace("\u202c", "")
+        # Windows Poppler can use the console code page for standard output.
+        extracted = path.with_suffix(".txt")
+        run(sys.argv[3], "-enc", "UTF-8", *args, str(path), str(extracted))
+        text = extracted.read_text(encoding="utf-8").replace("\u202b", "").replace("\u202c", "")
         for content in (
             "Producción Málaga — Diseño",
             "Notas: € / Ω / Ж",
@@ -44,6 +47,7 @@ with tempfile.TemporaryDirectory() as temp:
             "Fixture 24 — مرحبا",
             "España · Iluminación · À È É Ñ Ü ß € £ © ™",
             "Αθήνα — Москва — Журнал · 🙼",
+            "A B C",
             "Unsupported: 灯 😀",
         ):
             assert text.count(content) == 1, (content, text)

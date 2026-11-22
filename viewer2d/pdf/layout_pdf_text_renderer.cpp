@@ -1,6 +1,7 @@
 #include "layout_pdf_text_renderer.h"
 #include "layout_pdf_page_mapping.h"
 #include "pdf_unicode_fonts.h"
+#include <cmath>
 
 namespace layout_pdf_internal {
 void RenderLayoutTextPdf(std::ostringstream &out, const LayoutTextExportData &text,
@@ -24,6 +25,12 @@ void RenderLayoutTextPdf(std::ostringstream &out, const LayoutTextExportData &te
   AppendTextClusters(out, 0, plan.glyphs.size(),
       [&](size_t i) -> const auto & { return plan.glyphs[i].glyph.text; },
       [&](size_t i) { return plan.glyphs[i].glyph.clusterContinuation; },
+      [&](size_t a, size_t b) {
+        const auto &left = plan.glyphs[a];
+        const auto &right = plan.glyphs[b];
+        return !left.glyph.rightToLeft && !right.glyph.rightToLeft &&
+            std::abs((left.baseline + left.glyph.offsetY) - (right.baseline + right.glyph.offsetY)) < 1e-7;
+      },
       [&](size_t i) {
         const auto &entry = plan.glyphs[i];
         color(entry.color);
