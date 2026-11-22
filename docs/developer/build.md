@@ -344,6 +344,10 @@ Test-Path "$env:VCPKG_ROOT\installed\x64-windows\include\zlib.h"
 Test-Path "$env:VCPKG_ROOT\installed\x64-windows\share\harfbuzz\harfbuzzConfig.cmake"
 ```
 
+If the HarfBuzz configuration file exists, check `VCPKG_INSTALLED_DIR`,
+`VCPKG_TARGET_TRIPLET`, and `harfbuzz_DIR` in the selected preset's
+`CMakeCache.txt`. Configure again using the classic root that owns the file.
+
 If the error path contains Visual Studio's internal vcpkg, for example:
 
 ```text
