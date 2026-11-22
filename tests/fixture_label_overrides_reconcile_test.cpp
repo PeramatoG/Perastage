@@ -10,6 +10,8 @@
 #include "fixture_label_style_serialization.h"
 
 #include <cassert>
+#include <chrono>
+#include <iostream>
 
 void RunLayoutFixtureLabelPresentationTests();
 int main() {
@@ -194,6 +196,22 @@ int main() {
     assert(std::abs(ink.descent - metrics.descent) < 1e-6);
     assert(geometry.bounds.maxY - geometry.bounds.minY >= ink.ascent + ink.descent - 1e-6);
   }
+  std::vector<Fixture> repeated(1000, validFixture);
+  viewer2d::FixtureLabelCompositionCache repeatedCache;
+  std::vector<const TextCommand *> cachedTextPointers;
+  const auto coldStart = std::chrono::steady_clock::now();
+  for (size_t i = 0; i < repeated.size(); ++i) {
+    repeated[i].uuid = "typography-repeated-" + std::to_string(i);
+    const auto &entry = repeatedCache.Resolve(cfg, mix, repeated[i], 0, bounds, fonts);
+    assert(!entry.text.empty());
+    cachedTextPointers.push_back(entry.text.data());
+  }
+  const auto cachedStart = std::chrono::steady_clock::now();
+  for (size_t i = 0; i < repeated.size(); ++i)
+    assert(repeatedCache.Resolve(cfg, mix, repeated[i], 0, bounds, fonts).text.data() == cachedTextPointers[i]);
+  const auto ms = [](auto duration) { return std::chrono::duration<double, std::milli>(duration).count(); };
+  std::cout << "1000 repeated labels, cold " << ms(cachedStart - coldStart)
+            << " ms, cached " << ms(std::chrono::steady_clock::now() - cachedStart) << " ms\n";
   const auto beforeFontEdit = cfg.GetValue("label_fixture_overrides");
   assert(!selected.text.empty() && selected.text.front().style.fontResource == sourceSans->fingerprint);
   assert(viewer2d::CommitFixtureLabelStyles(cfg, draft));

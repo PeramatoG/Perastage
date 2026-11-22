@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 10:28+0100\n"
+"POT-Creation-Date: 2026-11-22 10:34+0100\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: German\n"
@@ -3352,51 +3352,51 @@ msgstr ""
 msgid "Perastage is still loading"
 msgstr "Perastage lädt noch"
 
-#: gui/mainwindow.cpp:795
+#: gui/mainwindow.cpp:799
 msgid "Project loading"
 msgstr "Projekt wird geladen"
 
-#: gui/mainwindow.cpp:822 gui/mainwindow.cpp:1043
+#: gui/mainwindow.cpp:826 gui/mainwindow.cpp:1047
 msgid "Loading project file..."
 msgstr "Projektdatei wird geladen…"
 
-#: gui/mainwindow.cpp:879
+#: gui/mainwindow.cpp:883
 msgid "Building scene..."
 msgstr "Szene wird aufgebaut…"
 
-#: gui/mainwindow.cpp:887
+#: gui/mainwindow.cpp:891
 msgid "Applying saved layout..."
 msgstr "Gespeichertes Layout wird angewendet…"
 
-#: gui/mainwindow.cpp:915
+#: gui/mainwindow.cpp:919
 msgid "Reloading fixture/truss/support tables..."
 msgstr "Scheinwerfer-, Traversen- und Stützentabellen werden neu geladen…"
 
-#: gui/mainwindow.cpp:941
+#: gui/mainwindow.cpp:945
 msgid "Updating 3D viewport..."
 msgstr "3D-Ansicht wird aktualisiert…"
 
-#: gui/mainwindow.cpp:955
+#: gui/mainwindow.cpp:959
 msgid "Updating 2D viewport..."
 msgstr "2D-Ansicht wird aktualisiert…"
 
-#: gui/mainwindow.cpp:973 gui/mainwindow.cpp:1662
+#: gui/mainwindow.cpp:977 gui/mainwindow.cpp:1666
 msgid "Refreshing panels..."
 msgstr "Bereiche werden aktualisiert…"
 
-#: gui/mainwindow.cpp:975
+#: gui/mainwindow.cpp:979
 msgid "Refreshing rigging..."
 msgstr "Rigging wird aktualisiert…"
 
-#: gui/mainwindow.cpp:983
+#: gui/mainwindow.cpp:987
 msgid "Updating window title..."
 msgstr "Fenstertitel wird aktualisiert…"
 
-#: gui/mainwindow.cpp:999
+#: gui/mainwindow.cpp:1003
 msgid "Finalizing project load..."
 msgstr "Laden des Projekts wird abgeschlossen…"
 
-#: gui/mainwindow.cpp:1620
+#: gui/mainwindow.cpp:1624
 msgid "Loading tables..."
 msgstr "Tabellen werden geladen…"
 

@@ -770,7 +770,11 @@ bool MainWindow::GuardStartupProjectLoadAction(const wxString &actionLabel) {
 bool MainWindow::LoadProjectFromPath(const std::string &path,
                                      bool showBlockingLoadUi) {
   CancelActiveSceneClipboardPlacement();
-  typography::GetFontCatalog(ProjectUtils::GetResourceRoot(), typography::FontRefresh::Incomplete);
+  const auto resourceRoot = ProjectUtils::GetResourceRoot();
+  const auto previousFonts = typography::GetFontCatalog(resourceRoot);
+  const auto availableFonts = typography::GetFontCatalog(resourceRoot, typography::FontRefresh::Incomplete);
+  if (previousFonts->Signature() != availableFonts->Signature())
+    Logger::Instance().Log(Logger::Level::Info, "Approved font resources changed while reopening a project.");
   NotifyFixtureSymbolProjectReplaced(false);
   diagnostics::DiagnosticLogger::Info(
       "Project load started: " +

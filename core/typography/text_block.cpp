@@ -95,8 +95,11 @@ TextBlockPlan ComposeTextBlock(const TextBlock &block, double width, double heig
         const double x = origin + glyph.x + adjustment;
         if (glyph.advance > 0 && run.underline)
           plan.decorations.push_back({x, baseline + size * 0.08, glyph.advance, size * 0.05, run.color});
-        if (glyph.advance > 0 && run.strikethrough)
-          plan.decorations.push_back({x, baseline - size * 0.35, glyph.advance, size * 0.05, run.color});
+        if (glyph.advance > 0 && run.strikethrough) {
+          const auto *face = catalog.FindResource(glyph.resourceId);
+          const auto ascender = Metrics(face ? &face->metrics : nullptr, size).ascent;
+          plan.decorations.push_back({x, baseline - ascender * 0.35, glyph.advance, size * 0.05, run.color});
+        }
         if (IsSpace(glyph)) adjustment += extra;
         const auto y = baseline - glyph.offsetY;
         glyph.sourceBegin += start;

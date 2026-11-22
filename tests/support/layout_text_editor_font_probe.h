@@ -40,5 +40,14 @@ inline void CheckLayoutTextEditorFontSelection(wxWindow &parent) {
   }
   if (!title || !notes)
     throw std::runtime_error("The Layout editor lost a selected span's font family");
+  const auto preview = layouttext::RenderTextImage(content, wxSize(720, 360), wxSize(480, 240), 1.5);
+  if (!preview.IsOk() || preview.GetWidth() != 720 || preview.GetHeight() != 360)
+    throw std::runtime_error("Shared document preview failed to render the edited spans");
+
+  auto originalXml = dialog.GetRichText();
+  originalXml.Replace("<richtext", "<!-- Legacy vendor metadata -->\n<richtext");
+  LayoutTextDialog opened(&parent, originalXml, {}, true, true);
+  if (opened.GetRichText() != originalXml)
+    throw std::runtime_error("Opening rich text rewrote legacy XML");
   dialog.Hide();
 }
