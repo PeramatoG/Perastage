@@ -1,3 +1,4 @@
+#include "typography/font_reference.h"
 /*
  * This file is part of Perastage.
  * Copyright (C) 2025 Luisma Peramato
@@ -114,17 +115,29 @@ void RunLayoutFixtureLabelPresentationTests() {
   withFonts.view2dViews = {a};
   auto &field = withFonts.view2dViews.front().labelPresentation.fields[0][0];
   if (!field) field = viewer2d::LabelFieldStyle{};
-  field->fontFamily = "Unverified project face";
-  withFonts.legendViews.emplace_back().fontFamily = "Noto Serif";
-  withFonts.eventTables.emplace_back().fontFamily = "Source Sans 3";
+  typography::FontReference installed{"Installed source family"};
+  installed.postScriptNames = {"Installed-Regular", "Installed-Bold", "Installed-Italic", ""};
+  installed.fingerprints = {"exact-regular", "exact-bold", "exact-italic", ""};
+  const auto reference = typography::EncodeFontReference(installed);
+  field->fontFamily = reference;
+  field->italic = true;
+  withFonts.legendViews.emplace_back().fontFamily = reference;
+  withFonts.eventTables.emplace_back().fontFamily = reference;
+  auto &text = withFonts.textViews.emplace_back();
+  text.frame = {0, 0, 100, 100};
+  text.richText = "saved rich text";
+  text.wrapText = false;
   withFonts.legendViews.back().frame = {0, 0, 100, 100};
   withFonts.eventTables.back().frame = {0, 0, 100, 100};
   const auto fontJson = layouts::ToTemplateDocument({withFonts});
   assert(layouts::FromTemplateDocument(fontJson, pages, &error));
-  assert(pages.size() == 1 && pages.front().view2dViews.front().labelPresentation.fields[0][0]->fontFamily ==
-         "Unverified project face");
-  assert(pages.front().legendViews.front().fontFamily == "Noto Serif");
-  assert(pages.front().eventTables.front().fontFamily == "Source Sans 3");
+  assert(pages.size() == 1);
+  const auto &restoredField = pages.front().view2dViews.front().labelPresentation.fields[0][0];
+  assert(restoredField && restoredField->fontFamily == reference && restoredField->italic);
+  assert(pages.front().legendViews.back().fontFamily == reference);
+  assert(pages.front().eventTables.back().fontFamily == reference);
+  assert(pages.front().textViews.back().richText == "saved rich text");
+  assert(pages.front().textViews.back().wrapText == std::optional<bool>{false});
   // A portable page carries its dependency closure and remaps conflicting IDs.
   auto portable=page; portable.view2dViews={a}; portable.portableLabelProfiles=profiles;
   const auto portableJson=layouts::ToTemplateDocument({portable});

@@ -1,6 +1,7 @@
 #include "system_font_cache.h"
 #include "file_import_utils.h"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <sstream>
 #include <tuple>
@@ -34,9 +35,11 @@ SystemFontCache::SystemFontCache(std::vector<SystemFontRecord> records)
     if (inserted) stat->second = Stamp(record.path);
     stamps_.push_back(stat->second);
     const auto path = record.path.generic_u8string();
+    const auto timestamp = std::chrono::duration_cast<std::chrono::microseconds>(
+        stat->second.time.time_since_epoch()).count();
     identity << path.size() << ':'
              << std::string_view(reinterpret_cast<const char *>(path.data()), path.size())
-             << ':' << stat->second.size << ':' << stat->second.time.time_since_epoch().count()
+             << ':' << stat->second.size << ':' << timestamp
              << ':' << record.index << ':' << record.family << ':' << record.postScriptName
              << ':' << record.weight << ':' << record.width << ':' << record.italic << '\n';
   }
