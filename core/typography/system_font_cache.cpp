@@ -85,16 +85,16 @@ FontResolution SystemFontCache::Load(size_t record) const {
 FontResolution SystemFontCache::Resolve(const FontReference &reference, bool bold, bool italic) const {
   const auto variant = FontReference::Variant(bold, italic);
   const auto savedFingerprint = reference.fingerprints[variant];
+  std::shared_ptr<const FontResource> compatible;
   const auto ps = postScriptNames_.find(reference.postScriptNames[variant]);
   if (ps != postScriptNames_.end()) {
-    FontResolution sameName;
     for (const auto index : ps->second) {
       auto resolved = Load(index);
       if (!resolved.face || resolved.face->bold != bold || resolved.face->italic != italic) continue;
       if (resolved.face->fingerprint == savedFingerprint) return resolved;
-      if (!sameName.face && resolved.face->family == reference.family) sameName = std::move(resolved);
+      if (!compatible && resolved.face->family == reference.family)
+        compatible = std::move(resolved.face);
     }
-    if (sameName.face) return {sameName.face, FontIssue::CompatibleFace};
   }
   const auto family = families_.find(reference.family);
   if (family == families_.end()) return {nullptr, FontIssue::Missing};
@@ -114,11 +114,13 @@ FontResolution SystemFontCache::Resolve(const FontReference &reference, bool bol
       continue;
     }
     if (resolved.face->italic == italic && resolved.face->bold == bold) {
-      if (!savedFingerprint.empty()) resolved.issue = FontIssue::CompatibleFace;
-      return resolved;
+      if (savedFingerprint.empty() || resolved.face->fingerprint == savedFingerprint) return resolved;
+      if (!compatible) compatible = std::move(resolved.face);
+    } else if (!nearest) {
+      nearest = std::move(resolved.face);
     }
-    if (!nearest) nearest = std::move(resolved.face);
   }
+  if (compatible) return {compatible, FontIssue::CompatibleFace};
   return nearest ? FontResolution{nearest, FontIssue::FaceUnavailable} : FontResolution{nullptr, issue};
 }
 

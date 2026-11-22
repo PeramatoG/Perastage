@@ -131,4 +131,12 @@ int main(int argc, char **argv) {
   FontCatalog refreshed(PERASTAGE_TEST_RESOURCE_DIR, {}, {renamed});
   assert(refreshed.Signature() != absent.Signature());
   assert(refreshed.Resolve(reference, false).face->fingerprint == installed.face->fingerprint);
+
+  auto withoutPostScript = Sans();
+  withoutPostScript.postScriptName.clear();
+  auto otherVersion = restricted;
+  otherVersion.family = sans;
+  FontCatalog fewerMetadata(PERASTAGE_TEST_RESOURCE_DIR, {}, {otherVersion, withoutPostScript});
+  const auto exact = fewerMetadata.Resolve(reference, false);
+  assert(exact.issue == FontIssue::None && exact.face->fingerprint == installed.face->fingerprint);
 }
