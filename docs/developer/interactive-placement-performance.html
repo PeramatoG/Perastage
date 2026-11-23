@@ -90,6 +90,10 @@ includes all layer-visible trusses and objects. Fixture-only drags retain normal
 culling, which already keeps fixtures after layer and type filtering. Selection
 highlights and labels remain available. Camera movement retains its own
 render-quality policy. Document capture keeps its regular synchronization path.</p>
+<p>The active transform target set is reused for movement, local axes and
+compatible Magnet queries. A scene revision change or Magnet detachment
+refreshes the target set. Live status coordinates update after presentation,
+alongside the Position Tool notification.</p>
 <h2 id="repeatable-runtime-profile">Repeatable runtime profile</h2>
 <p>Use the same machine, build type, display refresh rate, rendering preferences,
 view size and local MVR/GDTF files for baseline and corrected runs. Use scenes
@@ -129,7 +133,9 @@ and exercise Undo/Redo. Verify labels, highlights, insertion points,
 hidden layers, visible bounds, parent relationships and fresh UUIDs.
 Repeat after replacing the project and while the Position Tool is visible.</li>
 </ol>
-<p>No hardware frame-time comparison was collected for this audit. Deterministic
+<p>No hardware frame-time comparison was collected for this audit. Linux Debug
+passed 17 focused tests, including the Position Tool and DMX Patch canvas
+smoke tests under Xvfb. Deterministic
 tests cover coalescing, placement activity and settling, live Position Tool
 updates, and Magnet result equivalence plus cache-miss counts. The manual
 profile above covers display latency and the larger scene matrix.</p>

@@ -1412,11 +1412,11 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
       if (profile)
         m_performance.Presented(frameStart, submitted);
       if (m_transformPresentation.TakePresentedFeedback()) {
-        performance::Scope metric(performance::Work::PlacementPreviewListeners,
-                                  performance::PlacementEnabled());
-        ConfigManager::Get().NotifyChange(ConfigManager::Change::TransformPreview);
-        metric.Finish();
         m_placementPerformance.Presented("Viewer2D", frameStart, submitted);
+        NotifyHighlightedWorldPosition(ComputeSelectionDragCenterMeters());
+        performance::Scope metric(performance::Work::PlacementPreviewListeners,
+                                  placementProfile);
+        ConfigManager::Get().NotifyChange(ConfigManager::Change::TransformPreview);
       }
     }
   }
@@ -1682,16 +1682,22 @@ Viewer2DPanel::BuildActiveMagnetSource() const {
   if (!m_interaction.selection.trusses.empty() &&
       m_interaction.selection.supports.empty() &&
       m_interaction.selection.sceneObjects.empty()) {
-    scene_grouping::ObjectSelection selection;
-    selection.fixtures = m_interaction.selection.fixtures;
-    selection.trusses = m_interaction.selection.trusses;
-    const auto targets = scene_grouping::BuildInteractiveTransformTargets(
-        ConfigManager::Get().GetScene(), selection,
-        selection_movement_settings::LoadInteractiveTransformPolicy(
-            ConfigManager::Get()));
-    if (targets.size() == 1 && targets.front().type == MvrNodeType::GroupObject)
+    const auto &cfg = ConfigManager::Get();
+    std::vector<scene_grouping::SceneTransformTarget> resolved;
+    const auto *targets = &m_activeTransformTargets;
+    if (m_activeTransformRevision != cfg.GetRenderRevision() ||
+        m_placementSession.IsBatchPlacement()) {
+      const scene_grouping::ObjectSelection selection{
+          .fixtures = m_interaction.selection.fixtures,
+          .trusses = m_interaction.selection.trusses};
+      resolved = scene_grouping::BuildInteractiveTransformTargets(
+          cfg.GetScene(), selection,
+          selection_movement_settings::LoadInteractiveTransformPolicy(cfg));
+      targets = &resolved;
+    }
+    if (targets->size() == 1 && targets->front().type == MvrNodeType::GroupObject)
       return magnet_snap::SnapSource{magnet_snap::ObjectType::TrussGroup,
-                                     targets.front().uuid};
+                                     targets->front().uuid};
     if (m_interaction.selection.trusses.size() == 1 &&
         m_interaction.selection.fixtures.empty())
       return magnet_snap::SnapSource{magnet_snap::ObjectType::Truss,
@@ -1832,7 +1838,6 @@ bool Viewer2DPanel::ApplySelectionDelta(
       hasTranslation || previousSnap.has_value() || m_pendingMagnetSnap.has_value();
   if (!changed)
     return false;
-  NotifyHighlightedWorldPosition(ComputeSelectionDragCenterMeters());
   MarkInteractionActivity();
   m_transformPresentation.MarkTransformApplied();
   m_placementPerformance.Applied();

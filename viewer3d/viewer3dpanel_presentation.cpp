@@ -17,6 +17,7 @@ void Viewer3DPanel::PresentInteractiveTransformFrame() {
 void Viewer3DPanel::FinishInteractiveTransformPresentation() {
     m_placementPerformance.Finish("Viewer3D");
     m_transformPresentation.Reset();
+    m_activeTransformRevision.reset();
     m_transformProjection = {};
     m_fixtureMagnetTargets.Clear();
     if (m_runtimeState.EndTransformInteraction())
@@ -91,6 +92,7 @@ void Viewer3DPanel::UpdateContinuousPlacementPointer(const wxPoint &pos) {
     }
     if (pos == m_lastMousePos)
         return;
+    bool changed = false;
     const RenderSize renderSize = ResolveRenderSize(this);
     if (PrepareTransformProjection(renderSize)) {
         const auto rawAnchor = CurrentRawSelectionDragAnchor();
@@ -123,6 +125,7 @@ void Viewer3DPanel::UpdateContinuousPlacementPointer(const wxPoint &pos) {
             if (m_selectionDragSession.Axis() == viewer3d::SelectionDragAxis::None &&
                 candidateAxis != viewer3d::SelectionDragAxis::None) {
                 m_selectionDragSession.SetAxis(candidateAxis);
+                changed = true;
             } else if (m_selectionDragSession.Axis() !=
                        viewer3d::SelectionDragAxis::None) {
                 const double activeTravelPixels = std::abs(
@@ -175,8 +178,10 @@ void Viewer3DPanel::UpdateContinuousPlacementPointer(const wxPoint &pos) {
                     desiredAnchor[2] - rawAnchor[2]};
                 if (worldDelta[0] != 0.0f || worldDelta[1] != 0.0f ||
                     worldDelta[2] != 0.0f) {
-                    ApplySelectionDragDelta(worldDelta);
-                    m_selectionDragActivation.MarkMoved();
+                    if (ApplySelectionDragDelta(worldDelta)) {
+                        m_selectionDragActivation.MarkMoved();
+                        changed = true;
+                    }
                 }
             }
         } else {
@@ -189,10 +194,12 @@ void Viewer3DPanel::UpdateContinuousPlacementPointer(const wxPoint &pos) {
                 ProjectMouseToSelectionDragViewPlane(
                     pos, renderSize, rawAnchor);
             if (lastPoint && currentPoint) {
-      ApplySelectionDragDelta({(*currentPoint)[0] - (*lastPoint)[0],
+                changed = ApplySelectionDragDelta(
+                    {(*currentPoint)[0] - (*lastPoint)[0],
                      (*currentPoint)[1] - (*lastPoint)[1],
                      (*currentPoint)[2] - (*lastPoint)[2]});
-                m_selectionDragActivation.MarkMoved();
+                if (changed)
+                    m_selectionDragActivation.MarkMoved();
             } else {
                 m_lastMousePos = pos;
                 m_continuousPlacementSession.InvalidateView();
@@ -200,7 +207,8 @@ void Viewer3DPanel::UpdateContinuousPlacementPointer(const wxPoint &pos) {
                 return;
             }
         }
-        PresentInteractiveTransformFrame();
+        if (changed)
+            PresentInteractiveTransformFrame();
     } else {
         m_continuousPlacementSession.InvalidateView();
     }

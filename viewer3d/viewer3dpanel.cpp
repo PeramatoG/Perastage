@@ -1245,6 +1245,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
     const auto submitted = placementProfile ? Clock::now() : Clock::time_point{};
     if (SwapBuffers() && m_transformPresentation.TakePresentedFeedback()) {
         m_placementPerformance.Presented("Viewer3D", frameStart, submitted);
+        UpdateSelectionDragStatusPosition();
         performance::Scope metric(performance::Work::PlacementPreviewListeners, placementProfile);
         ConfigManager::Get().NotifyChange(ConfigManager::Change::TransformPreview);
     }
@@ -2459,19 +2460,24 @@ std::array<float, 3> Viewer3DPanel::GetSelectionDragAxisVector(
       m_selectionDragSession.Uuids().empty()) {
         return constrain(worldAxis);
     }
-    const scene_grouping::ObjectSelection selection{
-        .fixtures = m_selectionDragSession.Selection().fixtures,
-        .trusses = m_selectionDragSession.Selection().trusses,
-        .supports = {},
-        .sceneObjects = m_selectionDragSession.Selection().sceneObjects};
-    const auto targets = scene_grouping::BuildInteractiveTransformTargets(
-      ConfigManager::Get().GetScene(), selection,
-      selection_movement_settings::LoadInteractiveTransformPolicy(
-          ConfigManager::Get()));
-    if (targets.empty())
+    const auto &cfg = ConfigManager::Get();
+    const auto &dragSelection = m_selectionDragSession.Selection();
+    std::vector<scene_grouping::SceneTransformTarget> resolved;
+    const auto *targets = &m_activeTransformTargets;
+    if (m_activeTransformRevision != cfg.GetRenderRevision() ||
+        !dragSelection.supports.empty() || m_continuousPlacementSession.IsBatchActive()) {
+        const scene_grouping::ObjectSelection selection{
+            .fixtures = dragSelection.fixtures, .trusses = dragSelection.trusses,
+            .sceneObjects = dragSelection.sceneObjects};
+        resolved = scene_grouping::BuildInteractiveTransformTargets(
+            cfg.GetScene(), selection,
+            selection_movement_settings::LoadInteractiveTransformPolicy(cfg));
+        targets = &resolved;
+    }
+    if (targets->empty())
         return constrain(worldAxis);
     const Matrix transform = scene_grouping::GetTargetWorldTransform(
-        ConfigManager::Get().GetScene(), targets.front());
+        cfg.GetScene(), targets->front());
     return constrain(transform_space::TransformDirection(
         transform_space::ExtractOrientation(transform), worldAxis));
 }
@@ -2645,29 +2651,35 @@ std::optional<magnet_snap::SnapSource>
 Viewer3DPanel::BuildActiveMagnetSource() const {
     if (!m_magnetEnabled || m_measureState.enabled)
         return std::nullopt;
-    if (!m_selectionDragSession.Selection().trusses.empty() && m_selectionDragSession.Selection().sceneObjects.empty()) {
-        scene_grouping::ObjectSelection selection;
-        selection.fixtures = m_selectionDragSession.Selection().fixtures;
-        selection.trusses = m_selectionDragSession.Selection().trusses;
-        const auto targets = scene_grouping::BuildInteractiveTransformTargets(
-        ConfigManager::Get().GetScene(), selection,
-        selection_movement_settings::LoadInteractiveTransformPolicy(
-            ConfigManager::Get()));
-    if (targets.size() == 1 && targets.front().type == MvrNodeType::GroupObject)
+    const auto &selection = m_selectionDragSession.Selection();
+    if (!selection.trusses.empty() && selection.sceneObjects.empty()) {
+        const auto &cfg = ConfigManager::Get();
+        std::vector<scene_grouping::SceneTransformTarget> resolved;
+        const auto *targets = &m_activeTransformTargets;
+        if (m_activeTransformRevision != cfg.GetRenderRevision() ||
+            !selection.supports.empty() || m_continuousPlacementSession.IsBatchActive()) {
+            const scene_grouping::ObjectSelection snapSelection{
+                .fixtures = selection.fixtures, .trusses = selection.trusses};
+            resolved = scene_grouping::BuildInteractiveTransformTargets(
+                cfg.GetScene(), snapSelection,
+                selection_movement_settings::LoadInteractiveTransformPolicy(cfg));
+            targets = &resolved;
+        }
+        if (targets->size() == 1 && targets->front().type == MvrNodeType::GroupObject)
             return magnet_snap::SnapSource{magnet_snap::ObjectType::TrussGroup,
-                                           targets.front().uuid};
-        if (m_selectionDragSession.Selection().trusses.size() == 1 && m_selectionDragSession.Selection().fixtures.empty())
+                                           targets->front().uuid};
+        if (selection.trusses.size() == 1 && selection.fixtures.empty())
             return magnet_snap::SnapSource{magnet_snap::ObjectType::Truss,
-                                           m_selectionDragSession.Selection().trusses.front()};
+                                           selection.trusses.front()};
     }
-    if (m_selectionDragSession.Selection().fixtures.size() == 1 && m_selectionDragSession.Selection().trusses.empty() &&
-        m_selectionDragSession.Selection().sceneObjects.empty())
+    if (selection.fixtures.size() == 1 && selection.trusses.empty() &&
+        selection.sceneObjects.empty())
         return magnet_snap::SnapSource{magnet_snap::ObjectType::Fixture,
-                                       m_selectionDragSession.Selection().fixtures.front()};
-    if (m_selectionDragSession.Selection().sceneObjects.size() == 1 && m_selectionDragSession.Selection().fixtures.empty() &&
-        m_selectionDragSession.Selection().trusses.empty())
+                                       selection.fixtures.front()};
+    if (selection.sceneObjects.size() == 1 && selection.fixtures.empty() &&
+        selection.trusses.empty())
         return magnet_snap::SnapSource{magnet_snap::ObjectType::SceneObject,
-                                       m_selectionDragSession.Selection().sceneObjects.front()};
+                                       selection.sceneObjects.front()};
     return std::nullopt;
 }
 
@@ -2808,7 +2820,6 @@ bool Viewer3DPanel::ApplySelectionDragDelta(
     if (!changed)
         return false;
     m_selectionDragSession.ApplyAnchorDelta(deltaMeters);
-    UpdateSelectionDragStatusPosition();
     m_runtimeState.RecordTransformActivity(std::chrono::steady_clock::now());
     m_transformPresentation.MarkTransformApplied();
     m_placementPerformance.Applied();
@@ -3299,7 +3310,6 @@ void Viewer3DPanel::UpdateSelectionDragPointer(const wxPoint &pos) {
     }
 
     m_lastMousePos = pos;
-    m_runtimeState.MarkPointerMoved();
     if (changed)
         PresentInteractiveTransformFrame();
 }
@@ -3327,9 +3337,10 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
         if (GetClientRect().Contains(livePos))
             pos = livePos;
         if (m_navigationSession.IsActive() && event.Dragging()) {
-            if (const auto intent = ResolveCameraDragIntent(event, pos))
+            if (const auto intent = ResolveCameraDragIntent(event, pos)) {
                 ApplyCameraIntent(*intent, pos);
-            PresentInteractiveTransformFrame();
+                PresentInteractiveTransformFrame();
+            }
             return;
         }
         UpdateContinuousPlacementPointer(pos);

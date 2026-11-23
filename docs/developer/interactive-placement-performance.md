@@ -22,6 +22,11 @@ culling, which already keeps fixtures after layer and type filtering. Selection
 highlights and labels remain available. Camera movement retains its own
 render-quality policy. Document capture keeps its regular synchronization path.
 
+The active transform target set is reused for movement, local axes and
+compatible Magnet queries. A scene revision change or Magnet detachment
+refreshes the target set. Live status coordinates update after presentation,
+alongside the Position Tool notification.
+
 ## Repeatable runtime profile
 
 Use the same machine, build type, display refresh rate, rendering preferences,
@@ -62,7 +67,9 @@ gesture five times for at least 5 seconds.
    hidden layers, visible bounds, parent relationships and fresh UUIDs.
    Repeat after replacing the project and while the Position Tool is visible.
 
-No hardware frame-time comparison was collected for this audit. Deterministic
+No hardware frame-time comparison was collected for this audit. Linux Debug
+passed 17 focused tests, including the Position Tool and DMX Patch canvas
+smoke tests under Xvfb. Deterministic
 tests cover coalescing, placement activity and settling, live Position Tool
 updates, and Magnet result equivalence plus cache-miss counts. The manual
 profile above covers display latency and the larger scene matrix.

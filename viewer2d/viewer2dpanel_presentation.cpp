@@ -65,6 +65,7 @@ void Viewer2DPanel::PresentInteractiveTransformFrame() {
 void Viewer2DPanel::FinishInteractiveTransformPresentation() {
   m_placementPerformance.Finish("Viewer2D");
   m_transformPresentation.Reset();
+  m_activeTransformRevision.reset();
   m_fixtureMagnetTargets.Clear();
   if (m_activeTransformTargets.empty())
     return;
