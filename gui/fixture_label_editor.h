@@ -30,7 +30,7 @@ private:
   void StoreField(wxObject *source);
   void Apply();
   void Reset();
-  void RefreshPreview();
+  void RefreshPreview(std::optional<std::string_view> family = {});
   void OnPreviewDrag(label_preview::DragPhase, const viewer2d::LabelFieldStyle &);
   ConfigManager &cfg_;
   viewer2d::FixtureLabelOverrideMap draft_;

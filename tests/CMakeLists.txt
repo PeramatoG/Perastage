@@ -4973,7 +4973,8 @@ add_test(NAME LayoutPageMappingPdf COMMAND layout_page_mapping_pdf_test)
 add_executable(page_output_mapping_test page_output_mapping_test.cpp ../core/print/PageSetup.cpp)
 target_include_directories(page_output_mapping_test PRIVATE ../core ../core/print)
 add_test(NAME PageOutputMapping COMMAND page_output_mapping_test)
-add_executable(layout_export_input_test layout_export_input_test.cpp
+add_executable(layout_export_input_test layout_export_input_test.cpp document_font_picker_test.cpp
+    ../gui/document_font_choice.cpp ../gui/document_font_popup.cpp ../gui/layouttextdialog.cpp
     layout_physical_viewport_preview_test.cpp ../viewer2d/viewer2d_coordinate_math.cpp
     ../gui/layout_viewport_properties.cpp
     ../gui/layout_viewport_preview.cpp ../gui/document_text_renderer.cpp

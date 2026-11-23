@@ -17,7 +17,9 @@
  */
 #pragma once
 
+#include <wx/bitmap.h>
 #include <wx/gdicmn.h>
+#include <string_view>
 #include <wx/image.h>
 #include <wx/richtext/richtextbuffer.h>
 
@@ -37,4 +39,8 @@ LayoutTextExportData BuildLayoutTextExportData(
 wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
                         const wxSize &renderSize, const wxSize &logicalSize,
                         double renderScale);
+wxBitmap RenderFontSample(wxRichTextParagraphLayoutBox &content, wxRichTextRange range,
+                          const wxRichTextAttr &baseStyle, std::string_view family,
+                          const wxSize &size);
+
 } // namespace layouttext

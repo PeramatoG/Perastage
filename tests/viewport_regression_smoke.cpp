@@ -363,17 +363,38 @@ public:
         const auto catalog = typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
         const auto previousResource = catalog->FindResource(previousFace);
         Require(bool(previousResource), "The initial preview face is unavailable");
-        auto index = previousResource->family == "Source Sans 3" ? 1 : 2;
-        selectedFamily_ = index == 1 ? "Noto Serif" : "Source Sans 3";
+        selectedFamily_ = previousResource->family == "Source Sans 3" ? "Noto Serif" : "Source Sans 3";
         if (const auto *external = std::getenv("PERASTAGE_SMOKE_INSTALLED_FONT");
-            external && *external && previousResource->family != external) {
-          auto *picker = dynamic_cast<wxChoice *>(editor_->FindWindowByName("fixtureLabelFontFamily", editor_));
-          Require(picker, "Fixture label font picker missing");
-          index = picker->FindString(wxString::FromUTF8(std::string(external) + " (installed)"));
-          Require(index != wxNOT_FOUND, "Native system font was not exposed in the fixture picker");
-          selectedFamily_ = external;
-        }
-        Choice("fixtureLabelFontFamily", index);
+            external && *external && previousResource->family != external) selectedFamily_ = external;
+        auto *picker = dynamic_cast<gui::DocumentFontChoice *>(
+            editor_->FindWindowByName("fixtureLabelFontFamily", editor_));
+        Require(picker, "Fixture label font picker missing");
+        const auto reference = picker->GetReference();
+        picker->Popup();
+        font_picker_probe::Filter(*picker, wxString::FromUTF8(selectedFamily_));
+        Require(Preview()->GetComposition().text.front().style.fontResource != previousFace &&
+                picker->GetReference() == reference &&
+                cfg.GetValue("label_fixture_overrides").value_or("") == labels_,
+                "Browsing did not preview the face independently of the draft and project");
+        font_picker_probe::Press(*picker, WXK_ESCAPE);
+        Require(Preview()->GetComposition().text.front().style.fontResource == previousFace,
+                "Escape did not restore the previous fixture font");
+        picker->Popup();
+        font_picker_probe::Filter(*picker, wxString::FromUTF8(selectedFamily_));
+        Choice("fixtureLabelView", 1);
+        Require(!picker->IsPopupShown(), "Changing fixture orientation left a preview active");
+        Choice("fixtureLabelView", 0);
+        auto *scope = dynamic_cast<wxChoice *>(editor_->FindWindowByName("fixtureLabelScope", editor_));
+        Require(scope && scope->GetCount() > 1, "Fixture editor scope choices are missing");
+        const int appliedScope = scope->GetSelection();
+        picker->Popup();
+        font_picker_probe::Filter(*picker, wxString::FromUTF8(selectedFamily_));
+        Choice("fixtureLabelScope", 1 - appliedScope);
+        Require(!picker->IsPopupShown(), "Changing editing scope left a preview active");
+        Choice("fixtureLabelScope", appliedScope);
+        picker->Popup();
+        font_picker_probe::Filter(*picker, wxString::FromUTF8(selectedFamily_));
+        font_picker_probe::Pointer(*picker, wxEVT_LEFT_DOWN, font_picker_probe::List(*picker).GetSelection());
         const auto selectedFace = Preview()->GetComposition().text.front().style.fontResource;
         Require(!selectedFace.empty() && selectedFace != previousFace,
                 "Font selection did not immediately change the preview glyphs");
@@ -412,8 +433,12 @@ public:
         labels_ = applied.value_or("");
         editor_ = new FixtureLabelEditor(frame_, cfg, 0); editor_->Show(); break;
       }
-      case 7:
-        Choice("fixtureLabelFontFamily", selectedFamily_ == "Noto Serif" ? 2 : 1); Bold(); Button(wxID_RESET); Button(wxID_CANCEL); CloseEditor();
+      case 7: {
+        auto *picker = dynamic_cast<gui::DocumentFontChoice *>(
+            editor_->FindWindowByName("fixtureLabelFontFamily", editor_));
+        Require(picker && picker->ConfirmFamily(selectedFamily_ == "Noto Serif" ? "Source Sans 3" : "Noto Serif"),
+                "Could not change the draft font");
+        Bold(); Button(wxID_RESET); Button(wxID_CANCEL); CloseEditor();
         Require(cfg.GetValue("label_fixture_overrides").value_or("") == labels_, "Closing committed an unapplied draft");
         cfg.SetValue("layout_perspective", manager->SavePerspective().ToStdString());
         Require(cfg.SaveProject((scratch/"scene.pstg").string()), "Save with a 2D perspective failed");
@@ -421,6 +446,7 @@ public:
         Require(cfg.GetValue("label_fixture_overrides").value_or("") == labels_,
                 "Reopening the project changed the saved fixture font reference");
         break;
+      }
       case 8:
         editor_=new FixtureLabelEditor(frame_,cfg,0);editor_->Show();break;
       case 9:

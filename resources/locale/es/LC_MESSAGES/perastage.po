@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-23 00:08+0100\n"
+"POT-Creation-Date: 2026-11-23 11:06+0100\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -311,7 +311,7 @@ msgstr "Exportar solo referencias"
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
 #: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:92
 #: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:94
-#: gui/layouttextdialog.cpp:194 gui/preferencesdialog.cpp:87
+#: gui/layouttextdialog.cpp:199 gui/preferencesdialog.cpp:87
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139
 msgid "Cancel"
@@ -490,13 +490,13 @@ msgid "Type Color"
 msgstr "Color del tipo"
 
 #: gui/dictionaryeditdialog.cpp:599 gui/mainwindow_layout.cpp:329
-#: gui/mainwindow_menu_builders.cpp:81 gui/mainwindow_print.cpp:525
+#: gui/mainwindow_menu_builders.cpp:81 gui/mainwindow_print.cpp:529
 #: gui/riggingpanel.cpp:185 gui/summarypanel.cpp:139
 msgid "Fixtures"
 msgstr "Aparatos"
 
 #: gui/dictionaryeditdialog.cpp:600 gui/mainwindow_layout.cpp:334
-#: gui/mainwindow_print.cpp:528 gui/riggingpanel.cpp:188
+#: gui/mainwindow_print.cpp:532 gui/riggingpanel.cpp:188
 #: gui/summarypanel.cpp:172
 msgid "Trusses"
 msgstr "Trusses"
@@ -1123,47 +1123,60 @@ msgstr ""
 msgid "Select category"
 msgstr "Seleccionar categoría"
 
-#: gui/document_font_choice.h:69
-#, c-format
-msgid "%s (default)"
-msgstr "%s (predeterminada)"
-
-#: gui/document_font_choice.h:72
-#, c-format
-msgid "%s (installed)"
-msgstr "%s (instalada)"
-
-#: gui/document_font_choice.h:82
+#: gui/document_font_choice.cpp:101
 msgid ""
 "This installed font format is unsupported. The document uses an approved "
 "fallback."
-msgstr "El formato de esta fuente instalada no es compatible. El documento utiliza una fuente de sustitución aprobada."
+msgstr ""
+"El formato de esta fuente instalada no es compatible. El documento utiliza "
+"una fuente de sustitución aprobada."
 
-#: gui/document_font_choice.h:84
+#: gui/document_font_choice.cpp:103
 msgid ""
 "The requested font or style is unavailable. The document uses a fallback."
-msgstr "La fuente o el estilo solicitado no está disponible. El documento utiliza una alternativa."
+msgstr ""
+"La fuente o el estilo solicitado no está disponible. El documento utiliza "
+"una alternativa."
 
-#: gui/document_font_choice.h:86
+#: gui/document_font_choice.cpp:105
 msgid "PDF export uses a fallback for this installed font."
-msgstr "La exportación a PDF utiliza una fuente de sustitución para esta fuente instalada."
+msgstr ""
+"La exportación a PDF utiliza una fuente de sustitución para esta fuente "
+"instalada."
 
-#: gui/document_font_choice.h:88
+#: gui/document_font_choice.cpp:107
 msgid ""
-"Installed font. Other computers need a compatible face. Check its license "
-"before exporting."
-msgstr "Fuente instalada. Los demás equipos necesitan una variante compatible. Comprueba su licencia antes de exportar."
+"Installed font. PDF embedding is available. Check its license before "
+"exporting."
+msgstr ""
+"Fuente instalada. Se puede incrustar en el PDF. Comprueba su licencia antes "
+"de exportar."
 
-#: gui/document_font_choice.h:90 gui/document_font_choice.h:101
-#: gui/fixture_label_editor.cpp:52 gui/layouttextdialog.cpp:132
-#: gui/layouttextdialog.cpp:146
+#: gui/document_font_choice.cpp:109
+msgid "Included portable font. PDF embedding is available."
+msgstr "Fuente portátil incluida. Se puede incrustar en el PDF."
+
+#: gui/document_font_choice.cpp:114 gui/fixture_label_editor.cpp:52
+#: gui/layouttextdialog.cpp:151
 msgid "Font family"
 msgstr "Familia tipográfica"
 
-#: gui/document_font_choice.h:104 gui/fixture_label_editor.cpp:100
-#: gui/layouttextdialog.cpp:198
+#: gui/document_font_choice.cpp:117 gui/fixture_label_editor.cpp:100
+#: gui/layouttextdialog.cpp:203
 msgid "Refresh fonts"
 msgstr "Actualizar fuentes"
+
+#: gui/document_font_popup.cpp:56 gui/document_font_popup.cpp:57
+msgid "Search fonts"
+msgstr "Buscar fuentes"
+
+#: gui/document_font_popup.cpp:131
+msgid "Included with Perastage"
+msgstr "Incluidas con Perastage"
+
+#: gui/document_font_popup.cpp:131
+msgid "Installed on this computer"
+msgstr "Instaladas en este equipo"
 
 #: gui/fixture_distribution_dialog.cpp:12
 msgid "Distribute fixtures"
@@ -1368,7 +1381,9 @@ msgstr "Arrastre el campo seleccionado en la vista previa."
 msgid ""
 "Sizes and offsets use scene metres. PDF export reports installed fonts that "
 "require substitution."
-msgstr "Los tamaños y desplazamientos se expresan en metros de la escena. La exportación a PDF informa de las fuentes instaladas que deben sustituirse."
+msgstr ""
+"Los tamaños y desplazamientos se expresan en metros de la escena. La "
+"exportación a PDF informa de las fuentes instaladas que deben sustituirse."
 
 #: gui/fixture_label_editor.cpp:98
 msgid "Reset to Default"
@@ -3066,7 +3081,7 @@ msgid "Move Down"
 msgstr "Mover hacia abajo"
 
 #: gui/layoutpanel.cpp:35 gui/mainwindow_menu.cpp:369
-#: gui/mainwindow_print.cpp:78
+#: gui/mainwindow_print.cpp:80
 msgid "Layout"
 msgstr "Layout"
 
@@ -3159,23 +3174,23 @@ msgstr "Importar plantilla de diseño"
 msgid "Could not import layout template.\n"
 msgstr "No se pudo importar la plantilla de diseño.\n"
 
-#: gui/layouttextdialog.cpp:176
+#: gui/layouttextdialog.cpp:181
 msgid "Solid background"
 msgstr "Fondo sólido"
 
-#: gui/layouttextdialog.cpp:179
+#: gui/layouttextdialog.cpp:184
 msgid "Show outline"
 msgstr "Mostrar esquema"
 
-#: gui/layouttextdialog.cpp:193
+#: gui/layouttextdialog.cpp:198
 msgid "Ok"
 msgstr "De acuerdo"
 
-#: gui/layouttextdialog.cpp:195 gui/layouttextdialog.cpp:251
+#: gui/layouttextdialog.cpp:200 gui/layouttextdialog.cpp:272
 msgid "Document preview"
 msgstr "Vista previa del documento"
 
-#: gui/layouttextdialog.cpp:219
+#: gui/layouttextdialog.cpp:221
 msgid ""
 "Some legacy formatting cannot be edited here. A copy of the original is kept "
 "with your edits."
@@ -3876,7 +3891,7 @@ msgstr "No se pudo copiar el archivo."
 msgid "Object exported successfully."
 msgstr "Objeto exportado exitosamente."
 
-#: gui/mainwindow_io.cpp:906 gui/mainwindow_print.cpp:543
+#: gui/mainwindow_io.cpp:906 gui/mainwindow_print.cpp:547
 msgid "Select table"
 msgstr "Seleccione tabla"
 
@@ -3885,12 +3900,12 @@ msgstr "Seleccione tabla"
 msgid "Export CSV"
 msgstr "Exportar CSV"
 
-#: gui/mainwindow_layout.cpp:339 gui/mainwindow_print.cpp:531
+#: gui/mainwindow_layout.cpp:339 gui/mainwindow_print.cpp:535
 #: gui/riggingpanel.cpp:191 gui/summarypanel.cpp:182
 msgid "Hoists"
 msgstr "Motores"
 
-#: gui/mainwindow_layout.cpp:344 gui/mainwindow_print.cpp:534
+#: gui/mainwindow_layout.cpp:344 gui/mainwindow_print.cpp:538
 #: gui/summarypanel.cpp:199
 msgid "Objects"
 msgstr "Objetos"
@@ -3978,7 +3993,7 @@ msgstr "Exportar MVR"
 msgid "Export the project to MVR"
 msgstr "Exportar el proyecto a MVR"
 
-#: gui/mainwindow_menu.cpp:182 gui/mainwindow_print.cpp:83
+#: gui/mainwindow_menu.cpp:182 gui/mainwindow_print.cpp:85
 msgid "Print"
 msgstr "Imprimir"
 
@@ -4596,96 +4611,96 @@ msgstr "&Herramientas"
 msgid "&Help"
 msgstr "A&yuda"
 
-#: gui/mainwindow_print.cpp:79
+#: gui/mainwindow_print.cpp:81
 msgid "2D View"
 msgstr "Vista 2D"
 
-#: gui/mainwindow_print.cpp:80
+#: gui/mainwindow_print.cpp:82
 msgid "Table"
 msgstr "Tabla"
 
-#: gui/mainwindow_print.cpp:82
+#: gui/mainwindow_print.cpp:84
 msgid "Select what to print:"
 msgstr "Seleccione qué imprimir:"
 
-#: gui/mainwindow_print.cpp:103 gui/mainwindow_print.cpp:256
+#: gui/mainwindow_print.cpp:105 gui/mainwindow_print.cpp:259
 msgid "2D viewport is not available."
 msgstr "La vista 2D no está disponible."
 
-#: gui/mainwindow_print.cpp:103 gui/mainwindow_print.cpp:133
-#: gui/mainwindow_print.cpp:163 gui/mainwindow_print.cpp:201
-#: gui/mainwindow_print.cpp:209
+#: gui/mainwindow_print.cpp:105 gui/mainwindow_print.cpp:135
+#: gui/mainwindow_print.cpp:166 gui/mainwindow_print.cpp:204
+#: gui/mainwindow_print.cpp:212
 msgid "Print Viewer 2D"
 msgstr "Imprimir vista 2D"
 
-#: gui/mainwindow_print.cpp:123
+#: gui/mainwindow_print.cpp:125
 msgid "Save 2D view as"
 msgstr "Guardar vista 2D como"
 
-#: gui/mainwindow_print.cpp:132
+#: gui/mainwindow_print.cpp:134
 msgid "Please choose a destination file for the 2D view."
 msgstr "Seleccione un archivo de destino para la vista 2D."
 
-#: gui/mainwindow_print.cpp:146
+#: gui/mainwindow_print.cpp:149
 msgid "Printing 2D view..."
 msgstr "Imprimiendo vista 2D..."
 
-#: gui/mainwindow_print.cpp:162
+#: gui/mainwindow_print.cpp:165
 msgid "Unable to capture the 2D view for printing."
 msgstr "No se puede capturar la vista 2D para imprimir."
 
-#: gui/mainwindow_print.cpp:198
+#: gui/mainwindow_print.cpp:201
 #, c-format
 msgid "Failed to generate PDF plan: %s"
 msgstr "No se pudo generar el plano PDF: %s"
 
-#: gui/mainwindow_print.cpp:200 gui/mainwindow_print.cpp:426
+#: gui/mainwindow_print.cpp:203 gui/mainwindow_print.cpp:430
 msgid "Print failed. Please review the error and try again."
 msgstr "La impresión falló. Revise el error e inténtelo de nuevo."
 
-#: gui/mainwindow_print.cpp:208
+#: gui/mainwindow_print.cpp:211
 #, c-format
 msgid "2D view saved to %s"
 msgstr "Vista 2D guardada en %s"
 
-#: gui/mainwindow_print.cpp:223
+#: gui/mainwindow_print.cpp:226
 msgid "No layout is selected."
 msgstr "No hay ningún layout seleccionado."
 
-#: gui/mainwindow_print.cpp:223 gui/mainwindow_print.cpp:236
-#: gui/mainwindow_print.cpp:248 gui/mainwindow_print.cpp:256
-#: gui/mainwindow_print.cpp:290 gui/mainwindow_print.cpp:308
-#: gui/mainwindow_print.cpp:427 gui/mainwindow_print.cpp:441
+#: gui/mainwindow_print.cpp:226 gui/mainwindow_print.cpp:239
+#: gui/mainwindow_print.cpp:251 gui/mainwindow_print.cpp:259
+#: gui/mainwindow_print.cpp:293 gui/mainwindow_print.cpp:311
+#: gui/mainwindow_print.cpp:431 gui/mainwindow_print.cpp:445
 msgid "Print Layout"
 msgstr "Imprimir layout"
 
-#: gui/mainwindow_print.cpp:236
+#: gui/mainwindow_print.cpp:239
 msgid "Selected layout is not available."
 msgstr "El layout seleccionado no está disponible."
 
-#: gui/mainwindow_print.cpp:247
+#: gui/mainwindow_print.cpp:250
 msgid "The selected layout is empty."
 msgstr "El layout seleccionado está vacío."
 
-#: gui/mainwindow_print.cpp:280
+#: gui/mainwindow_print.cpp:283
 msgid "Save layout as"
 msgstr "Guardar layout como"
 
-#: gui/mainwindow_print.cpp:289
+#: gui/mainwindow_print.cpp:292
 msgid "Please choose a destination file for the layout."
 msgstr "Seleccione un archivo de destino para el layout."
 
-#: gui/mainwindow_print.cpp:307 gui/mainwindow_print.cpp:423
+#: gui/mainwindow_print.cpp:310 gui/mainwindow_print.cpp:427
 #, c-format
 msgid "Failed to generate layout PDF: %s"
 msgstr "No se pudo generar el PDF del layout: %s"
 
-#: gui/mainwindow_print.cpp:431
+#: gui/mainwindow_print.cpp:435
 #, c-format
 msgid "Layout saved to %s"
 msgstr "Layout guardado en %s"
 
-#: gui/mainwindow_print.cpp:433
+#: gui/mainwindow_print.cpp:437
 #, c-format
 msgid ""
 "\n"
@@ -4700,11 +4715,11 @@ msgstr ""
 "Perastage symbols: %zu\n"
 "Reservas renderizadas: %zu"
 
-#: gui/mainwindow_print.cpp:512
+#: gui/mainwindow_print.cpp:516
 msgid "Printing layout..."
 msgstr "Imprimiendo layout..."
 
-#: gui/mainwindow_print.cpp:543
+#: gui/mainwindow_print.cpp:547
 msgid "Print Table"
 msgstr "Imprimir tabla"
 
@@ -6915,6 +6930,14 @@ msgstr "No se pudo guardar la imagen PNG."
 #, c-format
 msgid "Measure: %s"
 msgstr "Medida: %s"
+
+#, c-format
+#~ msgid "%s (default)"
+#~ msgstr "%s (predeterminada)"
+
+#, c-format
+#~ msgid "%s (installed)"
+#~ msgstr "%s (instalada)"
 
 #~ msgid ""
 #~ "The viewer, editor and PDF use the same approved fonts and label "

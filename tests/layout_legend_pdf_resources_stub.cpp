@@ -28,6 +28,9 @@ bool IsProjectFixtureSymbolSource(std::string_view source) {
 }
 namespace ProjectUtils {
 std::filesystem::path GetResourceRoot() { return PERASTAGE_TEST_RESOURCE_DIR; }
+std::filesystem::path ResolveResourcePath(const std::filesystem::path& relativePath) {
+  return GetResourceRoot() / relativePath;
+}
 }
 Logger::Logger() = default;
 Logger::~Logger() = default;

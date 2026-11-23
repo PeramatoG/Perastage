@@ -145,12 +145,18 @@ fits. The complete source remains editable in both cases.
 
 ### Installed fonts and portability
 
-The font picker lists the included families first and marks families from your
-computer as **installed**. Leave a project on the included families when it
-must look the same on machines with different installed fonts. The picker
-reports unavailable, unsupported and PDF-substituted faces in its tooltip.
-Fixture labels offer Bold and Italic. If the requested style is missing,
-Perastage uses a real compatible face and reports the substitution.
+The font picker groups plain family names under **Included with Perastage**
+and **Installed on this computer**. Type in **Search fonts** to filter either
+group. Hover over a font or use the arrow keys to preview it in the Fixture
+Label Editor or in the Layout Text Editor's popup sample. Click a family or
+press **Enter** to choose it. Press **Escape** or click outside the list to
+discard the preview. The editor's **Apply**, **OK**, and **Cancel** actions
+still control the pending edit.
+
+The selected font's tooltip describes its source, availability and PDF
+capability. Included fonts keep the document appearance portable across
+computers. Fixture labels offer Bold and Italic. If the requested style is
+missing, Perastage uses a real compatible face and reports the substitution.
 
 Projects store the selection and keep it when a font is missing. They do not
 carry installed font files. Use **Refresh fonts** in a font editor after

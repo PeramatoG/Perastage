@@ -100,9 +100,7 @@ FixtureLabelEditor::FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int
   auto *refreshFonts = new wxButton(this, wxID_ANY, _("Refresh fonts"));
   buttons->Add(refreshFonts, 0);
   refreshFonts->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
-    const auto requested = family_->GetReference();
-    gui::DocumentFontChoice::RefreshCatalog();
-    family_->RefreshFamilies(requested);
+    family_->RefreshFamilies();
     LoadField();
   });
   buttons->AddStretchSpacer();
@@ -112,7 +110,9 @@ FixtureLabelEditor::FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int
   for (auto *choice : {scope_, view_}) choice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &) { preview_->CancelDrag(); preview_->ResetFit(); LoadField(); });
   fields_->Bind(wxEVT_LISTBOX, [this](wxCommandEvent &) { preview_->CancelDrag(); LoadField(); });
   background->Bind(wxEVT_CHOICE,[this,background](wxCommandEvent &){ preview_->SetDarkBackground(background->GetSelection()==1); });
-  for (auto *choice : {anchor_,align_,static_cast<wxChoice *>(family_)}) choice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &event) { StoreField(event.GetEventObject()); event.Skip(); });
+  for (auto *choice : {anchor_,align_}) choice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &event) { StoreField(event.GetEventObject()); event.Skip(); });
+  family_->SetPreviewHandler([this](auto family) { RefreshPreview(family); });
+  family_->SetCommitHandler([this] { StoreField(family_); });
   for (auto *check : {visible_,bold_,italic_,outline_}) check->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent &event) { StoreField(event.GetEventObject()); });
   for (auto *s : {size_,x_,y_,outlineWidth_}) {
     s->Bind(wxEVT_SPINCTRLDOUBLE, [this](wxSpinDoubleEvent &event) { StoreField(event.GetEventObject()); });
@@ -123,12 +123,14 @@ FixtureLabelEditor::FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int
   preview_->SetDragCallback([this](auto phase,const auto &style){ OnPreviewDrag(phase,style); });
   Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Apply(); }, wxID_APPLY);
   Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Apply(); if (session_) session_->commit(draft_); if(IsModal())EndModal(wxID_OK);else Hide(); }, wxID_OK);
-  Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { preview_->CancelDrag(); if(IsModal())EndModal(wxID_CANCEL);else Hide(); }, wxID_CANCEL);
-  Bind(wxEVT_CLOSE_WINDOW,[this](wxCloseEvent &e){preview_->CancelDrag();e.Skip();});
+  Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { family_->CancelBrowsing(); preview_->CancelDrag(); if(IsModal())EndModal(wxID_CANCEL);else Hide(); }, wxID_CANCEL);
+  Bind(wxEVT_CLOSE_WINDOW,[this](wxCloseEvent &e){family_->CancelBrowsing();preview_->CancelDrag();e.Skip();});
   reset->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Reset(); });
   LoadField();
 }
 FixtureLabelEditor::~FixtureLabelEditor() {
+  family_->SetPreviewHandler({});
+  family_->CancelBrowsing();
   preview_->CancelDrag();
   preview_->SetDragCallback({});
 }
@@ -138,6 +140,7 @@ std::string FixtureLabelEditor::ScopeUuid() const {
 void FixtureLabelEditor::LoadField() {
   loading_ = true;
   const auto s = preview_->ResolveEditingStyle(EffectiveDraft(), ScopeUuid(), view_->GetSelection(), fields_->GetSelection());
+  family_->SetFaceStyle(s.bold, s.italic);
   family_->SelectFamily(s.fontFamily);
   visible_->SetValue(s.visible); bold_->SetValue(s.bold); italic_->SetValue(s.italic); size_->SetValue(s.size);
   x_->SetValue(s.x); y_->SetValue(s.y); anchor_->SetSelection(s.anchor); align_->SetSelection(s.alignment);
@@ -160,8 +163,7 @@ void FixtureLabelEditor::StoreField(wxObject *source) {
     if (source == visible_) s.visible = visible_->GetValue();
     if (source == bold_) s.bold = bold_->GetValue();
     if (source == italic_) s.italic = italic_->GetValue();
-    if (source == family_ && family_->GetSelection() != wxNOT_FOUND)
-      s.fontFamily = family_->GetReference();
+    if (source == family_) s.fontFamily = family_->GetReference();
     if (source == size_) s.size = size;
     if (source == x_) s.x = x;
     if (source == y_) s.y = y;
@@ -179,19 +181,30 @@ void FixtureLabelEditor::StoreField(wxObject *source) {
     draft_[id].fieldStyles[view_->GetSelection()][fields_->GetSelection()] = s;
   }
   outlineColor_->Enable(outline_->GetValue()); outlineWidth_->Enable(outline_->GetValue());
+  family_->SetFaceStyle(bold_->GetValue(), italic_->GetValue());
   changed_ = true; RefreshPreview();
 }
-void FixtureLabelEditor::RefreshPreview() {
+void FixtureLabelEditor::RefreshPreview(std::optional<std::string_view> family) {
   viewer2d::FixtureLabelOverrideMap preview;
   const auto effective = EffectiveDraft();
   for (const auto &key : {std::string(viewer2d::kLabelDefaultsKey),fixture_.uuid}) {
     if (key == fixture_.uuid && scope_->GetSelection() == 0 && !session_) continue;
     if (const auto it = effective.find(key); it != effective.end()) preview.emplace(*it);
   }
+  if (family) {
+    const int view = view_->GetSelection(), field = fields_->GetSelection();
+    const auto scope = ScopeUuid();
+    auto style = preview_->ResolveEditingStyle(effective, scope, view, field);
+    if (style.fontFamily != *family) {
+      style.fontFamily = *family;
+      preview[scope].fieldStyles[view][field] = std::move(style);
+    }
+  }
   preview_->SetActiveField(fields_->GetSelection());
   preview_->SetContent(fixture_, view_->GetSelection(), preview);
 }
 void FixtureLabelEditor::Apply() {
+  family_->CancelBrowsing();
   preview_->CancelDrag();
   if (!changed_) return;
   if (session_) return;

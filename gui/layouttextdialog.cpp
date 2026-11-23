@@ -19,6 +19,7 @@
 #include "layouttext_legacy_xml.h"
 #include <wx/stattext.h>
 #include "document_font_choice.h"
+#include "typography/font_resources.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -129,10 +130,14 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
   toolbarSizer->Add(fontSizeCtrl, 0, wxRIGHT, 8);
   auto *family = new gui::DocumentFontChoice(this, {});
   family->SetName("layoutTextFontFamily");
-  family->SetToolTip(_("Font family"));
-  family->Bind(wxEVT_CHOICE, [this, family](wxCommandEvent &event) {
-    event.Skip();
-    if (family->GetSelection() == wxNOT_FOUND || !textCtrl) return;
+  family->SetSampleRenderer([this](std::string_view family, const wxSize &size) {
+    auto *content = textCtrl->GetFocusObject();
+    if (!content) return wxNullBitmap;
+    const auto range = textCtrl->HasSelection() ? textCtrl->GetSelectionRange().ToInternal()
+                     : wxRichTextRange(0, textCtrl->GetLastPosition() - 1);
+    return layouttext::RenderFontSample(*content, range, textCtrl->GetBuffer().GetBasicStyle(), family, size);
+  });
+  family->SetCommitHandler([this, family] {
     auto selected = family->GetFamily();
     if (selected.empty() || selected == typography::kDefaultFamily) selected = "Noto Sans";
     wxRichTextAttr attr;
@@ -197,11 +202,8 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
   buttonSizer->Add(preview, 0, wxRIGHT, 8);
   auto *refresh = new wxButton(this, wxID_ANY, _("Refresh fonts"));
   refresh->Bind(wxEVT_BUTTON, [this, family](wxCommandEvent &) {
-    wxRichTextAttr attr;
-    textCtrl->GetStyle(textCtrl->GetInsertionPoint(), attr);
-    gui::DocumentFontChoice::RefreshCatalog();
+    family->RefreshFamilies();
     RegisterEditorFonts();
-    family->RefreshFamilies(attr.GetFontFaceName().utf8_string());
   });
   buttonSizer->Add(refresh, 0, wxRIGHT, 8);
   buttonSizer->AddStretchSpacer();
@@ -224,12 +226,31 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
   }
   const auto synchronizeFamily = [this, family] {
     wxRichTextAttr attr;
-    if (textCtrl->GetStyle(textCtrl->GetInsertionPoint(), attr))
-      family->SelectFamily(attr.GetFontFaceName().utf8_string());
+    const auto pos = textCtrl->HasSelection() ? textCtrl->GetSelectionRange().GetStart()
+                                             : textCtrl->GetInsertionPoint();
+    if (!textCtrl->GetStyle(pos, attr)) return;
+    auto name = attr.GetFontFaceName().utf8_string();
+    if (const auto *object = textCtrl->GetFocusObject()->GetLeafObjectAtPosition(pos)) {
+      const auto reference = object->GetProperties()
+          .GetPropertyString(layouttext::kInstalledFontReferenceProperty).utf8_string();
+      if (!reference.empty() && typography::DecodeFontReference(reference).family == name)
+        name = reference;
+    }
+    family->SetFaceStyle(attr.GetFontWeight() >= wxFONTWEIGHT_BOLD,
+                         attr.GetFontStyle() == wxFONTSTYLE_ITALIC || attr.GetFontStyle() == wxFONTSTYLE_SLANT);
+    family->SelectFamily(name);
   };
   synchronizeFamily();
   textCtrl->Bind(wxEVT_RICHTEXT_SELECTION_CHANGED, [synchronizeFamily](wxRichTextEvent &event) {
     synchronizeFamily();
+    event.Skip();
+  });
+  Bind(wxEVT_CLOSE_WINDOW, [family](wxCloseEvent &event) {
+    family->CancelBrowsing();
+    event.Skip();
+  });
+  Bind(wxEVT_SHOW, [family](wxShowEvent &event) {
+    if (!event.IsShown()) family->CancelBrowsing();
     event.Skip();
   });
   Layout();

@@ -178,8 +178,9 @@ wxString SaveRichTextBufferToString(wxRichTextBuffer &buffer) {
   return wxEmptyString;
 }
 
-LayoutTextExportData BuildLayoutTextExportData(
-    const layouts::LayoutTextDefinition &text) {
+namespace {
+LayoutTextExportData ExtractLayoutText(const layouts::LayoutTextDefinition &text,
+                                      const wxRichTextBuffer *buffer) {
   LayoutTextExportData data;
   data.frame = text.frame;
   data.zIndex = text.zIndex;
@@ -187,9 +188,6 @@ LayoutTextExportData BuildLayoutTextExportData(
   data.drawFrame = text.drawFrame;
   data.wrap = text.wrapText.value_or(false);
 
-  wxRichTextBuffer buffer;
-  const bool loaded = !text.richText.empty() && LoadRichTextBufferFromString(
-      buffer, wxString::FromUTF8(text.richText.data(), text.richText.size()));
   using Alignment = LayoutTextExportData::Alignment;
   const auto alignment = [](wxTextAttrAlignment value) {
     switch (value) {
@@ -227,11 +225,11 @@ LayoutTextExportData BuildLayoutTextExportData(
     return run;
   };
 
-  if (loaded && buffer.GetChildCount() > 0) {
-    const auto defaults = buffer.GetBasicStyle();
+  if (buffer && buffer->GetChildCount() > 0) {
+    const auto defaults = buffer->GetBasicStyle();
     constexpr double tenthsMmToPoints = 72.0 / 254;
-    for (size_t p = 0; p < buffer.GetChildCount(); ++p) {
-      const auto *paragraph = wxDynamicCast(buffer.GetChild(p), wxRichTextParagraph);
+    for (size_t p = 0; p < buffer->GetChildCount(); ++p) {
+      const auto *paragraph = wxDynamicCast(buffer->GetChild(p), wxRichTextParagraph);
       if (!paragraph) { data.containsUnsupportedObjects = true; continue; }
       auto style = defaults;
       style.Apply(paragraph->GetAttributes());
@@ -281,9 +279,8 @@ LayoutTextExportData BuildLayoutTextExportData(
   return data;
 }
 
-wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
-                        const wxSize &renderSize, const wxSize &logicalSize,
-                        double renderScale) {
+wxImage RenderTextData(const LayoutTextExportData &data, const wxSize &renderSize,
+                       const wxSize &logicalSize, double renderScale, bool reportDiagnostics) {
   if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0 ||
       renderScale <= 0.0) {
     return wxImage();
@@ -294,22 +291,22 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   wxMemoryDC memoryDc(bitmap);
   wxGCDC dc(memoryDc);
 
-  if (text.solidBackground) {
+  if (data.solidBackground) {
     dc.SetBackground(wxBrush(wxColour(255, 255, 255, 255)));
   } else {
     dc.SetBackground(wxBrush(wxColour(255, 255, 255, 0)));
   }
   dc.Clear();
-  const auto data = BuildLayoutTextExportData(text);
   const auto catalog = typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
   const auto plan = typography::ComposeTextBlock(data, logicalSize.x, logicalSize.y, *catalog);
-  for (const auto &message : plan.diagnostics) gui::ReportDocumentTypographyDiagnostic(message);
+  if (reportDiagnostics)
+    for (const auto &message : plan.diagnostics) gui::ReportDocumentTypographyDiagnostic(message);
   if (auto *gc = dc.GetGraphicsContext()) {
     gc->PushState();
     gc->Scale(renderScale, renderScale);
     for (const auto &entry : plan.glyphs) {
       const auto outline = typography::ResolveGlyphOutline(*catalog, entry.glyph.resourceId, entry.glyph.glyphId);
-      if (!outline || outline->substituted)
+      if (reportDiagnostics && (!outline || outline->substituted))
         gui::ReportDocumentTypographyDiagnostic("A document glyph contour is unavailable in the approved face.");
       if (!outline) continue;
       gc->SetBrush(wxBrush(wxColour(entry.color[0], entry.color[1], entry.color[2])));
@@ -328,7 +325,7 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   wxImage image = bitmap.ConvertToImage();
   if (!image.HasAlpha())
     image.InitAlpha();
-  if (text.solidBackground) {
+  if (data.solidBackground) {
     unsigned char *alpha = image.GetAlpha();
     if (alpha) {
       const size_t pixelCount =
@@ -338,6 +335,42 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
     }
   }
   return image;
+}
+
+} // namespace
+
+LayoutTextExportData BuildLayoutTextExportData(const layouts::LayoutTextDefinition &text) {
+  wxRichTextBuffer buffer;
+  const bool loaded = !text.richText.empty() && LoadRichTextBufferFromString(
+      buffer, wxString::FromUTF8(text.richText.data(), text.richText.size()));
+  return ExtractLayoutText(text, loaded ? &buffer : nullptr);
+}
+
+wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
+                        const wxSize &renderSize, const wxSize &logicalSize,
+                        double renderScale) {
+  return RenderTextData(BuildLayoutTextExportData(text), renderSize, logicalSize, renderScale, true);
+}
+
+wxBitmap RenderFontSample(wxRichTextParagraphLayoutBox &content, wxRichTextRange range,
+                          const wxRichTextAttr &baseStyle, std::string_view family,
+                          const wxSize &size) {
+  if (size.x <= 0 || size.y <= 0) return {};
+  wxRichTextBuffer fragment;
+  fragment.DeleteChildren();
+  fragment.SetBasicStyle(baseStyle);
+  layouts::LayoutTextDefinition text;
+  text.text = "Aa";
+  text.wrapText = true;
+  if (range.GetEnd() >= range.GetStart()) {
+    range.SetEnd(std::min(range.GetEnd(), range.GetStart() + 599));
+    content.CopyFragment(range, fragment);
+  }
+  auto data = ExtractLayoutText(text, &fragment);
+  for (auto &line : data.lines)
+    for (auto &run : line.runs) run.family = family;
+  const auto image = RenderTextData(data, size, size, 1.0, false);
+  return image.IsOk() ? wxBitmap(image) : wxNullBitmap;
 }
 
 } // namespace layouttext
