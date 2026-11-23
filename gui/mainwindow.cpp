@@ -120,6 +120,7 @@ using json = nlohmann::json;
 #include "preferencesdialog.h"
 #include "print_diagnostics.h"
 #include "projectutils.h"
+#include "typography/font_resources.h"
 #include "project_fixture_gdtf_consolidator.h"
 #include "riderimporter.h"
 #include "ridertextdialog.h"
@@ -288,7 +289,7 @@ void LogMainWindowIconFallback(const std::filesystem::path &resourceRoot,
 wxFont BuildDefaultUiFont() {
   wxFont defaultFont = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
   wxString resolvedFaceName =
-      layoutviewerpanel::detail::ResolveSharedFontFaceName();
+      layoutviewerpanel::detail::ResolveDefaultUiFontFaceName();
   if (!resolvedFaceName.empty()) {
     defaultFont.SetFaceName(resolvedFaceName);
   }
@@ -769,6 +770,11 @@ bool MainWindow::GuardStartupProjectLoadAction(const wxString &actionLabel) {
 bool MainWindow::LoadProjectFromPath(const std::string &path,
                                      bool showBlockingLoadUi) {
   CancelActiveSceneClipboardPlacement();
+  const auto resourceRoot = ProjectUtils::GetResourceRoot();
+  const auto previousFonts = typography::GetFontCatalog(resourceRoot);
+  const auto availableFonts = typography::GetFontCatalog(resourceRoot, typography::FontRefresh::Incomplete);
+  if (previousFonts->Signature() != availableFonts->Signature())
+    Logger::Instance().Log(Logger::Level::Info, "Approved font resources changed while reopening a project.");
   NotifyFixtureSymbolProjectReplaced(false);
   diagnostics::DiagnosticLogger::Info(
       "Project load started: " +

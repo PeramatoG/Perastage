@@ -304,3 +304,11 @@ retain their scene scope instead of being diverted to a previously focused text
 control. Existing main-window command handlers remain authoritative. Escape
 dismisses the popup and cancels an in-progress right-button gesture; keyboard
 alignment bindings and toolbar state are unchanged.
+
+
+### Document font popup
+
+While the font popup owns focus, Up and Down move the preview highlight and
+skip category headings. Enter confirms the highlighted family and Escape
+closes the popup without confirming. The search field retains normal text
+editing shortcuts. These bindings apply only inside the picker.

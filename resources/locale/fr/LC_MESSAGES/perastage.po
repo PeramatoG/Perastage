@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-15 23:20+0100\n"
+"POT-Creation-Date: 2026-11-23 11:06+0100\n"
 "PO-Revision-Date: 2026-10-12 00:00+0000\n"
 "Last-Translator: Perastage contributors (machine-assisted)\n"
 "Language-Team: French\n"
@@ -16,19 +16,19 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: app/perastage_app.cpp:271
+#: app/perastage_app.cpp:274
 msgid "Running library bootstrap..."
 msgstr "Démarrage de la bibliothèque…"
 
-#: app/perastage_app.cpp:281
+#: app/perastage_app.cpp:284
 msgid "Creating main window..."
 msgstr "Création de la fenêtre principale…"
 
-#: app/perastage_app.cpp:304
+#: app/perastage_app.cpp:307
 msgid "Loading last project..."
 msgstr "Chargement du dernier projet…"
 
-#: app/perastage_app.cpp:380
+#: app/perastage_app.cpp:383
 msgid ""
 "The Spanish translation catalog is not available in this build. Perastage is "
 "using English."
@@ -36,7 +36,7 @@ msgstr ""
 "Le catalogue de traduction espagnole n’est pas disponible dans cette "
 "version. Perastage utilise l’anglais."
 
-#: app/perastage_app.cpp:382
+#: app/perastage_app.cpp:385
 msgid "Translation catalog unavailable"
 msgstr "Catalogue de traduction indisponible"
 
@@ -314,7 +314,7 @@ msgstr "Exporter uniquement les références"
 #: gui/dictionaryeditdialog.cpp:611 gui/dictionaryeditdialog.cpp:874
 #: gui/dictionaryeditdialog.cpp:941 gui/gdtf_download_queue_dialog.cpp:92
 #: gui/gdtfsearchdialog.cpp:112 gui/layout2dviewdialog.cpp:94
-#: gui/layouttextdialog.cpp:149 gui/preferencesdialog.cpp:87
+#: gui/layouttextdialog.cpp:199 gui/preferencesdialog.cpp:87
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139
 msgid "Cancel"
@@ -493,13 +493,13 @@ msgid "Type Color"
 msgstr "Couleur du type"
 
 #: gui/dictionaryeditdialog.cpp:599 gui/mainwindow_layout.cpp:329
-#: gui/mainwindow_menu_builders.cpp:81 gui/mainwindow_print.cpp:517
+#: gui/mainwindow_menu_builders.cpp:81 gui/mainwindow_print.cpp:529
 #: gui/riggingpanel.cpp:185 gui/summarypanel.cpp:139
 msgid "Fixtures"
 msgstr "Projecteurs"
 
 #: gui/dictionaryeditdialog.cpp:600 gui/mainwindow_layout.cpp:334
-#: gui/mainwindow_print.cpp:520 gui/riggingpanel.cpp:188
+#: gui/mainwindow_print.cpp:532 gui/riggingpanel.cpp:188
 #: gui/summarypanel.cpp:172
 msgid "Trusses"
 msgstr "Structures"
@@ -510,7 +510,7 @@ msgid "Add"
 msgstr "Ajouter"
 
 #: gui/dictionaryeditdialog.cpp:606 gui/hang_position_dialog.cpp:179
-#: gui/layerpanel.cpp:128 gui/layoutpanel.cpp:44 gui/layoutviewerpanel.cpp:1291
+#: gui/layerpanel.cpp:128 gui/layoutpanel.cpp:44 gui/layoutviewerpanel.cpp:1292
 #: gui/viewport_context_menu.cpp:143
 msgid "Delete"
 msgstr "Supprimer"
@@ -1123,6 +1123,61 @@ msgstr ""
 msgid "Select category"
 msgstr "Sélectionner une catégorie"
 
+#: gui/document_font_choice.cpp:101
+msgid ""
+"This installed font format is unsupported. The document uses an approved "
+"fallback."
+msgstr ""
+"Le format de cette police installée est incompatible. Le document utilise "
+"une police de remplacement approuvée."
+
+#: gui/document_font_choice.cpp:103
+msgid ""
+"The requested font or style is unavailable. The document uses a fallback."
+msgstr ""
+"La police ou le style demandé est indisponible. Le document utilise une "
+"police de remplacement."
+
+#: gui/document_font_choice.cpp:105
+msgid "PDF export uses a fallback for this installed font."
+msgstr ""
+"L’exportation PDF utilise une police de remplacement pour cette police "
+"installée."
+
+#: gui/document_font_choice.cpp:107
+msgid ""
+"Installed font. PDF embedding is available. Check its license before "
+"exporting."
+msgstr ""
+"Police installée. L’intégration dans le PDF est disponible. Vérifiez sa "
+"licence avant l’exportation."
+
+#: gui/document_font_choice.cpp:109
+msgid "Included portable font. PDF embedding is available."
+msgstr "Police portable fournie. L’intégration dans le PDF est disponible."
+
+#: gui/document_font_choice.cpp:114 gui/fixture_label_editor.cpp:52
+#: gui/layouttextdialog.cpp:151
+msgid "Font family"
+msgstr "Famille de police"
+
+#: gui/document_font_choice.cpp:117 gui/fixture_label_editor.cpp:100
+#: gui/layouttextdialog.cpp:203
+msgid "Refresh fonts"
+msgstr "Actualiser les polices"
+
+#: gui/document_font_popup.cpp:56 gui/document_font_popup.cpp:57
+msgid "Search fonts"
+msgstr "Rechercher des polices"
+
+#: gui/document_font_popup.cpp:131
+msgid "Included with Perastage"
+msgstr "Fournies avec Perastage"
+
+#: gui/document_font_popup.cpp:131
+msgid "Installed on this computer"
+msgstr "Installées sur cet ordinateur"
+
 #: gui/fixture_distribution_dialog.cpp:12
 msgid "Distribute fixtures"
 msgstr "Répartir les projecteurs"
@@ -1175,79 +1230,79 @@ msgstr "Depuis un point dans la direction choisie"
 msgid "Placement"
 msgstr "Placement"
 
-#: gui/fixture_label_editor.cpp:13 gui/layout_fixture_labels.cpp:92
+#: gui/fixture_label_editor.cpp:15 gui/layout_fixture_labels.cpp:92
 #: gui/layout_fixture_labels.cpp:162
 msgid "Fixture Label Editor"
 msgstr "Éditeur des étiquettes des projecteurs"
 
-#: gui/fixture_label_editor.cpp:27
-#: tests/support/fixture_label_composition_parity_probe.h:45
+#: gui/fixture_label_editor.cpp:29
+#: tests/support/fixture_label_composition_parity_probe.h:46
 msgid "Project defaults"
 msgstr "Valeurs par défaut du projet"
 
 #
-#: gui/fixture_label_editor.cpp:29
-#: tests/support/fixture_label_composition_parity_probe.h:45
+#: gui/fixture_label_editor.cpp:31
+#: tests/support/fixture_label_composition_parity_probe.h:46
 msgid "Selected project fixtures"
 msgstr "Appareils sélectionnés du projet"
 
-#: gui/fixture_label_editor.cpp:33 gui/fixture_label_editor.cpp:63
+#: gui/fixture_label_editor.cpp:35 gui/fixture_label_editor.cpp:73
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:55
 #: viewer2d/viewer2drenderpanel.cpp:84
 msgid "Top"
 msgstr "Dessus"
 
-#: gui/fixture_label_editor.cpp:33
+#: gui/fixture_label_editor.cpp:35
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:56
 #: viewer2d/viewer2drenderpanel.cpp:84
 msgid "Front"
 msgstr "Face"
 
-#: gui/fixture_label_editor.cpp:33
+#: gui/fixture_label_editor.cpp:35
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:57
 #: viewer2d/viewer2drenderpanel.cpp:84
 msgid "Side"
 msgstr "Côté"
 
-#: gui/fixture_label_editor.cpp:40
+#: gui/fixture_label_editor.cpp:42
 msgid "Fixture Name"
 msgstr "Nom du projecteur"
 
-#: gui/fixture_label_editor.cpp:40
+#: gui/fixture_label_editor.cpp:42
 #: gui/fixturetable/fixture_table_columns.cpp:12
 #: tests/localization_catalog_integration_test.cpp:247
 msgid "Fixture ID"
 msgstr "ID du projecteur"
 
-#: gui/fixture_label_editor.cpp:40
+#: gui/fixture_label_editor.cpp:42
 msgid "DMX Address"
 msgstr "Adresse DMX"
 
-#: gui/fixture_label_editor.cpp:47
+#: gui/fixture_label_editor.cpp:49
 msgid "Show field"
 msgstr "Afficher le champ"
 
-#: gui/fixture_label_editor.cpp:47
+#: gui/fixture_label_editor.cpp:49
 msgid "Visibility"
 msgstr "Visibilité"
 
-#: gui/fixture_label_editor.cpp:49
-msgid "Font family"
-msgstr "Famille de police"
-
-#: gui/fixture_label_editor.cpp:50
+#: gui/fixture_label_editor.cpp:55
 msgid "Bold"
 msgstr "Gras"
 
-#: gui/fixture_label_editor.cpp:50
+#: gui/fixture_label_editor.cpp:56
+msgid "Italic"
+msgstr "Italique"
+
+#: gui/fixture_label_editor.cpp:60
 msgid "Style"
 msgstr "Style"
 
-#: gui/fixture_label_editor.cpp:55
+#: gui/fixture_label_editor.cpp:65
 msgid "Size (m)"
 msgstr "Taille (m)"
 
-#: gui/fixture_label_editor.cpp:56
+#: gui/fixture_label_editor.cpp:66
 #: gui/inspection/gdtf_inspector_details_panel.cpp:158
 #: gui/inspection/gdtf_inspector_details_panel.cpp:173 gui/layerpanel.cpp:88
 #: gui/layerpanel.cpp:102 gui/summarypanel.cpp:266 gui/summarypanel.cpp:320
@@ -1255,90 +1310,87 @@ msgstr "Taille (m)"
 msgid "Color"
 msgstr "Couleur"
 
-#: gui/fixture_label_editor.cpp:57
+#: gui/fixture_label_editor.cpp:67
 msgid "Enabled"
 msgstr "Activé"
 
-#: gui/fixture_label_editor.cpp:57
+#: gui/fixture_label_editor.cpp:67
 msgid "Outline"
 msgstr "Contour"
 
-#: gui/fixture_label_editor.cpp:58
+#: gui/fixture_label_editor.cpp:68
 msgid "Outline color"
 msgstr "Couleur du contour"
 
-#: gui/fixture_label_editor.cpp:59
+#: gui/fixture_label_editor.cpp:69
 msgid "Outline thickness (m)"
 msgstr "Épaisseur du contour (m)"
 
-#: gui/fixture_label_editor.cpp:63 gui/fixture_label_editor.cpp:65
+#: gui/fixture_label_editor.cpp:73 gui/fixture_label_editor.cpp:75
 msgid "Center"
 msgstr "Centre"
 
-#: gui/fixture_label_editor.cpp:63
+#: gui/fixture_label_editor.cpp:73
 #: gui/gdtf/fixture_symbol_comparison_panel.cpp:59
 msgid "Bottom"
 msgstr "Dessous"
 
-#: gui/fixture_label_editor.cpp:63 gui/fixture_label_editor.cpp:65
+#: gui/fixture_label_editor.cpp:73 gui/fixture_label_editor.cpp:75
 msgid "Left"
 msgstr "Gauche"
 
-#: gui/fixture_label_editor.cpp:63 gui/fixture_label_editor.cpp:65
+#: gui/fixture_label_editor.cpp:73 gui/fixture_label_editor.cpp:75
 msgid "Right"
 msgstr "Droite"
 
-#: gui/fixture_label_editor.cpp:63
+#: gui/fixture_label_editor.cpp:73
 msgid "Anchor"
 msgstr "Ancrage"
 
-#: gui/fixture_label_editor.cpp:65 gui/mainwindow_alignment.cpp:198
+#: gui/fixture_label_editor.cpp:75 gui/mainwindow_alignment.cpp:198
 msgid "Alignment"
 msgstr "Alignement"
 
-#: gui/fixture_label_editor.cpp:66
+#: gui/fixture_label_editor.cpp:76
 msgid "X offset (m)"
 msgstr "Décalage X (m)"
 
-#: gui/fixture_label_editor.cpp:67
+#: gui/fixture_label_editor.cpp:77
 msgid "Y offset (m)"
 msgstr "Décalage Y (m)"
 
-#: gui/fixture_label_editor.cpp:72
+#: gui/fixture_label_editor.cpp:82
 msgid "Preview background"
 msgstr "Fond de l’aperçu"
 
-#: gui/fixture_label_editor.cpp:73
+#: gui/fixture_label_editor.cpp:83
 #: gui/preferences/viewer3d_rendering_preferences_panel.cpp:44
 #: gui/viewport_context_menu.cpp:209 viewer2d/viewer2drenderpanel.cpp:65
 msgid "White"
 msgstr "Blanc"
 
-#: gui/fixture_label_editor.cpp:73
+#: gui/fixture_label_editor.cpp:83
 msgid "Dark"
 msgstr "Sombre"
 
-#: gui/fixture_label_editor.cpp:81
+#: gui/fixture_label_editor.cpp:91
 msgid "Drag the selected field in the preview."
 msgstr "Faites glisser le champ sélectionné dans l’aperçu."
 
-#: gui/fixture_label_editor.cpp:85
+#: gui/fixture_label_editor.cpp:95
 msgid ""
-"The viewer, editor and PDF use the same bundled font and label composition. "
-"Sizes and offsets use scene metres.\n"
-"Supported text: English and Western European WinAnsi characters."
+"Sizes and offsets use scene metres. PDF export reports installed fonts that "
+"require substitution."
 msgstr ""
-"La vue, l’éditeur et le PDF utilisent la même police intégrée et la même "
-"composition des étiquettes. Les tailles et décalages utilisent les mètres de "
-"scène.\n"
-"Texte pris en charge : anglais et caractères WinAnsi d’Europe occidentale."
+"Les tailles et les décalages sont exprimés en mètres dans la scène. "
+"L’exportation PDF signale les polices installées à remplacer."
 
-#: gui/fixture_label_editor.cpp:88
+#: gui/fixture_label_editor.cpp:98
 msgid "Reset to Default"
 msgstr "Rétablir les valeurs par défaut"
 
-#: gui/fixture_label_preview.cpp:31 gui/fixture_label_preview.cpp:102
-#: viewer3d/labels/composed_fixture_labels.cpp:101
+#: gui/fixture_label_preview.cpp:31
+#: viewer3d/labels/composed_fixture_labels.cpp:88
 msgid "Bundled label fonts are unavailable."
 msgstr "Les polices d’étiquettes fournies sont indisponibles."
 
@@ -1347,23 +1399,17 @@ msgstr "Les polices d’étiquettes fournies sont indisponibles."
 msgid "Present; preview unavailable"
 msgstr "Présent ; aperçu indisponible"
 
-#: gui/fixture_label_preview.cpp:143
-msgid "Unsupported text: change the fixture attribute before export."
-msgstr ""
-"Texte non pris en charge : modifiez l’attribut du projecteur avant "
-"l’exportation."
-
-#: gui/fixture_label_preview.cpp:144
+#: gui/fixture_label_preview.cpp:135
 msgid "Dark preview: symbol contours are lightened for display only."
 msgstr ""
 "Aperçu sombre : les contours du symbole sont éclaircis uniquement pour "
 "l’affichage."
 
-#: gui/fixture_label_preview.cpp:145
+#: gui/fixture_label_preview.cpp:136
 msgid "Preview uses the first fixture in this scope."
 msgstr "L’aperçu utilise le premier projecteur de cette portée."
 
-#: gui/fixture_label_preview.cpp:145
+#: gui/fixture_label_preview.cpp:136
 msgid "Symbol unavailable"
 msgstr "Symbole indisponible"
 
@@ -2896,7 +2942,7 @@ msgstr ""
 "Échelle fixe 1:%s. Zoom verrouillé ; déplacez la vue pour ajuster le cadrage."
 
 #: gui/layout_fixture_labels.cpp:56
-#: tests/support/layout_label_capture_probe.h:33
+#: tests/support/layout_label_capture_probe.h:36
 msgid "Current Layout viewport"
 msgstr "Vue Layout actuelle"
 
@@ -3027,20 +3073,20 @@ msgstr "Échelle libre effective : environ 1:%.4f"
 msgid "Invalid image"
 msgstr "Image invalide"
 
-#: gui/layoutlegendeditdialog.cpp:70
+#: gui/layoutlegendeditdialog.cpp:74
 msgid "Show channel count column"
 msgstr "Afficher la colonne du nombre de canaux"
 
-#: gui/layoutlegendeditdialog.cpp:98
+#: gui/layoutlegendeditdialog.cpp:102
 msgid "Move Up"
 msgstr "Monter"
 
-#: gui/layoutlegendeditdialog.cpp:99
+#: gui/layoutlegendeditdialog.cpp:103
 msgid "Move Down"
 msgstr "Descendre"
 
 #: gui/layoutpanel.cpp:35 gui/mainwindow_menu.cpp:369
-#: gui/mainwindow_print.cpp:78
+#: gui/mainwindow_print.cpp:80
 msgid "Layout"
 msgstr "Mise en page"
 
@@ -3133,17 +3179,29 @@ msgstr "Importer un modèle de mise en page"
 msgid "Could not import layout template.\n"
 msgstr "Impossible d’importer le modèle de mise en page.\n"
 
-#: gui/layouttextdialog.cpp:132
+#: gui/layouttextdialog.cpp:181
 msgid "Solid background"
 msgstr "Fond uni"
 
-#: gui/layouttextdialog.cpp:135
+#: gui/layouttextdialog.cpp:184
 msgid "Show outline"
 msgstr "Afficher le contour"
 
-#: gui/layouttextdialog.cpp:148
+#: gui/layouttextdialog.cpp:198
 msgid "Ok"
 msgstr "OK"
+
+#: gui/layouttextdialog.cpp:200 gui/layouttextdialog.cpp:272
+msgid "Document preview"
+msgstr "Aperçu du document"
+
+#: gui/layouttextdialog.cpp:221
+msgid ""
+"Some legacy formatting cannot be edited here. A copy of the original is kept "
+"with your edits."
+msgstr ""
+"Certaines mises en forme anciennes ne peuvent pas être modifiées ici. Une "
+"copie de l’original est conservée avec vos modifications."
 
 #: gui/logindialog.cpp:21
 msgid "GDTF Share Login"
@@ -3320,65 +3378,65 @@ msgstr ""
 msgid "Unsupported file"
 msgstr "Fichier non pris en charge"
 
-#: gui/mainwindow.cpp:687
+#: gui/mainwindow.cpp:688
 #, c-format
 msgid "Do you want to save changes before %s?"
 msgstr "Voulez-vous enregistrer les modifications avant de %s ?"
 
-#: gui/mainwindow.cpp:761
+#: gui/mainwindow.cpp:762
 #, c-format
 msgid "Please wait until the startup project loading finishes before %s."
 msgstr "Attendez la fin du chargement du projet au démarrage avant de %s."
 
-#: gui/mainwindow.cpp:763
+#: gui/mainwindow.cpp:764
 msgid "Perastage is still loading"
 msgstr "Perastage est encore en cours de chargement"
 
-#: gui/mainwindow.cpp:793
+#: gui/mainwindow.cpp:799
 msgid "Project loading"
 msgstr "Chargement du projet"
 
-#: gui/mainwindow.cpp:820 gui/mainwindow.cpp:1041
+#: gui/mainwindow.cpp:826 gui/mainwindow.cpp:1047
 msgid "Loading project file..."
 msgstr "Chargement du fichier de projet…"
 
-#: gui/mainwindow.cpp:877
+#: gui/mainwindow.cpp:883
 msgid "Building scene..."
 msgstr "Construction de la scène…"
 
-#: gui/mainwindow.cpp:885
+#: gui/mainwindow.cpp:891
 msgid "Applying saved layout..."
 msgstr "Application de la mise en page enregistrée…"
 
-#: gui/mainwindow.cpp:913
+#: gui/mainwindow.cpp:919
 msgid "Reloading fixture/truss/support tables..."
 msgstr "Rechargement des tables de projecteurs, structures et supports…"
 
-#: gui/mainwindow.cpp:939
+#: gui/mainwindow.cpp:945
 msgid "Updating 3D viewport..."
 msgstr "Mise à jour de la vue 3D…"
 
-#: gui/mainwindow.cpp:953
+#: gui/mainwindow.cpp:959
 msgid "Updating 2D viewport..."
 msgstr "Mise à jour de la vue 2D…"
 
-#: gui/mainwindow.cpp:971 gui/mainwindow.cpp:1660
+#: gui/mainwindow.cpp:977 gui/mainwindow.cpp:1666
 msgid "Refreshing panels..."
 msgstr "Actualisation des panneaux…"
 
-#: gui/mainwindow.cpp:973
+#: gui/mainwindow.cpp:979
 msgid "Refreshing rigging..."
 msgstr "Actualisation de l’accroche…"
 
-#: gui/mainwindow.cpp:981
+#: gui/mainwindow.cpp:987
 msgid "Updating window title..."
 msgstr "Mise à jour du titre de la fenêtre…"
 
-#: gui/mainwindow.cpp:997
+#: gui/mainwindow.cpp:1003
 msgid "Finalizing project load..."
 msgstr "Finalisation du chargement du projet…"
 
-#: gui/mainwindow.cpp:1618
+#: gui/mainwindow.cpp:1624
 msgid "Loading tables..."
 msgstr "Chargement des tables…"
 
@@ -3834,7 +3892,7 @@ msgstr "Impossible de copier le fichier."
 msgid "Object exported successfully."
 msgstr "Objet exporté avec succès."
 
-#: gui/mainwindow_io.cpp:906 gui/mainwindow_print.cpp:535
+#: gui/mainwindow_io.cpp:906 gui/mainwindow_print.cpp:547
 msgid "Select table"
 msgstr "Sélectionner une table"
 
@@ -3843,12 +3901,12 @@ msgstr "Sélectionner une table"
 msgid "Export CSV"
 msgstr "Exporter en CSV"
 
-#: gui/mainwindow_layout.cpp:339 gui/mainwindow_print.cpp:523
+#: gui/mainwindow_layout.cpp:339 gui/mainwindow_print.cpp:535
 #: gui/riggingpanel.cpp:191 gui/summarypanel.cpp:182
 msgid "Hoists"
 msgstr "Palans"
 
-#: gui/mainwindow_layout.cpp:344 gui/mainwindow_print.cpp:526
+#: gui/mainwindow_layout.cpp:344 gui/mainwindow_print.cpp:538
 #: gui/summarypanel.cpp:199
 msgid "Objects"
 msgstr "Objets"
@@ -3934,7 +3992,7 @@ msgstr "Exporter un MVR"
 msgid "Export the project to MVR"
 msgstr "Exporter le projet en MVR"
 
-#: gui/mainwindow_menu.cpp:182 gui/mainwindow_print.cpp:83
+#: gui/mainwindow_menu.cpp:182 gui/mainwindow_print.cpp:85
 msgid "Print"
 msgstr "Imprimer"
 
@@ -4551,96 +4609,96 @@ msgstr "&Outils"
 msgid "&Help"
 msgstr "&Aide"
 
-#: gui/mainwindow_print.cpp:79
+#: gui/mainwindow_print.cpp:81
 msgid "2D View"
 msgstr "Vue 2D"
 
-#: gui/mainwindow_print.cpp:80
+#: gui/mainwindow_print.cpp:82
 msgid "Table"
 msgstr "Table"
 
-#: gui/mainwindow_print.cpp:82
+#: gui/mainwindow_print.cpp:84
 msgid "Select what to print:"
 msgstr "Sélectionnez les éléments à imprimer :"
 
-#: gui/mainwindow_print.cpp:103 gui/mainwindow_print.cpp:252
+#: gui/mainwindow_print.cpp:105 gui/mainwindow_print.cpp:259
 msgid "2D viewport is not available."
 msgstr "Vue 2D indisponible."
 
-#: gui/mainwindow_print.cpp:103 gui/mainwindow_print.cpp:133
-#: gui/mainwindow_print.cpp:163 gui/mainwindow_print.cpp:201
-#: gui/mainwindow_print.cpp:205
+#: gui/mainwindow_print.cpp:105 gui/mainwindow_print.cpp:135
+#: gui/mainwindow_print.cpp:166 gui/mainwindow_print.cpp:204
+#: gui/mainwindow_print.cpp:212
 msgid "Print Viewer 2D"
 msgstr "Imprimer la vue 2D"
 
-#: gui/mainwindow_print.cpp:123
+#: gui/mainwindow_print.cpp:125
 msgid "Save 2D view as"
 msgstr "Enregistrer la vue 2D sous"
 
-#: gui/mainwindow_print.cpp:132
+#: gui/mainwindow_print.cpp:134
 msgid "Please choose a destination file for the 2D view."
 msgstr "Choisissez un fichier de destination pour la vue 2D."
 
-#: gui/mainwindow_print.cpp:146
+#: gui/mainwindow_print.cpp:149
 msgid "Printing 2D view..."
 msgstr "Impression de la vue 2D…"
 
-#: gui/mainwindow_print.cpp:162
+#: gui/mainwindow_print.cpp:165
 msgid "Unable to capture the 2D view for printing."
 msgstr "Impossible de capturer la vue 2D pour l’impression."
 
-#: gui/mainwindow_print.cpp:198
+#: gui/mainwindow_print.cpp:201
 #, c-format
 msgid "Failed to generate PDF plan: %s"
 msgstr "Impossible de générer le plan PDF : %s"
 
-#: gui/mainwindow_print.cpp:200 gui/mainwindow_print.cpp:420
+#: gui/mainwindow_print.cpp:203 gui/mainwindow_print.cpp:430
 msgid "Print failed. Please review the error and try again."
 msgstr "Échec de l’impression. Examinez l’erreur et réessayez."
 
-#: gui/mainwindow_print.cpp:204
+#: gui/mainwindow_print.cpp:211
 #, c-format
 msgid "2D view saved to %s"
 msgstr "Vue 2D enregistrée dans %s"
 
-#: gui/mainwindow_print.cpp:219
+#: gui/mainwindow_print.cpp:226
 msgid "No layout is selected."
 msgstr "Aucune mise en page sélectionnée."
 
-#: gui/mainwindow_print.cpp:219 gui/mainwindow_print.cpp:232
-#: gui/mainwindow_print.cpp:244 gui/mainwindow_print.cpp:252
-#: gui/mainwindow_print.cpp:286 gui/mainwindow_print.cpp:304
-#: gui/mainwindow_print.cpp:421 gui/mainwindow_print.cpp:433
+#: gui/mainwindow_print.cpp:226 gui/mainwindow_print.cpp:239
+#: gui/mainwindow_print.cpp:251 gui/mainwindow_print.cpp:259
+#: gui/mainwindow_print.cpp:293 gui/mainwindow_print.cpp:311
+#: gui/mainwindow_print.cpp:431 gui/mainwindow_print.cpp:445
 msgid "Print Layout"
 msgstr "Imprimer la mise en page"
 
-#: gui/mainwindow_print.cpp:232
+#: gui/mainwindow_print.cpp:239
 msgid "Selected layout is not available."
 msgstr "Mise en page sélectionnée indisponible."
 
-#: gui/mainwindow_print.cpp:243
+#: gui/mainwindow_print.cpp:250
 msgid "The selected layout is empty."
 msgstr "La mise en page sélectionnée est vide."
 
-#: gui/mainwindow_print.cpp:276
+#: gui/mainwindow_print.cpp:283
 msgid "Save layout as"
 msgstr "Enregistrer la mise en page sous"
 
-#: gui/mainwindow_print.cpp:285
+#: gui/mainwindow_print.cpp:292
 msgid "Please choose a destination file for the layout."
 msgstr "Choisissez un fichier de destination pour la mise en page."
 
-#: gui/mainwindow_print.cpp:303 gui/mainwindow_print.cpp:417
+#: gui/mainwindow_print.cpp:310 gui/mainwindow_print.cpp:427
 #, c-format
 msgid "Failed to generate layout PDF: %s"
 msgstr "Impossible de générer le PDF de mise en page : %s"
 
-#: gui/mainwindow_print.cpp:425
+#: gui/mainwindow_print.cpp:435
 #, c-format
 msgid "Layout saved to %s"
 msgstr "Mise en page enregistrée dans %s"
 
-#: gui/mainwindow_print.cpp:427
+#: gui/mainwindow_print.cpp:437
 #, c-format
 msgid ""
 "\n"
@@ -4655,11 +4713,11 @@ msgstr ""
 "Symboles Perastage : %zu\n"
 "Rendus de secours : %zu"
 
-#: gui/mainwindow_print.cpp:504
+#: gui/mainwindow_print.cpp:516
 msgid "Printing layout..."
 msgstr "Impression de la mise en page…"
 
-#: gui/mainwindow_print.cpp:535
+#: gui/mainwindow_print.cpp:547
 msgid "Print Table"
 msgstr "Imprimer la table"
 
@@ -6870,6 +6928,27 @@ msgstr "Impossible d’enregistrer l’image PNG."
 #, c-format
 msgid "Measure: %s"
 msgstr "Mesure : %s"
+
+#, c-format
+#~ msgid "%s (default)"
+#~ msgstr "%s (par défaut)"
+
+#, c-format
+#~ msgid "%s (installed)"
+#~ msgstr "%s (installée)"
+
+#~ msgid ""
+#~ "The viewer, editor and PDF use the same approved fonts and label "
+#~ "composition. Sizes and offsets use scene metres."
+#~ msgstr ""
+#~ "La vue, l’éditeur et le PDF utilisent les mêmes polices approuvées et la "
+#~ "même composition des étiquettes. Les tailles et les décalages sont "
+#~ "exprimés en mètres de la scène."
+
+#~ msgid "Unsupported text: change the fixture attribute before export."
+#~ msgstr ""
+#~ "Texte non pris en charge : modifiez l’attribut du projecteur avant "
+#~ "l’exportation."
 
 #, c-format
 #~ msgid "ID: %d"

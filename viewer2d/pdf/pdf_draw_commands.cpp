@@ -1,4 +1,7 @@
 #include "pdf_draw_commands.h"
+#include "pdf_unicode_fonts.h"
+#include "typography/unicode_shaping.h"
+#include "canvas_text_layout.h"
 #include "typography/text_outline.h"
 #include <stdexcept>
 
@@ -191,150 +194,99 @@ void AppendCircle(std::ostringstream &out, GraphicsStateCache &cache,
 void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
                 const Point &pos, const TextCommand &cmd,
                 const CanvasTextStyle &style, double scale,
-                const PdfFontCatalog *fonts, typography::TextInkPass pass) {
-  const std::string encodedText = EncodeWinAnsi(cmd.text);
-  const PdfFontDefinition *font =
-      fonts ? fonts->Resolve(style.fontFamily) : nullptr;
-  if (style.fontFamily.rfind("perastage-sans", 0) == 0 && (!font || !font->embedded))
-    throw std::runtime_error("Composed fixture labels require bundled PerastageSans fonts");
-  double scaledFontSize = style.fontSize * scale;
-  if (font && font->embedded && font->metrics.unitsPerEm > 0 &&
-      style.ascent > 0.0f && style.descent > 0.0f) {
-    const double targetHeight = (style.ascent + style.descent) * scale;
-    const double fontHeightUnits =
-        font->metrics.ascent + std::abs(font->metrics.descent);
-    if (fontHeightUnits > 0.0) {
-      const double fontHeight =
-          fontHeightUnits * scaledFontSize / font->metrics.unitsPerEm;
-      if (fontHeight > 0.0)
-        scaledFontSize *= targetHeight / fontHeight;
-    }
+                PdfUnicodeFonts *fonts, typography::TextInkPass pass) {
+  if (!fonts) return;
+  auto &ink = *fonts;
+  const auto size = style.fontSize * scale;
+  if (style.IsComposedGlyph()) {
+    ink.AddDiagnostic(style.fontDiagnostic);
+    typography::PositionedGlyph glyph{cmd.text, 0, 0, 0, style.fontResource,
+                                      style.codepoint, style.glyphId};
+    glyph.clusterContinuation = style.clusterContinuation;
+    const auto emit = [&](const CanvasColor &color, double radius) {
+      out << fmt.Format(color.r) << ' ' << fmt.Format(color.g) << ' '
+          << fmt.Format(color.b) << (radius > 0 ? " RG\n" : " rg\n");
+      ink.AppendGlyph(out, fmt, glyph, pos.x, pos.y, size, radius);
+    };
+    if (pass != typography::TextInkPass::Fill && style.outlineWidth > 0)
+      emit(style.outlineColor, style.outlineWidth * scale);
+    if (pass != typography::TextInkPass::Outline) emit(style.color, 0);
+    return;
   }
-
-  auto measureLineWidth = [&](std::string_view line) {
-    if (!font || !font->embedded)
-      return static_cast<double>(line.size()) * scaledFontSize * 0.6;
-    double units = 0.0;
-    for (unsigned char ch : line) {
-      units += font->metrics.advanceWidths[ch];
-    }
-    return (units / font->metrics.unitsPerEm) * scaledFontSize;
-  };
-  const double fallbackAscent =
-      font && font->embedded
-          ? (font->metrics.ascent * scaledFontSize / font->metrics.unitsPerEm)
-          : scaledFontSize * 0.8;
-  const double fallbackDescent =
-      font && font->embedded
-          ? (std::abs(font->metrics.descent) * scaledFontSize /
-             font->metrics.unitsPerEm)
-          : scaledFontSize * 0.2;
-  const double ascent =
-      style.ascent > 0.0f ? style.ascent * scale : fallbackAscent;
-  const double descent =
-      style.descent > 0.0f ? style.descent * scale : fallbackDescent;
-  const double measuredLineHeight =
-      style.lineHeight > 0.0f ? style.lineHeight * scale : scaledFontSize;
-  const double extraSpacing =
-      style.lineHeight > 0.0f ? style.extraLineSpacing * scale : 0.0;
-
-  double maxLineWidth = 0.0;
-  size_t lineStart = 0;
-  for (size_t i = 0; i <= encodedText.size(); ++i) {
-    if (i == encodedText.size() || encodedText[i] == '\n') {
-      maxLineWidth = std::max(
-          maxLineWidth,
-          measureLineWidth(std::string_view(encodedText)
-                               .substr(lineStart, i - lineStart)));
-      lineStart = i + 1;
-    }
+  const auto layout = viewer2d::ComposeCanvasText(cmd.text, style, scale, ink.Catalog(), typography::FontUsage::Pdf);
+  const auto &run = layout.run;
+  const auto baseline = pos.y + layout.baselineOffset;
+  if (run.fontIssue != typography::FontIssue::None) {
+    const auto request = viewer2d::CanvasFont(style.fontFamily);
+    ink.AddDiagnostic(typography::DescribeFontIssue(ink.Catalog(), request.family,
+                                                  request.bold, run.fontIssue, request.italic, typography::FontUsage::Pdf));
   }
-
-  double horizontalOffset = 0.0;
-  if (style.hAlign == CanvasTextStyle::HorizontalAlign::Center)
-    horizontalOffset = -maxLineWidth / 2.0;
-  else if (style.hAlign == CanvasTextStyle::HorizontalAlign::Right)
-    horizontalOffset = -maxLineWidth;
-
-  double verticalOffset = 0.0;
-  switch (style.vAlign) {
-  case CanvasTextStyle::VerticalAlign::Top:
-    verticalOffset = -ascent;
-    break;
-  case CanvasTextStyle::VerticalAlign::Middle:
-    verticalOffset = -(ascent - descent) * 0.5;
-    break;
-  case CanvasTextStyle::VerticalAlign::Bottom:
-    verticalOffset = descent;
-    break;
-  case CanvasTextStyle::VerticalAlign::Baseline:
-    break;
+  if (pass != typography::TextInkPass::Fill && style.outlineWidth > 0) {
+    const auto &color = style.outlineColor;
+    out << fmt.Format(color.r) << ' ' << fmt.Format(color.g) << ' ' << fmt.Format(color.b) << " RG\n";
+    for (const auto &glyph : run.glyphs)
+      ink.AppendGlyph(out, fmt, glyph, pos.x + glyph.x, baseline + glyph.baseline,
+                      size, style.outlineWidth * scale);
   }
-
-  // Always advance downward for successive lines to mirror the on-screen
-  // rendering, even if upstream metrics change sign conventions.
-  double lineAdvance = 0.0;
-  if (style.lineHeight > 0.0f) {
-    lineAdvance = -(measuredLineHeight + extraSpacing);
-  } else {
-    lineAdvance = -measuredLineHeight;
+  if (pass != typography::TextInkPass::Outline) {
+    out << fmt.Format(style.color.r) << ' ' << fmt.Format(style.color.g) << ' '
+        << fmt.Format(style.color.b) << " rg\n";
+    ink.AppendRun(out, fmt, run, pos.x, baseline);
   }
-  if (lineAdvance > 0.0)
-    lineAdvance = -lineAdvance;
-  auto emitText = [&](const CanvasColor &color, double dx, double dy, bool stroke = false) {
-    const char *fontKey = font ? font->key.c_str() : "F1";
-    if (stroke) out << "q\n" << fmt.Format(2 * style.outlineWidth * scale) << " w\n1 J\n1 j\n";
-    out << "BT\n/" << fontKey << ' ' << fmt.Format(scaledFontSize) << " Tf\n";
-    if (stroke) out << "1 Tr\n";
-    out << fmt.Format(color.r) << ' ' << fmt.Format(color.g) << ' '
-        << fmt.Format(color.b) << (stroke ? " RG\n" : " rg\n");
-    out << fmt.Format(pos.x + horizontalOffset + dx) << ' '
-        << fmt.Format(pos.y + verticalOffset + dy) << " Td\n";
-    out << "(";
-    for (char ch : encodedText) {
-      if (ch == '(' || ch == ')' || ch == '\\')
-        out << '\\';
-      if (ch == '\n') {
-        out << ") Tj\n0 " << fmt.Format(lineAdvance) << " Td\n(";
-        continue;
-      }
-      out << ch;
-    }
-    out << ") Tj\nET\n";
-    if (stroke) out << "Q\n";
-  };
-
-  const double outline = style.outlineWidth * scale;
-  if (pass != typography::TextInkPass::Fill && outline > 0.0f) {
-    if (style.fontFamily.starts_with("perastage-sans"))
-      emitText(style.outlineColor, 0, 0, true);
-    else
-      for (const auto &offset : typography::OutlineOffsets(outline))
-        emitText(style.outlineColor, offset[0], offset[1]);
-  }
-
-  if (pass != typography::TextInkPass::Outline)
-    emitText(style.color, 0.0, 0.0);
 }
 
 // Composed glyphs keep their positions; only ink layering is batched per fixture.
 size_t AppendComposedTextRun(std::ostringstream &out, const FloatFormatter &fmt,
     const Mapping &mapping, const Transform &current, const std::vector<CanvasCommand> &commands,
-    const std::vector<std::string> &sources, size_t first, const PdfFontCatalog *fonts) {
+    const std::vector<std::string> &sources, size_t first, PdfUnicodeFonts *fonts) {
   size_t end = first;
   while (end < commands.size()) {
     const auto *text = std::get_if<TextCommand>(&commands[end]);
-    if (!text || !text->style.fontFamily.starts_with("perastage-sans") ||
+    if (!text || !text->style.IsComposedGlyph() || (end != first && text->style.source) ||
         (end < sources.size() && first < sources.size() && sources[end] != sources[first])) break;
     ++end;
   }
-  for (auto pass : {typography::TextInkPass::Outline, typography::TextInkPass::Fill}) {
-    for (size_t i = first; i < end; ++i) {
-      const auto &text = std::get<TextCommand>(commands[i]);
-      const auto pos = MapPointWithTransform(text.x, text.y, current, mapping);
-      AppendText(out, fmt, pos, text, text.style, mapping.scale, fonts, pass);
+  const auto &firstGlyph = std::get<TextCommand>(commands[first]);
+  if (fonts && firstGlyph.style.source) {
+    const auto &source = *firstGlyph.style.source;
+    end = first + std::min(source.glyphCount, end - first);
+    const auto selected = fonts->Catalog().Resolve(source.family, source.bold, source.italic,
+                                                   typography::FontUsage::Pdf);
+    if (selected.issue != typography::FontIssue::None || !selected.face ||
+        !fonts->Catalog().FindResource(firstGlyph.style.fontResource)) {
+      auto style = firstGlyph.style;
+      style.fontResource.clear();
+      style.fontFamily = source.family + (source.bold ? (source.italic ? " Bold Italic" : " Bold")
+                                                     : (source.italic ? " Italic" : " Regular"));
+      style.hAlign = static_cast<CanvasTextStyle::HorizontalAlign>(source.alignment);
+      style.lineHeight = 0;
+      const auto pos = MapPointWithTransform(firstGlyph.x + source.anchorOffsetX,
+                                             firstGlyph.y + source.anchorOffsetY, current, mapping);
+      if (selected.issue == typography::FontIssue::None)
+        fonts->AddDiagnostic(std::string(typography::DecodeFontReference(source.family).family) +
+                             ": captured font changed. Recomputed text for PDF.");
+      AppendText(out, fmt, pos, TextCommand{0, 0, source.text, style},
+                 style, mapping.scale, fonts, typography::TextInkPass::Both);
+      return end;
     }
   }
+  const auto draw = [&](size_t i, typography::TextInkPass pass) {
+    const auto &text = std::get<TextCommand>(commands[i]);
+    const auto pos = MapPointWithTransform(text.x, text.y, current, mapping);
+    AppendText(out, fmt, pos, text, text.style, mapping.scale, fonts, pass);
+  };
+  for (size_t i = first; i < end; ++i) draw(i, typography::TextInkPass::Outline);
+  AppendTextClusters(out, first, end,
+      [&](size_t i) -> const auto & { return std::get<TextCommand>(commands[i]).text; },
+      [&](size_t i) { return std::get<TextCommand>(commands[i]).style.clusterContinuation; },
+      [&](size_t a, size_t b) {
+        const auto &left = std::get<TextCommand>(commands[a]);
+        const auto &right = std::get<TextCommand>(commands[b]);
+        return left.y == right.y && left.x <= right.x &&
+            !typography::IsRightToLeftScalar(left.style.codepoint) &&
+            !typography::IsRightToLeftScalar(right.style.codepoint);
+      },
+      [&](size_t i) { draw(i, typography::TextInkPass::Fill); });
   return end;
 }
 

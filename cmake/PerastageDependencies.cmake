@@ -150,3 +150,31 @@ if(PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE AND NOT PERASTAGE_WX_SECRETSTORE_EN
         "On Linux, wxWidgets also needs libsecret development support (for example libsecret-1-dev) when it is built."
     )
 endif()
+
+if(WIN32 AND DEFINED PERASTAGE_RESOLVED_VCPKG_ROOT)
+    find_package(harfbuzz CONFIG QUIET)
+    if(NOT TARGET harfbuzz::harfbuzz)
+        set(_typography_vcpkg_root "${PERASTAGE_RESOLVED_VCPKG_ROOT}")
+        set(_typography_installed "${VCPKG_INSTALLED_DIR}")
+        if(NOT _typography_installed)
+            set(_typography_installed "${_typography_vcpkg_root}/installed")
+        endif()
+        set(_typography_config "${_typography_installed}/${VCPKG_TARGET_TRIPLET}/share/harfbuzz/harfbuzzConfig.cmake")
+        message(FATAL_ERROR
+            "HarfBuzz was not found for the selected Windows vcpkg installation. "
+            "Check '${_typography_config}'. Install the dependencies into the same classic vcpkg root and reconfigure.\n"
+            "PowerShell: & '${_typography_vcpkg_root}/vcpkg.exe' install --classic --triplet ${VCPKG_TARGET_TRIPLET} 'harfbuzz[core]' freetype icu")
+    endif()
+else()
+    find_package(harfbuzz CONFIG REQUIRED)
+endif()
+find_package(Freetype REQUIRED)
+find_package(ICU REQUIRED COMPONENTS uc i18n)
+
+# Font enumeration follows the host's font registration APIs.
+if(APPLE)
+    find_library(PERASTAGE_CORETEXT CoreText REQUIRED)
+    find_library(PERASTAGE_COREFOUNDATION CoreFoundation REQUIRED)
+elseif(NOT WIN32)
+    find_package(Fontconfig REQUIRED)
+endif()

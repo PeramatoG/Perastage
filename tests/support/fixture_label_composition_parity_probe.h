@@ -21,13 +21,14 @@
 
 // Compare actual viewer/capture commands with the actual editor composition for
 // an unstyled fixture: this is the path previously rendered in a system font.
-inline void CheckFixtureLabelCompositionParity(MainWindow &window,const std::filesystem::path &scratch) {
+inline void CheckFixtureLabelCompositionParity(MainWindow &window,const std::filesystem::path &scratch,
+    bool bidi = false) {
   auto &cfg=ConfigManager::Get(); auto *panel=Viewer2DPanel::Instance();
   const auto originalOverrides=cfg.GetValue("label_fixture_overrides");
   const auto originalSelection=cfg.GetSelectedFixtures();
   Fixture fixture=cfg.GetScene().fixtures.begin()->second;
   fixture.uuid="22222222-2222-4222-8222-222222222222";
-  fixture.instanceName="MAC Quantum Profile"; fixture.fixtureId=204; fixture.address="3.94";
+  fixture.instanceName=bidi ? "Lamp24 مرحبا Rack12 שלום x́ ffi" : "MAC Quantum Profile"; fixture.fixtureId=204; fixture.address="3.94";
   fixture.transform.o={0,0,0};
   cfg.GetScene().fixtures.emplace(fixture.uuid,fixture);
   struct Restore {
@@ -52,20 +53,20 @@ inline void CheckFixtureLabelCompositionParity(MainWindow &window,const std::fil
   if (actual.size()!=expected.text.size()) throw std::runtime_error("Viewer/editor inherited glyph counts differ");
   std::string name;
   for (size_t i=0;i<actual.size();++i) {
-    const auto &a=actual[i], &b=expected.text[i]; name+=a.text;
-    if (a.text!=b.text || a.style.fontFamily!=b.style.fontFamily ||
+    const auto &a=actual[i], &b=expected.text[i]; if (!a.style.clusterContinuation) name+=a.text;
+    if (a.style.clusterContinuation!=b.style.clusterContinuation || a.text!=b.text || a.style.fontResource!=b.style.fontResource || a.style.glyphId!=b.style.glyphId ||
         std::abs(a.style.fontSize-b.style.fontSize)>1e-6 ||
         std::abs(a.x-b.x)>1e-5 || std::abs(a.y-b.y)>1e-5 ||
         std::abs(a.style.lineHeight-b.style.lineHeight)>1e-6 ||
         std::abs(a.style.outlineWidth-b.style.outlineWidth)>1e-6)
       throw std::runtime_error("Viewer/editor font, advance, baseline or outline metrics differ");
   }
-  if (name!="MAC QuantumProfileID: 2043.94") throw std::runtime_error("Canonical sample lost label fields");
+  if (name!=(bidi ? "Lamp24 ابحرمRack12 םולשx́ ffiID: 2043.94" : "MAC QuantumProfileID: 2043.94")) throw std::runtime_error("Canonical sample lost label fields");
   Viewer2DPrintOptions options; options.compressStreams=false;
-  if (!ExportViewer2DToPdf(captured,capturedState,options,scratch/"canonical-label-parity.pdf",panel->GetBottomSymbolCacheSnapshot()).success)
+  if (!ExportViewer2DToPdf(captured,capturedState,options,scratch/(bidi ? "canonical-label-bidi.pdf" : "canonical-label-parity.pdf"),panel->GetBottomSymbolCacheSnapshot()).success)
     throw std::runtime_error("Canonical inherited label PDF export failed");
   if (cfg.GetValue("label_fixture_overrides")!=originalOverrides || cfg.GetSelectedFixtures()!=originalSelection)
     throw std::runtime_error("Inspecting inherited typography changed project overrides or selection");
   editor.Hide();
-  std::cout << "Viewer/editor/PDF canonical parity passed: MAC Quantum Profile, ID 204, DMX 3.94, unedited fixture" << std::endl;
+  std::cout << "Viewer/editor/PDF parity passed: " << fixture.instanceName << std::endl;
 }

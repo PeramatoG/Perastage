@@ -62,6 +62,12 @@ Selecciona un layout con contenido y elige **File → Print Layout...**. Elige u
 
 Si faltan vistas, el resultado es incorrecto o falla la exportación, consulta [Resolución de problemas](troubleshooting.md#problemas-con-layouts-y-pdf).
 
+## Tipografía del documento
+
+Usa **Familia tipográfica** en las etiquetas, las leyendas, las tablas de eventos y el texto. Las fuentes de tu equipo se marcan como instaladas. **Actualizar fuentes** vuelve a detectar cambios. El proyecto conserva la selección al abrirse en otro equipo y utiliza una fuente de sustitución si hace falta. El PDF incrusta las fuentes TrueType compatibles cuando sus permisos lo permiten e informa de las sustituciones.
+
+Si falta una fuente, Perastage conserva la elección guardada, usa una fuente de sustitución aprobada y muestra el aviso en los detalles de exportación. Vuelve a abrir el proyecto después de restaurar la fuente.
+
 ## Escala física y propiedades de la vista
 
 Haz doble clic en una vista 2D y abre **Propiedades de la vista**. **Libre / Variable** sigue siendo el modo predeterminado para vistas nuevas y archivos antiguos: permite encuadrar con zoom, desplazamiento y ajuste visual. La escala efectiva aproximada es informativa. El control **Encuadre visual** modifica el encuadre visual, no una escala física.

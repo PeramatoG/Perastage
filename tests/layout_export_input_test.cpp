@@ -1,23 +1,109 @@
 #include "layout_image_export.h"
 #include "layouttextutils.h"
+#include "layouttext_legacy_xml.h"
+#include <wx/base64.h>
+#include "typography/font_resources.h"
 #include <wx/app.h>
 #include <wx/image.h>
 #include <cassert>
 #include <fstream>
 #include <chrono>
 #include <limits>
+static void TestLegacyRichText(const wxString &current) {
+  assert(layouttext::LegacyRichTextTail(current, current).empty());
+  auto original = current;
+  original.Replace("<richtext ", "<!-- Vendor metadata -->\n<richtext vendor-tag=\"preserve\" ");
+  assert(original.Replace("</richtext>", "<vendor-style>opaque styling</vendor-style></richtext>") == 1);
+  assert(original != current);
+  wxRichTextBuffer baseline;
+  assert(layouttext::LoadRichTextBufferFromString(baseline, current));
+  assert(layouttext::LegacyRichTextTail(current, layouttext::SaveRichTextBufferToString(baseline)).empty());
+  assert(layouttext::LoadRichTextBufferFromString(baseline, original));
+  const auto normalized = layouttext::SaveRichTextBufferToString(baseline);
+  const auto archive = layouttext::LegacyRichTextTail(original, normalized);
+  const auto originalBytes = original.utf8_str();
+  assert(!archive.empty() && archive.Contains(wxBase64Encode(originalBytes.data(), originalBytes.length())));
+
+  auto *paragraph = dynamic_cast<wxRichTextParagraph *>(baseline.GetChild(0));
+  assert(paragraph);
+  auto *run = dynamic_cast<wxRichTextPlainText *>(paragraph->GetChild(0));
+  assert(run && run->GetText() == wxString::FromUTF8("Producción"));
+  run->SetText("Edited");
+  baseline.UpdateRanges();
+  const auto edited = layouttext::SaveRichTextBufferToString(baseline);
+  assert(layouttext::LoadRichTextBufferFromString(baseline, edited + archive));
+  assert(baseline.GetText().Contains("Edited"));
+  auto content = layouts::LayoutTextDefinition{};
+  content.richText = (edited + archive).utf8_string();
+  const auto plan = layouttext::BuildLayoutTextExportData(content);
+  assert(plan.lines.front().runs.front().text == "Edited");
+  assert(plan.lines.front().runs.front().family == "Source Sans 3");
+  assert(plan.lines.front().runs.front().bold && plan.lines.front().runs.back().underline);
+  assert(layouttext::LegacyRichTextTail(edited + archive,
+      layouttext::SaveRichTextBufferToString(baseline)) == archive);
+}
+
 class InputTestApp : public wxApp { public: bool OnInit() override {return true;} };
 wxIMPLEMENT_APP_NO_MAIN(InputTestApp);
 void TestPhysicalViewportPreview();
+void TestDocumentFontPicker();
 int main(int argc,char **argv) {
   assert(wxEntryStart(argc,argv));assert(wxTheApp->CallOnInit());
   {
     wxInitAllImageHandlers();
     TestPhysicalViewportPreview();
+    TestDocumentFontPicker();
     layouts::LayoutTextDefinition text;text.frame={17,29,101,73};text.text="Plain text";
     auto data=layouttext::BuildLayoutTextExportData(text);
     assert(data.frame.x==17 && data.frame.y==29 && data.frame.width==101 && data.frame.height==73);
     assert(text.text=="Plain text" && text.frame.width==101);
+    wxRichTextBuffer rich;
+    wxRichTextAttr heading;
+    heading.SetAlignment(wxTEXT_ALIGNMENT_RIGHT);
+    auto *paragraph = new wxRichTextParagraph(&rich, &heading);
+    rich.AppendChild(paragraph);
+    wxRichTextAttr first;
+    first.SetFontPointSize(18);
+    first.SetFontFaceName("Source Sans 3");
+    first.SetFontWeight(wxFONTWEIGHT_BOLD);
+    first.SetTextColour(wxColour(20, 30, 40));
+    wxRichTextAttr second;
+    second.SetFontPointSize(10);
+    second.SetFontFaceName("Noto Serif");
+    second.SetFontUnderlined(true);
+    paragraph->AppendChild(new wxRichTextPlainText(wxString::FromUTF8("Producción"), paragraph, &first));
+    paragraph->AppendChild(new wxRichTextPlainText(wxString::FromUTF8(" Málaga"), paragraph, &second));
+    rich.UpdateRanges();
+    text.richText = layouttext::SaveRichTextBufferToString(rich).utf8_string();
+    TestLegacyRichText(wxString::FromUTF8(text.richText));
+    const auto spans = layouttext::BuildLayoutTextExportData(text);
+    assert(spans.wrap && spans.lines.size() == 1);
+    assert(spans.lines.front().alignment == typography::TextBlock::Alignment::Right);
+    assert(spans.lines.front().runs[0].family == "Source Sans 3" && spans.lines.front().runs[0].bold);
+    assert(spans.lines.front().runs[0].text == "Producción");
+    assert(spans.lines.front().runs[0].color[0] == 20);
+    assert(spans.lines.front().runs[1].family == "Noto Serif" && spans.lines.front().runs[1].underline);
+    const typography::FontCatalog catalog(PERASTAGE_TEST_RESOURCE_DIR);
+    const auto plan = typography::ComposeTextBlock(spans, 200, 140, catalog);
+    assert(plan.glyphs.front().glyph.resourceId != plan.glyphs.back().glyph.resourceId);
+    assert(plan.glyphs.front().baseline == plan.glyphs.back().baseline);
+    assert(!plan.decorations.empty());
+    assert(typography::FontCatalog::LegacyWrapDefault("Noto Serif"));
+    assert(!typography::FontCatalog::LegacyWrapDefault("Noto Sans Mono"));
+    auto *run = static_cast<wxRichTextPlainText *>(paragraph->GetChild(0));
+    run->GetAttributes().SetFontFaceName("Test installed family");
+    typography::FontReference installed{"Test installed family"};
+    installed.postScriptNames[1] = "TestInstalled-Bold";
+    installed.fingerprints[1] = "test-exact-bold";
+    const auto identity = typography::EncodeFontReference(installed);
+    run->GetProperties().SetProperty(layouttext::kInstalledFontReferenceProperty, wxString::FromUTF8(identity));
+    text.richText = layouttext::SaveRichTextBufferToString(rich).utf8_string();
+    text.wrapText = false;
+    const auto external = layouttext::BuildLayoutTextExportData(text);
+    assert(!external.wrap && external.lines.front().runs[0].family == identity);
+    const auto missingPlan = typography::ComposeTextBlock(external, 200, 140, catalog);
+    assert(missingPlan.glyphs.front().glyph.resourceId == catalog.Resolve({}, true).face->fingerprint);
+    assert(!missingPlan.diagnostics.empty() && text.richText.find(identity) != std::string::npos);
     const auto path=std::filesystem::temp_directory_path()/("layout-image-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".png");
     wxImage source(2,1);source.SetRGB(0,0,255,0,0);source.SetRGB(1,0,0,0,255);source.InitAlpha();source.SetAlpha(0,0,0);source.SetAlpha(1,0,0);
     assert(source.SaveFile(path.string(),wxBITMAP_TYPE_PNG));

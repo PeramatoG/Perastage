@@ -17,6 +17,7 @@
  */
 #include "FixtureLabelPresentationSerialization.h"
 #include "fixture_label_composition.h"
+#include "projectutils.h"
 #include "LayoutManager.h"
 #include "layoutviewerpanel.h"
 #include "layout_view_raster_policy.h"
@@ -136,6 +137,8 @@ size_t LayoutViewerPanel::HashViewContent(
     const layouts::Layout2DViewDefinition &view) const {
   size_t seed = std::hash<int>{}(view.id);
   HashCombine(seed, std::hash<int>{}(viewer2d::kFixtureLabelCompositionRevision));
+  const auto fontSignature = typography::GetFontCatalog(ProjectUtils::GetResourceRoot())->Signature();
+  HashCombine(seed, std::hash<std::string>{}(fontSignature));
   HashCombine(seed, std::hash<std::string>{}(layouts::LabelPresentationJson(view.labelPresentation).dump()));
   const auto &profiles = layouts::LayoutManager::Get().GetLayouts().labelProfiles;
   if (const auto it = profiles.find(view.labelPresentation.profileId); it != profiles.end())
@@ -355,6 +358,21 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(
     lastSceneContentHash = sceneContentHash;
     hasSceneContentHash = true;
   }
+}
+
+void LayoutViewerPanel::CheckTypographyRefresh() {
+  const auto catalog = typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
+  if (typographySignature_ == catalog->Signature()) return;
+  const bool hadCatalog = !typographySignature_.empty();
+  typographySignature_ = catalog->Signature();
+  if (!hadCatalog) return;
+  ++viewRenderVersion;
+  captureInProgress = false;
+  for (auto &entry : viewCaches_) InvalidateViewCacheForSceneContent(entry.second);
+  for (auto &entry : legendCaches_) entry.second.renderDirty = true;
+  for (auto &entry : eventTableCaches_) entry.second.renderDirty = true;
+  for (auto &entry : textCaches_) entry.second.renderDirty = true;
+  renderDirty = true;
 }
 
 // Invalidates render data after scene content changes and queues a rebuild.

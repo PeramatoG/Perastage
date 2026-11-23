@@ -124,7 +124,9 @@ jobs:
           echo "baseline=${baseline}" >> "$GITHUB_OUTPUT"
           echo "VCPKG_BASELINE=${baseline}" >> "$GITHUB_ENV"
       - name: Install Linux test dependencies
-        run: .github/scripts/install_vcpkg_build_prerequisites.sh linux
+        run: |
+          .github/scripts/install_vcpkg_build_prerequisites.sh linux
+          sudo apt-get install -y poppler-utils
       - name: Record telemetry — Environment / prerequisite preparation
         continue-on-error: true
         shell: bash
@@ -289,7 +291,7 @@ jobs:
       - name: Configure Debug tests
         id: cmake-configure
         run: |
-          python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-linux-debug.log" -- cmake -S . -B build/linux-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-linux -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DCMAKE_C_FLAGS_DEBUG=-g1 -DCMAKE_CXX_FLAGS_DEBUG=-g1 -DCMAKE_EXE_LINKER_FLAGS_DEBUG=-Wl,--compress-debug-sections=zlib -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=ON -C "$CI_LOG_DIR/cmake-compiler-cache-linux-debug.cmake"
+          python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-linux-debug.log" -- cmake -S . -B build/linux-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-linux -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_POPPLER_TESTS=ON -DCMAKE_C_FLAGS_DEBUG=-g1 -DCMAKE_CXX_FLAGS_DEBUG=-g1 -DCMAKE_EXE_LINKER_FLAGS_DEBUG=-Wl,--compress-debug-sections=zlib -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=ON -C "$CI_LOG_DIR/cmake-compiler-cache-linux-debug.cmake"
           test -f build/linux-debug/compile_commands.json || { echo "Debug compile_commands.json was not generated"; exit 1; }
           if grep -Eq '(^|[[:space:]])-DNDEBUG([[:space:]]|$)' build/linux-debug/compile_commands.json; then echo "Debug tests must not compile with NDEBUG"; exit 1; fi
           python3 .github/scripts/validate_cmake_toolchain.py --build-dir build/linux-debug --expected-c-id GNU --expected-cxx-id GNU --expected-generator Ninja --expected-build-type Debug --expected-launcher "$SCCACHE_PATH"
@@ -507,6 +509,26 @@ jobs:
           & $rgPath --version | Out-File -FilePath $log -Append -Encoding utf8
           if ($LASTEXITCODE -ne 0) { throw "ripgrep failed to run from PowerShell: $rgPath" }
           "PERASTAGE_RG=$rgPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Install Windows PDF validation tools
+        shell: pwsh
+        run: |
+          $version = '26.09.0-0'
+          $sha256 = '7a6f256a0ddf7536182246a5733331bf4677cbcc34f4663774947ad34556c8d0'
+          $root = Join-Path $env:RUNNER_TEMP "poppler-$version"
+          $zip = "$root.zip"
+          $uri = "https://github.com/oschwartz10612/poppler-windows/releases/download/v$version/Release-$version.zip"
+          Invoke-WebRequest -Uri $uri -OutFile $zip -MaximumRetryCount 3 -RetryIntervalSec 3
+          if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash -ne $sha256) {
+            throw "Poppler $version archive failed SHA-256 verification."
+          }
+          Expand-Archive -LiteralPath $zip -DestinationPath $root -Force
+          $bin = Join-Path $root 'poppler-26.09.0\Library\bin'
+          foreach ($tool in @('pdftotext.exe', 'pdffonts.exe', 'pdfinfo.exe')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $bin $tool) -PathType Leaf)) {
+              throw "Poppler $version archive is missing $tool."
+            }
+          }
+          $bin | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
       - name: Resolve Git Bash for Windows tests
         id: git-bash
         shell: pwsh
@@ -800,7 +822,7 @@ jobs:
         id: cmake-configure
         shell: pwsh
         run: |
-          & "$env:PERASTAGE_PYTHON" .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\cmake-configure-windows-debug.log" -- cmake -S . -B build-windows-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=ON -C "$env:CI_LOG_DIR\cmake-windows-debug-initial-cache.cmake" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          & "$env:PERASTAGE_PYTHON" .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\cmake-configure-windows-debug.log" -- cmake -S . -B build-windows-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_POPPLER_TESTS=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=ON -C "$env:CI_LOG_DIR\cmake-windows-debug-initial-cache.cmake" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
       - name: Record telemetry — CMake configure
         continue-on-error: true
         if: ${{ always() }}
@@ -990,7 +1012,9 @@ jobs:
           echo "MACOS_SDK_PATH=${current_sdk_path}" >> "$GITHUB_ENV"
           echo "MACOS_SDK_REALPATH=${current_sdk_realpath}" >> "$GITHUB_ENV"
       - name: Install macOS test tools
-        run: .github/scripts/install_vcpkg_build_prerequisites.sh macos
+        run: |
+          .github/scripts/install_vcpkg_build_prerequisites.sh macos
+          command -v pdftotext >/dev/null || brew install poppler
       - name: Record telemetry — Environment / prerequisite preparation
         continue-on-error: true
         shell: bash
@@ -1175,7 +1199,7 @@ jobs:
         id: cmake-configure
         run: |
           current_sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
-          python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-macos-debug.log" -- cmake -S . -B build/macos-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_SYSROOT="$current_sdk_path" -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=arm64-osx -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=ON -C "$CI_LOG_DIR/cmake-compiler-cache-macos-debug.cmake"
+          python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-macos-debug.log" -- cmake -S . -B build/macos-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_SYSROOT="$current_sdk_path" -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=arm64-osx -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_POPPLER_TESTS=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=ON -C "$CI_LOG_DIR/cmake-compiler-cache-macos-debug.cmake"
           test -f build/macos-debug/compile_commands.json || { echo "macOS Debug compile_commands.json was not generated"; exit 1; }
           python3 .github/scripts/validate_cmake_toolchain.py --build-dir build/macos-debug --expected-c-id AppleClang --expected-cxx-id AppleClang --expected-generator Ninja --expected-build-type Debug --expected-launcher "$SCCACHE_PATH"
       - name: Record telemetry — CMake configure and toolchain validation

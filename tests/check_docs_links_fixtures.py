@@ -58,7 +58,7 @@ def main() -> None:
         root = Path(tmp)
         for directory in ('docs', 'cmake', '.github', 'packaging'):
             shutil.copytree(ROOT / directory, root / directory)
-        for name in ('README.md', 'AGENTS.md', '.gitattributes'):
+        for name in ('README.md', 'AGENTS.md', 'THIRD_PARTY_NOTICES.md', '.gitattributes'):
             shutil.copyfile(ROOT / name, root / name)
         (root / 'tests').mkdir()
         checker = root / 'tests/check_docs_links.py'

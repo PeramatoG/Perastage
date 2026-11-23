@@ -1,3 +1,4 @@
+#include "typography/composition.h"
 #include "configmanager.h"
 #include "fixture.h"
 #include "fixture_label_overrides.h"
@@ -9,6 +10,8 @@
 #include "fixture_label_style_serialization.h"
 
 #include <cassert>
+#include <chrono>
+#include <iostream>
 
 void RunLayoutFixtureLabelPresentationTests();
 int main() {
@@ -171,6 +174,52 @@ int main() {
   assert(std::abs(compositionCache.Resolve(cfg, draft, validFixture, 0, bounds, fonts).text.front().x - x - .5f) < 1e-6f);
   const viewer2d::LabelBounds moved{bounds.minX+1,bounds.minY,bounds.maxX+1,bounds.maxY};
   assert(std::abs(compositionCache.Resolve(cfg, draft, validFixture, 0, moved, fonts).text.front().x - x - 1.5f) < 1e-6f);
+  draft[validFixture.uuid].fieldStyles[0][0]->fontFamily = "Source Sans 3";
+  const auto &selected = compositionCache.Resolve(cfg, draft, validFixture, 0, bounds, fonts);
+  const auto sourceSans = fonts.catalog->Resolve("Source Sans 3", style.bold).face;
+  auto mix = draft;
+  auto &mixedStyles = mix.at(validFixture.uuid).fieldStyles[0];
+  mixedStyles[0]->bold = true;
+  mixedStyles[1]->fontFamily = "Noto Serif";
+  mixedStyles[1]->bold = false;
+  mixedStyles[2]->fontFamily = "PerastageSans";
+  const auto mixed = viewer2d::ComposeFixtureLabels(cfg, mix, validFixture, 0, bounds, fonts);
+  for (size_t field = 0; field < mixed.fields.size(); ++field) {
+    assert(mixed.fields[field]);
+    const auto &geometry = *mixed.fields[field];
+    const auto &settings = *mixedStyles[field];
+    const auto &ink = mixed.text[geometry.first].style;
+    const auto expected = fonts.catalog->Resolve(settings.fontFamily, settings.bold).face;
+    assert(ink.fontResource == expected->fingerprint);
+    const auto metrics = typography::MeasureFontLine(expected->metrics, settings.size);
+    assert(std::abs(ink.ascent - metrics.ascent) < 1e-6);
+    assert(std::abs(ink.descent - metrics.descent) < 1e-6);
+    assert(geometry.bounds.maxY - geometry.bounds.minY >= ink.ascent + ink.descent - 1e-6);
+  }
+  std::vector<Fixture> repeated(1000, validFixture);
+  viewer2d::FixtureLabelCompositionCache repeatedCache;
+  std::vector<const TextCommand *> cachedTextPointers;
+  const auto coldStart = std::chrono::steady_clock::now();
+  for (size_t i = 0; i < repeated.size(); ++i) {
+    repeated[i].uuid = "typography-repeated-" + std::to_string(i);
+    const auto &entry = repeatedCache.Resolve(cfg, mix, repeated[i], 0, bounds, fonts);
+    assert(!entry.text.empty());
+    cachedTextPointers.push_back(entry.text.data());
+  }
+  const auto cachedStart = std::chrono::steady_clock::now();
+  for (size_t i = 0; i < repeated.size(); ++i)
+    assert(repeatedCache.Resolve(cfg, mix, repeated[i], 0, bounds, fonts).text.data() == cachedTextPointers[i]);
+  const auto ms = [](auto duration) { return std::chrono::duration<double, std::milli>(duration).count(); };
+  std::cout << "1000 repeated labels, cold " << ms(cachedStart - coldStart)
+            << " ms, cached " << ms(std::chrono::steady_clock::now() - cachedStart) << " ms\n";
+  const auto beforeFontEdit = cfg.GetValue("label_fixture_overrides");
+  assert(!selected.text.empty() && selected.text.front().style.fontResource == sourceSans->fingerprint);
+  assert(viewer2d::CommitFixtureLabelStyles(cfg, draft));
+  assert(viewer2d::LoadFixtureLabelOverrides(cfg).at(validFixture.uuid).fieldStyles[0][0].value().fontFamily == "Source Sans 3");
+  cfg.Undo();
+  assert(cfg.GetValue("label_fixture_overrides") == beforeFontEdit);
+  cfg.Redo();
+  assert(viewer2d::LoadFixtureLabelOverrides(cfg).at(validFixture.uuid).fieldStyles[0][0].value().fontFamily == "Source Sans 3");
   draft[validFixture.uuid].fieldStyles[0][0] = style;
   compositionCache.Clear();
   assert(cachedText() == "RenamedID: 91.002");

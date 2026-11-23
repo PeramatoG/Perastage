@@ -118,19 +118,62 @@ Select a non-empty layout and choose **File → Print Layout...**. Choose a writ
 
 For missing views, incorrect output or export errors, see [Troubleshooting](troubleshooting.md#layout-and-pdf-problems).
 
-Fixture labels are configured in **2D View settings → Edit Fixture Labels...**. Project defaults and UUID-based fixture overrides also feed Layout viewports and vector PDF. All fixture fields, including inherited/unedited labels, use the same bundled fonts and positioned composition in the editor, viewer and PDF. Layout free text keeps its own typography. Event Tables share their own point-space composition between preview and PDF. See [Fixture labels](views.md#fixture-labels) for scope, units, Apply/Cancel and supported characters.
+Fixture labels use the selected face in the Fixture Label Editor and in 2D and
+Layout viewports. PDF uses the same face when it can embed it. Project defaults and fixture overrides feed Layout
+viewports. See [Fixture labels](views.md#fixture-labels) for scope and units.
 
-Legends use the bundled PerastageSans regular/bold fonts with the same wrapping, row geometry and symbol columns in the editable preview and vector PDF. Screen zoom changes rasterization only. Printing on different paper uniformly fits the composed Legend without recomputing line breaks. Text that exceeds its column is clipped; its full value remains editable. Western European WinAnsi characters are supported. Unsupported glyphs are omitted on both targets while their original text is retained; PDF completion details identify the affected UTF-8 bytes.
+Use **Font family** when editing a legend or Event Table. The selection applies
+to that element and preserves its Regular and Bold roles. For free text, select
+a span to apply a family to that span or leave the selection empty to apply it
+to the whole element. Each text element can use different fonts. PerastageSans,
+Noto Serif and Source Sans 3 have genuine italic and bold italic faces. Noto
+Sans Mono has Regular and Bold. Use **Document preview** in the text editor
+to see the shared Layout rendering. The native editing control can display a
+different system rendering while you edit.
+
+When a legacy text element contains formatting the editor cannot round-trip,
+the editor keeps a recovery copy of the original alongside your edits and
+shows a notice. The Layout and PDF use the supported formatting in the
+edited text.
 
 ### Event Table preview and PDF
 
-Event Tables use the same bundled PerastageSans composition in the Layout Viewer
-and selectable vector PDF. Zoom and output paper scale transform the existing
-layout; they do not refit its seven fields. Labels and the first value are bold.
-Each cell shows one line, using `...` for overflow when it fits. The complete
-value remains editable and is saved unchanged. Unsupported glyphs are omitted
-consistently in both outputs and recorded in technical diagnostics; full Unicode
-shaping is not supported.
+Layout and PDF use the same font advances and baselines. Zoom and output paper
+scale transform the composition. Legends wrap group names within their columns.
+Event Table cells display one line and use an ellipsis for overflow when it
+fits. The complete source remains editable in both cases.
+
+### Installed fonts and portability
+
+The font picker groups plain family names under **Included with Perastage**
+and **Installed on this computer**. Type in **Search fonts** to filter either
+group. Hover over a font or use the arrow keys to preview it in the Fixture
+Label Editor or in the Layout Text Editor's popup sample. Click a family or
+press **Enter** to choose it. Press **Escape** or click outside the list to
+discard the preview. The editor's **Apply**, **OK**, and **Cancel** actions
+still control the pending edit.
+
+The selected font's tooltip describes its source, availability and PDF
+capability. Included fonts keep the document appearance portable across
+computers. Fixture labels offer Bold and Italic. If the requested style is
+missing, Perastage uses a real compatible face and reports the substitution.
+
+Projects store the selection and keep it when a font is missing. They do not
+carry installed font files. Use **Refresh fonts** in a font editor after
+installing or removing a font, or select a different family. The same saved
+selection can recover after the matching face becomes available.
+
+Perastage can render compatible static TrueType and OpenType/CFF fonts locally,
+including individual faces from supported collections. PDF can embed a supported
+standalone TrueType face when its metadata permits it. It uses an approved
+fallback for restricted, preview-and-print-only, bitmap-only or unsupported
+faces and reports the substitutions after export. Different fallback advances
+can change line breaks. Font metadata cannot confirm every license term.
+Check the license for the intended use and distribution.
+
+The bundled fallback covers Spanish accents, Greek, Cyrillic, and common
+Arabic and Hebrew text. PDF preserves supported shaped text for selection and
+searching. Missing glyphs are reported in the export details.
 
 ### Output paper size
 

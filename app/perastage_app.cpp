@@ -30,6 +30,7 @@
 #include "mainwindow.h"
 #include "platform_locale.h"
 #include "projectutils.h"
+#include "typography/font_resources.h"
 #include "cache_service.h"
 #include "apppaths.h"
 #include "splashscreen.h"
@@ -266,6 +267,8 @@ bool MyApp::OnInit() {
     diagnostics::DiagnosticLogger::Warning("Startup localization: " +
                                           localizationResult.diagnostic);
   }
+
+  typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
 
   SplashScreen::Show();
   SplashScreen::SetMessage(_("Running library bootstrap..."));

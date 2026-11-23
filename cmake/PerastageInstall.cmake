@@ -52,7 +52,14 @@ else()
     set(PERASTAGE_INSTALL_RESOURCE_DEST "${PERASTAGE_INSTALL_ASSET_DEST}")
 endif()
 
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/resources DESTINATION ${PERASTAGE_INSTALL_RESOURCE_DEST})
+if(APPLE)
+    # The app bundle already carries fonts directly in Contents/Resources.
+    # Keep the legacy nested resource directory without duplicating the fonts.
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/resources DESTINATION ${PERASTAGE_INSTALL_RESOURCE_DEST}
+            PATTERN "fonts" EXCLUDE)
+else()
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/resources DESTINATION ${PERASTAGE_INSTALL_RESOURCE_DEST})
+endif()
 if(PERASTAGE_ENABLE_LOCALIZATION)
     foreach(PERASTAGE_TRANSLATION_LANGUAGE IN LISTS PERASTAGE_TRANSLATION_LANGUAGES)
         if(APPLE)

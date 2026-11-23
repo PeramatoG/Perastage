@@ -193,20 +193,20 @@ bool AreEqual(const layouts::Layout2DViewDefinition &lhs,
 bool AreEqual(const layouts::LayoutLegendDefinition &lhs,
               const layouts::LayoutLegendDefinition &rhs) {
   return lhs.id == rhs.id && lhs.zIndex == rhs.zIndex &&
-         AreEqual(lhs.frame, rhs.frame);
+         AreEqual(lhs.frame, rhs.frame) && lhs.fontFamily == rhs.fontFamily;
 }
 
 bool AreEqual(const layouts::LayoutEventTableDefinition &lhs,
               const layouts::LayoutEventTableDefinition &rhs) {
   return lhs.id == rhs.id && lhs.zIndex == rhs.zIndex &&
-         AreEqual(lhs.frame, rhs.frame) && lhs.fields == rhs.fields;
+         AreEqual(lhs.frame, rhs.frame) && lhs.fields == rhs.fields && lhs.fontFamily == rhs.fontFamily;
 }
 
 bool AreEqual(const layouts::LayoutTextDefinition &lhs,
               const layouts::LayoutTextDefinition &rhs) {
   return lhs.id == rhs.id && lhs.zIndex == rhs.zIndex &&
          AreEqual(lhs.frame, rhs.frame) && lhs.text == rhs.text &&
-         lhs.richText == rhs.richText &&
+         lhs.richText == rhs.richText && lhs.wrapText == rhs.wrapText &&
          lhs.solidBackground == rhs.solidBackground &&
          lhs.drawFrame == rhs.drawFrame;
 }
@@ -771,6 +771,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
                                      "OnPaint")) {
       return;
     }
+    CheckTypographyRefresh();
     if (legendDataDirty_)
       RefreshLegendData();
     if (!renderPending && NeedsRenderRebuild()) {

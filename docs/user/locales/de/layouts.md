@@ -62,6 +62,12 @@ Wählen Sie ein nicht leeres Layout und **File → Print Layout...**. Wählen Si
 
 Bei fehlenden Ansichten, falscher Ausgabe oder Exportfehlern siehe [Fehlerbehebung](troubleshooting.md#layout--und-pdf-probleme).
 
+## Dokumenttypografie
+
+Wählen Sie unter **Schriftfamilie** PerastageSans, Noto Serif, Source Sans 3 oder Noto Sans Mono für Gerätebeschriftungen, Legenden, Ereignistabellen und Texte. Markieren Sie im Texteditor eine Passage, um deren Schrift zu ändern. Ohne Markierung gilt die Auswahl für das gesamte Element. Die PDF-Datei bettet zugelassene Schriften ein und macht unterstützten Text auswählbar. Die **Dokumentvorschau** zeigt die Darstellung im Layout. **Schriften aktualisieren** prüft die zugelassenen Schriftdateien erneut.
+
+Fehlt eine Schrift, behält Perastage die gespeicherte Auswahl bei, verwendet eine zugelassene Ersatzschrift und meldet die Ersetzung in den Exportdetails. Öffnen Sie das Projekt erneut, sobald die Schrift wieder verfügbar ist.
+
 ## Physischer Maßstab und Ansichtseigenschaften
 
 Doppelklicken Sie auf eine 2D-Ansicht und öffnen Sie **Ansichtseigenschaften**. **Frei / Variabel** bleibt der Standard für neue Ansichten und alte Dateien. Zoom, Verschieben und visuelles Einpassen bleiben verfügbar. Der ungefähre effektive Maßstab dient nur zur Information. **Visueller Ausschnitt** verändert den visuellen Ausschnitt, keinen physischen Maßstab.
@@ -110,4 +116,4 @@ und die Top-Projektion; es entsteht keine neue standardisierte GDTF-SVG-Orientie
 
 Klicken Sie im **2D View Editor** auf ein Gerät, um dessen Beschriftungen auszuwählen; Umschalt-Klick fügt Geräte hinzu oder entfernt sie. **Edit Fixture Labels...** öffnet den ausgewählten lokalen Bereich. Ziehen verschiebt weiterhin die Kamera, niemals die Geräte. Projektauswahl und Verlauf bleiben unverändert. Kontur und Füllung der Bildschirmbeschriftungen verwenden dieselbe Rasterung und Pixelrundung mit der bisherigen Konturstärke der Szene, auch bei hoher Pixeldichte. PDF behält seine Maße in Szenenmetern.
 
-Alle 2D-Gerätebeschriftungen, einschließlich unbearbeiteter geerbter Felder, verwenden dieselben Noto-Sans-Dateien, Buchstabenpositionen und Zeilen im Betrachter, Editor und PDF. Das Öffnen des Editors schreibt gespeicherte Zahlenwerte nicht neu und erzeugt keinen Verlauf. Beschriftungen, die bisher Systemschriften verwendeten, können ihr Aussehen ändern, damit sie dem Editor und Export entsprechen. Die Vorschau passt in ihren Rahmen: Die Pixelvergrößerung kann abweichen, Proportionen und Abstände bleiben gleich. Maße bleiben Szenenmeter. Alte Layout-Aufnahmen werden automatisch erneuert.
+Wählen Sie unter **Schriftfamilie** eine mitgelieferte oder eine installierte Schrift für Gerätebeschriftungen, Legenden, Ereignistabellen und Text. **Schriften aktualisieren** übernimmt Änderungen an installierten Schriften. Das Projekt speichert die Auswahl und verwendet auf einem anderen Computer bei Bedarf eine Ersatzschrift. Der PDF-Export bettet kompatible TrueType-Schriften ein, wenn ihre Berechtigungen dies zulassen, und meldet Ersetzungen.

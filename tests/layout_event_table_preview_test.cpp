@@ -1,6 +1,6 @@
 #include "layout_event_table_renderer.h"
 #include "pdf/layout_pdf_event_table_renderer.h"
-#include "pdf/pdf_label_fonts.h"
+#include "pdf/pdf_unicode_fonts.h"
 #include <cassert>
 #include <filesystem>
 #include <fstream>
@@ -32,11 +32,7 @@ void Same(const EventTablePlan &a, const EventTablePlan &b) {
 int main(int argc, char **argv) {
   assert(wxEntryStart(argc, argv)); assert(wxTheApp->CallOnInit());
   {
-    layout_pdf_internal::PdfFontCatalog fonts;
-    layout_pdf_internal::LabelFonts embedded;
-    std::vector<layout_pdf_internal::PdfObject> objects;
-    assert(embedded.Prepare(objects,fonts,true));
-    assert(embedded.regular.embedded && embedded.bold.embedded);
+    layout_pdf_internal::PdfUnicodeFonts fonts(typography::GetFontCatalog(PERASTAGE_TEST_RESOURCE_DIR));
     layouts::LayoutEventTableDefinition table;
     table.fields = {"Long venue ÉclairageSüdÉclairageSüd", "Málaga", "É灯😀", "first\nsecond", "", "    ", std::string(500,'W')};
     for (int width : {60,120,300,600}) for (int height : {12,100,300}) {
@@ -50,7 +46,8 @@ int main(int argc, char **argv) {
         assert(pdf.str().find(" re W n") != std::string::npos);
         assert(pdf.str().find(" re f") != std::string::npos);
         assert(pdf.str().find(" re S") != std::string::npos);
-        assert(pdf.str().find("/F4 ") != std::string::npos);
+        if (width > 60 && height > 12)
+          assert(pdf.str().find(" Tj") != std::string::npos);
         auto unlike = layout_pdf_internal::RenderEventTablePdf(pdf,data,842,scale,scale*1.5,fonts,layout_pdf_internal::FloatFormatter{6});
         Same(reference,unlike);
       }

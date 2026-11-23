@@ -10,17 +10,14 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel_position_overlay.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel_resource_sync.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas2d.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/pdf/font_metrics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_view_mapping.h
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_exporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_legend_renderer.h
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_legend_renderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_symbol_usage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_draw_commands.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_font_metrics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_objects.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_label_fonts.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_graphics_encoder.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_unicode_fonts.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_writer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/print_diagnostics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/viewer2d_render_frame_plan.cpp
@@ -37,6 +34,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_presentation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_style.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_composition.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_glyphs.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/viewer2d_interaction_scope_policy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/viewer2d_interaction_session.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/viewer2d_line_point_selection_session.cpp

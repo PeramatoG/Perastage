@@ -1,3 +1,4 @@
+#include "pdf/pdf_unicode_fonts.h"
 #include "pdf_draw_commands.h"
 #include "typography/composition.h"
 #include "typography/font_resources.h"
@@ -174,20 +175,17 @@ int main() {
   const auto b = typography::Compose("Euro € — Süd\nÉclairage", style, fonts.regular);
   assert(a.unsupportedBytes.empty() && a.lines.size() == 4 && a.lines.size() == b.lines.size());
   const std::array<std::string,4> expectedLines{"Euro € ", "— Süd", "Éclairag", "e"};
-  const std::array<double,4> expectedWidths{39.408,36.504,44.424,6.768};
   for (size_t i=0; i<4; ++i) {
     std::string line;
     for (size_t j=a.lines[i].first; j<a.lines[i].first+a.lines[i].count; ++j) line += a.glyphs[j].text;
     assert(line == expectedLines[i]);
-    assert(std::abs(a.lines[i].width - expectedWidths[i]) < 0.000001);
+    auto unwrapped = style;
+    unwrapped.maxWidth = 0;
+    assert(std::abs(a.lines[i].width - typography::Compose(line, unwrapped, fonts.regular).lines.front().width) < 1e-6);
     assert(std::abs(a.lines[i].baseline + i*16.344) < 0.000001);
   }
-  assert(fonts.regular.advanceWidths[0x80] == 572); // Euro, not U+0080.
-  assert(fonts.regular.advanceWidths[0x97] == 1000); // Em dash.
-  bool missingFont = false;
-  try { typography::FontPair missing("/perastage/nonexistent/resources"); }
-  catch (const std::runtime_error &) { missingFont = true; }
-  assert(missingFont);
+  assert(fonts.regular.glyphAdvances[fonts.regular.GlyphFor(0x20ac)] == 572); // Euro, not U+0080.
+  assert(fonts.regular.glyphAdvances[fonts.regular.GlyphFor(0x2014)] == 1000); // Em dash.
   for (size_t i=0; i<a.lines.size(); ++i) {
     assert(a.lines[i].first == b.lines[i].first && a.lines[i].count == b.lines[i].count);
     assert(a.lines[i].baseline == b.lines[i].baseline && a.lines[i].width <= 45);
@@ -195,13 +193,13 @@ int main() {
   assert(!typography::Compose("灯", style, fonts.regular).unsupportedBytes.empty());
   assert(!typography::Compose(std::string("\xc0\x80",2), style, fonts.regular).unsupportedBytes.empty());
   assert(typography::Compose("a\n\n", style, fonts.regular).lines.size() == 3);
-  layout_pdf_internal::PdfFontDefinition regular;
-  regular.metrics = fonts.regular; regular.embedded = true; regular.key = "F3";
-  layout_pdf_internal::PdfFontCatalog catalog; catalog.labelRegular = &regular;
-  assert(catalog.Resolve("perastage-sans") == &regular);
+  layout_pdf_internal::PdfUnicodeFonts catalog(fonts.catalog);
   const layout_pdf_internal::FloatFormatter fmt(6);
   for (const auto &glyph : a.glyphs) {
     TextCommand text; text.text = glyph.text; text.style.fontFamily = "perastage-sans";
+    text.style.fontResource = glyph.resourceId;
+    text.style.glyphId = glyph.glyphId;
+    text.style.codepoint = glyph.codepoint;
     text.style.fontSize = 12; text.style.ascent = a.ascent; text.style.descent = a.descent;
     std::ostringstream out;
     layout_pdf_internal::AppendText(out, fmt, {glyph.x, glyph.baseline}, text, text.style, 1, &catalog);
@@ -212,16 +210,17 @@ int main() {
   // Continuous contours cover the bounded repertoire, including composite accents.
   for (const auto *font : {&fonts.regular, &fonts.bold}) {
     for (unsigned code = 32; code < 256; ++code) {
-      const auto outline = typography::ReadGlyphOutline(*font, code);
+      const auto outline = typography::ReadGlyphOutlineById(*font, font->GlyphFor(code));
+      assert(outline);
       for (const auto &p : outline->path)
         assert(std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.cx) && std::isfinite(p.cy));
     }
   }
-  const auto accent = typography::ReadGlyphOutline(fonts.regular, 0xc9);
+  const auto accent = typography::ReadGlyphOutlineById(fonts.regular, fonts.regular.GlyphFor(0xc9));
   double accentTop = 0;
   for (const auto &p : accent->path) accentTop = std::max(accentTop, p.y);
   assert(std::abs(accentTop - .944) < 1e-9);
-  const auto round = typography::ReadGlyphOutline(fonts.regular, 'O');
+  const auto round = typography::ReadGlyphOutlineById(fonts.regular, fonts.regular.GlyphFor('O'));
   assert(std::count_if(round->path.begin(), round->path.end(), [](const auto &p) {
     return p.kind == typography::GlyphPathElement::Kind::Close;
   }) == 2);
@@ -232,13 +231,16 @@ int main() {
     return p.kind == typography::GlyphPathElement::Kind::Quadratic;
   }));
   auto truncated = fonts.regular; truncated.data.resize(4);
-  bool invalidContour = false;
-  try { typography::ReadGlyphOutline(truncated, 'A'); }
-  catch (const std::runtime_error &) { invalidContour = true; }
-  assert(invalidContour);
+  assert(!typography::ReadGlyphOutlineById(truncated, fonts.regular.GlyphFor('A')));
+  assert(!typography::ReadGlyphOutlineById(fonts.regular, UINT16_MAX));
+  const auto fallbackOutline = typography::ResolveGlyphOutline(*fonts.catalog, fonts.regular.resourceId, UINT16_MAX);
+  assert(fallbackOutline && fallbackOutline->substituted && !fallbackOutline->path.empty());
 
   TextCommand outlined;
   outlined.text = "A"; outlined.style.fontFamily = "perastage-sans";
+  outlined.style.fontResource = fonts.regular.resourceId;
+  outlined.style.glyphId = fonts.regular.GlyphFor('A');
+  outlined.style.codepoint = 'A';
   outlined.style.fontSize = 12; outlined.style.ascent = a.ascent;
   outlined.style.descent = a.descent; outlined.style.outlineWidth = .013f;
   outlined.style.outlineColor = {.9f,.8f,.7f,1}; outlined.style.color = {.2f,.3f,.4f,1};
@@ -259,17 +261,18 @@ int main() {
   std::ostringstream outlinedPdf;
   layout_pdf_internal::AppendText(outlinedPdf,fmt,{1,2},outlined,outlined.style,20,&catalog);
   const auto output = outlinedPdf.str();
-  assert(output.find("1 Tr") != std::string::npos);
+  assert(output.find("h\n") != std::string::npos && output.find("S\nQ\n") != std::string::npos);
   assert(output.find(fmt.Format(2*outlined.style.outlineWidth*20)+" w") != std::string::npos);
-  assert(output.find("1.000000 2.000000 Td") != std::string::npos);
+  assert(output.find("1.000000 2.000000 Tm") != std::string::npos);
   assert(output.find("0.900000 0.800000 0.700000 RG") != std::string::npos);
-  const auto firstPaint = output.find("(A) Tj");
-  const auto secondPaint = output.find("(A) Tj", firstPaint + 1);
-  assert(firstPaint != std::string::npos && secondPaint != std::string::npos);
-  assert(output.find("(A) Tj", secondPaint + 1) == std::string::npos);
+  const auto firstPaint = output.find(" Tj");
+  assert(firstPaint != std::string::npos);
+  assert(output.find(" Tj", firstPaint + 1) == std::string::npos);
   assert(output.find("0.200000 0.300000 0.400000 rg") != std::string::npos);
   auto adjacent = outlined;
   adjacent.x = .07f; adjacent.text = "B";
+  adjacent.style.glyphId = fonts.regular.GlyphFor('B');
+  adjacent.style.codepoint = 'B';
   std::vector<CanvasCommand> run{outlined, adjacent, SaveCommand{}};
   std::ostringstream layeredPdf;
   assert(layout_pdf_internal::AppendComposedTextRun(layeredPdf,fmt,{}, {},run,

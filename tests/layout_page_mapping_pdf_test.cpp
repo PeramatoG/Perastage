@@ -1,4 +1,5 @@
 #include "viewer2dpdfexporter.h"
+#include "support/pdf_unicode_test_utils.h"
 #include "layouts/PageOutputMapping.h"
 #include "PageSetup.h"
 #include <cassert>
@@ -51,11 +52,7 @@ bool Has(const std::vector<Box> &boxes,Box expected) {
   for(auto b:boxes) if(std::abs(b.x-expected.x)<.003 && std::abs(b.y-expected.y)<.003 && std::abs(b.w-expected.w)<.003 && std::abs(b.h-expected.h)<.003) return true;
   return false;
 }
-std::string PageStream(const std::string &pdf) {
-  const auto marker=pdf.find("(Count) Tj"); assert(marker!=std::string::npos);
-  const auto begin=pdf.rfind("stream\n",marker)+7;
-  return pdf.substr(begin,pdf.find("endstream",begin)-begin);
-}
+
 }
 void TestPhysicalViewportPdf();
 int main(int argc,char **argv) {
@@ -94,7 +91,7 @@ int main(int argc,char **argv) {
       const auto path=dir/(std::to_string(n++)+".pdf");
       auto result=ExportLayoutToPdf({view},{legend},{table},{text,outside},{image},options,path); assert(result.success);
       std::ifstream f(path,std::ios::binary); std::ostringstream bytes; bytes<<f.rdbuf();
-      const auto stream=PageStream(bytes.str()); const auto ink=Inspect(stream);
+      const auto stream=pdf_test::PageStream(bytes.str()); const auto ink=Inspect(stream);
       std::vector<std::string> forms;
       for(size_t pos=0;(pos=bytes.str().find("/Subtype /Form",pos))!=std::string::npos;) {
         const auto start=bytes.str().find("stream\n",pos)+7, end=bytes.str().find("endstream",start);
@@ -118,11 +115,13 @@ int main(int argc,char **argv) {
       bool has12=false,has9=false;
       for(double size:ink.textSizes) { has12|=std::abs(size-12*scale)<.003; has9|=std::abs(size-9*scale)<.003; }
       assert(has12 && has9);
-      assert(stream.find("0.200000 1")!=std::string::npos); // Existing italic skew.
-      assert(stream.find("(ViewLabel) Tj") < stream.find("(Count) Tj"));
-      assert(stream.find("(Count) Tj") < stream.find("(Venue:) Tj"));
-      assert(stream.find("(Venue:) Tj") < stream.find("(Styled) Tj"));
-      assert(stream.find("(Styled) Tj") < stream.find("/I0 Do"));
+      assert(bytes.str().find("/BaseFont /NotoSans-BoldItalic") != std::string::npos);
+      const auto painted = pdf_test::Text(pdf_test::PageStream(bytes.str(), true));
+      assert(painted.find("ViewLabel") < painted.find("Count"));
+      assert(painted.find("Count") < painted.find("Venue:"));
+      assert(painted.find("Venue:") < painted.find("Styled"));
+      const auto streamWithText = pdf_test::PageStream(bytes.str(), true);
+      assert(streamWithText.find("/NotoSans-BoldItalic") < streamWithText.find("/I0 Do"));
       assert(result.perastageSymbolInstances==3);
       std::vector<std::pair<double,double>> normalized;
       for(auto [x,y]:ink.points) normalized.push_back({x/scale,(out.PageHeightPt()-y)/scale});

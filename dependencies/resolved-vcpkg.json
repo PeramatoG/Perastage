@@ -21,6 +21,15 @@
       "version": "8.22.0"
     },
     {
+      "features": [],
+      "license": "FTL OR GPL-2.0-or-later",
+      "maintenance-group": "security-interop",
+      "name": "freetype",
+      "port-version": 0,
+      "role": "runtime",
+      "version": "2.14.3"
+    },
+    {
       "features": [
         "tools"
       ],
@@ -39,6 +48,24 @@
       "port-version": 0,
       "role": "runtime",
       "version": "2.3.1"
+    },
+    {
+      "features": [],
+      "license": "MIT-Modern-Variant AND MIT",
+      "maintenance-group": "feature-performance",
+      "name": "harfbuzz",
+      "port-version": 0,
+      "role": "runtime",
+      "version": "14.5.0"
+    },
+    {
+      "features": [],
+      "license": "ICU",
+      "maintenance-group": "security-interop",
+      "name": "icu",
+      "port-version": 2,
+      "role": "runtime",
+      "version": "78.3"
     },
     {
       "features": [],

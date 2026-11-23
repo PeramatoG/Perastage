@@ -1,5 +1,6 @@
 #include "fixture_label_editor.h"
 #include "fixture_label_preview.h"
+#include "document_font_choice.h"
 #include "viewer2dpanel.h"
 #include "layoutviewerpanel.h"
 #include "mainwindow.h"
@@ -7,6 +8,7 @@
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/button.h>
+#include <wx/panel.h>
 
 FixtureLabelEditor::FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int initialView,
                                        const FixtureLabelEditSession *session)
@@ -45,9 +47,17 @@ FixtureLabelEditor::FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int
     properties->Add(control, 1, wxEXPAND);
   };
   visible_ = new wxCheckBox(this, wxID_ANY, _("Show field")); row(_("Visibility"), visible_);
-  auto *family = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxArrayString{"PerastageSans (Noto Sans)"});
-  family->SetSelection(0); row(_("Font family"), family);
-  bold_ = new wxCheckBox(this, wxID_ANY, _("Bold")); row(_("Style"), bold_);
+  family_ = new gui::DocumentFontChoice(this, {});
+  family_->SetName("fixtureLabelFontFamily");
+  row(_("Font family"), family_);
+  auto *styles = new wxPanel(this);
+  auto *styleRow = new wxBoxSizer(wxHORIZONTAL);
+  bold_ = new wxCheckBox(styles, wxID_ANY, _("Bold"));
+  italic_ = new wxCheckBox(styles, wxID_ANY, _("Italic"));
+  styleRow->Add(bold_, 0, wxRIGHT, 8);
+  styleRow->Add(italic_);
+  styles->SetSizerAndFit(styleRow);
+  row(_("Style"), styles);
   const auto spin = [&](double min, double max, double step) {
     auto *s = new wxSpinCtrlDouble(this, wxID_ANY, "", wxDefaultPosition, wxSize(100,-1), wxSP_ARROW_KEYS);
     s->SetRange(min,max); s->SetIncrement(step); s->SetDigits(3); return s;
@@ -82,19 +92,28 @@ FixtureLabelEditor::FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int
   body->Add(previewBox, 1, wxEXPAND);
   outer->Add(body, 1, wxEXPAND | wxLEFT | wxRIGHT, 10);
   auto *note = new wxStaticText(this, wxID_ANY,
-      _("The viewer, editor and PDF use the same bundled font and label composition. Sizes and offsets use scene metres.\nSupported text: English and Western European WinAnsi characters."));
+      _("Sizes and offsets use scene metres. PDF export reports installed fonts that require substitution."));
   note->Wrap(700); outer->Add(note, 0, wxEXPAND | wxALL, 10);
   auto *buttons = new wxBoxSizer(wxHORIZONTAL);
   auto *reset = new wxButton(this, wxID_RESET, _("Reset to Default"));
-  buttons->Add(reset, 0, wxRIGHT, 8); buttons->AddStretchSpacer();
+  buttons->Add(reset, 0, wxRIGHT, 8);
+  auto *refreshFonts = new wxButton(this, wxID_ANY, _("Refresh fonts"));
+  buttons->Add(refreshFonts, 0);
+  refreshFonts->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
+    family_->RefreshFamilies();
+    LoadField();
+  });
+  buttons->AddStretchSpacer();
   buttons->Add(CreateButtonSizer(wxAPPLY | wxOK | wxCANCEL));
   outer->Add(buttons, 0, wxEXPAND | wxALL, 10); SetSizerAndFit(outer);
   SetMinSize(wxSize(850,600)); SetSize(wxSize(930,650)); CentreOnParent();
   for (auto *choice : {scope_, view_}) choice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &) { preview_->CancelDrag(); preview_->ResetFit(); LoadField(); });
   fields_->Bind(wxEVT_LISTBOX, [this](wxCommandEvent &) { preview_->CancelDrag(); LoadField(); });
   background->Bind(wxEVT_CHOICE,[this,background](wxCommandEvent &){ preview_->SetDarkBackground(background->GetSelection()==1); });
-  for (auto *choice : {anchor_,align_}) choice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &event) { StoreField(event.GetEventObject()); });
-  for (auto *check : {visible_,bold_,outline_}) check->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent &event) { StoreField(event.GetEventObject()); });
+  for (auto *choice : {anchor_,align_}) choice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &event) { StoreField(event.GetEventObject()); event.Skip(); });
+  family_->SetPreviewHandler([this](auto family) { RefreshPreview(family); });
+  family_->SetCommitHandler([this] { StoreField(family_); });
+  for (auto *check : {visible_,bold_,italic_,outline_}) check->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent &event) { StoreField(event.GetEventObject()); });
   for (auto *s : {size_,x_,y_,outlineWidth_}) {
     s->Bind(wxEVT_SPINCTRLDOUBLE, [this](wxSpinDoubleEvent &event) { StoreField(event.GetEventObject()); });
     s->Bind(wxEVT_TEXT, [this](wxCommandEvent &event) { StoreField(event.GetEventObject()); });
@@ -104,12 +123,14 @@ FixtureLabelEditor::FixtureLabelEditor(wxWindow *parent, ConfigManager &cfg, int
   preview_->SetDragCallback([this](auto phase,const auto &style){ OnPreviewDrag(phase,style); });
   Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Apply(); }, wxID_APPLY);
   Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Apply(); if (session_) session_->commit(draft_); if(IsModal())EndModal(wxID_OK);else Hide(); }, wxID_OK);
-  Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { preview_->CancelDrag(); if(IsModal())EndModal(wxID_CANCEL);else Hide(); }, wxID_CANCEL);
-  Bind(wxEVT_CLOSE_WINDOW,[this](wxCloseEvent &e){preview_->CancelDrag();e.Skip();});
+  Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { family_->CancelBrowsing(); preview_->CancelDrag(); if(IsModal())EndModal(wxID_CANCEL);else Hide(); }, wxID_CANCEL);
+  Bind(wxEVT_CLOSE_WINDOW,[this](wxCloseEvent &e){family_->CancelBrowsing();preview_->CancelDrag();e.Skip();});
   reset->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Reset(); });
   LoadField();
 }
 FixtureLabelEditor::~FixtureLabelEditor() {
+  family_->SetPreviewHandler({});
+  family_->CancelBrowsing();
   preview_->CancelDrag();
   preview_->SetDragCallback({});
 }
@@ -119,7 +140,9 @@ std::string FixtureLabelEditor::ScopeUuid() const {
 void FixtureLabelEditor::LoadField() {
   loading_ = true;
   const auto s = preview_->ResolveEditingStyle(EffectiveDraft(), ScopeUuid(), view_->GetSelection(), fields_->GetSelection());
-  visible_->SetValue(s.visible); bold_->SetValue(s.bold); size_->SetValue(s.size);
+  family_->SetFaceStyle(s.bold, s.italic);
+  family_->SelectFamily(s.fontFamily);
+  visible_->SetValue(s.visible); bold_->SetValue(s.bold); italic_->SetValue(s.italic); size_->SetValue(s.size);
   x_->SetValue(s.x); y_->SetValue(s.y); anchor_->SetSelection(s.anchor); align_->SetSelection(s.alignment);
   color_->SetColour(wxColour(s.color[0]*255,s.color[1]*255,s.color[2]*255));
   outline_->SetValue(s.outlineEnabled); outlineWidth_->SetValue(s.outlineWidth);
@@ -139,6 +162,8 @@ void FixtureLabelEditor::StoreField(wxObject *source) {
     auto s = preview_->ResolveEditingStyle(EffectiveDraft(), id, view_->GetSelection(), fields_->GetSelection());
     if (source == visible_) s.visible = visible_->GetValue();
     if (source == bold_) s.bold = bold_->GetValue();
+    if (source == italic_) s.italic = italic_->GetValue();
+    if (source == family_) s.fontFamily = family_->GetReference();
     if (source == size_) s.size = size;
     if (source == x_) s.x = x;
     if (source == y_) s.y = y;
@@ -156,19 +181,30 @@ void FixtureLabelEditor::StoreField(wxObject *source) {
     draft_[id].fieldStyles[view_->GetSelection()][fields_->GetSelection()] = s;
   }
   outlineColor_->Enable(outline_->GetValue()); outlineWidth_->Enable(outline_->GetValue());
+  family_->SetFaceStyle(bold_->GetValue(), italic_->GetValue());
   changed_ = true; RefreshPreview();
 }
-void FixtureLabelEditor::RefreshPreview() {
+void FixtureLabelEditor::RefreshPreview(std::optional<std::string_view> family) {
   viewer2d::FixtureLabelOverrideMap preview;
   const auto effective = EffectiveDraft();
   for (const auto &key : {std::string(viewer2d::kLabelDefaultsKey),fixture_.uuid}) {
     if (key == fixture_.uuid && scope_->GetSelection() == 0 && !session_) continue;
     if (const auto it = effective.find(key); it != effective.end()) preview.emplace(*it);
   }
+  if (family) {
+    const int view = view_->GetSelection(), field = fields_->GetSelection();
+    const auto scope = ScopeUuid();
+    auto style = preview_->ResolveEditingStyle(effective, scope, view, field);
+    if (style.fontFamily != *family) {
+      style.fontFamily = *family;
+      preview[scope].fieldStyles[view][field] = std::move(style);
+    }
+  }
   preview_->SetActiveField(fields_->GetSelection());
   preview_->SetContent(fixture_, view_->GetSelection(), preview);
 }
 void FixtureLabelEditor::Apply() {
+  family_->CancelBrowsing();
   preview_->CancelDrag();
   if (!changed_) return;
   if (session_) return;

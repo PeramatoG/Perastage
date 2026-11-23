@@ -35,6 +35,9 @@ struct LegendStyle {
 struct LegendFonts {
   const typography::TtfFontMetrics &regular;
   const typography::TtfFontMetrics &bold;
+  const typography::FontCatalog *catalog = nullptr;
+  std::string_view family;
+  typography::FontUsage usage = typography::FontUsage::Local;
 };
 struct LegendCompositionInput {
   double width = 0;
@@ -75,7 +78,7 @@ struct LegendRowPlan {
   bool overflow = false;
 };
 struct LegendCompositionPlan {
-  std::string fontIdentity = "PerastageSans-v2";
+  std::string fontIdentity;
   std::size_t unsupportedGlyphs = 0;
   std::vector<std::string> diagnostics; // Bounded, with source line and byte offsets.
   Rect clip;

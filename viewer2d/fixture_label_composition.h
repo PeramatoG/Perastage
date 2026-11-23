@@ -5,7 +5,7 @@
 
 namespace viewer2d {
 // Included in persisted Layout capture hashes when typography semantics change.
-inline constexpr int kFixtureLabelCompositionRevision = 1;
+inline constexpr int kFixtureLabelCompositionRevision = 4;
 struct LabelBounds {
   double minX = 0, minY = 0, maxX = 0, maxY = 0;
   bool operator==(const LabelBounds &) const = default;
@@ -21,6 +21,10 @@ bool HasFieldPresentation(const FixtureLabelOverrideMap &all,
 std::array<LabelFieldStyle, 3> ResolveEditableFieldStyles(const ConfigManager &cfg,
     const FixtureLabelOverrideMap &all, const std::string &uuid, int view,
     const typography::FontPair &fonts, const Fixture *fixture = nullptr);
+// Compose the fields after the caller has applied the viewport's style inheritance.
+FixtureLabelComposition ComposeResolvedFixtureLabels(
+    const std::array<LabelFieldStyle, 3> &styles, const Fixture &fixture,
+    const LabelBounds &bounds, const typography::FontPair &fonts);
 FixtureLabelComposition ComposeFixtureLabels(const ConfigManager &cfg,
     const FixtureLabelOverrideMap &all, const Fixture &fixture, int view,
     const LabelBounds &bounds, const typography::FontPair &fonts);
@@ -41,7 +45,7 @@ private:
     bool operator==(const Key &) const = default;
   };
   struct Entry { Key key; FixtureLabelComposition composition; };
-  std::filesystem::path resourceRoot_;
+  std::shared_ptr<const typography::FontCatalog> catalog_;
   std::unordered_map<std::string, Entry> entries_;
 };
 } // namespace viewer2d

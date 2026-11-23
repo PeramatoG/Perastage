@@ -6,8 +6,12 @@ from pathlib import Path
 orchestrator = Path('gui/mainwindow_print.cpp').read_text().split('void MainWindow::OnPrintLayout')[1].split('void MainWindow::OnPrintTable')[0]
 assert 'lround' not in orchestrator and 'settings.SaveToConfig' not in orchestrator
 assert 'data.frame = layouts::ResolveViewportFrame(view);' in orchestrator
-text = Path('gui/layouttextutils.cpp').read_text().split('LayoutTextExportData BuildLayoutTextExportData')[1].split('wxImage RenderTextImage')[0]
-assert 'scaleX' not in text and 'scaleY' not in text and 'data.frame = text.frame;' in text
+text = Path('gui/layouttextutils.cpp').read_text()
+extraction = text.split('LayoutTextExportData ExtractLayoutText')[1].split('wxImage RenderTextData')[0]
+entry = text.split('LayoutTextExportData BuildLayoutTextExportData')[1].split('wxImage RenderTextImage')[0]
+assert 'ExtractLayoutText(text,' in entry
+assert 'scaleX' not in extraction + entry and 'scaleY' not in extraction + entry
+assert 'data.frame = text.frame;' in extraction
 image = Path('gui/layout_image_export.cpp').read_text()
 assert 'data.frame = imageDef.frame;' in image
 assert 'ConfigManager' not in image

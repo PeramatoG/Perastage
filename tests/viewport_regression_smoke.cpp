@@ -22,6 +22,7 @@
 #include "startup_profile.h"
 #include "support/layout_label_capture_probe.h"
 #include "support/layout_label_selection_probe.h"
+#include "support/layout_text_editor_font_probe.h"
 #include "support/fixture_label_composition_parity_probe.h"
 #include <cmath>
 #include <cstdlib>
@@ -98,7 +99,7 @@ class ViewportSmoke : public wxApp {
   int stage_ = 0, ticks_ = 0, paints_ = 0, resumePaints_ = 0;
   int outcome_ = 1;
   float zoom_ = 0;
-  std::string labels_, firstApply_, secondApply_;
+  std::string labels_, firstApply_, secondApply_, selectedFamily_;
   std::vector<unsigned char> selectedPixels_;
   std::vector<std::pair<float,float>> idPositions_;
   std::vector<std::pair<float,float>> RenderedIdPositions() {
@@ -126,16 +127,12 @@ class ViewportSmoke : public wxApp {
     return pixels;
   }
   void Bold() {
-    for (wxWindow *child : editor_->GetChildren()) {
-      auto *check = dynamic_cast<wxCheckBox *>(child);
-      if (check && check->GetLabel() == "Bold") {
-        check->SetValue(!check->GetValue());
-        wxCommandEvent event(wxEVT_CHECKBOX, check->GetId());
-        event.SetEventObject(check); check->GetEventHandler()->ProcessEvent(event);
-        return;
-      }
-    }
-    throw std::runtime_error("Editor Bold property missing");
+    auto *check = dynamic_cast<wxCheckBox *>(wxWindow::FindWindowByLabel("Bold", editor_));
+    Require(check, "Editor Bold property missing");
+    check->SetValue(!check->GetValue());
+    wxCommandEvent event(wxEVT_CHECKBOX, check->GetId());
+    event.SetEventObject(check);
+    check->GetEventHandler()->ProcessEvent(event);
   }
   void Select(const std::vector<std::string> &ids) {
     auto *table = FixtureTablePanel::Instance();
@@ -251,7 +248,7 @@ class ViewportSmoke : public wxApp {
     bool outline=false;
     for(const auto &command:probe->commands.commands)
       if(const auto *text=std::get_if<TextCommand>(&command))
-        outline|=text->style.fontFamily.starts_with("perastage-sans") &&
+        outline|=text->style.IsComposedGlyph() &&
             text->style.glyphOutline && std::abs(text->style.outlineWidth-width->GetValue())<1e-6;
     Require(outline,"Natural viewport paint omitted the configured text outline");
     const auto after=panel->GetViewState();
@@ -361,9 +358,51 @@ public:
         labels_ = cfg.GetValue("label_fixture_overrides").value_or("");
         idPositions_=RenderedIdPositions();
         Require(!idPositions_.empty(),"Synthetic canonical ID label missing");
-        CheckPreviewEditing();SnapshotEditor();ApplyAndObservePaint();
+        CheckPreviewEditing();
+        const auto previousFace = Preview()->GetComposition().text.front().style.fontResource;
+        const auto catalog = typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
+        const auto previousResource = catalog->FindResource(previousFace);
+        Require(bool(previousResource), "The initial preview face is unavailable");
+        selectedFamily_ = previousResource->family == "Source Sans 3" ? "Noto Serif" : "Source Sans 3";
+        if (const auto *external = std::getenv("PERASTAGE_SMOKE_INSTALLED_FONT");
+            external && *external && previousResource->family != external) selectedFamily_ = external;
+        auto *picker = dynamic_cast<gui::DocumentFontChoice *>(
+            editor_->FindWindowByName("fixtureLabelFontFamily", editor_));
+        Require(picker, "Fixture label font picker missing");
+        const auto reference = picker->GetReference();
+        picker->Popup();
+        font_picker_probe::Filter(*picker, wxString::FromUTF8(selectedFamily_));
+        Require(Preview()->GetComposition().text.front().style.fontResource != previousFace &&
+                picker->GetReference() == reference &&
+                cfg.GetValue("label_fixture_overrides").value_or("") == labels_,
+                "Browsing did not preview the face independently of the draft and project");
+        font_picker_probe::Press(*picker, WXK_ESCAPE);
+        Require(Preview()->GetComposition().text.front().style.fontResource == previousFace,
+                "Escape did not restore the previous fixture font");
+        picker->Popup();
+        font_picker_probe::Filter(*picker, wxString::FromUTF8(selectedFamily_));
+        Choice("fixtureLabelView", 1);
+        Require(!picker->IsPopupShown(), "Changing fixture orientation left a preview active");
+        Choice("fixtureLabelView", 0);
+        auto *scope = dynamic_cast<wxChoice *>(editor_->FindWindowByName("fixtureLabelScope", editor_));
+        Require(scope && scope->GetCount() > 1, "Fixture editor scope choices are missing");
+        const int appliedScope = scope->GetSelection();
+        picker->Popup();
+        font_picker_probe::Filter(*picker, wxString::FromUTF8(selectedFamily_));
+        Choice("fixtureLabelScope", 1 - appliedScope);
+        Require(!picker->IsPopupShown(), "Changing editing scope left a preview active");
+        Choice("fixtureLabelScope", appliedScope);
+        picker->Popup();
+        font_picker_probe::Filter(*picker, wxString::FromUTF8(selectedFamily_));
+        font_picker_probe::Pointer(*picker, wxEVT_LEFT_DOWN, font_picker_probe::List(*picker).GetSelection());
+        const auto selectedFace = Preview()->GetComposition().text.front().style.fontResource;
+        Require(!selectedFace.empty() && selectedFace != previousFace,
+                "Font selection did not immediately change the preview glyphs");
+        SnapshotEditor();ApplyAndObservePaint();
         firstApply_=cfg.GetValue("label_fixture_overrides").value_or("");
         Require(firstApply_!=labels_,"First Apply did not commit");
+        Require(firstApply_.find(selectedFamily_) != std::string::npos,
+                "First Apply did not persist the approved family");
         Require(RenderedIdPositions()==idPositions_,"Editing Name moved the inherited ID baseline");
         auto *width=dynamic_cast<wxSpinCtrlDouble *>(editor_->FindWindowByName("fixtureLabelOutlineWidth",editor_));
         Require(width,"Outline width control missing");
@@ -381,7 +420,9 @@ public:
         bool composed = false;
         for (const auto &command : commands.commands)
           if (const auto *text = std::get_if<TextCommand>(&command))
-            composed |= text->style.fontFamily.starts_with("perastage-sans");
+            if (const auto face = typography::GetFontCatalog(ProjectUtils::GetResourceRoot())
+                                       ->FindResource(text->style.fontResource))
+              composed |= face->family == selectedFamily_;
         Require(composed, "Edited labels are absent from real viewport capture");
         const auto applied = cfg.GetValue("label_fixture_overrides");
         Menu(ID_Edit_Undo); Require(cfg.GetValue("label_fixture_overrides").value_or("")==firstApply_,"Undo second Apply failed");
@@ -392,13 +433,20 @@ public:
         labels_ = applied.value_or("");
         editor_ = new FixtureLabelEditor(frame_, cfg, 0); editor_->Show(); break;
       }
-      case 7:
+      case 7: {
+        auto *picker = dynamic_cast<gui::DocumentFontChoice *>(
+            editor_->FindWindowByName("fixtureLabelFontFamily", editor_));
+        Require(picker && picker->ConfirmFamily(selectedFamily_ == "Noto Serif" ? "Source Sans 3" : "Noto Serif"),
+                "Could not change the draft font");
         Bold(); Button(wxID_RESET); Button(wxID_CANCEL); CloseEditor();
         Require(cfg.GetValue("label_fixture_overrides").value_or("") == labels_, "Closing committed an unapplied draft");
         cfg.SetValue("layout_perspective", manager->SavePerspective().ToStdString());
         Require(cfg.SaveProject((scratch/"scene.pstg").string()), "Save with a 2D perspective failed");
         Require(frame_->LoadProjectFromPath((scratch/"scene.pstg").string(), false), "Reload with perspective failed");
+        Require(cfg.GetValue("label_fixture_overrides").value_or("") == labels_,
+                "Reopening the project changed the saved fixture font reference");
         break;
+      }
       case 8:
         editor_=new FixtureLabelEditor(frame_,cfg,0);editor_->Show();break;
       case 9:
@@ -408,8 +456,10 @@ public:
       case 10:
         timer_.Stop();
         CheckFixtureLabelCompositionParity(*frame_,scratch);
+        CheckFixtureLabelCompositionParity(*frame_,scratch,true);
         CheckLayoutLabelSelection(*frame_);
         CheckLayoutLabelCapture(*frame_,scratch);
+        CheckLayoutTextEditorFontSelection(*frame_);
         Require(Pixels().size() == 600*600*4, "Viewport capture failed after reload");
         outcome_ = 0; timer_.Stop(); frame_->Destroy(); ExitMainLoop();
         std::cout << "Viewport regression smoke passed" << std::endl; break;

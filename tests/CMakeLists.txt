@@ -1146,10 +1146,23 @@ add_executable(rdp_simplifier_test
 target_include_directories(rdp_simplifier_test PRIVATE ../core)
 add_test(NAME RdpSimplifierGeometry COMMAND rdp_simplifier_test)
 
-add_executable(pdf_font_metrics_test
-               pdf_font_metrics_test.cpp
-               ../viewer2d/pdf/font_metrics.cpp)
+add_executable(pdf_font_metrics_test pdf_font_metrics_test.cpp)
+target_link_libraries(pdf_font_metrics_test PRIVATE perastage_typography)
+target_compile_definitions(pdf_font_metrics_test PRIVATE PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
 add_test(NAME PdfFontMetricsEncoding COMMAND pdf_font_metrics_test)
+
+add_executable(system_font_test system_font_test.cpp)
+target_link_libraries(system_font_test PRIVATE perastage_typography)
+target_compile_definitions(system_font_test PRIVATE
+    PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources"
+    PERASTAGE_SYSTEM_FONT_FIXTURES="${CMAKE_SOURCE_DIR}/tests/fixtures/system_fonts")
+add_test(NAME SystemFontCatalog COMMAND system_font_test)
+set_tests_properties(SystemFontCatalog PROPERTIES LABELS "typography;pdf")
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_test(NAME FontconfigCatalogRefresh COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/check_fontconfig_refresh.py" "$<TARGET_FILE:system_font_test>")
+    set_tests_properties(FontconfigCatalogRefresh PROPERTIES LABELS "typography")
+endif()
 
 add_executable(layout_pdf_symbol_usage_test
                layout_pdf_symbol_usage_test.cpp
@@ -1160,6 +1173,7 @@ add_test(NAME LayoutPdfSymbolUsage COMMAND layout_pdf_symbol_usage_test)
 
 add_executable(layout_legend_pdf_test
     layout_legend_pdf_test.cpp layout_legend_pdf_resources_stub.cpp
+    ../viewer2d/fixture_label_glyphs.cpp
     ../viewer2d/pdf/layout_pdf_text_renderer.cpp
     ../viewer2d/pdf/layout_pdf_exporter.cpp
     ../viewer2d/pdf/layout_pdf_event_table_renderer.cpp
@@ -1167,16 +1181,16 @@ add_executable(layout_legend_pdf_test
     ../viewer2d/legend_composition_adapter.cpp
     ../viewer2d/pdf/layout_pdf_symbol_usage.cpp
     ../viewer2d/pdf/pdf_draw_commands.cpp
-    ../viewer2d/pdf/pdf_font_metrics.cpp
     ../viewer2d/pdf/pdf_objects.cpp
-    ../viewer2d/pdf/pdf_label_fonts.cpp
+    ../viewer2d/pdf/pdf_unicode_fonts.cpp
     ../viewer2d/pdf/pdf_writer.cpp
     ../viewer2d/viewer2dcommandrenderer.cpp)
 target_include_directories(layout_legend_pdf_test PRIVATE
     ../viewer2d ../viewer2d/pdf ../core ../core/layouts ../core/printing
     ../models ../gui ../viewer_common ../viewer3d ../third_party)
 target_compile_definitions(layout_legend_pdf_test PRIVATE
-    PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
+    PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources"
+    PERASTAGE_SYSTEM_FONT_FIXTURES="${CMAKE_SOURCE_DIR}/tests/fixtures/system_fonts")
 target_link_libraries(layout_legend_pdf_test PRIVATE
     perastage_typography perastage_legend_composition ${wxWidgets_LIBRARIES})
 if(TARGET ZLIB::ZLIB)
@@ -1236,8 +1250,8 @@ add_executable(layout_legend_preview_test layout_legend_preview_test.cpp
     layout_legend_pdf_resources_stub.cpp ../gui/layoutlegendrenderer.cpp ../gui/document_text_renderer.cpp
     ../viewer2d/legend_composition_adapter.cpp
     ../viewer2d/pdf/layout_pdf_event_table_renderer.cpp
-    ../viewer2d/pdf/layout_pdf_legend_renderer.cpp ../viewer2d/pdf/pdf_font_metrics.cpp
-    ../viewer2d/pdf/pdf_label_fonts.cpp ../viewer2d/pdf/pdf_objects.cpp
+    ../viewer2d/pdf/layout_pdf_legend_renderer.cpp
+    ../viewer2d/pdf/pdf_unicode_fonts.cpp ../viewer2d/pdf/pdf_objects.cpp
     ../viewer2d/pdf/pdf_draw_commands.cpp)
 target_include_directories(layout_legend_preview_test PRIVATE ../gui ../viewer2d ../viewer2d/pdf
     ../core/layouts ../core/print ../models ../viewer_common ../viewer3d ../third_party)
@@ -1263,6 +1277,7 @@ add_executable(fixture_label_overrides_reconcile_test
                ../viewer2d/fixture_label_presentation.cpp
                ../viewer2d/fixture_label_style.cpp
                ../viewer2d/fixture_label_composition.cpp
+               ../viewer2d/fixture_label_glyphs.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
@@ -1288,7 +1303,7 @@ add_test(NAME FixtureLabelOverridesReconcile
 add_executable(pdf_writer_test
                pdf_writer_test.cpp
                ../viewer2d/pdf/pdf_draw_commands.cpp
-               ../viewer2d/pdf/pdf_font_metrics.cpp
+               ../viewer2d/pdf/pdf_unicode_fonts.cpp
                ../viewer2d/pdf/pdf_objects.cpp
                ../viewer2d/pdf/pdf_writer.cpp)
 target_include_directories(pdf_writer_test PRIVATE .)
@@ -4797,8 +4812,30 @@ else()
     add_test(NAME LayoutLegendPreview COMMAND layout_legend_preview_test)
 endif()
 set_library_env(LayoutLegendPreview)
+option(PERASTAGE_REQUIRE_POPPLER_TESTS "Require independent PDF validation tools" OFF)
 find_program(PERASTAGE_PDFTOPPM NAMES pdftoppm)
 find_program(PERASTAGE_PDFTOTEXT NAMES pdftotext)
+find_program(PERASTAGE_PDFFONTS NAMES pdffonts)
+find_program(PERASTAGE_PDFINFO NAMES pdfinfo)
+if(PERASTAGE_PDFTOTEXT AND PERASTAGE_PDFFONTS AND PERASTAGE_PDFINFO)
+    add_test(NAME LayoutLicensedFontsPdf COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/check_licensed_fonts_pdf.py"
+        "$<TARGET_FILE:layout_legend_pdf_test>"
+        "${PERASTAGE_PDFFONTS}" "${PERASTAGE_PDFTOTEXT}" "${PERASTAGE_PDFINFO}")
+    add_test(NAME LayoutInstalledFontsPdf COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/check_system_fonts_pdf.py"
+        "$<TARGET_FILE:layout_legend_pdf_test>"
+        "${PERASTAGE_PDFFONTS}" "${PERASTAGE_PDFTOTEXT}" "${PERASTAGE_PDFINFO}")
+    set_library_env(LayoutInstalledFontsPdf)
+    set_tests_properties(LayoutInstalledFontsPdf PROPERTIES LABELS "layout;pdf;typography")
+    set_library_env(LayoutLicensedFontsPdf)
+    set_tests_properties(LayoutLicensedFontsPdf PROPERTIES LABELS "layout;pdf;typography")
+elseif(PERASTAGE_REQUIRE_POPPLER_TESTS)
+    message(FATAL_ERROR "LayoutLicensedFontsPdf requires pdftotext, pdffonts and pdfinfo from Poppler.")
+else()
+    message(STATUS "LayoutLicensedFontsPdf is unavailable. Install pdftotext, pdffonts and pdfinfo or run LayoutLegendPdf for structural checks.")
+endif()
+
 if(UNIX AND NOT APPLE AND PERASTAGE_XVFB_RUN AND PERASTAGE_PDFTOPPM)
     add_test(NAME LayoutLegendRasterParity COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/check_legend_raster_parity.py"
@@ -4873,7 +4910,7 @@ add_test(NAME EventTableComposition COMMAND event_table_composition_test)
 add_executable(layout_event_table_preview_test layout_event_table_preview_test.cpp
     layout_legend_pdf_resources_stub.cpp ../gui/layout_event_table_renderer.cpp
     ../gui/document_text_renderer.cpp ../viewer2d/pdf/layout_pdf_event_table_renderer.cpp
-    ../viewer2d/pdf/pdf_font_metrics.cpp ../viewer2d/pdf/pdf_label_fonts.cpp
+    ../viewer2d/pdf/pdf_unicode_fonts.cpp
     ../viewer2d/pdf/pdf_objects.cpp)
 target_include_directories(layout_event_table_preview_test PRIVATE ../gui ../viewer2d ../viewer2d/pdf
     ../core/layouts ../core/print ../models ../viewer_common ../viewer3d ../third_party)
@@ -4917,9 +4954,8 @@ add_executable(layout_page_mapping_pdf_test
     ../viewer2d/legend_composition_adapter.cpp
     ../viewer2d/pdf/layout_pdf_symbol_usage.cpp
     ../viewer2d/pdf/pdf_draw_commands.cpp
-    ../viewer2d/pdf/pdf_font_metrics.cpp
     ../viewer2d/pdf/pdf_objects.cpp
-    ../viewer2d/pdf/pdf_label_fonts.cpp
+    ../viewer2d/pdf/pdf_unicode_fonts.cpp
     ../viewer2d/pdf/pdf_writer.cpp
     ../viewer2d/viewer2dcommandrenderer.cpp)
 target_include_directories(layout_page_mapping_pdf_test PRIVATE
@@ -4937,12 +4973,14 @@ add_test(NAME LayoutPageMappingPdf COMMAND layout_page_mapping_pdf_test)
 add_executable(page_output_mapping_test page_output_mapping_test.cpp ../core/print/PageSetup.cpp)
 target_include_directories(page_output_mapping_test PRIVATE ../core ../core/print)
 add_test(NAME PageOutputMapping COMMAND page_output_mapping_test)
-add_executable(layout_export_input_test layout_export_input_test.cpp
+add_executable(layout_export_input_test layout_export_input_test.cpp document_font_picker_test.cpp
+    ../gui/document_font_choice.cpp ../gui/document_font_popup.cpp ../gui/layouttextdialog.cpp
     layout_physical_viewport_preview_test.cpp ../viewer2d/viewer2d_coordinate_math.cpp
     ../gui/layout_viewport_properties.cpp
     ../gui/layout_viewport_preview.cpp ../gui/document_text_renderer.cpp
     ../viewer2d/viewer2dcommandrenderer.cpp
-    layout_legend_pdf_resources_stub.cpp ../gui/layout_image_export.cpp ../gui/layouttextutils.cpp)
+    layout_legend_pdf_resources_stub.cpp ../gui/layout_image_export.cpp ../gui/layouttextutils.cpp
+    ../gui/layouttext_legacy_xml.cpp)
 target_include_directories(layout_export_input_test PRIVATE ../gui ../viewer2d ../core ../core/layouts
     ../core/print ../models ../viewer_common ../viewer3d ../third_party)
 target_compile_definitions(layout_export_input_test PRIVATE PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")

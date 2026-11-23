@@ -37,21 +37,8 @@ void DrawComposedFixtureLabels(ISelectionContext &controller, int width, int hei
   const bool capture = controller.GetCaptureCanvas() != nullptr;
   const auto root = ProjectUtils::GetResourceRoot();
   try {
-    // Application resources are immutable during a renderer's frame.
-    static std::filesystem::path loadedRoot;
-    static std::optional<typography::FontPair> fonts;
-    if (!fonts || loadedRoot != root) { fonts.emplace(root); loadedRoot = root; cache.Clear(); }
-    for (const bool bold : {false, true}) {
-      const char *name = bold ? "perastage-sans-bold" : "perastage-sans";
-      if (nvgFindFont(vg, name) < 0) {
-        const auto path = typography::BundledFontPath(root, bold);
-        if (nvgCreateFont(vg, name, path.string().c_str()) < 0)
-          throw std::runtime_error("Cannot load bundled label font");
-      }
-    }
-    const std::array<double,2> rasterScale{
-      viewer2d::ResolveRasterFontEmScale(vg,"perastage-sans",fonts->regular),
-      viewer2d::ResolveRasterFontEmScale(vg,"perastage-sans-bold",fonts->bold)};
+    const typography::FontPair fonts(root);
+    const auto rasterScale = viewer2d::PrepareDefaultLabelAtlas(vg, fonts);
     double model[16], projection[16]; int viewport[4];
     glGetDoublev(GL_MODELVIEW_MATRIX, model); glGetDoublev(GL_PROJECTION_MATRIX, projection);
     glGetIntegerv(GL_VIEWPORT, viewport);
@@ -72,7 +59,7 @@ void DrawComposedFixtureLabels(ISelectionContext &controller, int width, int hei
         const auto c = point(b.max[0], b.max[1], b.max[2]);
         bounds = {std::min(a[0],c[0]), std::min(a[1],c[1]), std::max(a[0],c[0]), std::max(a[1],c[1])};
       }
-      const auto &layout = cache.Resolve(cfg, styles, fixture, static_cast<int>(view), bounds, *fonts);
+      const auto &layout = cache.Resolve(cfg, styles, fixture, static_cast<int>(view), bounds, fonts);
       if (capture && controller.GetCaptureCanvas()) controller.GetCaptureCanvas()->SetSourceKey("label:" + uuid);
       for (auto pass : {typography::TextInkPass::Outline, typography::TextInkPass::Fill})
       for (const auto &t : layout.text) {
@@ -83,7 +70,7 @@ void DrawComposedFixtureLabels(ISelectionContext &controller, int width, int hei
         if (view == Viewer2DView::Side) { wx = 0; wy = -t.x; wz = t.y; }
         double sx, sy, sz;
         if (gluProject(wx, wy, wz, model, projection, viewport, &sx, &sy, &sz) != GL_TRUE) continue;
-        viewer2d::DrawCanvasText(vg, t, sx, height - sy, 25.0 * zoom, pass, 1.0, rasterScale[t.style.fontFamily=="perastage-sans-bold"]);
+        viewer2d::DrawCanvasText(vg, t, sx, height - sy, 25.0 * zoom, pass, 1, rasterScale[t.style.fontFamily == "perastage-sans-bold"]);
       }
     }
   } catch (const std::exception &e) {

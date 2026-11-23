@@ -57,6 +57,8 @@
 #include "viewer2dpdfexporter.h"
 #include "viewer2dprintdialog.h"
 #include "LayoutManager.h"
+#include "projectutils.h"
+#include "typography/font_resources.h"
 
 namespace {
 void SetPrintStatus(MainWindow *window, const wxString &message) {
@@ -135,6 +137,7 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
   }
 
   Viewer2DPrintOptions opts; // Defaults to A3 portrait.
+  opts.fontCatalog = typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
   opts.landscape = settings.landscape;
   opts.printIncludeGrid = settings.includeGrid;
   opts.useSimplifiedFootprints = !settings.detailedFootprints;
@@ -200,7 +203,11 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
               SetPrintStatus(this, _("Print failed. Please review the error and try again."));
               wxMessageBox(msg, _("Print Viewer 2D"), wxOK | wxICON_ERROR, this);
             } else {
-              SetPrintStatus(this, "");
+              SetPrintStatus(this, res.fontDiagnostics.empty() ? wxString{} :
+                             wxString::FromUTF8(res.fontDiagnostics.front()));
+              if (auto *console = ConsolePanel::Instance())
+                for (const auto &warning : res.fontDiagnostics)
+                  console->AppendMessage(wxString::FromUTF8(warning));
               wxMessageBox(wxString::Format(_("2D view saved to %s"), outputPathDisplay),
                            _("Print Viewer 2D"), wxOK | wxICON_INFORMATION, this);
             }
@@ -328,6 +335,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
     legendData.zIndex = legend.zIndex;
     legendData.showChannelColumn = legend.showChannelColumn;
     legendData.frame = legend.frame;
+    legendData.fontFamily = legend.fontFamily;
     layoutLegends.push_back(std::move(legendData));
   }
   for (const auto &table : layout->eventTables) {
@@ -335,6 +343,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
     tableData.fields = table.fields;
     tableData.zIndex = table.zIndex;
     tableData.frame = table.frame;
+    tableData.fontFamily = table.fontFamily;
     layoutTables.push_back(std::move(tableData));
   }
   for (const auto &text : layout->textViews) {
@@ -376,6 +385,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
        projectSymbols](size_t index) mutable {
         if (index >= layoutViews.size()) {
           Viewer2DPrintOptions opts;
+          opts.fontCatalog = typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
           opts.pageWidthPt = outputPageW;
           opts.pageHeightPt = outputPageH;
           opts.marginPt = 0.0;
@@ -427,7 +437,9 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
                     _("\n\nSymbol summary:\nPerastage symbols: %zu\nRendered fallbacks: %zu"),
                     res.perastageSymbolInstances,
                     res.fallbackSymbolInstances);
-                auto diagnostics = res.legendTextDiagnostics;
+                auto diagnostics = res.fontDiagnostics;
+                diagnostics.insert(diagnostics.end(), res.legendTextDiagnostics.begin(),
+                                   res.legendTextDiagnostics.end());
                 diagnostics.insert(diagnostics.end(), res.eventTableTextDiagnostics.begin(),
                                    res.eventTableTextDiagnostics.end());
                 wxRichMessageDialog dialog(this, successMessage, _("Print Layout"),

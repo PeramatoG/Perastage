@@ -122,11 +122,13 @@ void LayoutViewerPanel::OnEditEventTable(wxCommandEvent &) {
   if (dialog.ShowModal() != wxID_OK)
     return;
   const auto editedFields = dialog.GetFields();
-  if (table->fields == editedFields) {
+  const auto editedFont = dialog.GetFontFamily();
+  if (table->fields == editedFields && table->fontFamily == editedFont) {
     return;
   }
 
   table->fields = editedFields;
+  table->fontFamily = editedFont;
   if (!currentLayout.name.empty()) {
     layouts::LayoutManager::Get().UpdateLayoutEventTable(currentLayout.name,
                                                          *table);

@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layouteventtabledialog.h"
+#include "document_font_choice.h"
 
 #include "layouts/EventTableComposition.h"
 using layouts::composition::kEventTableFields;
@@ -29,6 +30,9 @@ LayoutEventTableDialog::LayoutEventTableDialog(
   SetSize(minDialogSize);
 
   wxBoxSizer *mainSizer = new wxBoxSizer(wxVERTICAL);
+  fontChoice_ = new gui::DocumentFontChoice(this, table.fontFamily);
+  mainSizer->Add(gui::DocumentFontRow(this, fontChoice_), 0, wxEXPAND | wxALL, 10);
+
   wxFlexGridSizer *grid = new wxFlexGridSizer(2, 8, 10);
   grid->AddGrowableCol(1, 1);
 
@@ -63,4 +67,8 @@ std::array<std::string, 7> LayoutEventTableDialog::GetFields() const {
     }
   }
   return fields;
+}
+
+std::string LayoutEventTableDialog::GetFontFamily() const {
+  return fontChoice_->GetReference();
 }

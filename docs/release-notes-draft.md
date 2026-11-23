@@ -6,11 +6,13 @@
   capture loss; drags no longer open menus. Quick fixture patch edits now validate
   DMX assignments and support atomic Undo/Redo.
 
-- Fixture labels now use the same bundled font, letter positions and line layout
-  in the 2D viewer, label editor and PDF, including unedited inherited fields.
-  Existing numeric settings remain stored unchanged; labels that previously used
-  a system font now match the editor. Font sizing is consistent across NanoVG
-  backends, and older Layout label captures are refreshed automatically.
+- Choose PerastageSans, Noto Serif, Source Sans 3 or Noto Sans Mono for fixture
+  labels, Layout text, legends and event tables. Rich text supports genuine
+  serif and Source Sans italics. Layout and PDF use shared glyph placement for
+  kerning, ligatures, combining marks and supported Arabic and Hebrew.
+  The Layout text editor includes a document preview and a font refresh action.
+  Saved selections survive temporary substitutions. When editing legacy Layout
+  text, Perastage keeps a recovery copy of formatting the editor cannot round-trip.
 
 - Reuse named fixture label styles across Layout viewports and pages, with local
   viewport and selected-fixture adjustments in the existing label editor. Styles
@@ -136,9 +138,13 @@ full MVR/GDTF conformance, or interoperability with every third-party applicatio
 
 - Layout PDFs now scale 2D views, Legends, Event Tables, text and images together when changing paper size, preserving alignment, proportions and the 2D crop. Printing no longer marks the Layout project dirty.
 - Layout Event Tables now share measured text, bold styles, clipping and ellipsis between preview and selectable vector PDF, independent of zoom and output scale.
-- Layout Legends now use the same bundled font, line wrapping, row geometry and symbol columns in the editable preview and vector PDF. Enabled Side symbols remain vector geometry, independent settings refresh reliably, and unsupported glyphs are identified in PDF completion details.
+- Layout Legends now share font selection, line wrapping, row geometry and symbol columns in the editable preview and vector PDF. Enabled Side symbols remain vector geometry, independent settings refresh reliably, and unsupported glyphs are identified in PDF completion details.
 
 - A new **Fixture Label Editor** lets users adjust Name, ID, and DMX Address labels, including visibility, font weight, size, colors, outlines, alignment, anchors, and position. It supports project defaults, per-fixture overrides, and preview dragging.
+
+- The font picker groups included and installed families and supports search. Browse fonts with a reversible live preview when editing fixture labels or Layout text.
+
+- Fixture labels, Layout text, legends and Event Tables accept compatible fonts installed on the computer. Projects retain their font choices when moved between systems. PDF export embeds eligible TrueType faces and reports substitutions for fonts that require a portable fallback.
 
 - Edited fixture labels share their positioned presentation between the interactive 2D viewer, Layout view captures, and vector PDF. Legacy name wrapping and small-text zoom appearance are retained more consistently.
 

@@ -1,6 +1,17 @@
-add_library(perastage_typography STATIC typography/font_metrics.cpp typography/glyph_outline.cpp)
+add_library(perastage_typography STATIC typography/font_metrics.cpp typography/glyph_outline.cpp
+    typography/font_resources.cpp typography/system_font_paths.cpp
+    typography/system_font_discovery.cpp typography/system_font_resource.cpp typography/system_font_cache.cpp
+    typography/font_reference.cpp typography/composition.cpp typography/unicode_shaping.cpp typography/text_block.cpp)
 target_include_directories(perastage_typography PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_features(perastage_typography PUBLIC cxx_std_20)
+target_link_libraries(perastage_typography PRIVATE harfbuzz::harfbuzz Freetype::Freetype ICU::uc ICU::i18n)
+if(WIN32)
+    target_link_libraries(perastage_typography PRIVATE dwrite)
+elseif(APPLE)
+    target_link_libraries(perastage_typography PRIVATE "${PERASTAGE_CORETEXT}" "${PERASTAGE_COREFOUNDATION}")
+else()
+    target_link_libraries(perastage_typography PRIVATE Fontconfig::Fontconfig)
+endif()
 target_link_libraries(${PROJECT_NAME} PRIVATE perastage_typography)
 
 add_library(perastage_project_archive_publication STATIC

@@ -1,9 +1,8 @@
 #include "LegendComposition.h"
+#include "typography/font_resources.h"
 
 #include <algorithm>
 #include <cmath>
-#include <sstream>
-#include <iomanip>
 
 namespace layouts::composition {
 namespace {
@@ -17,17 +16,9 @@ bool HasGeometry(const LegendSymbolGeometry &symbol) {
       std::isfinite(symbol.bounds.width) && std::isfinite(symbol.bounds.height) &&
       symbol.bounds.width > 0 && symbol.bounds.height > 0;
 }
-// A valid UTF-8 input is split only at codepoint boundaries. Combining sequences
-// and shaping remain the metric/backend's responsibility, as in legacy Legends.
-std::size_t NextCodepoint(const std::string &text, std::size_t offset) {
-  ++offset;
-  while (offset < text.size() &&
-         (static_cast<unsigned char>(text[offset]) & 0xc0) == 0x80)
-    ++offset;
-  return offset;
-}
 std::array<std::string, 2> Wrap(const std::string &text, double width,
-    const std::function<double(std::string_view)> &measure) {
+    const std::function<double(std::string_view)> &measure,
+    const std::function<size_t(const std::string &, double)> &firstBreak) {
   if (width <= 0) return {};
   if (const auto newline = text.find('\n'); newline != std::string::npos)
     return {text.substr(0,newline), text.substr(newline+1)};
@@ -39,15 +30,7 @@ std::array<std::string, 2> Wrap(const std::string &text, double width,
       break;
     }
   }
-  if (!split) {
-    for (std::size_t end = NextCodepoint(text, 0); end <= text.size();) {
-      if (measure(std::string_view(text).substr(0, end)) > width) break;
-      split = end;
-      if (end == text.size()) break;
-      end = NextCodepoint(text, end);
-    }
-    if (!split && !text.empty()) split = NextCodepoint(text, 0);
-  }
+  if (!split) split = firstBreak(text, width);
   std::string remainder = text.substr(split);
   const auto first = remainder.find_first_not_of(' ');
   if (first == std::string::npos) remainder.clear();
@@ -59,7 +42,8 @@ std::array<std::string, 2> Wrap(const std::string &text, double width,
 } // namespace
 
 static LegendCompositionPlan ComposeGeometry(const LegendCompositionInput &in,
-                                    const TextMetrics &metrics) {
+                                    const TextMetrics &metrics,
+                                    const std::function<size_t(const std::string &, double, double)> &firstBreak) {
   LegendCompositionPlan plan;
   plan.clip = {0, 0, Nonnegative(in.width), Nonnegative(in.height)};
   std::vector<std::size_t> visible;
@@ -164,7 +148,8 @@ static LegendCompositionPlan ComposeGeometry(const LegendCompositionInput &in,
   for (const auto i : visible) {
     if (y + plan.rowHeight > plan.clip.height + 1e-6) { ++plan.clippedRows; continue; }
     const auto &row = in.rows[i];
-    const auto lines = Wrap(row.name, plan.typeColumn.width, width);
+    const auto lines = Wrap(row.name, plan.typeColumn.width, width,
+        [&](const auto &name, double available) { return firstBreak(name, fontSize, available); });
     const bool twoLines = !lines[1].empty();
     const auto firstText = plan.text.size();
     append(row.count, TextRole::Normal, plan.countColumn.x, y + singleOffset, countWidth);
@@ -202,34 +187,36 @@ static LegendCompositionPlan ComposeGeometry(const LegendCompositionInput &in,
 }
 LegendCompositionPlan ComposeLegend(const LegendCompositionInput &input,
                                     const LegendFonts &fonts) {
-  const auto fontFor = [&](TextRole role) -> const typography::TtfFontMetrics & {
-    return role == TextRole::Bold ? fonts.bold : fonts.regular;
+  const auto compose = [&](std::string_view text, double size, TextRole role, double wrapWidth = 0) {
+    const typography::TextStyle style{size, typography::TextUnit::PaperPoints,
+                                      role == TextRole::Bold, wrapWidth, 0};
+    if (fonts.catalog) return typography::Compose(std::string(text), style, *fonts.catalog, fonts.family, false, fonts.usage);
+    return typography::Compose(std::string(text), style, style.bold ? fonts.bold : fonts.regular);
   };
-  auto plan = ComposeGeometry(input, [&](std::string_view text, double size, TextRole role) {
-    const auto run = typography::Compose(std::string(text),
-        {size, typography::TextUnit::PaperPoints, role == TextRole::Bold, 0, 0}, fontFor(role));
+  const auto measure = [&](std::string_view text, double size, TextRole role) {
+    const auto run = compose(text, size, role);
     double width = 0;
-    for (const auto &line : run.lines) width = std::max(width,line.width);
-    return TextMeasurement{width, run.ascent + run.descent + (run.lines.size()-1)*run.lineHeight, run.ascent};
+    for (const auto &line : run.lines) width = std::max(width, line.width);
+    const auto extraLines = run.lines.empty() ? 0 : run.lines.size() - 1;
+    return TextMeasurement{width, run.ascent + run.descent + extraLines * run.lineHeight, run.ascent};
+  };
+  auto plan = ComposeGeometry(input, measure, [&](const std::string &text, double size, double width) {
+    const auto wrapped = compose(text, size, TextRole::Normal, width);
+    return wrapped.lines.empty() ? text.size() : wrapped.lines.front().sourceEnd;
   });
-  for (std::size_t index = 0; index < plan.text.size(); ++index) {
-    auto &line = plan.text[index];
-    line.glyphRun = typography::Compose(line.text,
-        {plan.fontSize, typography::TextUnit::PaperPoints, line.role == TextRole::Bold, 0, 0}, fontFor(line.role));
-    plan.unsupportedGlyphs += line.glyphRun.unsupportedBytes.size();
-    for (const auto offset : line.glyphRun.unsupportedBytes) {
-      if (plan.diagnostics.size() >= 16) break;
-      std::ostringstream message;
-      message << "Legend PerastageSans/WinAnsi unsupported UTF-8 at line " << index
-              << ", byte " << offset << ":";
-      const auto end = NextCodepoint(line.text, offset);
-      for (auto i = offset; i < end && i < line.text.size(); ++i)
-        message << ' ' << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<unsigned>(static_cast<unsigned char>(line.text[i]));
-      message << "; glyph omitted on preview and PDF; source text retained.";
-      plan.diagnostics.push_back(message.str());
+  plan.fontIdentity = std::string(compose({}, plan.fontSize, TextRole::Normal).resourceId) +
+                      "/" + std::string(compose({}, plan.fontSize, TextRole::Bold).resourceId);
+  for (auto &line : plan.text) {
+    line.glyphRun = compose(line.text, plan.fontSize, line.role);
+    if (fonts.catalog && line.glyphRun.fontIssue != typography::FontIssue::None) {
+      const auto message = typography::DescribeFontIssue(*fonts.catalog, fonts.family,
+          line.role == TextRole::Bold, line.glyphRun.fontIssue, false, fonts.usage);
+      if (std::find(plan.diagnostics.begin(), plan.diagnostics.end(), message) == plan.diagnostics.end())
+        plan.diagnostics.push_back(message);
     }
+    plan.unsupportedGlyphs += line.glyphRun.unsupportedBytes.size();
   }
+  if (plan.unsupportedGlyphs) plan.diagnostics.push_back("Some legend characters cannot be rendered.");
   return plan;
 }
 } // namespace layouts::composition

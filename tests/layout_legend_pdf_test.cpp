@@ -1,4 +1,7 @@
 #include "viewer2dpdfexporter.h"
+#include "support/pdf_unicode_test_utils.h"
+#include "support/layout_licensed_fonts_pdf.h"
+#include "support/layout_system_fonts_pdf.h"
 
 #include <cassert>
 #include <chrono>
@@ -31,9 +34,7 @@ std::string Export(const LayoutLegendExportData &legend, Viewer2DExportResult *r
   Viewer2DExportResult actual;
   auto pdf = ExportPage({}, {legend}, {}, {}, {}, actual);
   if (result) *result = actual;
-  // The page content object follows fonts and symbol/image definitions.
-  const auto start = pdf.rfind("stream\n", pdf.find("(Count) Tj"));
-  return pdf.substr(start + 7, pdf.find("endstream", start) - start - 7);
+  return pdf_test::PageStream(pdf, true);
 }
 std::size_t Count(const std::string &text, const std::string &part) {
   std::size_t count = 0;
@@ -41,9 +42,7 @@ std::size_t Count(const std::string &text, const std::string &part) {
   return count;
 }
 std::vector<std::string> DrawingGroups(const std::string &pdf) {
-  const auto marker = pdf.find("(Count) Tj");
-  const auto start = pdf.rfind("stream\n", marker) + 7;
-  const auto stream = pdf.substr(start, pdf.find("endstream", start) - start);
+  const auto stream = pdf_test::PageStream(pdf, true);
   std::istringstream lines(stream);
   std::vector<std::string> groups;
   std::string line, group;
@@ -76,15 +75,16 @@ void MixedPage(LayoutLegendExportData legend) {
   auto before = ExportPage({view}, {legend,second}, {table,secondTable}, {text}, {image}, result);
   auto groups = DrawingGroups(before);
   assert(before.find("/Subtype /Image") != std::string::npos);
-  assert(before.find("(ALabel) Tj") < before.find("(Venue:) Tj"));
-  assert(before.find("(Venue:) Tj") < before.find("(BLabel) Tj"));
-  assert(before.find("(BLabel) Tj") < before.find("(Overlay) Tj"));
+  const auto painted = pdf_test::Text(pdf_test::PageStream(before, true));
+  assert(painted.find("ALabel") < painted.find("Venue:"));
+  assert(painted.find("Venue:") < painted.find("BLabel"));
+  assert(painted.find("BLabel") < painted.find("Overlay"));
   const auto imageGroup = std::find_if(groups.begin(), groups.end(), [](const auto &g) { return g.find(" Do\n") != std::string::npos; });
   assert(imageGroup != groups.end());
   table.fields[0] = "Edited venue";
   auto tableEdit = DrawingGroups(ExportPage({view}, {legend,second}, {table,secondTable}, {text}, {image}, result));
   for (const auto &group : groups) {
-    if (group.find("(Venue test) Tj") != std::string::npos) continue;
+    if (pdf_test::Text(group).find("Venue test") != std::string::npos) continue;
     assert(std::find(tableEdit.begin(), tableEdit.end(), group) != tableEdit.end());
   }
   table.fields[0] = "Venue test";
@@ -94,13 +94,25 @@ void MixedPage(LayoutLegendExportData legend) {
   const auto afterGroups = DrawingGroups(after);
   // Every other placed element's complete drawing groups are byte-identical.
   for (const auto &group : groups) {
-    if (group.find("(ALabel) Tj") != std::string::npos) continue;
+    if (pdf_test::Text(group).find("ALabel") != std::string::npos) continue;
     assert(std::find(afterGroups.begin(), afterGroups.end(), group) != afterGroups.end());
   }
 }
 }
 
 int main(int argc, char **argv) {
+  if (argc == 3 && std::string_view(argv[1]) == "--system-fonts") {
+    WriteSystemFontLayout(argv[2]);
+    return 0;
+  }
+  if (argc == 3 && std::string_view(argv[1]) == "--licensed-fonts") {
+    WriteLicensedFontLayout(argv[2]);
+    return 0;
+  }
+  const auto mixedPdf = std::filesystem::temp_directory_path() /
+      ("perastage-licensed-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".pdf");
+  WriteLicensedFontLayout(mixedPdf);
+  std::filesystem::remove(mixedPdf);
   LayoutLegendExportData legend;
   legend.frame = {10, 20, 300, 100};
   LayoutLegendItem item;
@@ -115,14 +127,14 @@ int main(int argc, char **argv) {
   assert(document.find("/F3 ") != std::string::npos && document.find("/F4 ") != std::string::npos);
   assert(document.find("/BaseFont /NotoSans") != std::string::npos);
   const auto baseline = Export(legend);
-  assert(baseline.find("(Count) Tj") != std::string::npos);
-  assert(baseline.find("(Profile fixture) Tj") != std::string::npos);
-  assert(baseline.find("(123) Tj") != std::string::npos);
-  assert(baseline.find("(42) Tj") != std::string::npos);
+  assert(pdf_test::Text(baseline).find("Count") != std::string::npos);
+  assert(pdf_test::Text(baseline).find("Profile fixture") != std::string::npos);
+  assert(pdf_test::Text(baseline).find("123") != std::string::npos);
+  assert(pdf_test::Text(baseline).find("42") != std::string::npos);
   assert(baseline.find(" re W n") != std::string::npos);
   assert(baseline.find("/Subtype /Image") == std::string::npos);
   legend.showChannelColumn = false;
-  assert(Export(legend).find("(Ch) Tj") == std::string::npos);
+  assert(pdf_test::Text(Export(legend)).find("Ch") == std::string::npos);
   legend.showChannelColumn = true;
   legend.items[0].showSideSymbol = true;
   const auto side = Export(legend);
@@ -145,9 +157,8 @@ int main(int argc, char **argv) {
   Viewer2DExportResult result;
   const auto unicode = Export(legend, &result);
   assert(result.legendTextSubstitutions == 2);
-  assert(unicode.find("(\\311) Tj") != std::string::npos);
-  assert(result.legendTextDiagnostics.size() == 2);
-  assert(result.legendTextDiagnostics[0].find("byte") != std::string::npos);
+  assert(pdf_test::Text(unicode).find("É灯😀") != std::string::npos);
+  assert(result.legendTextDiagnostics.size() == 1);
   assert(row.displayName == "É灯😀");
   row.displayName = "Profile fixture";
   row.symbolKey = "pstg-symbol:test:content";
@@ -210,11 +221,12 @@ int main(int argc, char **argv) {
     assert(pdf.find("/FontFile2") != std::string::npos);
     assert(pdf.find("/F3 ") != std::string::npos && pdf.find("/F4 ") != std::string::npos);
     assert(pdf.find("/Subtype /Image") == std::string::npos);
-    assert(pdf.find("(Venue:) Tj") < pdf.find("(Location:) Tj"));
+    const auto info = pdf_test::Text(pdf_test::PageStream(pdf, true));
+    assert(info.find("Venue:") < info.find("Location:"));
     table.fields[0] = "É灯😀";
     ExportPage({}, {}, {table}, {}, {}, result);
-    assert(result.eventTableTextSubstitutions == 2 && result.eventTableTextDiagnostics.size() == 2);
+    assert(result.eventTableTextSubstitutions == 2 && result.eventTableTextDiagnostics.size() == 1);
   }
   legend.items.clear();
-  assert(Export(legend).find("(Count) Tj") != std::string::npos);
+  assert(pdf_test::Text(Export(legend)).find("Count") != std::string::npos);
 }

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <wx/dialog.h>
+#include <optional>
 
 class wxBitmapBundle;
 class wxCheckBox;
@@ -28,24 +29,27 @@ class LayoutTextDialog : public wxDialog {
 public:
   LayoutTextDialog(wxWindow *parent, const wxString &initialRichText,
                    const wxString &fallbackText, bool solidBackground,
-                   bool drawFrame);
+                   bool drawFrame, wxSize documentSize = wxSize(480, 240),
+                   std::optional<bool> wrapText = {});
 
   wxString GetRichText() const;
   wxString GetPlainText() const;
   bool GetSolidBackground() const;
   bool GetDrawFrame() const;
+  std::optional<bool> GetWrapText() const;
 
 private:
   wxBitmapBundle LoadIcon(const std::string &name) const;
   void LoadInitialContent(const wxString &initialRichText,
                           const wxString &fallbackText);
-  void ApplyDefaultFontStyle();
+  void ShowDocumentPreview(const wxSize &documentSize);
   void ApplyBold();
-  void ApplyItalic();
   void ApplyFontSize(int size);
   void AdjustFontSize(int delta);
   void ApplyAlignment(int alignment);
 
+  wxString originalXml_, loadedXml_, legacyXmlTail_;
+  std::optional<bool> wrapText_;
   wxRichTextCtrl *textCtrl = nullptr;
   wxSpinCtrl *fontSizeCtrl = nullptr;
   wxCheckBox *solidBackgroundCtrl = nullptr;

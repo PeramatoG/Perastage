@@ -24,6 +24,8 @@
 #include "LayoutCollection.h"
 #include "layoutlegenditems.h"
 
+namespace gui { class DocumentFontChoice; }
+
 class LayoutLegendEditDialog : public wxDialog {
 public:
   LayoutLegendEditDialog(
@@ -34,7 +36,10 @@ public:
   std::vector<layouts::LayoutLegendDefinition::ItemSettings> GetItemSettings()
       const;
 
+  std::string GetFontFamily() const;
+
 private:
+  gui::DocumentFontChoice *fontChoice_ = nullptr;
   struct RowData {
     std::string typeName;
     bool visible = true;

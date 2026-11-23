@@ -95,14 +95,7 @@ void FixtureLabelPreview::Paint(wxPaintEvent &) {
   if (!vg_) {
     vg_ = nvgCreateGL2(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
     if (!vg_) { dc.DrawText(_("Present; preview unavailable"),10,10); return; }
-    const auto root = ProjectUtils::GetResourceRoot();
-    for (const bool bold : {false,true}) {
-      const auto path = typography::BundledFontPath(root,bold);
-      if (nvgCreateFont(vg_,bold?"perastage-sans-bold":"perastage-sans",path.string().c_str()) < 0) {
-        error_ = _("Bundled label fonts are unavailable.");
-        nvgDeleteGL2(vg_); vg_=nullptr; dc.DrawText(error_,10,10); return;
-      }
-    }
+
   }
   const auto size = GetClientSize();
   if(size.x<=0 || size.y<=0)return;
@@ -130,17 +123,15 @@ void FixtureLabelPreview::Paint(wxPaintEvent &) {
     nvgBeginPath(vg_);nvgRect(vg_,p.x-2,p.y-2,(b.maxX-b.minX)*scale+4,(b.maxY-b.minY)*scale+4);
     nvgStrokeColor(vg_,nvgRGB(45,140,255));nvgStrokeWidth(vg_,drag_.Active()?2:1);nvgStroke(vg_);
   }
-  const std::array<double,2> rasterScale{
-    viewer2d::ResolveRasterFontEmScale(vg_,"perastage-sans",fonts_->regular,ratio),
-    viewer2d::ResolveRasterFontEmScale(vg_,"perastage-sans-bold",fonts_->bold,ratio)};
+  const auto rasterScale = viewer2d::PrepareDefaultLabelAtlas(vg_, *fonts_, ratio);
   // Finish every halo before any fill so adjacent glyphs cannot erase each other.
   for (auto pass : {typography::TextInkPass::Outline, typography::TextInkPass::Fill})
   for(const auto &text:composition_.text){
     const auto p=previewTransform_.ToScreen(text.x,text.y);
-    viewer2d::DrawCanvasText(vg_,text,p.x,p.y,scale,pass,ratio,rasterScale[text.style.fontFamily=="perastage-sans-bold"]);
+    viewer2d::DrawCanvasText(vg_,text,p.x,p.y,scale,pass,ratio,rasterScale[text.style.fontFamily == "perastage-sans-bold"]);
   }
   status_.SetLabel(!composition_.diagnostics.empty()
-      ? _("Unsupported text: change the fixture attribute before export.")
+      ? wxString::FromUTF8(composition_.diagnostics.front())
       : darkBackground_ ? _("Dark preview: symbol contours are lightened for display only.")
       : symbol_ ? _("Preview uses the first fixture in this scope.") : _("Symbol unavailable"));
   status_.Wrap(290); nvgEndFrame(vg_); SwapBuffers();

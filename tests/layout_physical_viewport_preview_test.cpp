@@ -16,6 +16,9 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layout_viewport_preview.h"
+#include "typography/composition.h"
+#include "typography/font_resources.h"
+#include "typography/glyph_outline.h"
 #include "layout_viewport_adapter.h"
 #include "layout_physical_editor.h"
 #include "layout_viewport_properties.h"
@@ -36,6 +39,55 @@
 #include <limits>
 
 namespace {
+void TestGenericCanvasFonts() {
+  const typography::FontCatalog catalog(PERASTAGE_TEST_RESOURCE_DIR);
+  const viewer2d::Viewer2DRenderMapping mapping{0, 0, 1, 0, 0, 96};
+  const auto render = [&](const CommandBuffer &buffer) {
+    wxBitmap bitmap(224, 96, 32);
+    wxMemoryDC dc;
+    dc.SelectObject(bitmap);
+    dc.SetBackground(*wxWHITE_BRUSH);
+    dc.Clear();
+    { wxGCDC graphics(dc); RenderPhysicalViewportPreview(graphics, buffer, mapping, nullptr, 1, true); }
+    dc.SelectObject(wxNullBitmap);
+    return bitmap.ConvertToImage();
+  };
+  const auto difference = [](const wxImage &a, const wxImage &b) {
+    size_t pixels = 0;
+    for (int y = 0; y < a.GetHeight(); ++y)
+      for (int x = 0; x < a.GetWidth(); ++x)
+        if (std::abs(int(a.GetRed(x, y)) - int(b.GetRed(x, y))) > 8) ++pixels;
+    return pixels;
+  };
+  const std::string text = "x́ ffi AV";
+  for (const auto *family : {"Noto Serif", "Source Sans 3"}) {
+    CanvasTextStyle style;
+    style.fontSize = 24;
+    style.fontFamily = std::string(family) + " Bold Italic";
+    // A generic command must use its approved face even if it carries an old outline.
+    const auto fallback = catalog.Resolve({}, false).face;
+    style.glyphOutline = typography::ResolveGlyphOutline(catalog, fallback->fingerprint,
+                                                         fallback->metrics.GlyphFor('X'));
+    CommandBuffer generic, reference, defaultFont;
+    generic.commands.emplace_back(TextCommand{20, 40, text, style});
+    const auto composed = typography::Compose(text, {24, typography::TextUnit::SceneMetres, true, 0, 0},
+                                               catalog, family, true);
+    for (const auto &glyph : composed.glyphs) {
+      CanvasTextStyle resolved;
+      resolved.fontSize = style.fontSize;
+      resolved.fontResource = glyph.resourceId;
+      resolved.glyphId = glyph.glyphId;
+      reference.commands.emplace_back(TextCommand{static_cast<float>(20 + glyph.x),
+          static_cast<float>(40 + glyph.baseline), glyph.text, resolved});
+    }
+    style.fontFamily.clear();
+    defaultFont.commands.emplace_back(TextCommand{20, 40, text, style});
+    const auto rendered = render(generic);
+    assert(rendered.IsOk() && difference(rendered, render(reference)) <= 3);
+    assert(difference(rendered, render(defaultFont)) > 50);
+  }
+}
+
 // Exercises the real modal controls, including Cancel and lossless unchanged OK.
 void TestViewportPropertiesControls() {
   layouts::Layout2DViewDefinition draft; draft.id=7; draft.frame={17,29,101,73};
@@ -442,6 +494,7 @@ void TestNativePhysicalPreviewContract() {
 
 // Measures the actual GUI graphics backend under raster scaling/DPI changes.
 void TestPhysicalViewportPreview() {
+  TestGenericCanvasFonts();
   TestViewportPropertiesControls();
   TestLiveViewportProperties();
   TestViewportNumericArrows();

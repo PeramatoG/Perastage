@@ -30,8 +30,10 @@ EXPECTED_GROUPS = {
     "podofo": "security-interop", "zlib": "security-interop", "mdns": "security-interop",
     "glew": "stable-runtime", "nanovg": "stable-runtime", "backward-cpp": "stable-runtime",
     "gettext": "build-tooling",
+    "harfbuzz": "feature-performance", "freetype": "security-interop", "icu": "security-interop",
 }
-EXPECTED_BUNDLED = {"nlohmann/json", "stb_easy_font", "Lucide selected SVG assets", "Noto Sans"}
+EXPECTED_BUNDLED = {"nlohmann/json", "stb_easy_font", "Lucide selected SVG assets", "Noto Sans",
+                    "Noto Serif", "Source Sans 3", "Noto Sans Mono", "Noto Sans Arabic and Hebrew"}
 
 
 def git_registry(source: Path, destination: Path) -> str:
