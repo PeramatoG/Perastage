@@ -457,7 +457,14 @@ void DrawLabelLines2D(NVGcontext *vg, const std::vector<LabelLine2D> &lines,
 
 LabelRenderSystem::~LabelRenderSystem() { EraseFixtureLayoutCacheState(this); }
 
-void LabelRenderSystem::DrawFixtureLabels(int width, int height) {
+void LabelRenderSystem::DrawFixtureLabels(
+    int width, int height,
+    const std::unordered_set<std::string> *provisionalFixtures) {
+  const auto &highlight = m_controller.GetHighlightUuid();
+  if (highlight.empty() ||
+      (provisionalFixtures && provisionalFixtures->contains(highlight)))
+    return;
+
   ConfigManager &cfg = ConfigManager::Get();
   ProjectionContext projection;
   FillProjectionContext(width, height, projection);
@@ -477,7 +484,7 @@ void LabelRenderSystem::DrawFixtureLabels(int width, int height) {
 
   for (const auto &uuid : visibleSet.fixtureUuids) {
     auto fixtureIt = fixtures.find(uuid);
-    if (fixtureIt == fixtures.end() || uuid != m_controller.GetHighlightUuid())
+    if (fixtureIt == fixtures.end() || uuid != highlight)
       continue;
 
     const auto &f = fixtureIt->second;

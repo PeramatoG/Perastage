@@ -1904,8 +1904,10 @@ void Viewer3DController::SetupBasicLighting(bool ambientOcclusionEnabled,
 }
 
 // Draws fixture Labels.
-void Viewer3DController::DrawFixtureLabels(int width, int height) {
-  m_impl->labelRenderSystem->DrawFixtureLabels(width, height);
+void Viewer3DController::DrawFixtureLabels(
+    int width, int height,
+    const std::unordered_set<std::string> *provisionalFixtures) {
+  m_impl->labelRenderSystem->DrawFixtureLabels(width, height, provisionalFixtures);
 }
 
 // Renders labels for all fixtures in the current scene. Each label displays the

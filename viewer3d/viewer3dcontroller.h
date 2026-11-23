@@ -130,7 +130,8 @@ public:
   void SetSelectedUuids(const std::vector<std::string> &uuids,
                         const std::vector<std::string> &primaryUuids);
 
-  void DrawFixtureLabels(int width, int height);
+  void DrawFixtureLabels(int width, int height,
+                         const std::unordered_set<std::string> *provisionalFixtures = nullptr);
   void DrawTrussLabels(int width, int height);
   void DrawSceneObjectLabels(int width, int height);
   void DrawAllFixtureLabels(int width, int height, Viewer2DView view,

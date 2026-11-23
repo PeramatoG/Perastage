@@ -70,6 +70,13 @@ assert composed_labels.index("!capture && provisionalFixtures && provisionalFixt
     composed_labels.index("cache.Resolve(")
 )
 
+hover_labels = function_body(
+    "viewer3d/labels/label_render_system.cpp", "void LabelRenderSystem::DrawFixtureLabels"
+)
+assert hover_labels.index("provisionalFixtures->contains(highlight)") < hover_labels.index(
+    "FillProjectionContext("
+)
+
 controller = (ROOT / "viewer3d/viewer3dcontroller.cpp").read_text(encoding="utf-8")
 assert "m_impl->cameraMoving && context.fastInteractionMode" in controller
 assert "culling.enabled && !previewingTransforms" in controller

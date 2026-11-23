@@ -1115,9 +1115,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
     if ((!pauseHeavyTasks || m_runtimeState.IsTransformActive()) && !skipLabelWork) {
     if (FixtureTablePanel::Instance() &&
         FixtureTablePanel::Instance()->IsActivePage()) {
-        if (!m_transformPresentation.ProvisionalFixtures().contains(
-                m_controller.GetHighlightUuid()))
-            m_controller.DrawFixtureLabels(w, h);
+        m_controller.DrawFixtureLabels(
+            w, h, &m_transformPresentation.ProvisionalFixtures());
     } else if (TrussTablePanel::Instance() &&
              TrussTablePanel::Instance()->IsActivePage())
             m_controller.DrawTrussLabels(w, h);
