@@ -193,8 +193,9 @@ bool ViewerRuntimeState::ShouldRepaintForThreadRefresh(
   }
   return cameraChanged || input.resourceSyncPending ||
          m_selectionRefreshPending || m_highlightRefreshPending ||
-         m_pointerMoved || m_forceHoverQuery || input.rectangleSelecting ||
-         input.navigationActive || m_isInteracting || m_cameraMoving;
+         m_pointerMoved || (m_forceHoverQuery && !m_transformActive) ||
+         input.rectangleSelecting || input.navigationActive || m_isInteracting ||
+         m_cameraMoving;
 }
 
 // Initializes the established resource synchronization cadence.

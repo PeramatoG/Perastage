@@ -3611,8 +3611,7 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent &event) {
         return;
     if (ProcessProgressiveResourceRefresh()) return;
 
-    const bool resourceSyncPending =
-        !ShouldPauseHeavyTasks() && m_controller.IsResourceSyncPending();
+    const bool resourceSyncPending = m_controller.IsResourceSyncPending();
     const bool hasRelevantVisualChange =
         m_runtimeState.ShouldRepaintForThreadRefresh(
             {ComputeCameraFingerprint(m_camera), resourceSyncPending,
