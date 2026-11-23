@@ -1261,6 +1261,8 @@ Viewer3DController::PrepareRenderFrame(const RenderFrameContext &context,
         (context.is2DViewer && m_impl->sortedListsLastView != context.view);
     if ((m_impl->sortedListsDirty || viewSortChanged) &&
         !context.skipOptionalWork) {
+      performance::Scope metric(performance::Work::View2DSort,
+                                context.is2DViewer && performance::viewer2DFrameActive);
       // Computes the transform-origin depth used by fixtures, trusses, and
       // fallback object sorting.
       const auto sortDepthKey = [&](const Matrix &transform) {
@@ -1371,6 +1373,8 @@ Viewer3DController::PrepareRenderFrame(const RenderFrameContext &context,
   frustum.is2DViewer = context.is2DViewer;
   frustum.view = context.view;
 
+  performance::Scope visibility(performance::Work::View2DVisibility,
+                                context.is2DViewer && performance::viewer2DFrameActive);
   return GetVisibleSet(frustum, context.hiddenLayers, context.useFrustumCulling,
                        context.minCullingPixels);
 }
@@ -2032,6 +2036,8 @@ void Viewer3DController::DrawMesh(const Mesh &mesh, float scale,
 // Draws grid.
 void Viewer3DController::DrawGrid(int style, float r, float g, float b,
                                   Viewer2DView view) {
+  performance::Scope metric(performance::Work::View2DGrid,
+                            performance::viewer2DFrameActive);
   m_impl->sceneRenderer->DrawGrid(style, r, g, b, view);
 }
 

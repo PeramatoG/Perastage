@@ -38,7 +38,8 @@ viewer2d::render::RenderFramePlan Viewer2DPanel::BuildRenderFramePlan() {
   input.configuredShowRuler = cfg.GetFloat("ruler_show") != 0.0f;
   input.selectionEnabled = m_enableSelection;
   input.pauseHeavyTasks = m_enableSelection && ShouldPauseHeavyTasks();
-  input.expensiveVisualInteractionActive = IsExpensiveVisualInteractionActive();
+  input.expensiveVisualInteractionActive =
+      IsExpensiveVisualInteractionActive() || m_navigationPersistencePending;
   input.captureRequested = m_captureNextFrame;
   input.captureIncludeGrid = m_captureIncludeGrid;
   input.useSimplifiedFootprints = m_useSimplifiedFootprints;

@@ -373,7 +373,16 @@ float ConfigManager::GetFloat(const std::string &name) const {
 void ConfigManager::SetFloat(const std::string &name, float v) {
   auto prev = preferencesStore.GetValue(name);
   preferencesStore.SetFloat(name, v);
-  if (!suppressRevision && !ScopedPreferenceDraft::Owns(this, name) && prev != preferencesStore.GetValue(name))
+  if (suppressRevision || ScopedPreferenceDraft::Owns(this, name) ||
+      prev == preferencesStore.GetValue(name))
+    return;
+  // Keep the serialized viewport preferences and project dirty tracking without
+  // invalidating scene resources or bounds.
+  if (name == "view2d_offset_x" || name == "view2d_offset_y" ||
+      name == "view2d_zoom" || name == "view2d_view" ||
+      name == "view2d_render_mode")
+    projectSession.TouchPresentation();
+  else
     projectSession.Touch();
 }
 

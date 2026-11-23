@@ -23,10 +23,15 @@ assert 'viewportState_.FrameRect' in Path('gui/layoutviewerpanel_viewport_geomet
 policy = Path('gui/ui_print_build_defaults.h').read_text()
 assert not any(token in policy for token in ('#include <wx', 'OpenGL', 'ConfigManager', 'NDEBUG'))
 assert 'detail::ApplyPrintBuildDefaults' in Path('gui/ui_feature_flags.cpp').read_text()
-navigation = Path('viewer2d/viewer2dpanel_layout_editor.cpp').read_text()
-assert 'if (IsLayoutPhysicalZoomLocked()) return;' in navigation
-assert 'IsLayoutPhysicalZoomLocked() && altDown && key != NavigationKey::Unsupported' in navigation
-assert 'ResolvePhysicalEditorGeometry' in navigation
+navigation = Path('viewer2d/viewer2dpanel_navigation.cpp').read_text()
+wheel = navigation.split('void Viewer2DPanel::OnMouseWheel', 1)[1].split('bool Viewer2DPanel::TryHandleViewportNavigationKey', 1)[0]
+assert 'if (IsLayoutPhysicalZoomLocked())\n    return;' in wheel
+keyboard = navigation.split('bool Viewer2DPanel::TryHandleViewportNavigationKey', 1)[1]
+assert 'const bool zoomLocked = IsLayoutPhysicalZoomLocked();' in keyboard
+assert 'if (zoomLocked && altDown)\n    return true;' in keyboard
+assert 'if (!zoomLocked)\n    m_zoom = navigation.view.zoom;' in keyboard
+layout_editor = Path('viewer2d/viewer2dpanel_layout_editor.cpp').read_text()
+assert 'ResolvePhysicalEditorGeometry' in layout_editor
 assert 'ResolvePhysicalEditorGeometry' in Path('viewer2d/viewer2dpanel_rendering.cpp').read_text()
 cache = Path('gui/layout_view_cache_archive.cpp').read_text()
 assert cache.count('-wx-3-v4') == 3

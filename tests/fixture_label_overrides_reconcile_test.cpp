@@ -1,4 +1,10 @@
 #include "typography/composition.h"
+#include "../viewer2d/interaction/viewer2d_navigation_policy.h"
+#include "../viewer2d/render/fixture_label_screen_projection.h"
+#include "../viewer2d/viewer2d_coordinate_math.h"
+#include "performance_metrics.h"
+#include "uuidutils.h"
+
 #include "configmanager.h"
 #include "fixture.h"
 #include "fixture_label_overrides.h"
@@ -14,9 +20,96 @@
 #include <iostream>
 
 void RunLayoutFixtureLabelPresentationTests();
+namespace {
+
+void CheckCameraPersistence(ConfigManager &cfg) {
+  using namespace viewer2d::interaction;
+  cfg.MarkSaved();
+  const auto originalRevision = cfg.GetRenderRevision();
+  NavigationViewState camera{cfg.GetFloat("view2d_offset_x"),
+                             cfg.GetFloat("view2d_offset_y"),
+                             cfg.GetFloat("view2d_zoom")};
+  camera = Viewer2DNavigationPolicy::ApplyDragPan(camera, 70, -27).view;
+  camera = Viewer2DNavigationPolicy::ApplyWheelZoom(camera, 4).view;
+  camera = Viewer2DNavigationPolicy::ApplyKeyboard(camera, NavigationKey::Left, false).view;
+  assert(!cfg.IsDirty() && cfg.GetRenderRevision() == originalRevision);
+
+  cfg.SetFloat("view2d_offset_x", camera.offsetX);
+  cfg.SetFloat("view2d_offset_y", camera.offsetY);
+  cfg.SetFloat("view2d_zoom", camera.zoom);
+  cfg.SetFloat("view2d_view", static_cast<float>(Viewer2DView::Side));
+  cfg.SetFloat("view2d_render_mode", static_cast<float>(Viewer2DRenderMode::White));
+  assert(cfg.IsDirty() && cfg.GetRenderRevision() == originalRevision);
+
+  const auto path = std::filesystem::temp_directory_path() /
+                    ("perastage-view2d-camera-" + GenerateUuid() + ".json");
+  assert(cfg.SaveToFile(path.string()));
+  cfg.Reset();
+  assert(cfg.LoadFromFile(path.string()));
+  std::filesystem::remove(path);
+  assert(std::abs(cfg.GetFloat("view2d_offset_x") - camera.offsetX) < 1e-5);
+  assert(std::abs(cfg.GetFloat("view2d_offset_y") - camera.offsetY) < 1e-5);
+  assert(std::abs(cfg.GetFloat("view2d_zoom") - camera.zoom) < 1e-5);
+  assert(cfg.GetFloat("view2d_view") == static_cast<float>(Viewer2DView::Side));
+  assert(cfg.GetFloat("view2d_render_mode") == static_cast<float>(Viewer2DRenderMode::White));
+  cfg.Reset();
+}
+
+void CheckProjectionAndCulling(const viewer2d::FixtureLabelComposition::Field &field) {
+  constexpr int width = 800, height = 600;
+  for (const auto view : {Viewer2DView::Top, Viewer2DView::Bottom,
+                          Viewer2DView::Front, Viewer2DView::Side}) {
+    for (const float zoom : {0.1f, 1.0f, 4.0f}) {
+      const viewer2d::CoordinateTransform transform{width, height, zoom, 82, -31, view};
+      const auto origin = *viewer2d::WorldToFramebuffer({0, 0, 0}, transform);
+      const double scale = viewer2d::kPixelsPerMeter * zoom;
+      const double scaleX = view == Viewer2DView::Bottom ? -scale : scale;
+      viewer2d::FixtureLabelScreenProjection projection{origin[0], origin[1], scaleX, -scale};
+      const auto toWorld = [view](float x, float y) -> std::array<float, 3> {
+        if (view == Viewer2DView::Front)
+          return {x, 0, y};
+        if (view == Viewer2DView::Side)
+          return {0, -x, y};
+        return {x, y, 0};
+      };
+      const auto expected = *viewer2d::WorldToFramebuffer(toWorld(3, -7), transform);
+      const auto actual = projection.Project(3, -7);
+      assert(std::abs(expected[0] - actual[0]) < 1e-4);
+      assert(std::abs(expected[1] - actual[1]) < 1e-4);
+
+      // Move a real composed stack to each clip edge, including where only
+      // its halo can touch the framebuffer. Its fixture can be offscreen.
+      constexpr double padding = 5.0;
+      const auto &ink = field.inkBounds;
+      const auto a = projection.Project(ink.minX, ink.minY);
+      const auto b = projection.Project(ink.maxX, ink.maxY);
+      projection.originY += height / 2.0 - (a[1] + b[1]) / 2.0;
+      projection.originX -= std::max(a[0], b[0]) + padding - .5;
+      assert(projection.IntersectsViewport(ink, padding, width, height));
+      projection.originX -= 1;
+      assert(!projection.IntersectsViewport(ink, padding, width, height));
+      projection.originX += width + 1 + 2 * padding + std::abs(a[0] - b[0]) - 1;
+      assert(projection.IntersectsViewport(ink, padding, width, height));
+      projection.originX += 1;
+      assert(!projection.IntersectsViewport(ink, padding, width, height));
+
+      projection.originX += width / 2.0 - (projection.Project(ink.minX, 0)[0] +
+                                            projection.Project(ink.maxX, 0)[0]) / 2.0;
+      projection.originY -= std::max(projection.Project(0, ink.minY)[1],
+                                     projection.Project(0, ink.maxY)[1]) + padding - .5;
+      assert(projection.IntersectsViewport(ink, padding, width, height));
+      projection.originY -= 1;
+      assert(!projection.IntersectsViewport(ink, padding, width, height));
+    }
+  }
+}
+
+} // namespace
+
 int main() {
   ConfigManager &cfg = ConfigManager::Get();
   cfg.Reset();
+  CheckCameraPersistence(cfg);
   const auto versionOne = nlohmann::json::parse(R"({"presentation":{"version":1,"fields":[[{"sizeMetres":0.12,"color":[0,0,0]}]]}})");
   viewer2d::LabelFieldStyles migrated;
   viewer2d::ReadFieldStyles(versionOne,migrated);
@@ -132,6 +225,7 @@ int main() {
   validFixture.instanceName = "Éclairage Süd";
   auto a = compose(); std::string text;
   assert(a.fields[0] && a.fields[1] && a.fields[2]);
+  CheckProjectionAndCulling(*a.fields[0]);
   assert(a.text.front().style.outlineWidth == style.outlineWidth);
   assert(a.text.front().style.outlineColor.r == style.outlineColor[0]);
   draft[validFixture.uuid].fieldStyles[0][0]->outlineEnabled = false;
@@ -152,6 +246,48 @@ int main() {
   assert(cachedText() == "ChangedID: 423.157");
   const auto *cachedGlyph = compositionCache.Resolve(cfg, draft, validFixture, 0, bounds, fonts).text.data();
   assert(compositionCache.Resolve(cfg, draft, validFixture, 0, bounds, fonts).text.data() == cachedGlyph);
+  {
+    cfg.GetScene().fixtures[validFixture.uuid] = validFixture;
+    performance::Viewer2DFrameScope profile(true);
+    performance::Reset();
+    const auto renderRevision = cfg.GetRenderRevision();
+    cfg.SetFloat("view2d_offset_x", 64.0f);
+    cfg.SetFloat("view2d_offset_y", -21.5f);
+    cfg.SetFloat("view2d_zoom", 3.0f);
+    assert(cfg.GetRenderRevision() == renderRevision);
+    assert(compositionCache.Resolve(cfg, draft, validFixture, 0, bounds, fonts).text.data() == cachedGlyph);
+
+    auto anotherFixture = validFixture;
+    anotherFixture.uuid = "other-fixture";
+    draft[anotherFixture.uuid] = draft.at(validFixture.uuid);
+    cfg.GetScene().fixtures[anotherFixture.uuid] = anotherFixture;
+    const auto *otherGlyphs = compositionCache.Resolve(cfg, draft, anotherFixture,
+                                                       0, bounds, fonts).text.data();
+    assert(otherGlyphs->style.glyphOutline == cachedGlyph->style.glyphOutline);
+    const auto count = [](performance::Work work) {
+      return performance::samples[static_cast<size_t>(work)].count;
+    };
+    assert(count(performance::Work::View2DCompositions) == 1);
+    anotherFixture.instanceName += " Changed";
+    cfg.GetScene().fixtures[anotherFixture.uuid] = anotherFixture;
+    cfg.MarkDirty();
+    compositionCache.PruneRemovedFixtures(cfg.GetScene());
+    assert(compositionCache.Resolve(cfg, draft, validFixture, 0, bounds, fonts).text.data() == cachedGlyph);
+    compositionCache.Resolve(cfg, draft, anotherFixture, 0, bounds, fonts);
+    assert(count(performance::Work::View2DLabelContent) == 1);
+    draft[anotherFixture.uuid].fieldStyles[0][0]->bold = false;
+    compositionCache.Resolve(cfg, draft, anotherFixture, 0, bounds, fonts);
+    assert(count(performance::Work::View2DLabelStyle) == 1);
+    compositionCache.Resolve(cfg, draft, anotherFixture, 3, bounds, fonts);
+    assert(count(performance::Work::View2DLabelOrientation) == 1);
+    cfg.GetScene().fixtures.erase(anotherFixture.uuid);
+    draft.erase(anotherFixture.uuid);
+    compositionCache.PruneRemovedFixtures(cfg.GetScene());
+    assert(count(performance::Work::View2DLabelRemoved) == 1);
+    const typography::FontPair alternateRoot(fonts.resourceRoot / ".");
+    compositionCache.Resolve(cfg, draft, validFixture, 0, bounds, alternateRoot);
+    assert(count(performance::Work::View2DLabelFont) == 1);
+  }
   validFixture.instanceName = "Renamed"; validFixture.fixtureId = 9; validFixture.address = "1.002";
   assert(cachedText() == "RenamedID: 91.002");
   label_preview::Transform preview{250,175,100};

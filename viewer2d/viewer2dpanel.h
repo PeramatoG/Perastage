@@ -27,6 +27,8 @@
 
 #include "PhysicalViewport.h"
 #include "layout_physical_editor.h"
+#include "render/viewer2d_performance.h"
+
 #include "continuous_placement_type.h"
 #include "scene_grouping.h"
 #include "continuous_placement_state.h"
@@ -137,6 +139,7 @@ public:
 
   void LoadViewFromConfig();
   void SaveViewToConfig() const;
+  void PersistPendingNavigation() const;
   void ApplyViewState(float offsetX, float offsetY, float zoom,
                       Viewer2DView view, Viewer2DRenderMode renderMode);
   bool FitViewToScene();
@@ -329,6 +332,8 @@ private:
   void StopDragTableUpdateWorker();
   bool ShouldPauseHeavyTasks();
   void MarkInteractionActivity();
+  void MarkNavigationChanged();
+  void PanViewTo(const wxPoint &position);
   void OnInteractionPauseTimer(wxTimerEvent &event);
   void OnHoverHitTestTimer(wxTimerEvent &event);
   void ScheduleHoverHitTest(const wxPoint &screenPos, bool forceNow = false);
@@ -439,6 +444,8 @@ private:
   bool m_forceOffscreenRender = false;
   bool m_allowOffscreenRender = false;
   bool m_persistViewState = true;
+  mutable bool m_navigationPersistencePending = false;
+  viewer2d::render::ViewportPerformance m_performance;
   std::thread m_dragTableUpdateWorker;
   std::mutex m_dragTableUpdateMutex;
   std::condition_variable m_dragTableUpdateCv;

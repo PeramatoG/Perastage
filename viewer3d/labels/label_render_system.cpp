@@ -97,7 +97,6 @@ const viewer2d::FixtureLabelOverrideMap &GetCachedFixtureLabelOverrides(
   if (!cacheState.overridesCache.loaded ||
       cacheState.overridesCache.serialized != serialized) {
     cacheState.overridesCache.loaded = true;
-    cacheState.composed.Clear();
     cacheState.overridesCache.serialized = serialized;
     cacheState.overridesCache.overrides = viewer2d::LoadFixtureLabelOverrides(cfg);
   }
@@ -530,8 +529,6 @@ void LabelRenderSystem::DrawFixtureLabels(int width, int height) {
 void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
                                              Viewer2DView view, float zoom,
                                              bool interactiveLabelMode) {
-  // Fixture labels share the same full composition in the editor, viewer and capture.
-  (void)interactiveLabelMode;
   ConfigManager &cfg = ConfigManager::Get();
   const auto distanceUnitSystem =
       Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
@@ -547,10 +544,17 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
       GetCachedFixtureLabelOverrides(layoutCacheState, cfg);
 
   if (layoutCacheState.composedRevision != cfg.GetRenderRevision()) {
-    layoutCacheState.composed.Clear();
+    layoutCacheState.composed.PruneRemovedFixtures(cfg.GetScene());
     layoutCacheState.composedRevision = cfg.GetRenderRevision();
   }
-  DrawComposedFixtureLabels(m_controller, width, height, view, zoom, fixtureOverrides, layoutCacheState.composed);
+  const bool cullOffscreen = !m_controller.GetCaptureCanvas() &&
+      (interactiveLabelMode ||
+       (cfg.GetFloat("label_optimizations_enabled") >= 0.5f &&
+        cfg.GetFloat("render_culling_enabled") >= 0.5f));
+  DrawComposedFixtureLabels(m_controller, width, height, view, zoom,
+                            fixtureOverrides, layoutCacheState.composed,
+                            BuildFrustum(projection), hiddenLayers,
+                            cfg.GetHiddenFixtureTypes(), cullOffscreen);
   const auto &supports = cfg.GetScene().supports;
   constexpr const char *kRegularFamily = "sans";
   // Keep default support label sizing aligned with fixture labels at Size = 3.

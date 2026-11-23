@@ -91,6 +91,8 @@ void BoundsCacheSystem::RebuildIfDirty(
   }
 
   performance::Scope metric(performance::Work::Bounds);
+  performance::Scope profile2D(performance::Work::View2DBounds,
+                               performance::viewer2DFrameActive);
   if (context.visibilityChangedDirty) {
     const auto eraseHidden = [&](auto &boundsMap, const auto &items) {
       for (auto it = boundsMap.begin(); it != boundsMap.end();) {

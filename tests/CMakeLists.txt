@@ -1275,6 +1275,8 @@ add_executable(fixture_label_overrides_reconcile_test
                layout_fixture_label_presentation_test.cpp
                ../core/layouts/LayoutLabelCommands.cpp
                ../viewer2d/fixture_label_presentation.cpp
+               ../viewer2d/interaction/viewer2d_navigation_policy.cpp
+               ../viewer2d/viewer2d_coordinate_math.cpp
                ../viewer2d/fixture_label_style.cpp
                ../viewer2d/fixture_label_composition.cpp
                ../viewer2d/fixture_label_glyphs.cpp
