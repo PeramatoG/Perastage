@@ -41,17 +41,20 @@ static void TestLegacyRichText(const wxString &current) {
   assert(plan.lines.front().runs.front().bold && plan.lines.front().runs.back().underline);
   assert(layouttext::LegacyRichTextTail(edited + archive,
       layouttext::SaveRichTextBufferToString(baseline)) == archive);
+  assert(layouttext::LegacyRichTextTail(edited + archive, current) == archive);
 }
 
 class InputTestApp : public wxApp { public: bool OnInit() override {return true;} };
 wxIMPLEMENT_APP_NO_MAIN(InputTestApp);
 void TestPhysicalViewportPreview();
 void TestDocumentFontPicker();
+void TestLayoutTextRendering();
 int main(int argc,char **argv) {
   assert(wxEntryStart(argc,argv));assert(wxTheApp->CallOnInit());
   {
     wxInitAllImageHandlers();
     TestPhysicalViewportPreview();
+    TestLayoutTextRendering();
     TestDocumentFontPicker();
     layouts::LayoutTextDefinition text;text.frame={17,29,101,73};text.text="Plain text";
     auto data=layouttext::BuildLayoutTextExportData(text);

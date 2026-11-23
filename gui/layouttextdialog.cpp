@@ -213,9 +213,10 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
 
   SetSizer(mainSizer);
   LoadInitialContent(initialRichText, fallbackText);
-  loadedXml_ = GetRichText();
   originalXml_ = initialRichText;
-  legacyXmlTail_ = layouttext::LegacyRichTextTail(originalXml_, loadedXml_);
+  legacyXmlTail_ = layouttext::LegacyRichTextTail(originalXml_, SerializeBuffer());
+  if (layouttext::HasLightInk(textCtrl->GetBuffer()))
+    textCtrl->SetBackgroundColour(wxColour(118, 118, 118));
   if (!legacyXmlTail_.empty()) {
     auto *notice = new wxStaticText(this, wxID_ANY, _(
         "Some legacy formatting cannot be edited here. A copy of the original is kept with your edits."));
@@ -254,6 +255,12 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
     event.Skip();
   });
   Layout();
+  // Finish the native load before recording the untouched XML baseline.
+  textCtrl->Invalidate();
+  textCtrl->LayoutContent();
+  textCtrl->SetInsertionPoint(0);
+  textCtrl->DiscardEdits();
+  loadedXml_ = SerializeBuffer();
   Centre();
 }
 
@@ -279,20 +286,21 @@ void LayoutTextDialog::ShowDocumentPreview(const wxSize &documentSize) {
   preview.ShowModal();
 }
 
+wxString LayoutTextDialog::SerializeBuffer() const {
+  wxRichTextBuffer bufferCopy = textCtrl->GetBuffer();
+  return layouttext::SaveRichTextBufferToString(bufferCopy);
+}
+
 // Returns the edited content serialized as rich text XML.
 wxString LayoutTextDialog::GetRichText() const {
-  if (!textCtrl)
-    return wxEmptyString;
-  wxRichTextBuffer bufferCopy = textCtrl->GetBuffer();
-  const auto xml = layouttext::SaveRichTextBufferToString(bufferCopy);
-  if (!originalXml_.empty() && xml == loadedXml_) return originalXml_;
+  const auto xml = SerializeBuffer();
+  if (xml == loadedXml_) return originalXml_;
   return xml.empty() ? xml : xml + legacyXmlTail_;
 }
 
 std::optional<bool> LayoutTextDialog::GetWrapText() const {
   if (wrapText_) return wrapText_;
-  const auto xml = GetRichText();
-  if (xml == originalXml_ || xml == loadedXml_) return wrapText_;
+  if (GetRichText() == originalXml_) return wrapText_;
   return true;
 }
 

@@ -133,7 +133,8 @@ void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
     return;
 
   const auto updatedRichText = dialog.GetRichText();
-  if (updatedRichText.empty()) {
+  if (updatedRichText.empty() &&
+      (!richText.empty() || dialog.GetPlainText() != fallbackText)) {
     gui::ReportDocumentTypographyDiagnostic("Layout text could not be saved. The previous content was kept.");
     return;
   }

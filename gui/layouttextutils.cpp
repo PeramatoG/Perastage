@@ -24,10 +24,8 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstring>
+#include <memory>
 
-#include <wx/dcgraph.h>
-#include <wx/dcmemory.h>
 #include <wx/log.h>
 #include <wx/mstream.h>
 #include <wx/richtext/richtextbuffer.h>
@@ -68,7 +66,7 @@ RichTextOpStatus LoadBufferFromUtf8(wxRichTextBuffer &buffer,
       wxRichTextBuffer::FindHandler(static_cast<wxRichTextFileType>(format));
   if (!handler)
     return RichTextOpStatus::kNoHandler;
-  if (!handler->LoadFile(&buffer, input))
+  if (!buffer.LoadFile(input, static_cast<wxRichTextFileType>(format)))
     return RichTextOpStatus::kFailure;
   return RichTextOpStatus::kSuccess;
 }
@@ -286,23 +284,22 @@ wxImage RenderTextData(const LayoutTextExportData &data, const wxSize &renderSiz
     return wxImage();
   }
 
-  wxBitmap bitmap(renderSize.GetWidth(), renderSize.GetHeight(), 32);
-  bitmap.UseAlpha();
-  wxMemoryDC memoryDc(bitmap);
-  wxGCDC dc(memoryDc);
+  // Use a defined RGBA surface instead of drawing into a selected native bitmap.
+  wxImage image(renderSize);
+  if (!image.IsOk()) return {};
+  if (data.solidBackground)
+    image.SetRGB(wxRect(wxPoint(), renderSize), 255, 255, 255);
+  image.InitAlpha();
+  if (!data.solidBackground)
+    std::fill_n(image.GetAlpha(), static_cast<size_t>(renderSize.x) * renderSize.y, 0);
 
-  if (data.solidBackground) {
-    dc.SetBackground(wxBrush(wxColour(255, 255, 255, 255)));
-  } else {
-    dc.SetBackground(wxBrush(wxColour(255, 255, 255, 0)));
-  }
-  dc.Clear();
   const auto catalog = typography::GetFontCatalog(ProjectUtils::GetResourceRoot());
   const auto plan = typography::ComposeTextBlock(data, logicalSize.x, logicalSize.y, *catalog);
   if (reportDiagnostics)
     for (const auto &message : plan.diagnostics) gui::ReportDocumentTypographyDiagnostic(message);
-  if (auto *gc = dc.GetGraphicsContext()) {
-    gc->PushState();
+  {
+    std::unique_ptr<wxGraphicsContext> gc(wxGraphicsContext::Create(image));
+    if (!gc) return {};
     gc->Scale(renderScale, renderScale);
     for (const auto &entry : plan.glyphs) {
       const auto outline = typography::ResolveGlyphOutline(*catalog, entry.glyph.resourceId, entry.glyph.glyphId);
@@ -318,26 +315,21 @@ wxImage RenderTextData(const LayoutTextExportData &data, const wxSize &renderSiz
       gc->SetBrush(wxBrush(wxColour(line.color[0], line.color[1], line.color[2])));
       gc->DrawRectangle(line.x, line.y, line.width, line.height);
     }
-    gc->PopState();
-  }
-
-  memoryDc.SelectObject(wxNullBitmap);
-  wxImage image = bitmap.ConvertToImage();
-  if (!image.HasAlpha())
-    image.InitAlpha();
-  if (data.solidBackground) {
-    unsigned char *alpha = image.GetAlpha();
-    if (alpha) {
-      const size_t pixelCount =
-          static_cast<size_t>(image.GetWidth()) *
-          static_cast<size_t>(image.GetHeight());
-      std::fill(alpha, alpha + pixelCount, 255);
-    }
+    // Image-backed contexts finalize their pixel output on destruction.
   }
   return image;
 }
 
 } // namespace
+
+bool HasLightInk(const wxRichTextBuffer &buffer) {
+  const auto data = ExtractLayoutText({}, &buffer);
+  return std::any_of(data.lines.begin(), data.lines.end(), [](const auto &line) {
+    return std::any_of(line.runs.begin(), line.runs.end(), [](const auto &run) {
+      return !run.text.empty() && std::ranges::min(run.color) >= 224;
+    });
+  });
+}
 
 LayoutTextExportData BuildLayoutTextExportData(const layouts::LayoutTextDefinition &text) {
   wxRichTextBuffer buffer;

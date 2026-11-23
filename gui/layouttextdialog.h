@@ -39,6 +39,7 @@ public:
   std::optional<bool> GetWrapText() const;
 
 private:
+  wxString SerializeBuffer() const;
   wxBitmapBundle LoadIcon(const std::string &name) const;
   void LoadInitialContent(const wxString &initialRichText,
                           const wxString &fallbackText);
