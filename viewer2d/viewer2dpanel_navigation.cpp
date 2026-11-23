@@ -75,6 +75,9 @@ void Viewer2DPanel::OnInteractionPauseTimer(wxTimerEvent &WXUNUSED(event)) {
 }
 
 void Viewer2DPanel::OnMouseWheel(wxMouseEvent &event) {
+  if (IsLayoutPhysicalZoomLocked())
+    return;
+
   performance::Scope metric(performance::Work::View2DNavigation,
                             m_persistViewState && performance::Viewer2DEnabled());
   m_hasLastMousePos = true;
@@ -122,6 +125,10 @@ bool Viewer2DPanel::TryHandleViewportNavigationKey(int keyCode, bool altDown) {
 
   if (key == NavigationKey::Unsupported)
     return false;
+  const bool zoomLocked = IsLayoutPhysicalZoomLocked();
+  if (zoomLocked && altDown)
+    return true;
+
   performance::Scope metric(performance::Work::View2DNavigation,
                             m_persistViewState && performance::Viewer2DEnabled());
   const auto navigation =
@@ -130,11 +137,13 @@ bool Viewer2DPanel::TryHandleViewportNavigationKey(int keyCode, bool altDown) {
   if (!navigation.handled)
     return false;
   if (m_offsetX == navigation.view.offsetX &&
-      m_offsetY == navigation.view.offsetY && m_zoom == navigation.view.zoom)
+      m_offsetY == navigation.view.offsetY &&
+      (zoomLocked || m_zoom == navigation.view.zoom))
     return true;
   m_offsetX = navigation.view.offsetX;
   m_offsetY = navigation.view.offsetY;
-  m_zoom = navigation.view.zoom;
+  if (!zoomLocked)
+    m_zoom = navigation.view.zoom;
   MarkNavigationChanged();
   if (m_placementSession.IsActive() && m_hasLastMousePos &&
       m_interaction.mode != DragMode::View)

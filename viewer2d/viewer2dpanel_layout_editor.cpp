@@ -17,7 +17,6 @@
  */
 #include "viewer2dpanel.h"
 #include "viewer2dcommandrenderer.h"
-#include "interaction/viewer2d_navigation_policy.h"
 #include "ui_render_size.h"
 
 void Viewer2DPanel::SetLayoutPhysicalViewport(
@@ -52,67 +51,4 @@ void Viewer2DPanel::UpdateLayoutPhysicalCamera(int width, int height) {
   const auto &s = *m_physicalEditor;
   m_zoom = static_cast<float>(viewer2d::ResolvePhysicalEditorGeometry(
       s.physical, s.frame, width, height, viewer2d::kViewer2DPixelsPerMeter).zoom);
-}
-
-void Viewer2DPanel::OnMouseWheel(wxMouseEvent &event) {
-  if (IsLayoutPhysicalZoomLocked()) return;
-  m_hasLastMousePos = true;
-  MarkInteractionActivity();
-
-  int rotation = event.GetWheelRotation();
-  int deltaWheel = event.GetWheelDelta();
-  float steps = 0.0f;
-  if (deltaWheel != 0)
-    steps = static_cast<float>(rotation) / static_cast<float>(deltaWheel);
-  const auto navigation =
-      viewer2d::interaction::Viewer2DNavigationPolicy::ApplyWheelZoom(
-          {m_offsetX, m_offsetY, m_zoom}, steps);
-  m_zoom = navigation.view.zoom;
-  m_runtimeState.MarkViewMotion();
-  m_placementViewRevision.Invalidate();
-  if (m_placementSession.IsActive())
-    AlignContinuousElementToPointer(event.GetPosition());
-  if (m_persistViewState)
-    SaveViewToConfig();
-  RequestRepaint();
-}
-
-// Applies keyboard pan and zoom navigation to the 2D viewport.
-bool Viewer2DPanel::TryHandleViewportNavigationKey(int keyCode, bool altDown) {
-  using NavigationKey = viewer2d::interaction::NavigationKey;
-  NavigationKey key = NavigationKey::Unsupported;
-  switch (keyCode) {
-  case WXK_LEFT:
-    key = NavigationKey::Left;
-    break;
-  case WXK_RIGHT:
-    key = NavigationKey::Right;
-    break;
-  case WXK_UP:
-    key = NavigationKey::Up;
-    break;
-  case WXK_DOWN:
-    key = NavigationKey::Down;
-    break;
-  default:
-    break;
-  }
-
-  if (IsLayoutPhysicalZoomLocked() && altDown && key != NavigationKey::Unsupported) return true;
-  const auto navigation =
-      viewer2d::interaction::Viewer2DNavigationPolicy::ApplyKeyboard(
-          {m_offsetX, m_offsetY, m_zoom}, key, altDown);
-  if (!navigation.handled)
-    return false;
-  m_offsetX = navigation.view.offsetX;
-  m_offsetY = navigation.view.offsetY;
-  if (!IsLayoutPhysicalZoomLocked()) m_zoom = navigation.view.zoom;
-  m_placementViewRevision.Invalidate();
-  if (m_placementSession.IsActive() && m_hasLastMousePos)
-    AlignContinuousElementToPointer(m_lastMousePos);
-  InvalidatePickCache();
-  if (m_persistViewState)
-    SaveViewToConfig();
-  RequestRepaint();
-  return true;
 }
