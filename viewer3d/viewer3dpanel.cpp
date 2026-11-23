@@ -941,8 +941,9 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
 
     const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
     m_controller.UpdateFrameStateLightweight();
-    if (m_controller.IsResourceSyncPending() && !pauseHeavyTasks &&
-        !m_runtimeState.IsCameraMoving() && m_controller.ConsumeResourceSyncPending()) {
+    const bool initialPlacementFrame = m_transformPresentation.TakeInitialPlacementFrame();
+    if ((initialPlacementFrame || (!pauseHeavyTasks && !m_runtimeState.IsCameraMoving())) &&
+        m_controller.ConsumeResourceSyncPending()) {
         m_controller.UpdateResourcesIfDirty(true);
     }
     if (!pauseHeavyTasks && !m_runtimeState.IsCameraMoving())
@@ -2876,6 +2877,7 @@ void Viewer3DPanel::FinalizeSelectionDrag() {
 // Configures selection dragging for the current provisional placement element.
 void Viewer3DPanel::ConfigureContinuousPlacementDrag(
     ContinuousPlacementType type, const std::string &elementUuid) {
+    m_transformPresentation.BeginPlacement();
     scene_grouping::ObjectSelection selection;
     selection.fixtures = type == ContinuousPlacementType::Fixture
                              ? std::vector<std::string>{elementUuid}
@@ -2934,6 +2936,7 @@ void Viewer3DPanel::BeginClipboardBatchPlacement(
     std::function<void()> cancelCallback) {
     ResetSelectionDragState();
     m_continuousPlacementSession.BeginBatch();
+    m_transformPresentation.BeginPlacement();
     m_clipboardBatchConfirm = std::move(confirmCallback);
     m_clipboardBatchCancel = std::move(cancelCallback);
     std::array<float, 3> anchorMeters{0.0f, 0.0f, 0.0f};

@@ -55,6 +55,8 @@ for dimensions, apply_name, mark_activity in (
         assert "NotifyChange" not in body
     paint = (ROOT / path).read_text(encoding="utf-8")
     assert "TakePresentedFeedback()" in paint
+    assert "TakeInitialPlacementFrame()" in paint
+    assert paint.count("m_transformPresentation.BeginPlacement()") == 2
     assert paint.count("NotifyChange(ConfigManager::Change::TransformPreview)") == 1
 
 controller = (ROOT / "viewer3d/viewer3dcontroller.cpp").read_text(encoding="utf-8")

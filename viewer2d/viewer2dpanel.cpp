@@ -1133,8 +1133,12 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   const auto framePlan = BuildRenderFramePlan();
   m_interactiveLabelMode = framePlan.interactiveLabelMode;
 
-  // Keep controller resources/cache in sync in the 2D viewer as well.
-  if (framePlan.captureActive || !framePlan.skipResourceSynchronization) {
+  // A new provisional node must enter the render lists even if input arrived
+  // before its first frame. Subsequent movement uses the normal grace period.
+  const bool initialPlacementFrame =
+      swapBuffers && m_transformPresentation.TakeInitialPlacementFrame();
+  if (framePlan.captureActive || initialPlacementFrame ||
+      !framePlan.skipResourceSynchronization) {
     performance::Scope metric(performance::Work::View2DResources, profile);
     SynchronizeRenderResources(framePlan.captureActive);
   }
@@ -1889,6 +1893,7 @@ void Viewer2DPanel::BeginContinuousPlacement(ContinuousPlacementType type,
 
   FinishInteractiveTransformPresentation();
   m_placementSession.BeginNative(type, elementUuid);
+  m_transformPresentation.BeginPlacement();
   m_placementViewRevision.Invalidate();
   const DragTarget target =
       type == ContinuousPlacementType::Fixture   ? DragTarget::Fixtures
@@ -1931,6 +1936,7 @@ void Viewer2DPanel::BeginClipboardBatchPlacement(
     std::function<void()> cancelCallback) {
   FinishInteractiveTransformPresentation();
   m_placementSession.BeginClipboardBatch();
+  m_transformPresentation.BeginPlacement();
   m_clipboardBatchConfirm = std::move(confirmCallback);
   m_clipboardBatchCancel = std::move(cancelCallback);
   viewer2d::interaction::SelectionBuckets interactionSelection{

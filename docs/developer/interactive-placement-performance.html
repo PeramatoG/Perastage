@@ -61,7 +61,7 @@ clipboard placement, rigid clipboard batches, and ordinary selection drags.</p>
 <tr>
 <td>Resource synchronization</td>
 <td>2D continuous placement bypassed the movement grace period. 3D primarily deferred heavy work during camera movement.</td>
-<td>Applying a transform refreshes the 2D grace period and independently records 3D transform activity. Pending resource work can resume after input settles. Finishing the gesture invalidates the moved bounds and sort order.</td>
+<td>Applying a transform refreshes the 2D grace period and independently records 3D transform activity. Each newly created provisional element or batch can enter the render lists on its first frame, even if movement has already started. Pending resource work can resume after input settles. Finishing the gesture invalidates the moved bounds and sort order.</td>
 </tr>
 <tr>
 <td>Notifications</td>

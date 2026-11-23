@@ -11,6 +11,10 @@ PointerPosition ResolveLatestPointer(
   return liveInsideClient.value_or(queued);
 }
 
+bool PreviewPresentation::TakeInitialPlacementFrame() {
+  return std::exchange(m_initialPlacementFrame, false);
+}
+
 bool PreviewPresentation::RequestPaint() {
   return !std::exchange(m_paintQueued, true);
 }
@@ -20,6 +24,7 @@ bool PreviewPresentation::TakePresentedFeedback() {
 }
 
 void PreviewPresentation::Reset() {
+  m_initialPlacementFrame = false;
   m_paintQueued = false;
   m_feedbackPending = false;
 }

@@ -12,6 +12,11 @@ int main() {
   assert(queued.x == 105 && queued.y == 100);
 
   interactive_frame::PreviewPresentation preview;
+  assert(!preview.TakeInitialPlacementFrame());
+  preview.BeginPlacement();
+  preview.MarkTransformApplied();
+  assert(preview.TakeInitialPlacementFrame());
+  assert(!preview.TakeInitialPlacementFrame());
   assert(preview.RequestPaint());
   preview.MarkTransformApplied();
   assert(!preview.RequestPaint());
@@ -21,7 +26,9 @@ int main() {
   assert(!preview.TakePresentedFeedback());
   assert(preview.RequestPaint());
   preview.MarkTransformApplied();
+  preview.BeginPlacement();
   preview.Reset();
+  assert(!preview.TakeInitialPlacementFrame());
   assert(!preview.TakePresentedFeedback());
   assert(preview.RequestPaint());
   return 0;
