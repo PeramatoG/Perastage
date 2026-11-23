@@ -167,6 +167,8 @@ Clearly identify experimental functionality; do not repeat 1.7.0 features.
 
 ## Performance and Usability
 
+- Panning in the 2D Top, Front and Side views now follows the mouse in every direction.
+
 - Fixture symbol preparation now waits for worker completion without continuously waking the GUI idle loop, and repeated rendering requests share one preparation job.
 
 - Project saving now reports more actionable errors when MVR data or resources cannot be preserved. The saving overlay closes before displaying the error, so the application does not remain blocked behind the dialog.
