@@ -16,6 +16,7 @@ void Viewer3DPanel::ApplyCameraIntent(
     const viewer3d::interaction::CameraDragIntent &intent,
     const wxPoint &mousePos) {
   m_navigationSession.MarkMoved();
+  m_controller.SetInteracting(true);
   m_runtimeState.BeginInteraction(std::chrono::steady_clock::now());
   if (intent.action == viewer3d::interaction::CameraDragIntent::Action::Orbit)
     m_camera.Orbit(intent.horizontal, intent.vertical);

@@ -602,9 +602,6 @@ wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(
       selection_movement_settings::IsAxisConstrainedMovementEnabled(
           ConfigManager::Get());
   m_glContext = new wxGLContext(this);
-  if (m_enableSelection) {
-    StartDragTableUpdateWorker();
-  }
 }
 
 // Releases timers, interaction state, and GL resources owned by the 2D panel.
@@ -623,7 +620,6 @@ Viewer2DPanel::~Viewer2DPanel() {
   m_pendingMagnetSnap.reset();
   m_interactionResumeTimer.Stop();
   m_hoverHitTestTimer.Stop();
-  StopDragTableUpdateWorker();
   delete m_glContext;
 }
 
@@ -633,6 +629,7 @@ void Viewer2DPanel::SetInstance(Viewer2DPanel *panel) { g_instance = panel; }
 
 // Updates cached 2D scene data, selection state, and repaint scheduling.
 void Viewer2DPanel::UpdateScene(bool reload) {
+  m_fixtureMagnetTargets.Clear();
   ConfigManager::Get().NotifyChange(ConfigManager::Change::Scene);
   m_logFirstPickAfterSceneUpdate = true;
   m_lastUpdateSceneReloadRequested = reload;
@@ -649,6 +646,8 @@ void Viewer2DPanel::UpdateScene(bool reload) {
 
 // Releases controller references to scene entries before a project is replaced.
 void Viewer2DPanel::PrepareForSceneReplacement() {
+  m_transformPresentation.EndPlacement();
+  FinishInteractiveTransformPresentation();
   m_controller.PrepareForSceneReplacement();
 }
 
@@ -1070,7 +1069,8 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   const bool profile = swapBuffers && m_persistViewState &&
                        performance::Viewer2DEnabled();
   performance::Viewer2DFrameScope frameMetrics(profile);
-  const auto frameStart = profile ? Clock::now() : Clock::time_point{};
+  const bool placementProfile = m_enableSelection && performance::PlacementEnabled();
+  const auto frameStart = profile || placementProfile ? Clock::now() : Clock::time_point{};
   if (!m_glInitialized) {
     return;
   }
@@ -1134,8 +1134,12 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   const auto framePlan = BuildRenderFramePlan();
   m_interactiveLabelMode = framePlan.interactiveLabelMode;
 
-  // Keep controller resources/cache in sync in the 2D viewer as well.
-  if (framePlan.captureActive || !framePlan.skipResourceSynchronization) {
+  // A new provisional node must enter the render lists even if input arrived
+  // before its first frame. Subsequent movement uses the normal grace period.
+  const bool initialPlacementFrame =
+      swapBuffers && m_transformPresentation.TakeInitialPlacementFrame();
+  if (framePlan.captureActive || initialPlacementFrame ||
+      !framePlan.skipResourceSynchronization) {
     performance::Scope metric(performance::Work::View2DResources, profile);
     SynchronizeRenderResources(framePlan.captureActive);
   }
@@ -1188,7 +1192,12 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     performance::Scope metric(performance::Work::View2DScene, profile);
     m_controller.RenderScene(true, m_renderMode, m_view, framePlan.showGrid,
                              gridStyle, gridR, gridG, gridB, drawAbove, true,
-                             m_preferPerastageSvgSymbolsForLayouts);
+                             m_preferPerastageSvgSymbolsForLayouts,
+                             !framePlan.captureActive && std::any_of(
+                                 m_activeTransformTargets.begin(),
+                                 m_activeTransformTargets.end(), [](const auto &target) {
+                                   return target.type != MvrNodeType::Fixture;
+                                 }));
   }
 
   performance::Scope overlays(performance::Work::View2DOverlays, profile);
@@ -1269,7 +1278,8 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
       std::vector<viewer_common::FixtureAttachmentScreenPath> screenPaths;
       for (const auto &path : magnet_snap::BuildFixtureAttachmentPathReferences(
                ConfigManager::Get().GetScene(),
-               &m_trussAttachmentPathResolver)) {
+               &m_trussAttachmentPathResolver, &m_fixtureMagnetTargets,
+               ConfigManager::Get().GetRenderRevision())) {
         viewer_common::FixtureAttachmentScreenPath screenPath;
         for (const auto &point : path.worldPointsMm) {
           const auto position = Viewer2DMeasureWorldToScreen(
@@ -1360,8 +1370,10 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   // regular scene objects instead of remaining a constant screen size.
   if (framePlan.drawFixtureLabels) {
     performance::Scope metric(performance::Work::View2DLabelTotal, profile);
+    const auto *provisionalFixtures = swapBuffers && !framePlan.captureActive
+        ? &m_transformPresentation.ProvisionalFixtures() : nullptr;
     m_controller.DrawAllFixtureLabels(w, h, m_view, m_zoom,
-                                      m_interactiveLabelMode);
+                                      m_interactiveLabelMode, provisionalFixtures);
   }
 
   if (swapBuffers && m_enableSelection && m_interaction.rectangleActive)
@@ -1402,9 +1414,18 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     ValidateGlStateAfterRender("Viewer2DPanel::RenderInternal", w, h);
   }
   if (swapBuffers) {
-    const auto submitted = profile ? Clock::now() : Clock::time_point{};
-    if (SwapBuffers() && profile)
-      m_performance.Presented(frameStart, submitted);
+    const auto submitted = profile || placementProfile ? Clock::now() : Clock::time_point{};
+    if (SwapBuffers()) {
+      if (profile)
+        m_performance.Presented(frameStart, submitted);
+      if (m_transformPresentation.TakePresentedFeedback()) {
+        m_placementPerformance.Presented("Viewer2D", frameStart, submitted);
+        NotifyHighlightedWorldPosition(ComputeSelectionDragCenterMeters());
+        performance::Scope metric(performance::Work::PlacementPreviewListeners,
+                                  placementProfile);
+        ConfigManager::Get().NotifyChange(ConfigManager::Change::TransformPreview);
+      }
+    }
   }
 }
 
@@ -1668,16 +1689,22 @@ Viewer2DPanel::BuildActiveMagnetSource() const {
   if (!m_interaction.selection.trusses.empty() &&
       m_interaction.selection.supports.empty() &&
       m_interaction.selection.sceneObjects.empty()) {
-    scene_grouping::ObjectSelection selection;
-    selection.fixtures = m_interaction.selection.fixtures;
-    selection.trusses = m_interaction.selection.trusses;
-    const auto targets = scene_grouping::BuildInteractiveTransformTargets(
-        ConfigManager::Get().GetScene(), selection,
-        selection_movement_settings::LoadInteractiveTransformPolicy(
-            ConfigManager::Get()));
-    if (targets.size() == 1 && targets.front().type == MvrNodeType::GroupObject)
+    const auto &cfg = ConfigManager::Get();
+    std::vector<scene_grouping::SceneTransformTarget> resolved;
+    const auto *targets = &m_activeTransformTargets;
+    if (m_activeTransformRevision != cfg.GetRenderRevision() ||
+        m_placementSession.IsBatchPlacement()) {
+      const scene_grouping::ObjectSelection selection{
+          .fixtures = m_interaction.selection.fixtures,
+          .trusses = m_interaction.selection.trusses};
+      resolved = scene_grouping::BuildInteractiveTransformTargets(
+          cfg.GetScene(), selection,
+          selection_movement_settings::LoadInteractiveTransformPolicy(cfg));
+      targets = &resolved;
+    }
+    if (targets->size() == 1 && targets->front().type == MvrNodeType::GroupObject)
       return magnet_snap::SnapSource{magnet_snap::ObjectType::TrussGroup,
-                                     targets.front().uuid};
+                                     targets->front().uuid};
     if (m_interaction.selection.trusses.size() == 1 &&
         m_interaction.selection.fixtures.empty())
       return magnet_snap::SnapSource{magnet_snap::ObjectType::Truss,
@@ -1704,6 +1731,8 @@ magnet_snap::SnapSettings Viewer2DPanel::BuildActiveMagnetSettings() const {
   magnet_snap::SnapSettings settings;
   settings.candidateResolver = &m_trussCandidateResolver;
   settings.pathResolver = &m_trussAttachmentPathResolver;
+  settings.fixtureTargetCache = &m_fixtureMagnetTargets;
+  settings.renderRevision = ConfigManager::Get().GetRenderRevision();
   switch (m_view) {
   case Viewer2DView::Top:
   case Viewer2DView::Bottom:
@@ -1756,7 +1785,8 @@ void Viewer2DPanel::CommitActiveMagnetSnap() {
 }
 
 bool Viewer2DPanel::ApplySelectionDelta(
-    const std::array<float, 3> &deltaMeters) {
+    const std::array<float, 3> &deltaMeters, bool realign) {
+  performance::Scope transformMetric(performance::Work::PlacementTransform, performance::PlacementEnabled());
   if (m_interaction.activeUuids.empty())
     return false;
 
@@ -1765,39 +1795,39 @@ bool Viewer2DPanel::ApplySelectionDelta(
   float dzMm = deltaMeters[2] * 1000.0f;
   ConfigManager &cfg = ConfigManager::Get();
   const bool hasTranslation = dxMm != 0.0f || dyMm != 0.0f || dzMm != 0.0f;
+  if (!hasTranslation && !realign)
+    return false;
   if (hasTranslation && !m_interaction.selectionUndoPushed) {
     cfg.PushUndoState("move selection");
     m_interaction.MarkUndoPushed();
-  }
-  std::lock_guard<std::mutex> sceneLock(m_dragTableUpdateSceneMutex);
-  scene_grouping::ObjectSelection selection;
-  selection.fixtures = m_interaction.selection.fixtures;
-  selection.trusses = m_interaction.selection.trusses;
-  selection.supports = m_interaction.selection.supports;
-  selection.sceneObjects = m_interaction.selection.sceneObjects;
-  const auto previousSnap = RestorePendingMagnetSnapPreview();
-  std::array<float, 3> deltaMm{dxMm, dyMm, dzMm};
-  if (m_transformSpace == transform_space::TransformSpace::Local &&
-      m_axisConstrainedMovementEnabled &&
-      m_interaction.axis != DragAxis::None) {
-    const auto targets = scene_grouping::BuildInteractiveTransformTargets(
-        cfg.GetScene(), selection,
-        selection_movement_settings::LoadInteractiveTransformPolicy(cfg));
-    if (!targets.empty()) {
-      const Matrix referenceTransform = scene_grouping::GetTargetWorldTransform(
-          cfg.GetScene(), targets.front());
-      deltaMm = transform_space::TransformDirection(
-          transform_space::ExtractOrientation(referenceTransform), deltaMm);
-    }
   }
   auto policy =
       selection_movement_settings::LoadInteractiveTransformPolicy(cfg);
   if (m_placementSession.IsBatchPlacement())
     policy =
         scene_grouping::InteractiveTransformPolicy{false, false, false, false};
-  if (m_activeTransformTargets.empty())
+  const auto revision = cfg.GetRenderRevision();
+  const auto previousSnap = RestorePendingMagnetSnapPreview();
+  if (m_activeTransformTargets.empty() || m_activeTransformRevision != revision) {
+    const scene_grouping::ObjectSelection selection{
+        .fixtures = m_interaction.selection.fixtures,
+        .trusses = m_interaction.selection.trusses,
+        .supports = m_interaction.selection.supports,
+        .sceneObjects = m_interaction.selection.sceneObjects};
     m_activeTransformTargets = scene_grouping::BuildInteractiveTransformTargets(
         cfg.GetScene(), selection, policy);
+    m_activeTransformRevision = revision;
+  }
+  std::array<float, 3> deltaMm{dxMm, dyMm, dzMm};
+  if (m_transformSpace == transform_space::TransformSpace::Local &&
+      m_axisConstrainedMovementEnabled &&
+      m_interaction.axis != DragAxis::None &&
+      !m_activeTransformTargets.empty()) {
+    const Matrix referenceTransform = scene_grouping::GetTargetWorldTransform(
+        cfg.GetScene(), m_activeTransformTargets.front());
+    deltaMm = transform_space::TransformDirection(
+        transform_space::ExtractOrientation(referenceTransform), deltaMm);
+  }
   if (hasTranslation) {
     scene_grouping::TranslateTargets(cfg.GetScene(), m_activeTransformTargets,
                                      deltaMm);
@@ -1806,19 +1836,23 @@ bool Viewer2DPanel::ApplySelectionDelta(
     if (auto snap = FindActiveMagnetSnap()) {
       magnet_snap::ApplySnapTransform(cfg.GetScene(), *snap, policy);
       m_pendingMagnetSnap = snap;
-    } else if (previousSnap) {
-      magnet_snap::DetachSnapSourceFromGroup(cfg.GetScene(), *previousSnap);
+    } else if (previousSnap &&
+               magnet_snap::DetachSnapSourceFromGroup(cfg.GetScene(), *previousSnap)) {
+      m_activeTransformRevision.reset();
     }
   }
-  NotifyHighlightedWorldPosition(ComputeSelectionDragCenterMeters());
-  ScheduleDragTableUpdate();
-  return hasTranslation || previousSnap.has_value() ||
-         m_pendingMagnetSnap.has_value();
+  const bool changed =
+      hasTranslation || previousSnap.has_value() || m_pendingMagnetSnap.has_value();
+  if (!changed)
+    return false;
+  MarkInteractionActivity();
+  m_transformPresentation.MarkTransformApplied();
+  m_placementPerformance.Applied();
+  return true;
 }
 
 void Viewer2DPanel::FinalizeSelectionDrag() {
   FinishInteractiveTransformPresentation();
-  StopDragTableUpdates();
   ConfigManager &cfg = ConfigManager::Get();
   if (!m_interaction.selection.fixtures.empty() &&
       FixtureTablePanel::Instance()) {
@@ -1844,8 +1878,7 @@ void Viewer2DPanel::FinalizeSelectionDrag() {
     SceneObjectTablePanel::Instance()->SelectByUuid(selection, false);
   }
 
-  if (!ShouldPauseHeavyTasks())
-    UpdateScene(true);
+  UpdateScene(false);
 
   if (Viewer3DPanel::Instance()) {
     Viewer3DPanel::Instance()->UpdateScene();
@@ -1861,6 +1894,7 @@ void Viewer2DPanel::BeginContinuousPlacement(ContinuousPlacementType type,
   if (!continuous_placement::Contains(cfg.GetScene(), type, elementUuid))
     return;
 
+  FinishInteractiveTransformPresentation();
   m_placementSession.BeginNative(type, elementUuid);
   m_placementViewRevision.Invalidate();
   const DragTarget target =
@@ -1877,6 +1911,7 @@ void Viewer2DPanel::BeginContinuousPlacement(ContinuousPlacementType type,
     selection.supports = {elementUuid};
   else
     selection.sceneObjects = {elementUuid};
+  m_transformPresentation.BeginPlacement(selection.fixtures);
   m_interaction.BeginSelectionDrag(target, {elementUuid}, std::move(selection));
   m_interaction.MarkUndoPushed();
   m_pendingMagnetSnap.reset();
@@ -1902,7 +1937,9 @@ void Viewer2DPanel::BeginClipboardBatchPlacement(
     const scene_grouping::ObjectSelection &selection,
     std::function<void()> confirmCallback,
     std::function<void()> cancelCallback) {
+  FinishInteractiveTransformPresentation();
   m_placementSession.BeginClipboardBatch();
+  m_transformPresentation.BeginPlacement(selection.fixtures);
   m_clipboardBatchConfirm = std::move(confirmCallback);
   m_clipboardBatchCancel = std::move(cancelCallback);
   viewer2d::interaction::SelectionBuckets interactionSelection{
@@ -2092,6 +2129,7 @@ bool Viewer2DPanel::UndoContinuousPlacement() {
 
 // Clears placement-only interaction state without changing the scene.
 void Viewer2DPanel::EndContinuousPlacementState() {
+  m_transformPresentation.EndPlacement();
   FinishInteractiveTransformPresentation();
   m_placementSession.Reset();
   m_clipboardSingleConfirm = {};
@@ -2342,182 +2380,6 @@ void Viewer2DPanel::DrawSelectionRectangle(int width, int height,
     glDisable(GL_LINE_STIPPLE);
   if (depthEnabled)
     glEnable(GL_DEPTH_TEST);
-}
-
-void Viewer2DPanel::ScheduleDragTableUpdate() {
-  ConfigManager::Get().NotifyChange(ConfigManager::Change::Scene);
-  if (m_interaction.activeUuids.empty())
-    return;
-  if (ShouldPauseHeavyTasks())
-    return;
-  QueueDragTableUpdate(m_interaction.target, m_interaction.activeUuids);
-}
-
-void Viewer2DPanel::StopDragTableUpdates() {
-  {
-    std::lock_guard<std::mutex> lock(m_dragTableUpdateMutex);
-    m_dragTableUpdateQueued = false;
-    m_dragTableUpdateWorkerTarget = DragTarget::None;
-    m_dragTableUpdateUuids.clear();
-  }
-}
-
-void Viewer2DPanel::StartDragTableUpdateWorker() {
-  m_dragTableUpdateWorker = std::thread([this]() {
-    auto lastUpdate = std::chrono::steady_clock::time_point::min();
-    const auto interval = std::chrono::milliseconds(kDragTableUpdateIntervalMs);
-    while (true) {
-      DragTarget target = DragTarget::None;
-      std::vector<std::string> uuids;
-      {
-        std::unique_lock<std::mutex> lock(m_dragTableUpdateMutex);
-        m_dragTableUpdateCv.wait(lock, [this]() {
-          return m_dragTableWorkerStop || m_dragTableUpdateQueued;
-        });
-        if (m_dragTableWorkerStop)
-          break;
-
-        auto now = std::chrono::steady_clock::now();
-        if (lastUpdate != std::chrono::steady_clock::time_point::min()) {
-          auto elapsed = now - lastUpdate;
-          if (elapsed < interval) {
-            m_dragTableUpdateCv.wait_for(lock, interval - elapsed, [this]() {
-              return m_dragTableWorkerStop;
-            });
-            if (m_dragTableWorkerStop)
-              break;
-          }
-        }
-        if (m_dragTableWorkerStop)
-          break;
-        target = m_dragTableUpdateWorkerTarget;
-        uuids = std::move(m_dragTableUpdateUuids);
-        m_dragTableUpdateQueued = false;
-      }
-      lastUpdate = std::chrono::steady_clock::now();
-
-      if (uuids.empty())
-        continue;
-
-      auto snapshots = BuildDragTablePositionSnapshots(target, uuids);
-      if (snapshots.empty())
-        continue;
-
-      std::vector<PositionValueUpdate> updates;
-      updates.reserve(snapshots.size());
-      for (const auto &snapshot : snapshots) {
-        updates.push_back(PositionValueUpdate{
-            snapshot.uuid, FormatMeters(snapshot.xMm),
-            FormatMeters(snapshot.yMm), FormatMeters(snapshot.zMm)});
-      }
-
-      if (!wxTheApp)
-        continue;
-
-      wxTheApp->CallAfter([target, updates = std::move(updates)]() mutable {
-        switch (target) {
-        case DragTarget::Fixtures:
-          if (FixtureTablePanel::Instance())
-            FixtureTablePanel::Instance()->ApplyPositionValueUpdates(updates);
-          break;
-        case DragTarget::Trusses:
-          if (TrussTablePanel::Instance())
-            TrussTablePanel::Instance()->ApplyPositionValueUpdates(updates);
-          break;
-        case DragTarget::Supports:
-          if (HoistTablePanel::Instance())
-            HoistTablePanel::Instance()->ApplyPositionValueUpdates(updates);
-          break;
-        case DragTarget::SceneObjects:
-          if (SceneObjectTablePanel::Instance())
-            SceneObjectTablePanel::Instance()->ApplyPositionValueUpdates(
-                updates);
-          break;
-        default:
-          break;
-        }
-      });
-    }
-  });
-}
-
-void Viewer2DPanel::StopDragTableUpdateWorker() {
-  {
-    std::lock_guard<std::mutex> lock(m_dragTableUpdateMutex);
-    m_dragTableWorkerStop = true;
-    m_dragTableUpdateQueued = true;
-  }
-  m_dragTableUpdateCv.notify_one();
-  if (m_dragTableUpdateWorker.joinable())
-    m_dragTableUpdateWorker.join();
-}
-
-std::vector<Viewer2DPanel::DragTablePositionSnapshot>
-Viewer2DPanel::BuildDragTablePositionSnapshots(
-    DragTarget target, const std::vector<std::string> &uuids) {
-  std::vector<DragTablePositionSnapshot> snapshots;
-  snapshots.reserve(uuids.size());
-
-  std::lock_guard<std::mutex> sceneLock(m_dragTableUpdateSceneMutex);
-  ConfigManager &cfg = ConfigManager::Get();
-  auto &scene = cfg.GetScene();
-
-  switch (target) {
-  case DragTarget::Fixtures:
-    for (const auto &uuid : uuids) {
-      auto it = scene.fixtures.find(uuid);
-      if (it == scene.fixtures.end())
-        continue;
-      auto posArr = it->second.GetPosition();
-      snapshots.push_back({uuid, posArr[0], posArr[1], posArr[2]});
-    }
-    break;
-  case DragTarget::Trusses:
-    for (const auto &uuid : uuids) {
-      auto it = scene.trusses.find(uuid);
-      if (it == scene.trusses.end())
-        continue;
-      auto posArr = it->second.transform.o;
-      snapshots.push_back({uuid, posArr[0], posArr[1], posArr[2]});
-    }
-    break;
-  case DragTarget::SceneObjects:
-    for (const auto &uuid : uuids) {
-      auto it = scene.sceneObjects.find(uuid);
-      if (it == scene.sceneObjects.end())
-        continue;
-      auto posArr = it->second.transform.o;
-      snapshots.push_back({uuid, posArr[0], posArr[1], posArr[2]});
-    }
-    break;
-  case DragTarget::Supports:
-    for (const auto &uuid : uuids) {
-      auto it = scene.supports.find(uuid);
-      if (it == scene.supports.end())
-        continue;
-      auto posArr = it->second.transform.o;
-      snapshots.push_back({uuid, posArr[0], posArr[1], posArr[2]});
-    }
-    break;
-  default:
-    break;
-  }
-
-  return snapshots;
-}
-
-void Viewer2DPanel::QueueDragTableUpdate(DragTarget target,
-                                         std::vector<std::string> uuids) {
-  if (uuids.empty())
-    return;
-
-  {
-    std::lock_guard<std::mutex> lock(m_dragTableUpdateMutex);
-    m_dragTableUpdateWorkerTarget = target;
-    m_dragTableUpdateUuids = std::move(uuids);
-    m_dragTableUpdateQueued = true;
-  }
-  m_dragTableUpdateCv.notify_one();
 }
 
 // Reports whether recent interaction should still pause expensive work.
@@ -3121,6 +2983,7 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
     return;
   }
   if (m_placementSession.IsActive() && event.LeftDown()) {
+    UpdateContinuousPlacementPointer(event.GetPosition());
     m_lastMousePos = event.GetPosition();
     if (!m_interaction.BeginPlacementNavigation(
             {m_lastMousePos.x, m_lastMousePos.y}))
@@ -3263,6 +3126,7 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     if (navigated) {
       AlignContinuousElementToPointer(event.GetPosition());
     } else {
+      UpdateContinuousPlacementPointer(event.GetPosition());
       ConfirmContinuousPlacement();
     }
     RequestRepaint();
@@ -3286,6 +3150,8 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
   }
   if (event.LeftUp() && m_interaction.mode != DragMode::None) {
     m_mouseCapture.Release("primary");
+    if (m_interaction.mode == DragMode::Selection)
+      UpdateSelectionDragPointer(event.GetPosition());
     if (m_interaction.mode == DragMode::Selection &&
         m_interaction.selectionMoved) {
       CommitActiveMagnetSnap();
@@ -3489,7 +3355,7 @@ bool Viewer2DPanel::AlignContinuousElementToPointer(const wxPoint &screenPos) {
   }
 
   const bool changed = ApplySelectionDelta(
-      continuous_placement::AbsoluteAlignmentDelta(*pointerWorld, *rawWorld));
+      continuous_placement::AbsoluteAlignmentDelta(*pointerWorld, *rawWorld), true);
   m_placementViewRevision.CompleteAlignmentAttempt(true);
   m_interaction.axis = DragAxis::None;
   m_interaction.selectionMoved = true;
@@ -3497,8 +3363,84 @@ bool Viewer2DPanel::AlignContinuousElementToPointer(const wxPoint &screenPos) {
   return changed;
 }
 
+
+void Viewer2DPanel::UpdateContinuousPlacementPointer(const wxPoint &pos) {
+  bool changed = false;
+  if (m_placementViewRevision.NeedsAlignment()) {
+    changed = AlignContinuousElementToPointer(pos);
+  } else {
+    if (pos == m_lastMousePos)
+      return;
+    const auto framebufferDelta =
+        pixel_coordinates::IncrementalFramebufferDelta(
+            {static_cast<double>(pos.x), static_cast<double>(pos.y)},
+            {static_cast<double>(m_lastMousePos.x),
+             static_cast<double>(m_lastMousePos.y)},
+            static_cast<double>(GetContentScaleFactor()));
+    if (!framebufferDelta) {
+      m_lastMousePos = pos;
+      m_placementViewRevision.Invalidate();
+      RequestRepaint();
+      return;
+    }
+    int dx = (*framebufferDelta)[0];
+    int dy = (*framebufferDelta)[1];
+    if (m_axisConstrainedMovementEnabled &&
+        !m_placementSession.IsBatchPlacement()) {
+      if (m_interaction.axis == DragAxis::None &&
+          (std::abs(dx) >= kSelectionDragStartThresholdPx ||
+           std::abs(dy) >= kSelectionDragStartThresholdPx)) {
+        m_interaction.axis = std::abs(dx) >= std::abs(dy)
+                                 ? DragAxis::Horizontal
+                                 : DragAxis::Vertical;
+      }
+      if (m_interaction.axis == DragAxis::Horizontal)
+        dy = 0;
+      else if (m_interaction.axis == DragAxis::Vertical)
+        dx = 0;
+    } else {
+      m_interaction.axis = DragAxis::None;
+    }
+    const float pixelsPerMeter = PIXELS_PER_METER * m_zoom;
+    if ((dx != 0 || dy != 0) && pixelsPerMeter > 0.0f) {
+      changed = ApplySelectionDelta(
+          MapDragDelta(static_cast<float>(dx) / pixelsPerMeter,
+                       static_cast<float>(-dy) / pixelsPerMeter));
+    }
+  }
+  m_interaction.selectionMoved = true;
+  m_lastMousePos = pos;
+  if (changed)
+    PresentInteractiveTransformFrame();
+}
+
+// Applies the last pointer sample through the same path for motion and release.
+void Viewer2DPanel::UpdateSelectionDragPointer(const wxPoint &pos) {
+  const auto motion = m_interaction.ResolveSelectionMotion(
+      {pos.x, pos.y}, (wxGetLocalTimeMillis() - m_dragPressTime).ToLong(),
+      m_axisConstrainedMovementEnabled);
+  if (!motion.active)
+    return;
+
+  const float ppm = PIXELS_PER_METER * m_zoom;
+  if (ppm > 0.0f) {
+    const float dxMeters = static_cast<float>(motion.deltaX) / ppm;
+    const float dyMeters = static_cast<float>(-motion.deltaY) / ppm;
+    const bool changed =
+        ApplySelectionDelta(MapDragDelta(dxMeters, dyMeters));
+    m_interaction.MarkSelectionMoved();
+    if (changed)
+      PresentInteractiveTransformFrame();
+  }
+
+  m_lastMousePos = pos;
+}
+
+
 // Handles pointer-following placement, selection movement, and view panning.
 void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
+  performance::Scope pointerMetric(performance::Work::PlacementPointer,
+      performance::PlacementEnabled() && (m_placementSession.IsActive() || m_interaction.mode == DragMode::Selection));
   m_contextClick.Move(event.GetX(), event.GetY());
   m_hasLastMousePos = true;
   if (m_linePointSelectionSession.IsActive()) {
@@ -3519,51 +3461,7 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     wxPoint pos = ScreenToClient(wxGetMousePosition());
     if (!GetClientRect().Contains(pos))
       pos = event.GetPosition();
-    bool changed = false;
-    if (m_placementViewRevision.NeedsAlignment()) {
-      changed = AlignContinuousElementToPointer(pos);
-    } else {
-      const auto framebufferDelta =
-          pixel_coordinates::IncrementalFramebufferDelta(
-              {static_cast<double>(pos.x), static_cast<double>(pos.y)},
-              {static_cast<double>(m_lastMousePos.x),
-               static_cast<double>(m_lastMousePos.y)},
-              static_cast<double>(GetContentScaleFactor()));
-      if (!framebufferDelta) {
-        m_lastMousePos = pos;
-        m_placementViewRevision.Invalidate();
-        RequestRepaint();
-        return;
-      }
-      int dx = (*framebufferDelta)[0];
-      int dy = (*framebufferDelta)[1];
-      if (m_axisConstrainedMovementEnabled &&
-          !m_placementSession.IsBatchPlacement()) {
-        if (m_interaction.axis == DragAxis::None &&
-            (std::abs(dx) >= kSelectionDragStartThresholdPx ||
-             std::abs(dy) >= kSelectionDragStartThresholdPx)) {
-          m_interaction.axis = std::abs(dx) >= std::abs(dy)
-                                   ? DragAxis::Horizontal
-                                   : DragAxis::Vertical;
-        }
-        if (m_interaction.axis == DragAxis::Horizontal)
-          dy = 0;
-        else if (m_interaction.axis == DragAxis::Vertical)
-          dx = 0;
-      } else {
-        m_interaction.axis = DragAxis::None;
-      }
-      const float pixelsPerMeter = PIXELS_PER_METER * m_zoom;
-      if ((dx != 0 || dy != 0) && pixelsPerMeter > 0.0f) {
-        changed = ApplySelectionDelta(
-            MapDragDelta(static_cast<float>(dx) / pixelsPerMeter,
-                         static_cast<float>(-dy) / pixelsPerMeter));
-      }
-    }
-    m_interaction.selectionMoved = true;
-    m_lastMousePos = pos;
-    if (changed)
-      PresentInteractiveTransformFrame();
+    UpdateContinuousPlacementPointer(pos);
     return;
   }
   wxPoint pos = event.GetPosition();
@@ -3599,26 +3497,7 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
                             ? std::optional<interactive_frame::PointerPosition>(
                                   {livePos.x, livePos.y})
                             : std::nullopt);
-    pos = wxPoint(latest.x, latest.y);
-    const auto motion = m_interaction.ResolveSelectionMotion(
-        {pos.x, pos.y}, (wxGetLocalTimeMillis() - m_dragPressTime).ToLong(),
-        m_axisConstrainedMovementEnabled);
-    if (!motion.active)
-      return;
-
-    const float ppm = PIXELS_PER_METER * m_zoom;
-    if (ppm > 0.0f) {
-      const float dxMeters = static_cast<float>(motion.deltaX) / ppm;
-      const float dyMeters = static_cast<float>(-motion.deltaY) / ppm;
-      const bool changed =
-          ApplySelectionDelta(MapDragDelta(dxMeters, dyMeters));
-      MarkInteractionActivity();
-      m_interaction.MarkSelectionMoved();
-      if (changed)
-        PresentInteractiveTransformFrame();
-    }
-
-    m_lastMousePos = pos;
+    UpdateSelectionDragPointer(wxPoint(latest.x, latest.y));
     return;
   }
 

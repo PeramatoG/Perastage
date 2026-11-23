@@ -9,6 +9,7 @@
 #include <array>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace magnet_snap {
@@ -26,11 +27,33 @@ struct SnapSource {
   std::string uuid;
 };
 
+// Holds world-space fixture attachment paths for one interaction.
+class FixtureTargetCache {
+public:
+  const std::vector<truss_attachment_paths::Path> &
+  Resolve(const MvrScene &scene, const std::string &uuid, const Truss &truss,
+          truss_attachment_paths::Resolver &resolver, std::size_t renderRevision);
+  void Clear();
+
+private:
+  struct Entry {
+    Matrix transform;
+    std::vector<truss_attachment_paths::Path> paths;
+  };
+
+  const MvrScene *m_scene = nullptr;
+  const truss_attachment_paths::Resolver *m_resolver = nullptr;
+  std::size_t m_renderRevision = 0;
+  std::unordered_map<std::string, Entry> m_entries;
+};
+
 struct SnapSettings {
   float thresholdMm = kDefaultSnapDistanceMm;
   std::array<float, 3> axisWeights{1.0f, 1.0f, 1.0f};
   truss_attachment::CandidateResolver *candidateResolver = nullptr;
   truss_attachment_paths::Resolver *pathResolver = nullptr;
+  FixtureTargetCache *fixtureTargetCache = nullptr;
+  std::size_t renderRevision = 0;
   std::optional<truss_screen_snap::ProjectionSnapshot> trussProjection;
   double trussScreenApertureLogicalPx =
       truss_screen_snap::kDefaultTrussScreenSnapApertureLogicalPx;
@@ -84,7 +107,8 @@ BuildAnchorReferences(const MvrScene &scene, const SnapSource &source,
 // Resolves the same continuous fixture paths used by fixture snapping.
 std::vector<AttachmentPathReference> BuildFixtureAttachmentPathReferences(
     const MvrScene &scene,
-    truss_attachment_paths::Resolver *pathResolver = nullptr);
+    truss_attachment_paths::Resolver *pathResolver = nullptr,
+    FixtureTargetCache *cache = nullptr, std::size_t renderRevision = 0);
 
 // Converts resolved attachment paths into viewer guidance references.
 std::vector<AttachmentPathReference> BuildFixtureAttachmentPathReferences(

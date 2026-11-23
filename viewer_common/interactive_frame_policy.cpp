@@ -1,5 +1,7 @@
 #include "interactive_frame_policy.h"
 
+#include <utility>
+
 namespace interactive_frame {
 
 // Selects the current live pointer when it is valid for the client area.
@@ -9,18 +11,34 @@ PointerPosition ResolveLatestPointer(
   return liveInsideClient.value_or(queued);
 }
 
-// Creates a bounded synchronous-presentation cadence.
-Cadence::Cadence(std::chrono::milliseconds interval) : m_interval(interval) {}
-
-// Consumes one presentation slot when the frame interval has elapsed.
-bool Cadence::IsPresentationDue(Clock::time_point now) {
-  if (m_lastPresentation && now - *m_lastPresentation < m_interval)
-    return false;
-  m_lastPresentation = now;
-  return true;
+void PreviewPresentation::BeginPlacement(
+    const std::vector<std::string> &fixtureUuids) {
+  m_initialPlacementFrame = true;
+  m_provisionalFixtures.clear();
+  m_provisionalFixtures.insert(fixtureUuids.begin(), fixtureUuids.end());
 }
 
-// Makes the next changed transform immediately presentation-eligible.
-void Cadence::Reset() { m_lastPresentation.reset(); }
+void PreviewPresentation::EndPlacement() {
+  m_initialPlacementFrame = false;
+  m_provisionalFixtures.clear();
+}
+
+bool PreviewPresentation::TakeInitialPlacementFrame() {
+  return std::exchange(m_initialPlacementFrame, false);
+}
+
+bool PreviewPresentation::RequestPaint() {
+  return !std::exchange(m_paintQueued, true);
+}
+
+bool PreviewPresentation::TakePresentedFeedback() {
+  return std::exchange(m_feedbackPending, false);
+}
+
+void PreviewPresentation::ResetTransform() {
+  m_initialPlacementFrame = false;
+  m_paintQueued = false;
+  m_feedbackPending = false;
+}
 
 } // namespace interactive_frame

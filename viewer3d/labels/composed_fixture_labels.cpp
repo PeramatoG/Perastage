@@ -59,7 +59,8 @@ void DrawComposedFixtureLabels(ISelectionContext &controller, int width, int hei
     const ISelectionContext::ViewFrustumSnapshot &camera,
     const std::unordered_set<std::string> &hiddenLayers,
     const std::unordered_set<std::string> &hiddenFixtureTypes,
-    bool cullOffscreen) {
+    bool cullOffscreen,
+    const std::unordered_set<std::string> *provisionalFixtures) {
   auto &cfg = ConfigManager::Get();
   if (cfg.GetScene().fixtures.empty())
     return;
@@ -93,6 +94,8 @@ void DrawComposedFixtureLabels(ISelectionContext &controller, int width, int hei
       return {x, y};
     };
     for (const auto &[uuid, fixture] : cfg.GetScene().fixtures) {
+      if (!capture && provisionalFixtures && provisionalFixtures->contains(uuid))
+        continue;
       if (!ControllerIsLayerVisibleCached(hiddenLayers, fixture.layerUuid) ||
           hiddenFixtureTypes.contains(fixture.typeName))
         continue;

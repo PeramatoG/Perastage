@@ -1,7 +1,9 @@
 #pragma once
 
-#include <chrono>
 #include <optional>
+#include <string>
+#include <unordered_set>
+#include <vector>
 
 namespace interactive_frame {
 
@@ -14,18 +16,26 @@ PointerPosition ResolveLatestPointer(
     PointerPosition queued,
     const std::optional<PointerPosition> &liveInsideClient);
 
-class Cadence {
+// Coalesces viewport repaint requests and live feedback independently.
+class PreviewPresentation {
 public:
-  using Clock = std::chrono::steady_clock;
-
-  explicit Cadence(std::chrono::milliseconds interval =
-                       std::chrono::milliseconds(16));
-  bool IsPresentationDue(Clock::time_point now);
-  void Reset();
+  void BeginPlacement(const std::vector<std::string> &fixtureUuids);
+  void EndPlacement();
+  const std::unordered_set<std::string> &ProvisionalFixtures() const {
+    return m_provisionalFixtures;
+  }
+  bool TakeInitialPlacementFrame();
+  void MarkTransformApplied() { m_feedbackPending = true; }
+  bool RequestPaint();
+  void BeginPaint() { m_paintQueued = false; }
+  bool TakePresentedFeedback();
+  void ResetTransform();
 
 private:
-  std::chrono::milliseconds m_interval;
-  std::optional<Clock::time_point> m_lastPresentation;
+  std::unordered_set<std::string> m_provisionalFixtures;
+  bool m_initialPlacementFrame = false;
+  bool m_paintQueued = false;
+  bool m_feedbackPending = false;
 };
 
 } // namespace interactive_frame

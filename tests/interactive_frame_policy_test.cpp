@@ -1,11 +1,9 @@
 #include "interactive_frame_policy.h"
 
 #include <cassert>
-#include <chrono>
 
-// Verifies latest-pointer selection and bounded frame presentation.
+// Verifies latest-pointer selection and coalesced frame presentation.
 int main() {
-  using namespace std::chrono_literals;
   const auto latest = interactive_frame::ResolveLatestPointer(
       {105, 100}, interactive_frame::PointerPosition{140, 100});
   assert(latest.x == 140 && latest.y == 100);
@@ -13,13 +11,34 @@ int main() {
       interactive_frame::ResolveLatestPointer({105, 100}, std::nullopt);
   assert(queued.x == 105 && queued.y == 100);
 
-  interactive_frame::Cadence cadence(16ms);
-  const auto start = interactive_frame::Cadence::Clock::time_point{};
-  assert(cadence.IsPresentationDue(start));
-  assert(!cadence.IsPresentationDue(start + 1ms));
-  assert(!cadence.IsPresentationDue(start + 15ms));
-  assert(cadence.IsPresentationDue(start + 16ms));
-  cadence.Reset();
-  assert(cadence.IsPresentationDue(start + 17ms));
+  interactive_frame::PreviewPresentation preview;
+  assert(!preview.TakeInitialPlacementFrame());
+  preview.BeginPlacement({"preview-a", "preview-b"});
+  assert(preview.ProvisionalFixtures().contains("preview-a"));
+  assert(preview.ProvisionalFixtures().contains("preview-b"));
+  assert(!preview.ProvisionalFixtures().contains("existing-fixture"));
+  preview.MarkTransformApplied();
+  assert(preview.TakeInitialPlacementFrame());
+  assert(!preview.TakeInitialPlacementFrame());
+  assert(preview.RequestPaint());
+  preview.MarkTransformApplied();
+  assert(!preview.RequestPaint());
+  preview.MarkTransformApplied();
+  preview.BeginPaint();
+  assert(preview.TakePresentedFeedback());
+  assert(!preview.TakePresentedFeedback());
+  assert(preview.RequestPaint());
+  preview.MarkTransformApplied();
+  preview.ResetTransform();
+  assert(preview.ProvisionalFixtures().contains("preview-a"));
+  preview.BeginPlacement({"next-preview"});
+  assert(!preview.ProvisionalFixtures().contains("preview-a"));
+  assert(preview.ProvisionalFixtures().contains("next-preview"));
+  preview.EndPlacement();
+  preview.ResetTransform();
+  assert(preview.ProvisionalFixtures().empty());
+  assert(!preview.TakeInitialPlacementFrame());
+  assert(!preview.TakePresentedFeedback());
+  assert(preview.RequestPaint());
   return 0;
 }

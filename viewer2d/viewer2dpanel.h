@@ -46,19 +46,17 @@
 #include "magnet_snap.h"
 #include "transform_space.h"
 #include "interactive_frame_policy.h"
+#include "placement_performance.h"
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
 #include <array>
 #include <functional>
 #include <chrono>
-#include <condition_variable>
 #include <cstdint>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <string>
-#include <thread>
 #include <vector>
 
 // Current viewport information used to rebuild the same projection when
@@ -253,6 +251,7 @@ public:
 private:
   mutable truss_attachment::CandidateResolver m_trussCandidateResolver;
   mutable truss_attachment_paths::Resolver m_trussAttachmentPathResolver;
+  mutable magnet_snap::FixtureTargetCache m_fixtureMagnetTargets;
   using DragMode = viewer2d::interaction::DragMode;
   using DragAxis = viewer2d::interaction::DragAxis;
   using DragTarget = viewer2d::interaction::DragTarget;
@@ -307,7 +306,7 @@ private:
   void NotifyHighlightedWorldPosition(
       const std::optional<std::array<float, 3>> &positionMeters);
   void ClearCursorWorldPosition();
-  bool ApplySelectionDelta(const std::array<float, 3> &deltaMeters);
+  bool ApplySelectionDelta(const std::array<float, 3> &deltaMeters, bool realign = false);
   std::optional<magnet_snap::SnapSource> BuildActiveMagnetSource() const;
   magnet_snap::SnapSettings BuildActiveMagnetSettings() const;
   std::optional<magnet_snap::SnapResult> FindActiveMagnetSnap() const;
@@ -318,6 +317,8 @@ private:
   void CancelLinePointSelection();
   std::optional<std::array<float, 3>>
   ProjectMouseOntoLine(const wxPoint &screenPos) const;
+  void UpdateSelectionDragPointer(const wxPoint &pos);
+  void UpdateContinuousPlacementPointer(const wxPoint &pos);
   void ConfirmContinuousPlacement();
   void CancelContinuousPlacement();
   void EndContinuousPlacementState();
@@ -326,10 +327,6 @@ private:
   void ApplyRectangleSelection(const wxPoint &start, const wxPoint &end,
                                bool selectAcrossAllTables, bool additive);
   void DrawSelectionRectangle(int width, int height, bool darkMode);
-  void ScheduleDragTableUpdate();
-  void StopDragTableUpdates();
-  void StartDragTableUpdateWorker();
-  void StopDragTableUpdateWorker();
   bool ShouldPauseHeavyTasks();
   void MarkInteractionActivity();
   void MarkNavigationChanged();
@@ -370,21 +367,7 @@ private:
   void ClearHoverState(bool requestRepaint);
   bool IsExpensiveVisualInteractionActive() const;
 
-  struct DragTablePositionSnapshot {
-    std::string uuid;
-    float xMm = 0.0f;
-    float yMm = 0.0f;
-    float zMm = 0.0f;
-  };
-
-  std::vector<DragTablePositionSnapshot>
-  BuildDragTablePositionSnapshots(DragTarget target,
-                                  const std::vector<std::string> &uuids);
-  void QueueDragTableUpdate(DragTarget target,
-                            std::vector<std::string> uuids);
-
   static constexpr int kSelectionDragStartThresholdPx = 3;
-  static constexpr int kDragTableUpdateIntervalMs = 50;
   viewer2d::interaction::Viewer2DInteractionSession m_interaction;
   ui::MouseCaptureOwner m_mouseCapture;
   viewer2d::interaction::Viewer2DRuntimeState m_runtimeState;
@@ -395,7 +378,9 @@ private:
       transform_space::TransformSpace::World;
   std::optional<magnet_snap::SnapResult> m_pendingMagnetSnap;
   std::vector<scene_grouping::SceneTransformTarget> m_activeTransformTargets;
-  interactive_frame::Cadence m_interactivePresentationCadence;
+  std::optional<std::size_t> m_activeTransformRevision;
+  interactive_frame::PreviewPresentation m_transformPresentation;
+  performance::PlacementPerformance m_placementPerformance;
   bool m_paintInProgress = false;
   viewer2d::interaction::Viewer2DPlacementSession m_placementSession;
   viewer2d::interaction::Viewer2DLinePointSelectionSession
@@ -446,14 +431,6 @@ private:
   bool m_persistViewState = true;
   mutable bool m_navigationPersistencePending = false;
   viewer2d::render::ViewportPerformance m_performance;
-  std::thread m_dragTableUpdateWorker;
-  std::mutex m_dragTableUpdateMutex;
-  std::condition_variable m_dragTableUpdateCv;
-  bool m_dragTableWorkerStop = false;
-  bool m_dragTableUpdateQueued = false;
-  DragTarget m_dragTableUpdateWorkerTarget = DragTarget::None;
-  std::vector<std::string> m_dragTableUpdateUuids;
-  std::mutex m_dragTableUpdateSceneMutex;
 
   wxGLContext *m_glContext = nullptr;
   bool m_glInitialized = false;

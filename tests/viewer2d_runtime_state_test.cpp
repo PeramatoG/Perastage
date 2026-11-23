@@ -55,6 +55,12 @@ void TestHoverAndInteractionPolicy() {
   assert(state.HoverIntervalMilliseconds(false) == 10);
   state.CancelHoverQuery();
   assert(!state.IsHoverQueryPending());
+
+  state.MarkInteractionActivity(At(700));
+  state.MarkInteractionActivity(At(899));
+  assert(state.ShouldPauseHeavyTasks(At(900)));
+  state.EndInteraction();
+  assert(!state.ShouldPauseHeavyTasks(At(901)));
 }
 
 // Verifies every behaviorally relevant pick-cache key dimension.

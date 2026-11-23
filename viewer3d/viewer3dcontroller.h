@@ -108,13 +108,16 @@ public:
   void RefreshModelDetailPreferences();
   int GetDebugUpdateResourcesCallsPerFrame() const;
 
+  void RenderScene(bool wireframe, Viewer2DRenderMode mode,
+                   bool previewingTransforms);
   void RenderScene(bool wireframe = false,
                    Viewer2DRenderMode mode = Viewer2DRenderMode::White,
                    Viewer2DView view = Viewer2DView::Top, bool showGrid = true,
                    int gridStyle = 0, float gridR = 0.35f, float gridG = 0.35f,
                    float gridB = 0.35f, bool gridOnTop = false,
                    bool is2DViewer = false,
-                   bool preferPerastageSvgSymbolsForLayouts = false);
+                   bool preferPerastageSvgSymbolsForLayouts = false,
+                   bool previewingTransforms = false);
 
   void SetDarkMode(bool enabled);
   void SetInteracting(bool interacting);
@@ -127,12 +130,14 @@ public:
   void SetSelectedUuids(const std::vector<std::string> &uuids,
                         const std::vector<std::string> &primaryUuids);
 
-  void DrawFixtureLabels(int width, int height);
+  void DrawFixtureLabels(int width, int height,
+                         const std::unordered_set<std::string> *provisionalFixtures = nullptr);
   void DrawTrussLabels(int width, int height);
   void DrawSceneObjectLabels(int width, int height);
   void DrawAllFixtureLabels(int width, int height, Viewer2DView view,
                             float zoom = 1.0f,
-                            bool interactiveLabelMode = false);
+                            bool interactiveLabelMode = false,
+                            const std::unordered_set<std::string> *provisionalFixtures = nullptr);
   void DrawOverlayTextLabels(const std::vector<OverlayTextLabel> &labels,
                              bool darkMode, bool outline = true);
 

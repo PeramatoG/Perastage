@@ -7,6 +7,7 @@
 
 #include "configmanager.h"
 #include "project_mutation_host.h"
+#include "performance_metrics.h"
 #include "selection_movement_settings.h"
 
 #include <algorithm>
@@ -112,7 +113,8 @@ PositionToolPanel::PositionToolPanel(
     event.Skip();
   });
   subscription_ = config_.SubscribeChanges([this](ConfigManager::Change change) {
-    QueueRefresh(change == ConfigManager::Change::Selection);
+    if (change != ConfigManager::Change::TransformPreview || IsShownOnScreen())
+      QueueRefresh(change == ConfigManager::Change::Selection);
   });
   RefreshValues();
 }
@@ -140,6 +142,7 @@ void PositionToolPanel::QueueRefresh(bool selectionChanged) {
 }
 
 void PositionToolPanel::RefreshValues() {
+  performance::Scope metric(performance::Work::PlacementPositionTool, performance::PlacementEnabled());
   const auto snapshot = Read(config_);
   if (std::none_of(modified_.begin(), modified_.end(), [](bool v) { return v; }))
     displayedUnits_ = DistanceUnits(config_);

@@ -9,11 +9,13 @@ public:
       : m_controller(controller) {}
   ~LabelRenderSystem();
 
-  void DrawFixtureLabels(int width, int height);
+  void DrawFixtureLabels(int width, int height,
+                         const std::unordered_set<std::string> *provisionalFixtures);
   void DrawTrussLabels(int width, int height);
   void DrawSceneObjectLabels(int width, int height);
   void DrawAllFixtureLabels(int width, int height, Viewer2DView view,
-                            float zoom, bool interactiveLabelMode = false);
+                            float zoom, bool interactiveLabelMode,
+                            const std::unordered_set<std::string> *provisionalFixtures);
 
 private:
   ISelectionContext &m_controller;

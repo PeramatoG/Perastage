@@ -20,25 +20,68 @@ def function_body(path: str, signature: str) -> str:
     raise AssertionError(f"unterminated {signature}")
 
 
-for path, panel, apply_name in (
-    ("viewer2d/viewer2dpanel.cpp", "Viewer2DPanel", "ApplySelectionDelta"),
-    ("viewer3d/viewer3dpanel.cpp", "Viewer3DPanel", "ApplySelectionDragDelta"),
+for dimensions, apply_name, mark_activity in (
+    ("2d", "ApplySelectionDelta", "MarkInteractionActivity"),
+    ("3d", "ApplySelectionDragDelta", "RecordTransformActivity"),
 ):
+    panel = f"Viewer{dimensions.upper()}Panel"
+    path = f"viewer{dimensions}/viewer{dimensions}panel.cpp"
+    presentation = path.replace(".cpp", "_presentation.cpp")
     apply_body = function_body(path, f"bool {panel}::{apply_name}")
-    assert "TranslateTargets" in apply_body
+    assert apply_body.index("!hasTranslation && !realign") < apply_body.index("TranslateTargets")
+    assert mark_activity in apply_body
+    assert "MarkTransformApplied" in apply_body
     for forbidden in (
         "MarkSceneTransformsDirty",
         "RefreshTransformCachesIfDirty",
         "RebuildIfDirty",
         "InvalidateTransformedBounds",
         "UpdateResourcesIfDirty",
+        "Change::Scene",
     ):
         assert forbidden not in apply_body
+
     motion = function_body(path, f"void {panel}::OnMouseMove")
     assert "ResolveLatestPointer" in motion
-    assert "PresentInteractiveTransformFrame" in motion
+    assert "UpdateContinuousPlacementPointer(pos)" in motion
+    release = function_body(path, f"void {panel}::OnMouseUp")
+    assert release.index("UpdateContinuousPlacementPointer(event.GetPosition())") < release.index(
+        "ConfirmContinuousPlacement()"
+    )
+    assert "UpdateSelectionDragPointer(event.GetPosition())" in release
+    for method in ("PresentInteractiveTransformFrame", "FinishInteractiveTransformPresentation"):
+        body = function_body(presentation, f"void {panel}::{method}")
+        assert "Update();" not in body
+        assert "NotifyChange" not in body
+    paint = (ROOT / path).read_text(encoding="utf-8")
+    assert "TakePresentedFeedback()" in paint
+    assert "TakeInitialPlacementFrame()" in paint
+    assert paint.count("m_transformPresentation.BeginPlacement(selection.fixtures)") == 2
+    assert "m_transformPresentation.ProvisionalFixtures()" in paint
+    assert "m_transformPresentation.EndPlacement()" in function_body(
+        path, f"void {panel}::EndContinuousPlacementState"
+    )
+    assert paint.count("NotifyChange(ConfigManager::Change::TransformPreview)") == 1
+
+composed_labels = (ROOT / "viewer3d/labels/composed_fixture_labels.cpp").read_text(
+    encoding="utf-8"
+)
+assert composed_labels.index("!capture && provisionalFixtures && provisionalFixtures->contains(uuid)") < (
+    composed_labels.index("cache.Resolve(")
+)
+
+hover_labels = function_body(
+    "viewer3d/labels/label_render_system.cpp", "void LabelRenderSystem::DrawFixtureLabels"
+)
+assert hover_labels.index("provisionalFixtures->contains(highlight)") < hover_labels.index(
+    "FillProjectionContext("
+)
 
 controller = (ROOT / "viewer3d/viewer3dcontroller.cpp").read_text(encoding="utf-8")
 assert "m_impl->cameraMoving && context.fastInteractionMode" in controller
-assert "interactiveTransformActive" not in controller
+assert "culling.enabled && !previewingTransforms" in controller
+patch = (ROOT / "gui/patch/dmx_patch_panel.cpp").read_text(encoding="utf-8")
+assert "Change::Scene" in patch and "Change::TransformPreview" not in patch
+position_tool = (ROOT / "gui/positiontoolpanel.cpp").read_text(encoding="utf-8")
+assert "Change::TransformPreview" in position_tool
 print("Interactive transform presentation architecture is intact.")

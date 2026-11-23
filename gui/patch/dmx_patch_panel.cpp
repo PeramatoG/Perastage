@@ -3,6 +3,7 @@
 #include "patch/dmx_patch_canvas.h"
 #include "configmanager.h"
 #include "fixturetablepanel.h"
+#include "performance_metrics.h"
 #include "fixtures/fixture_gdtf_resolution.h"
 #include "gdtf_archive_reader.h"
 #include <wx/combobox.h>
@@ -134,10 +135,15 @@ void DmxPatchPanel::RefreshSnapshot() {
   paths_.clear();
   auto resolver = [this](const Fixture &f) { return Resolve(f); };
   const auto preview = compatibility_->GetValue() ? dmx_patch::Preview::DeclaredOffsets : dmx_patch::Preview::ResolvedOnly;
-  auto snapshot = std::make_shared<dmx_patch::Snapshot>(dmx_patch::BuildSnapshot(scene, universe_, resolver, preview));
+  const auto buildSnapshot = [&] {
+    performance::Scope metric(performance::Work::PlacementPatchSnapshot,
+                              performance::PlacementEnabled());
+    return dmx_patch::BuildSnapshot(scene, universe_, resolver, preview);
+  };
+  auto snapshot = std::make_shared<dmx_patch::Snapshot>(buildSnapshot());
   if (newProject && !snapshot->universes.empty() && !snapshot->universes.contains(universe_)) {
     universe_ = *snapshot->universes.begin();
-    *snapshot = dmx_patch::BuildSnapshot(scene, universe_, resolver, preview);
+    *snapshot = buildSnapshot();
   }
   for (auto it = cache_.begin(); it != cache_.end();) {
     const bool used = std::any_of(paths_.begin(), paths_.end(), [&](const auto &entry) { return entry.second == it->first; });

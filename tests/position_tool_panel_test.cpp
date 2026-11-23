@@ -88,6 +88,25 @@ int main(int argc, char **argv) {
   config.SetSelectedFixtures({a.uuid});
   Flush();
   assert(x->IsEnabled() && x->GetValue() == "1.234");
+  const auto beforePreview = config.GetRenderRevision();
+  int sceneChanges = 0;
+  const auto subscription = config.SubscribeChanges([&](ConfigManager::Change change) {
+    if (change == ConfigManager::Change::Scene)
+      ++sceneChanges;
+  });
+  for (float preview : {3250.0f, 3750.0f}) {
+    config.GetScene().fixtures.at(a.uuid).transform.o[0] = preview;
+    config.NotifyChange(ConfigManager::Change::TransformPreview);
+  }
+  Flush();
+  assert(x->GetValue() == "3.750");
+  assert(sceneChanges == 0 && config.GetRenderRevision() == beforePreview);
+  assert(!config.CanUndo());
+  config.GetScene().fixtures.at(a.uuid).transform = a.transform;
+  config.NotifyChange(ConfigManager::Change::Scene); Flush();
+  assert(sceneChanges == 1 && x->GetValue() == "1.234");
+  config.UnsubscribeChanges(subscription);
+
   x->SetFocus(); Flush();
   // Unedited focus loss/Enter must not round the full stored origin.
   Enter(*x);

@@ -457,7 +457,14 @@ void DrawLabelLines2D(NVGcontext *vg, const std::vector<LabelLine2D> &lines,
 
 LabelRenderSystem::~LabelRenderSystem() { EraseFixtureLayoutCacheState(this); }
 
-void LabelRenderSystem::DrawFixtureLabels(int width, int height) {
+void LabelRenderSystem::DrawFixtureLabels(
+    int width, int height,
+    const std::unordered_set<std::string> *provisionalFixtures) {
+  const auto &highlight = m_controller.GetHighlightUuid();
+  if (highlight.empty() ||
+      (provisionalFixtures && provisionalFixtures->contains(highlight)))
+    return;
+
   ConfigManager &cfg = ConfigManager::Get();
   ProjectionContext projection;
   FillProjectionContext(width, height, projection);
@@ -477,7 +484,7 @@ void LabelRenderSystem::DrawFixtureLabels(int width, int height) {
 
   for (const auto &uuid : visibleSet.fixtureUuids) {
     auto fixtureIt = fixtures.find(uuid);
-    if (fixtureIt == fixtures.end() || uuid != m_controller.GetHighlightUuid())
+    if (fixtureIt == fixtures.end() || uuid != highlight)
       continue;
 
     const auto &f = fixtureIt->second;
@@ -528,7 +535,8 @@ void LabelRenderSystem::DrawFixtureLabels(int width, int height) {
 // Uses canonical fixture composition; support labels retain their own adapter.
 void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
                                              Viewer2DView view, float zoom,
-                                             bool interactiveLabelMode) {
+                                             bool interactiveLabelMode,
+                                             const std::unordered_set<std::string> *provisionalFixtures) {
   ConfigManager &cfg = ConfigManager::Get();
   const auto distanceUnitSystem =
       Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
@@ -554,7 +562,8 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
   DrawComposedFixtureLabels(m_controller, width, height, view, zoom,
                             fixtureOverrides, layoutCacheState.composed,
                             BuildFrustum(projection), hiddenLayers,
-                            cfg.GetHiddenFixtureTypes(), cullOffscreen);
+                            cfg.GetHiddenFixtureTypes(), cullOffscreen,
+                            provisionalFixtures);
   const auto &supports = cfg.GetScene().supports;
   constexpr const char *kRegularFamily = "sans";
   // Keep default support label sizing aligned with fixture labels at Size = 3.

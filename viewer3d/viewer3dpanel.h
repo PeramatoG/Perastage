@@ -45,6 +45,7 @@
 #include "magnet_snap.h"
 #include "transform_space.h"
 #include "interactive_frame_policy.h"
+#include "placement_performance.h"
 #include <array>
 #include <functional>
 #include <memory>
@@ -189,6 +190,7 @@ private:
         transform_space::TransformSpace::World;
     mutable truss_attachment::CandidateResolver m_trussCandidateResolver;
     mutable truss_attachment_paths::Resolver m_trussAttachmentPathResolver;
+    mutable magnet_snap::FixtureTargetCache m_fixtureMagnetTargets;
     continuous_placement::SessionState m_continuousPlacementSession;
     viewer3d::interaction::LinePointSelectionSession m_linePointSelectionSession;
     LinePointSelectionCallback m_linePointSelectionCallback;
@@ -244,6 +246,7 @@ private:
     bool PrepareSelectionDrag(const wxPoint& mousePos);
     std::array<float, 3> ComputeSelectionCenterMeters(
         const std::vector<std::string>& uuids, HoverTargetTable target) const;
+    bool PrepareTransformProjection(const RenderSize &renderSize);
     std::array<viewer3d::ProjectedAxis, 3> BuildProjectedDragAxes(
         const RenderSize& renderSize,
         const std::array<float, 3>& anchorMeters) const;
@@ -251,7 +254,7 @@ private:
     std::optional<std::array<float, 3>> ProjectMouseToSelectionDragViewPlane(
         const wxPoint& mousePos, const RenderSize& renderSize,
         const std::array<float, 3>& planePointMeters) const;
-    bool ApplySelectionDragDelta(const std::array<float, 3>& deltaMeters);
+    bool ApplySelectionDragDelta(const std::array<float, 3>& deltaMeters, bool realign = false);
     std::optional<magnet_snap::SnapSource> BuildActiveMagnetSource() const;
     magnet_snap::SnapSettings BuildActiveMagnetSettings(
         const magnet_snap::SnapSource& source) const;
@@ -268,6 +271,8 @@ private:
     void FinishInteractiveTransformPresentation();
     void ConfigureContinuousPlacementDrag(ContinuousPlacementType type,
                                           const std::string &elementUuid);
+    void UpdateSelectionDragPointer(const wxPoint &pos);
+    void UpdateContinuousPlacementPointer(const wxPoint &pos);
     void ConfirmContinuousPlacement();
     void CancelContinuousPlacement();
     void EndContinuousPlacementState(bool completed);
@@ -293,8 +298,12 @@ private:
     bool ProcessProgressiveResourceRefresh();
     void ResourceLoadingPresented(bool paused);
     bool m_loadCompletionReported = false;
-    interactive_frame::Cadence m_interactivePresentationCadence;
+    interactive_frame::PreviewPresentation m_transformPresentation;
+    performance::PlacementPerformance m_placementPerformance;
     std::vector<scene_grouping::SceneTransformTarget> m_activeTransformTargets;
+    std::optional<std::size_t> m_activeTransformRevision;
+    std::array<double, 6> m_transformProjectionCamera{};
+    truss_screen_snap::ProjectionSnapshot m_transformProjection;
 
     Viewer2DMeasureToolState m_measureState;
     wxPoint m_measurePreviewMousePos;

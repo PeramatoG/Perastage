@@ -8,4 +8,5 @@ void DrawComposedFixtureLabels(ISelectionContext &controller, int width, int hei
     const ISelectionContext::ViewFrustumSnapshot &projection,
     const std::unordered_set<std::string> &hiddenLayers,
     const std::unordered_set<std::string> &hiddenFixtureTypes,
-    bool cullOffscreen);
+    bool cullOffscreen,
+    const std::unordered_set<std::string> *provisionalFixtures);
