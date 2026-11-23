@@ -11,12 +11,11 @@
 
 namespace viewer2d::interaction {
 
-// Applies a framebuffer-space drag delta to the current view.
 NavigationResult
 Viewer2DNavigationPolicy::ApplyDragPan(NavigationViewState view, int deltaX,
                                        int deltaY) {
   view.offsetX += static_cast<float>(deltaX) / view.zoom;
-  view.offsetY += static_cast<float>(deltaY) / view.zoom;
+  view.offsetY -= static_cast<float>(deltaY) / view.zoom;
   return {deltaX != 0 || deltaY != 0, view};
 }
 

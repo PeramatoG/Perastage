@@ -3828,7 +3828,8 @@ add_test(NAME MouseCaptureOwnershipState COMMAND mouse_capture_ownership_state_t
 
 add_executable(viewer2d_navigation_policy_test
                viewer2d_navigation_policy_test.cpp
-               ../viewer2d/interaction/viewer2d_navigation_policy.cpp)
+               ../viewer2d/interaction/viewer2d_navigation_policy.cpp
+               ../viewer2d/viewer2d_coordinate_math.cpp)
 target_include_directories(viewer2d_navigation_policy_test PRIVATE
                            ../viewer2d/interaction)
 add_test(NAME Viewer2DNavigationPolicy COMMAND viewer2d_navigation_policy_test)

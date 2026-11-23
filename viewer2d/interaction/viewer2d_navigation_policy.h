@@ -27,7 +27,7 @@ public:
   static constexpr float kMinimumZoom = 0.1f;
   static constexpr float kZoomBase = 1.1f;
 
-  // Applies a framebuffer-space drag delta to the current view.
+  // Applies a top-origin framebuffer drag delta to the current view.
   static NavigationResult ApplyDragPan(NavigationViewState view, int deltaX,
                                        int deltaY);
   // Applies normalized mouse-wheel steps to the current zoom.
