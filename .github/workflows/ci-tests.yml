@@ -512,9 +512,23 @@ jobs:
       - name: Install Windows PDF validation tools
         shell: pwsh
         run: |
-          choco install poppler -y --no-progress
-          if ($LASTEXITCODE -ne 0) { throw 'Poppler installation failed.' }
-          "$env:ChocolateyInstall\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          $version = '26.09.0-0'
+          $sha256 = '7a6f256a0ddf7536182246a5733331bf4677cbcc34f4663774947ad34556c8d0'
+          $root = Join-Path $env:RUNNER_TEMP "poppler-$version"
+          $zip = "$root.zip"
+          $uri = "https://github.com/oschwartz10612/poppler-windows/releases/download/v$version/Release-$version.zip"
+          Invoke-WebRequest -Uri $uri -OutFile $zip -MaximumRetryCount 3 -RetryIntervalSec 3
+          if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash -ne $sha256) {
+            throw "Poppler $version archive failed SHA-256 verification."
+          }
+          Expand-Archive -LiteralPath $zip -DestinationPath $root -Force
+          $bin = Join-Path $root 'poppler-26.09.0\Library\bin'
+          foreach ($tool in @('pdftotext.exe', 'pdffonts.exe', 'pdfinfo.exe')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $bin $tool) -PathType Leaf)) {
+              throw "Poppler $version archive is missing $tool."
+            }
+          }
+          $bin | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
       - name: Resolve Git Bash for Windows tests
         id: git-bash
         shell: pwsh
