@@ -528,7 +528,8 @@ void LabelRenderSystem::DrawFixtureLabels(int width, int height) {
 // Uses canonical fixture composition; support labels retain their own adapter.
 void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
                                              Viewer2DView view, float zoom,
-                                             bool interactiveLabelMode) {
+                                             bool interactiveLabelMode,
+                                             const std::unordered_set<std::string> *provisionalFixtures) {
   ConfigManager &cfg = ConfigManager::Get();
   const auto distanceUnitSystem =
       Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
@@ -554,7 +555,8 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
   DrawComposedFixtureLabels(m_controller, width, height, view, zoom,
                             fixtureOverrides, layoutCacheState.composed,
                             BuildFrustum(projection), hiddenLayers,
-                            cfg.GetHiddenFixtureTypes(), cullOffscreen);
+                            cfg.GetHiddenFixtureTypes(), cullOffscreen,
+                            provisionalFixtures);
   const auto &supports = cfg.GetScene().supports;
   constexpr const char *kRegularFamily = "sans";
   // Keep default support label sizing aligned with fixture labels at Size = 3.

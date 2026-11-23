@@ -56,8 +56,19 @@ for dimensions, apply_name, mark_activity in (
     paint = (ROOT / path).read_text(encoding="utf-8")
     assert "TakePresentedFeedback()" in paint
     assert "TakeInitialPlacementFrame()" in paint
-    assert paint.count("m_transformPresentation.BeginPlacement()") == 2
+    assert paint.count("m_transformPresentation.BeginPlacement(selection.fixtures)") == 2
+    assert "m_transformPresentation.ProvisionalFixtures()" in paint
+    assert "m_transformPresentation.EndPlacement()" in function_body(
+        path, f"void {panel}::EndContinuousPlacementState"
+    )
     assert paint.count("NotifyChange(ConfigManager::Change::TransformPreview)") == 1
+
+composed_labels = (ROOT / "viewer3d/labels/composed_fixture_labels.cpp").read_text(
+    encoding="utf-8"
+)
+assert composed_labels.index("!capture && provisionalFixtures && provisionalFixtures->contains(uuid)") < (
+    composed_labels.index("cache.Resolve(")
+)
 
 controller = (ROOT / "viewer3d/viewer3dcontroller.cpp").read_text(encoding="utf-8")
 assert "m_impl->cameraMoving && context.fastInteractionMode" in controller

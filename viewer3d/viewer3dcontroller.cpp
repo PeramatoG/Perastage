@@ -1917,9 +1917,10 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
 // scales the label like regular geometry when zooming the 2D view.
 void Viewer3DController::DrawAllFixtureLabels(int width, int height,
                                               Viewer2DView view, float zoom,
-                                              bool interactiveLabelMode) {
+                                              bool interactiveLabelMode,
+                                              const std::unordered_set<std::string> *provisionalFixtures) {
   m_impl->labelRenderSystem->DrawAllFixtureLabels(width, height, view, zoom,
-                                                  interactiveLabelMode);
+                                                  interactiveLabelMode, provisionalFixtures);
 }
 
 // Draws overlay Text Labels.

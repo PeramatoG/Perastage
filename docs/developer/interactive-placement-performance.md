@@ -19,8 +19,10 @@ During a preview, moved trusses or scene objects can cross a frustum edge while
 the previous bounds are still cached. In that case the viewport conservatively
 includes all layer-visible trusses and objects. Fixture-only drags retain normal
 culling, which already keeps fixtures after layer and type filtering. Selection
-highlights and labels remain available. Camera movement retains its own
-render-quality policy. Document capture keeps its regular synchronization path.
+highlights, geometry and existing fixture labels remain available. The active
+viewport suppresses the new provisional fixtures' labels until confirmation.
+Each subsequent provisional copy has a fresh UUID and its own label suppression.
+Document capture keeps its regular synchronization and label rules.
 
 The active transform target set is reused for movement, local axes and
 compatible Magnet queries. A scene revision change or Magnet detachment

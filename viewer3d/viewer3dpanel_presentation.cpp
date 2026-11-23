@@ -16,7 +16,7 @@ void Viewer3DPanel::PresentInteractiveTransformFrame() {
 // Clears provisional ownership and reconciles transform-dependent caches.
 void Viewer3DPanel::FinishInteractiveTransformPresentation() {
     m_placementPerformance.Finish("Viewer3D");
-    m_transformPresentation.Reset();
+    m_transformPresentation.ResetTransform();
     m_activeTransformRevision.reset();
     m_transformProjection = {};
     m_fixtureMagnetTargets.Clear();

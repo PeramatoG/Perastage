@@ -1114,9 +1114,11 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
     // Draw labels before swapping buffers to avoid losing them.
     if ((!pauseHeavyTasks || m_runtimeState.IsTransformActive()) && !skipLabelWork) {
     if (FixtureTablePanel::Instance() &&
-        FixtureTablePanel::Instance()->IsActivePage())
+        FixtureTablePanel::Instance()->IsActivePage()) {
+        if (!m_transformPresentation.ProvisionalFixtures().contains(
+                m_controller.GetHighlightUuid()))
             m_controller.DrawFixtureLabels(w, h);
-    else if (TrussTablePanel::Instance() &&
+    } else if (TrussTablePanel::Instance() &&
              TrussTablePanel::Instance()->IsActivePage())
             m_controller.DrawTrussLabels(w, h);
     else if (SceneObjectTablePanel::Instance() &&
@@ -2877,7 +2879,6 @@ void Viewer3DPanel::FinalizeSelectionDrag() {
 // Configures selection dragging for the current provisional placement element.
 void Viewer3DPanel::ConfigureContinuousPlacementDrag(
     ContinuousPlacementType type, const std::string &elementUuid) {
-    m_transformPresentation.BeginPlacement();
     scene_grouping::ObjectSelection selection;
     selection.fixtures = type == ContinuousPlacementType::Fixture
                              ? std::vector<std::string>{elementUuid}
@@ -2895,6 +2896,7 @@ void Viewer3DPanel::ConfigureContinuousPlacementDrag(
         type == ContinuousPlacementType::Fixture ? HoverTargetTable::Fixtures
         : type == ContinuousPlacementType::Truss ? HoverTargetTable::Trusses
                                                   : HoverTargetTable::SceneObjects;
+    m_transformPresentation.BeginPlacement(selection.fixtures);
     m_selectionDragSession.Begin(
         selection, target,
         continuous_placement::PositionMeters(ConfigManager::Get().GetScene(),
@@ -2936,7 +2938,7 @@ void Viewer3DPanel::BeginClipboardBatchPlacement(
     std::function<void()> cancelCallback) {
     ResetSelectionDragState();
     m_continuousPlacementSession.BeginBatch();
-    m_transformPresentation.BeginPlacement();
+    m_transformPresentation.BeginPlacement(selection.fixtures);
     m_clipboardBatchConfirm = std::move(confirmCallback);
     m_clipboardBatchCancel = std::move(cancelCallback);
     std::array<float, 3> anchorMeters{0.0f, 0.0f, 0.0f};
@@ -3142,6 +3144,7 @@ bool Viewer3DPanel::UndoContinuousPlacement() {
 
 // Ends placement state through the requested lifecycle transition.
 void Viewer3DPanel::EndContinuousPlacementState(bool completed) {
+    m_transformPresentation.EndPlacement();
     FinishInteractiveTransformPresentation();
     if (completed)
         m_continuousPlacementSession.Complete();
@@ -3551,6 +3554,7 @@ void Viewer3DPanel::RefreshAfterFixtureResourceRebind() {
 
 // Releases controller references to scene entries before a project is replaced.
 void Viewer3DPanel::PrepareForSceneReplacement() {
+    m_transformPresentation.EndPlacement();
     FinishInteractiveTransformPresentation();
     m_controller.PrepareForSceneReplacement();
 }

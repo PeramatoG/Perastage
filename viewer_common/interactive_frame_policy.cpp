@@ -11,6 +11,18 @@ PointerPosition ResolveLatestPointer(
   return liveInsideClient.value_or(queued);
 }
 
+void PreviewPresentation::BeginPlacement(
+    const std::vector<std::string> &fixtureUuids) {
+  m_initialPlacementFrame = true;
+  m_provisionalFixtures.clear();
+  m_provisionalFixtures.insert(fixtureUuids.begin(), fixtureUuids.end());
+}
+
+void PreviewPresentation::EndPlacement() {
+  m_initialPlacementFrame = false;
+  m_provisionalFixtures.clear();
+}
+
 bool PreviewPresentation::TakeInitialPlacementFrame() {
   return std::exchange(m_initialPlacementFrame, false);
 }
@@ -23,7 +35,7 @@ bool PreviewPresentation::TakePresentedFeedback() {
   return std::exchange(m_feedbackPending, false);
 }
 
-void PreviewPresentation::Reset() {
+void PreviewPresentation::ResetTransform() {
   m_initialPlacementFrame = false;
   m_paintQueued = false;
   m_feedbackPending = false;

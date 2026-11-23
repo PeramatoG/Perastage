@@ -173,7 +173,7 @@ Clearly identify experimental functionality; do not repeat 1.7.0 features.
 
 - The 2D viewport reuses fixture label layouts while panning and zooming and skips drawing labels outside the view.
 
-- Fixture placement and selection dragging in both viewports defer resource and patch refreshes while the pointer moves.
+- Fixture placement and selection dragging in both viewports defer resource and patch refreshes while the pointer moves. New fixture labels appear once placement is confirmed.
 
 - Project saving now reports more actionable errors when MVR data or resources cannot be preserved. The saving overlay closes before displaying the error, so the application does not remain blocked behind the dialog.
 

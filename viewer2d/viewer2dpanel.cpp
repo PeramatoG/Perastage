@@ -646,6 +646,7 @@ void Viewer2DPanel::UpdateScene(bool reload) {
 
 // Releases controller references to scene entries before a project is replaced.
 void Viewer2DPanel::PrepareForSceneReplacement() {
+  m_transformPresentation.EndPlacement();
   FinishInteractiveTransformPresentation();
   m_controller.PrepareForSceneReplacement();
 }
@@ -1369,8 +1370,10 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   // regular scene objects instead of remaining a constant screen size.
   if (framePlan.drawFixtureLabels) {
     performance::Scope metric(performance::Work::View2DLabelTotal, profile);
+    const auto *provisionalFixtures = swapBuffers && !framePlan.captureActive
+        ? &m_transformPresentation.ProvisionalFixtures() : nullptr;
     m_controller.DrawAllFixtureLabels(w, h, m_view, m_zoom,
-                                      m_interactiveLabelMode);
+                                      m_interactiveLabelMode, provisionalFixtures);
   }
 
   if (swapBuffers && m_enableSelection && m_interaction.rectangleActive)
@@ -1893,7 +1896,6 @@ void Viewer2DPanel::BeginContinuousPlacement(ContinuousPlacementType type,
 
   FinishInteractiveTransformPresentation();
   m_placementSession.BeginNative(type, elementUuid);
-  m_transformPresentation.BeginPlacement();
   m_placementViewRevision.Invalidate();
   const DragTarget target =
       type == ContinuousPlacementType::Fixture   ? DragTarget::Fixtures
@@ -1909,6 +1911,7 @@ void Viewer2DPanel::BeginContinuousPlacement(ContinuousPlacementType type,
     selection.supports = {elementUuid};
   else
     selection.sceneObjects = {elementUuid};
+  m_transformPresentation.BeginPlacement(selection.fixtures);
   m_interaction.BeginSelectionDrag(target, {elementUuid}, std::move(selection));
   m_interaction.MarkUndoPushed();
   m_pendingMagnetSnap.reset();
@@ -1936,7 +1939,7 @@ void Viewer2DPanel::BeginClipboardBatchPlacement(
     std::function<void()> cancelCallback) {
   FinishInteractiveTransformPresentation();
   m_placementSession.BeginClipboardBatch();
-  m_transformPresentation.BeginPlacement();
+  m_transformPresentation.BeginPlacement(selection.fixtures);
   m_clipboardBatchConfirm = std::move(confirmCallback);
   m_clipboardBatchCancel = std::move(cancelCallback);
   viewer2d::interaction::SelectionBuckets interactionSelection{
@@ -2126,6 +2129,7 @@ bool Viewer2DPanel::UndoContinuousPlacement() {
 
 // Clears placement-only interaction state without changing the scene.
 void Viewer2DPanel::EndContinuousPlacementState() {
+  m_transformPresentation.EndPlacement();
   FinishInteractiveTransformPresentation();
   m_placementSession.Reset();
   m_clipboardSingleConfirm = {};

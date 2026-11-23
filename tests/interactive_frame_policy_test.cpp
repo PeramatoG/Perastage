@@ -13,7 +13,10 @@ int main() {
 
   interactive_frame::PreviewPresentation preview;
   assert(!preview.TakeInitialPlacementFrame());
-  preview.BeginPlacement();
+  preview.BeginPlacement({"preview-a", "preview-b"});
+  assert(preview.ProvisionalFixtures().contains("preview-a"));
+  assert(preview.ProvisionalFixtures().contains("preview-b"));
+  assert(!preview.ProvisionalFixtures().contains("existing-fixture"));
   preview.MarkTransformApplied();
   assert(preview.TakeInitialPlacementFrame());
   assert(!preview.TakeInitialPlacementFrame());
@@ -26,8 +29,14 @@ int main() {
   assert(!preview.TakePresentedFeedback());
   assert(preview.RequestPaint());
   preview.MarkTransformApplied();
-  preview.BeginPlacement();
-  preview.Reset();
+  preview.ResetTransform();
+  assert(preview.ProvisionalFixtures().contains("preview-a"));
+  preview.BeginPlacement({"next-preview"});
+  assert(!preview.ProvisionalFixtures().contains("preview-a"));
+  assert(preview.ProvisionalFixtures().contains("next-preview"));
+  preview.EndPlacement();
+  preview.ResetTransform();
+  assert(preview.ProvisionalFixtures().empty());
   assert(!preview.TakeInitialPlacementFrame());
   assert(!preview.TakePresentedFeedback());
   assert(preview.RequestPaint());

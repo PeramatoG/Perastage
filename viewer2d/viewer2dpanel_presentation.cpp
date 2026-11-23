@@ -64,7 +64,7 @@ void Viewer2DPanel::PresentInteractiveTransformFrame() {
 // Clears provisional ownership and reconciles transform-dependent caches.
 void Viewer2DPanel::FinishInteractiveTransformPresentation() {
   m_placementPerformance.Finish("Viewer2D");
-  m_transformPresentation.Reset();
+  m_transformPresentation.ResetTransform();
   m_activeTransformRevision.reset();
   m_fixtureMagnetTargets.Clear();
   if (m_activeTransformTargets.empty())
