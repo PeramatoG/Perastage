@@ -681,6 +681,8 @@ bool MainWindow::ConfirmSaveIfDirty(const wxString &actionLabel,
       currentProjectPath.empty())
     return true;
 
+  if (viewport2DPanel)
+    viewport2DPanel->PersistPendingNavigation();
   if (!GetDefaultGuiConfigServices().LegacyConfigManager().IsDirty())
     return true;
 

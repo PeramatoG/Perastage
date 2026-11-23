@@ -3,6 +3,7 @@
 #include "typography/composition.h"
 #include "typography/glyph_outline.h"
 #include <algorithm>
+#include <cmath>
 
 namespace viewer2d {
 namespace {
@@ -65,9 +66,30 @@ FixtureLabelComposition ComposeResolvedFixtureLabels(
           out.diagnostics.push_back(diagnostic);
         canvas.fontFamily.clear();
       }
+      const float glyphX = static_cast<float>(x + style.x + g.x);
+      const float glyphY = static_cast<float>(y + style.y + g.baseline);
+      // The label anchors are mirrored in Bottom view, but the glyphs face
+      // the reader. Use both horizontal bearings for conservative culling.
+      double bearing = std::max(std::abs(g.ink.left), std::abs(g.ink.right));
+      double bottom = g.ink.bottom, top = g.ink.top;
+      if (face && face->metrics.unitsPerEm > 0) {
+        const auto &metrics = face->metrics;
+        const double scale = style.size / metrics.unitsPerEm;
+        bearing = std::max(bearing, std::max(-metrics.xMin, metrics.xMax) * scale);
+        bottom = std::min(bottom, metrics.yMin * scale);
+        top = std::max(top, metrics.yMax * scale);
+      }
+      const LabelBounds ink{glyphX - bearing, glyphY + bottom,
+                            glyphX + bearing, glyphY + top};
+      auto &envelope = field.inkBounds;
+      if (field.count) {
+        envelope = {std::min(envelope.minX, ink.minX), std::min(envelope.minY, ink.minY),
+                    std::max(envelope.maxX, ink.maxX), std::max(envelope.maxY, ink.maxY)};
+      } else {
+        envelope = ink;
+      }
       ++field.count;
-      out.text.push_back({static_cast<float>(x + style.x + g.x),
-                         static_cast<float>(y + style.y + g.baseline), g.text, canvas});
+      out.text.push_back({glyphX, glyphY, g.text, canvas});
     }
     if (field.count) {
       const auto selected = fonts.catalog->FindResource(composed.resourceId);

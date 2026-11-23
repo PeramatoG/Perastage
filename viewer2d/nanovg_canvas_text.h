@@ -7,6 +7,7 @@
 #include <array>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 
 namespace viewer2d {
 // NanoVG distributions can map fontSize to em or to ascent/descent height.
@@ -58,13 +59,14 @@ inline std::array<double, 2> PrepareDefaultLabelAtlas(NVGcontext *vg,
 inline void DrawCanvasText(NVGcontext *vg, const TextCommand &text,
                            float x, float y, double scenePixelsPerUnit,
                            typography::TextInkPass pass = typography::TextInkPass::Both,
-                           double devicePixelRatio = 1, double rasterEmScale = 1) {
+                           double devicePixelRatio = 1, double rasterEmScale = 1,
+                           std::optional<int> resolvedFont = std::nullopt) {
   const auto &style = text.style;
   if (!style.glyphOutline) return;
   const double em = style.fontSize * scenePixelsPerUnit;
   nvgSave(vg);
   const int font = style.IsComposedGlyph() && (style.glyphId == 0 || style.codepoint == '\t')
-      ? -1 : nvgFindFont(vg, style.fontFamily.c_str());
+      ? -1 : (resolvedFont ? *resolvedFont : nvgFindFont(vg, style.fontFamily.c_str()));
   nvgTextLetterSpacing(vg, 0);
   nvgFontBlur(vg, 0);
   const auto fill = [&] {

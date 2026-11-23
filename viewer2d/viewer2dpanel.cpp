@@ -61,9 +61,9 @@
 #include "fixturetablepanel.h"
 #include "gl_state_guard.h"
 #include "hoisttablepanel.h"
-#include "interaction/viewer2d_navigation_policy.h"
 #include "logger.h"
 #include "mainwindow.h"
+#include "performance_metrics.h"
 #include "positionvalueupdate.h"
 #include "render/viewer2d_render_frame_plan.h"
 #include "scene_grouping.h"
@@ -609,6 +609,7 @@ wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(
 
 // Releases timers, interaction state, and GL resources owned by the 2D panel.
 Viewer2DPanel::~Viewer2DPanel() {
+  m_performance.Report();
   if (m_glContext && IsShownOnScreen() &&
       gl_lifecycle::TrySetCurrent(*this, m_glContext, "Viewer2DPanel",
                                   "destructor cleanup")) {
@@ -633,9 +634,6 @@ void Viewer2DPanel::SetInstance(Viewer2DPanel *panel) { g_instance = panel; }
 // Updates cached 2D scene data, selection state, and repaint scheduling.
 void Viewer2DPanel::UpdateScene(bool reload) {
   ConfigManager::Get().NotifyChange(ConfigManager::Change::Scene);
-  if (reload && m_enableSelection && ShouldPauseHeavyTasks())
-    return;
-
   m_logFirstPickAfterSceneUpdate = true;
   m_lastUpdateSceneReloadRequested = reload;
   if (reload)
@@ -668,6 +666,7 @@ void Viewer2DPanel::SetView(Viewer2DView view) {
   m_view = view;
   m_placementViewRevision.Invalidate();
   m_runtimeState.MarkViewMotion();
+  m_fastHoverHasPos = false;
   RequestRepaint();
 }
 
@@ -679,28 +678,6 @@ void Viewer2DPanel::SetLayerColor(const std::string &layer,
   InvalidatePickCache();
 }
 
-void Viewer2DPanel::LoadViewFromConfig() {
-  ConfigManager &cfg = ConfigManager::Get();
-  m_offsetX = cfg.GetFloat("view2d_offset_x");
-  m_offsetY = cfg.GetFloat("view2d_offset_y");
-  m_zoom = cfg.GetFloat("view2d_zoom");
-  m_renderMode = static_cast<Viewer2DRenderMode>(
-      static_cast<int>(cfg.GetFloat("view2d_render_mode")));
-  m_view =
-      static_cast<Viewer2DView>(static_cast<int>(cfg.GetFloat("view2d_view")));
-}
-
-void Viewer2DPanel::SaveViewToConfig() const {
-  if (!m_persistViewState)
-    return;
-  ConfigManager &cfg = ConfigManager::Get();
-  cfg.SetFloat("view2d_offset_x", m_offsetX);
-  cfg.SetFloat("view2d_offset_y", m_offsetY);
-  cfg.SetFloat("view2d_zoom", m_zoom);
-  cfg.SetFloat("view2d_render_mode", static_cast<float>(m_renderMode));
-  cfg.SetFloat("view2d_view", static_cast<float>(m_view));
-}
-
 void Viewer2DPanel::ApplyViewState(float offsetX, float offsetY, float zoom,
                                    Viewer2DView view,
                                    Viewer2DRenderMode renderMode) {
@@ -709,7 +686,9 @@ void Viewer2DPanel::ApplyViewState(float offsetX, float offsetY, float zoom,
   m_zoom = zoom;
   m_view = view;
   m_renderMode = renderMode;
+  m_navigationPersistencePending = false;
   m_placementViewRevision.Invalidate();
+  m_fastHoverHasPos = false;
   InvalidatePickCache();
 }
 
@@ -724,9 +703,8 @@ bool Viewer2DPanel::FitViewToScene() {
 
   m_offsetX = fit.offsetXPixels;
   m_offsetY = fit.offsetYPixels;
-  m_zoom = fit.zoom;
-  if (m_zoom < 0.1f)
-    m_zoom = 0.1f;
+  m_zoom = std::max(0.1f, fit.zoom);
+  m_fastHoverHasPos = false;
   m_placementViewRevision.Invalidate();
   if (m_persistViewState)
     SaveViewToConfig();
@@ -1088,6 +1066,11 @@ void Viewer2DPanel::Render() { RenderInternal(true); }
 // Renders the full 2D scene using the active framebuffer-sized viewport.
 void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   static unsigned long long s_renderFrameId = 0;
+  using Clock = viewer2d::render::ViewportPerformance::Clock;
+  const bool profile = swapBuffers && m_persistViewState &&
+                       performance::Viewer2DEnabled();
+  performance::Viewer2DFrameScope frameMetrics(profile);
+  const auto frameStart = profile ? Clock::now() : Clock::time_point{};
   if (!m_glInitialized) {
     return;
   }
@@ -1152,8 +1135,10 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   m_interactiveLabelMode = framePlan.interactiveLabelMode;
 
   // Keep controller resources/cache in sync in the 2D viewer as well.
-  if (!framePlan.skipResourceSynchronization)
+  if (framePlan.captureActive || !framePlan.skipResourceSynchronization) {
+    performance::Scope metric(performance::Work::View2DResources, profile);
     SynchronizeRenderResources(framePlan.captureActive);
+  }
   m_controller.SetDarkMode(framePlan.darkMode);
   if (framePlan.darkMode)
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -1199,13 +1184,18 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     m_controller.SetCaptureCanvas(nullptr, m_view);
   }
 
-  m_controller.RenderScene(true, m_renderMode, m_view, framePlan.showGrid,
-                           gridStyle, gridR, gridG, gridB, drawAbove, true,
-                           m_preferPerastageSvgSymbolsForLayouts);
+  {
+    performance::Scope metric(performance::Work::View2DScene, profile);
+    m_controller.RenderScene(true, m_renderMode, m_view, framePlan.showGrid,
+                             gridStyle, gridR, gridG, gridB, drawAbove, true,
+                             m_preferPerastageSvgSymbolsForLayouts);
+  }
 
+  performance::Scope overlays(performance::Work::View2DOverlays, profile);
   if (m_enableSelection && m_mouseInside &&
       m_interaction.mode == DragMode::None) {
     if (!m_fastHoverHasPos || m_lastFastHoverScreenPos != m_lastMousePos) {
+      performance::Scope hover(performance::Work::View2DHover, profile);
       m_lastFastHoverScreenPos = m_lastMousePos;
       m_fastHoverHasPos = true;
       const bool handledFastPath = TryUpdateHoverHighlightFast(m_lastMousePos);
@@ -1217,9 +1207,10 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   DrawInsertionPointOverlay(w, h, swapBuffers, framePlan.captureActive);
   DrawLayoutEditOverlay(w, h);
 
-  if (framePlan.showRuler)
-    DrawRulerOverlayFrame(rulerState, framePlan.darkMode,
-                          recordingCanvas.get());
+  if (framePlan.showRuler) {
+    performance::Scope ruler(performance::Work::View2DRuler, profile);
+    DrawRulerOverlayFrame(rulerState, framePlan.darkMode, recordingCanvas.get());
+  }
 
   if (m_interaction.mode == DragMode::Selection &&
       !m_linePointSelectionSession.IsActive())
@@ -1362,10 +1353,13 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     }
   }
 
+  overlays.Finish();
+
   // Draw fixture/hoist labels after all overlays so they remain on top of
   // rulers and other scene elements. Scale with zoom so labels behave like
   // regular scene objects instead of remaining a constant screen size.
   if (framePlan.drawFixtureLabels) {
+    performance::Scope metric(performance::Work::View2DLabelTotal, profile);
     m_controller.DrawAllFixtureLabels(w, h, m_view, m_zoom,
                                       m_interactiveLabelMode);
   }
@@ -1407,8 +1401,11 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   if (!m_captureFramebufferSizeOverride) {
     ValidateGlStateAfterRender("Viewer2DPanel::RenderInternal", w, h);
   }
-  if (swapBuffers)
-    SwapBuffers();
+  if (swapBuffers) {
+    const auto submitted = profile ? Clock::now() : Clock::time_point{};
+    if (SwapBuffers() && profile)
+      m_performance.Presented(frameStart, submitted);
+  }
 }
 
 // Captures the current 2D scene into an RGBA buffer using a framebuffer-sized
@@ -1537,14 +1534,8 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   } paintGuard{m_paintInProgress};
   InitGL();
 
-  const bool wasInteracting = m_runtimeState.IsInteracting();
-  const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
-  if (wasInteracting && !pauseHeavyTasks &&
-      m_interaction.mode == DragMode::None && !m_interaction.rectangleActive) {
-    m_controller.Update();
-  }
-
   if (m_placementSession.IsActive() && m_hasLastMousePos &&
+      m_interaction.mode != DragMode::View &&
       m_placementViewRevision.NeedsAlignment())
     AlignContinuousElementToPointer(m_lastMousePos);
 
@@ -2561,12 +2552,6 @@ void Viewer2DPanel::MarkInteractionActivity() {
       10);
 }
 
-// Requests the established repaint after the interaction grace period settles.
-void Viewer2DPanel::OnInteractionPauseTimer(wxTimerEvent &WXUNUSED(event)) {
-  if (!ShouldPauseHeavyTasks())
-    RequestRepaint();
-}
-
 // Runs pending hover work when the wxWidgets timer fires.
 void Viewer2DPanel::OnHoverHitTestTimer(wxTimerEvent &WXUNUSED(event)) {
   if (!m_runtimeState.IsHoverQueryPending())
@@ -3253,6 +3238,12 @@ void Viewer2DPanel::OnMouseDClick(wxMouseEvent &event) {
 
 // Completes mouse-driven interaction and applies click or rectangle selections.
 void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
+  if (m_interaction.mode == DragMode::View &&
+      (m_interaction.middleMousePanning ? event.MiddleUp() : event.LeftUp())) {
+    if (m_interaction.draggedSincePress)
+      PanViewTo(event.GetPosition());
+    PersistPendingNavigation();
+  }
   if (event.MiddleUp() && m_interaction.middleMousePanning) {
     m_mouseCapture.Release("middle-pan");
     m_interaction.EndPan(m_placementSession.IsActive());
@@ -3576,6 +3567,16 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     return;
   }
   wxPoint pos = event.GetPosition();
+  if (m_interaction.mode == DragMode::View && event.Dragging()) {
+    performance::Scope metric(performance::Work::View2DNavigation,
+                              m_persistViewState && performance::Viewer2DEnabled());
+    const wxPoint livePos = ScreenToClient(wxGetMousePosition());
+    if (GetClientRect().Contains(livePos))
+      pos = livePos;
+    PanViewTo(pos);
+    NotifyCursorWorldPosition(pos);
+    return;
+  }
   NotifyCursorWorldPosition(pos);
 
   if (m_interaction.mode == DragMode::RectSelection && event.Dragging()) {
@@ -3618,29 +3619,6 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     }
 
     m_lastMousePos = pos;
-    return;
-  }
-
-  if (m_interaction.mode == DragMode::View && event.Dragging()) {
-    const wxPoint framebufferPos = ToFramebufferPoint(this, pos);
-    const wxPoint lastFramebufferPos = ToFramebufferPoint(this, m_lastMousePos);
-    int dx = framebufferPos.x - lastFramebufferPos.x;
-    int dy = framebufferPos.y - lastFramebufferPos.y;
-    if (dx == 0 && dy == 0)
-      return;
-    const auto navigation =
-        viewer2d::interaction::Viewer2DNavigationPolicy::ApplyDragPan(
-            {m_offsetX, m_offsetY, m_zoom}, dx, dy);
-    m_offsetX = navigation.view.offsetX;
-    m_offsetY = navigation.view.offsetY;
-    m_placementViewRevision.Invalidate();
-    m_runtimeState.MarkViewMotion();
-    m_lastMousePos = pos;
-    m_interaction.MarkNavigationMoved({pos.x, pos.y});
-    MarkInteractionActivity();
-    if (m_persistViewState)
-      SaveViewToConfig();
-    RequestRepaint();
     return;
   }
 

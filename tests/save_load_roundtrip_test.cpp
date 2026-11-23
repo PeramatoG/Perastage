@@ -512,6 +512,11 @@ int main() {
   std::filesystem::path temp = std::filesystem::temp_directory_path() /
                                std::filesystem::path(u8"símbolos_roundtrip.pstg");
     model_detail::SavePreferences(cfg, {model_detail::Level::Low, true});
+    const auto renderRevisionBeforeCamera = cfg.GetRenderRevision();
+    cfg.SetFloat("view2d_offset_x", 137.5f);
+    cfg.SetFloat("view2d_offset_y", -83.25f);
+    cfg.SetFloat("view2d_zoom", 2.5f);
+    assert(cfg.GetRenderRevision() == renderRevisionBeforeCamera);
     assert(cfg.SaveProject(PathUtils::PathToUtf8(temp)));
 
     const auto projectEntries = ReadProjectEntries(temp);
@@ -643,7 +648,13 @@ int main() {
         cfg, {{"previous-project-fixture", staleProjectOverride}});
     cfg.RemoveKey(model_detail::kDetailConfigKey);
     cfg.RemoveKey(model_detail::kMovingProxyConfigKey);
+    cfg.SetFloat("view2d_offset_x", 0.0f);
+    cfg.SetFloat("view2d_offset_y", 0.0f);
+    cfg.SetFloat("view2d_zoom", 1.0f);
     assert(cfg.LoadProject(PathUtils::PathToUtf8(temp)));
+    assert(cfg.GetFloat("view2d_offset_x") == 137.5f);
+    assert(cfg.GetFloat("view2d_offset_y") == -83.25f);
+    assert(cfg.GetFloat("view2d_zoom") == 2.5f);
     assert(model_detail::ReadPreferences(cfg) == model_detail::Preferences{});
     assert(!cfg.GetValue(model_detail::kDetailConfigKey));
     assert(!cfg.GetValue(model_detail::kMovingProxyConfigKey));

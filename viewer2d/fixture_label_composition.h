@@ -11,7 +11,11 @@ struct LabelBounds {
   bool operator==(const LabelBounds &) const = default;
 };
 struct FixtureLabelComposition {
-  struct Field { size_t first = 0, count = 0; LabelBounds bounds; };
+  struct Field {
+    size_t first = 0, count = 0;
+    LabelBounds bounds;
+    LabelBounds inkBounds;
+  };
   std::array<std::optional<Field>,3> fields;
   std::vector<TextCommand> text;
   std::vector<std::string> diagnostics;
@@ -36,13 +40,14 @@ public:
       const FixtureLabelOverrideMap &all, const Fixture &fixture, int view,
       const LabelBounds &bounds, const typography::FontPair &fonts);
   void Clear() { entries_.clear(); }
+  void PruneRemovedFixtures(const MvrScene &scene);
 private:
   struct Key {
     std::string name, address;
     int id, view;
     LabelBounds bounds;
-    std::array<std::optional<LabelFieldStyle>, 3> styles;
-    bool operator==(const Key &) const = default;
+    std::array<std::optional<LabelFieldStyle>, 3> authoredStyles;
+    std::array<LabelFieldStyle, 3> stackStyles;
   };
   struct Entry { Key key; FixtureLabelComposition composition; };
   std::shared_ptr<const typography::FontCatalog> catalog_;
