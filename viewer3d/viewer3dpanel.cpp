@@ -1243,7 +1243,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
         m_runtimeState.CompleteSelectionRefresh(selectionRevisionAtFrameStart);
 
     const auto submitted = placementProfile ? Clock::now() : Clock::time_point{};
-    if (SwapBuffers() && m_transformPresentation.TakePresentedFeedback()) {
+    const bool swapped = SwapBuffers();
+    if (swapped && m_transformPresentation.TakePresentedFeedback()) {
         m_placementPerformance.Presented("Viewer3D", frameStart, submitted);
         UpdateSelectionDragStatusPosition();
         performance::Scope metric(performance::Work::PlacementPreviewListeners, placementProfile);
