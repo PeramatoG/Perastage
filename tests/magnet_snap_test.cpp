@@ -1,4 +1,5 @@
 #include "magnet_snap.h"
+#include "performance_metrics.h"
 
 #include "matrixutils.h"
 #include "scene_grouping.h"
@@ -714,6 +715,42 @@ int main() {
       std::fabs(
           elevatedFixtureScene.fixtures[elevatedFixture.uuid].transform.o[2] -
           10000.0f) < 0.001f);
+
+  SetStage("fixture target reuse");
+  magnet_snap::FixtureTargetCache targetCache;
+  auto cachedFixtureSettings = topViewSettings;
+  cachedFixtureSettings.fixtureTargetCache = &targetCache;
+  auto &target = elevatedFixtureScene.trusses.at("elevated-truss");
+  const magnet_snap::SnapSource source{magnet_snap::ObjectType::Fixture,
+                                      elevatedFixture.uuid};
+  const auto misses = [] {
+    return performance::samples[static_cast<std::size_t>(
+        performance::Work::PlacementMagnetResolveMiss)].count;
+  };
+  const auto startMisses = misses();
+  const auto verifyEquivalent = [&] {
+    const auto expected = magnet_snap::FindSnap(elevatedFixtureScene, source,
+                                                topViewSettings);
+    const auto actual = magnet_snap::FindSnap(elevatedFixtureScene, source,
+                                              cachedFixtureSettings);
+    return expected && actual && expected->targetUuid == actual->targetUuid &&
+        expected->translationDeltaMm == actual->translationDeltaMm &&
+        expected->targetAttachmentProvenance == actual->targetAttachmentProvenance &&
+        expected->needsGrouping == actual->needsGrouping;
+  };
+  CHECK_OR_RETURN(verifyEquivalent());
+  elevatedFixtureScene.fixtures.at(elevatedFixture.uuid).transform.o[1] += 25.0f;
+  CHECK_OR_RETURN(verifyEquivalent());
+  CHECK_OR_RETURN(!performance::PlacementEnabled() || misses() == startMisses + 1);
+  target.transform.o[2] += 100.0f;
+  CHECK_OR_RETURN(verifyEquivalent());
+  CHECK_OR_RETURN(!performance::PlacementEnabled() || misses() == startMisses + 2);
+  ++cachedFixtureSettings.renderRevision;
+  CHECK_OR_RETURN(verifyEquivalent());
+  CHECK_OR_RETURN(!performance::PlacementEnabled() || misses() == startMisses + 3);
+  targetCache.Clear();
+  CHECK_OR_RETURN(verifyEquivalent());
+  CHECK_OR_RETURN(!performance::PlacementEnabled() || misses() == startMisses + 4);
 
   Fixture fixture;
   fixture.uuid = "fixture";

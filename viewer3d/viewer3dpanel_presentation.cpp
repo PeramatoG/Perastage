@@ -1,50 +1,48 @@
 #include "viewer3dpanel.h"
 
-#include <chrono>
+#include "ui_render_size.h"
+
+#include <algorithm>
+#include <cmath>
 #include "configmanager.h"
 #include "selection_movement_settings.h"
 
-// Presents the newest transform at a bounded interactive frame cadence.
+// Requests a paint so pending pointer events can be coalesced by the event loop.
 void Viewer3DPanel::PresentInteractiveTransformFrame() {
-    ConfigManager::Get().NotifyChange(ConfigManager::Change::Scene);
-    Refresh(false);
-    if (!m_paintInProgress &&
-        m_interactivePresentationCadence.IsPresentationDue(
-            std::chrono::steady_clock::now()))
-        Update();
+    if (m_transformPresentation.RequestPaint())
+        Refresh(false);
 }
 
-// Flushes the final transform and reconciles transform-dependent caches once.
+// Clears provisional ownership and reconciles transform-dependent caches.
 void Viewer3DPanel::FinishInteractiveTransformPresentation() {
+    m_placementPerformance.Finish("Viewer3D");
+    m_transformPresentation.Reset();
+    m_transformProjection = {};
+    m_fixtureMagnetTargets.Clear();
+    if (m_runtimeState.EndTransformInteraction())
+        m_runtimeState.MarkSceneChanged();
     if (m_activeTransformTargets.empty())
         return;
     m_activeTransformTargets.clear();
     m_controller.MarkSceneTransformsDirty();
-    m_interactivePresentationCadence.Reset();
     Refresh(false);
-    if (!m_paintInProgress)
-        Update();
 }
 
 // Aligns the provisional fixture with the raw view-plane position under the
 // pointer.
 bool Viewer3DPanel::AlignContinuousElementToPointer(const wxPoint &mousePos) {
     const RenderSize renderSize = ResolveRenderSize(this);
-    if (!renderSize.IsValid() ||
-        !TryBindGlContextForInteraction("continuous element alignment")) {
+    if (!PrepareTransformProjection(renderSize))
         return false;
-    }
 
-    ApplyCameraMatrices(renderSize);
     const auto rawAnchor = CurrentRawSelectionDragAnchor();
     const auto pointer =
         ProjectMouseToSelectionDragViewPlane(mousePos, renderSize, rawAnchor);
     if (!pointer)
         return false;
 
-    RestorePendingMagnetSnapPreview();
-    ApplySelectionDragDelta(continuous_placement::AbsoluteAlignmentDelta(
-        *pointer, m_selectionDragSession.AnchorMeters()));
+    ApplySelectionDragDelta(
+        continuous_placement::AbsoluteAlignmentDelta(*pointer, rawAnchor), true);
     m_continuousPlacementSession.CompleteAlignmentAttempt(true);
     m_selectionDragSession.ClearAxis();
     m_continuousPlacementSession.ClearConstraintReferencePreservingAxisSwitch();
@@ -82,4 +80,129 @@ void Viewer3DPanel::SetExternalHoverUuid(const std::string &uuid) {
   m_hasHover = false;
   m_controller.SetHighlightUuid(uuid);
   Refresh(false);
+}
+
+void Viewer3DPanel::UpdateContinuousPlacementPointer(const wxPoint &pos) {
+    if (m_continuousPlacementSession.NeedsAlignment()) {
+        m_lastMousePos = pos;
+        AlignContinuousElementToPointer(pos);
+        PresentInteractiveTransformFrame();
+        return;
+    }
+    if (pos == m_lastMousePos)
+        return;
+    const RenderSize renderSize = ResolveRenderSize(this);
+    if (PrepareTransformProjection(renderSize)) {
+        const auto rawAnchor = CurrentRawSelectionDragAnchor();
+        if (m_axisConstrainedMovementEnabled &&
+            !m_continuousPlacementSession.IsBatchActive()) {
+            if (!m_continuousPlacementSession.HasConstraintReference()) {
+                m_continuousPlacementSession.SetConstraintReference(
+                    {m_lastMousePos.x, m_lastMousePos.y}, rawAnchor);
+            }
+            const int totalDx =
+                pos.x - m_continuousPlacementSession.ConstraintPointerOrigin().x;
+            const int totalDy =
+                pos.y - m_continuousPlacementSession.ConstraintPointerOrigin().y;
+            const auto projectedAxes = BuildProjectedDragAxes(
+                renderSize, m_continuousPlacementSession.ConstraintWorldOriginMeters());
+            const bool hasValidAxis = std::any_of(
+                projectedAxes.begin(), projectedAxes.end(),
+                [](const viewer3d::ProjectedAxis &axis) {
+                    return axis.valid;
+                });
+            if (!hasValidAxis) {
+                m_lastMousePos = pos;
+                m_continuousPlacementSession.InvalidateView();
+                PresentInteractiveTransformFrame();
+                return;
+            }
+            const auto candidateAxis =
+                viewer3d::SelectDragAxisFromMouseDelta(
+                    totalDx, -totalDy, projectedAxes);
+            if (m_selectionDragSession.Axis() == viewer3d::SelectionDragAxis::None &&
+                candidateAxis != viewer3d::SelectionDragAxis::None) {
+                m_selectionDragSession.SetAxis(candidateAxis);
+            } else if (m_selectionDragSession.Axis() !=
+                       viewer3d::SelectionDragAxis::None) {
+                const double activeTravelPixels = std::abs(
+                    viewer3d::ComputeProjectedPixelsOnAxis(
+                        totalDx, -totalDy, m_selectionDragSession.Axis(),
+                        projectedAxes));
+                if (!m_continuousPlacementSession.IsAxisSwitchArmed() &&
+                    activeTravelPixels >= 24.0) {
+                    m_continuousPlacementSession.SetAxisSwitchArmed(true);
+                }
+                const auto switchIntent = m_continuousPlacementSession.IsAxisSwitchArmed()
+                    ? viewer3d::DetectAxisSwitchIntent(
+                          totalDx, -totalDy, m_selectionDragSession.Axis(),
+                          projectedAxes)
+                    : viewer3d::AxisSwitchIntent{};
+                if (switchIntent.axis !=
+                    viewer3d::SelectionDragAxis::None) {
+                    const auto switchedAxis = switchIntent.axis;
+                    if (AlignContinuousElementToPointer(pos)) {
+                        m_selectionDragSession.SetAxis(switchedAxis);
+                        m_continuousPlacementSession.SetConstraintReference(
+                            {pos.x, pos.y}, CurrentRawSelectionDragAnchor());
+                        m_continuousPlacementSession.SetAxisSwitchArmed(false);
+                        PresentInteractiveTransformFrame();
+                        return;
+                    }
+                }
+            }
+            const int constrainedDx =
+                pos.x - m_continuousPlacementSession.ConstraintPointerOrigin().x;
+            const int constrainedDy =
+                pos.y - m_continuousPlacementSession.ConstraintPointerOrigin().y;
+            const double axisDeltaMeters =
+                viewer3d::ComputeDragMetersOnAxis(
+                    constrainedDx, -constrainedDy, m_selectionDragSession.Axis(),
+                    projectedAxes);
+            if (m_selectionDragSession.Axis() != viewer3d::SelectionDragAxis::None) {
+                const auto axis =
+                    GetSelectionDragAxisVector(m_selectionDragSession.Axis());
+                const std::array<float, 3> desiredAnchor{
+                    m_continuousPlacementSession.ConstraintWorldOriginMeters()[0] +
+                        axis[0] * static_cast<float>(axisDeltaMeters),
+                    m_continuousPlacementSession.ConstraintWorldOriginMeters()[1] +
+                        axis[1] * static_cast<float>(axisDeltaMeters),
+                    m_continuousPlacementSession.ConstraintWorldOriginMeters()[2] +
+                        axis[2] * static_cast<float>(axisDeltaMeters)};
+                const std::array<float, 3> worldDelta{
+                    desiredAnchor[0] - rawAnchor[0],
+                    desiredAnchor[1] - rawAnchor[1],
+                    desiredAnchor[2] - rawAnchor[2]};
+                if (worldDelta[0] != 0.0f || worldDelta[1] != 0.0f ||
+                    worldDelta[2] != 0.0f) {
+                    ApplySelectionDragDelta(worldDelta);
+                    m_selectionDragActivation.MarkMoved();
+                }
+            }
+        } else {
+            m_selectionDragSession.ClearAxis();
+            m_continuousPlacementSession.ClearConstraintReferencePreservingAxisSwitch();
+            const auto lastPoint =
+                ProjectMouseToSelectionDragViewPlane(
+                    m_lastMousePos, renderSize, rawAnchor);
+            const auto currentPoint =
+                ProjectMouseToSelectionDragViewPlane(
+                    pos, renderSize, rawAnchor);
+            if (lastPoint && currentPoint) {
+      ApplySelectionDragDelta({(*currentPoint)[0] - (*lastPoint)[0],
+                     (*currentPoint)[1] - (*lastPoint)[1],
+                     (*currentPoint)[2] - (*lastPoint)[2]});
+                m_selectionDragActivation.MarkMoved();
+            } else {
+                m_lastMousePos = pos;
+                m_continuousPlacementSession.InvalidateView();
+                PresentInteractiveTransformFrame();
+                return;
+            }
+        }
+        PresentInteractiveTransformFrame();
+    } else {
+        m_continuousPlacementSession.InvalidateView();
+    }
+    m_lastMousePos = pos;
 }

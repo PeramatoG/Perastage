@@ -1,5 +1,7 @@
 #include "interactive_frame_policy.h"
 
+#include <utility>
+
 namespace interactive_frame {
 
 // Selects the current live pointer when it is valid for the client area.
@@ -9,18 +11,17 @@ PointerPosition ResolveLatestPointer(
   return liveInsideClient.value_or(queued);
 }
 
-// Creates a bounded synchronous-presentation cadence.
-Cadence::Cadence(std::chrono::milliseconds interval) : m_interval(interval) {}
-
-// Consumes one presentation slot when the frame interval has elapsed.
-bool Cadence::IsPresentationDue(Clock::time_point now) {
-  if (m_lastPresentation && now - *m_lastPresentation < m_interval)
-    return false;
-  m_lastPresentation = now;
-  return true;
+bool PreviewPresentation::RequestPaint() {
+  return !std::exchange(m_paintQueued, true);
 }
 
-// Makes the next changed transform immediately presentation-eligible.
-void Cadence::Reset() { m_lastPresentation.reset(); }
+bool PreviewPresentation::TakePresentedFeedback() {
+  return std::exchange(m_feedbackPending, false);
+}
+
+void PreviewPresentation::Reset() {
+  m_paintQueued = false;
+  m_feedbackPending = false;
+}
 
 } // namespace interactive_frame

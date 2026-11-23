@@ -60,10 +60,10 @@ void ViewportPerformance::Report() {
   AppendDistribution(out, "frame_with_swap", {m_withSwapMs.data(), m_frameCount});
   AppendDistribution(out, "input_to_swap", {m_inputMs.data(), m_inputCount});
   out << performance::Summary(performance::Work::View2DScene,
-                              performance::Work::Count);
+                              performance::Work::PlacementPointer);
   Logger::Instance().Log(out.str());
   for (auto i = static_cast<size_t>(performance::Work::View2DScene);
-       i < static_cast<size_t>(performance::Work::Count); ++i)
+       i < static_cast<size_t>(performance::Work::PlacementPointer); ++i)
     performance::samples[i] = {};
   m_frameCount = 0;
   m_inputCount = 0;

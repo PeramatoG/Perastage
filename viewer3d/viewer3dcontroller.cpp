@@ -975,6 +975,8 @@ int Viewer3DController::GetDebugUpdateResourcesCallsPerFrame() const {
 
 // Updates resources If Dirty.
 void Viewer3DController::UpdateResourcesIfDirty(bool progressive, bool deferBounds) {
+  performance::Scope placementMetric(performance::Work::PlacementResources,
+                                     performance::PlacementEnabled());
   if (m_impl->sceneReplacementActive.load(std::memory_order_acquire))
     return;
   ++m_impl->updateResourcesCallsPerFrame;
@@ -1075,6 +1077,8 @@ void Viewer3DController::UpdateResourcesIfDirty(bool progressive, bool deferBoun
 
 // Coalesce world bounds and culling invalidation at presentation boundaries.
 void Viewer3DController::SynchronizeResourceBounds() {
+  performance::Scope placementMetric(performance::Work::PlacementBounds,
+                                     performance::PlacementEnabled());
   ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = ControllerSnapshotHiddenLayers(cfg);
   if (m_impl->assetsChangedDirty) {
@@ -1123,13 +1127,20 @@ void Viewer3DController::RebuildVisibleSetCache() {
   m_impl->visibilitySystem->RebuildVisibleSetCache();
 }
 
+void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
+                                     bool previewingTransforms) {
+  RenderScene(wireframe, mode, Viewer2DView::Top, true, 0, 0.35f, 0.35f,
+              0.35f, false, false, false, previewingTransforms);
+}
+
 // Renders all scene objects using their transformMatrix
 void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                                      Viewer2DView view, bool showGrid,
                                      int gridStyle, float gridR, float gridG,
                                      float gridB, bool gridOnTop,
                                      bool is2DViewer,
-                                     bool preferPerastageSvgSymbolsForLayouts) {
+                                     bool preferPerastageSvgSymbolsForLayouts,
+                                     bool previewingTransforms) {
   if (m_impl->sceneReplacementActive.load(std::memory_order_acquire))
     return;
   ConfigManager &cfg = ConfigManager::Get();
@@ -1185,7 +1196,9 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
 
   // Enable culling in 2D through the visibility system's 2D projection path
   // instead of reusing the 3D depth-frustum reject that caused false negatives.
-  context.useFrustumCulling = culling.enabled;
+  // Moving trusses and scene objects can cross the frustum while their
+  // committed bounds are still cached. Layer and fixture type filters remain active.
+  context.useFrustumCulling = culling.enabled && !previewingTransforms;
   context.minCullingPixels =
       context.is2DViewer ? culling.minPixels2D : culling.minPixels3D;
 

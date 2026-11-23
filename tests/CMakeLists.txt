@@ -1116,6 +1116,7 @@ target_link_libraries(magnet_snap_test PRIVATE perastage_archive_zip_directory
                       perastage_gdtf_read
                       tinyxml2::tinyxml2 ${wxWidgets_LIBRARIES})
 add_test(NAME MagnetSnapCore COMMAND magnet_snap_test)
+set_tests_properties(MagnetSnapCore PROPERTIES ENVIRONMENT "PERASTAGE_PLACEMENT_PERF=1")
 
 add_executable(truss_attachment_paths_test truss_attachment_paths_test.cpp
     ../core/truss_attachment_paths.cpp

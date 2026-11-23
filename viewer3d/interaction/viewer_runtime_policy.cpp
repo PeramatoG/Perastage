@@ -1,5 +1,7 @@
 #include "viewer_runtime_policy.h"
 
+#include <utility>
+
 namespace viewer3d::interaction {
 namespace {
 
@@ -38,19 +40,31 @@ void ViewerRuntimeState::TouchInteraction(Clock::time_point now) {
   m_lastInteractionTime = now;
 }
 
+void ViewerRuntimeState::RecordTransformActivity(Clock::time_point now) {
+  m_transformActive = true;
+  m_lastTransformTime = now;
+}
+
+bool ViewerRuntimeState::EndTransformInteraction() {
+  return std::exchange(m_transformActive, false);
+}
+
 // Evaluates the established interaction grace period and settle actions.
 InteractionSettleDecision
 ViewerRuntimeState::EvaluateHeavyTaskPause(Clock::time_point now,
                                            bool fastInteractionMode) {
+  const bool movingObjects = m_transformActive &&
+      now - m_lastTransformTime < kInteractionGracePeriod;
   if ((m_isInteracting || m_cameraMoving) &&
       now - m_lastInteractionTime < kInteractionGracePeriod) {
     return {.pauseHeavyTasks = true};
   }
   if (!m_isInteracting && !m_cameraMoving)
-    return {};
+    return {.pauseHeavyTasks = movingObjects};
 
   EndInteraction();
-  return {.clearControllerInteraction = true,
+  return {.pauseHeavyTasks = movingObjects,
+          .clearControllerInteraction = true,
           .requestDeferredResourceSync = fastInteractionMode,
           .markHoverDirty = fastInteractionMode};
 }
@@ -146,7 +160,7 @@ ViewerRuntimeState::EvaluateHoverQuery(const HoverQueryInput &input) {
   const bool cadenceDue =
       m_forceHoverQuery ||
       input.now - m_lastHoverQueryTime >= kHoverQueryInterval;
-  const bool paused = m_cameraMoving || m_isInteracting ||
+  const bool paused = m_cameraMoving || m_isInteracting || m_transformActive ||
                       input.navigationActive || input.selectionDragArmed;
   const bool shouldRun =
       !paused && (!input.skipHeavyLabelWork || m_forceHoverQuery) &&

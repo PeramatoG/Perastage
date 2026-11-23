@@ -108,13 +108,16 @@ public:
   void RefreshModelDetailPreferences();
   int GetDebugUpdateResourcesCallsPerFrame() const;
 
+  void RenderScene(bool wireframe, Viewer2DRenderMode mode,
+                   bool previewingTransforms);
   void RenderScene(bool wireframe = false,
                    Viewer2DRenderMode mode = Viewer2DRenderMode::White,
                    Viewer2DView view = Viewer2DView::Top, bool showGrid = true,
                    int gridStyle = 0, float gridR = 0.35f, float gridG = 0.35f,
                    float gridB = 0.35f, bool gridOnTop = false,
                    bool is2DViewer = false,
-                   bool preferPerastageSvgSymbolsForLayouts = false);
+                   bool preferPerastageSvgSymbolsForLayouts = false,
+                   bool previewingTransforms = false);
 
   void SetDarkMode(bool enabled);
   void SetInteracting(bool interacting);

@@ -1,13 +1,13 @@
 #include "magnet_snap.h"
 
 #include "matrixutils.h"
+#include "performance_metrics.h"
 #include "scene_grouping.h"
 #include "truss_attachment_candidates.h"
 #include "truss_attachment_paths.h"
 
 #include <algorithm>
 #include <cmath>
-#include <iterator>
 #include <limits>
 #include <tuple>
 #include <vector>
@@ -798,16 +798,19 @@ BuildAnchorReferences(const MvrScene &scene, const SnapSource &source,
 
 // Resolves the same continuous fixture paths used by fixture snapping.
 std::vector<AttachmentPathReference> BuildFixtureAttachmentPathReferences(
-    const MvrScene &scene, truss_attachment_paths::Resolver *pathResolver) {
+    const MvrScene &scene, truss_attachment_paths::Resolver *pathResolver,
+    FixtureTargetCache *cache, std::size_t renderRevision) {
   auto &resolver = pathResolver ? *pathResolver : DefaultPathResolver();
-  std::vector<truss_attachment_paths::Path> paths;
+  std::vector<AttachmentPathReference> references;
   for (const auto &[uuid, truss] : scene.trusses) {
-    (void)uuid;
-    auto resolution = resolver.Resolve(scene, truss);
-    paths.insert(paths.end(), std::make_move_iterator(resolution.paths.begin()),
-                 std::make_move_iterator(resolution.paths.end()));
+    truss_attachment_paths::Resolution uncached;
+    const auto &paths = cache ? cache->Resolve(scene, uuid, truss, resolver, renderRevision)
+                              : (uncached = resolver.Resolve(scene, truss)).paths;
+    for (const auto &path : paths)
+      if (path.worldPointsMm.size() >= 2)
+        references.push_back({path.stableId, path.worldPointsMm});
   }
-  return BuildFixtureAttachmentPathReferences(paths);
+  return references;
 }
 
 // Converts resolved attachment paths into viewer guidance references.
@@ -819,6 +822,36 @@ std::vector<AttachmentPathReference> BuildFixtureAttachmentPathReferences(
       references.push_back({path.stableId, path.worldPointsMm});
   }
   return references;
+}
+
+// Rebuilds world-space paths when the scene or the target transform changes.
+const std::vector<truss_attachment_paths::Path> &FixtureTargetCache::Resolve(
+    const MvrScene &scene, const std::string &uuid, const Truss &truss,
+    truss_attachment_paths::Resolver &resolver, std::size_t renderRevision) {
+  if (m_scene != &scene || m_resolver != &resolver ||
+      m_renderRevision != renderRevision) {
+    m_entries.clear();
+    m_scene = &scene;
+    m_resolver = &resolver;
+    m_renderRevision = renderRevision;
+  }
+
+  auto [entry, inserted] = m_entries.try_emplace(uuid);
+  const Matrix &cached = entry->second.transform;
+  const Matrix &current = truss.transform;
+  if (inserted || cached.u != current.u || cached.v != current.v ||
+      cached.w != current.w || cached.o != current.o) {
+    entry->second = {current, resolver.Resolve(scene, truss).paths};
+    if (performance::PlacementEnabled())
+      performance::Count(performance::Work::PlacementMagnetResolveMiss);
+  }
+  return entry->second.paths;
+}
+
+void FixtureTargetCache::Clear() {
+  m_entries.clear();
+  m_scene = nullptr;
+  m_resolver = nullptr;
 }
 
 // Finds the best non-destructive Magnet snap candidate for the source object.
@@ -890,7 +923,16 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
         settings.pathResolver ? *settings.pathResolver : DefaultPathResolver();
     for (const auto &[uuid, truss] : scene.trusses) {
       const Bounds targetBounds = MakeTrussBounds(truss);
-      const auto resolution = resolver.Resolve(scene, truss);
+      performance::Scope resolve(performance::Work::PlacementMagnetResolve,
+                                 performance::PlacementEnabled());
+      truss_attachment_paths::Resolution uncached;
+      const auto &paths = settings.fixtureTargetCache
+          ? settings.fixtureTargetCache->Resolve(scene, uuid, truss, resolver,
+                                                 settings.renderRevision)
+          : (uncached = resolver.Resolve(scene, truss)).paths;
+      resolve.Finish();
+      performance::Scope evaluate(performance::Work::PlacementMagnetEvaluate,
+                                  performance::PlacementEnabled());
       auto considerFallback = [&](const std::array<float, 3> &closest) {
         const std::array<float, 3> delta = Subtract(closest, insertion);
         const float distance = WeightedLength(delta, settings.axisWeights);
@@ -910,10 +952,10 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
             truss_attachment_paths::Provenance::ApproximateBoundsFallback;
         best = result;
       };
-      for (const auto &path : resolution.paths)
+      for (const auto &path : paths)
         ConsiderFixturePath(source, uuid, path, insertion, settings,
                             bestCandidateRank, bestDistance, best);
-      if (resolution.paths.empty())
+      if (paths.empty())
         considerFallback(ClosestPointOnSurface(targetBounds, insertion));
     }
     return best;

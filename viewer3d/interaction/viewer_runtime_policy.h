@@ -67,6 +67,10 @@ public:
   InteractionSettleDecision EvaluateHeavyTaskPause(Clock::time_point now,
                                                    bool fastInteractionMode);
 
+  void RecordTransformActivity(Clock::time_point now);
+  bool EndTransformInteraction();
+  bool IsTransformActive() const { return m_transformActive; }
+
   bool IsInteracting() const { return m_isInteracting; }
   bool IsCameraMoving() const { return m_cameraMoving; }
 
@@ -143,6 +147,8 @@ private:
   HoverState CurrentHoverState(const HoverQueryInput &input) const;
 
   Clock::time_point m_lastInteractionTime{};
+  Clock::time_point m_lastTransformTime{};
+  bool m_transformActive = false;
   bool m_isInteracting = false;
   bool m_cameraMoving = false;
   Clock::time_point m_lastResourceSyncCheck{};

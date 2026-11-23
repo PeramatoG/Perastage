@@ -18,7 +18,11 @@ enum class Work {
   View2DLabelDraw, View2DNavigation, View2DCompositions, View2DLabels,
   View2DGlyphs, View2DCulledLabels,
   View2DLabelNew, View2DLabelContent, View2DLabelAnchor, View2DLabelStyle,
-  View2DLabelOrientation, View2DLabelFont, View2DLabelRemoved, Count
+  View2DLabelOrientation, View2DLabelFont, View2DLabelRemoved,
+  PlacementPointer, PlacementTransform, PlacementMagnetResolve,
+  PlacementMagnetResolveMiss, PlacementMagnetEvaluate, PlacementPreviewListeners,
+  PlacementPositionTool, PlacementPatchSnapshot, PlacementResources,
+  PlacementBounds, PlacementContext, Count
 };
 struct Sample { std::uint64_t count = 0, nanoseconds = 0; };
 inline thread_local std::array<Sample, static_cast<size_t>(Work::Count)> samples{};
@@ -53,6 +57,11 @@ private:
   bool enabled_;
   Clock::time_point start_{};
 };
+inline bool PlacementEnabled() {
+  static const bool enabled = std::getenv("PERASTAGE_PLACEMENT_PERF") != nullptr;
+  return enabled;
+}
+
 inline bool Viewer2DEnabled() {
   static const bool enabled = std::getenv("PERASTAGE_VIEWER2D_PERF") != nullptr;
   return enabled;
@@ -81,7 +90,10 @@ inline std::string Summary(Work first = Work::Extraction,
     "labels_total", "label_compose", "label_cull", "label_draw", "navigation",
     "compositions", "composed_labels_drawn", "composed_glyphs_drawn", "culled_labels",
     "label_new", "label_content",
-    "label_anchor", "label_style", "label_orientation", "label_font", "label_removed"};
+    "label_anchor", "label_style", "label_orientation", "label_font", "label_removed",
+    "pointer", "transform", "magnet_resolve", "magnet_cache_miss",
+    "magnet_evaluate", "preview_listeners", "position_tool", "patch_snapshot",
+    "resource_sync", "bounds", "gl_context"};
   static_assert(sizeof(names) / sizeof(names[0]) == static_cast<size_t>(Work::Count));
   std::ostringstream out;
   for (size_t i = static_cast<size_t>(first); i < static_cast<size_t>(end); ++i)

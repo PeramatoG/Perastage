@@ -56,24 +56,22 @@ void Viewer2DPanel::TrackRefreshTelemetry() {
 }
 
 
-// Presents the newest transform at a bounded interactive frame cadence.
+// Requests a paint so pending pointer events can be coalesced by the event loop.
 void Viewer2DPanel::PresentInteractiveTransformFrame() {
   RequestRepaint();
-  if (!m_paintInProgress && m_interactivePresentationCadence.IsPresentationDue(
-                                std::chrono::steady_clock::now()))
-    Update();
 }
 
-// Flushes the final transform and reconciles transform-dependent caches once.
+// Clears provisional ownership and reconciles transform-dependent caches.
 void Viewer2DPanel::FinishInteractiveTransformPresentation() {
+  m_placementPerformance.Finish("Viewer2D");
+  m_transformPresentation.Reset();
+  m_fixtureMagnetTargets.Clear();
   if (m_activeTransformTargets.empty())
     return;
   m_activeTransformTargets.clear();
+  m_runtimeState.EndInteraction();
   m_controller.MarkSceneTransformsDirty();
-  m_interactivePresentationCadence.Reset();
   RequestRepaint();
-  if (!m_paintInProgress)
-    Update();
 }
 
 void Viewer2DPanel::SetSelectedUuids(

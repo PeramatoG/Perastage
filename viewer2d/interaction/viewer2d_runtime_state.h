@@ -59,6 +59,7 @@ public:
 
   // Marks interaction activity and starts the heavy-work grace period.
   void MarkInteractionActivity(Clock::time_point now);
+  void EndInteraction() { m_isInteracting = false; }
   // Evaluates and settles the heavy-work grace period.
   bool ShouldPauseHeavyTasks(Clock::time_point now);
   // Reports whether the runtime is inside the interaction grace period.

@@ -27,6 +27,25 @@ int main() {
   assert(!interaction.IsInteracting());
   assert(!interaction.IsCameraMoving());
 
+  ViewerRuntimeState placement;
+  placement.RecordTransformActivity(start);
+  assert(placement.IsTransformActive());
+  assert(!placement.IsCameraMoving());
+  assert(placement.EvaluateHeavyTaskPause(start + 199ms, true).pauseHeavyTasks);
+  placement.RecordTransformActivity(start + 199ms);
+  assert(placement.EvaluateHeavyTaskPause(start + 200ms, true).pauseHeavyTasks);
+  assert(!placement.EvaluateHeavyTaskPause(start + 399ms, true).pauseHeavyTasks);
+  assert(placement.IsTransformActive());
+
+  placement.BeginInteraction(start + 400ms);
+  assert(placement.IsCameraMoving());
+  placement.EndInteraction();
+  assert(placement.IsTransformActive());
+  placement.RecordTransformActivity(start + 401ms);
+  assert(placement.EndTransformInteraction());
+  assert(!placement.EvaluateHeavyTaskPause(start + 402ms, true).pauseHeavyTasks);
+  assert(!placement.EndTransformInteraction());
+
   ViewerRuntimeState hover;
   hover.ObserveCameraFingerprint(10);
   hover.ObserveHiddenLayersFingerprint(20);

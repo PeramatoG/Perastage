@@ -38,7 +38,8 @@ public:
     // Access singleton instance
     static ConfigManager& Get();
 
-    enum class Change { Scene, Selection, Preferences };
+    // TransformPreview updates live coordinates without requesting scene reconciliation.
+    enum class Change { Scene, Selection, Preferences, TransformPreview };
     using ChangeListener = std::function<void(Change)>;
     std::size_t SubscribeChanges(ChangeListener listener) {
         const auto id = ++nextListenerId;
