@@ -3179,6 +3179,10 @@ msgstr "Importer un modèle de mise en page"
 msgid "Could not import layout template.\n"
 msgstr "Impossible d’importer le modèle de mise en page.\n"
 
+#: gui/layouttextdialog.cpp:174
+msgid "Size (pt)"
+msgstr "Taille (pt)"
+
 #: gui/layouttextdialog.cpp:181
 msgid "Solid background"
 msgstr "Fond uni"
@@ -3194,14 +3198,6 @@ msgstr "OK"
 #: gui/layouttextdialog.cpp:200 gui/layouttextdialog.cpp:272
 msgid "Document preview"
 msgstr "Aperçu du document"
-
-#: gui/layouttextdialog.cpp:221
-msgid ""
-"Some legacy formatting cannot be edited here. A copy of the original is kept "
-"with your edits."
-msgstr ""
-"Certaines mises en forme anciennes ne peuvent pas être modifiées ici. Une "
-"copie de l’original est conservée avec vos modifications."
 
 #: gui/logindialog.cpp:21
 msgid "GDTF Share Login"

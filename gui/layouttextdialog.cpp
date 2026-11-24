@@ -30,6 +30,7 @@
 #include <wx/bmpbuttn.h>
 #include <wx/button.h>
 #include <wx/checkbox.h>
+#include <wx/clrpicker.h>
 #include <wx/richtext/richtextbuffer.h>
 #include <wx/richtext/richtextxml.h>
 #include <wx/richtext/richtextctrl.h>
@@ -86,10 +87,11 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
                                    const wxString &initialRichText,
                                    const wxString &fallbackText,
                                    bool solidBackground, bool drawFrame, wxSize documentSize,
-                                   std::optional<bool> wrapText)
+                                   std::optional<bool> wrapText, bool useRichTextColors)
     : wxDialog(parent, wxID_ANY, "Edit Text", wxDefaultPosition,
                wxSize(640, 420),
-               wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER), wrapText_(wrapText) {
+               wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER), wrapText_(wrapText),
+      useRichTextColors_(useRichTextColors) {
   EnsureRichTextHandlers();
   RegisterEditorFonts();
   wxBoxSizer *mainSizer = new wxBoxSizer(wxVERTICAL);
@@ -127,7 +129,12 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
   fontSizeCtrl->Bind(wxEVT_TEXT, [this](wxCommandEvent &) {
     ApplyFontSize(fontSizeCtrl->GetValue());
   });
-  toolbarSizer->Add(fontSizeCtrl, 0, wxRIGHT, 8);
+  auto *typographyRow = new wxBoxSizer(wxHORIZONTAL);
+  const auto addLabel = [&](const wxString &label) {
+    typographyRow->Add(new wxStaticText(this, wxID_ANY, label), 0,
+                       wxALIGN_CENTER_VERTICAL | wxRIGHT, 6);
+  };
+  addLabel(_("Font family"));
   auto *family = new gui::DocumentFontChoice(this, {});
   family->SetName("layoutTextFontFamily");
   family->SetSampleRenderer([this](std::string_view family, const wxSize &size) {
@@ -163,8 +170,15 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
     }
     textCtrl->SetFocus();
   });
-  toolbarSizer->Add(family, 0, wxRIGHT, 8);
-
+  typographyRow->Add(family, 1, wxRIGHT, 10);
+  addLabel(_("Size (pt)"));
+  typographyRow->Add(fontSizeCtrl, 0, wxRIGHT, 10);
+  addLabel(_("Color"));
+  colorCtrl_ = new wxColourPickerCtrl(this, wxID_ANY, *wxBLACK);
+  colorCtrl_->SetName("layoutTextColor");
+  typographyRow->Add(colorCtrl_);
+  colorCtrl_->Bind(wxEVT_COLOURPICKER_CHANGED,
+                   [this](wxColourPickerEvent &event) { ApplyTextColor(event.GetColour()); });
 
   addToolButton("text-align-start", "Align start",
                 [this]() { ApplyAlignment(wxTEXT_ALIGNMENT_LEFT); });
@@ -176,6 +190,7 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
                 [this]() { ApplyAlignment(wxTEXT_ALIGNMENT_JUSTIFIED); });
 
   mainSizer->Add(toolbarSizer, 0, wxEXPAND | wxALL, 8);
+  mainSizer->Add(typographyRow, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
 
   wxBoxSizer *optionsSizer = new wxBoxSizer(wxHORIZONTAL);
   solidBackgroundCtrl = new wxCheckBox(this, wxID_ANY, _("Solid background"));
@@ -213,18 +228,12 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
 
   SetSizer(mainSizer);
   LoadInitialContent(initialRichText, fallbackText);
-  loadedXml_ = GetRichText();
   originalXml_ = initialRichText;
-  legacyXmlTail_ = layouttext::LegacyRichTextTail(originalXml_, loadedXml_);
-  if (!legacyXmlTail_.empty()) {
-    auto *notice = new wxStaticText(this, wxID_ANY, _(
-        "Some legacy formatting cannot be edited here. A copy of the original is kept with your edits."));
-    notice->SetName("layoutTextLegacyNotice");
-    notice->Wrap(560);
-    mainSizer->Insert(2, notice, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
-    SetMinSize(mainSizer->GetMinSize());
-  }
-  const auto synchronizeFamily = [this, family] {
+  if (!useRichTextColors_) layouttext::NormalizeLegacyTextColors(textCtrl->GetBuffer());
+  legacyXmlTail_ = layouttext::LegacyRichTextTail(originalXml_, SerializeBuffer());
+  RefreshEditorBackground();
+
+  const auto synchronizeTypography = [this, family] {
     wxRichTextAttr attr;
     const auto pos = textCtrl->HasSelection() ? textCtrl->GetSelectionRange().GetStart()
                                              : textCtrl->GetInsertionPoint();
@@ -239,10 +248,23 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
     family->SetFaceStyle(attr.GetFontWeight() >= wxFONTWEIGHT_BOLD,
                          attr.GetFontStyle() == wxFONTSTYLE_ITALIC || attr.GetFontStyle() == wxFONTSTYLE_SLANT);
     family->SelectFamily(name);
+    colorCtrl_->SetColour(attr.GetTextColour().IsOk() ? attr.GetTextColour() : *wxBLACK);
+    if (attr.GetFontSize() > 0) {
+      const auto size = std::clamp(attr.GetFontSize(), kMinFontSize, kMaxFontSize);
+      if (fontSizeCtrl->GetValue() != size) {
+        const wxEventBlocker blockTextEvent(fontSizeCtrl, wxEVT_TEXT);
+        fontSizeCtrl->SetValue(size);
+      }
+    }
   };
-  synchronizeFamily();
-  textCtrl->Bind(wxEVT_RICHTEXT_SELECTION_CHANGED, [synchronizeFamily](wxRichTextEvent &event) {
-    synchronizeFamily();
+  synchronizeTypography();
+  textCtrl->Bind(wxEVT_RICHTEXT_SELECTION_CHANGED, [synchronizeTypography](wxRichTextEvent &event) {
+    synchronizeTypography();
+    event.Skip();
+  });
+  textCtrl->Bind(wxEVT_RICHTEXT_STYLE_CHANGED, [this, synchronizeTypography](wxRichTextEvent &event) {
+    synchronizeTypography();
+    RefreshEditorBackground();
     event.Skip();
   });
   Bind(wxEVT_CLOSE_WINDOW, [family](wxCloseEvent &event) {
@@ -254,6 +276,12 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
     event.Skip();
   });
   Layout();
+  // Finish the native load before recording the untouched XML baseline.
+  textCtrl->Invalidate();
+  textCtrl->LayoutContent();
+  textCtrl->SetInsertionPoint(0);
+  textCtrl->DiscardEdits();
+  loadedXml_ = SerializeBuffer();
   Centre();
 }
 
@@ -265,6 +293,7 @@ void LayoutTextDialog::ShowDocumentPreview(const wxSize &documentSize) {
   layouts::LayoutTextDefinition text;
   text.richText = GetRichText().utf8_string();
   text.wrapText = GetWrapText();
+  text.useRichTextColors = useRichTextColors_ || text.richText != originalXml_.utf8_string();
   text.text = GetPlainText().utf8_string();
   text.solidBackground = GetSolidBackground();
   const auto image = layouttext::RenderTextImage(text, output, documentSize, scale);
@@ -279,20 +308,21 @@ void LayoutTextDialog::ShowDocumentPreview(const wxSize &documentSize) {
   preview.ShowModal();
 }
 
+wxString LayoutTextDialog::SerializeBuffer() const {
+  wxRichTextBuffer bufferCopy = textCtrl->GetBuffer();
+  return layouttext::SaveRichTextBufferToString(bufferCopy);
+}
+
 // Returns the edited content serialized as rich text XML.
 wxString LayoutTextDialog::GetRichText() const {
-  if (!textCtrl)
-    return wxEmptyString;
-  wxRichTextBuffer bufferCopy = textCtrl->GetBuffer();
-  const auto xml = layouttext::SaveRichTextBufferToString(bufferCopy);
-  if (!originalXml_.empty() && xml == loadedXml_) return originalXml_;
+  const auto xml = SerializeBuffer();
+  if (xml == loadedXml_) return originalXml_;
   return xml.empty() ? xml : xml + legacyXmlTail_;
 }
 
 std::optional<bool> LayoutTextDialog::GetWrapText() const {
   if (wrapText_) return wrapText_;
-  const auto xml = GetRichText();
-  if (xml == originalXml_ || xml == loadedXml_) return wrapText_;
+  if (GetRichText() == originalXml_) return wrapText_;
   return true;
 }
 
@@ -340,6 +370,33 @@ void LayoutTextDialog::LoadInitialContent(const wxString &initialRichText,
     }
   }
   textCtrl->SetValue(fallbackText);
+}
+
+void LayoutTextDialog::ApplyTextColor(const wxColour &color) {
+  wxRichTextAttr ink;
+  ink.SetTextColour(color);
+  const bool hasSelection = textCtrl->HasSelection();
+  const auto range = hasSelection ? textCtrl->GetSelectionRange()
+                                  : wxRichTextRange(0, textCtrl->GetLastPosition());
+  if (range.GetLength() > 0)
+    textCtrl->SetStyleEx(range, ink, wxRICHTEXT_SETSTYLE_WITH_UNDO |
+        wxRICHTEXT_SETSTYLE_OPTIMIZE | wxRICHTEXT_SETSTYLE_CHARACTERS_ONLY);
+  if (!hasSelection) {
+    auto style = textCtrl->GetDefaultStyleEx();
+    style.Apply(ink);
+    textCtrl->SetDefaultStyle(style);
+  }
+  RefreshEditorBackground();
+  textCtrl->SetFocus();
+}
+
+void LayoutTextDialog::RefreshEditorBackground() {
+  const auto background = layouttext::HasLightInk(textCtrl->GetBuffer())
+                              ? wxColour(118, 118, 118) : *wxWHITE;
+  if (textCtrl->GetBackgroundColour() != background) {
+    textCtrl->SetBackgroundColour(background);
+    textCtrl->Refresh(false);
+  }
 }
 
 // Toggles bold formatting for the current rich text selection.

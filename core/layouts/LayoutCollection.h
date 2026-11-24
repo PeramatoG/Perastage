@@ -154,6 +154,7 @@ struct LayoutTextDefinition {
   std::string text;
   std::string richText;
   std::optional<bool> wrapText;
+  bool useRichTextColors = false;
   bool solidBackground = true;
   bool drawFrame = true;
 };

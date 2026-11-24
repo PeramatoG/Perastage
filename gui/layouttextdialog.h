@@ -22,6 +22,7 @@
 
 class wxBitmapBundle;
 class wxCheckBox;
+class wxColourPickerCtrl;
 class wxRichTextCtrl;
 class wxSpinCtrl;
 
@@ -30,7 +31,8 @@ public:
   LayoutTextDialog(wxWindow *parent, const wxString &initialRichText,
                    const wxString &fallbackText, bool solidBackground,
                    bool drawFrame, wxSize documentSize = wxSize(480, 240),
-                   std::optional<bool> wrapText = {});
+                   std::optional<bool> wrapText = {},
+                   bool useRichTextColors = false);
 
   wxString GetRichText() const;
   wxString GetPlainText() const;
@@ -39,10 +41,13 @@ public:
   std::optional<bool> GetWrapText() const;
 
 private:
+  wxString SerializeBuffer() const;
   wxBitmapBundle LoadIcon(const std::string &name) const;
   void LoadInitialContent(const wxString &initialRichText,
                           const wxString &fallbackText);
   void ShowDocumentPreview(const wxSize &documentSize);
+  void ApplyTextColor(const wxColour &color);
+  void RefreshEditorBackground();
   void ApplyBold();
   void ApplyFontSize(int size);
   void AdjustFontSize(int delta);
@@ -50,6 +55,8 @@ private:
 
   wxString originalXml_, loadedXml_, legacyXmlTail_;
   std::optional<bool> wrapText_;
+  bool useRichTextColors_;
+  wxColourPickerCtrl *colorCtrl_ = nullptr;
   wxRichTextCtrl *textCtrl = nullptr;
   wxSpinCtrl *fontSizeCtrl = nullptr;
   wxCheckBox *solidBackgroundCtrl = nullptr;

@@ -131,10 +131,11 @@ Sans Mono has Regular and Bold. Use **Document preview** in the text editor
 to see the shared Layout rendering. The native editing control can display a
 different system rendering while you edit.
 
-When a legacy text element contains formatting the editor cannot round-trip,
-the editor keeps a recovery copy of the original alongside your edits and
-shows a notice. The Layout and PDF use the supported formatting in the
-edited text.
+Free text uses the same searchable **Font family** picker as fixture labels.
+**Size (pt)** sets the size in document points. **Color** applies to the
+selected text, or to the whole box when there is no selection. Legacy text
+boxes start in black. Editing a legacy box keeps a recovery copy of its
+original rich text. The Layout and PDF use the colors you choose in Edit Text.
 
 ### Event Table preview and PDF
 

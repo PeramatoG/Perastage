@@ -232,6 +232,7 @@ nlohmann::json ToJson(const LayoutTextDefinition &text) {
   if (!text.richText.empty())
     data["richText"] = text.richText;
   if (text.wrapText) data["wrapText"] = *text.wrapText;
+  if (text.useRichTextColors) data["useRichTextColors"] = true;
   return data;
 }
 
@@ -612,6 +613,8 @@ bool ParseLayoutText(const nlohmann::json &value, LayoutTextDefinition &out,
     out.richText = richIt->get<std::string>();
   if (auto it = value.find("wrapText"); it != value.end() && it->is_boolean())
     out.wrapText = it->get<bool>();
+  if (auto it = value.find("useRichTextColors"); it != value.end() && it->is_boolean())
+    out.useRichTextColors = it->get<bool>();
   if (auto bgIt = value.find("solidBackground");
       bgIt != value.end() && bgIt->is_boolean())
     out.solidBackground = bgIt->get<bool>();

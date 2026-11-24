@@ -187,6 +187,8 @@ Clearly identify experimental functionality; do not repeat 1.7.0 features.
 
 - Unsupported or ambiguous MVR changes are rejected more safely, helping prevent accidental data loss during affected conversions, imports, project saves, and exports.
 
+- Fixed washed-out edges in transparent Layout text boxes. Legacy text boxes now open and render in black. Edit Text uses the fixture label font picker and includes a text color picker. Opening or accepting a legacy text box without edits preserves its original rich text.
+
 <!-- Add other verified cross-platform and stability fixes here without duplicating detailed MVR entries. -->
 
 ## Documentation and Help

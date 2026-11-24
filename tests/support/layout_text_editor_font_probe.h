@@ -93,8 +93,8 @@ inline void CheckLayoutTextEditorFontSelection(wxWindow &parent) {
   LayoutTextDialog opened(&parent, originalXml, {}, true, true);
   if (opened.GetRichText() != originalXml)
     throw std::runtime_error("Opening rich text rewrote legacy XML");
-  if (!opened.FindWindowByName("layoutTextLegacyNotice", &opened))
-    throw std::runtime_error("Legacy content loss was not disclosed");
+  if (opened.FindWindowByName("layoutTextLegacyNotice", &opened))
+    throw std::runtime_error("The retired legacy notice is still displayed");
   for (auto *child : opened.GetChildren()) {
     if (auto *control = dynamic_cast<wxRichTextCtrl *>(child)) {
       control->SetInsertionPointEnd();

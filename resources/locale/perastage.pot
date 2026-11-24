@@ -2969,6 +2969,10 @@ msgstr ""
 msgid "Could not import layout template.\n"
 msgstr ""
 
+#: gui/layouttextdialog.cpp:174
+msgid "Size (pt)"
+msgstr ""
+
 #: gui/layouttextdialog.cpp:181
 msgid "Solid background"
 msgstr ""
@@ -2983,12 +2987,6 @@ msgstr ""
 
 #: gui/layouttextdialog.cpp:200 gui/layouttextdialog.cpp:272
 msgid "Document preview"
-msgstr ""
-
-#: gui/layouttextdialog.cpp:221
-msgid ""
-"Some legacy formatting cannot be edited here. A copy of the original is kept "
-"with your edits."
 msgstr ""
 
 #: gui/logindialog.cpp:21

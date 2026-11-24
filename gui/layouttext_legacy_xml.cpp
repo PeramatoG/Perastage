@@ -33,19 +33,16 @@ bool SameNodes(const wxXmlNode *left, const wxXmlNode *right) {
 wxString LegacyRichTextTail(const wxString &original, const wxString &nativeRoundTrip) {
   if (original.empty() || original == nativeRoundTrip) return {};
 
-  // Existing copies are carried forward verbatim. Compare the active XML
-  // independently so repeat edits do not create another recovery copy.
+  // Carry the first recovery copy forward even if wxWidgets normalizes the
+  // active XML differently when it is reopened.
   wxString active = original;
-  wxString archive;
   active.Trim();
   const auto marker = active.rfind(kArchiveStart);
   if (marker != wxString::npos && active.EndsWith(kArchiveEnd)) {
     const auto bytes = active.Mid(marker + kArchiveStart.size(),
         active.size() - marker - kArchiveStart.size() - kArchiveEnd.size());
-    if (!wxBase64Decode(bytes).IsEmpty()) {
-      archive = "\n" + active.Mid(marker) + "\n";
-      active.Truncate(marker);
-    }
+    if (!wxBase64Decode(bytes).IsEmpty())
+      return "\n" + active.Mid(marker) + "\n";
   }
 
   const wxLogNull quietXmlProbe;
@@ -53,7 +50,7 @@ wxString LegacyRichTextTail(const wxString &original, const wxString &nativeRoun
   wxXmlDocument sourceXml, savedXml;
   if (sourceXml.Load(source) && savedXml.Load(saved) &&
       SameNodes(sourceXml.GetDocumentNode(), savedXml.GetDocumentNode()))
-    return archive;
+    return {};
 
   // Base64 keeps even invalid XML and comment delimiters out of the active XML.
   auto bytes = original.utf8_str();

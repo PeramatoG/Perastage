@@ -207,6 +207,7 @@ bool AreEqual(const layouts::LayoutTextDefinition &lhs,
   return lhs.id == rhs.id && lhs.zIndex == rhs.zIndex &&
          AreEqual(lhs.frame, rhs.frame) && lhs.text == rhs.text &&
          lhs.richText == rhs.richText && lhs.wrapText == rhs.wrapText &&
+         lhs.useRichTextColors == rhs.useRichTextColors &&
          lhs.solidBackground == rhs.solidBackground &&
          lhs.drawFrame == rhs.drawFrame;
 }
@@ -2203,24 +2204,13 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
         cache.renderZoom = 0.0;
         continue;
       }
-      const bool needsUnpremultiply = !text.solidBackground;
+      // wxImage exposes straight RGB even when its graphics backend premultiplies.
       for (int i = 0; i < width * height; ++i) {
-        const unsigned char a = alpha ? alpha[i] : 255;
-        unsigned char r = rgb[i * 3];
-        unsigned char g = rgb[i * 3 + 1];
-        unsigned char b = rgb[i * 3 + 2];
-        if (needsUnpremultiply && a > 0 && a < 255) {
-          r = static_cast<unsigned char>(
-              std::min(255, static_cast<int>(r) * 255 / a));
-          g = static_cast<unsigned char>(
-              std::min(255, static_cast<int>(g) * 255 / a));
-          b = static_cast<unsigned char>(
-              std::min(255, static_cast<int>(b) * 255 / a));
-        }
-        textPixels[static_cast<size_t>(i) * 4] = r;
-        textPixels[static_cast<size_t>(i) * 4 + 1] = g;
-        textPixels[static_cast<size_t>(i) * 4 + 2] = b;
-        textPixels[static_cast<size_t>(i) * 4 + 3] = a;
+        const auto pixel = static_cast<size_t>(i) * 4;
+        textPixels[pixel] = rgb[i * 3];
+        textPixels[pixel + 1] = rgb[i * 3 + 1];
+        textPixels[pixel + 2] = rgb[i * 3 + 2];
+        textPixels[pixel + 3] = alpha ? alpha[i] : 255;
       }
 
       if (!ensureGlReady()) {

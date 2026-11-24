@@ -4978,17 +4978,22 @@ add_executable(page_output_mapping_test page_output_mapping_test.cpp ../core/pri
 target_include_directories(page_output_mapping_test PRIVATE ../core ../core/print)
 add_test(NAME PageOutputMapping COMMAND page_output_mapping_test)
 add_executable(layout_export_input_test layout_export_input_test.cpp document_font_picker_test.cpp
+    layout_text_rendering_test.cpp
     ../gui/document_font_choice.cpp ../gui/document_font_popup.cpp ../gui/layouttextdialog.cpp
     layout_physical_viewport_preview_test.cpp ../viewer2d/viewer2d_coordinate_math.cpp
     ../gui/layout_viewport_properties.cpp
     ../gui/layout_viewport_preview.cpp ../gui/document_text_renderer.cpp
     ../viewer2d/viewer2dcommandrenderer.cpp
     layout_legend_pdf_resources_stub.cpp ../gui/layout_image_export.cpp ../gui/layouttextutils.cpp
-    ../gui/layouttext_legacy_xml.cpp)
+    ../gui/layouttext_legacy_xml.cpp ../viewer2d/pdf/layout_pdf_text_renderer.cpp
+    ../viewer2d/pdf/pdf_unicode_fonts.cpp ../viewer2d/pdf/pdf_objects.cpp)
 target_include_directories(layout_export_input_test PRIVATE ../gui ../viewer2d ../core ../core/layouts
     ../core/print ../models ../viewer_common ../viewer3d ../third_party)
 target_compile_definitions(layout_export_input_test PRIVATE PERASTAGE_TEST_RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
 target_link_libraries(layout_export_input_test PRIVATE ${_wx_libs} perastage_typography)
+if(TARGET ZLIB::ZLIB)
+    target_link_libraries(layout_export_input_test PRIVATE ZLIB::ZLIB)
+endif()
 if(UNIX AND NOT APPLE AND PERASTAGE_XVFB_RUN)
     add_test(NAME LayoutExportInput COMMAND "${PERASTAGE_XVFB_RUN}" -a "$<TARGET_FILE:layout_export_input_test>")
 else()
