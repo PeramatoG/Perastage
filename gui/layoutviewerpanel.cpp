@@ -207,6 +207,7 @@ bool AreEqual(const layouts::LayoutTextDefinition &lhs,
   return lhs.id == rhs.id && lhs.zIndex == rhs.zIndex &&
          AreEqual(lhs.frame, rhs.frame) && lhs.text == rhs.text &&
          lhs.richText == rhs.richText && lhs.wrapText == rhs.wrapText &&
+         lhs.useRichTextColors == rhs.useRichTextColors &&
          lhs.solidBackground == rhs.solidBackground &&
          lhs.drawFrame == rhs.drawFrame;
 }

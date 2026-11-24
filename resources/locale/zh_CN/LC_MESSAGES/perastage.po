@@ -3100,6 +3100,10 @@ msgstr "导入布局模板"
 msgid "Could not import layout template.\n"
 msgstr "无法导入布局模板.\n"
 
+#: gui/layouttextdialog.cpp:174
+msgid "Size (pt)"
+msgstr "大小（pt）"
+
 #: gui/layouttextdialog.cpp:181
 msgid "Solid background"
 msgstr "纯色背景"
@@ -3115,12 +3119,6 @@ msgstr "好的"
 #: gui/layouttextdialog.cpp:200 gui/layouttextdialog.cpp:272
 msgid "Document preview"
 msgstr "文档预览"
-
-#: gui/layouttextdialog.cpp:221
-msgid ""
-"Some legacy formatting cannot be edited here. A copy of the original is kept "
-"with your edits."
-msgstr "部分旧版格式无法在此编辑。原始内容的副本会随编辑结果一起保留。"
 
 #: gui/logindialog.cpp:21
 msgid "GDTF Share Login"

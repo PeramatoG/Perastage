@@ -79,6 +79,7 @@ int main(int argc,char **argv) {
     rich.UpdateRanges();
     text.richText = layouttext::SaveRichTextBufferToString(rich).utf8_string();
     TestLegacyRichText(wxString::FromUTF8(text.richText));
+    text.useRichTextColors = true;
     const auto spans = layouttext::BuildLayoutTextExportData(text);
     assert(spans.wrap && spans.lines.size() == 1);
     assert(spans.lines.front().alignment == typography::TextBlock::Alignment::Right);

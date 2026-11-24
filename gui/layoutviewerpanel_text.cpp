@@ -128,7 +128,7 @@ void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
           : wxString::FromUTF8(text->text.data(), text->text.size());
   LayoutTextDialog dialog(this, richText, fallbackText, text->solidBackground,
                           text->drawFrame, wxSize(text->frame.width, text->frame.height),
-                          text->wrapText);
+                          text->wrapText, text->useRichTextColors);
   if (dialog.ShowModal() != wxID_OK)
     return;
 
@@ -141,6 +141,7 @@ void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
   auto updated = *text;
   if (updatedRichText != richText) {
     updated.richText = updatedRichText.utf8_string();
+    updated.useRichTextColors = true;
     updated.text = dialog.GetPlainText().utf8_string();
     updated.wrapText = dialog.GetWrapText();
   }
@@ -303,6 +304,8 @@ size_t LayoutViewerPanel::HashTextContent(
   std::hash<std::string> strHasher;
   std::string content = text.richText.empty() ? text.text : text.richText;
   content += text.solidBackground ? "|bg1" : "|bg0";
+  content += text.useRichTextColors ? "|rich-color" : "|legacy-color";
+  content += !text.wrapText ? "|wrap-auto" : *text.wrapText ? "|wrap-on" : "|wrap-off";
   return strHasher(content);
 }
 

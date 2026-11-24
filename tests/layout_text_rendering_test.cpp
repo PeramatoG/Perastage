@@ -12,13 +12,14 @@
 #include <memory>
 
 #include <wx/app.h>
+#include <wx/clrpicker.h>
 #include <wx/richtext/richtextctrl.h>
 
 namespace {
 
 
 void CheckInk(const wxImage &image, const typography::TextBlockPlan &plan,
-              const typography::FontCatalog &catalog, double scale, bool solid) {
+              const typography::FontCatalog &catalog, double scale, bool solid, bool checkColoredEdge = true) {
   assert(image.IsOk() && image.HasAlpha());
   assert(image.GetAlpha(image.GetWidth() - 1, image.GetHeight() - 1) ==
          (solid ? 255 : 0));
@@ -65,7 +66,7 @@ void CheckInk(const wxImage &image, const typography::TextBlockPlan &plan,
                             static_cast<int>((top + bottom) / 2)) == 0);
   }
   assert(letters == "PABOÉZX");
-  if (!solid) assert(coloredEdge);
+  if (!solid && checkColoredEdge) assert(coloredEdge);
 }
 
 void CheckPdf(const LayoutTextExportData &text, const typography::TextBlockPlan &preview,
@@ -111,6 +112,19 @@ void TestLayoutTextRendering() {
   text.richText = kLegacyLayoutText;
   text.text = "Different fallback";
   text.frame = {17, 29, 280, 120};
+  const auto catalog = std::make_shared<const typography::FontCatalog>(PERASTAGE_TEST_RESOURCE_DIR);
+  const auto legacy = layouttext::BuildLayoutTextExportData(text);
+  for (const auto &line : legacy.lines)
+    for (const auto &run : line.runs)
+      assert((run.color == std::array<uint8_t, 3>{0, 0, 0}));
+  const auto legacyPlan = typography::ComposeTextBlock(legacy, 280, 120, *catalog);
+  CheckPdf(legacy, legacyPlan, catalog);
+  text.solidBackground = false;
+  CheckInk(layouttext::RenderTextImage(text, {420, 180}, {280, 120}, 1.5),
+           legacyPlan, *catalog, 1.5, false, false);
+  assert(text.richText == kLegacyLayoutText);
+
+  text.useRichTextColors = true;
   const auto exportData = layouttext::BuildLayoutTextExportData(text);
   assert(exportData.lines.size() == 2);
   assert(exportData.lines[0].runs.size() == 2);
@@ -119,7 +133,6 @@ void TestLayoutTextRendering() {
   assert(exportData.lines[0].runs[1].color[0] == 255);
   assert(exportData.lines[1].runs[0].text == "É Z" && exportData.lines[1].runs[0].bold);
   assert(exportData.lines[1].runs[1].color[0] == 80);
-  const auto catalog = std::make_shared<const typography::FontCatalog>(PERASTAGE_TEST_RESOURCE_DIR);
   const auto plan = typography::ComposeTextBlock(exportData, 280, 120, *catalog);
   CheckPdf(exportData, plan, catalog);
   for (const bool solid : {true, false}) {
@@ -131,7 +144,7 @@ void TestLayoutTextRendering() {
   LayoutTextDialog editor(nullptr, original, "Different fallback", true, false);
   editor.Show();
   wxYield();
-  assert(editor.FindWindowByName("layoutTextLegacyNotice", &editor));
+  assert(!editor.FindWindowByName("layoutTextLegacyNotice", &editor));
   assert(editor.GetRichText() == original);
   assert(editor.GetPlainText() == wxString::FromUTF8("P A B O\nÉ Z X"));
   wxRichTextCtrl *control = nullptr;
@@ -139,18 +152,49 @@ void TestLayoutTextRendering() {
     if (auto *rich = dynamic_cast<wxRichTextCtrl *>(child)) control = rich;
   assert(control && control->GetLastPosition() > 8);
   assert(control->GetBuffer().GetLineAtPosition(6, false));
-  assert(control->GetBackgroundColour().Red() < 220);
-  wxRichTextAttr white;
-  assert(control->GetStyle(2, white) && white.GetTextColour() == *wxWHITE);
+  assert(control->GetBackgroundColour() == *wxWHITE);
+  const auto inkAt = [](wxRichTextCtrl &ctrl, long position) {
+    wxRichTextAttr attr;
+    assert(ctrl.GetStyle(position, attr));
+    return attr.GetTextColour();
+  };
+  assert(inkAt(*control, 2) == *wxBLACK);
+  auto *picker = dynamic_cast<wxColourPickerCtrl *>(
+      editor.FindWindowByName("layoutTextColor", &editor));
+  assert(picker && picker->GetColour() == *wxBLACK);
+  control->SetSelection(2, 3);
+  wxColourPickerEvent colorChanged(picker, picker->GetId(), wxColour(80, 112, 160));
+  picker->GetEventHandler()->ProcessEvent(colorChanged);
+  assert(inkAt(*control, 2) == wxColour(80, 112, 160));
+  assert(inkAt(*control, 0) == *wxBLACK && inkAt(*control, 4) == *wxBLACK);
+  control->Undo();
+  assert(editor.GetRichText() == original && inkAt(*control, 2) == *wxBLACK);
+  control->Redo();
+  const auto recolored = editor.GetRichText();
+  assert(recolored != original && recolored.Contains("Perastage legacy rich text"));
+  text.richText = recolored.utf8_string();
+  const auto recoloredRuns = layouttext::BuildLayoutTextExportData(text);
+  assert(std::any_of(recoloredRuns.lines[0].runs.begin(), recoloredRuns.lines[0].runs.end(),
+      [](const auto &run) { return run.text == "A" && run.color[0] == 80; }));
   control->SetInsertionPointEnd();
   control->WriteText("!");
   const auto edited = editor.GetRichText();
   assert(edited != original && edited.Contains("Perastage legacy rich text"));
   assert(editor.GetPlainText() == wxString::FromUTF8("P A B O\nÉ Z X!"));
   control->Undo();
-  assert(editor.GetRichText() == original);
+  assert(editor.GetRichText() == recolored);
   control->Redo();
   assert(editor.GetRichText() == edited);
+  control->SetInsertionPointEnd();
+  wxColourPickerEvent whiteChanged(picker, picker->GetId(), *wxWHITE);
+  picker->GetEventHandler()->ProcessEvent(whiteChanged);
+  assert(inkAt(*control, 0) == *wxWHITE && inkAt(*control, 2) == *wxWHITE);
+  assert(control->GetBackgroundColour().Red() < 220);
+  text.richText = editor.GetRichText().utf8_string();
+  const auto whiteRuns = layouttext::BuildLayoutTextExportData(text);
+  for (const auto &line : whiteRuns.lines)
+    for (const auto &run : line.runs)
+      assert((run.color == std::array<uint8_t, 3>{255, 255, 255}));
   editor.Hide();
 
   LayoutTextDialog plain(nullptr, {}, "Plain text\nSecond line", true, false);

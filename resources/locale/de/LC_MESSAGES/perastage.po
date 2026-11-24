@@ -3182,6 +3182,10 @@ msgstr "Layoutvorlage importieren"
 msgid "Could not import layout template.\n"
 msgstr "Layoutvorlage konnte nicht importiert werden.\n"
 
+#: gui/layouttextdialog.cpp:174
+msgid "Size (pt)"
+msgstr "Größe (pt)"
+
 #: gui/layouttextdialog.cpp:181
 msgid "Solid background"
 msgstr "Einfarbiger Hintergrund"
@@ -3197,14 +3201,6 @@ msgstr "OK"
 #: gui/layouttextdialog.cpp:200 gui/layouttextdialog.cpp:272
 msgid "Document preview"
 msgstr "Dokumentvorschau"
-
-#: gui/layouttextdialog.cpp:221
-msgid ""
-"Some legacy formatting cannot be edited here. A copy of the original is kept "
-"with your edits."
-msgstr ""
-"Ein Teil der älteren Formatierung lässt sich hier nicht bearbeiten. Eine "
-"Kopie des Originals bleibt mit den Änderungen erhalten."
 
 #: gui/logindialog.cpp:21
 msgid "GDTF Share Login"

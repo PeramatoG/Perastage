@@ -162,6 +162,8 @@ int main() {
   editedText.richText += "<!-- Perastage legacy rich text (UTF-8 Base64): " +
       wxBase64Encode(kLegacyLayoutText, sizeof(kLegacyLayoutText) - 1).utf8_string() + " -->\n";
   editedText.text = "Styled page!";
+  editedText.useRichTextColors = true;
+  assert(!text.useRichTextColors);
   assert(manager.UpdateLayoutText(page.name, editedText));
   const auto afterText = cfg.GetValue("layouts_collection");
   assert(beforeText != afterText && cfg.IsDirty() && cfg.CanUndo());
@@ -215,7 +217,8 @@ int main() {
   assert(imported.layout.view2dViews[0].frame.width==101 && imported.layout.view2dViews[0].frame.x==17);
   assert(imported.layout.textViews[0].frame.height==87 &&
          imported.layout.textViews[0].text == editedText.text);
-  assert(imported.layout.textViews[0].richText == editedText.richText);
+  assert(imported.layout.textViews[0].richText == editedText.richText &&
+         imported.layout.textViews[0].useRichTextColors);
   assert(imported.layout.imageViews[0].frame.width==83 && imported.layout.imageViews[0].frame.height==41);
   const auto legacy = dir / "legend.json";
   { std::ofstream out(legacy); out << layouts::ToTemplateDocument({imported.layout}); }
@@ -252,7 +255,8 @@ int main() {
   const auto &allLayouts=manager.GetLayouts().Items();
   const auto restored=std::find_if(allLayouts.begin(),allLayouts.end(),[&](const auto &v) {return v.name==page.name;});
   assert(restored!=allLayouts.end() && restored->imageViews.size()==1);
-  assert(restored->textViews[0].richText == editedText.richText);
+  assert(restored->textViews[0].richText == editedText.richText &&
+         restored->textViews[0].useRichTextColors);
   const auto &restoredImage=restored->imageViews[0];
   std::vector<std::uint8_t> restoredBytes;
   assert(layouts::LayoutImageResourceRegistry::Get().GetResourceBytes(restoredImage.projectResourcePath,restoredBytes));

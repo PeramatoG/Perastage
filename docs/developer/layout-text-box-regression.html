@@ -52,8 +52,11 @@ inside each glyph&#39;s bounds and checks the transparent counter inside the O.<
 Opening the dialog also caused its first native layout to normalize the buffer
 after the application had recorded its XML baseline. Accepting the untouched
 dialog could therefore serialize the normalized buffer with a recovery copy.
-The editor now lays out the native buffer before taking its snapshot. A neutral
-editing surface gives light ink contrast while retaining the authored colours.</p>
+The editor now lays out the native buffer before taking its snapshot. Both the
+editor and the shared preview/PDF pipeline normalize legacy foreground colors
+to black in memory. Text boxes edited with the new controls store an optional
+<code>useRichTextColors</code> flag so explicitly chosen colors survive save/reopen. The
+editor gives light ink contrast on a neutral canvas when such colors are used.</p>
 <p>The Layout texture upload divided edge RGB by alpha even though <code>wxImage</code>
 already exposes straight RGB. That raised the RGB values of translucent
 coloured edges before GL blended them. The renderer now initializes an image
@@ -61,9 +64,11 @@ surface with explicit background pixels, completes the graphics context before
 reading the image and copies its straight RGB and alpha to the texture. This
 also avoids using a selected memory bitmap as the GDI+ alpha target on Windows.</p>
 <p>The automated fixture reproduces the editor and texture handling conditions.
-The original affected project and a before-fix Windows screenshot were
-unavailable. White ink on an opaque white document background remains white
-and will be visible only where there is sufficient contrast.</p>
+The Windows screenshots show white legacy text after the initial black <code>P</code>,
+consistent with the mixed foreground colors in the regression fixture. An
+explicitly chosen white foreground needs contrast in the Layout or PDF.
+The reported Windows <code>CacheOverflowException</code> requires a native call stack
+to identify the throwing component.</p>
 <h2 id="windows-verification">Windows verification</h2>
 <p>Run the native GUI test from the repository with the Windows Debug
 dependencies installed.</p>
@@ -75,16 +80,18 @@ ctest --test-dir build/win-x64-debug-ninja -R &quot;^LayoutExportInput$&quot; --
 box as a JSON template. Replace its <code>layouts[0].textViews[0].richText</code> with the
 literal XML in
 <code>tests/support/legacy_layout_text_fixture.h</code>. Give it an area of at least
-280 × 120 document points. Set the text background to transparent and place the
-box over a dark element so the white runs have contrast. Import the template,
-open Edit Text, and check the full two lines and the recovery notice. Cancel
-and reopen, then accept without edits. Both operations should retain the
-template&#39;s exact XML and leave project history alone.</p>
-<p>Append a letter at the end of the second line, confirm, and verify Undo and
-Redo. Save and reopen the PSTG, then export the Layout as PDF. The edited XML
-contains the supported runs and one recovery comment containing the original
-XML. The Layout and PDF keep the original colour and position of each run. An
-opaque white box provides a second check for the black and coloured runs.</p>
+280 × 120 document points and omit <code>useRichTextColors</code>. Import the template
+with a transparent text background over the light page. Check that both lines
+are black in the Layout, Edit Text and Document preview. The old recovery
+notice should be absent. Cancel and reopen, then accept without edits. Both
+operations should retain the template&#39;s exact XML and leave project history
+alone.</p>
+<p>Select a few letters and choose a color. Append a letter at the end of the
+second line, confirm, and verify Undo and Redo. Save and reopen the PSTG, then
+export the Layout as PDF. The edited XML contains the supported runs and one
+recovery comment containing the original XML. The Layout and PDF agree on the
+chosen color and keep the other runs black. Repeat with explicitly chosen white
+ink on a dark area and with an opaque white box using dark ink.</p>
 </div>
 <a class="back-top" href="#top">Back to top</a>
 </main>

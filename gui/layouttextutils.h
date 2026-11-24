@@ -32,6 +32,7 @@ bool LoadRichTextBufferFromString(wxRichTextBuffer &buffer,
                                   const wxString &content);
 wxString SaveRichTextBufferToString(wxRichTextBuffer &buffer);
 
+void NormalizeLegacyTextColors(wxRichTextBuffer &buffer);
 bool HasLightInk(const wxRichTextBuffer &buffer);
 
 // Extract document-point data; output paper mapping belongs to the PDF adapter.

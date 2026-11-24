@@ -177,6 +177,15 @@ wxString SaveRichTextBufferToString(wxRichTextBuffer &buffer) {
 }
 
 namespace {
+void SetLegacyObjectInk(wxRichTextObject &object) {
+  if (object.GetAttributes().HasTextColour())
+    object.GetAttributes().SetTextColour(*wxBLACK);
+  if (auto *container = wxDynamicCast(&object, wxRichTextCompositeObject)) {
+    for (size_t index = 0; index < container->GetChildCount(); ++index)
+      SetLegacyObjectInk(*container->GetChild(index));
+  }
+}
+
 LayoutTextExportData ExtractLayoutText(const layouts::LayoutTextDefinition &text,
                                       const wxRichTextBuffer *buffer) {
   LayoutTextExportData data;
@@ -322,6 +331,14 @@ wxImage RenderTextData(const LayoutTextExportData &data, const wxSize &renderSiz
 
 } // namespace
 
+void NormalizeLegacyTextColors(wxRichTextBuffer &buffer) {
+  buffer.GetAttributes().SetTextColour(*wxBLACK);
+  auto defaultStyle = buffer.GetDefaultStyle();
+  defaultStyle.SetTextColour(*wxBLACK);
+  buffer.SetDefaultStyle(defaultStyle);
+  SetLegacyObjectInk(buffer);
+}
+
 bool HasLightInk(const wxRichTextBuffer &buffer) {
   const auto data = ExtractLayoutText({}, &buffer);
   return std::any_of(data.lines.begin(), data.lines.end(), [](const auto &line) {
@@ -335,6 +352,7 @@ LayoutTextExportData BuildLayoutTextExportData(const layouts::LayoutTextDefiniti
   wxRichTextBuffer buffer;
   const bool loaded = !text.richText.empty() && LoadRichTextBufferFromString(
       buffer, wxString::FromUTF8(text.richText.data(), text.richText.size()));
+  if (loaded && !text.useRichTextColors) NormalizeLegacyTextColors(buffer);
   return ExtractLayoutText(text, loaded ? &buffer : nullptr);
 }
 
