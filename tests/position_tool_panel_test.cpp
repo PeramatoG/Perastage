@@ -76,6 +76,15 @@ int main(int argc, char **argv) {
   auto *y = Field(*panel, "Y:");
   auto *z = Field(*panel, "Z:");
   assert(x && y && z && !x->IsEnabled());
+  wxSpinButton *stepper = nullptr;
+  for (auto *field : {x, y, z}) {
+    wxSpinButton *arrows = nullptr;
+    for (auto *child : field->GetParent()->GetChildren())
+      if (auto *spin = dynamic_cast<wxSpinButton *>(child)) arrows = spin;
+    assert(arrows && arrows->GetSize().GetHeight() == field->GetSize().GetHeight());
+    assert(field->GetSize().GetHeight() == field->GetBestSize().GetHeight());
+    if (field == z) stepper = arrows;
+  }
   Fixture a;
   a.uuid = "fixture-a";
   a.transform = MatrixUtils::Identity();
@@ -190,9 +199,6 @@ int main(int argc, char **argv) {
   assert(z->GetValue() == "5.750");
   assert(config.Redo() == "Position Tool"); Flush();
   assert(z->GetValue() == "9.000");
-  wxSpinButton *stepper = nullptr;
-  for (auto *child : z->GetParent()->GetChildren())
-    if (auto *spin = dynamic_cast<wxSpinButton *>(child)) stepper = spin;
   assert(stepper && stepper->IsEnabled());
   wxSpinEvent step(wxEVT_SPIN_UP, stepper->GetId());
   stepper->GetEventHandler()->ProcessEvent(step); Flush();
