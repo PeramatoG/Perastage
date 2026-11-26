@@ -17,13 +17,13 @@ struct Target {
 };
 enum class Action {
   EditFixture, EditPatch, EditTruss, EditPrimitive, ConvertToTruss,
-  SelectType, SelectPosition, PositionTool, Group, Ungroup, Copy, Delete,
+  SelectType, SelectPosition, PositionTool, Group, Ungroup, Duplicate, Delete,
   RenderStyle, ExportImage, SelectionShortcuts
 };
 struct Capabilities {
   bool editFixture = false, editPatch = false, editTruss = false;
   bool editPrimitive = false, convertToTruss = false, positionTool = false;
-  bool group = false, ungroup = false, copy = false, remove = false;
+  bool group = false, ungroup = false, duplicate = false, remove = false;
   bool renderStyle = false, exportImage = false;
   bool selectionShortcuts = false;
 };

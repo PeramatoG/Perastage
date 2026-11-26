@@ -102,6 +102,7 @@ public:
   void EnableShortcuts(bool enable);
   void FocusConsoleForQuickCommand(const wxString &prefill);
   void FocusPositionTool();
+  void DuplicateSceneSelection(bool in3D);
   bool ApplyShortcutDecision(const gui::ShortcutExecutionDecision &decision);
   void SyncViewportToolToggleState(bool measureEnabled, Viewer2DMeasureMode mode = Viewer2DMeasureMode::CenterToCenter);
   void SyncAxisConstraintToolToggleState();
@@ -284,6 +285,9 @@ private:
   void OnCut(wxCommandEvent &event);
   void OnCopy(wxCommandEvent &event);
   void OnPaste(wxCommandEvent &event);
+  bool CopySceneSelection();
+  bool IsScenePlacementActive() const;
+  void PasteSceneClipboard(std::optional<bool> target3D = std::nullopt);
   void InvalidateSceneClipboard();
   void CancelActiveSceneClipboardPlacement();
   void OnAddFixture(wxCommandEvent &event);     // Add fixture from GDTF

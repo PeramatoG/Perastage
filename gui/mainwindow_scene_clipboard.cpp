@@ -108,14 +108,24 @@ void MainWindow::OnCopy(wxCommandEvent &event) {
     event.Skip();
     return;
   }
-  ConfigManager &config = guiConfigServices->LegacyConfigManager();
-  const SelectionState selection = BuildSelection(config);
-  const auto overrides = ReadFixtureLabelOverrides(config);
-  if (sceneClipboard.Capture(config.GetScene(), selection,
-                             sceneClipboardEpoch, overrides) &&
-      consolePanel) {
+  if (CopySceneSelection() && consolePanel)
     consolePanel->AppendMessage("Copied selected scene elements");
-  }
+}
+
+bool MainWindow::CopySceneSelection() {
+  const auto &config = guiConfigServices->LegacyConfigManager();
+  return sceneClipboard.Capture(config.GetScene(), BuildSelection(config),
+                                sceneClipboardEpoch, ReadFixtureLabelOverrides(config));
+}
+
+bool MainWindow::IsScenePlacementActive() const {
+  return (viewport2DPanel && viewport2DPanel->IsContinuousPlacementActive()) ||
+         (viewportPanel && viewportPanel->IsContinuousPlacementActive());
+}
+
+void MainWindow::DuplicateSceneSelection(bool in3D) {
+  if (!IsScenePlacementActive() && CopySceneSelection())
+    PasteSceneClipboard(in3D);
 }
 
 // Captures and removes the supported central scene selection as one edit.
@@ -146,22 +156,21 @@ void MainWindow::OnCut(wxCommandEvent &event) {
     consolePanel->AppendMessage("Cut selected scene elements");
 }
 
-// Pastes clipboard values into the current scene and selects the new instances.
 void MainWindow::OnPaste(wxCommandEvent &event) {
   if (EditableControlOwnsClipboard()) {
     event.Skip();
     return;
   }
-  if (!sceneClipboard.CanPaste(sceneClipboardEpoch)) {
+  if (!IsScenePlacementActive())
+    PasteSceneClipboard();
+}
+
+// Pastes clipboard values into the current scene and selects the new instances.
+void MainWindow::PasteSceneClipboard(std::optional<bool> target3D) {
+  if (!sceneClipboard.CanPaste(sceneClipboardEpoch))
     return;
-  }
-  if ((viewport2DPanel && viewport2DPanel->IsContinuousPlacementActive()) ||
-      (viewportPanel && viewportPanel->IsContinuousPlacementActive())) {
-    return;
-  }
   ConfigManager &config = guiConfigServices->LegacyConfigManager();
   auto overrides = ReadFixtureLabelOverrides(config);
-  const bool singleItem = sceneClipboard.GetPayload().items.size() == 1;
   auto before = std::make_shared<PasteBeforeState>(PasteBeforeState{
       config.GetScene(), BuildSelection(config), config.CaptureDirtyState(),
       config.GetValue(project_identity::kFixtureLabelOverridesConfigKey)});
@@ -239,7 +248,8 @@ void MainWindow::OnPaste(wxCommandEvent &event) {
       activeConfig.RestoreDirtyState(before->dirty);
     };
     const bool use2D = viewport2DPanel && viewport2DPanel->IsShownOnScreen() &&
-                       (viewport2DPanel->HasFocus() || !viewportPanel ||
+                       !target3D.value_or(false) &&
+                       (target3D.has_value() || viewport2DPanel->HasFocus() || !viewportPanel ||
                         !viewportPanel->IsShownOnScreen());
     if (use2D) {
       viewport2DPanel->BeginClipboardContinuousPlacement(
@@ -304,7 +314,7 @@ void MainWindow::OnPaste(wxCommandEvent &event) {
       RefreshAfterSceneChange();
     };
     const bool use3D = viewportPanel && viewportPanel->IsShownOnScreen() &&
-                       viewportPanel->HasFocus();
+                       target3D.value_or(viewportPanel->HasFocus());
     if (use3D) {
       viewportPanel->BeginClipboardBatchPlacement(
           batch, std::move(confirm), std::move(cancel));

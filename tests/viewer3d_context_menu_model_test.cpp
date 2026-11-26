@@ -20,12 +20,13 @@ void TestClickedIdentityAndChronology() {
   assert(model.replaceSelection);
   assert(model.selection == std::vector<Target>{input.hit});
   assert(Has(model, Action::EditFixture) && Has(model, Action::EditPatch));
+  assert(Has(model, Action::Duplicate));
   assert(!Has(model, Action::EditTruss) && !Has(model, Action::EditPrimitive));
   input.selection = {{Kind::Truss, "truss-b"}, input.hit, {Kind::Fixture, "fixture-c"}};
   model = Build(input);
   assert(!model.replaceSelection);
   assert(model.selection == input.selection);
-  assert(Has(model, Action::Group) && Has(model, Action::Copy) && Has(model, Action::Delete));
+  assert(Has(model, Action::Group) && Has(model, Action::Duplicate) && Has(model, Action::Delete));
   assert(Build(input).actions == model.actions);
   // A promoted group carries all clicked members while retaining the hit UUID.
   input.selection.clear();
@@ -51,10 +52,12 @@ void TestCategoriesAndCapabilities() {
   input.capabilities.editPrimitive = false;
   input.capabilities.convertToTruss = false;
   input.capabilities.ungroup = false;
+  input.capabilities.duplicate = false;
   const auto model = Build(input);
   assert(!Has(model, Action::EditPrimitive));
   assert(!Has(model, Action::ConvertToTruss));
   assert(!Has(model, Action::Ungroup));
+  assert(!Has(model, Action::Duplicate));
 }
 void TestEmptyAndInteractions() {
   Input input;

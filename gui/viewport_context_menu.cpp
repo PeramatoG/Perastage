@@ -139,7 +139,7 @@ wxString Label(Action action) {
   case Action::PositionTool: return _("Position Tool");
   case Action::Group: return _("Group");
   case Action::Ungroup: return _("Ungroup");
-  case Action::Copy: return _("Copy");
+  case Action::Duplicate: return _("Duplicate");
   case Action::Delete: return _("Delete");
   default: return {};
   }
@@ -256,7 +256,8 @@ void ShowContextMenu(wxWindow &window, const wxPoint &position,
   }
   const auto editableCount = effective.fixtures.size() + effective.trusses.size() +
       effective.supports.size() + effective.sceneObjects.size();
-  c.positionTool = c.copy = true;
+  c.positionTool = true;
+  c.duplicate = editableCount > 0;
   c.group = editableCount >= 2;
   c.remove = editableCount > 0;
   c.ungroup = editableCount > 0 && HasGroupedMember(scene, effective);
@@ -286,7 +287,7 @@ void ShowContextMenu(wxWindow &window, const wxPoint &position,
         break;
       case Action::Group: Dispatch(ID_Edit_Group); break;
       case Action::Ungroup: Dispatch(ID_Edit_Ungroup); break;
-      case Action::Copy: Dispatch(ID_Edit_Copy); break;
+      case Action::Duplicate: main->DuplicateSceneSelection(threeDimensional); break;
       case Action::Delete: Dispatch(ID_Edit_Delete); break;
       default: break;
       }

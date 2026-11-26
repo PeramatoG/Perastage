@@ -3923,7 +3923,11 @@ msgstr "数量"
 msgid "Cut selected scene elements"
 msgstr "剪切选定的场景元素"
 
-#: gui/mainwindow_menu.cpp:207 gui/viewport_context_menu.cpp:142
+#: gui/viewport_context_menu.cpp:142
+msgid "Duplicate"
+msgstr "复制"
+
+#: gui/mainwindow_menu.cpp:207
 msgid "Copy"
 msgstr "复制"
 

@@ -3787,7 +3787,11 @@ msgstr ""
 msgid "Cut selected scene elements"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:207 gui/viewport_context_menu.cpp:142
+#: gui/viewport_context_menu.cpp:142
+msgid "Duplicate"
+msgstr ""
+
+#: gui/mainwindow_menu.cpp:207
 msgid "Copy"
 msgstr ""
 

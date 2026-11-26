@@ -17,10 +17,12 @@ objects offer their existing editor and model conversion where available.
 Hoists in 2D offer applicable selection actions and the Position Tool.
 
 Right-clicking an already selected element preserves the complete selection and
-its order. Individual editors act on the clicked element; Group, Ungroup, Copy
-and Delete use the current selection through the existing commands. Right-click
-an unselected element to select it with the current group behavior. The active
-table limits picking unless **Cross-table Actions** is enabled.
+its order. Individual editors act on the clicked element. Group, Ungroup,
+**Duplicate** and Delete use the current selection. Choose **Duplicate** to
+copy the selection and start placing it in that viewport. Click to place the
+copy or right-click to cancel placement. Right-click an unselected element to
+select it with the current group behavior. The active table limits picking
+unless **Cross-table Actions** is enabled.
 
 Empty-space menus preserve selection and keep type/position selection shortcuts.
 3D also retains **Render style** and **Export image...**. Escape dismisses a menu
