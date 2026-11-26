@@ -59,17 +59,11 @@ PositionToolPanel::PositionToolPanel(
     field->SetMinSize(FromDIP(wxSize(20, -1)));
     fields_[axis] = field;
     field->SetName(labels[axis]);
-    row->Add(field, 1);
+    row->Add(field, 1, wxEXPAND);
     auto *stepper = new wxSpinButton(cell, wxID_ANY, wxDefaultPosition,
                                      wxDefaultSize, wxSP_VERTICAL);
-#ifdef __WXGTK__
-    // GTK presents two horizontal buttons; retain room for both hit targets.
-    const int stepperWidth = 48;
-#else
-    const int stepperWidth = 20;
-#endif
-    stepper->SetMinSize(FromDIP(wxSize(stepperWidth, -1)));
-    stepper->SetSize(FromDIP(wxSize(stepperWidth, -1)));
+    // Like wxSpinCtrlDouble in Ruler, use the native arrow width and the text height.
+    stepper->SetMinSize(wxSize(-1, field->GetBestSize().GetHeight()));
     steppers_[axis] = stepper;
     stepper->SetRange(-1000000, 1000000);
     stepper->SetValue(0);
