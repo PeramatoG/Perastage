@@ -922,7 +922,11 @@ void ConfigManager::SetStartupMetrics(
 // Resets configuration and scene state for a fresh project.
 void ConfigManager::Reset() {
   RevisionGuard guard(*this);
+  const auto layoutWorkspace = GetValue("ui_layout_mode_perspective");
+  const auto layoutProperties = GetValue("ui_layout_properties_visible");
   preferencesStore.ClearValues();
+  if (layoutWorkspace) preferencesStore.SetValue("ui_layout_mode_perspective", *layoutWorkspace);
+  if (layoutProperties) preferencesStore.SetValue("ui_layout_properties_visible", *layoutProperties);
   projectSession.GetScene().Clear();
   projectSession.GetFixtureSymbols().Clear();
   if (!HasKey("ui_distance_unit_system"))

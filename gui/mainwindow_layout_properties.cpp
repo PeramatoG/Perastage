@@ -87,7 +87,7 @@ void MainWindow::CreateLayoutProperties() {
         return commit(id, value);
       });
   auiManager->AddPane(layoutPropertiesPanel, wxAuiPaneInfo()
-      .Name(kPane).Caption(_("Properties")).Right().Layer(0).Row(0).Position(0)
+      .Name(kPane).Caption(_("Properties")).Right().Layer(0).Row(1).Position(0)
       .BestSize(FromDIP(wxSize(320, 500))).MinSize(FromDIP(wxSize(215, 160)))
       .CloseButton(true).Floatable(true).Resizable(true).Hide());
   layoutViewerPanel->SetLayoutSelectionHandler([this] { RefreshLayoutProperties(); });
@@ -119,10 +119,6 @@ void MainWindow::SaveLayoutPropertiesVisibility(bool shown) {
 void MainWindow::RestoreLayoutPropertiesVisibility(bool layoutMode) {
   const bool shown = guiConfigServices->Preferences().GetValue(kVisibilityKey).value_or("1") != "0";
   auiManager->GetPane(kPane).Show(layoutMode && shown);
-}
-
-std::optional<std::string> MainWindow::ReadLayoutWorkspacePerspective() const {
-  return guiConfigServices->Preferences().GetValue(kPerspectiveKey);
 }
 
 void MainWindow::SaveLayoutWorkspacePerspective() {

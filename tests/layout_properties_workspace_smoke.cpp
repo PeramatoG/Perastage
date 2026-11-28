@@ -37,6 +37,7 @@ class PropertiesSmoke final : public wxApp {
   unsigned ticks_ = 0;
   int result_ = 1;
   int stage_ = 0;
+  bool legacy_ = false;
 
   void Dispatch(int id) {
     wxCommandEvent event(wxEVT_MENU, id);
@@ -62,6 +63,12 @@ class PropertiesSmoke final : public wxApp {
         Require(pane.IsShown() && pane.dock_direction == wxAUI_DOCK_RIGHT, "Properties must start docked on the right");
         Require(manager->GetPane("LayoutPanel").dock_direction == wxAUI_DOCK_LEFT &&
                 manager->GetPane("LayoutViewer").dock_direction == wxAUI_DOCK_CENTER, "Invalid Layout column arrangement");
+        const int pageListWidth = frame_->ToDIP(manager->GetPane("LayoutPanel").window->GetSize()).x;
+        const int propertiesWidth = frame_->ToDIP(pane.window->GetSize()).x;
+        Require(pageListWidth >= 180 && pageListWidth <= 250, "The Layouts list is wider or narrower than the compact default");
+        Require(propertiesWidth >= 285 && propertiesWidth <= 360, "Properties has an unexpected default width");
+        if (legacy_) Require(manager->GetPane("LayoutPanel").dock_row == 2,
+                            "Legacy perspective changed the existing Layouts dock");
         const auto revision = config.CaptureDirtyState().revision;
         Dispatch(ID_View_ToggleLayoutProperties);
         Require(!pane.IsShown(), "View menu did not hide Properties");
@@ -72,6 +79,13 @@ class PropertiesSmoke final : public wxApp {
         Require(config.CaptureDirtyState().revision == revision, "Pane visibility dirtied the project");
         Dispatch(ID_View_ToggleLayoutProperties);
         Require(pane.IsShown(), "View menu did not restore Properties");
+        pane.Float().FloatingPosition(240, 180).FloatingSize(340, 480);
+        manager->Update();
+        Dispatch(ID_View_Layout_2D);
+        Dispatch(ID_View_Layout_Mode);
+        Require(pane.IsShown() && pane.IsFloating(), "Workspace did not restore floating Properties");
+        Dispatch(ID_View_Layout_Mode);
+        Require(pane.IsDocked() && pane.dock_direction == wxAUI_DOCK_RIGHT, "Reset did not restore the right dock");
         ++stage_;
         return;
       }
@@ -101,6 +115,7 @@ public:
   wxAppTraits *CreateTraits() override { return new Traits; }
   bool OnInit() override {
     scratch = std::filesystem::absolute(argv[1].ToStdString());
+    legacy_ = argc > 2;
     SetAppName("Perastage");
     wxInitAllImageHandlers();
     auto &config = ConfigManager::Get();
@@ -110,6 +125,15 @@ public:
     config.SetValue("layout_view_mode", "layout_mode_view");
     config.SetValue("layout_active_name", kPage);
     config.RemoveKey("ui_layout_properties_visible");
+    config.RemoveKey("ui_layout_mode_perspective");
+    if (legacy_) {
+      auto list = wxAuiPaneInfo().Name("LayoutPanel").Caption("Layouts")
+          .Left().Layer(0).Row(2).BestSize(235, 260).Show();
+      auto canvas = wxAuiPaneInfo().Name("LayoutViewer").Caption("Layout Viewer").Center().Show();
+      wxAuiManager writer;
+      config.SetValue("layout_perspective", ("layout2|" + writer.SavePaneInfo(list) + "|" +
+          writer.SavePaneInfo(canvas) + "|dock_size(4,0,2)=235|").utf8_string());
+    }
     auto project = scratch / "properties.pstg";
     Require(config.SaveProject(project.string()), "Cannot save smoke project");
     frame_ = new MainWindow("Properties workspace smoke", nullptr, std::make_shared<startup::Metrics>());

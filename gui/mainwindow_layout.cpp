@@ -392,8 +392,8 @@ void MainWindow::SetupLayout() {
                                        .Name("LayoutPanel")
                                        .Caption(_("Layouts"))
                                        .Left()
-                                       .Row(0)
-                                       .Position(1)
+                                       .Row(1)
+                                       .Position(0)
                                        .BestSize(FromDIP(wxSize(205, 260)))
                                        .MinSize(FromDIP(wxSize(145, 160)))
                                        .CloseButton(true)
@@ -524,11 +524,11 @@ void MainWindow::ApplyCanonicalPaneDocking() {
     pane.Bottom().Layer(1).Row(0).Position(1);
   });
   dockPane("LayoutPanel", [](wxAuiPaneInfo &pane) {
-    pane.Left().Layer(0).Row(0).Position(1);
+    pane.Dock().Left().Layer(0).Row(1).Position(0);
   });
   dockPane("LayoutViewer", [](wxAuiPaneInfo &pane) { pane.Center(); });
   dockPane("LayoutProperties", [this](wxAuiPaneInfo &pane) {
-    pane.Dock().Right().Layer(0).Row(0).Position(0).BestSize(FromDIP(wxSize(320, 500)));
+    pane.Dock().Right().Layer(0).Row(1).Position(0).BestSize(FromDIP(wxSize(320, 500)));
   });
   dockPane("3DViewport", [](wxAuiPaneInfo &pane) { pane.Center(); });
   dockPane("2DViewport", [](wxAuiPaneInfo &pane) { pane.Center(); });
@@ -790,6 +790,12 @@ void MainWindow::ApplySavedLayout() {
     ++startupMetrics_->auiUpdates;
   SendSizeEvent();
   UpdateViewMenuChecks();
+}
+
+std::optional<std::string> MainWindow::ReadLayoutWorkspacePerspective() const {
+  auto perspective = guiConfigServices->Preferences().GetValue("ui_layout_mode_perspective");
+  if (perspective && PerspectiveHasDuplicatePaneNames(*perspective)) return std::nullopt;
+  return perspective;
 }
 
 // Applies the Layout Mode preset and avoids persisting transient startup-only perspective changes.

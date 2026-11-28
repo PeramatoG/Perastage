@@ -147,7 +147,12 @@ int main() {
   gesture.Preview(126,184); gesture.Cancel(); // Same cancellation for capture loss.
   assert(!gesture.Active());
 
-  auto &cfg=ConfigManager::Get(); cfg.Reset();
+  auto &cfg=ConfigManager::Get();
+  cfg.SetValue("ui_layout_properties_visible", "0");
+  cfg.SetValue("ui_layout_mode_perspective", "layout2|");
+  cfg.Reset();
+  assert(cfg.GetValue("ui_layout_properties_visible") == "0");
+  assert(cfg.GetValue("ui_layout_mode_perspective") == "layout2|" && !cfg.IsDirty());
   auto &manager=LayoutManager::Get(); assert(manager.AddLayout(page));
   auto current=[&]() -> LayoutDefinition {
     for (const auto &p : manager.GetLayouts().Items()) if(p.name==page.name) return p;
@@ -184,6 +189,12 @@ int main() {
   assert(!manager.TranslateElements("missing page",refs,10,0,&error));
   assert(cfg.GetValue("layouts_collection")==before && !cfg.CanUndo() && !cfg.IsDirty());
   const auto viewport = refs[1];
+  assert(manager.SetLayoutPageSize(page.name, print::PageSize::A3));
+  assert(manager.SetLayoutOrientation(page.name, true));
+  assert(current().pageSetup.pageSize == print::PageSize::A3 && current().pageSetup.landscape);
+  cfg.Undo(); assert(!current().pageSetup.landscape);
+  cfg.Undo(); assert(ToJson(current()) == ToJson(original) && !cfg.CanUndo());
+  cfg.ClearHistory(); cfg.MarkSaved();
   const auto frame = ResolveElementFrame(original, viewport);
   assert(manager.SetElementFrame(page.name, viewport, frame));
   assert(!manager.SetElementFrame(page.name, viewport, {frame.x, frame.y, 0, frame.height}));

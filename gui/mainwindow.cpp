@@ -1071,6 +1071,7 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
 // Resets project state, UI-bound data, and active layout context for a fresh
 // session.
 void MainWindow::ResetProject(bool applyLayoutDefaultsForNewProject) {
+  SaveLayoutWorkspacePerspective();
   CancelActiveSceneClipboardPlacement();
   InvalidateSceneClipboard();
   NotifyFixtureSymbolProjectReplaced(false);

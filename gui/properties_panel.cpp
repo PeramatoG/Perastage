@@ -113,7 +113,11 @@ void Panel::AddRow(wxSizer &section, const Row &row) {
     add(checkbox);
     return;
   }
-  add(new wxStaticText(parent, wxID_ANY, row.label));
+  const bool numeric = std::holds_alternative<double>(row.value);
+  auto *label = new wxStaticText(parent, wxID_ANY, row.label,
+      wxDefaultPosition, wxDefaultSize, wxST_ELLIPSIZE_END);
+  label->SetToolTip(row.label);
+  if (!numeric) add(label);
   if (const auto *choice = std::get_if<Choice>(&row.value)) {
     auto *control = new wxChoice(parent, wxID_ANY);
     for (const auto &label : choice->options) control->Append(label);
@@ -144,7 +148,6 @@ void Panel::AddRow(wxSizer &section, const Row &row) {
     return;
   }
 
-  const bool numeric = std::holds_alternative<double>(row.value);
   const wxString initial = numeric
       ? wxNumberFormatter::ToString(std::get<double>(row.value), 3,
                                     wxNumberFormatter::Style_NoTrailingZeroes)
@@ -156,7 +159,7 @@ void Panel::AddRow(wxSizer &section, const Row &row) {
       row.multiline ? FromDIP(wxSize(140, 72)) : wxDefaultSize,
       style | (row.multiline ? wxTE_MULTILINE : 0));
   control->SetName(row.label);
-  control->SetMinSize(FromDIP(wxSize(110, -1)));
+  control->SetMinSize(FromDIP(wxSize(numeric ? 80 : 110, -1)));
   if (row.editable) {
     control->SetToolTip(_("Press Enter to apply or Esc to cancel."));
     control->Bind(wxEVT_TEXT_ENTER, [control, initial, numeric, submit](wxCommandEvent &) {
@@ -173,6 +176,13 @@ void Panel::AddRow(wxSizer &section, const Row &row) {
       else e.Skip();
     });
   }
-  add(control);
+  if (numeric) {
+    auto *line = new wxBoxSizer(wxHORIZONTAL);
+    line->Add(label, 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(6));
+    line->Add(control, 1, wxEXPAND);
+    section.Add(line, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(6));
+  } else {
+    add(control);
+  }
 }
 } // namespace gui::properties
