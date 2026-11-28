@@ -37,7 +37,7 @@ Model Build(const Input &input) {
   add(selected && c.positionTool, Action::PositionTool);
   add(model.selection.size() >= 2 && c.group, Action::Group);
   add(selected && c.ungroup, Action::Ungroup);
-  add(selected && c.copy, Action::Copy);
+  add(selected && c.duplicate, Action::Duplicate);
   add(selected && c.remove, Action::Delete);
   add(c.renderStyle, Action::RenderStyle);
   add(c.exportImage, Action::ExportImage);

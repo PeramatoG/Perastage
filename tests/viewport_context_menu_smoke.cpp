@@ -199,6 +199,19 @@ public:
         auto *notebook = dynamic_cast<wxNotebook *>(FixtureTablePanel::Instance()->GetParent());
         if (notebook && notebook->GetPageCount() > 1) notebook->SetSelection(1);
         Popup(*panel,point,"Edit Fixture...");
+        for (const auto &selection : {std::vector<std::string>{a}, std::vector<std::string>{b,a}}) {
+          frame_->RefreshAfterToolSelectionUpdate({.fixtures = selection});
+          choose_ = "Duplicate"; Popup(*panel,point,"Duplicate"); choose_.clear();
+          Require(!labels_.contains("Copy"),"Viewport still offers Copy");
+          Require(panel->IsClipboardPlacementActive() &&
+                      config.GetScene().fixtures.size() == 2 + selection.size(),
+                  "Duplicate did not begin placement in the 2D viewport");
+          Require(!config.CanUndo(),"Provisional duplicate added history");
+          Pointer(*panel,wxEVT_RIGHT_DOWN,point); Pointer(*panel,wxEVT_RIGHT_UP,point);
+          Require(!panel->IsClipboardPlacementActive() &&
+                      config.GetScene().fixtures.size() == 2 && !config.CanUndo(),
+                  "Duplicate cancellation did not restore the original scene");
+        }
         std::cout << "2D native context checks passed" << std::endl;
         Command(ID_View_Layout_Default); ++stage_; timer_.Start(100); return;
       }
@@ -211,7 +224,16 @@ public:
         three->Refresh(); ++stage_; return;
       }
       timer_.Stop();
-      Popup(*three,wxPoint(three->GetClientSize().x/2,three->GetClientSize().y/2),"Edit Fixture...");
+      const wxPoint center(three->GetClientSize().x/2,three->GetClientSize().y/2);
+      Popup(*three,center,"Edit Fixture...");
+      frame_->RefreshAfterToolSelectionUpdate({.fixtures = {a}});
+      choose_ = "Duplicate"; Popup(*three,center,"Duplicate"); choose_.clear();
+      Require(three->IsClipboardPlacementActive() && config.GetScene().fixtures.size() == 3,
+              "Duplicate did not begin placement in the 3D viewport");
+      Pointer(*three,wxEVT_RIGHT_DOWN,center); Pointer(*three,wxEVT_RIGHT_UP,center);
+      Require(!three->IsClipboardPlacementActive() &&
+                  config.GetScene().fixtures.size() == 2 && !config.CanUndo(),
+              "3D duplicate cancellation changed the document or history");
       Popup(*three,{5,5},"Render style");
       Require(labels_.contains("Export image..."),"3D export action missing");
       const int before = opened_;

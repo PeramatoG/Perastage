@@ -4027,7 +4027,11 @@ msgstr "Ausschneiden"
 msgid "Cut selected scene elements"
 msgstr "Ausgewählte Szenenelemente ausschneiden"
 
-#: gui/mainwindow_menu.cpp:207 gui/viewport_context_menu.cpp:142
+#: gui/viewport_context_menu.cpp:142
+msgid "Duplicate"
+msgstr "Duplizieren"
+
+#: gui/mainwindow_menu.cpp:207
 msgid "Copy"
 msgstr "Kopieren"
 

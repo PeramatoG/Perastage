@@ -4020,7 +4020,11 @@ msgstr "Couper"
 msgid "Cut selected scene elements"
 msgstr "Couper les éléments de scène sélectionnés"
 
-#: gui/mainwindow_menu.cpp:207 gui/viewport_context_menu.cpp:142
+#: gui/viewport_context_menu.cpp:142
+msgid "Duplicate"
+msgstr "Dupliquer"
+
+#: gui/mainwindow_menu.cpp:207
 msgid "Copy"
 msgstr "Copier"
 

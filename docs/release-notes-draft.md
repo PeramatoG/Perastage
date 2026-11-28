@@ -5,6 +5,7 @@
   Existing multi-selection is preserved. Fixed missing 3D menus after mouse
   capture loss; drags no longer open menus. Quick fixture patch edits now validate
   DMX assignments and support atomic Undo/Redo.
+  **Duplicate** copies the current selection and starts placement in one step.
 
 - Choose PerastageSans, Noto Serif, Source Sans 3 or Noto Sans Mono for fixture
   labels, Layout text, legends and event tables. Rich text supports genuine

@@ -73,9 +73,12 @@ does not introduce another 3D picking backend.
   editor can handle the object. The capability query uses that editor's actual
   classification logic. Conversion invokes the existing scene-to-truss handler
   and command with the clicked source UUID, preserving its same-model scope.
-- Position Tool focuses the existing panel. Group, Ungroup, Copy and Delete
+- Position Tool focuses the existing panel. Group, Ungroup and Delete
   dispatch existing application commands with their current validation/history
   behavior. Unsupported direct-group-only destructive actions are omitted.
+- Duplicate captures the effective scene selection and starts the existing
+  clipboard placement in the viewport that opened the menu. Standalone Copy
+  and Paste retain native text editing and the existing focus-based routing.
 - Both viewport double-click patch handlers now share `viewport_scene_editing`.
   Numeric validation precedes acceptance; `SetFixturePrimaryPatch` prepares a
   private candidate and preserves canonical DMX side assignments. Failure and
@@ -111,5 +114,7 @@ It observes menu-open events, dismisses with native Escape, exercises fixture
 and patch editor cancellation, selection chronology, cross-table targeting,
 hidden-fixture exclusion, right-drag suppression/recovery, actual camera movement
 and capture-loss recovery. It verifies atomic validated patch Undo/Redo and
-Group dispatch/Undo through the production command handler. Linux wxGTK/Xvfb checks do not establish Windows/macOS native
+Group dispatch/Undo through the production command handler. It also checks
+single-item and batch duplication, originating viewport, and cancellation.
+Linux wxGTK/Xvfb checks do not establish Windows/macOS native
 popup behavior; those platforms still need their native checks.
