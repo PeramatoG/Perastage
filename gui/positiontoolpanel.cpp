@@ -107,6 +107,7 @@ PositionToolPanel::PositionToolPanel(
     event.Skip();
   });
   subscription_ = config_.SubscribeChanges([this](ConfigManager::Change change) {
+    if (change == ConfigManager::Change::LayoutDocument) return;
     if (change != ConfigManager::Change::TransformPreview || IsShownOnScreen())
       QueueRefresh(change == ConfigManager::Change::Selection);
   });

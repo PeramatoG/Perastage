@@ -28,6 +28,7 @@ void Assert3D(const PaneState &state) {
   assert(!state.at("2DRenderOptions"));
   assert(!state.at("LayoutPanel"));
   assert(!state.at("LayoutViewer"));
+  assert(!state.at("LayoutProperties"));
   assert(!state.at("InspectorWorkspace"));
   for (const std::string pane : {"DataNotebook", "Console", "LayerPanel",
                                  "SummaryPanel", "PositionTool", "RiggingPanel"})
@@ -43,6 +44,7 @@ void Assert2D(const PaneState &state) {
   assert(state.at("2DRenderOptions"));
   assert(!state.at("LayoutPanel"));
   assert(!state.at("LayoutViewer"));
+  assert(!state.at("LayoutProperties"));
   assert(!state.at("InspectorWorkspace"));
   for (const std::string pane : {"DataNotebook", "Console", "LayerPanel",
                                  "SummaryPanel", "PositionTool", "RiggingPanel"})
@@ -58,6 +60,7 @@ void AssertLayout(const PaneState &state) {
   assert(!state.at("2DRenderOptions"));
   assert(state.at("LayoutPanel"));
   assert(state.at("LayoutViewer"));
+  assert(state.at("LayoutProperties"));
   assert(!state.at("InspectorWorkspace"));
   for (const std::string pane : {"DataNotebook", "Console", "LayerPanel",
                                  "SummaryPanel", "PositionTool", "RiggingPanel"})
@@ -71,7 +74,7 @@ void AssertInspector(const PaneState &state) {
   assert(state.at("InspectorWorkspace"));
   assert(state.at("Console"));
   for (const std::string pane : {"3DViewport", "2DViewport", "2DRenderOptions",
-                                 "LayoutPanel", "LayoutViewer", "DataNotebook",
+                                 "LayoutPanel", "LayoutViewer", "LayoutProperties", "DataNotebook",
                                  "LayerPanel", "SummaryPanel", "PositionTool", "RiggingPanel"})
     assert(!state.at(pane));
   for (const std::string_view toolbar : gui::kAlwaysVisibleToolbarPanes)
@@ -82,6 +85,9 @@ void AssertInspector(const PaneState &state) {
 
 // Exercises canonical pane transitions from deliberately contaminated states.
 int main() {
+  assert(WithoutLayoutPropertiesPane("layout2|name=LayoutPanel;|name=LayoutProperties;caption=A\\|B;|name=LayoutViewer;|")
+         == "layout2|name=LayoutPanel;|name=LayoutViewer;|");
+  assert(WithoutLayoutPropertiesPane("layout2|name=LayoutPanel;|") == "layout2|name=LayoutPanel;|");
   PaneState state;
   for (const std::string pane :
        {"3DViewport", "2DViewport", "2DRenderOptions", "LayoutPanel",

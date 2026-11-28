@@ -430,6 +430,7 @@ EVT_MENU(ID_View_ToggleViewport2D, MainWindow::OnToggleViewport2D)
 EVT_MENU(ID_View_ToggleRender2D, MainWindow::OnToggleRender2D)
 EVT_MENU(ID_View_ToggleLayers, MainWindow::OnToggleLayers)
 EVT_MENU(ID_View_ToggleLayouts, MainWindow::OnToggleLayouts)
+EVT_MENU(ID_View_ToggleLayoutProperties, MainWindow::OnToggleLayoutProperties)
 EVT_MENU(ID_View_ToggleSummary, MainWindow::OnToggleSummary)
 EVT_MENU(ID_View_ToggleRigging, MainWindow::OnToggleRigging)
 EVT_MENU(ID_View_Layout_Default, MainWindow::OnApplyDefaultLayout)
@@ -570,6 +571,7 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services,
 }
 
 MainWindow::~MainWindow() {
+  guiConfigServices->LegacyConfigManager().UnsubscribeChanges(layoutPropertiesSubscription);
   fixtureSymbolPreparationService.reset();
   guiConfigServices->LegacyConfigManager().SetProjectArchiveResourceProvider(
       {});
@@ -706,6 +708,8 @@ bool MainWindow::ConfirmSaveIfDirty(const wxString &actionLabel,
 // Handles MVR file selection, import, and updates fixture/truss panels
 // accordingly
 void MainWindow::OnPaneClose(wxAuiManagerEvent &event) {
+  if (event.GetPane() && event.GetPane()->name == "LayoutProperties")
+    SaveLayoutPropertiesVisibility(false);
   event.Skip();
   CallAfter(&MainWindow::UpdateViewMenuChecks);
 }
@@ -1067,6 +1071,7 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
 // Resets project state, UI-bound data, and active layout context for a fresh
 // session.
 void MainWindow::ResetProject(bool applyLayoutDefaultsForNewProject) {
+  SaveLayoutWorkspacePerspective();
   CancelActiveSceneClipboardPlacement();
   InvalidateSceneClipboard();
   NotifyFixtureSymbolProjectReplaced(false);
@@ -1172,7 +1177,9 @@ void MainWindow::SaveCameraSettings() {
   if (viewport2DPanel)
     viewport2DPanel->SaveViewToConfig();
 
-  if (auiManager) {
+  if (layoutModeActive) {
+    SaveLayoutWorkspacePerspective();
+  } else if (auiManager) {
     const std::string perspective = auiManager->SavePerspective().ToStdString();
     cfg.SetValue("layout_perspective", perspective);
   }
@@ -1312,6 +1319,9 @@ void MainWindow::UpdateViewMenuChecks() {
 
   auto &positionPane = auiManager->GetPane("PositionTool");
   GetMenuBar()->Check(ID_View_TogglePositionTool, positionPane.IsShown());
+  GetMenuBar()->Enable(ID_View_ToggleLayoutProperties, layoutModeActive);
+  GetMenuBar()->Check(ID_View_ToggleLayoutProperties,
+                      auiManager->GetPane("LayoutProperties").IsShown());
   auto &consolePane = auiManager->GetPane("Console");
   GetMenuBar()->Check(ID_View_ToggleConsole,
                       consolePane.IsOk() && consolePane.IsShown());
@@ -1521,7 +1531,7 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
   }
 
   if (layoutModeActive)
-    ApplyLayoutModePerspective();
+    RefreshLayoutProperties();
 }
 
 // Synchronizes pending edits from the active table panel into the scene before

@@ -152,21 +152,25 @@ private:
 void AppendLayoutFixtureLabelMenu(wxMenu &menu, LayoutViewerPanel &panel, const std::string &pageName, int viewId) {
   auto *item=menu.Append(wxID_ANY, _("Fixture label settings..."));
   menu.Bind(wxEVT_MENU, [&panel, pageName, viewId](wxCommandEvent &) {
-    auto &manager=layouts::LayoutManager::Get();
-    for (const auto &page : manager.GetLayouts().Items()) if (page.name==pageName)
-      for (const auto &view : page.view2dViews) if (view.id==viewId) {
-        ViewLabelDialog dialog(&panel, view);
-        if (dialog.ShowModal()!=wxID_OK) return;
-        dialog.SyncAssignment();
-        if (!manager.CommitLabelPresentation(pageName, dialog.view, dialog.profiles)) {
-          wxMessageBox(_("Could not update fixture label settings."), _("Fixture Label Editor"), wxOK | wxICON_ERROR, &panel); return;
-        }
-        for (const auto &updated : manager.GetLayouts().Items()) if (updated.name==pageName) {
-          panel.SetLayoutDefinition(updated); panel.Refresh(false); break;
-        }
-        return;
-      }
+    EditLayoutFixtureLabels(panel, pageName, viewId);
   }, item->GetId());
+}
+
+void EditLayoutFixtureLabels(LayoutViewerPanel &panel, const std::string &pageName, int viewId) {
+  auto &manager=layouts::LayoutManager::Get();
+  for (const auto &page : manager.GetLayouts().Items()) if (page.name==pageName)
+    for (const auto &view : page.view2dViews) if (view.id==viewId) {
+      ViewLabelDialog dialog(&panel, view);
+      if (dialog.ShowModal()!=wxID_OK) return;
+      dialog.SyncAssignment();
+      if (!manager.CommitLabelPresentation(pageName, dialog.view, dialog.profiles)) {
+        wxMessageBox(_("Could not update fixture label settings."), _("Fixture Label Editor"), wxOK | wxICON_ERROR, &panel); return;
+      }
+      for (const auto &updated : manager.GetLayouts().Items()) if (updated.name==pageName) {
+        panel.SetLayoutDefinition(updated); panel.Refresh(false); break;
+      }
+      return;
+    }
 }
 
 void EditPanelFixtureLabels(wxWindow *parent, Viewer2DPanel *panel, int view) {

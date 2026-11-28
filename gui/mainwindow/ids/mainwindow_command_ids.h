@@ -96,6 +96,7 @@ enum MainWindowCommandId {
   ID_Select_Trusses,
   ID_Select_Supports,
   ID_Select_Objects,
+  ID_View_ToggleLayoutProperties,
   ID_MainWindowCommand_End
 };
 
@@ -115,6 +116,7 @@ inline constexpr std::array kAllDistinctCommandIds = {
     ID_Edit_Preferences, ID_View_ToggleConsole, ID_View_TogglePositionTool, ID_View_ToggleDmxPatch, ID_View_ToggleFixtures,
     ID_View_ToggleViewport, ID_View_ToggleViewport2D,
     ID_View_ToggleRender2D, ID_View_ToggleLayers, ID_View_ToggleLayouts,
+    ID_View_ToggleLayoutProperties,
     ID_View_ToggleSummary, ID_View_ToggleRigging, ID_View_Layout_Default,
     ID_View_Layout_2D, ID_View_Layout_Mode, ID_View_Layout_Inspector,
     ID_View_Layout_2DView,

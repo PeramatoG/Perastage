@@ -148,6 +148,11 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutimageutils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutlegenditems.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutpanel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/properties_panel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layout_properties_provider.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layout_property_edit.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layout_text_properties.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_layout_properties.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/document_font_choice.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/document_font_popup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouttextdialog.cpp

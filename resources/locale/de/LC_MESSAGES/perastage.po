@@ -6937,6 +6937,172 @@ msgstr "Messung: %s"
 #~ msgid "%s (installed)"
 #~ msgstr "%s (installiert)"
 
+#: gui/layout_properties_provider.cpp:26 gui/layout_properties_provider.cpp:156
+msgid "Legend"
+msgstr "Legende"
+
+#: gui/layout_properties_provider.cpp:27 gui/layout_properties_provider.cpp:162
+msgid "Event Table"
+msgstr "Veranstaltungstabelle"
+
+#: gui/layout_properties_provider.cpp:28
+msgid "Text Box"
+msgstr "Textfeld"
+
+#: gui/layout_properties_provider.cpp:29 gui/layout_properties_provider.cpp:164
+msgid "Image"
+msgstr "Bild"
+
+#: gui/layout_properties_provider.cpp:43
+msgid "Content"
+msgstr "Inhalt"
+
+#: gui/layout_properties_provider.cpp:44
+msgid "Text"
+msgstr "Text"
+
+#: gui/layout_properties_provider.cpp:45
+msgid "Edit Text..."
+msgstr "Text bearbeiten…"
+
+#: gui/layout_properties_provider.cpp:47
+msgid "Typography"
+msgstr "Typografie"
+
+#: gui/layout_properties_provider.cpp:49 gui/layout_properties_provider.cpp:141
+msgid "Mixed"
+msgstr "Gemischt"
+
+#: gui/layout_properties_provider.cpp:58
+msgid "Align start"
+msgstr "Am Anfang ausrichten"
+
+#: gui/layout_properties_provider.cpp:58
+msgid "Align center"
+msgstr "Zentrieren"
+
+#: gui/layout_properties_provider.cpp:58
+msgid "Align end"
+msgstr "Am Ende ausrichten"
+
+#: gui/layout_properties_provider.cpp:58
+msgid "Justify"
+msgstr "Blocksatz"
+
+#: gui/layout_properties_provider.cpp:60
+msgid "Appearance"
+msgstr "Darstellung"
+
+#: gui/layout_properties_provider.cpp:95
+msgid "Label profile"
+msgstr "Beschriftungsprofil"
+
+#: gui/layout_properties_provider.cpp:96
+msgid "Project default"
+msgstr "Projektstandard"
+
+#: gui/layout_properties_provider.cpp:98
+msgid "Edit View..."
+msgstr "Ansicht bearbeiten…"
+
+#: gui/layout_properties_provider.cpp:106
+msgid "No Layout selected"
+msgstr "Kein Layout ausgewählt"
+
+#: gui/layout_properties_provider.cpp:116
+msgid "Document"
+msgstr "Dokument"
+
+#: gui/layout_properties_provider.cpp:117
+msgid "Page setup"
+msgstr "Seiteneinrichtung"
+
+#: gui/layout_properties_provider.cpp:118
+msgid "Layout name"
+msgstr "Layoutname"
+
+#: gui/layout_properties_provider.cpp:121
+#: gui/layout_properties_provider.cpp:134
+msgid "Width (mm)"
+msgstr "Breite (mm)"
+
+#: gui/layout_properties_provider.cpp:122
+#: gui/layout_properties_provider.cpp:134
+msgid "Height (mm)"
+msgstr "Höhe (mm)"
+
+#: gui/layout_properties_provider.cpp:123
+msgid "Elements"
+msgstr "Elemente"
+
+#: gui/layout_properties_provider.cpp:131
+#, c-format
+msgid "%zu element selected"
+msgid_plural "%zu elements selected"
+msgstr[0] "%zu Element ausgewählt"
+msgstr[1] "%zu Elemente ausgewählt"
+
+#: gui/layout_properties_provider.cpp:133
+msgid "Transform"
+msgstr "Transformation"
+
+#: gui/layout_properties_provider.cpp:134
+msgid "X (mm)"
+msgstr "X (mm)"
+
+#: gui/layout_properties_provider.cpp:134
+msgid "Y (mm)"
+msgstr "Y (mm)"
+
+#: gui/layout_properties_provider.cpp:145
+msgid "Use the Alignment toolbar for the selection."
+msgstr "Verwenden Sie für die Auswahl die Ausrichtungsleiste."
+
+#: gui/layout_properties_provider.cpp:157
+msgid "Show channel column"
+msgstr "Kanalspalte anzeigen"
+
+#: gui/layout_properties_provider.cpp:159
+msgid "Edit Legend and Symbols..."
+msgstr "Legende und Symbole bearbeiten…"
+
+#: gui/layout_properties_provider.cpp:162
+msgid "Edit Event Table..."
+msgstr "Veranstaltungstabelle bearbeiten…"
+
+#: gui/layout_properties_provider.cpp:164
+msgid "Edit Image..."
+msgstr "Bild bearbeiten…"
+
+#: gui/layout_properties_provider.cpp:166
+msgid "Stacking order"
+msgstr "Stapelreihenfolge"
+
+#: gui/layout_properties_provider.cpp:167
+msgid "Z-order"
+msgstr "Z-Reihenfolge"
+
+#: gui/layout_properties_provider.cpp:168
+msgid "Bring to Front"
+msgstr "In den Vordergrund"
+
+#: gui/layout_properties_provider.cpp:169
+msgid "Send to Back"
+msgstr "In den Hintergrund"
+
+#: gui/mainwindow_layout_properties.cpp:90 gui/mainwindow_menu_builders.cpp:90
+msgid "Properties"
+msgstr "Eigenschaften"
+
+#: gui/properties_panel.cpp:75
+msgid "The property could not be changed."
+msgstr "Die Eigenschaft konnte nicht geändert werden."
+
+#: gui/properties_panel.cpp:161
+msgid "Press Enter to apply or Esc to cancel."
+msgstr "Zum Anwenden Eingabe drücken, zum Abbrechen Esc."
+
+
 #~ msgid ""
 #~ "The viewer, editor and PDF use the same approved fonts and label "
 #~ "composition. Sizes and offsets use scene metres."

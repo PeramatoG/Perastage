@@ -58,6 +58,7 @@ expected_routes = {
     "ID_View_ToggleRender2D": "OnToggleRender2D",
     "ID_View_ToggleLayers": "OnToggleLayers",
     "ID_View_ToggleLayouts": "OnToggleLayouts",
+    "ID_View_ToggleLayoutProperties": "OnToggleLayoutProperties",
     "ID_View_ToggleSummary": "OnToggleSummary",
     "ID_View_ToggleRigging": "OnToggleRigging",
     "ID_View_Layout_Default": "OnApplyDefaultLayout",

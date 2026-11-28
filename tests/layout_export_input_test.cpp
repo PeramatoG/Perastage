@@ -49,12 +49,14 @@ wxIMPLEMENT_APP_NO_MAIN(InputTestApp);
 void TestPhysicalViewportPreview();
 void TestDocumentFontPicker();
 void TestLayoutTextRendering();
+void TestLayoutProperties();
 int main(int argc,char **argv) {
   assert(wxEntryStart(argc,argv));assert(wxTheApp->CallOnInit());
   {
     wxInitAllImageHandlers();
     TestPhysicalViewportPreview();
     TestLayoutTextRendering();
+    TestLayoutProperties();
     TestDocumentFontPicker();
     layouts::LayoutTextDefinition text;text.frame={17,29,101,73};text.text="Plain text";
     auto data=layouttext::BuildLayoutTextExportData(text);

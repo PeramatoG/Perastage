@@ -30,6 +30,10 @@ constexpr std::array<LayoutElementKind, 5> kKinds = {
 const std::vector<LayoutElementRef> &LayoutViewerSelectionState::Ordered() const {
   return ordered_;
 }
+bool LayoutViewerSelectionState::Publish(bool changed) {
+  if (changed && onChange_) onChange_();
+  return changed;
+}
 LayoutElementRef LayoutViewerSelectionState::Current() const {
   return ordered_.empty() ? LayoutElementRef{} : ordered_.back();
 }
@@ -38,7 +42,7 @@ bool LayoutViewerSelectionState::Select(LayoutElementKind kind, int id) {
   const LayoutElementRef next{kind,id};
   if (ordered_.size() == 1 && ordered_.front() == next) return false;
   ordered_ = {next};
-  return true;
+  return Publish(true);
 }
 bool LayoutViewerSelectionState::Replace(const std::vector<LayoutElementRef> &elements) {
   std::vector<LayoutElementRef> next;
@@ -47,15 +51,15 @@ bool LayoutViewerSelectionState::Replace(const std::vector<LayoutElementRef> &el
         std::find(next.begin(),next.end(),element)==next.end()) next.push_back(element);
   if (ordered_==next) return false;
   ordered_=std::move(next);
-  return true;
+  return Publish(true);
 }
 bool LayoutViewerSelectionState::Add(LayoutElementRef element) {
   if (element.kind == LayoutElementKind::None || element.id < 0 || Matches(element)) return false;
   ordered_.push_back(element);
-  return true;
+  return Publish(true);
 }
 bool LayoutViewerSelectionState::Remove(LayoutElementRef element) {
-  return std::erase(ordered_, element) != 0;
+  return Publish(std::erase(ordered_, element) != 0);
 }
 bool LayoutViewerSelectionState::Toggle(LayoutElementRef element) {
   return Matches(element) ? Remove(element) : Add(element);
@@ -63,7 +67,7 @@ bool LayoutViewerSelectionState::Toggle(LayoutElementRef element) {
 bool LayoutViewerSelectionState::Clear() {
   const bool changed = !ordered_.empty();
   ordered_.clear();
-  return changed;
+  return Publish(changed);
 }
 bool LayoutViewerSelectionState::IsSelected(LayoutElementKind kind, int id) const {
   return Matches({kind,id});
@@ -79,7 +83,7 @@ bool LayoutViewerSelectionState::Retain(const ElementRefsByKind &idsByKind) {
         return std::find(idsByKind[i].begin(), idsByKind[i].end(), ref.id) == idsByKind[i].end();
     return true;
   });
-  return count != ordered_.size();
+  return Publish(count != ordered_.size());
 }
 
 // Builds ascending stable Z order using the established category order.

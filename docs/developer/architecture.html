@@ -600,6 +600,8 @@ selection stay in <code>gui/</code>; the existing download queue modal boundary 
 See <a href="technical-notes/mvr_gdtf_download_queue.html">MVR GDTF resolution</a> for ownership,
 automatic selection policy and the proposed headless adapter boundary.</p>
 <h2 id="layout-mutation-history">Layout mutation history</h2>
+<p>The <a href="layout_properties.html">Layout Properties panel</a> reads typed snapshots and
+uses the same Layout transaction boundary as the canvas and specialized editors.</p>
 <p><code>LayoutManager</code> owns candidate validation and semantic change detection for page
 and element operations. Successful changes publish one departing project snapshot
 through <code>ConfigManager</code>; unchanged or rejected candidates publish nothing. GUI

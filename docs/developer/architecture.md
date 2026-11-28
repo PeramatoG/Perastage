@@ -581,6 +581,9 @@ automatic selection policy and the proposed headless adapter boundary.
 
 ## Layout mutation history
 
+The [Layout Properties panel](layout_properties.md) reads typed snapshots and
+uses the same Layout transaction boundary as the canvas and specialized editors.
+
 `LayoutManager` owns candidate validation and semantic change detection for page
 and element operations. Successful changes publish one departing project snapshot
 through `ConfigManager`; unchanged or rejected candidates publish nothing. GUI

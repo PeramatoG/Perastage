@@ -64,6 +64,12 @@ public:
   bool DeleteSelectedElement();
   size_t SelectedElementCount() const { return selectionState_.Ordered().size(); }
   const std::vector<layouts::LayoutElementRef> &SelectedElements() const { return selectionState_.Ordered(); }
+  void SetLayoutSelectionHandler(std::function<void()> handler) {
+    selectionState_.SetChangeHandler(std::move(handler));
+  }
+  bool EditSelectedProperties();
+  void ApplyInspectorSnapshot(const layouts::LayoutDefinition &page, bool positionOnly);
+  void StackSelectedElement(bool toFront);
   bool AlignSelectedElements(alignment::Reference reference,
       alignment::Operation operation, bool origins = false);
 
@@ -264,7 +270,6 @@ private:
   bool HandleSelectionUp(const wxPoint &pos);
   bool HandleSelectionMotion(wxMouseEvent &event, const wxPoint &pos);
 
-  void StackSelectedElement(bool toFront);
   bool InitGL();
   bool RebuildCachedTexture();
   void ClearCachedTexture();

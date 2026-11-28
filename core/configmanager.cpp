@@ -17,6 +17,7 @@
  */
 #include "layer_identity.h"
 #include "configmanager.h"
+#include "layoutviewpresets.h"
 #include "preference_draft.h"
 #include "model_detail_policy.h"
 #include "symbols/project_fixture_symbol_migration.h"
@@ -64,6 +65,8 @@ std::vector<RestoredUserPreference> CaptureUserInteractionPreferences(
       {"ui_dmx_patch_height", config.GetValue("ui_dmx_patch_height")},
       {"ui_position_tool_compact_height", config.GetValue("ui_position_tool_compact_height")},
       {"ui_position_tool_sidebar_initialized", config.GetValue("ui_position_tool_sidebar_initialized")},
+      {"ui_layout_mode_perspective", config.GetValue("ui_layout_mode_perspective")},
+      {"ui_layout_properties_visible", config.GetValue("ui_layout_properties_visible")},
       {"ui_alignment_inline_toolbar", config.GetValue("ui_alignment_inline_toolbar")},
       {magnet_snap::kMagnetEnabledConfigKey,
        config.GetValue(magnet_snap::kMagnetEnabledConfigKey)},
@@ -651,6 +654,11 @@ bool ConfigManager::SaveProject(const std::string &path) {
   bool ok = projectSession.SaveProject(
       path, [this](std::vector<uint8_t> &configBytes) {
         UserPreferencesStore serializationSnapshot = preferencesStore;
+        serializationSnapshot.RemoveKey("ui_layout_mode_perspective");
+        serializationSnapshot.RemoveKey("ui_layout_properties_visible");
+        if (auto perspective = serializationSnapshot.GetValue("layout_perspective"))
+          serializationSnapshot.SetValue("layout_perspective",
+                                         WithoutLayoutPropertiesPane(std::move(*perspective)));
         serializationSnapshot.SetValue(fixture_power::kProjectKey, fixture_power::SerializeOverrides(GetScene()));
         const auto normalization =
             project_identity::NormalizeFixtureLabelOverrides(
@@ -914,7 +922,11 @@ void ConfigManager::SetStartupMetrics(
 // Resets configuration and scene state for a fresh project.
 void ConfigManager::Reset() {
   RevisionGuard guard(*this);
+  const auto layoutWorkspace = GetValue("ui_layout_mode_perspective");
+  const auto layoutProperties = GetValue("ui_layout_properties_visible");
   preferencesStore.ClearValues();
+  if (layoutWorkspace) preferencesStore.SetValue("ui_layout_mode_perspective", *layoutWorkspace);
+  if (layoutProperties) preferencesStore.SetValue("ui_layout_properties_visible", *layoutProperties);
   projectSession.GetScene().Clear();
   projectSession.GetFixtureSymbols().Clear();
   if (!HasKey("ui_distance_unit_system"))

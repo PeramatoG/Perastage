@@ -65,6 +65,14 @@ class NativeInput:
         assert self.display, 'X11 display is unavailable'
         self.x.XFlush.argtypes = [C.c_void_p]
         self.x.XCloseDisplay.argtypes = [C.c_void_p]
+        self.x.XDefaultRootWindow.argtypes = [C.c_void_p]
+        self.x.XDefaultRootWindow.restype = C.c_ulong
+        self.x.XGetImage.argtypes = [C.c_void_p, C.c_ulong, C.c_int, C.c_int,
+                                     C.c_uint, C.c_uint, C.c_ulong, C.c_int]
+        self.x.XGetImage.restype = C.c_void_p
+        self.x.XGetPixel.argtypes = [C.c_void_p, C.c_int, C.c_int]
+        self.x.XGetPixel.restype = C.c_ulong
+        self.x.XDestroyImage.argtypes = [C.c_void_p]
         self.x.XStringToKeysym.argtypes = [C.c_char_p]
         self.x.XStringToKeysym.restype = C.c_ulong
         self.x.XKeysymToKeycode.argtypes = [C.c_void_p, C.c_ulong]
@@ -113,6 +121,41 @@ class NativeInput:
         time.sleep(.3)
         self.click(325, 363 + 27 * row)
         time.sleep(1)
+
+    def paper(self):
+        """Read the rendered white paper, independently of sidebar widths."""
+        root = self.x.XDefaultRootWindow(self.display)
+        image = self.x.XGetImage(self.display, root, 0, 0, 1600, 1000, 0xffffff, 2)
+        assert image, 'Cannot read native Layout paper'
+
+        def longest(coordinates, white):
+            runs = []
+            start = None
+            for p in coordinates:
+                if white(p):
+                    if start is None:
+                        start = p
+                elif start is not None:
+                    runs.append((start, p))
+                    start = None
+            return max(runs, key=lambda r: r[1] - r[0], default=(0, 0))
+
+        def white(x, y):
+            return self.x.XGetPixel(image, x, y) & 0xffffff == 0xffffff
+
+        try:
+            left, right = max(
+                (longest(range(220, 1580), lambda x: white(x, y)) for y in range(150, 860, 20)),
+                key=lambda r: r[1] - r[0])
+            top, bottom = max(
+                (longest(range(100, 960), lambda y: white(x, y)) for x in range(left + 12, right - 12, 14)),
+                key=lambda r: r[1] - r[0], default=(0, 0))
+            width, height = right - left, bottom - top
+            assert width > 500 and height > 350 and abs(width / height - 297 / 210) < .05, (left, top, right, bottom)
+            scale = width / (297 * 72 / 25.4)
+            return lambda x, y: (round(left + x * scale), round(top + y * scale))
+        finally:
+            self.x.XDestroyImage(image)
 
 
 def page(doc):
@@ -175,12 +218,13 @@ def exercise(app, directory, native):
                     time.sleep(.1)
                 raise AssertionError('Native Save did not publish the project')
 
-            native.click(1500, 850)
+            point = native.paper()
+            native.click(*point(810, 550))
             baseline, scene = save()
-            for (x, y), modifier in [((650, 255), None), ((906, 413), 'Control_L'),
-                                     ((1078, 560), 'Shift_L'), ((1283, 681), 'Control_L'),
-                                     ((1425, 272), 'Shift_L')]:
-                native.click(x, y, modifier)
+            for (x, y), modifier in [((105, 85), None), ((310, 210), 'Control_L'),
+                                     ((450, 320), 'Shift_L'), ((600, 415), 'Control_L'),
+                                     ((720, 100), 'Shift_L')]:
+                native.click(*point(x, y), modifier)
             # The existing shared toolbar: First selected, Align Left.
             native.click(1057, 66)
             native.click(1300, 66)
@@ -190,22 +234,23 @@ def exercise(app, directory, native):
             assert b[('view2dViews', 1)] == a[('view2dViews', 1)]
             assert all(abs(f[0] - 40.25) <= .5 and f[1:] == a[ref][1:] for ref, f in b.items())
             assert payload == scene
-            native.move(650, 255)
+            native.move(*point(105, 85))
             native.button()
-            native.move(676, 274)
+            native.move(*point(125, 100))
             native.button(False)
             dragged, payload = save()
             only_positions(aligned, dragged)
             deltas = {(f[0] - b[ref][0], f[1] - b[ref][1]) for ref, f in frames(dragged).items()}
-            assert deltas == {(20, 15)}, deltas
+            assert len(deltas) == 1 and all(abs(dx - 20) <= 1 and abs(dy - 15) <= 1 for dx, dy in deltas), deltas
             assert payload == scene
             native.chord('Control_L', 'z')
-            assert page(save()[0]) == page(aligned)
+            undone, _ = save()
+            assert page(undone) == page(aligned), (page(undone), page(aligned))
             native.chord('Control_L', 'y')
             assert page(save()[0]) == page(dragged)
-            native.move(676, 274)
+            native.move(*point(125, 100))
             native.button()
-            native.move(706, 304)
+            native.move(*point(150, 125))
             native.chord('Escape')
             native.button(False)
             assert page(save()[0]) == page(dragged)
@@ -213,11 +258,12 @@ def exercise(app, directory, native):
                 native.workspace(row)
                 doc, payload = save()
                 assert page(doc) == page(dragged) and payload == scene
-            native.click(1480, 850)
+            point = native.paper()
+            native.click(*point(810, 550))
             native.key('Shift_L')
-            native.move(530, 170)
+            native.move(*point(10, 12))
             native.button()
-            native.move(1480, 800)
+            native.move(*point(810, 510))
             native.button(False)
             native.key('Shift_L', False)
             native.click(1081, 66)  # Last: image is last in stable marquee Z order.
@@ -236,10 +282,11 @@ def exercise(app, directory, native):
             native.chord('Control_L', 'z')
             assert page(save()[0]) == page(dragged)
             # Restore a mixed selection after deletion/Undo before changing pages.
+            point = native.paper()
             native.key('Shift_L')
-            native.move(530, 170)
+            native.move(*point(10, 12))
             native.button()
-            native.move(1480, 800)
+            native.move(*point(810, 510))
             native.button(False)
             native.key('Shift_L', False)
             for y in [137, 115]:  # Both pages contain Text ID=1; neither inherits selection.

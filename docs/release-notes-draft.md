@@ -1,5 +1,10 @@
 # Perastage 1.8.0
 
+- Layout Mode now has a compact page list and a dockable **Properties** panel.
+  Edit paper settings, element frames in millimeters, and uniform Text Box
+  formatting alongside the sheet. Existing editors remain available for
+  specialized settings and mixed rich text.
+
 - Right-click scene elements in 2D and 3D to open their existing editors, select
   similar elements, focus the Position Tool or apply supported selection commands.
   Existing multi-selection is preserved. Fixed missing 3D menus after mouse

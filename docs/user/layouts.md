@@ -2,6 +2,33 @@
 
 Layouts arrange scene views and supporting information on printable pages.
 
+## Layout Mode workspace
+
+Choose **View → Layout Views → Layout Mode View**. The **Layouts** list is on
+the left, the editable sheet is in the center, and **Properties** is on the
+right. The icons below the list add, rename, delete, import, and export pages.
+The same commands are available from a page's context menu.
+
+Use **View → Properties** to show or hide the panel. Drag its caption to float
+or dock it and drag the divider to resize it. The Layout workspace remembers
+its docking and visibility between visits. To restore the default docking,
+choose **Layout Mode View** again while already in Layout Mode.
+
+Click empty sheet space to see the page name, A3/A4 paper size, orientation,
+and dimensions. Select one element to edit its frame in millimeters and see
+its stacking order and type-specific settings. Enter applies a number or name.
+Escape discards the pending entry. Image dimensions retain the image's aspect
+ratio, and viewport frames retain their fractional point precision.
+
+When several elements are selected, the panel shows common frame values and
+marks differing values **Mixed**. Use the existing **Alignment** toolbar to
+edit the selection together.
+
+For a Text Box, the panel shows its content and lets you edit uniform
+typography for the entire box. Use **Edit Text…** for content edits, formatting
+individual runs, or working with mixed or legacy formatting. Background and
+outline can be changed independently. Each accepted change can be undone.
+
 ## Prepare a page
 
 1. Open **View → Layout Views → Layout Mode View**. Show the **Layouts** panel from **View** if needed.

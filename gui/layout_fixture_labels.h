@@ -22,4 +22,5 @@ class wxWindow;
 class LayoutViewerPanel;
 class Viewer2DPanel;
 void AppendLayoutFixtureLabelMenu(wxMenu &, LayoutViewerPanel &, const std::string &page, int viewId);
+void EditLayoutFixtureLabels(LayoutViewerPanel &, const std::string &page, int viewId);
 void EditPanelFixtureLabels(wxWindow *, Viewer2DPanel *, int view);

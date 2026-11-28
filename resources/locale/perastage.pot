@@ -6509,3 +6509,168 @@ msgstr ""
 #, c-format
 msgid "Measure: %s"
 msgstr ""
+
+#: gui/layout_properties_provider.cpp:26 gui/layout_properties_provider.cpp:156
+msgid "Legend"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:27 gui/layout_properties_provider.cpp:162
+msgid "Event Table"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:28
+msgid "Text Box"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:29 gui/layout_properties_provider.cpp:164
+msgid "Image"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:43
+msgid "Content"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:44
+msgid "Text"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:45
+msgid "Edit Text..."
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:47
+msgid "Typography"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:49 gui/layout_properties_provider.cpp:141
+msgid "Mixed"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:58
+msgid "Align start"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:58
+msgid "Align center"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:58
+msgid "Align end"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:58
+msgid "Justify"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:60
+msgid "Appearance"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:95
+msgid "Label profile"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:96
+msgid "Project default"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:98
+msgid "Edit View..."
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:106
+msgid "No Layout selected"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:116
+msgid "Document"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:117
+msgid "Page setup"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:118
+msgid "Layout name"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:121
+#: gui/layout_properties_provider.cpp:134
+msgid "Width (mm)"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:122
+#: gui/layout_properties_provider.cpp:134
+msgid "Height (mm)"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:123
+msgid "Elements"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:131
+#, c-format
+msgid "%zu element selected"
+msgid_plural "%zu elements selected"
+msgstr[0] ""
+msgstr[1] ""
+
+#: gui/layout_properties_provider.cpp:133
+msgid "Transform"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:134
+msgid "X (mm)"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:134
+msgid "Y (mm)"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:145
+msgid "Use the Alignment toolbar for the selection."
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:157
+msgid "Show channel column"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:159
+msgid "Edit Legend and Symbols..."
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:162
+msgid "Edit Event Table..."
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:164
+msgid "Edit Image..."
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:166
+msgid "Stacking order"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:167
+msgid "Z-order"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:168
+msgid "Bring to Front"
+msgstr ""
+
+#: gui/layout_properties_provider.cpp:169
+msgid "Send to Back"
+msgstr ""
+
+#: gui/mainwindow_layout_properties.cpp:90 gui/mainwindow_menu_builders.cpp:90
+msgid "Properties"
+msgstr ""
+
+#: gui/properties_panel.cpp:75
+msgid "The property could not be changed."
+msgstr ""
+
+#: gui/properties_panel.cpp:161
+msgid "Press Enter to apply or Esc to cancel."
+msgstr ""

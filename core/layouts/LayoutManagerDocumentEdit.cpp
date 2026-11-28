@@ -21,7 +21,7 @@
 namespace layouts {
 bool LayoutManager::EditElements(const std::string &name,
     const std::function<LayoutDefinition(const LayoutDefinition &)> &edit,
-    const std::string &description, std::string *error) {
+    const std::string &description, std::string *error, bool presentationOnly) {
   if (error) error->clear();
   const bool result = ApplyMutation(description, [&](LayoutCollection &candidate) {
     try {
@@ -35,7 +35,7 @@ bool LayoutManager::EditElements(const std::string &name,
       if (error) *error = e.what();
       return false;
     }
-  });
+  }, true, presentationOnly);
   if (!result && error && error->empty()) *error = "Layout mutation could not be published.";
   return result;
 }
@@ -57,5 +57,13 @@ bool LayoutManager::DeleteElements(const std::string &name,
   return EditElements(name, [&](const auto &page) {
     return layouts::DeleteElements(page, refs);
   }, "delete layout elements", error);
+}
+bool LayoutManager::SetElementFrame(const std::string &name, LayoutElementRef element,
+                                    ViewportFramePoints frame) {
+  return EditElements(name, [&](const LayoutDefinition &page) {
+    auto candidate = page;
+    layouts::SetElementFrame(candidate, element, frame);
+    return candidate;
+  }, "edit layout element frame", nullptr, true);
 }
 } // namespace layouts

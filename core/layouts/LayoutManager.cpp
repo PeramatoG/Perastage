@@ -213,12 +213,14 @@ bool LayoutManager::ApplyMutation(
     ConfigManager::Get().CommitLayoutMutation(
         metadata, previousResources, description, recordHistory, presentationOnly);
     layouts = std::move(candidate);
-    return true;
   } catch (const std::exception &e) {
     Logger::Instance().Log(Logger::Level::Error, std::string("Layout mutation rejected: ") + e.what());
     resources = std::move(previousResources);
     return false;
   }
+  ++revision;
+  ConfigManager::Get().NotifyChange(ConfigManager::Change::LayoutDocument);
+  return true;
 }
 
 bool LayoutManager::AddLayout(const LayoutDefinition &layout) {
@@ -236,7 +238,7 @@ bool LayoutManager::RenameLayout(
     const std::string &currentName, const std::string &newName) {
   return ApplyMutation("rename layout", [&](LayoutCollection &candidate) {
     return candidate.RenameLayout(currentName, newName);
-  });
+  }, true, true);
 }
 
 bool LayoutManager::RemoveLayout(const std::string &name) {
@@ -253,13 +255,13 @@ bool LayoutManager::SetLayoutPageSize(const std::string &name, print::PageSize s
       layout.pageSetup.pageSize = size; return true;
     }
     return false;
-  });
+  }, true, true);
 }
 
 bool LayoutManager::SetLayoutOrientation(const std::string &name, bool landscape) {
   return ApplyMutation("change layout orientation", [&](LayoutCollection &candidate) {
     return candidate.SetLayoutOrientation(name, landscape);
-  });
+  }, true, true);
 }
 
 bool LayoutManager::UpdateLayout2DView(
@@ -267,7 +269,7 @@ bool LayoutManager::UpdateLayout2DView(
     bool recordHistory) {
   return ApplyMutation("edit layout 2d view", [&](LayoutCollection &candidate) {
     return candidate.UpdateLayout2DView(name, view);
-  }, recordHistory);
+  }, recordHistory, true);
 }
 
 bool LayoutManager::RemoveLayout2DView(const std::string &name, int id) {
@@ -286,7 +288,7 @@ bool LayoutManager::UpdateLayoutLegend(
     const std::string &name, const LayoutLegendDefinition &legend) {
   return ApplyMutation("edit layout legend", [&](LayoutCollection &candidate) {
     return candidate.UpdateLayoutLegend(name, legend);
-  });
+  }, true, true);
 }
 
 bool LayoutManager::RemoveLayoutLegend(const std::string &name, int id) {
@@ -325,7 +327,7 @@ bool LayoutManager::UpdateLayoutText(
     const std::string &name, const LayoutTextDefinition &text) {
   return ApplyMutation("edit layout text", [&](LayoutCollection &candidate) {
     return candidate.UpdateLayoutText(name, text);
-  });
+  }, true, true);
 }
 
 bool LayoutManager::RemoveLayoutText(const std::string &name, int id) {
@@ -437,6 +439,7 @@ bool LayoutManager::ImportLayoutTemplate(const std::string &filePath,
 
 // Loads layout state from configuration and restores image resource tracking.
 bool LayoutManager::LoadFromConfig(ConfigManager &cfg) {
+  ++revision;
   auto loadDefaultsOrFallback = [&cfg, this]() {
     layouts = LayoutCollection();
     if (!LoadDefaultsForNewProject(cfg))
@@ -488,6 +491,7 @@ bool LayoutManager::LoadFromConfig(ConfigManager &cfg) {
 
 // Restores history metadata without loading defaults or rewriting its presence.
 void LayoutManager::RestoreFromHistory(const std::optional<std::string> &metadata) {
+  ++revision;
   layouts = LayoutCollection();
   if (metadata) {
     std::vector<LayoutDefinition> restored;
@@ -517,6 +521,7 @@ void LayoutManager::PrepareImageResourcesForSave() {
 
 // Resets layouts to defaults and clears unused image resource references.
 void LayoutManager::ResetToDefault(ConfigManager &cfg) {
+  ++revision;
   layouts = LayoutCollection();
   LayoutImageResourceRegistry::Get().SynchronizeWithLayouts(layouts);
   SaveToConfig(cfg);

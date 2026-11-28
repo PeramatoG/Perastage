@@ -147,7 +147,12 @@ int main() {
   gesture.Preview(126,184); gesture.Cancel(); // Same cancellation for capture loss.
   assert(!gesture.Active());
 
-  auto &cfg=ConfigManager::Get(); cfg.Reset();
+  auto &cfg=ConfigManager::Get();
+  cfg.SetValue("ui_layout_properties_visible", "0");
+  cfg.SetValue("ui_layout_mode_perspective", "layout2|");
+  cfg.Reset();
+  assert(cfg.GetValue("ui_layout_properties_visible") == "0");
+  assert(cfg.GetValue("ui_layout_mode_perspective") == "layout2|" && !cfg.IsDirty());
   auto &manager=LayoutManager::Get(); assert(manager.AddLayout(page));
   auto current=[&]() -> LayoutDefinition {
     for (const auto &p : manager.GetLayouts().Items()) if(p.name==page.name) return p;
@@ -166,8 +171,12 @@ int main() {
   const auto sceneBefore=cfg.GetScene();
   const auto before=cfg.GetValue("layouts_collection");
   gui::layoutselection::LayoutViewerSelectionState selection;
+  int selectionNotifications = 0;
+  selection.SetChangeHandler([&] { ++selectionNotifications; });
   for (auto ref : refs) selection.Add(ref);
   selection.Toggle(refs[1]); selection.Toggle(refs[1]);
+  assert(!selection.Add(refs.front()) && !selection.Replace(selection.Ordered()));
+  assert(selectionNotifications == int(refs.size()) + 2);
   assert(!cfg.CanUndo() && !cfg.IsDirty());
   std::string error;
   auto invalid=refs; invalid.push_back({K::Image,999});
@@ -179,6 +188,26 @@ int main() {
   assert(!manager.TranslateElements(page.name,refs,std::numeric_limits<double>::quiet_NaN(),0,&error));
   assert(!manager.TranslateElements("missing page",refs,10,0,&error));
   assert(cfg.GetValue("layouts_collection")==before && !cfg.CanUndo() && !cfg.IsDirty());
+  const auto viewport = refs[1];
+  assert(manager.SetLayoutPageSize(page.name, print::PageSize::A3));
+  assert(manager.SetLayoutOrientation(page.name, true));
+  assert(current().pageSetup.pageSize == print::PageSize::A3 && current().pageSetup.landscape);
+  cfg.Undo(); assert(!current().pageSetup.landscape);
+  cfg.Undo(); assert(ToJson(current()) == ToJson(original) && !cfg.CanUndo());
+  cfg.ClearHistory(); cfg.MarkSaved();
+  const auto frame = ResolveElementFrame(original, viewport);
+  assert(manager.SetElementFrame(page.name, viewport, frame));
+  assert(!manager.SetElementFrame(page.name, viewport, {frame.x, frame.y, 0, frame.height}));
+  assert(!cfg.CanUndo() && !cfg.IsDirty());
+  const auto rev = cfg.GetRenderRevision();
+  assert(manager.SetElementFrame(page.name, viewport, {frame.x, frame.y, 123.4375, frame.height}));
+  const auto adjusted = current();
+  assert(ResolveElementFrame(adjusted, viewport).width == 123.4375);
+  assert(adjusted.view2dViews[0].frameResidual.x == original.view2dViews[0].frameResidual.x);
+  assert(cfg.GetRenderRevision() == rev && cfg.CanUndo());
+  cfg.Undo(); assert(ToJson(current()) == ToJson(original) && !cfg.CanUndo());
+  cfg.Redo(); assert(ToJson(current()) == ToJson(adjusted) && !cfg.CanRedo());
+  cfg.Undo(); cfg.ClearHistory(); cfg.MarkSaved();
   assert(selection.Ordered().size()==refs.size());
   assert(manager.TranslateElements(page.name,refs,0,0));
   assert(!cfg.CanUndo() && !cfg.IsDirty());

@@ -88,7 +88,7 @@ bool EditLayoutViewportProperties(wxWindow *parent,
   auto *cx = text(_("Center horizontal (m)"), physical.centerX, 0.01, 3, -1e7, 1e7);
   auto *cy = text(_("Center vertical (m)"), physical.centerY, 0.01, 3, -1e7, 1e7);
   const auto f = layouts::ResolveViewportFrame(original);
-  constexpr double mmPerPoint = 25.4 / 72.0;
+  constexpr double mmPerPoint = print::kMillimetersPerPoint;
   std::array<wxTextCtrl *,2> frame = {
     text(_("Frame width (mm)"), f.width * mmPerPoint, 1, 0, mmPerPoint, 200000*mmPerPoint),
     text(_("Frame height (mm)"), f.height * mmPerPoint, 1, 0, mmPerPoint, 200000*mmPerPoint)};
