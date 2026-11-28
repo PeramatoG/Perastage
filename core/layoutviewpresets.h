@@ -31,3 +31,17 @@ public:
   static const LayoutViewPreset *GetPreset(const std::string &name);
   static const std::vector<LayoutViewPreset> &GetPresets();
 };
+
+// Preserve older project perspectives while keeping the new pane user-owned.
+inline std::string WithoutLayoutPropertiesPane(std::string perspective) {
+  constexpr auto pane = "|name=LayoutProperties;";
+  const auto start = perspective.find(pane);
+  if (start == std::string::npos) return perspective;
+  auto end = start + 1;
+  for (; end < perspective.size(); ++end) {
+    if (perspective[end] == '\\' && end + 1 < perspective.size()) ++end;
+    else if (perspective[end] == '|') break;
+  }
+  perspective.erase(start, end - start);
+  return perspective;
+}

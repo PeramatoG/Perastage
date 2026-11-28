@@ -21,6 +21,9 @@
 
 namespace print {
 
+inline constexpr double kPointsPerMillimeter = 72.0 / 25.4;
+inline constexpr double kMillimetersPerPoint = 25.4 / 72.0;
+
 enum class PageSize { A3 = 0, A4 = 1 };
 
 struct PageSetup {

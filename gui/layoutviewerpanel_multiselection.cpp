@@ -161,6 +161,43 @@ void LayoutViewerPanel::ReloadDocumentPlacement() {
   }
   selectionState_.Clear();
 }
+
+void LayoutViewerPanel::ApplyInspectorSnapshot(const layouts::LayoutDefinition &page,
+                                               bool positionOnly) {
+  const auto ref = selectionState_.Current();
+  if (ref.kind == LayoutElementKind::None || page.name != currentLayout.name) {
+    SetLayoutDefinition(page);
+    RequestFitToViewport();
+    return;
+  }
+  ReloadDocumentPlacement();
+  if (positionOnly) return;
+  ++layoutVersion;
+  captureInProgress = false;
+  switch (ref.kind) {
+  case LayoutElementKind::View2D: GetViewCache(ref.id).renderDirty = true; break;
+  case LayoutElementKind::Legend: GetLegendCache(ref.id).renderDirty = true; break;
+  case LayoutElementKind::EventTable: GetEventTableCache(ref.id).renderDirty = true; break;
+  case LayoutElementKind::Text: GetTextCache(ref.id).renderDirty = true; break;
+  case LayoutElementKind::Image: GetImageCache(ref.id).renderDirty = true; break;
+  default: break;
+  }
+  RequestRenderRebuild();
+}
+
+bool LayoutViewerPanel::EditSelectedProperties() {
+  if (SelectedElementCount() != 1) return false;
+  wxCommandEvent event;
+  switch (selectionState_.Current().kind) {
+  case LayoutElementKind::View2D: OnEditView(event); break;
+  case LayoutElementKind::Legend: OnEditLegend(event); break;
+  case LayoutElementKind::EventTable: OnEditEventTable(event); break;
+  case LayoutElementKind::Text: OnEditText(event); break;
+  case LayoutElementKind::Image: OnEditImage(event); break;
+  default: return false;
+  }
+  return true;
+}
 bool LayoutViewerPanel::AlignSelectedElements(alignment::Reference reference,
     alignment::Operation operation, bool origins) {
   if (groupGesture_.Active() || marqueeStart_ ||

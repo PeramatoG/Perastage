@@ -87,6 +87,7 @@ wxMenu *BuildViewMenu() {
   viewMenu->AppendCheckItem(ID_View_ToggleSummary, _("Summary"));
   viewMenu->AppendCheckItem(ID_View_ToggleRigging, _("Rigging"));
   viewMenu->AppendSubMenu(BuildLayoutViewsMenu(), _("Layout Views"));
+  viewMenu->AppendCheckItem(ID_View_ToggleLayoutProperties, _("Properties"));
   return viewMenu;
 }
 

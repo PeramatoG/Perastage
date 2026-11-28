@@ -37,6 +37,7 @@ const std::vector<LayoutViewPreset> kLayoutViewPresets = {
             "2DRenderOptions",
             "LayoutPanel",
             "LayoutViewer",
+            "LayoutProperties",
             "InspectorWorkspace",
         },
     },
@@ -56,6 +57,7 @@ const std::vector<LayoutViewPreset> kLayoutViewPresets = {
             "3DViewport",
             "LayoutPanel",
             "LayoutViewer",
+            "LayoutProperties",
             "InspectorWorkspace",
         },
     },
@@ -64,6 +66,7 @@ const std::vector<LayoutViewPreset> kLayoutViewPresets = {
         {
             "LayoutPanel",
             "LayoutViewer",
+            "LayoutProperties",
         },
         {
             "3DViewport",
@@ -95,6 +98,7 @@ const std::vector<LayoutViewPreset> kLayoutViewPresets = {
             "RiggingPanel",
             "LayoutPanel",
             "LayoutViewer",
+            "LayoutProperties",
         },
     },
 };

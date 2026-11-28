@@ -39,7 +39,7 @@ public:
     static ConfigManager& Get();
 
     // TransformPreview updates live coordinates without requesting scene reconciliation.
-    enum class Change { Scene, Selection, Preferences, TransformPreview };
+    enum class Change { Scene, Selection, Preferences, TransformPreview, LayoutDocument };
     using ChangeListener = std::function<void(Change)>;
     std::size_t SubscribeChanges(ChangeListener listener) {
         const auto id = ++nextListenerId;

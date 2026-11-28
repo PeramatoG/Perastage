@@ -56,6 +56,7 @@ class ViewportPatchWorkspace;
 class LayerPanel;
 class LayoutPanel;
 class LayoutViewerPanel;
+namespace gui::properties { class Panel; }
 class SummaryPanel;
 class RiggingPanel;
 namespace gui::inspection { class InspectorWorkspacePanel; }
@@ -178,6 +179,13 @@ private:
   LayerPanel *layerPanel = nullptr;
   LayoutPanel *layoutPanel = nullptr;
   LayoutViewerPanel *layoutViewerPanel = nullptr;
+  void CreateLayoutProperties();
+  void RefreshLayoutProperties();
+  void OnToggleLayoutProperties(wxCommandEvent &);
+  void SaveLayoutPropertiesVisibility(bool shown);
+  void RestoreLayoutPropertiesVisibility(bool layoutMode);
+  void SaveLayoutWorkspacePerspective();
+  std::optional<std::string> ReadLayoutWorkspacePerspective() const;
   SummaryPanel *summaryPanel = nullptr;
   RiggingPanel *riggingPanel = nullptr;
   gui::inspection::InspectorWorkspacePanel *inspectorWorkspacePanel = nullptr;
@@ -327,7 +335,7 @@ private:
                          bool commitAui = true);
   void ApplyCanonicalPaneDocking();
   void EnforceMainToolbarVisibility();
-  void ApplyLayoutModePerspective();
+  void ApplyLayoutModePerspective(bool resetDocking = false);
   void BeginLayout2DViewEdit();
   void UpdateViewMenuChecks();
   void OnLayoutSelected(wxCommandEvent &event);
@@ -384,6 +392,8 @@ private:
   friend class MainWindowViewController;
 
   bool startupFixtureScanDeferredForLayout_ = false;
+  gui::properties::Panel *layoutPropertiesPanel = nullptr;
+  std::size_t layoutPropertiesSubscription = 0;
   inline static MainWindow *s_instance = nullptr;
   wxDECLARE_EVENT_TABLE();
 };

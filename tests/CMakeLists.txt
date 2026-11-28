@@ -1246,6 +1246,9 @@ set_perastage_test_labels(LayoutDocumentEdit LAYER standard-strict DOMAINS layou
 add_bash_policy_test(LayoutDocumentAlignmentBoundary
     ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_document_alignment_boundary.sh
     LABELS "architecture;layout;gui")
+add_bash_policy_test(LayoutPropertiesBoundary
+    ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_properties_boundary.sh
+    LABELS "architecture;layout;gui")
 
 add_executable(layout_legend_preview_test layout_legend_preview_test.cpp
     layout_legend_pdf_resources_stub.cpp ../gui/layoutlegendrenderer.cpp ../gui/document_text_renderer.cpp
@@ -4978,7 +4981,9 @@ add_executable(page_output_mapping_test page_output_mapping_test.cpp ../core/pri
 target_include_directories(page_output_mapping_test PRIVATE ../core ../core/print)
 add_test(NAME PageOutputMapping COMMAND page_output_mapping_test)
 add_executable(layout_export_input_test layout_export_input_test.cpp document_font_picker_test.cpp
-    layout_text_rendering_test.cpp
+    layout_text_rendering_test.cpp layout_properties_test.cpp
+    ../gui/layout_text_properties.cpp ../gui/layout_properties_provider.cpp ../gui/properties_panel.cpp
+    ../core/print/PageSetup.cpp
     ../gui/document_font_choice.cpp ../gui/document_font_popup.cpp ../gui/layouttextdialog.cpp
     layout_physical_viewport_preview_test.cpp ../viewer2d/viewer2d_coordinate_math.cpp
     ../gui/layout_viewport_properties.cpp

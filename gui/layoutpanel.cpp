@@ -17,11 +17,14 @@
  */
 #include "layoutpanel.h"
 
-#include "columnutils.h"
 #include "LayoutManager.h"
 #include "LayoutSelectionPolicy.h"
+#include "projectutils.h"
+#include <wx/artprov.h>
+#include <wx/bmpbuttn.h>
 #include <wx/choicdlg.h>
 #include <wx/filedlg.h>
+#include <wx/wrapsizer.h>
 
 #include <vector>
 
@@ -33,25 +36,38 @@ LayoutPanel::LayoutPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   list = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                 wxDefaultSize, wxDV_NO_HEADER);
   list->AppendTextColumn(_("Layout"));
-  ColumnUtils::EnforceMinColumnWidth(list);
+  list->Bind(wxEVT_SIZE, [this](wxSizeEvent &event) {
+    list->GetColumn(0)->SetWidth(std::max(1, list->GetClientSize().x - FromDIP(6)));
+    event.Skip();
+  });
 
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
-  sizer->Add(list, 1, wxEXPAND | wxALL, 5);
-
-  wxBoxSizer *btnSizer = new wxBoxSizer(wxHORIZONTAL);
-  auto *addBtn = new wxButton(this, wxID_ADD, _("Add"));
-  renameButton = new wxButton(this, wxID_EDIT, _("Rename"));
-  deleteButton = new wxButton(this, wxID_DELETE, _("Delete"));
-  exportTemplateButton =
-      new wxButton(this, wxID_ANY, _("Export template"));
-  auto *importTemplateBtn =
-      new wxButton(this, wxID_ANY, _("Import template"));
-  btnSizer->Add(addBtn, 0, wxALL, 5);
-  btnSizer->Add(renameButton, 0, wxALL, 5);
-  btnSizer->Add(deleteButton, 0, wxALL, 5);
-  btnSizer->Add(exportTemplateButton, 0, wxALL, 5);
-  btnSizer->Add(importTemplateBtn, 0, wxALL, 5);
-  sizer->Add(btnSizer, 0, wxALIGN_LEFT);
+  auto *actions = new wxWrapSizer(wxHORIZONTAL);
+  const auto addAction = [&](int id, const wxString &label, const char *icon,
+                             const wxArtID &fallback) {
+    const auto size = FromDIP(wxSize(16, 16));
+    wxBitmapBundle bitmap;
+    if (icon) {
+      const auto file = ProjectUtils::ResolveResourcePath(
+          std::filesystem::path("icons") / "outline" / icon);
+      if (std::filesystem::exists(file))
+        bitmap = wxBitmapBundle::FromSVGFile(file.string(), wxSize(16, 16));
+    }
+    if (!bitmap.IsOk()) bitmap = wxArtProvider::GetBitmapBundle(fallback, wxART_BUTTON, size);
+    auto *button = new wxBitmapButton(this, id, bitmap, wxDefaultPosition,
+                                      FromDIP(wxSize(30, 30)));
+    button->SetName(label);
+    button->SetToolTip(label);
+    actions->Add(button, 0, wxRIGHT, FromDIP(3));
+    return button;
+  };
+  auto *addBtn = addAction(wxID_ADD, _("Add Layout"), "file-plus.svg", wxART_NEW);
+  renameButton = addAction(wxID_EDIT, _("Rename Layout"), "notepad-text.svg", wxART_EDIT);
+  deleteButton = addAction(wxID_DELETE, _("Delete Layout"), nullptr, wxART_DELETE);
+  exportTemplateButton = addAction(wxID_ANY, _("Export template"), "file-output.svg", wxART_FILE_SAVE);
+  auto *importTemplateBtn = addAction(wxID_ANY, _("Import template"), "file-input.svg", wxART_FILE_OPEN);
+  sizer->Add(list, 1, wxEXPAND | wxALL, FromDIP(4));
+  sizer->Add(actions, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(4));
 
   SetSizer(sizer);
 
@@ -108,7 +124,7 @@ int LayoutPanel::FindLayoutRow(const std::string &layoutName) const {
   if (!list || layoutName.empty())
     return wxNOT_FOUND;
   for (unsigned int row = 0; row < list->GetItemCount(); ++row) {
-    if (list->GetTextValue(row, 0).ToStdString() == layoutName)
+    if (list->GetTextValue(row, 0).utf8_string() == layoutName)
       return static_cast<int>(row);
   }
   return wxNOT_FOUND;
@@ -125,7 +141,7 @@ int LayoutPanel::EnsureValidSelection(bool emitSelectionEvent, int preferredRow)
   std::vector<std::string> names;
   names.reserve(list->GetItemCount());
   for (unsigned int row = 0; row < list->GetItemCount(); ++row)
-    names.push_back(list->GetTextValue(row, 0).ToStdString());
+    names.push_back(list->GetTextValue(row, 0).utf8_string());
 
   int selectedRow = list->GetSelectedRow();
   if (selectedRow == wxNOT_FOUND) {
@@ -156,7 +172,7 @@ std::optional<std::string> LayoutPanel::GetSelectedLayoutNameOrRestore() {
   const int row = EnsureValidSelection(false);
   if (row == wxNOT_FOUND)
     return std::nullopt;
-  return list->GetTextValue(row, 0).ToStdString();
+  return list->GetTextValue(row, 0).utf8_string();
 }
 
 // Updates layout action buttons based on available layouts.
@@ -180,7 +196,7 @@ void LayoutPanel::OnSelect(wxDataViewEvent &evt) {
     return;
   }
   wxString name = list->GetTextValue(idx, 0);
-  const std::string selectedLayout = name.ToStdString();
+  const std::string selectedLayout = name.utf8_string();
   if (selectedLayout == currentLayout)
     return;
 
@@ -204,7 +220,7 @@ void LayoutPanel::OnContextMenu(wxDataViewEvent &evt) {
   list->SelectRow(idx);
 
   wxString name = list->GetTextValue(idx, 0);
-  std::string layoutName = name.ToStdString();
+  std::string layoutName = name.utf8_string();
   const auto &layouts = layouts::LayoutManager::Get().GetLayouts().Items();
   const layouts::LayoutDefinition *target = nullptr;
   for (const auto &layout : layouts) {
@@ -259,6 +275,17 @@ void LayoutPanel::OnContextMenu(wxDataViewEvent &evt) {
     }, item->GetId());
   }
   menu.AppendSubMenu(paper, _("Paper size"));
+  menu.AppendSeparator();
+  const auto append = [&](const wxString &label, bool enabled, auto handler) {
+    auto *item = menu.Append(wxID_ANY, label);
+    item->Enable(enabled);
+    menu.Bind(wxEVT_MENU, handler, this, item->GetId());
+  };
+  append(_("Add Layout"), true, &LayoutPanel::OnAddLayout);
+  append(_("Rename Layout"), true, &LayoutPanel::OnRenameLayout);
+  append(_("Delete Layout"), layouts.size() > 1, &LayoutPanel::OnDeleteLayout);
+  append(_("Export template"), true, &LayoutPanel::OnExportLayoutTemplate);
+  append(_("Import template"), true, &LayoutPanel::OnImportLayoutTemplate);
   PopupMenu(&menu);
 }
 
@@ -267,7 +294,7 @@ void LayoutPanel::OnAddLayout(wxCommandEvent &) {
   wxTextEntryDialog nameDlg(this, _("Enter new layout name:"), _("Add Layout"));
   if (nameDlg.ShowModal() != wxID_OK)
     return;
-  std::string name = nameDlg.GetValue().ToStdString();
+  std::string name = nameDlg.GetValue().utf8_string();
   if (name.empty())
     return;
 
@@ -310,8 +337,8 @@ void LayoutPanel::OnRenameLayout(wxCommandEvent &) {
   if (dlg.ShowModal() != wxID_OK)
     return;
 
-  std::string newName = dlg.GetValue().ToStdString();
-  std::string oldName = currentName.ToStdString();
+  std::string newName = dlg.GetValue().utf8_string();
+  std::string oldName = currentName.utf8_string();
   if (newName.empty() || newName == oldName)
     return;
 
@@ -379,7 +406,7 @@ void LayoutPanel::OnExportLayoutTemplate(wxCommandEvent &) {
 
   std::string error;
   if (!layouts::LayoutManager::Get().ExportLayoutTemplate(
-          selectedName.ToStdString(), saveDialog.GetPath().ToStdString(),
+          selectedName.utf8_string(), saveDialog.GetPath().ToStdString(),
           &error)) {
     wxMessageBox(_("Could not export layout package.\n") +
                      wxString::FromUTF8(error),

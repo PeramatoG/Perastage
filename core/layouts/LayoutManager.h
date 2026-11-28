@@ -39,6 +39,9 @@ public:
       double dx, double dy, std::string *error = nullptr);
   bool DeleteElements(const std::string &name, const std::vector<LayoutElementRef> &refs,
       std::string *error = nullptr);
+  bool SetElementFrame(const std::string &page, LayoutElementRef element,
+                       ViewportFramePoints frame);
+  std::size_t Revision() const { return revision; }
 
   bool CommitLabelPresentation(const std::string &page, const Layout2DViewDefinition &view,
       const FixtureLabelProfiles &profiles);
@@ -86,7 +89,7 @@ public:
 private:
   bool EditElements(const std::string &name,
       const std::function<LayoutDefinition(const LayoutDefinition &)> &edit,
-      const std::string &description, std::string *error);
+      const std::string &description, std::string *error, bool presentationOnly = false);
   bool ApplyMutation(const std::string &description,
                      const std::function<bool(LayoutCollection &)> &mutation,
                      bool recordHistory = true, bool presentationOnly = false);
@@ -94,6 +97,7 @@ private:
   std::string MakeUniqueLayoutName(const std::string &baseName) const;
 
   LayoutCollection layouts;
+  std::size_t revision = 0;
 };
 
 } // namespace layouts

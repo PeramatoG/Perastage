@@ -394,8 +394,8 @@ void MainWindow::SetupLayout() {
                                        .Left()
                                        .Row(0)
                                        .Position(1)
-                                       .BestSize(240, 260)
-                                       .MinSize(wxSize(200, 200))
+                                       .BestSize(FromDIP(wxSize(205, 260)))
+                                       .MinSize(FromDIP(wxSize(145, 160)))
                                        .CloseButton(true)
                                        .MaximizeButton(true)
                                        .PaneBorder(true)
@@ -414,6 +414,8 @@ void MainWindow::SetupLayout() {
                                             .CloseButton(true)
                                             .MaximizeButton(true)
                                             .Hide());
+
+  CreateLayoutProperties();
 
   summaryPanel = new SummaryPanel(this);
   SummaryPanel::SetInstance(summaryPanel);
@@ -525,6 +527,9 @@ void MainWindow::ApplyCanonicalPaneDocking() {
     pane.Left().Layer(0).Row(0).Position(1);
   });
   dockPane("LayoutViewer", [](wxAuiPaneInfo &pane) { pane.Center(); });
+  dockPane("LayoutProperties", [this](wxAuiPaneInfo &pane) {
+    pane.Dock().Right().Layer(0).Row(0).Position(0).BestSize(FromDIP(wxSize(320, 500)));
+  });
   dockPane("3DViewport", [](wxAuiPaneInfo &pane) { pane.Center(); });
   dockPane("2DViewport", [](wxAuiPaneInfo &pane) { pane.Center(); });
   dockPane("InspectorWorkspace", [](wxAuiPaneInfo &pane) { pane.Center(); });
@@ -586,6 +591,7 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
     if (!standalone2DState)
       standalone2DState = viewer2d::CaptureState(viewport2DPanel, cfg);
   } else if (!layoutMode && wasLayoutMode) {
+    SaveLayoutWorkspacePerspective();
     ClearLayoutLoadingIndicator();
     if (standalone2DState) {
       ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
@@ -659,6 +665,7 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
     applyPaneState(preset.hidePanes, false);
   }
   SyncDmxPatchWorkspace();
+  RestoreLayoutPropertiesVisibility(layoutMode);
   InitializePositionToolSidebar(preset.name == "2d_layout_view" ||
                                 preset.name == "3d_layout_view");
   EnforceMainToolbarVisibility();
@@ -673,6 +680,7 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
     ActivateInspectorIfVisible();
 
   layoutModeActive = layoutMode;
+  RefreshLayoutProperties();
 
   if (layoutMode && layoutViewerPanel &&
       IsPaneShown(auiManager, "LayoutViewer")) {
@@ -681,11 +689,15 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
 
   if (persistPerspective) {
     ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+    const auto dirty = cfg.CaptureDirtyState();
     cfg.SetValue("layout_view_mode", preset.name);
-    if (auiManager) {
+    if (layoutMode) {
+      SaveLayoutWorkspacePerspective();
+    } else if (auiManager) {
       cfg.SetValue("layout_perspective",
                    auiManager->SavePerspective().ToStdString());
     }
+    cfg.RestoreDirtyState(dirty);
   }
 
   UpdateViewMenuChecks();
@@ -710,6 +722,8 @@ void MainWindow::ApplySavedLayout() {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const std::string viewMode = cfg.GetValue("layout_view_mode").value_or("");
   std::optional<std::string> perspective = cfg.GetValue("layout_perspective");
+  if (viewMode == "layout_mode_view")
+    if (auto userLayout = ReadLayoutWorkspacePerspective()) perspective = std::move(userLayout);
 
   if (perspective && PerspectiveHasDuplicatePaneNames(*perspective)) {
     Logger::Instance().Log(
@@ -779,7 +793,7 @@ void MainWindow::ApplySavedLayout() {
 }
 
 // Applies the Layout Mode preset and avoids persisting transient startup-only perspective changes.
-void MainWindow::ApplyLayoutModePerspective() {
+void MainWindow::ApplyLayoutModePerspective(bool resetDocking) {
   if (!auiManager)
     return;
 
@@ -788,7 +802,8 @@ void MainWindow::ApplyLayoutModePerspective() {
   if (!preset)
     return;
 
-  ApplyLayoutPreset(*preset, std::nullopt, true, !startupProjectLoadPending);
+  ApplyLayoutPreset(*preset, resetDocking ? std::nullopt : ReadLayoutWorkspacePerspective(),
+                    true, !startupProjectLoadPending);
 }
 
 void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
@@ -818,7 +833,7 @@ void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void MainWindow::OnApplyLayoutModeLayout(wxCommandEvent &WXUNUSED(event)) {
-  ApplyLayoutModePerspective();
+  ApplyLayoutModePerspective(layoutModeActive);
 }
 
 // Applies the first-class read-only Inspector workspace preset.

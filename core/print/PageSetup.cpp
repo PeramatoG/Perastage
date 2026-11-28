@@ -17,10 +17,6 @@
  */
 #include "PageSetup.h"
 
-namespace {
-constexpr double kMmToPoints = 72.0 / 25.4;
-} // namespace
-
 namespace print {
 
 std::pair<double, double> PageSetup::BasePageSizeMm() const {
@@ -36,13 +32,13 @@ std::pair<double, double> PageSetup::BasePageSizeMm() const {
 double PageSetup::PageWidthPt() const {
   auto [portraitW, portraitH] = BasePageSizeMm();
   const double mm = landscape ? portraitH : portraitW;
-  return mm * kMmToPoints;
+  return mm * kPointsPerMillimeter;
 }
 
 double PageSetup::PageHeightPt() const {
   auto [portraitW, portraitH] = BasePageSizeMm();
   const double mm = landscape ? portraitW : portraitH;
-  return mm * kMmToPoints;
+  return mm * kPointsPerMillimeter;
 }
 
 } // namespace print

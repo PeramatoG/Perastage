@@ -3,6 +3,7 @@
 #include "layouts/LayoutElementRef.h"
 #include <array>
 #include <cstddef>
+#include <functional>
 #include <utility>
 #include <vector>
 
@@ -37,6 +38,7 @@ using ElementRefsByKind = std::array<std::vector<int>, 5>;
 class LayoutViewerSelectionState {
 public:
   const std::vector<LayoutElementRef> &Ordered() const;
+  void SetChangeHandler(std::function<void()> handler) { onChange_ = std::move(handler); }
   bool Replace(const std::vector<LayoutElementRef> &elements);
   bool Add(LayoutElementRef element);
   bool Toggle(LayoutElementRef element);
@@ -54,8 +56,10 @@ public:
   bool Matches(LayoutElementRef element) const;
 
 private:
+  bool Publish(bool changed);
   // Primary is the newest remaining selection; additive no-ops keep it stable.
   std::vector<LayoutElementRef> ordered_;
+  std::function<void()> onChange_;
 
 };
 

@@ -72,21 +72,32 @@ inline std::vector<ElementFrame> SnapshotFrames(const LayoutDefinition &page,
 }
 // Integer payloads round absolute target origins to nearest point, ties toward
 // positive infinity (<= 0.5 pt error per axis). Viewports keep fractional precision.
+inline void SetElementFrame(LayoutDefinition &page, LayoutElementRef ref,
+                            ViewportFramePoints frame) {
+  ValidateViewportFrame(frame);
+  if (!VisitElement(page, ref, [&](auto &item) {
+    if constexpr (std::is_same_v<std::decay_t<decltype(item)>, Layout2DViewDefinition>) {
+      const auto previous = item.frame;
+      const auto residual = item.frameResidual;
+      const auto resolved = ResolveViewportFrame(item);
+      SetViewportFrame(item, frame);
+      if (frame.x == resolved.x) { item.frame.x = previous.x; item.frameResidual.x = residual.x; }
+      if (frame.y == resolved.y) { item.frame.y = previous.y; item.frameResidual.y = residual.y; }
+      if (frame.width == resolved.width) { item.frame.width = previous.width; item.frameResidual.width = residual.width; }
+      if (frame.height == resolved.height) { item.frame.height = previous.height; item.frameResidual.height = residual.height; }
+    } else {
+      item.frame = {static_cast<int>(std::floor(frame.x + 0.5)),
+                    static_cast<int>(std::floor(frame.y + 0.5)),
+                    static_cast<int>(std::round(frame.width)),
+                    static_cast<int>(std::round(frame.height))};
+    }
+  })) throw std::invalid_argument("Layout element does not exist on this page.");
+}
 inline void SetElementPosition(LayoutDefinition &page, LayoutElementRef ref,
                                double x, double y) {
   auto frame = ResolveElementFrame(page, ref);
   frame.x = x; frame.y = y;
-  ValidateViewportFrame(frame);
-  VisitElement(page, ref, [&](auto &item) {
-    if constexpr (std::is_same_v<std::decay_t<decltype(item)>, Layout2DViewDefinition>) {
-      SetViewportFrame(item, frame);
-    } else {
-      frame.x = std::floor(frame.x + 0.5); frame.y = std::floor(frame.y + 0.5);
-      ValidateViewportFrame(frame);
-      item.frame.x = static_cast<int>(frame.x);
-      item.frame.y = static_cast<int>(frame.y);
-    }
-  });
+  SetElementFrame(page, ref, frame);
 }
 // Preview and commit share exactly the same quantization and validation.
 inline LayoutDefinition TranslateElements(const LayoutDefinition &original,
